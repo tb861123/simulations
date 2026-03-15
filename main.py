@@ -56,13 +56,15 @@ except ImportError:
 # GPU backend (CuPy + CUDA) — preferred when available
 try:
     from simulation.gpu_kernels import (
-        HAS_CUPY,
+        HAS_CUPY, HAS_OPENCL, GPU_TIER,
         build_velocity_grid_gpu,
         build_velocity_grid_wake_gpu,
         advect_wake_gpu,
     )
 except Exception:
     HAS_CUPY = False
+    HAS_OPENCL = False
+    GPU_TIER = "cpu"
     build_velocity_grid_gpu = None
     build_velocity_grid_wake_gpu = None
     advect_wake_gpu = None
@@ -80,7 +82,15 @@ if HAS_MPL:
     import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 if not HAS_NUMBA: _ensure("numba")
 print(f"  Numba JIT:  {'✓ enabled (parallel)' if HAS_NUMBA else '✗ disabled (pip install numba for 50-100x speedup)'}")
-print(f"  GPU/CuPy:   {'✓ enabled' if HAS_CUPY else '✗ not available (pip install cupy-cuda12x for GPU acceleration)'}")
+try:
+    from simulation.gpu_kernels import _cl_device as _ocl_dev
+    _cl_device_name = _ocl_dev.name.strip() if HAS_OPENCL else ""
+except Exception:
+    _cl_device_name = ""
+_gpu_status = (f"✓ CUDA (cupy)" if HAS_CUPY
+               else f"✓ OpenCL — {_cl_device_name}" if HAS_OPENCL
+               else "✗ not available  →  install Intel OpenCL (intel-opencl-icd) + pip install pyopencl")
+print(f"  GPU:        {_gpu_status}")
 print()
 
 
@@ -155,7 +165,10 @@ def run_interactive():
     SB = (-1.5, 2.5, -1.5, 1.5)
     panels = []; panel_arrays = None
     body_vx = np.array([], np.float64); body_vy = np.array([], np.float64)
-    VGRID_NX, VGRID_NY = 400, 240   # P5: doubled resolution (was 200×120)
+    # Velocity grid resolution.
+    # Intel Iris Xe (integrated, shared LPDDR5): 300×180 is a good balance.
+    # Bump to 400×240 if running with a discrete GPU (OpenCL or CUDA tier).
+    VGRID_NX, VGRID_NY = (400, 240) if (HAS_CUPY or HAS_OPENCL) else (300, 180)
     U_grid = None; V_grid = None
 
     NACA_OPTS = ["0012","2412","4412","0006","6412","2424"]
@@ -304,8 +317,8 @@ def run_interactive():
         if not solver.solved or not panels: return
         xn,xx,yn,yx = SB; t0 = time.time()
 
-        # Velocity grid: GPU > Numba parallel > pure-Python fallback
-        if HAS_CUPY:
+        # Velocity grid: GPU (CUDA or OpenCL) > Numba parallel > pure-Python
+        if HAS_CUPY or HAS_OPENCL:
             U_grid, V_grid = build_velocity_grid_gpu(
                 VGRID_NX, VGRID_NY, xn, xx, yn, yx, sl_v.val, 0.0, *panel_arrays)
         else:
@@ -618,8 +631,8 @@ def run_interactive():
                 # P3: per-vortex growing core radii  r²(t) = r₀² + 4νt
                 core_r2_arr = wake.effective_core_r2(wake_dt)
 
-                # ── Wake advection: GPU > Numba+BH > Python ───────────
-                if HAS_CUPY:
+                # ── Wake advection: GPU (CUDA/OpenCL) > Numba+BH > Python ──
+                if HAS_CUPY or HAS_OPENCL:
                     advect_wake_gpu(
                         wake.x, wake.y, wake.gamma, n_w,
                         wake_dt, sl_v.val, 0.0, *panel_arrays, core_r2)
@@ -654,8 +667,8 @@ def run_interactive():
 
                 if wake_grid_timer % 3 == 0:
                     wx, wy, wg = wake.get_arrays()
-                    # ── Wake velocity grid: GPU > Numba > fallback ─
-                    if HAS_CUPY:
+                    # ── Wake velocity grid: GPU (CUDA/OpenCL) > Numba > fallback
+                    if HAS_CUPY or HAS_OPENCL:
                         U_grid, V_grid = build_velocity_grid_wake_gpu(
                             VGRID_NX, VGRID_NY, xn, xx, yn, yx,
                             sl_v.val, 0.0, *panel_arrays,
@@ -911,7 +924,9 @@ def run_interactive():
             screen.blit(lfont.render(l,True,(107,125,153)),(bx+8,by+4))
             screen.blit(mfont.render(v,True,c),(bx+8,by+22))
 
-        jt = "Numba JIT" if HAS_NUMBA else "Python"
+        jt = ("CUDA+Numba" if HAS_CUPY
+              else "OpenCL+Numba" if HAS_OPENCL
+              else "Numba JIT" if HAS_NUMBA else "Python")
         wake_info = f" | {wake.count} vortices" if wake.count > 0 else ""
         screen.blit(lfont.render(f"{fps_d} fps | {p_count} particles{wake_info} | {jt}",
                                  True,(107,125,153)),(sx,H-20))
