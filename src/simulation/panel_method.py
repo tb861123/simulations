@@ -1,268 +1,330 @@
 """
-Hess-Smith Panel Method solver for 2D potential flow.
+Hess-Smith Panel Method Solver
+==============================
+Correct implementation of the source-vortex panel method for 2D potential flow.
 
-Implements constant-strength source + vortex panels with the Kutta condition
-for lifting bodies. Analytical velocity integrals (not point-source approx).
+Each body is discretised into N panels. The unknowns are:
+  - sigma_j (j=1..N): source strength per unit length on each panel
+  - gamma_k (k=1..Nb): single vortex strength per body (constant on all its panels)
 
-Sign conventions:
-- Panels ordered CCW; outward normal = (sin θ, -cos θ)
-- Vortex self-influence tangential: -0.5 (outside limit, CCW panels)
-- α rotates geometry, solver always sees horizontal freestream
+Equations:
+  - N no-penetration conditions (V . n = 0 at each control point)
+  - Nb Kutta conditions (equal pressure at upper/lower trailing edge)
+
+Key implementation detail: influence integrals are computed in panel J's local frame,
+then transformed to global coordinates and projected onto panel I's normal/tangent.
+
+Reference: Katz & Plotkin, "Low-Speed Aerodynamics" (2001), Ch. 11
 """
 
 import numpy as np
-from dataclasses import dataclass, field
-from typing import Optional
+from typing import List, Tuple, Optional
 
 
-@dataclass
-class PanelSolution:
-    """Result of a Hess-Smith solve."""
-    panels_x: np.ndarray          # panel midpoint x
-    panels_y: np.ndarray          # panel midpoint y
-    panel_nx: np.ndarray          # outward normal x
-    panel_ny: np.ndarray          # outward normal y
-    panel_len: np.ndarray         # panel lengths
-    panel_angle: np.ndarray       # panel angles (radians)
-    sigma: np.ndarray             # source strengths
-    gamma: float                  # vortex sheet strength
-    cp: np.ndarray                # pressure coefficient
-    cl: float                     # lift coefficient
-    circulation: float            # total circulation Γ
-    cl_theory: float              # thin-airfoil theory CL (2π sin α)
-    alpha_deg: float              # angle of attack used
-    nodes_x: np.ndarray           # panel endpoint x (N+1)
-    nodes_y: np.ndarray           # panel endpoint y (N+1)
+class Panel:
+    """Single panel element on a body boundary."""
+    __slots__ = [
+        'xa', 'ya', 'xb', 'yb', 'xm', 'ym', 'length',
+        'theta', 'cos_t', 'sin_t', 'nx', 'ny', 'tx', 'ty',
+        'sigma', 'gamma', 'body_id', 'cp', 'vt'
+    ]
+
+    def __init__(self, xa: float, ya: float, xb: float, yb: float, body_id: int = 0):
+        self.xa = xa
+        self.ya = ya
+        self.xb = xb
+        self.yb = yb
+        self.body_id = body_id
+
+        dx = xb - xa
+        dy = yb - ya
+        self.length = np.sqrt(dx * dx + dy * dy)
+        self.xm = 0.5 * (xa + xb)
+        self.ym = 0.5 * (ya + yb)
+
+        self.theta = np.arctan2(dy, dx)
+        self.cos_t = np.cos(self.theta)
+        self.sin_t = np.sin(self.theta)
+
+        # Tangent (along panel direction)
+        self.tx = self.cos_t
+        self.ty = self.sin_t
+
+        # Outward normal for CCW-ordered panels: right-hand perpendicular
+        self.nx = self.sin_t
+        self.ny = -self.cos_t
+
+        self.sigma = 0.0
+        self.gamma = 0.0
+        self.cp = 0.0
+        self.vt = 0.0
 
 
-def _panel_integrals(xi: float, yi: float, xj1: float, yj1: float,
-                     xj2: float, yj2: float) -> tuple:
+def _influence_coefficients(pi: Panel, pj: Panel) -> Tuple[float, float, float, float]:
     """
-    Analytical influence coefficients for constant-strength source/vortex panel j
-    at control point i.
+    Compute the four influence coefficients of panel J on control point of panel I.
 
-    Returns (A_src, A_vort) — normal velocity contributions per unit source/vortex strength.
-    Also returns (B_src, B_vort) — tangential velocity contributions.
+    Returns:
+        An: source J -> normal velocity at I
+        At: source J -> tangential velocity at I
+        Bn: vortex J -> normal velocity at I
+        Bt: vortex J -> tangential velocity at I
     """
-    # Transform to panel j local frame
-    dx = xj2 - xj1
-    dy = yj2 - yj1
-    lj = np.hypot(dx, dy)
-    cos_j = dx / lj
-    sin_j = dy / lj
+    # Transform control point I to panel J's local frame
+    dxij = pi.xm - pj.xa
+    dyij = pi.ym - pj.ya
+    xi = dxij * pj.cos_t + dyij * pj.sin_t
+    eta = -dxij * pj.sin_t + dyij * pj.cos_t
+    L = pj.length
 
-    # Control point in panel j local coordinates
-    xp = (xi - xj1) * cos_j + (yi - yj1) * sin_j
-    yp = -(xi - xj1) * sin_j + (yi - yj1) * cos_j
+    # Panel integrals in J's local frame
+    eta_safe = eta if abs(eta) > 1e-10 else 1e-10 * (1.0 if eta >= 0 else -1.0)
+    r1_sq = max(xi * xi + eta_safe * eta_safe, 1e-20)
+    r2_sq = max((xi - L) * (xi - L) + eta_safe * eta_safe, 1e-20)
 
-    r1_sq = xp**2 + yp**2
-    r2_sq = (xp - lj)**2 + yp**2
+    ln_ratio = 0.5 * np.log(r2_sq / r1_sq)
+    d_theta = np.arctan2(eta_safe, xi - L) - np.arctan2(eta_safe, xi)
 
-    r1_sq = max(r1_sq, 1e-20)
-    r2_sq = max(r2_sq, 1e-20)
+    two_pi = 2.0 * np.pi
 
-    log_r = 0.5 * np.log(r2_sq / r1_sq)
-    theta1 = np.arctan2(yp, xp)
-    theta2 = np.arctan2(yp, xp - lj)
-    d_theta = theta1 - theta2
+    # Velocity in panel J's local frame (per unit strength)
+    # Source: (u_s, v_s) = (-ln_ratio, d_theta) / (2pi)
+    # Vortex: (u_v, v_v) = (d_theta, ln_ratio) / (2pi)
+    u_s = -ln_ratio / two_pi
+    v_s = d_theta / two_pi
+    u_v = d_theta / two_pi
+    v_v = ln_ratio / two_pi
 
-    # Local frame velocities
-    u_src = (d_theta) / (2 * np.pi)
-    v_src = -log_r / (2 * np.pi)
-    u_vort = log_r / (2 * np.pi)
-    v_vort = (d_theta) / (2 * np.pi)
+    # Transform to global coordinates
+    cj, sj = pj.cos_t, pj.sin_t
+    u_s_g = u_s * cj - v_s * sj
+    v_s_g = u_s * sj + v_s * cj
+    u_v_g = u_v * cj - v_v * sj
+    v_v_g = u_v * sj + v_v * cj
 
-    # Rotate back to global frame
-    u_src_g = u_src * cos_j - v_src * sin_j
-    v_src_g = u_src * sin_j + v_src * cos_j
-    u_vort_g = u_vort * cos_j - v_vort * sin_j
-    v_vort_g = u_vort * sin_j + v_vort * cos_j
+    # Project onto panel I's normal and tangent
+    An = u_s_g * pi.nx + v_s_g * pi.ny
+    At = u_s_g * pi.tx + v_s_g * pi.ty
+    Bn = u_v_g * pi.nx + v_v_g * pi.ny
+    Bt = u_v_g * pi.tx + v_v_g * pi.ty
 
-    return u_src_g, v_src_g, u_vort_g, v_vort_g
+    return An, At, Bn, Bt
 
 
-def solve(nodes_x: np.ndarray, nodes_y: np.ndarray,
-          v_inf: float = 1.0, alpha_deg: float = 0.0) -> Optional[PanelSolution]:
+class HessSmithSolver:
     """
-    Solve Hess-Smith system for given panel nodes.
-
-    Parameters
-    ----------
-    nodes_x, nodes_y : panel corner coordinates (N+1 points for N panels), CCW order
-    v_inf            : freestream speed
-    alpha_deg        : angle of attack in degrees (geometry already rotated by caller)
-
-    Returns PanelSolution or None if matrix is singular.
+    Hess-Smith panel method solver for 2D potential flow.
     """
-    N = len(nodes_x) - 1
-    if N < 3:
-        return None
 
-    alpha = np.deg2rad(alpha_deg)
-    u_inf = v_inf * np.cos(alpha)
-    w_inf = v_inf * np.sin(alpha)
+    def __init__(self):
+        self.panels: List[Panel] = []
+        self.n_panels: int = 0
+        self.n_bodies: int = 0
+        self.body_panel_ranges: List[Tuple[int, int]] = []
+        self.V_inf: float = 1.0
+        self.alpha: float = 0.0
+        self.solved: bool = False
 
-    # Panel geometry
-    mx = 0.5 * (nodes_x[:-1] + nodes_x[1:])
-    my = 0.5 * (nodes_y[:-1] + nodes_y[1:])
-    dx = nodes_x[1:] - nodes_x[:-1]
-    dy = nodes_y[1:] - nodes_y[:-1]
-    lengths = np.hypot(dx, dy)
-    angles = np.arctan2(dy, dx)
-    sin_a = np.sin(angles)
-    cos_a = np.cos(angles)
-    nx = sin_a          # outward normal for CCW panels
-    ny = -cos_a
-    tx = cos_a          # tangent
-    ty = sin_a
+    def set_panels(self, panels: List[Panel], body_ranges: List[Tuple[int, int]]):
+        """Set panel geometry. body_ranges[k] = (i_start, i_end) for body k."""
+        self.panels = panels
+        self.n_panels = len(panels)
+        self.n_bodies = len(body_ranges)
+        self.body_panel_ranges = body_ranges
+        self.solved = False
 
-    # Build influence matrix [N+1 x N+1]
-    # First N rows: no-penetration at each panel midpoint
-    # Last row: Kutta condition (zero tangential velocity at TE)
-    A = np.zeros((N + 1, N + 1))
-    RHS = np.zeros(N + 1)
+    def solve(self, V_inf: float = 1.0, alpha: float = 0.0):
+        """
+        Solve the Hess-Smith panel method.
 
-    for i in range(N):
-        for j in range(N):
-            x1, y1 = nodes_x[j], nodes_y[j]
-            x2, y2 = nodes_x[j + 1], nodes_y[j + 1]
-            us, vs, uv, vv = _panel_integrals(mx[i], my[i], x1, y1, x2, y2)
+        Args:
+            V_inf: freestream speed
+            alpha: freestream angle of attack (radians)
+        """
+        self.V_inf = V_inf
+        self.alpha = alpha
+        N = self.n_panels
+        Nb = self.n_bodies
 
-            # Normal component for source j
-            A[i, j] += us * nx[i] + vs * ny[i]
-            # Normal component for vortex (column N)
-            A[i, N] += uv * nx[i] + vv * ny[i]
+        if N == 0:
+            self.solved = False
+            return
 
-        # Freestream normal component
-        RHS[i] = -(u_inf * nx[i] + w_inf * ny[i])
+        size = N + Nb
+        A = np.zeros((size, size))
+        b = np.zeros(size)
 
-    # Kutta condition: tangential velocity at panel 0 and panel N-1 sum to zero
-    # (trailing edge panels — first and last for airfoils)
-    te1 = 0
-    te2 = N - 1
-    for j in range(N):
-        x1, y1 = nodes_x[j], nodes_y[j]
-        x2, y2 = nodes_x[j + 1], nodes_y[j + 1]
+        U_inf = V_inf * np.cos(alpha)
+        V_inf_y = V_inf * np.sin(alpha)
 
-        us1, vs1, uv1, vv1 = _panel_integrals(mx[te1], my[te1], x1, y1, x2, y2)
-        us2, vs2, uv2, vv2 = _panel_integrals(mx[te2], my[te2], x1, y1, x2, y2)
+        # === No-penetration equations (rows 0..N-1) ===
+        for i in range(N):
+            pi = self.panels[i]
+            b[i] = -(U_inf * pi.nx + V_inf_y * pi.ny)
 
-        A[N, j] = (us1 * tx[te1] + vs1 * ty[te1]) + (us2 * tx[te2] + vs2 * ty[te2])
-        A[N, N] += ((uv1 * tx[te1] + vv1 * ty[te1]) +
-                    (uv2 * tx[te2] + vv2 * ty[te2]))
+            for j in range(N):
+                pj = self.panels[j]
 
-    # Vortex self-influence: -0.5 for CCW panels (outside limit)
-    A[N, N] += -0.5 + (-0.5)  # contribution at both TE panels
+                if i == j:
+                    A[i, j] = 0.5  # source self-influence (normal)
+                    # vortex self-influence on normal = 0
+                else:
+                    An, At, Bn, Bt = _influence_coefficients(pi, pj)
+                    A[i, j] = An
+                    A[i, N + pj.body_id] += Bn
 
-    RHS[N] = -((u_inf * tx[te1] + w_inf * ty[te1]) +
-               (u_inf * tx[te2] + w_inf * ty[te2]))
+        # === Kutta conditions (rows N..N+Nb-1) ===
+        for k in range(Nb):
+            i_start, i_end = self.body_panel_ranges[k]
+            row = N + k
 
-    # Solve
-    try:
-        sol = np.linalg.solve(A, RHS)
-    except np.linalg.LinAlgError:
-        return None
+            # TE panels: first and last of this body
+            for pidx in [i_start, i_end - 1]:
+                pi = self.panels[pidx]
+                b[row] -= (U_inf * pi.tx + V_inf_y * pi.ty)
 
-    sigma = sol[:N]
-    gamma = sol[N]
+                for j in range(N):
+                    pj = self.panels[j]
 
-    # Surface tangential velocity and Cp
-    vt = np.zeros(N)
-    for i in range(N):
-        vt_i = u_inf * tx[i] + w_inf * ty[i]
-        for j in range(N):
-            x1, y1 = nodes_x[j], nodes_y[j]
-            x2, y2 = nodes_x[j + 1], nodes_y[j + 1]
-            us, vs, uv, vv = _panel_integrals(mx[i], my[i], x1, y1, x2, y2)
-            if i == j:
-                # Self-influence: source tangential = 0, vortex tangential = -0.5
-                vt_i += 0.0 * sigma[j] + (-0.5) * gamma
+                    if pidx == j:
+                        A[row, j] += 0.0  # source self tangential = 0
+                        A[row, N + pj.body_id] += -0.5  # vortex self tangential (outside limit)
+                    else:
+                        An, At, Bn, Bt = _influence_coefficients(pi, pj)
+                        A[row, j] += At
+                        A[row, N + pj.body_id] += Bt
+
+        # Solve system
+        try:
+            x = np.linalg.solve(A, b)
+        except np.linalg.LinAlgError:
+            self.solved = False
+            return
+
+        # Assign source strengths
+        for i in range(N):
+            self.panels[i].sigma = x[i]
+
+        # Assign vortex strengths per body
+        for k in range(Nb):
+            gamma_k = x[N + k]
+            i_start, i_end = self.body_panel_ranges[k]
+            for i in range(i_start, i_end):
+                self.panels[i].gamma = gamma_k
+
+        # Compute surface quantities (Vt, Cp)
+        self._compute_surface_quantities(U_inf, V_inf_y)
+        self.solved = True
+
+    def _compute_surface_quantities(self, U_inf: float, V_inf_y: float):
+        """Compute tangential velocity and Cp at each panel."""
+        N = self.n_panels
+        V_inf_mag = np.sqrt(U_inf ** 2 + V_inf_y ** 2)
+
+        for i in range(N):
+            pi = self.panels[i]
+            Vt = U_inf * pi.tx + V_inf_y * pi.ty
+
+            for j in range(N):
+                pj = self.panels[j]
+                if i == j:
+                    Vt += pj.gamma * (-0.5)  # vortex self tangential (outside limit)
+                else:
+                    _, At, _, Bt = _influence_coefficients(pi, pj)
+                    Vt += pj.sigma * At + pj.gamma * Bt
+
+            pi.vt = Vt
+            if V_inf_mag > 1e-12:
+                pi.cp = 1.0 - (Vt / V_inf_mag) ** 2
             else:
-                vt_i += (us * tx[i] + vs * ty[i]) * sigma[j]
-                vt_i += (uv * tx[i] + vv * ty[i]) * gamma
-        vt[i] = vt_i
+                pi.cp = 0.0
 
-    cp = 1.0 - (vt / v_inf) ** 2
+    def velocity_at(self, x: float, y: float) -> Tuple[float, float]:
+        """Compute velocity at an arbitrary field point."""
+        if not self.solved:
+            return self.V_inf * np.cos(self.alpha), self.V_inf * np.sin(self.alpha)
 
-    # Lift from Kutta-Joukowski: L = ρ V Γ, CL = 2Γ/(V c)
-    # Chord estimate: bounding box x-extent
-    chord = np.max(nodes_x) - np.min(nodes_x)
-    if chord < 1e-10:
-        chord = 1.0
-    circulation = -gamma * np.sum(lengths)  # Γ = γ * perimeter (constant γ)
-    # More accurately: Γ = ∮ v·ds = sum of tangential velocity * ds
-    # Use Kutta-Joukowski: CL = 2Γ/(V_inf * c)
-    cl = 2.0 * abs(circulation) / (v_inf * chord) * np.sign(circulation) * (-1)
-    # Sign: positive lift for positive α, CCW circulation is negative gamma
-    cl = 2.0 * (-circulation) / (v_inf * chord)
+        u = self.V_inf * np.cos(self.alpha)
+        v = self.V_inf * np.sin(self.alpha)
 
-    cl_theory = 2.0 * np.pi * np.sin(alpha)
+        two_pi = 2.0 * np.pi
+        for pj in self.panels:
+            dxj = x - pj.xa
+            dyj = y - pj.ya
+            xi = dxj * pj.cos_t + dyj * pj.sin_t
+            eta = -dxj * pj.sin_t + dyj * pj.cos_t
+            L = pj.length
 
-    return PanelSolution(
-        panels_x=mx, panels_y=my,
-        panel_nx=nx, panel_ny=ny,
-        panel_len=lengths, panel_angle=angles,
-        sigma=sigma, gamma=gamma,
-        cp=cp, cl=cl,
-        circulation=circulation,
-        cl_theory=cl_theory,
-        alpha_deg=alpha_deg,
-        nodes_x=nodes_x, nodes_y=nodes_y,
-    )
+            eta_safe = eta if abs(eta) > 1e-10 else 1e-10
+            r1_sq = max(xi ** 2 + eta_safe ** 2, 1e-20)
+            r2_sq = max((xi - L) ** 2 + eta_safe ** 2, 1e-20)
 
+            ln_r = 0.5 * np.log(r2_sq / r1_sq)
+            dth = np.arctan2(eta_safe, xi - L) - np.arctan2(eta_safe, xi)
 
-def velocity_field(sol: PanelSolution, x: np.ndarray, y: np.ndarray,
-                   v_inf: float = 1.0, alpha_deg: float = 0.0,
-                   wake_vortices: Optional[list] = None) -> tuple:
-    """
-    Compute velocity field at arbitrary points using panel influence + freestream.
+            u_local = pj.sigma * (-ln_r / two_pi) + pj.gamma * (dth / two_pi)
+            v_local = pj.sigma * (dth / two_pi) + pj.gamma * (ln_r / two_pi)
 
-    Parameters
-    ----------
-    sol          : PanelSolution from solve()
-    x, y         : query point arrays (any shape; flattened internally)
-    v_inf        : freestream speed
-    alpha_deg    : freestream angle (degrees)
-    wake_vortices: list of (xv, yv, gamma_v) free vortices
+            u += u_local * pj.cos_t - v_local * pj.sin_t
+            v += u_local * pj.sin_t + v_local * pj.cos_t
 
-    Returns (u, w) arrays matching shape of x/y.
-    """
-    alpha = np.deg2rad(alpha_deg)
-    u_inf = v_inf * np.cos(alpha)
-    w_inf = v_inf * np.sin(alpha)
+        return u, v
 
-    shape = x.shape
-    xf = x.ravel()
-    yf = y.ravel()
-    n_pts = len(xf)
+    def velocity_field(self, X: np.ndarray, Y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Vectorised velocity field on a meshgrid."""
+        if not self.solved:
+            return (
+                np.full_like(X, self.V_inf * np.cos(self.alpha), dtype=float),
+                np.full_like(X, self.V_inf * np.sin(self.alpha), dtype=float),
+            )
 
-    u = np.full(n_pts, u_inf)
-    w = np.full(n_pts, w_inf)
+        U = np.full_like(X, self.V_inf * np.cos(self.alpha), dtype=float)
+        V = np.full_like(X, self.V_inf * np.sin(self.alpha), dtype=float)
 
-    nodes_x = sol.nodes_x
-    nodes_y = sol.nodes_y
-    N = len(nodes_x) - 1
+        two_pi = 2.0 * np.pi
+        for pj in self.panels:
+            dx = X - pj.xa
+            dy = Y - pj.ya
+            xi = dx * pj.cos_t + dy * pj.sin_t
+            eta = -dx * pj.sin_t + dy * pj.cos_t
+            L = pj.length
 
-    for j in range(N):
-        x1, y1 = nodes_x[j], nodes_y[j]
-        x2, y2 = nodes_x[j + 1], nodes_y[j + 1]
-        sigma_j = sol.sigma[j]
-        gamma_j = sol.gamma
+            eta_safe = np.where(np.abs(eta) > 1e-10, eta, 1e-10)
+            r1_sq = np.maximum(xi ** 2 + eta_safe ** 2, 1e-20)
+            r2_sq = np.maximum((xi - L) ** 2 + eta_safe ** 2, 1e-20)
 
-        for k in range(n_pts):
-            us, vs, uv, vv = _panel_integrals(xf[k], yf[k], x1, y1, x2, y2)
-            u[k] += us * sigma_j + uv * gamma_j
-            w[k] += vs * sigma_j + vv * gamma_j
+            ln_r = 0.5 * np.log(r2_sq / r1_sq)
+            dth = np.arctan2(eta_safe, xi - L) - np.arctan2(eta_safe, xi)
 
-    # Add wake vortices (Lamb-Oseen regularised)
-    if wake_vortices:
-        rc = 0.025  # core radius
-        for (xv, yv, gv) in wake_vortices:
-            dxw = xf - xv
-            dyw = yf - yv
-            r2 = dxw**2 + dyw**2 + rc**2
-            factor = gv / (2.0 * np.pi * r2)
-            u -= dyw * factor
-            w += dxw * factor
+            u_loc = pj.sigma * (-ln_r / two_pi) + pj.gamma * (dth / two_pi)
+            v_loc = pj.sigma * (dth / two_pi) + pj.gamma * (ln_r / two_pi)
 
-    return u.reshape(shape), w.reshape(shape)
+            U += u_loc * pj.cos_t - v_loc * pj.sin_t
+            V += u_loc * pj.sin_t + v_loc * pj.cos_t
+
+        return U, V
+
+    def get_circulation(self, body_id: int = 0) -> float:
+        """Total circulation Gamma = gamma x sum(panel lengths) for body k."""
+        if not self.solved or body_id >= self.n_bodies:
+            return 0.0
+        i_start, i_end = self.body_panel_ranges[body_id]
+        gamma = self.panels[i_start].gamma
+        perimeter = sum(self.panels[i].length for i in range(i_start, i_end))
+        return gamma * perimeter
+
+    def get_lift_coefficient(self, body_id: int = 0, chord: float = 1.0) -> float:
+        """CL from Kutta-Joukowski: CL = 2*Gamma / (V_inf * c)."""
+        Gamma = self.get_circulation(body_id)
+        if self.V_inf > 1e-12 and chord > 1e-12:
+            return 2.0 * Gamma / (self.V_inf * chord)
+        return 0.0
+
+    def get_cp_distribution(self, body_id: int = 0) -> Tuple[np.ndarray, np.ndarray]:
+        """Return (x_midpoints, Cp) arrays for a body."""
+        if not self.solved:
+            return np.array([]), np.array([])
+        i_start, i_end = self.body_panel_ranges[body_id]
+        x = np.array([self.panels[i].xm for i in range(i_start, i_end)])
+        cp = np.array([self.panels[i].cp for i in range(i_start, i_end)])
+        return x, cp
