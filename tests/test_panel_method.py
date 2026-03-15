@@ -3,7 +3,7 @@ Validation tests for the Hess-Smith panel method.
 """
 import numpy as np
 import sys
-sys.path.insert(0, '/home/claude/cfd-project/src')
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent.parent / 'src'))
 
 from simulation.panel_method import HessSmithSolver
 from simulation.geometry import make_cylinder_panels, make_naca_panels
