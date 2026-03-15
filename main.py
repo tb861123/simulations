@@ -181,7 +181,7 @@ def run_interactive():
     sl_v=Slider(sx,130,sw,"V∞",1.0,0.2,3.0,0.05,"{:.2f}")
     sl_a=Slider(sx,164,sw,"α (deg)",5.0,-15.0,15.0,0.5,"{:.1f}°")
     sl_p=Slider(sx,198,sw,"Panels",120,20,500,4,"{:.0f}")  # P4: raised max 200→500
-    sl_c=Slider(sx,232,sw,"Chord",1.0,0.3,2.0,0.05,"{:.2f}")
+    sl_c=Slider(sx,232,sw,"Size",1.0,0.3,2.0,0.05,"{:.2f}")
     sls=[sl_v,sl_a,sl_p,sl_c]
     ty=284; tg_=22
     t_str=Toggle(sx,ty,"Streamlines",True);   t_pre=Toggle(sx,ty+tg_,"Pressure field",True)
@@ -277,7 +277,7 @@ def run_interactive():
     tm.register_at(sx + sw - 14, sl_v.rect.y + 4, *TIPS['vinf'])
     tm.register_at(sx + sw - 14, sl_a.rect.y + 4, *TIPS['alpha'])
     tm.register_at(sx + sw - 14, sl_p.rect.y + 4, *TIPS['panels'])
-    tm.register_at(sx + sw - 14, sl_c.rect.y + 4, *TIPS['chord'])
+    tm.register_at(sx + sw - 14, sl_c.rect.y + 4, *TIPS['size'])
     toggle_tips = ['streamlines','pressure','vectors','particles','normals','cpplot','wake']
     for tg_w, tip_key in zip(tgs, toggle_tips):
         tm.register_at(sx + sw - 14, tg_w.y + 1, *TIPS[tip_key])
@@ -432,7 +432,7 @@ def run_interactive():
         np_=int(sl_p.val); ch=sl_c.val; alpha=sl_a.val; bt=BTYPES[bg_.sel]
         if bt=="NACA":     panels=make_naca_panels(NACA_OPTS[ndd.sel],np_,ch,angle_deg=-alpha)
         elif bt=="Cylinder": panels=make_cylinder_panels(0,0,ch*0.3,np_)
-        elif bt=="Square":   panels=make_square_panels(0,0,ch*0.25,angle_deg=0,n_per_side=np_//4)
+        elif bt=="Square":   panels=make_square_panels(0,0,ch*0.25,angle_deg=-alpha,n_per_side=np_//4)
         elif bt in ("Image","Draw"):
             if custom_coords is not None:
                 panels=make_panels_from_coords(custom_coords[0], custom_coords[1])
@@ -619,9 +619,18 @@ def run_interactive():
                 if wake_grid_timer % st_frames == 0:
                     k_str = max(abs(bound_gamma) * 0.4,
                                 sl_v.val * length_scale * 0.12)
-                    wake.shed_karman_pair(
-                        sep_upper[0], sep_upper[1],
-                        sep_lower[0], sep_lower[1], k_str)
+                    # Offset shed points outward along panel normal so vortices
+                    # spawn just outside the body, not on the surface.
+                    off = max(0.03, length_scale * 0.08)
+                    def _shed_offset(xy):
+                        best = min(panels,
+                                   key=lambda p: (p.xm-xy[0])**2+(p.ym-xy[1])**2)
+                        # outward normal + small downstream nudge
+                        return (xy[0] + best.nx * off + sl_v.val * wake_dt,
+                                xy[1] + best.ny * off)
+                    su = _shed_offset(sep_upper)
+                    sl_ = _shed_offset(sep_lower)
+                    wake.shed_karman_pair(su[0], su[1], sl_[0], sl_[1], k_str)
 
             wake_grid_timer += 1  # always tick so Kármán shedding fires on schedule
 

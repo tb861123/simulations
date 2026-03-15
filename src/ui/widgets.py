@@ -425,11 +425,12 @@ TIPS = {
         "120–160 panels: publication quality\n"
         "200 panels: overkill for most shapes"),
 
-    'chord': ("Chord Length",
-        "The distance from leading edge to trailing edge. "
-        "Scaling the chord changes the physical size of the body in the simulation domain.\n\n"
-        "For a NACA airfoil, the chord normalises all aerodynamic coefficients: "
-        "CL = L / (½ρV²c) where c is the chord."),
+    'size': ("Object Size",
+        "Controls the physical size of the body in the simulation domain.\n\n"
+        "· NACA airfoil — sets the chord length (leading edge to trailing edge); "
+        "all aerodynamic coefficients are normalised by this value: CL = L / (½ρV²c).\n"
+        "· Cylinder — sets the diameter (radius = Size × 0.3).\n"
+        "· Square — sets the side length (half-side = Size × 0.25)."),
 
     'streamlines': ("Streamlines",
         "Lines that are everywhere tangent to the velocity field — they show "
