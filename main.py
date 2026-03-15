@@ -236,7 +236,7 @@ def run_interactive():
             return False
 
     # --- Tooltip manager ---
-    tm = TooltipManager(font, tip_font)
+    tm = TooltipManager(font, tip_font, canvas_width=CW)
     tm.register_at(sx + sw - 14, 52, *TIPS['body_type'])
     tm.register_at(sx + sw - 14, 88, *TIPS['naca'])
     tm.register_at(sx + sw - 14, sl_v.rect.y + 4, *TIPS['vinf'])
@@ -359,7 +359,7 @@ def run_interactive():
         np_=int(sl_p.val); ch=sl_c.val; alpha=sl_a.val; bt=BTYPES[bg_.sel]
         if bt=="NACA":     panels=make_naca_panels(NACA_OPTS[ndd.sel],np_,ch,angle_deg=-alpha)
         elif bt=="Cylinder": panels=make_cylinder_panels(0,0,ch*0.3,np_)
-        elif bt=="Square":   panels=make_square_panels(0,0,ch*0.25,angle_deg=-alpha,n_per_side=np_//4)
+        elif bt=="Square":   panels=make_square_panels(0,0,ch*0.25,angle_deg=0,n_per_side=np_//4)
         elif bt in ("Image","Draw"):
             if custom_coords is not None:
                 panels=make_panels_from_coords(custom_coords[0], custom_coords[1])
@@ -445,6 +445,18 @@ def run_interactive():
                     sim_x, sim_y = scr2sim(mx, my)
 
                     if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                        # Closure check FIRST — takes priority over grab so clicking
+                        # point 0 closes the shape rather than starting a drag.
+                        if not draw_closed and len(draw_points) >= 3:
+                            fp = draw_points[0]
+                            fpx, fpy = s2s(fp[0], fp[1], canvas_h)
+                            if (mx-fpx)**2 + (my-fpy)**2 < DRAW_CLOSE_DIST**2:
+                                draw_closed = True
+                                if build_draw_shape():
+                                    needs_solve = True
+                                continue  # don't also grab or add a point
+
+                        # Grab existing point for dragging
                         grabbed = -1
                         for i, pt in enumerate(draw_points):
                             ptx, pty = s2s(pt[0], pt[1], canvas_h)
@@ -454,14 +466,6 @@ def run_interactive():
                         if grabbed >= 0:
                             draw_dragging = grabbed
                         elif not draw_closed:
-                            if len(draw_points) >= 3:
-                                fp = draw_points[0]
-                                fpx, fpy = s2s(fp[0], fp[1], canvas_h)
-                                if (mx-fpx)**2 + (my-fpy)**2 < DRAW_CLOSE_DIST**2:
-                                    draw_closed = True
-                                    if build_draw_shape():
-                                        needs_solve = True
-                                    continue
                             # Save undo snapshot before adding point
                             draw_undo_stack.append([list(p) for p in draw_points])
                             if len(draw_undo_stack) > 50:
@@ -513,7 +517,39 @@ def run_interactive():
             te_tx /= te_mag; te_ty /= te_mag
 
             bound_gamma = solver.get_circulation(0)
+            # Standard Kelvin shedding — produces the starting vortex on frame 1;
+            # in steady flow d_gamma≈0 so this adds nothing afterwards.
             wake.shed_from_te(te_x, te_y, bound_gamma, wake_dt, te_tx, te_ty)
+
+            # ── Kármán vortex street for bluff bodies ──────────────
+            # Potential-flow panels never shed on their own in steady state.
+            # Drive periodic shedding from the two separation/trailing points
+            # at a Strouhal frequency St≈0.2 to create realistic eddy patterns.
+            bt_now = BTYPES[bg_.sel]
+            if bt_now in ("Cylinder", "Square"):
+                # Body geometry parameters
+                if bt_now == "Cylinder":
+                    radius = sl_c.val * 0.3
+                    # Separation at ±80° from the downstream stagnation (x-axis)
+                    sep_x = radius * math.cos(math.radians(80))
+                    sep_y = radius * math.sin(math.radians(80))
+                else:  # Square
+                    half = sl_c.val * 0.25
+                    # Shed from the two trailing corners
+                    sep_x = half + 0.03
+                    sep_y = half
+                length_scale = sep_y * 2  # effective body width
+                # Strouhal period in simulation frames
+                st_frames = max(6, int(
+                    length_scale / (0.2 * max(sl_v.val, 0.05) * wake_dt)))
+                if wake_grid_timer % st_frames == 0:
+                    # Strength: fraction of freestream × body scale
+                    k_str = max(abs(bound_gamma) * 0.4,
+                                sl_v.val * length_scale * 0.12)
+                    wake.shed_karman_pair(sep_x,  sep_y,
+                                         sep_x, -sep_y, k_str)
+
+            wake_grid_timer += 1  # always tick so Kármán shedding fires on schedule
 
             n_w = wake.count
             if n_w > 0:
@@ -529,11 +565,10 @@ def run_interactive():
 
                 wake._cull()
 
-                wake_grid_timer += 1
                 if wake_grid_timer % 30 == 0:
                     wake.merge_close_pairs()
 
-                if wake_grid_timer % 3 == 0 and n_w > 0:
+                if wake_grid_timer % 3 == 0:
                     wx, wy, wg = wake.get_arrays()
                     if HAS_NUMBA and _build_velocity_grid_with_wake_jit is not None:
                         U_grid, V_grid = _build_velocity_grid_with_wake_jit(

@@ -47,6 +47,40 @@ class VortexWake:
     def reset(self):
         self.count = 0
         self.prev_bound_gamma = 0.0
+        self._karman_upper_next = True  # alternation state for shed_karman_pair
+
+    def _add_vortex(self, x: float, y: float, gamma: float):
+        """Insert a single free vortex.  Merges oldest pair if at capacity."""
+        if self.count >= self.max:
+            self._merge_oldest()
+        idx = self.count
+        self.x[idx] = x
+        self.y[idx] = y
+        self.gamma[idx] = gamma
+        self.age[idx] = 0
+        self.count += 1
+
+    def shed_karman_pair(self, x_upper: float, y_upper: float,
+                         x_lower: float, y_lower: float,
+                         strength: float):
+        """
+        Shed a counter-rotating vortex pair to seed a von Kármán street.
+
+        Called periodically (every N frames) rather than every frame.
+        Alternates which separation point gets the positive vortex so that
+        upper and lower vortices roll off in sequence.
+
+        Args:
+            x_upper, y_upper: upper separation point (slightly downstream of body)
+            x_lower, y_lower: lower separation point
+            strength:         magnitude of each vortex (same for both, opposite sign)
+        """
+        if abs(strength) < 1e-10:
+            return
+        sign = 1 if self._karman_upper_next else -1
+        self._add_vortex(x_upper, y_upper,  strength * sign)
+        self._add_vortex(x_lower, y_lower, -strength * sign)
+        self._karman_upper_next = not self._karman_upper_next
 
     def shed_from_te(self, te_x: float, te_y: float,
                      bound_gamma: float, dt: float,

@@ -58,13 +58,14 @@ class TooltipManager:
     ICON_R     = 7
     MAX_W      = 260
 
-    def __init__(self, font, small_font):
-        self.font   = font
-        self.sfont  = small_font
-        self.items  = []    # [(icon_rect, title, lines[])]
-        self.active = None  # index of currently shown tooltip
-        self.hover  = None
-        self.pinned = False # True if clicked (stays open until click elsewhere)
+    def __init__(self, font, small_font, canvas_width=None):
+        self.font         = font
+        self.sfont        = small_font
+        self.items        = []    # [(icon_rect, title, lines[])]
+        self.active       = None  # index of currently shown tooltip
+        self.hover        = None
+        self.pinned       = False # True if clicked (stays open until click elsewhere)
+        self.canvas_width = canvas_width  # if set, keep tooltip left of this x
 
     def register(self, anchor_rect, title, text):
         """Register a tooltip.  The ⓘ icon is placed to the right of anchor_rect."""
@@ -127,11 +128,21 @@ class TooltipManager:
         pad = 10; line_h = 15; title_h = 20
         pw = self.MAX_W
         ph = pad + title_h + len(lines) * line_h + pad
-        px = icon_rect.right + 6
-        py = icon_rect.centery - 20
         screen_w, screen_h = pygame.display.get_surface().get_size()
-        if px + pw > screen_w:
-            px = icon_rect.left - pw - 6
+
+        # Icons in the sidebar: place tooltip on the canvas side so it doesn't
+        # overlap the controls beneath it.
+        right_boundary = self.canvas_width if self.canvas_width else screen_w
+        if self.canvas_width and icon_rect.left >= self.canvas_width:
+            # Anchor to the left of the canvas/sidebar boundary
+            px = right_boundary - pw - 12
+        else:
+            px = icon_rect.right + 6
+            if px + pw > screen_w:
+                px = icon_rect.left - pw - 6
+
+        px = max(4, px)
+        py = icon_rect.centery - 20
         if py + ph > screen_h:
             py = screen_h - ph - 4
         if py < 4:
