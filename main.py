@@ -684,7 +684,7 @@ def run_interactive():
                             sl_v.val, 0.0, *panel_arrays)
 
                     # P2: refresh wake-aware streamlines from updated grid
-                    if t_stream.state and _compute_streamlines_grid_jit is not None:
+                    if t_str.state and _compute_streamlines_grid_jit is not None:
                         xn, xx, yn, yx = SB
                         ch_now = H - (CP_H if t_cp.state else 0)
                         all_pts_w, starts_w, n_out_w = _compute_streamlines_grid_jit(
