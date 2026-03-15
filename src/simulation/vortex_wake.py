@@ -32,7 +32,7 @@ class VortexWake:
         core_radius: Lamb-Oseen regularisation radius
     """
 
-    def __init__(self, max_vortices: int = 2000, core_radius: float = 0.02):
+    def __init__(self, max_vortices: int = 5000, core_radius: float = 0.02):
         self.max = max_vortices
         self.x = np.zeros(max_vortices, dtype=np.float64)
         self.y = np.zeros(max_vortices, dtype=np.float64)
@@ -43,6 +43,9 @@ class VortexWake:
         self.merge_dist = core_radius * 3.0  # merge vortices closer than this
         self.max_age = 1500  # remove very old vortices
         self.prev_bound_gamma = 0.0  # for Kelvin's theorem tracking
+        # P3: Lamb-Oseen core growth — r²(t) = r₀² + 4·ν·t
+        # ν is an effective value tuned for visual realism, not physical Re
+        self.nu = 5e-4
 
     def reset(self):
         self.count = 0
@@ -111,9 +114,21 @@ class VortexWake:
         self.count += 1
         self.prev_bound_gamma = bound_gamma
 
+    def effective_core_r2(self, dt: float) -> np.ndarray:
+        """
+        Per-vortex squared core radii growing with age (P3).
+
+        Lamb-Oseen viscous diffusion: r²(t) = r₀² + 4·ν·t
+        where t = age × dt.  Older vortices spread out, mimicking
+        the natural decay of real eddies.
+        """
+        n = self.count
+        base = self.core_radius ** 2
+        return base + 4.0 * self.nu * dt * self.age[:n].astype(np.float64)
+
     def advect(self, dt: float, panel_vel_func, Vinf: float, alpha: float):
         """
-        Advect all free vortices by the total velocity field.
+        Advect all free vortices by the total velocity field (Python fallback).
 
         panel_vel_func: function(x, y) -> (u, v) giving panel+freestream velocity
         """
@@ -121,20 +136,16 @@ class VortexWake:
             return
 
         n = self.count
-        # Compute velocity at each vortex position
-        for i in range(n):
-            # Panel + freestream contribution
-            u, v = panel_vel_func(self.x[i], self.y[i])
+        cr2 = self.effective_core_r2(dt)  # per-vortex growing core radii
 
-            # Add velocity from all OTHER free vortices (Lamb-Oseen)
+        for i in range(n):
+            u, v = panel_vel_func(self.x[i], self.y[i])
             for j in range(n):
                 if i == j:
                     continue
                 dx = self.x[i] - self.x[j]
                 dy = self.y[i] - self.y[j]
-                r_sq = dx * dx + dy * dy
-                # Lamb-Oseen regularisation
-                r_sq_reg = r_sq + self.core_radius ** 2
+                r_sq_reg = dx * dx + dy * dy + cr2[j]
                 factor = self.gamma[j] / (2.0 * np.pi * r_sq_reg)
                 u += -dy * factor
                 v += dx * factor
@@ -143,19 +154,18 @@ class VortexWake:
             self.y[i] += v * dt
             self.age[i] += 1
 
-        # Remove old or far-away vortices
         self._cull()
 
-    def velocity_at(self, x: float, y: float) -> Tuple[float, float]:
+    def velocity_at(self, x: float, y: float, dt: float = 0.016) -> Tuple[float, float]:
         """Compute velocity induced by all free vortices at point (x, y)."""
         u = 0.0
         v = 0.0
-        rc2 = self.core_radius ** 2
+        cr2 = self.effective_core_r2(dt)
         two_pi = 2.0 * np.pi
         for i in range(self.count):
             dx = x - self.x[i]
             dy = y - self.y[i]
-            r_sq = dx * dx + dy * dy + rc2  # Lamb-Oseen
+            r_sq = dx * dx + dy * dy + cr2[i]
             factor = self.gamma[i] / (two_pi * r_sq)
             u += -dy * factor
             v += dx * factor

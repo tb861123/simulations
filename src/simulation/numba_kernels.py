@@ -328,30 +328,40 @@ if HAS_NUMBA:
             u += -dy * factor; v += dx * factor
         return u, v
 
-    @njit(cache=True)
-    def _advect_wake_jit(wx, wy, wg, n_wake, dt,
-                          Vinf, alpha, xa, ya, cos_t, sin_t, length, sigma, gamma,
-                          core_r2):
-        """Advect free vortices by panel + freestream + mutual vortex velocity."""
-        for i in range(n_wake):
-            # Panel + freestream
+    @njit(parallel=True, cache=True)
+    def _advect_wake_jit(wx, wy, wg, core_r2_arr, n_wake, dt,
+                          Vinf, alpha, xa, ya, cos_t, sin_t, length, sigma, gamma):
+        """
+        Advect free vortices by panel + freestream + mutual vortex velocity.
+
+        core_r2_arr: per-vortex squared core radii (growing with age, P3).
+        """
+        ux = np.empty(n_wake, np.float64)
+        vx = np.empty(n_wake, np.float64)
+        # Build velocity for all vortices (parallelised outer loop)
+        for i in prange(n_wake):
             u, v = _velocity_at_jit(wx[i], wy[i], Vinf, alpha,
                                     xa, ya, cos_t, sin_t, length, sigma, gamma)
-            # Other free vortices
             for j in range(n_wake):
                 if i == j: continue
                 dx = wx[i] - wx[j]; dy = wy[i] - wy[j]
-                r_sq = dx * dx + dy * dy + core_r2
+                r_sq = dx * dx + dy * dy + core_r2_arr[j]
                 factor = wg[j] / (2.0 * np.pi * r_sq)
                 u += -dy * factor; v += dx * factor
-            wx[i] += u * dt; wy[i] += v * dt
+            ux[i] = u; vx[i] = v
+        # Apply displacement (serial to avoid race on wx/wy)
+        for i in range(n_wake):
+            wx[i] += ux[i] * dt; wy[i] += vx[i] * dt
 
     @njit(parallel=True, cache=True)
     def _build_velocity_grid_with_wake_jit(gn_x, gn_y, xmin, xmax, ymin, ymax,
                                             Vinf, alpha,
                                             xa, ya, cos_t, sin_t, length, sigma, gamma,
-                                            wx, wy, wg, n_wake, core_r2):
-        """Build velocity grid including both panel and free vortex contributions."""
+                                            wx, wy, wg, core_r2_arr, n_wake):
+        """Build velocity grid including both panel and free vortex contributions.
+
+        core_r2_arr: per-vortex squared core radii (P3 growing cores).
+        """
         U = np.empty((gn_y, gn_x), np.float64)
         V = np.empty((gn_y, gn_x), np.float64)
         dx_g = (xmax - xmin) / (gn_x - 1)
@@ -363,14 +373,73 @@ if HAS_NUMBA:
                 xx = xmin + ix * dx_g
                 u, v = _velocity_at_jit(xx, yy, Vinf, alpha,
                                         xa, ya, cos_t, sin_t, length, sigma, gamma)
-                # Add free vortex contributions
+                # Add free vortex contributions (per-vortex growing core, P3)
                 for k in range(n_wake):
                     ddx = xx - wx[k]; ddy = yy - wy[k]
-                    r_sq = ddx * ddx + ddy * ddy + core_r2
+                    r_sq = ddx * ddx + ddy * ddy + core_r2_arr[k]
                     factor = wg[k] / (two_pi * r_sq)
                     u += -ddy * factor; v += ddx * factor
                 U[iy, ix] = u; V[iy, ix] = v
         return U, V
+
+    # ================================================================
+    # P2: Grid-based streamline integrator (wake-aware)
+    # Uses the pre-built U/V grid instead of direct panel sums.
+    # Because the grid already includes free-vortex contributions
+    # (when built with _build_velocity_grid_with_wake_jit), streamlines
+    # automatically show the wake eddies without extra cost.
+    # ================================================================
+
+    @njit(cache=True)
+    def _compute_streamlines_grid_jit(n_lines, max_steps, dt_s,
+                                       U_grid, V_grid,
+                                       xmin, xmax, ymin, ymax):
+        """
+        RK4 streamline integrator using bilinear interpolation from
+        a pre-computed velocity grid.  Wake-aware when the grid was
+        built with _build_velocity_grid_with_wake_jit.
+        """
+        max_total = n_lines * max_steps
+        all_pts   = np.empty((max_total, 2), np.float64)
+        line_starts = np.empty(n_lines + 1, np.int64)
+        idx   = 0
+        n_out = 0
+
+        for k in range(n_lines):
+            y0 = ymin + (ymax - ymin) * (k + 0.5) / n_lines
+            x  = xmin - 0.2;  y = y0
+            line_starts[n_out] = idx
+            line_len = 0
+
+            for step in range(max_steps):
+                if (x < xmin - 0.3 or x > xmax + 0.3 or
+                        y < ymin - 0.5 or y > ymax + 0.5):
+                    break
+                if idx >= max_total:
+                    break
+                all_pts[idx, 0] = x;  all_pts[idx, 1] = y
+                idx += 1;  line_len += 1
+
+                u1, v1 = _interp_velocity(x, y, U_grid, V_grid, xmin, xmax, ymin, ymax)
+                if u1 * u1 + v1 * v1 < 1e-6:
+                    break
+                u2, v2 = _interp_velocity(x + u1*dt_s*0.5, y + v1*dt_s*0.5,
+                                           U_grid, V_grid, xmin, xmax, ymin, ymax)
+                u3, v3 = _interp_velocity(x + u2*dt_s*0.5, y + v2*dt_s*0.5,
+                                           U_grid, V_grid, xmin, xmax, ymin, ymax)
+                u4, v4 = _interp_velocity(x + u3*dt_s, y + v3*dt_s,
+                                           U_grid, V_grid, xmin, xmax, ymin, ymax)
+                vx_ = (u1 + 2*u2 + 2*u3 + u4) / 6
+                vy_ = (v1 + 2*v2 + 2*v3 + v4) / 6
+                x += vx_ * dt_s;  y += vy_ * dt_s
+
+            if line_len > 5:
+                n_out += 1
+            else:
+                idx -= line_len   # discard short lines
+
+        line_starts[n_out] = idx
+        return all_pts[:idx], line_starts[:n_out + 1], n_out
 
     # ================================================================
     # Warmup
@@ -396,10 +465,13 @@ if HAS_NUMBA:
         _batch_spawn_jit(px, py, pvx, pvy, page, 0, 4, -1.0, -1.0, 1.0, 1.0)
         # Warmup vortex kernels
         wvx = np.zeros(2, np.float64); wvy = np.zeros(2, np.float64); wvg = np.zeros(2, np.float64)
+        cr2 = np.full(2, 0.01**2, np.float64)
         _vortex_velocity_at_jit(0.0, 0.0, wvx, wvy, wvg, 2, 0.01)
-        _advect_wake_jit(wvx, wvy, wvg, 2, 0.01, 1.0, 0.0, xa, ya, ct, st, le, si, ga, 0.01)
+        _advect_wake_jit(wvx, wvy, wvg, cr2, 2, 0.01, 1.0, 0.0, xa, ya, ct, st, le, si, ga)
         _build_velocity_grid_with_wake_jit(4, 4, -1., 1., -1., 1., 1.0, 0.0,
-                                            xa, ya, ct, st, le, si, ga, wvx, wvy, wvg, 2, 0.01)
+                                            xa, ya, ct, st, le, si, ga, wvx, wvy, wvg, cr2, 2)
+        # Warmup grid streamlines (P2)
+        _compute_streamlines_grid_jit(2, 10, 0.02, U, V, -1., 1., -1., 1.)
 
 else:
     # ================================================================
@@ -442,5 +514,6 @@ else:
     _vortex_velocity_at_jit = None
     _advect_wake_jit = None
     _build_velocity_grid_with_wake_jit = None
+    _compute_streamlines_grid_jit = None
 
     def warmup_jit(): pass

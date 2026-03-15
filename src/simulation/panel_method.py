@@ -19,6 +19,7 @@ Reference: Katz & Plotkin, "Low-Speed Aerodynamics" (2001), Ch. 11
 
 import numpy as np
 from typing import List, Tuple, Optional
+from scipy.linalg import lu_factor, lu_solve
 
 
 class Panel:
@@ -124,6 +125,7 @@ class HessSmithSolver:
         self.V_inf: float = 1.0
         self.alpha: float = 0.0
         self.solved: bool = False
+        self._A_lu = None   # cached LU factorisation of the geometry matrix A
 
     def set_panels(self, panels: List[Panel], body_ranges: List[Tuple[int, int]]):
         """Set panel geometry. body_ranges[k] = (i_start, i_end) for body k."""
@@ -132,10 +134,16 @@ class HessSmithSolver:
         self.n_bodies = len(body_ranges)
         self.body_panel_ranges = body_ranges
         self.solved = False
+        self._A_lu = None   # geometry changed — invalidate LU cache
 
     def solve(self, V_inf: float = 1.0, alpha: float = 0.0):
         """
         Solve the Hess-Smith panel method.
+
+        The influence matrix A depends only on geometry, so it is LU-factorised
+        once and cached.  V_inf / alpha only affect the RHS vector b, so
+        re-solves for different freestream conditions cost O(N²) (back-sub)
+        instead of O(N³) (full solve).
 
         Args:
             V_inf: freestream speed
@@ -151,68 +159,71 @@ class HessSmithSolver:
             return
 
         size = N + Nb
-        A = np.zeros((size, size))
-        b = np.zeros(size)
-
-        U_inf = V_inf * np.cos(alpha)
+        U_inf   = V_inf * np.cos(alpha)
         V_inf_y = V_inf * np.sin(alpha)
 
-        # === No-penetration equations (rows 0..N-1) ===
-        for i in range(N):
-            pi = self.panels[i]
-            b[i] = -(U_inf * pi.nx + V_inf_y * pi.ny)
+        # ── Build and LU-factorise A (geometry-only, cached) ──────────────────
+        if self._A_lu is None:
+            A = np.zeros((size, size))
 
-            for j in range(N):
-                pj = self.panels[j]
-
-                if i == j:
-                    A[i, j] = 0.5  # source self-influence (normal)
-                    # vortex self-influence on normal = 0
-                else:
+            for i in range(N):
+                pi = self.panels[i]
+                A[i, i] = 0.5  # source self-influence on normal
+                for j in range(N):
+                    if i == j:
+                        continue
+                    pj = self.panels[j]
                     An, At, Bn, Bt = _influence_coefficients(pi, pj)
                     A[i, j] = An
                     A[i, N + pj.body_id] += Bn
 
-        # === Kutta conditions (rows N..N+Nb-1) ===
-        for k in range(Nb):
-            i_start, i_end = self.body_panel_ranges[k]
-            row = N + k
+            for k in range(Nb):
+                row = N + k
+                i_start, i_end = self.body_panel_ranges[k]
+                for pidx in [i_start, i_end - 1]:
+                    pi = self.panels[pidx]
+                    for j in range(N):
+                        pj = self.panels[j]
+                        if pidx == j:
+                            A[row, N + pj.body_id] += -0.5
+                        else:
+                            An, At, Bn, Bt = _influence_coefficients(pi, pj)
+                            A[row, j]            += At
+                            A[row, N + pj.body_id] += Bt
 
-            # TE panels: first and last of this body
+            try:
+                self._A_lu = lu_factor(A)
+            except Exception:
+                self.solved = False
+                return
+
+        # ── Build RHS b (depends on V_inf, alpha — always recomputed) ─────────
+        b = np.zeros(size)
+        for i in range(N):
+            pi = self.panels[i]
+            b[i] = -(U_inf * pi.nx + V_inf_y * pi.ny)
+        for k in range(Nb):
+            row = N + k
+            i_start, i_end = self.body_panel_ranges[k]
             for pidx in [i_start, i_end - 1]:
                 pi = self.panels[pidx]
                 b[row] -= (U_inf * pi.tx + V_inf_y * pi.ty)
 
-                for j in range(N):
-                    pj = self.panels[j]
-
-                    if pidx == j:
-                        A[row, j] += 0.0  # source self tangential = 0
-                        A[row, N + pj.body_id] += -0.5  # vortex self tangential (outside limit)
-                    else:
-                        An, At, Bn, Bt = _influence_coefficients(pi, pj)
-                        A[row, j] += At
-                        A[row, N + pj.body_id] += Bt
-
-        # Solve system
+        # ── Back-substitution via cached LU — O(N²) ───────────────────────────
         try:
-            x = np.linalg.solve(A, b)
-        except np.linalg.LinAlgError:
+            x = lu_solve(self._A_lu, b)
+        except Exception:
             self.solved = False
             return
 
-        # Assign source strengths
         for i in range(N):
             self.panels[i].sigma = x[i]
-
-        # Assign vortex strengths per body
         for k in range(Nb):
             gamma_k = x[N + k]
             i_start, i_end = self.body_panel_ranges[k]
             for i in range(i_start, i_end):
                 self.panels[i].gamma = gamma_k
 
-        # Compute surface quantities (Vt, Cp)
         self._compute_surface_quantities(U_inf, V_inf_y)
         self.solved = True
 
@@ -328,3 +339,67 @@ class HessSmithSolver:
         x = np.array([self.panels[i].xm for i in range(i_start, i_end)])
         cp = np.array([self.panels[i].cp for i in range(i_start, i_end)])
         return x, cp
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # P7: Adverse pressure-gradient separation points
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def find_separation_points(self, body_id: int = 0):
+        """
+        Estimate upper and lower separation points from the panel Cp distribution.
+
+        Separation is approximated as the panel with the steepest adverse
+        pressure gradient (dCp/ds > 0, i.e. rising pressure along the surface).
+        Works for cylinders, squares, and bluff-body shapes; for attached
+        airfoil flow the gradient point will be near the trailing edge.
+
+        Returns:
+            (upper, lower) where each is (x, y) or None if not found.
+        """
+        if not self.solved or body_id >= self.n_bodies:
+            return None, None
+        i_start, i_end = self.body_panel_ranges[body_id]
+        bp = self.panels[i_start:i_end]
+        n = len(bp)
+        if n < 3:
+            return None, None
+
+        # Body centroid separates "upper" (y >= cy) from "lower"
+        cy = sum(p.ym for p in bp) / n
+
+        best_upper = None;  max_g_upper = -1e30
+        best_lower = None;  max_g_lower = -1e30
+
+        for k in range(1, n - 1):
+            dcp = bp[k].cp - bp[k - 1].cp
+            ds  = 0.5 * (bp[k].length + bp[k - 1].length)
+            grad = dcp / max(ds, 1e-10)
+            if bp[k].ym >= cy:
+                if grad > max_g_upper:
+                    max_g_upper = grad
+                    best_upper  = (bp[k].xm, bp[k].ym)
+            else:
+                if grad > max_g_lower:
+                    max_g_lower = grad
+                    best_lower  = (bp[k].xm, bp[k].ym)
+
+        return best_upper, best_lower
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # P9: Pressure drag coefficient (from panel Cp integration)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def get_pressure_drag(self, body_id: int = 0, chord: float = 1.0) -> float:
+        """
+        Cd_pressure = (1/c) ∫ Cp * (panel normal · x̂) * ds
+        Integrated around the body.  Non-zero only for unsteady / bluff bodies;
+        zero by d'Alembert for steady attached flow.
+        """
+        if not self.solved or body_id >= self.n_bodies:
+            return 0.0
+        i_start, i_end = self.body_panel_ranges[body_id]
+        cd = 0.0
+        for i in range(i_start, i_end):
+            p = self.panels[i]
+            cd += p.cp * p.nx * p.length   # nx = outward normal x-component
+        return cd / max(chord, 1e-10)      # normalise by chord

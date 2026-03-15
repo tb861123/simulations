@@ -37,6 +37,13 @@ from simulation.numba_kernels import (
     _advect_particles_jit,
 )
 try:
+    from simulation.numba_kernels import _compute_streamlines_grid_jit  # P2
+except ImportError:
+    _compute_streamlines_grid_jit = None
+from simulation.barnes_hut import (                                      # P8
+    barnes_hut_mutual_velocity, BARNES_HUT_THRESHOLD)
+from simulation.boundary_layer import compute_boundary_layer             # P9
+try:
     from simulation.numba_kernels import (
         _vortex_velocity_at_jit, _advect_wake_jit,
         _build_velocity_grid_with_wake_jit,
@@ -148,7 +155,7 @@ def run_interactive():
     SB = (-1.5, 2.5, -1.5, 1.5)
     panels = []; panel_arrays = None
     body_vx = np.array([], np.float64); body_vy = np.array([], np.float64)
-    VGRID_NX, VGRID_NY = 200, 120
+    VGRID_NX, VGRID_NY = 400, 240   # P5: doubled resolution (was 200×120)
     U_grid = None; V_grid = None
 
     NACA_OPTS = ["0012","2412","4412","0006","6412","2424"]
@@ -160,7 +167,7 @@ def run_interactive():
     ndd = Dropdown(sx+80,86,sw-80,NACA_OPTS,1)
     sl_v=Slider(sx,130,sw,"V∞",1.0,0.2,3.0,0.05,"{:.2f}")
     sl_a=Slider(sx,164,sw,"α (deg)",5.0,-15.0,15.0,0.5,"{:.1f}°")
-    sl_p=Slider(sx,198,sw,"Panels",120,20,200,4,"{:.0f}")
+    sl_p=Slider(sx,198,sw,"Panels",120,20,500,4,"{:.0f}")  # P4: raised max 200→500
     sl_c=Slider(sx,232,sw,"Chord",1.0,0.3,2.0,0.05,"{:.2f}")
     sls=[sl_v,sl_a,sl_p,sl_c]
     ty=284; tg_=22
@@ -262,7 +269,8 @@ def run_interactive():
     for tg_w, tip_key in zip(tgs, toggle_tips):
         tm.register_at(sx + sw - 14, tg_w.y + 1, *TIPS[tip_key])
     readout_y_base = ty + tg_ * 7 + 52 + 18
-    for i, tip_key in enumerate(['cl', 'gamma', 'cl_theory', 'panel_count']):
+    for i, tip_key in enumerate(['cl', 'gamma', 'cl_theory', 'panel_count',
+                                  'cd_friction', 'cd_pressure']):
         row, ci = i // 2, i % 2
         bx = sx + ci * (sw // 2 + 4)
         by = readout_y_base + row * 52
@@ -287,6 +295,9 @@ def run_interactive():
 
     c_press=c_stream=c_vec=c_body=c_cp=None
     part_buf = np.zeros((H, CW, 3), dtype=np.uint8)
+    # P9: boundary layer results (updated whenever geometry changes)
+    bl_result = {}
+    RE_DEFAULT = 5e5   # Reynolds number used for BL calculations
 
     def rebuild_caches(ch):
         nonlocal c_press,c_stream,c_vec,c_body,c_cp,U_grid,V_grid
@@ -370,6 +381,35 @@ def run_interactive():
         c_cp.blit(lfont.render("Cp Distribution",True,(107,125,153)),(ml+4,6))
         c_cp.blit(lfont.render("● Upper",True,(59,158,255)),(CW-mr-130,6))
         c_cp.blit(lfont.render("● Lower",True,(255,119,68)),(CW-mr-62,6))
+
+        # P9: Boundary layer solve — runs after every geometry change
+        nonlocal bl_result
+        try:
+            bl_result = compute_boundary_layer(
+                panels, (0, len(panels)),
+                V_inf=sl_v.val, Re=RE_DEFAULT, chord=sl_c.val)
+        except Exception:
+            bl_result = {}
+
+        # Draw BL markers on the body surface
+        def _draw_bl_marker(x_coord, color, label, offset_side=1):
+            """Draw a vertical tick + label at a given x body coordinate."""
+            if x_coord is None: return
+            # Find the panel closest to this x on the relevant side
+            best = min(panels, key=lambda p: abs(p.xm - x_coord))
+            px_s, py_s = s2s(best.xm, best.ym, ch)
+            # Tick
+            pygame.draw.line(c_body, color,
+                             (px_s, py_s - 8 * offset_side),
+                             (px_s, py_s + 8 * offset_side), 2)
+            # Label
+            c_body.blit(lfont.render(label, True, color),
+                        (px_s + 3, py_s - 8))
+
+        _draw_bl_marker(bl_result.get('x_tr_upper'),  (255, 230,  60), "T", -1)
+        _draw_bl_marker(bl_result.get('x_tr_lower'),  (255, 230,  60), "T",  1)
+        _draw_bl_marker(bl_result.get('x_sep_upper'), (255,  80,  80), "S", -1)
+        _draw_bl_marker(bl_result.get('x_sep_lower'), (255,  80,  80), "S",  1)
 
         print(f"  Caches rebuilt in {time.time()-t0:.2f}s")
 
@@ -542,47 +582,65 @@ def run_interactive():
             wake.shed_from_te(te_x, te_y, bound_gamma, wake_dt, te_tx, te_ty)
 
             # ── Kármán vortex street for bluff bodies ──────────────
-            # Potential-flow panels never shed on their own in steady state.
-            # Drive periodic shedding from the two separation/trailing points
-            # at a Strouhal frequency St≈0.2 to create realistic eddy patterns.
+            # P7: Use physics-based separation points from adverse Cp gradient
+            # instead of hardcoded geometry.
             bt_now = BTYPES[bg_.sel]
             if bt_now in ("Cylinder", "Square"):
-                # Body geometry parameters
-                if bt_now == "Cylinder":
-                    radius = sl_c.val * 0.3
-                    # Separation at ±80° from the downstream stagnation (x-axis)
-                    sep_x = radius * math.cos(math.radians(80))
-                    sep_y = radius * math.sin(math.radians(80))
-                else:  # Square
-                    half = sl_c.val * 0.25
-                    # Shed from the two trailing corners
-                    sep_x = half + 0.03
-                    sep_y = half
-                length_scale = sep_y * 2  # effective body width
-                # Strouhal period in simulation frames
+                sep_upper, sep_lower = solver.find_separation_points(0)
+
+                # Fallback to geometric estimates if Cp data not usable
+                if sep_upper is None or sep_lower is None:
+                    if bt_now == "Cylinder":
+                        radius = sl_c.val * 0.3
+                        fx = radius * math.cos(math.radians(80))
+                        fy = radius * math.sin(math.radians(80))
+                    else:
+                        half = sl_c.val * 0.25
+                        fx, fy = half + 0.03, half
+                    sep_upper = (fx,  fy)
+                    sep_lower = (fx, -fy)
+
+                length_scale = abs(sep_upper[1] - sep_lower[1])
                 st_frames = max(6, int(
                     length_scale / (0.2 * max(sl_v.val, 0.05) * wake_dt)))
                 if wake_grid_timer % st_frames == 0:
-                    # Strength: fraction of freestream × body scale
                     k_str = max(abs(bound_gamma) * 0.4,
                                 sl_v.val * length_scale * 0.12)
-                    wake.shed_karman_pair(sep_x,  sep_y,
-                                         sep_x, -sep_y, k_str)
+                    wake.shed_karman_pair(
+                        sep_upper[0], sep_upper[1],
+                        sep_lower[0], sep_lower[1], k_str)
 
             wake_grid_timer += 1  # always tick so Kármán shedding fires on schedule
 
             n_w = wake.count
             if n_w > 0:
                 core_r2 = wake.core_radius ** 2
-                # ── Wake advection: GPU > Numba > Python ──────────
+                # P3: per-vortex growing core radii  r²(t) = r₀² + 4νt
+                core_r2_arr = wake.effective_core_r2(wake_dt)
+
+                # ── Wake advection: GPU > Numba+BH > Python ───────────
                 if HAS_CUPY:
                     advect_wake_gpu(
                         wake.x, wake.y, wake.gamma, n_w,
                         wake_dt, sl_v.val, 0.0, *panel_arrays, core_r2)
                     wake.age[:n_w] += 1
                 elif HAS_NUMBA and _advect_wake_jit is not None:
-                    _advect_wake_jit(wake.x[:n_w], wake.y[:n_w], wake.gamma[:n_w], n_w,
-                                     wake_dt, sl_v.val, 0.0, *panel_arrays, core_r2)
+                    if n_w > BARNES_HUT_THRESHOLD:
+                        # P8: Barnes-Hut O(N log N) mutual induction
+                        u_mut, v_mut = barnes_hut_mutual_velocity(
+                            wake.x, wake.y, wake.gamma, n_w,
+                            float(core_r2_arr.mean()))
+                        # Panel + freestream via Numba (vectorised)
+                        u_pan, v_pan = _velocity_batch_jit(
+                            wake.x[:n_w], wake.y[:n_w], n_w,
+                            sl_v.val, 0.0, *panel_arrays)
+                        wake.x[:n_w] += (u_pan + u_mut) * wake_dt
+                        wake.y[:n_w] += (v_pan + v_mut) * wake_dt
+                    else:
+                        _advect_wake_jit(wake.x[:n_w], wake.y[:n_w],
+                                         wake.gamma[:n_w], core_r2_arr,
+                                         n_w, wake_dt, sl_v.val, 0.0,
+                                         *panel_arrays)
                     wake.age[:n_w] += 1
                 else:
                     def _panel_vel(x, y):
@@ -606,11 +664,30 @@ def run_interactive():
                         U_grid, V_grid = _build_velocity_grid_with_wake_jit(
                             VGRID_NX, VGRID_NY, xn, xx, yn, yx,
                             sl_v.val, 0.0, *panel_arrays,
-                            wx, wy, wg, len(wx), core_r2)
+                            wx, wy, wg, core_r2_arr, len(wx))
                     else:
                         U_grid, V_grid = _build_velocity_grid_jit(
                             VGRID_NX, VGRID_NY, xn, xx, yn, yx,
                             sl_v.val, 0.0, *panel_arrays)
+
+                    # P2: refresh wake-aware streamlines from updated grid
+                    if t_stream.state and _compute_streamlines_grid_jit is not None:
+                        xn, xx, yn, yx = SB
+                        ch_now = H - (CP_H if t_cp.state else 0)
+                        all_pts_w, starts_w, n_out_w = _compute_streamlines_grid_jit(
+                            40, 800, 0.012, U_grid, V_grid, xn, xx, yn, yx)
+                        c_stream = pygame.Surface((CW, ch_now), pygame.SRCALPHA)
+                        for k in range(n_out_w):
+                            i0 = starts_w[k]; i1 = starts_w[k + 1]
+                            if i1 - i0 < 6: continue
+                            pts = [s2s(all_pts_w[i, 0], all_pts_w[i, 1], ch_now)
+                                   for i in range(i0, i1)]
+                            pygame.draw.aalines(c_stream, (100, 200, 255, 120), False, pts)
+                            for j in range(0, len(pts) - 1, 7):
+                                pd_x, pd_y = pts[j]
+                                if 0 <= pd_x < CW and 0 <= pd_y < ch_now:
+                                    pygame.gfxdraw.aacircle(c_stream, pd_x, pd_y, 1, (120, 210, 255, 190))
+                                    pygame.gfxdraw.filled_circle(c_stream, pd_x, pd_y, 1, (120, 210, 255, 190))
 
         # Particle update
         if t_par.state and solver.solved and panel_arrays and U_grid is not None:
@@ -814,13 +891,18 @@ def run_interactive():
             CL=solver.get_lift_coefficient(0,sl_c.val)
             G=solver.get_circulation(0)
             CLt=2*np.pi*np.radians(sl_a.val)
+            Cd_f=bl_result.get('Cd_friction')
+            Cd_p=solver.get_pressure_drag(0,sl_c.val) if hasattr(solver,'get_pressure_drag') else None
             rd=[("CL",f"{CL:.4f}",(46,232,154) if CL>=0 else (255,85,119)),
                 ("Γ", f"{G:.4f}", (46,232,154) if G>=0 else (255,85,119)),
                 ("CL (theory)",f"{CLt:.4f}",(200,212,230)),
-                ("Panels",f"{len(panels)}",(200,212,230))]
+                ("Panels",f"{len(panels)}",(200,212,230)),
+                ("Cd friction",f"{Cd_f:.5f}" if Cd_f is not None else "—",(255,190,60) if Cd_f else (107,125,153)),
+                ("Cd pressure",f"{Cd_p:.5f}" if Cd_p is not None else "—",(255,150,80) if Cd_p else (107,125,153))]
         else:
             rd=[("CL","—",(107,125,153)),("Γ","—",(107,125,153)),
-                ("CL (theory)","—",(107,125,153)),("Panels","0",(107,125,153))]
+                ("CL (theory)","—",(107,125,153)),("Panels","0",(107,125,153)),
+                ("Cd friction","—",(107,125,153)),("Cd pressure","—",(107,125,153))]
         for i,(l,v,c) in enumerate(rd):
             row,ci=i//2,i%2; bx=sx+ci*(sw//2+4); by=ry+row*52
             box=pygame.Rect(bx,by,sw//2-2,46)

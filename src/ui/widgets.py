@@ -518,4 +518,18 @@ TIPS = {
         "Each panel carries a source strength (σ) and shares a common vortex "
         "strength (γ) with all other panels on the same body.\n\n"
         "The total number of unknowns is N + 1 (N source strengths + 1 vortex strength)."),
+
+    'cd_friction': ("Skin-Friction Drag (Cd_f)",
+        "Friction drag coefficient from the integral boundary-layer solver.\n\n"
+        "Cd_f = 2·∫(Cf/2) ds / chord   (summed over both surfaces)\n\n"
+        "Computed using Thwaites' laminar method, Michel's transition criterion, "
+        "and Head's turbulent entrainment equation. '—' means the BL solver "
+        "has not yet run (requires a solved panel solution)."),
+
+    'cd_pressure': ("Pressure Drag (Cd_p)",
+        "Form (pressure) drag coefficient integrated from the Cp distribution.\n\n"
+        "Cd_p = ∫ Cp · n̂x ds / chord\n\n"
+        "In attached potential flow this is nearly zero (D'Alembert's paradox). "
+        "Non-zero values indicate asymmetric panel distributions or numerical "
+        "noise. Combine with Cd_f for total drag estimate."),
 }
