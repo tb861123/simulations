@@ -67,11 +67,11 @@ if HAS_NUMBA:
             v += ul * sin_t[j] + vl * cos_t[j]
         return u, v
 
-    @njit(cache=True)
+    @njit(parallel=True, cache=True)
     def _velocity_batch_jit(px, py, n_pts, Vinf, alpha,
                             xa, ya, cos_t, sin_t, length, sigma, gamma):
         u_out = np.empty(n_pts, np.float64); v_out = np.empty(n_pts, np.float64)
-        for i in range(n_pts):
+        for i in prange(n_pts):
             u_out[i], v_out[i] = _velocity_at_jit(
                 px[i], py[i], Vinf, alpha, xa, ya, cos_t, sin_t, length, sigma, gamma)
         return u_out, v_out
@@ -80,7 +80,7 @@ if HAS_NUMBA:
     # Velocity grid + bilinear interpolation (O(1) per particle)
     # ================================================================
 
-    @njit(cache=True)
+    @njit(parallel=True, cache=True)
     def _build_velocity_grid_jit(gn_x, gn_y, xmin, xmax, ymin, ymax,
                                   Vinf, alpha, xa, ya, cos_t, sin_t, length, sigma, gamma):
         """Compute U, V on a regular grid. Returns (U, V) shape (gn_y, gn_x)."""
@@ -88,7 +88,7 @@ if HAS_NUMBA:
         V = np.empty((gn_y, gn_x), np.float64)
         dx = (xmax - xmin) / (gn_x - 1)
         dy = (ymax - ymin) / (gn_y - 1)
-        for iy in range(gn_y):
+        for iy in prange(gn_y):  # parallel: no row-to-row dependency
             yy = ymin + iy * dy
             for ix in range(gn_x):
                 xx = xmin + ix * dx
@@ -346,7 +346,7 @@ if HAS_NUMBA:
                 u += -dy * factor; v += dx * factor
             wx[i] += u * dt; wy[i] += v * dt
 
-    @njit(cache=True)
+    @njit(parallel=True, cache=True)
     def _build_velocity_grid_with_wake_jit(gn_x, gn_y, xmin, xmax, ymin, ymax,
                                             Vinf, alpha,
                                             xa, ya, cos_t, sin_t, length, sigma, gamma,
@@ -357,7 +357,7 @@ if HAS_NUMBA:
         dx_g = (xmax - xmin) / (gn_x - 1)
         dy_g = (ymax - ymin) / (gn_y - 1)
         two_pi = 2.0 * np.pi
-        for iy in range(gn_y):
+        for iy in prange(gn_y):  # parallel: no row-to-row dependency
             yy = ymin + iy * dy_g
             for ix in range(gn_x):
                 xx = xmin + ix * dx_g

@@ -46,6 +46,20 @@ except ImportError:
     _advect_wake_jit = None
     _build_velocity_grid_with_wake_jit = None
 
+# GPU backend (CuPy + CUDA) — preferred when available
+try:
+    from simulation.gpu_kernels import (
+        HAS_CUPY,
+        build_velocity_grid_gpu,
+        build_velocity_grid_wake_gpu,
+        advect_wake_gpu,
+    )
+except Exception:
+    HAS_CUPY = False
+    build_velocity_grid_gpu = None
+    build_velocity_grid_wake_gpu = None
+    advect_wake_gpu = None
+
 print("Checking dependencies...")
 HAS_PYGAME = _ensure("pygame")
 HAS_PILLOW = _ensure("Pillow", "PIL")
@@ -58,7 +72,8 @@ HAS_MPL = _ensure("matplotlib")
 if HAS_MPL:
     import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 if not HAS_NUMBA: _ensure("numba")
-print(f"  Numba JIT: {'✓ enabled' if HAS_NUMBA else '✗ disabled (pip install numba for 50-100x speedup)'}")
+print(f"  Numba JIT:  {'✓ enabled (parallel)' if HAS_NUMBA else '✗ disabled (pip install numba for 50-100x speedup)'}")
+print(f"  GPU/CuPy:   {'✓ enabled' if HAS_CUPY else '✗ not available (pip install cupy-cuda12x for GPU acceleration)'}")
 print()
 
 
@@ -278,8 +293,13 @@ def run_interactive():
         if not solver.solved or not panels: return
         xn,xx,yn,yx = SB; t0 = time.time()
 
-        U_grid, V_grid = _build_velocity_grid_jit(
-            VGRID_NX, VGRID_NY, xn, xx, yn, yx, sl_v.val, 0.0, *panel_arrays)
+        # Velocity grid: GPU > Numba parallel > pure-Python fallback
+        if HAS_CUPY:
+            U_grid, V_grid = build_velocity_grid_gpu(
+                VGRID_NX, VGRID_NY, xn, xx, yn, yx, sl_v.val, 0.0, *panel_arrays)
+        else:
+            U_grid, V_grid = _build_velocity_grid_jit(
+                VGRID_NX, VGRID_NY, xn, xx, yn, yx, sl_v.val, 0.0, *panel_arrays)
 
         PRES = 400
         pg_x = np.linspace(xn, xx, PRES, dtype=np.float64)
@@ -554,7 +574,13 @@ def run_interactive():
             n_w = wake.count
             if n_w > 0:
                 core_r2 = wake.core_radius ** 2
-                if HAS_NUMBA and _advect_wake_jit is not None:
+                # ── Wake advection: GPU > Numba > Python ──────────
+                if HAS_CUPY:
+                    advect_wake_gpu(
+                        wake.x, wake.y, wake.gamma, n_w,
+                        wake_dt, sl_v.val, 0.0, *panel_arrays, core_r2)
+                    wake.age[:n_w] += 1
+                elif HAS_NUMBA and _advect_wake_jit is not None:
                     _advect_wake_jit(wake.x[:n_w], wake.y[:n_w], wake.gamma[:n_w], n_w,
                                      wake_dt, sl_v.val, 0.0, *panel_arrays, core_r2)
                     wake.age[:n_w] += 1
@@ -570,7 +596,13 @@ def run_interactive():
 
                 if wake_grid_timer % 3 == 0:
                     wx, wy, wg = wake.get_arrays()
-                    if HAS_NUMBA and _build_velocity_grid_with_wake_jit is not None:
+                    # ── Wake velocity grid: GPU > Numba > fallback ─
+                    if HAS_CUPY:
+                        U_grid, V_grid = build_velocity_grid_wake_gpu(
+                            VGRID_NX, VGRID_NY, xn, xx, yn, yx,
+                            sl_v.val, 0.0, *panel_arrays,
+                            wx, wy, wg, len(wx), core_r2)
+                    elif HAS_NUMBA and _build_velocity_grid_with_wake_jit is not None:
                         U_grid, V_grid = _build_velocity_grid_with_wake_jit(
                             VGRID_NX, VGRID_NY, xn, xx, yn, yx,
                             sl_v.val, 0.0, *panel_arrays,
