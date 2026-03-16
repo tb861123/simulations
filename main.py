@@ -999,10 +999,17 @@ def run_interactive():
                 # Per-vortex core radii — young vortices near the TE get
                 # a large initial core for numerical stability (see vortex_wake.py)
                 wake_core_r2 = wake.effective_core_r2(wake_dt)
-                solver.solve_with_wake(
-                    sl_v.val, _osc_alpha,
-                    wake.x, wake.y, wake.gamma, wake.count,
-                    core_r2=wake_core_r2)
+                if bt_now in ("Cylinder", "Square"):
+                    # Bluff bodies: Kutta condition is not physical; solving
+                    # with the wake makes Γ diverge as strong vortices approach.
+                    # Use the steady-state solve — the circulation is set by
+                    # geometry, not by a physical Kutta condition here.
+                    solver.solve(sl_v.val, _osc_alpha)
+                else:
+                    solver.solve_with_wake(
+                        sl_v.val, _osc_alpha,
+                        wake.x, wake.y, wake.gamma, wake.count,
+                        core_r2=wake_core_r2)
                 panel_arrays = extract_panel_arrays(panels)
 
             # Record CL history for hysteresis display
@@ -1026,12 +1033,15 @@ def run_interactive():
             te_mag = max(np.sqrt(te_tx**2 + te_ty**2), 1e-10)
             te_tx /= te_mag; te_ty /= te_mag
 
-            # ── Step 4: Kelvin shedding — now with time-varying Γ ───────────
-            # With free-wake coupling, bound_gamma changes every frame, so
-            # shed_from_te produces a non-trivial vortex each step (Wagner effect).
+            # ── Step 4: Kelvin shedding — only for streamlined bodies ───────
+            # shed_from_te relies on the Kutta condition at a real trailing edge.
+            # For bluff bodies (Square, Cylinder) there is no TE and Γ is held
+            # constant by fix 1 above, so ΔΓ ≈ 0 and this call is a no-op anyway.
+            # Skipping it avoids any residual numerical noise amplification.
             bound_gamma = solver.get_circulation(0)
-            wake.shed_from_te(te_x, te_y, bound_gamma, wake_dt, te_tx, te_ty,
-                              V_inf=sl_v.val)
+            if bt_now not in ("Cylinder", "Square"):
+                wake.shed_from_te(te_x, te_y, bound_gamma, wake_dt, te_tx, te_ty,
+                                  V_inf=sl_v.val)
 
             # ── Step 5: Kármán street for bluff bodies ───────────────────────
             # P7: Physics-based separation points from adverse Cp gradient.
@@ -1054,8 +1064,9 @@ def run_interactive():
                 st_frames = max(6, int(
                     length_scale / (0.2 * max(sl_v.val, 0.05) * wake_dt)))
                 if wake_grid_timer % st_frames == 0:
-                    k_str = max(abs(bound_gamma) * 0.4,
-                                sl_v.val * length_scale * 0.12)
+                    # Strength set purely by flow speed and body scale — no
+                    # bound_gamma term, which caused a runaway feedback loop.
+                    k_str = sl_v.val * length_scale * 0.12
                     off = max(0.03, length_scale * 0.08)
                     def _shed_offset(xy):
                         best = min(panels,
