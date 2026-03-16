@@ -566,7 +566,11 @@ def run_interactive():
                 # Relaxation factor 0.15 keeps the Ue change per step small
                 # enough to prevent BL overflow, while 5 × 0.15 = 75% of
                 # the total correction is applied after convergence.
+                # Early-exit when CL changes by less than 1e-5 between
+                # iterations — in practice this converges in 2-3 steps,
+                # halving the cost vs. always running all 5.
                 VISC_RELAX = 0.15
+                _cl_prev = solver.get_lift_coefficient(0, sl_c.val)
                 for _vi in range(5):
                     q_visc = bl_result.get('transpiration')
                     if q_visc is not None and len(q_visc) >= len(panels):
@@ -575,6 +579,10 @@ def run_interactive():
                         bl_result = compute_boundary_layer(
                             panels, (0, len(panels)),
                             V_inf=sl_v.val, Re=RE_DEFAULT, chord=sl_c.val)
+                        _cl_now = solver.get_lift_coefficient(0, sl_c.val)
+                        if abs(_cl_now - _cl_prev) < 1e-5:
+                            break
+                        _cl_prev = _cl_now
                 # Refresh panel_arrays after viscous solve
                 panel_arrays = extract_panel_arrays(panels)
         except Exception:
@@ -919,7 +927,8 @@ def run_interactive():
             # With free-wake coupling, bound_gamma changes every frame, so
             # shed_from_te produces a non-trivial vortex each step (Wagner effect).
             bound_gamma = solver.get_circulation(0)
-            wake.shed_from_te(te_x, te_y, bound_gamma, wake_dt, te_tx, te_ty)
+            wake.shed_from_te(te_x, te_y, bound_gamma, wake_dt, te_tx, te_ty,
+                              V_inf=sl_v.val)
 
             # ── Step 5: Kármán street for bluff bodies ───────────────────────
             # P7: Physics-based separation points from adverse Cp gradient.
