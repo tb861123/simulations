@@ -684,7 +684,7 @@ def run_interactive():
     print("Warming up JIT..." if HAS_NUMBA else "Running in pure Python mode...")
     warmup_jit(); build_and_solve(); print("Ready.\n")
 
-    running=True; fps_t=0; fps_c=0; fps_d=0
+    running=True; paused=False; fps_t=0; fps_c=0; fps_d=0
     # canvas_h is needed inside the event loop for the draw tool; initialise here
     canvas_h = H - (CP_H if t_cp.state else 0)
 
@@ -696,6 +696,15 @@ def run_interactive():
         for e in pygame.event.get():
             if e.type==pygame.QUIT: running=False
             elif e.type==pygame.KEYDOWN and e.key==pygame.K_ESCAPE: running=False
+            elif e.type==pygame.KEYDOWN and e.key==pygame.K_SPACE:
+                paused = not paused
+            elif e.type==pygame.KEYDOWN and e.key==pygame.K_s and not (e.mod & pygame.KMOD_CTRL):
+                ts = time.strftime("%Y%m%d_%H%M%S")
+                fname = f"cfd_screenshot_{ts}.png"
+                pygame.image.save(screen, fname)
+                status_msg = f"Saved: {fname}"; status_msg_timer = 300
+            elif e.type==pygame.KEYDOWN and e.key==pygame.K_r and not (e.mod & pygame.KMOD_CTRL):
+                needs_solve = True
 
             # Ctrl+Z undo in drawing mode
             elif (e.type==pygame.KEYDOWN and e.key==pygame.K_z
@@ -827,7 +836,7 @@ def run_interactive():
         xn,xx,yn,yx = SB
 
         # ── Vortex wake update ──────────────────────────────────
-        if t_wake.state and solver.solved and panel_arrays and panels:
+        if not paused and t_wake.state and solver.solved and panel_arrays and panels:
             wake_dt = dt * 0.4
 
             # Per-body-type core radius: bluff bodies need larger cores for stability
@@ -1013,7 +1022,7 @@ def run_interactive():
                                     pygame.gfxdraw.filled_circle(c_stream, pd_x, pd_y, 1, (120, 210, 255, 190))
 
         # Particle update
-        if t_par.state and solver.solved and panel_arrays and U_grid is not None:
+        if not paused and t_par.state and solver.solved and panel_arrays and U_grid is not None:
             n_spawn=min(SPAWN,MAX_P-p_count)
             if n_spawn>0:
                 if HAS_NUMBA and _batch_spawn_jit is not None:
@@ -1059,6 +1068,18 @@ def run_interactive():
                     p=panels[i]; sx_p,sy_p=s2s(p.xm,p.ym,canvas_h)
                     pygame.draw.aaline(screen,(255,170,50),(sx_p,sy_p),
                                        (sx_p+int(p.nx*18),sy_p-int(p.ny*18)))
+
+        # Wake vortex legend (bottom-left corner of canvas)
+        if wake.count > 0:
+            _leg_x, _leg_y = 8, canvas_h - 56
+            pygame.draw.rect(screen, (10, 14, 23, 0), (_leg_x - 4, _leg_y - 4, 148, 50))
+            pygame.draw.rect(screen, (30, 42, 63), (_leg_x - 4, _leg_y - 4, 148, 50), 1, border_radius=4)
+            pygame.draw.circle(screen, (200, 55, 55), (_leg_x + 5, _leg_y + 10), 5)
+            pygame.draw.circle(screen, (255, 135, 135), (_leg_x + 5, _leg_y + 10), 3)
+            screen.blit(lfont.render("+ circulation (CCW)", True, (180, 190, 210)), (_leg_x + 14, _leg_y + 3))
+            pygame.draw.circle(screen, (55, 70, 200), (_leg_x + 5, _leg_y + 30), 5)
+            pygame.draw.circle(screen, (135, 145, 255), (_leg_x + 5, _leg_y + 30), 3)
+            screen.blit(lfont.render("− circulation (CW)", True, (180, 190, 210)), (_leg_x + 14, _leg_y + 23))
 
         # Wake vortex rendering — draw even when shedding is toggled off,
         # so existing vortices remain visible (toggle only pauses advection).
@@ -1145,6 +1166,39 @@ def run_interactive():
             pygame.surfarray.blit_array(p_surf,part_buf[:canvas_h].transpose(1,0,2))
             p_surf.set_colorkey((0,0,0)); screen.blit(p_surf,(0,0))
 
+        # Cp colorbar strip (right edge of canvas, when pressure field visible)
+        if t_pre.state and solver.solved:
+            _cb_w, _cb_h = 14, min(200, canvas_h - 40)
+            _cb_x = CW - _cb_w - 6
+            _cb_y = (canvas_h - _cb_h) // 2
+            _cb_surf = pygame.Surface((_cb_w, _cb_h))
+            for _row in range(_cb_h):
+                _t = _row / (_cb_h - 1)  # 0=top(most negative Cp), 1=bottom(most positive)
+                _cp_val = -3.0 + _t * 4.5   # range [-3, +1.5]
+                _cb_surf.set_at((0, _row), pressure_color(_cp_val))
+                for _col in range(1, _cb_w):
+                    _cb_surf.set_at((_col, _row), pressure_color(_cp_val))
+            screen.blit(_cb_surf, (_cb_x, _cb_y))
+            pygame.draw.rect(screen, (50, 65, 90), (_cb_x, _cb_y, _cb_w, _cb_h), 1)
+            for _cp_tick, _label in [(-3.0, "-3"), (-2.0, "-2"), (-1.0, "-1"),
+                                      (0.0, "0"), (1.0, "+1"), (1.5, "+1.5")]:
+                _ty = _cb_y + int((_cp_tick - (-3.0)) / 4.5 * (_cb_h - 1))
+                pygame.draw.line(screen, (107, 125, 153), (_cb_x - 3, _ty), (_cb_x, _ty), 1)
+                screen.blit(lfont.render(_label, True, (107, 125, 153)), (_cb_x - 24, _ty - 5))
+            screen.blit(lfont.render("Cp", True, (107, 125, 153)), (_cb_x, _cb_y - 14))
+
+        # PAUSED overlay
+        if paused:
+            _pau_surf = pygame.Surface((CW, canvas_h), pygame.SRCALPHA)
+            _pau_surf.fill((0, 0, 0, 90))
+            screen.blit(_pau_surf, (0, 0))
+            _pau_txt = tfont.render("⏸  PAUSED  —  Space to resume", True, (234,240,249))
+            _pw, _ph = _pau_txt.get_size()
+            _px, _py = (CW - _pw) // 2, canvas_h // 2 - _ph // 2
+            pygame.draw.rect(screen, (20, 30, 50), (_px - 14, _py - 10, _pw + 28, _ph + 20), border_radius=8)
+            pygame.draw.rect(screen, (59, 158, 255), (_px - 14, _py - 10, _pw + 28, _ph + 20), 1, border_radius=8)
+            screen.blit(_pau_txt, (_px, _py))
+
         if t_cp.state:
             if t_osc.state and c_osc is not None:
                 screen.blit(c_osc, (0, canvas_h))
@@ -1220,7 +1274,7 @@ def run_interactive():
         sl_osc_a.draw(screen,font,accent=_osc_accent)
         if t_osc.state:
             _k_disp = math.pi * sl_osc_f.val * sl_c.val / max(sl_v.val, 0.01)
-            screen.blit(lfont.render(f"k={_k_disp:.3f}", True, (180,200,240)),
+            screen.blit(lfont.render(f"Reduced freq  k = {_k_disp:.3f}", True, (180,200,240)),
                         (sx, _BN_Y + 98))
 
         ry = _BN_Y + 108
@@ -1278,6 +1332,9 @@ def run_interactive():
               else "OpenCL+Numba" if HAS_OPENCL
               else "Numba JIT" if HAS_NUMBA else "Python")
         wake_info = f" | {wake.count} vortices" if wake.count > 0 else ""
+        _pause_hint = "Space: resume" if paused else "Space: pause"
+        screen.blit(lfont.render(f"{_pause_hint}  |  S: screenshot  |  R: re-solve",
+                                 True,(60,78,108)),(sx,H-34))
         screen.blit(lfont.render(f"{fps_d} fps | {p_count} particles{wake_info} | {jt}",
                                  True,(107,125,153)),(sx,H-20))
         screen.blit(lfont.render("Hess-Smith · RK4 · Bernoulli Cp",True,(50,65,90)),
