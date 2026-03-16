@@ -774,13 +774,13 @@ def run_interactive():
                 polar_visible = not polar_visible
             # Arrow keys: ↑/↓ sweep α by 0.5°, ←/→ sweep V∞ by 0.05
             elif e.type==pygame.KEYDOWN and e.key==pygame.K_UP and not (e.mod & pygame.KMOD_CTRL):
-                sl_a.val = max(sl_a.min, min(sl_a.max, sl_a.val + 0.5)); needs_solve = True
+                sl_a.val = max(sl_a.vmin, min(sl_a.vmax, sl_a.val + 0.5)); needs_solve = True
             elif e.type==pygame.KEYDOWN and e.key==pygame.K_DOWN and not (e.mod & pygame.KMOD_CTRL):
-                sl_a.val = max(sl_a.min, min(sl_a.max, sl_a.val - 0.5)); needs_solve = True
+                sl_a.val = max(sl_a.vmin, min(sl_a.vmax, sl_a.val - 0.5)); needs_solve = True
             elif e.type==pygame.KEYDOWN and e.key==pygame.K_RIGHT and not (e.mod & pygame.KMOD_CTRL):
-                sl_v.val = max(sl_v.min, min(sl_v.max, sl_v.val + 0.05)); needs_solve = True
+                sl_v.val = max(sl_v.vmin, min(sl_v.vmax, sl_v.val + 0.05)); needs_solve = True
             elif e.type==pygame.KEYDOWN and e.key==pygame.K_LEFT and not (e.mod & pygame.KMOD_CTRL):
-                sl_v.val = max(sl_v.min, min(sl_v.max, sl_v.val - 0.05)); needs_solve = True
+                sl_v.val = max(sl_v.vmin, min(sl_v.vmax, sl_v.val - 0.05)); needs_solve = True
 
             # Ctrl+Z undo in drawing mode
             elif (e.type==pygame.KEYDOWN and e.key==pygame.K_z
