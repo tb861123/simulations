@@ -352,7 +352,12 @@ class HessSmithSolver:
             # (N, n_wake) displacement arrays
             dx = self._xm_arr[:, None] - wx[None, :]
             dy = self._ym_arr[:, None] - wy[None, :]
-            r2 = dx ** 2 + dy ** 2 + core_r2
+            # core_r2 may be a scalar or a per-vortex 1-D array
+            cr2 = np.asarray(core_r2)
+            if cr2.ndim == 0:
+                r2 = dx ** 2 + dy ** 2 + float(cr2)
+            else:
+                r2 = dx ** 2 + dy ** 2 + cr2[:n_wake][None, :]
 
             # Induced velocity at each control point (N,)
             u_w = two_pi_inv * (-(wg[None, :] * dy / r2).sum(axis=1))

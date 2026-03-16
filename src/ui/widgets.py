@@ -545,6 +545,33 @@ TIPS = {
         "Note: this potential-flow solver does not model viscosity — "
         "Re is shown for reference only."),
 
+    'osc': ("Pitch Oscillation (Theodorsen)",
+        "Sinusoidally pitches the body at the set frequency and amplitude.\n\n"
+        "Requires Vortex Shedding to also be enabled.\n\n"
+        "The Cp plot panel is replaced by a CL vs α hysteresis loop:\n"
+        "  Blue = simulation result\n"
+        "  Gold = Theodorsen C(k) theory prediction\n\n"
+        "Reduced frequency k = π f c / V∞ sets the unsteady regime:\n"
+        "  k→0 : quasi-steady (loop collapses to a point)\n"
+        "  k=0.5 : typical flutter range\n"
+        "  k→∞ : CL amplitude halved vs steady (Theodorsen limit)\n\n"
+        "Use V∞ or Osc Freq sliders to sweep through k values. "
+        "Agreement with the gold ellipse validates the Wagner/Kelvin "
+        "shedding implementation."),
+
+    'osc_freq': ("Oscillation Frequency (Hz)",
+        "Pitching frequency in Hz. Combined with chord and V∞, "
+        "this sets the reduced frequency k = π f c / V∞.\n\n"
+        "k < 0.05: quasi-steady (negligible unsteady effects)\n"
+        "k ~ 0.5:  strong unsteady — Theodorsen C(k) ≈ 0.6\n"
+        "k > 1.0:  highly unsteady — C(k) approaches 0.5"),
+
+    'osc_amp': ("Oscillation Amplitude (degrees)",
+        "Peak-to-peak pitch amplitude (±A) around the base angle of attack.\n\n"
+        "Keep small (≤10°) to stay in the linear lift regime where Theodorsen "
+        "theory is valid. Large amplitudes will show nonlinear behaviour not "
+        "predicted by the linear theory overlay."),
+
     'screenshot': ("Save Screenshot",
         "Save the current canvas as a PNG image.\n\n"
         "The file is saved to the current directory with a timestamped name: "

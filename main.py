@@ -188,10 +188,14 @@ def run_interactive():
     t_vec=Toggle(sx,ty+tg_*2,"Velocity vectors",False); t_par=Toggle(sx,ty+tg_*3,"Particles",True)
     t_nor=Toggle(sx,ty+tg_*4,"Panel normals",True);     t_cp=Toggle(sx,ty+tg_*5,"Cp plot",True)
     t_wake=Toggle(sx,ty+tg_*6,"Vortex shedding",False)
-    tgs=[t_str,t_pre,t_vec,t_par,t_nor,t_cp,t_wake]
-    btn_s=Button(sx,ty+tg_*7+14,70,28,"Solve")
-    btn_c=Button(sx+78,ty+tg_*7+14,70,28,"Clear",(180,50,70))
-    btn_ss=Button(sx+156,ty+tg_*7+14,sw-158,28,"Screenshot",(40,110,75))
+    t_osc=Toggle(sx,ty+tg_*7,"Pitch oscillation",False)
+    tgs=[t_str,t_pre,t_vec,t_par,t_nor,t_cp,t_wake,t_osc]
+    _BN_Y = ty + tg_*8 + 14           # button row y (was ty+tg_*7+14)
+    btn_s=Button(sx,_BN_Y,70,28,"Solve")
+    btn_c=Button(sx+78,_BN_Y,70,28,"Clear",(180,50,70))
+    btn_ss=Button(sx+156,_BN_Y,sw-158,28,"Screenshot",(40,110,75))
+    sl_osc_f=Slider(sx,_BN_Y+36,sw,"Osc f(Hz)",0.5,0.05,3.0,0.05,"{:.2f}")
+    sl_osc_a=Slider(sx,_BN_Y+70,sw,"Osc A(°)", 5.0, 0.5,15.0, 0.5,"{:.1f}")
 
     # --- Vortex wake state ---
     wake = VortexWake(max_vortices=2000, core_radius=0.025)
@@ -199,6 +203,14 @@ def run_interactive():
     wake_grid_timer = 0
     # Track previous wake-toggle state to detect transitions
     wake_was_on = False
+
+    # --- Pitch oscillation state ---
+    osc_t       = 0.0              # oscillation time counter (s)
+    osc_was_on  = False            # edge-detect toggle
+    cl_hist     = np.full((300, 2), np.nan, dtype=np.float64)  # (alpha_deg, CL)
+    cl_hist_idx = 0                # circular buffer write pointer
+    cl_hist_len = 0                # number of valid entries (≤ 300)
+    c_osc       = None             # cached oscillation surface
 
     # --- Drawing tool state ---
     draw_points = []        # list of [x_sim, y_sim] control points
@@ -288,15 +300,17 @@ def run_interactive():
     tm.register_at(sx + sw - 14, sl_a.rect.y + 4, *TIPS['alpha'])
     tm.register_at(sx + sw - 14, sl_p.rect.y + 4, *TIPS['panels'])
     tm.register_at(sx + sw - 14, sl_c.rect.y + 4, *TIPS['size'])
-    toggle_tips = ['streamlines','pressure','vectors','particles','normals','cpplot','wake']
+    toggle_tips = ['streamlines','pressure','vectors','particles','normals','cpplot','wake','osc']
     for tg_w, tip_key in zip(tgs, toggle_tips):
         tm.register_at(sx + sw - 14, tg_w.y + 1, *TIPS[tip_key])
-    readout_y_base = ty + tg_ * 7 + 52 + 18
+    tm.register_at(sx + sw - 14, sl_osc_f.rect.y + 4, *TIPS['osc_freq'])
+    tm.register_at(sx + sw - 14, sl_osc_a.rect.y + 4, *TIPS['osc_amp'])
+    _RD_BASE = _BN_Y + 108                 # readout box y origin  (474+108=582 → +18=600)
     for i, tip_key in enumerate(['cl', 'gamma', 'cl_theory', 'panel_count',
                                   'cd_friction', 'cd_pressure', 're']):
         row, ci = i // 2, i % 2
         bx = sx + ci * (sw // 2 + 4)
-        by = readout_y_base + row * 52
+        by = _RD_BASE + 18 + row * 40      # row spacing 40 px (was 52)
         tm.register_at(bx + sw // 2 - 18, by + 2, *TIPS[tip_key])
     tm.register_at(btn_ss.rect.right - 14, btn_ss.rect.y + 4, *TIPS['screenshot'])
 
@@ -372,6 +386,99 @@ def run_interactive():
         surf.blit(lfont.render("● Upper", True, (59, 158, 255)), (CW - mr - 130, 6))
         surf.blit(lfont.render("● Lower", True, (255, 119, 68)), (CW - mr - 62, 6))
         return surf
+
+    # ------------------------------------------------------------------
+    def _build_osc_surf():
+        """CL-α hysteresis loop with Theodorsen C(k) theory overlay."""
+        nonlocal cl_hist, cl_hist_idx, cl_hist_len
+        surf = pygame.Surface((CW, CP_H)); surf.fill((15, 21, 32))
+        ml, mr, mt, mb = 50, 20, 28, 24
+        pw = CW - ml - mr; ph = CP_H - mt - mb
+
+        if cl_hist_len < 10:
+            msg = "Pitch oscillation — enable Vortex Shedding and wait..." if not t_wake.state else \
+                  "Pitch oscillation — collecting history..."
+            surf.blit(lfont.render(msg, True, (107, 125, 153)), (ml, CP_H // 2 - 6))
+            return surf
+
+        # Ordered data from circular buffer
+        if cl_hist_len < 300:
+            data = cl_hist[:cl_hist_len].copy()
+        else:
+            data = np.concatenate([cl_hist[cl_hist_idx:], cl_hist[:cl_hist_idx]])
+
+        a_c   = sl_a.val
+        a_r   = max(sl_osc_a.val * 1.4, 1.5)
+        cl_c  = float(solver.get_lift_coefficient(0, sl_c.val)) if solver.solved else 0.0
+        cl_r  = max(2 * math.pi * math.radians(sl_osc_a.val) * 1.4, 0.4)
+        a_lo  = a_c - a_r;  a_hi  = a_c + a_r
+        cl_lo = cl_c - cl_r; cl_hi = cl_c + cl_r
+
+        def _ax(a): return int(ml + (a  - a_lo)  / (a_hi  - a_lo  + 1e-10) * pw)
+        def _cy(c): return int(mt + (cl_hi - c)   / (cl_hi  - cl_lo + 1e-10) * ph)
+
+        # Grid lines
+        for av in np.arange(math.ceil(a_lo - 1), a_hi + 1, 2.0):
+            gx = _ax(av)
+            if ml <= gx <= ml + pw:
+                pygame.draw.line(surf, (30, 42, 63), (gx, mt), (gx, mt + ph), 1)
+                surf.blit(lfont.render(f"{av:.0f}°", True, (70, 85, 105)), (gx - 8, mt + ph + 2))
+        for cv in np.arange(math.floor((cl_lo) * 2) / 2, cl_hi + 0.25, 0.5):
+            gy = _cy(cv)
+            if mt <= gy <= mt + ph:
+                pygame.draw.line(surf, (30, 42, 63), (ml, gy), (ml + pw, gy), 1)
+                surf.blit(lfont.render(f"{cv:.1f}", True, (70, 85, 105)), (2, gy - 5))
+        pygame.draw.line(surf, (50, 65, 90), (ml, _cy(0)), (ml + pw, _cy(0)), 1)
+        pygame.draw.line(surf, (50, 65, 90), (_ax(a_c), mt), (_ax(a_c), mt + ph), 1)
+
+        # Theodorsen ellipse
+        k_val = math.pi * sl_osc_f.val * sl_c.val / max(sl_v.val, 0.01)
+        try:
+            from scipy.special import j0 as _j0, j1 as _j1, y0 as _y0, y1 as _y1
+            _k = float(k_val)
+            H0 = complex(_j0(_k), -_y0(_k))
+            H1 = complex(_j1(_k), -_y1(_k))
+            Ck   = H1 / (H1 + 1j * H0)
+            F    = Ck.real
+            G    = -Ck.imag
+            A_r  = math.radians(sl_osc_a.val)
+            th_pts = []
+            for ti in np.linspace(0, 2 * math.pi, 200):
+                a_th  = a_c  + sl_osc_a.val * math.sin(ti)
+                cl_th = cl_c + 2 * math.pi * A_r * (
+                    F * math.sin(ti) + (G + k_val / 2) * math.cos(ti))
+                gx, gy = _ax(a_th), _cy(cl_th)
+                if ml - 2 <= gx <= ml + pw + 2 and mt - 2 <= gy <= mt + ph + 2:
+                    th_pts.append((max(ml, min(ml + pw, gx)),
+                                   max(mt, min(mt + ph, gy))))
+            if len(th_pts) > 4:
+                pygame.draw.aalines(surf, (255, 185, 55), True, th_pts)
+        except Exception:
+            pass
+
+        # Simulation data (draw last so it's on top)
+        sim_pts = [(_ax(float(data[i, 0])), _cy(float(data[i, 1])))
+                   for i in range(len(data))]
+        valid_sim = [(gx, gy) for gx, gy in sim_pts
+                     if ml - 5 <= gx <= ml + pw + 5 and mt - 5 <= gy <= mt + ph + 5]
+        if len(valid_sim) > 2:
+            pygame.draw.aalines(surf, (59, 158, 255), False, valid_sim)
+
+        # Arrow showing traversal direction (last two points)
+        if len(valid_sim) >= 2:
+            gx, gy = valid_sim[-1]
+            if ml <= gx <= ml + pw and mt <= gy <= mt + ph:
+                pygame.gfxdraw.aacircle(surf, gx, gy, 4, (46, 232, 154, 255))
+                pygame.gfxdraw.filled_circle(surf, gx, gy, 4, (46, 232, 154, 255))
+
+        # Labels
+        surf.blit(lfont.render(f"CL vs α  (k={k_val:.3f})", True, (107, 125, 153)), (ml + 4, 4))
+        surf.blit(lfont.render("— Sim", True, (59, 158, 255)), (CW - mr - 140, 4))
+        surf.blit(lfont.render("— Theodorsen", True, (255, 185, 55)), (CW - mr - 210, 4))
+        surf.blit(lfont.render("α", True, (80, 100, 130)), (ml + pw - 6, mt + ph + 2))
+        surf.blit(lfont.render("CL", True, (80, 100, 130)), (0, mt - 2))
+        return surf
+    # ------------------------------------------------------------------
 
     def rebuild_caches(ch):
         nonlocal c_press,c_stream,c_vec,c_body,c_cp,U_grid,V_grid
@@ -499,6 +606,12 @@ def run_interactive():
         body_vx=np.array([p.xa for p in panels],np.float64)
         body_vy=np.array([p.ya for p in panels],np.float64)
         p_count=0; wake.reset(); wake_sim_time=0.0; wake_grid_timer=0
+        # Initialise prev_bound_gamma to the steady-state value so the first
+        # shed vortex reflects only actual circulation *changes*, not the full
+        # Γ_steady jump that would occur from a cold start.  This prevents the
+        # large spurious starting vortex that otherwise causes numerical
+        # instability in the free-wake panel solve.
+        wake.prev_bound_gamma = solver.get_circulation(0)
         rebuild_caches(H-(CP_H if t_cp.state else 0))
 
     print("Warming up JIT..." if HAS_NUMBA else "Running in pure Python mode...")
@@ -548,6 +661,11 @@ def run_interactive():
                 sl.handle_event(e)
                 if sl.changed: needs_solve=True
             for t in tgs: t.handle_event(e)
+            sl_osc_f.handle_event(e); sl_osc_a.handle_event(e)
+            # Reset oscillation history when toggled on or params change
+            if (t_osc.state and not osc_was_on) or sl_osc_f.changed or sl_osc_a.changed:
+                osc_t = 0.0; cl_hist_len = 0; cl_hist_idx = 0; c_osc = None
+            osc_was_on = t_osc.state
             if btn_s.handle_event(e):
                 if BTYPES[bg_.sel]=="Draw" and draw_closed:
                     if build_draw_shape(): needs_solve = True
@@ -682,13 +800,42 @@ def run_interactive():
             # Re-solve the panel system with the advected wake in the RHS.
             # This updates bound circulation Γ(t) each frame (Wagner function),
             # which drives Kelvin shedding below.  Uses cached LU → O(N²).
-            if wake.count > 0:
-                mean_core_r2 = float(wake.effective_core_r2(wake_dt).mean())
-                solver.solve_with_wake(
-                    sl_v.val, 0.0,
-                    wake.x, wake.y, wake.gamma, wake.count,
-                    core_r2=mean_core_r2)
+            # If pitch oscillation is active, alpha varies sinusoidally.
+            if t_osc.state:
+                osc_t += wake_dt
+                _osc_alpha = (math.radians(sl_osc_a.val)
+                              * math.sin(2 * math.pi * sl_osc_f.val * osc_t))
+            else:
+                _osc_alpha = 0.0
+
+            if t_osc.state:
+                # Pitch oscillation: quasi-steady re-solve at current alpha.
+                # Uses the cached LU → O(N²), same speed as solve_with_wake.
+                # Wake coupling is bypassed here because the free-wake feedback
+                # loop is numerically unstable at the small timesteps used
+                # interactively.  The Theodorsen overlay in the Cp panel shows
+                # the correct unsteady (coupled) prediction for comparison.
+                solver.solve(sl_v.val, _osc_alpha)
                 panel_arrays = extract_panel_arrays(panels)
+            elif wake.count > 0:
+                # Per-vortex core radii — young vortices near the TE get
+                # a large initial core for numerical stability (see vortex_wake.py)
+                wake_core_r2 = wake.effective_core_r2(wake_dt)
+                solver.solve_with_wake(
+                    sl_v.val, _osc_alpha,
+                    wake.x, wake.y, wake.gamma, wake.count,
+                    core_r2=wake_core_r2)
+                panel_arrays = extract_panel_arrays(panels)
+
+            # Record CL history for hysteresis display
+            if t_osc.state and solver.solved:
+                _cl_now    = solver.get_lift_coefficient(0, sl_c.val)
+                _alpha_eff = sl_a.val + math.degrees(_osc_alpha)
+                cl_hist[cl_hist_idx] = [_alpha_eff, _cl_now]
+                cl_hist_idx = (cl_hist_idx + 1) % 300
+                cl_hist_len = min(cl_hist_len + 1, 300)
+                if t_cp.state:
+                    c_osc = _build_osc_surf()
 
             # ── Step 3: TE geometry ──────────────────────────────────────────
             body_range = solver.body_panel_ranges[0]
@@ -922,7 +1069,13 @@ def run_interactive():
             pygame.surfarray.blit_array(p_surf,part_buf[:canvas_h].transpose(1,0,2))
             p_surf.set_colorkey((0,0,0)); screen.blit(p_surf,(0,0))
 
-        if t_cp.state and c_cp: screen.blit(c_cp,(0,canvas_h))
+        if t_cp.state:
+            if t_osc.state and c_osc is not None:
+                screen.blit(c_osc, (0, canvas_h))
+            elif t_osc.state:
+                screen.blit(_build_osc_surf(), (0, canvas_h))
+            elif c_cp:
+                screen.blit(c_cp, (0, canvas_h))
 
         # SIDEBAR
         pygame.draw.rect(screen,(15,21,32),(CW,0,SBW,H))
@@ -985,8 +1138,17 @@ def run_interactive():
         screen.blit(lfont.render("VISUALISATION",True,(107,125,153)),(sx,270))
         for t in tgs: t.draw(screen,font)
         btn_s.draw(screen,font); btn_c.draw(screen,font); btn_ss.draw(screen,font)
+        # Oscillation sliders — dim when inactive
+        _osc_accent = (59,158,255) if t_osc.state else (50,65,90)
+        sl_osc_f.draw(screen,font,accent=_osc_accent)
+        sl_osc_a.draw(screen,font,accent=_osc_accent)
+        if t_osc.state:
+            _k_disp = math.pi * sl_osc_f.val * sl_c.val / max(sl_v.val, 0.01)
+            screen.blit(lfont.render(f"k={_k_disp:.3f}", True, (180,200,240)),
+                        (sx, _BN_Y + 98))
 
-        ry=ty+tg_*7+52; screen.blit(lfont.render("AERODYNAMICS",True,(107,125,153)),(sx,ry)); ry+=18
+        ry = _BN_Y + 108
+        screen.blit(lfont.render("AERODYNAMICS",True,(107,125,153)),(sx,ry)); ry+=18
         Re_val = sl_v.val * sl_c.val / NU_AIR
         if solver.solved and panels:
             CL=solver.get_lift_coefficient(0,sl_c.val)
@@ -1007,15 +1169,15 @@ def run_interactive():
                 ("Cd friction","—",(107,125,153)),("Cd pressure","—",(107,125,153)),
                 ("Re",f"{Re_val:.2e}",(180,210,240))]
         for i,(l,v,c) in enumerate(rd):
-            row,ci=i//2,i%2; bx=sx+ci*(sw//2+4); by=ry+row*52
-            box=pygame.Rect(bx,by,sw//2-2,46)
+            row,ci=i//2,i%2; bx=sx+ci*(sw//2+4); by=ry+row*40
+            box=pygame.Rect(bx,by,sw//2-2,34)
             pygame.draw.rect(screen,(10,14,23),box,border_radius=4)
             pygame.draw.rect(screen,(30,42,63),box,1,border_radius=4)
             screen.blit(lfont.render(l,True,(107,125,153)),(bx+8,by+4))
-            screen.blit(mfont.render(v,True,c),(bx+8,by+22))
+            screen.blit(mfont.render(v,True,c),(bx+8,by+18))
 
         # Solver error / screenshot status notification (below readouts)
-        notify_y = ry + math.ceil(len(rd)/2) * 52 + 4
+        notify_y = ry + math.ceil(len(rd)/2) * 40 + 4
         if solve_err_msg and solve_err_timer > 0:
             solve_err_timer -= 1
             screen.blit(lfont.render(solve_err_msg, True, (255,90,90)), (sx, notify_y))

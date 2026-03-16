@@ -121,10 +121,18 @@ class VortexWake:
         Lamb-Oseen viscous diffusion: r²(t) = r₀² + 4·ν·t
         where t = age × dt.  Older vortices spread out, mimicking
         the natural decay of real eddies.
+
+        Stability note: fresh vortices (age < 20) receive a large
+        initial core that decays exponentially.  This prevents the
+        close-vortex singularity in solve_with_wake when a newly shed
+        element is still near the trailing edge.
         """
         n = self.count
-        base = self.core_radius ** 2
-        return base + 4.0 * self.nu * dt * self.age[:n].astype(np.float64)
+        age_f = self.age[:n].astype(np.float64)
+        base = self.core_radius ** 2 + 4.0 * self.nu * dt * age_f
+        # Large initial core decaying over ~20 frames: r_extra = 8·r₀·exp(−age/8)
+        extra = (self.core_radius * 8.0 * np.exp(-age_f * 0.125)) ** 2
+        return base + extra
 
     def advect(self, dt: float, panel_vel_func, Vinf: float, alpha: float):
         """
