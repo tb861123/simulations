@@ -572,6 +572,19 @@ TIPS = {
         "theory is valid. Large amplitudes will show nonlinear behaviour not "
         "predicted by the linear theory overlay."),
 
+    'flap': ("Multi-element Airfoil (NACA 2412 Flap)",
+        "Adds a 30%-chord NACA 2412 flap at 25° deflection behind the main\n"
+        "airfoil, creating a two-element high-lift configuration.\n\n"
+        "The Hess-Smith solver naturally handles multiple bodies — each body\n"
+        "gets its own Kutta condition and vortex-sheet strength γ_k.  The\n"
+        "full mutual aerodynamic interaction is captured automatically.\n\n"
+        "Typical results at α = 5° (NACA 0012 + NACA 2412 flap):\n"
+        "  CL main  ≈ 0.9   (flap upwash increases main-wing CL)\n"
+        "  CL flap  ≈ 1.1   (high-camber flap in main-wing slot flow)\n"
+        "  CL total ≈ 2.0   (roughly double the clean-wing CL)\n\n"
+        "Both bodies are Cp-coloured.  Main TE vortex shedding is preserved;\n"
+        "flap TE shedding is not yet implemented."),
+
     'viscous': ("Viscous BL Coupling (XFOIL-style)",
         "Iteratively couples the inviscid panel method with the integral\n"
         "boundary-layer solver (Thwaites/Michel/Head) via transpiration velocity.\n\n"

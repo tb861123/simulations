@@ -190,8 +190,9 @@ def run_interactive():
     t_wake=Toggle(sx,ty+tg_*6,"Vortex shedding",False)
     t_osc=Toggle(sx,ty+tg_*7,"Pitch oscillation",False)
     t_visc=Toggle(sx,ty+tg_*8,"Viscous BL coupling",False)
-    tgs=[t_str,t_pre,t_vec,t_par,t_nor,t_cp,t_wake,t_osc,t_visc]
-    _BN_Y = ty + tg_*9 + 14           # button row y
+    t_flap=Toggle(sx,ty+tg_*9,"Multi-element (flap)",False)
+    tgs=[t_str,t_pre,t_vec,t_par,t_nor,t_cp,t_wake,t_osc,t_visc,t_flap]
+    _BN_Y = ty + tg_*10 + 14          # button row y
     btn_s=Button(sx,_BN_Y,70,28,"Solve")
     btn_c=Button(sx+78,_BN_Y,70,28,"Clear",(180,50,70))
     btn_ss=Button(sx+156,_BN_Y,sw-158,28,"Screenshot",(40,110,75))
@@ -207,6 +208,8 @@ def run_interactive():
 
     # --- Viscous BL coupling state ---
     visc_was_on = False            # edge-detect toggle for viscous mode
+    # --- Multi-element flap state ---
+    flap_was_on = False            # edge-detect toggle for flap mode
 
     # --- Pitch oscillation state ---
     osc_t       = 0.0              # oscillation time counter (s)
@@ -304,7 +307,7 @@ def run_interactive():
     tm.register_at(sx + sw - 14, sl_a.rect.y + 4, *TIPS['alpha'])
     tm.register_at(sx + sw - 14, sl_p.rect.y + 4, *TIPS['panels'])
     tm.register_at(sx + sw - 14, sl_c.rect.y + 4, *TIPS['size'])
-    toggle_tips = ['streamlines','pressure','vectors','particles','normals','cpplot','wake','osc','viscous']
+    toggle_tips = ['streamlines','pressure','vectors','particles','normals','cpplot','wake','osc','viscous','flap']
     for tg_w, tip_key in zip(tgs, toggle_tips):
         tm.register_at(sx + sw - 14, tg_w.y + 1, *TIPS[tip_key])
     tm.register_at(sx + sw - 14, sl_osc_f.rect.y + 4, *TIPS['osc_freq'])
@@ -631,8 +634,27 @@ def run_interactive():
         else:
             return
         if len(panels) < 3: return
+
+        # Multi-element flap (Feature 3): add a 30%-chord NACA 2412 flap
+        # at 25° deflection behind the main TE.  Only for NACA bodies.
+        body_ranges = [(0, len(panels))]
+        if t_flap.state and bt == "NACA":
+            te_x = 0.5 * (panels[0].xa + panels[-1].xb)
+            te_y = 0.5 * (panels[0].ya + panels[-1].yb)
+            n_fl  = max(20, int(np_ * 0.35))
+            ch_fl = ch * 0.3
+            panels_fl = make_naca_panels(
+                '2412', n_fl, ch_fl,
+                x_center=te_x + 0.02 * ch,
+                y_center=te_y - 0.03 * ch,
+                angle_deg=-alpha - 25.0,
+                body_id=1)
+            body_ranges = [(0, len(panels)),
+                           (len(panels), len(panels) + len(panels_fl))]
+            panels = panels + panels_fl
+
         try:
-            solver.set_panels(panels,[(0,len(panels))]); solver.solve(sl_v.val,alpha=0.0)
+            solver.set_panels(panels, body_ranges); solver.solve(sl_v.val, alpha=0.0)
         except Exception as ex:
             solve_err_msg = f"Solver failed: {ex}"
             solve_err_timer = 400
@@ -707,6 +729,10 @@ def run_interactive():
             if t_visc.state != visc_was_on and solver.solved and panels:
                 rebuild_caches(H - (CP_H if t_cp.state else 0))
             visc_was_on = t_visc.state
+            # Flap toggle: full re-solve to add/remove second body
+            if t_flap.state != flap_was_on:
+                needs_solve = True
+            flap_was_on = t_flap.state
             if btn_s.handle_event(e):
                 if BTYPES[bg_.sel]=="Draw" and draw_closed:
                     if build_draw_shape(): needs_solve = True
@@ -1197,13 +1223,26 @@ def run_interactive():
             CLt=2*np.pi*np.radians(sl_a.val)
             Cd_f=bl_result.get('Cd_friction')
             Cd_p=solver.get_pressure_drag(0,sl_c.val) if hasattr(solver,'get_pressure_drag') else None
-            rd=[("CL",f"{CL:.4f}",(46,232,154) if CL>=0 else (255,85,119)),
-                ("Γ", f"{G:.4f}", (46,232,154) if G>=0 else (255,85,119)),
-                ("CL (theory)",f"{CLt:.4f}",(200,212,230)),
-                ("Panels",f"{len(panels)}",(200,212,230)),
-                ("Cd friction",f"{Cd_f:.5f}" if Cd_f is not None else "—",(255,190,60) if Cd_f else (107,125,153)),
-                ("Cd pressure",f"{Cd_p:.5f}" if Cd_p is not None else "—",(255,150,80) if Cd_p else (107,125,153)),
-                ("Re",f"{Re_val:.2e}",(180,210,240))]
+            if t_flap.state and solver.n_bodies >= 2:
+                # Multi-element: show per-body CL and combined total
+                CL_fl = solver.get_lift_coefficient(1, sl_c.val * 0.3)
+                rd=[("CL main", f"{CL:.4f}",   (46,232,154) if CL>=0 else (255,85,119)),
+                    ("CL flap", f"{CL_fl:.4f}", (255,185,55) if CL_fl>=0 else (255,85,119)),
+                    ("CL total",f"{CL+CL_fl:.4f}",(200,212,230)),
+                    ("Panels",  f"{len(panels)}",(200,212,230)),
+                    ("Cd fric", f"{Cd_f:.5f}" if Cd_f is not None else "—",
+                     (255,190,60) if Cd_f else (107,125,153)),
+                    ("Cd pres", f"{Cd_p:.5f}" if Cd_p is not None else "—",
+                     (255,150,80) if Cd_p else (107,125,153)),
+                    ("Re",      f"{Re_val:.2e}",(180,210,240))]
+            else:
+                rd=[("CL",f"{CL:.4f}",(46,232,154) if CL>=0 else (255,85,119)),
+                    ("Γ", f"{G:.4f}", (46,232,154) if G>=0 else (255,85,119)),
+                    ("CL (theory)",f"{CLt:.4f}",(200,212,230)),
+                    ("Panels",f"{len(panels)}",(200,212,230)),
+                    ("Cd friction",f"{Cd_f:.5f}" if Cd_f is not None else "—",(255,190,60) if Cd_f else (107,125,153)),
+                    ("Cd pressure",f"{Cd_p:.5f}" if Cd_p is not None else "—",(255,150,80) if Cd_p else (107,125,153)),
+                    ("Re",f"{Re_val:.2e}",(180,210,240))]
         else:
             rd=[("CL","—",(107,125,153)),("Γ","—",(107,125,153)),
                 ("CL (theory)","—",(107,125,153)),("Panels","0",(107,125,153)),
