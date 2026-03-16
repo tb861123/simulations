@@ -323,6 +323,56 @@ def run_interactive():
     bl_result = {}
     RE_DEFAULT = 5e5   # Reynolds number used for BL calculations
 
+    def _build_cp_surf():
+        """(Re)draw the Cp distribution plot surface from current panel.cp values.
+        Called on every solve and, when wake is active, every 3 frames so the plot
+        reflects the time-varying unsteady pressure distribution."""
+        surf = pygame.Surface((CW, CP_H)); surf.fill((15, 21, 32))
+        ml, mr, mt, mb = 50, 20, 28, 24
+        pw = CW - ml - mr; ph = CP_H - mt - mb
+        xm  = np.array([p.xm for p in panels])
+        cpv = np.array([p.cp for p in panels])
+        xnc, xxc = xm.min(), xm.max()
+        clo = min(cpv.min(), -2.5); chi = max(cpv.max(), 1.2)
+        def _c2s(xv, cv):
+            return (int(ml + (xv - xnc) / (xxc - xnc + 1e-30) * pw),
+                    int(mt + (chi - cv) / (chi - clo + 1e-30) * ph))
+        for cv in np.arange(np.floor(clo), np.ceil(chi) + 0.5, 0.5):
+            _, gy = _c2s(0, cv)
+            pygame.draw.line(surf, (30, 42, 63), (ml, gy), (CW - mr, gy), 1)
+            if abs(cv - round(cv)) < 0.01:
+                surf.blit(lfont.render(f"{cv:.0f}", True, (107, 125, 153)), (ml - 24, gy - 5))
+        _, y0 = _c2s(0, 0)
+        for _dx in range(ml, CW - mr, 8):
+            pygame.draw.line(surf, (60, 75, 100), (_dx, y0), (min(_dx + 4, CW - mr), y0), 1)
+        le = np.argmin(xm)
+        up = [_c2s(xm[i], cpv[i]) for i in range(le + 1)]
+        lo = [_c2s(xm[i], cpv[i]) for i in range(le, len(xm))]
+        if len(up) > 1: pygame.draw.aalines(surf, (59, 158, 255), False, up)
+        if len(lo) > 1: pygame.draw.aalines(surf, (255, 119, 68), False, lo)
+        # Thin-airfoil theory reference lines (flat-plate prediction)
+        alpha_rad = math.radians(sl_a.val)
+        if abs(alpha_rad) > 1e-4:
+            xi_th = np.linspace(0.01, 0.99, 120)
+            x_th  = xnc + xi_th * (xxc - xnc)
+            cp_mag = 2.0 * abs(alpha_rad) * np.sqrt((1.0 - xi_th) / xi_th)
+            cp_th_up = -np.sign(alpha_rad) * cp_mag
+            cp_th_lo =  np.sign(alpha_rad) * cp_mag
+            def _dd(pts, col):
+                for _j in range(0, len(pts) - 1, 2):
+                    pygame.draw.line(surf, col, pts[_j], pts[_j + 1], 1)
+            th_up = [_c2s(x_th[k], cp_th_up[k])
+                     for k in range(len(xi_th)) if clo <= cp_th_up[k] <= chi]
+            th_lo = [_c2s(x_th[k], cp_th_lo[k])
+                     for k in range(len(xi_th)) if clo <= cp_th_lo[k] <= chi]
+            if len(th_up) > 4: _dd(th_up, (100, 160, 230))
+            if len(th_lo) > 4: _dd(th_lo, (230, 160, 90))
+            surf.blit(lfont.render("-- TAT", True, (120, 140, 170)), (CW - mr - 46, CP_H - 18))
+        surf.blit(lfont.render("Cp Distribution", True, (107, 125, 153)), (ml + 4, 6))
+        surf.blit(lfont.render("● Upper", True, (59, 158, 255)), (CW - mr - 130, 6))
+        surf.blit(lfont.render("● Lower", True, (255, 119, 68)), (CW - mr - 62, 6))
+        return surf
+
     def rebuild_caches(ch):
         nonlocal c_press,c_stream,c_vec,c_body,c_cp,U_grid,V_grid
         if not solver.solved or not panels: return
@@ -388,46 +438,7 @@ def run_interactive():
                 p=panels[i]; sx_p,sy_p=s2s(p.xm,p.ym,ch)
                 pygame.draw.aaline(c_body,(255,170,50,200),(sx_p,sy_p),(sx_p+int(p.nx*18),sy_p-int(p.ny*18)))
 
-        c_cp = pygame.Surface((CW,CP_H)); c_cp.fill((15,21,32))
-        ml,mr,mt,mb=50,20,28,24; pw=CW-ml-mr; ph=CP_H-mt-mb
-        xm=np.array([p.xm for p in panels]); cpv=np.array([p.cp for p in panels])
-        xnc,xxc=xm.min(),xm.max(); clo,chi=min(cpv.min(),-2.5),max(cpv.max(),1.2)
-        def c2s(xv,cv): return(int(ml+(xv-xnc)/(xxc-xnc+1e-30)*pw),int(mt+(chi-cv)/(chi-clo+1e-30)*ph))
-        for cv in np.arange(np.floor(clo),np.ceil(chi)+0.5,0.5):
-            _,gy=c2s(0,cv); pygame.draw.line(c_cp,(30,42,63),(ml,gy),(CW-mr,gy),1)
-            if abs(cv-round(cv))<0.01: c_cp.blit(lfont.render(f"{cv:.0f}",True,(107,125,153)),(ml-24,gy-5))
-        _,y0=c2s(0,0)
-        for dx in range(ml,CW-mr,8): pygame.draw.line(c_cp,(60,75,100),(dx,y0),(min(dx+4,CW-mr),y0),1)
-        le=np.argmin(xm)
-        up=[c2s(xm[i],cpv[i]) for i in range(le+1)]; lo=[c2s(xm[i],cpv[i]) for i in range(le,len(xm))]
-        if len(up)>1: pygame.draw.aalines(c_cp,(59,158,255),False,up)
-        if len(lo)>1: pygame.draw.aalines(c_cp,(255,119,68),False,lo)
-
-        # Thin-airfoil theory reference lines (flat-plate prediction)
-        alpha_rad = math.radians(sl_a.val)
-        if abs(alpha_rad) > 1e-4:
-            xi_th = np.linspace(0.01, 0.99, 120)
-            x_th = xnc + xi_th * (xxc - xnc)
-            cp_mag = 2.0 * abs(alpha_rad) * np.sqrt((1.0 - xi_th) / xi_th)
-            cp_th_up = -np.sign(alpha_rad) * cp_mag   # upper: suction when α>0
-            cp_th_lo =  np.sign(alpha_rad) * cp_mag   # lower: pressure when α>0
-            th_pts_up = [c2s(x_th[k], cp_th_up[k])
-                         for k in range(len(xi_th))
-                         if clo <= cp_th_up[k] <= chi]
-            th_pts_lo = [c2s(x_th[k], cp_th_lo[k])
-                         for k in range(len(xi_th))
-                         if clo <= cp_th_lo[k] <= chi]
-            # Dashed effect: draw short 6-px gaps every 10px
-            def _draw_dashed(surf, pts, col):
-                for j in range(0, len(pts) - 1, 2):
-                    pygame.draw.line(surf, col, pts[j], pts[j + 1], 1)
-            if len(th_pts_up) > 4: _draw_dashed(c_cp, th_pts_up, (100, 160, 230))
-            if len(th_pts_lo) > 4: _draw_dashed(c_cp, th_pts_lo, (230, 160, 90))
-            c_cp.blit(lfont.render("-- TAT",True,(120,140,170)),(CW-mr-46, CP_H-18))
-
-        c_cp.blit(lfont.render("Cp Distribution",True,(107,125,153)),(ml+4,6))
-        c_cp.blit(lfont.render("● Upper",True,(59,158,255)),(CW-mr-130,6))
-        c_cp.blit(lfont.render("● Lower",True,(255,119,68)),(CW-mr-62,6))
+        c_cp = _build_cp_surf()
 
         # P9: Boundary layer solve — runs after every geometry change
         nonlocal bl_result
@@ -626,6 +637,60 @@ def run_interactive():
         if t_wake.state and solver.solved and panel_arrays and panels:
             wake_dt = dt * 0.4
 
+            # Per-body-type core radius: bluff bodies need larger cores for stability
+            bt_now = BTYPES[bg_.sel]
+            wake.core_radius = (0.05 if bt_now == "Cylinder" else
+                                0.04 if bt_now == "Square"   else 0.025)
+
+            # ── Step 1: Advect existing vortices (move before shed) ──────────
+            n_w = wake.count
+            if n_w > 0:
+                core_r2     = wake.core_radius ** 2
+                core_r2_arr = wake.effective_core_r2(wake_dt)  # P3: growing cores
+
+                # GPU (CUDA/OpenCL) > Numba+BH > Python
+                if HAS_CUPY or HAS_OPENCL:
+                    advect_wake_gpu(
+                        wake.x, wake.y, wake.gamma, n_w,
+                        wake_dt, sl_v.val, 0.0, *panel_arrays, core_r2)
+                    wake.age[:n_w] += 1
+                elif HAS_NUMBA and _advect_wake_jit is not None:
+                    if n_w > BARNES_HUT_THRESHOLD:
+                        # P8: Barnes-Hut O(N log N) mutual induction
+                        u_mut, v_mut = barnes_hut_mutual_velocity(
+                            wake.x, wake.y, wake.gamma, n_w,
+                            float(core_r2_arr.mean()))
+                        u_pan, v_pan = _velocity_batch_jit(
+                            wake.x[:n_w], wake.y[:n_w], n_w,
+                            sl_v.val, 0.0, *panel_arrays)
+                        wake.x[:n_w] += (u_pan + u_mut) * wake_dt
+                        wake.y[:n_w] += (v_pan + v_mut) * wake_dt
+                    else:
+                        _advect_wake_jit(wake.x[:n_w], wake.y[:n_w],
+                                         wake.gamma[:n_w], core_r2_arr,
+                                         n_w, wake_dt, sl_v.val, 0.0,
+                                         *panel_arrays)
+                    wake.age[:n_w] += 1
+                else:
+                    def _panel_vel(x, y):
+                        return _velocity_at_jit(x, y, sl_v.val, 0.0, *panel_arrays)
+                    wake.advect(wake_dt, _panel_vel, sl_v.val, 0.0)
+
+                wake._cull()
+
+            # ── Step 2: Unsteady free-wake re-solve ─────────────────────────
+            # Re-solve the panel system with the advected wake in the RHS.
+            # This updates bound circulation Γ(t) each frame (Wagner function),
+            # which drives Kelvin shedding below.  Uses cached LU → O(N²).
+            if wake.count > 0:
+                mean_core_r2 = float(wake.effective_core_r2(wake_dt).mean())
+                solver.solve_with_wake(
+                    sl_v.val, 0.0,
+                    wake.x, wake.y, wake.gamma, wake.count,
+                    core_r2=mean_core_r2)
+                panel_arrays = extract_panel_arrays(panels)
+
+            # ── Step 3: TE geometry ──────────────────────────────────────────
             body_range = solver.body_panel_ranges[0]
             te_panel_first = panels[body_range[0]]
             te_panel_last  = panels[body_range[1] - 1]
@@ -636,15 +701,14 @@ def run_interactive():
             te_mag = max(np.sqrt(te_tx**2 + te_ty**2), 1e-10)
             te_tx /= te_mag; te_ty /= te_mag
 
+            # ── Step 4: Kelvin shedding — now with time-varying Γ ───────────
+            # With free-wake coupling, bound_gamma changes every frame, so
+            # shed_from_te produces a non-trivial vortex each step (Wagner effect).
             bound_gamma = solver.get_circulation(0)
-            # Standard Kelvin shedding — produces the starting vortex on frame 1;
-            # in steady flow d_gamma≈0 so this adds nothing afterwards.
             wake.shed_from_te(te_x, te_y, bound_gamma, wake_dt, te_tx, te_ty)
 
-            # ── Kármán vortex street for bluff bodies ──────────────
-            # P7: Use physics-based separation points from adverse Cp gradient
-            # instead of hardcoded geometry.
-            bt_now = BTYPES[bg_.sel]
+            # ── Step 5: Kármán street for bluff bodies ───────────────────────
+            # P7: Physics-based separation points from adverse Cp gradient.
             if bt_now in ("Cylinder", "Square"):
                 sep_upper, sep_lower = solver.find_separation_points(0)
 
@@ -666,64 +730,27 @@ def run_interactive():
                 if wake_grid_timer % st_frames == 0:
                     k_str = max(abs(bound_gamma) * 0.4,
                                 sl_v.val * length_scale * 0.12)
-                    # Offset shed points outward along panel normal so vortices
-                    # spawn just outside the body, not on the surface.
                     off = max(0.03, length_scale * 0.08)
                     def _shed_offset(xy):
                         best = min(panels,
                                    key=lambda p: (p.xm-xy[0])**2+(p.ym-xy[1])**2)
-                        # outward normal + small downstream nudge
                         return (xy[0] + best.nx * off + sl_v.val * wake_dt,
                                 xy[1] + best.ny * off)
                     su = _shed_offset(sep_upper)
                     sl_ = _shed_offset(sep_lower)
                     wake.shed_karman_pair(su[0], su[1], sl_[0], sl_[1], k_str)
 
-            wake_grid_timer += 1  # always tick so Kármán shedding fires on schedule
+            wake_grid_timer += 1
 
-            n_w = wake.count
-            if n_w > 0:
-                core_r2 = wake.core_radius ** 2
-                # P3: per-vortex growing core radii  r²(t) = r₀² + 4νt
-                core_r2_arr = wake.effective_core_r2(wake_dt)
-
-                # ── Wake advection: GPU (CUDA/OpenCL) > Numba+BH > Python ──
-                if HAS_CUPY or HAS_OPENCL:
-                    advect_wake_gpu(
-                        wake.x, wake.y, wake.gamma, n_w,
-                        wake_dt, sl_v.val, 0.0, *panel_arrays, core_r2)
-                    wake.age[:n_w] += 1
-                elif HAS_NUMBA and _advect_wake_jit is not None:
-                    if n_w > BARNES_HUT_THRESHOLD:
-                        # P8: Barnes-Hut O(N log N) mutual induction
-                        u_mut, v_mut = barnes_hut_mutual_velocity(
-                            wake.x, wake.y, wake.gamma, n_w,
-                            float(core_r2_arr.mean()))
-                        # Panel + freestream via Numba (vectorised)
-                        u_pan, v_pan = _velocity_batch_jit(
-                            wake.x[:n_w], wake.y[:n_w], n_w,
-                            sl_v.val, 0.0, *panel_arrays)
-                        wake.x[:n_w] += (u_pan + u_mut) * wake_dt
-                        wake.y[:n_w] += (v_pan + v_mut) * wake_dt
-                    else:
-                        _advect_wake_jit(wake.x[:n_w], wake.y[:n_w],
-                                         wake.gamma[:n_w], core_r2_arr,
-                                         n_w, wake_dt, sl_v.val, 0.0,
-                                         *panel_arrays)
-                    wake.age[:n_w] += 1
-                else:
-                    def _panel_vel(x, y):
-                        return _velocity_at_jit(x, y, sl_v.val, 0.0, *panel_arrays)
-                    wake.advect(wake_dt, _panel_vel, sl_v.val, 0.0)
-
-                wake._cull()
-
+            if wake.count > 0:
                 if wake_grid_timer % 30 == 0:
                     wake.merge_close_pairs()
 
                 if wake_grid_timer % 3 == 0:
                     wx, wy, wg = wake.get_arrays()
-                    # ── Wake velocity grid: GPU (CUDA/OpenCL) > Numba > fallback
+                    # ── Wake velocity grid: GPU > Numba > fallback ───────────
+                    core_r2     = wake.core_radius ** 2
+                    core_r2_arr = wake.effective_core_r2(wake_dt)
                     if HAS_CUPY or HAS_OPENCL:
                         U_grid, V_grid = build_velocity_grid_wake_gpu(
                             VGRID_NX, VGRID_NY, xn, xx, yn, yx,
@@ -738,6 +765,10 @@ def run_interactive():
                         U_grid, V_grid = _build_velocity_grid_jit(
                             VGRID_NX, VGRID_NY, xn, xx, yn, yx,
                             sl_v.val, 0.0, *panel_arrays)
+
+                    # Live Cp plot — reflects unsteady pressure each grid update
+                    if t_cp.state and panels:
+                        c_cp = _build_cp_surf()
 
                     # P2: refresh wake-aware streamlines from updated grid
                     if t_str.state and _compute_streamlines_grid_jit is not None:
