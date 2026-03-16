@@ -9,7 +9,7 @@ Features:
   - Interactive tooltips on all controls and readouts (ⓘ hover/click)
 """
 
-import subprocess, sys, math, time
+import subprocess, sys, math, time, threading
 from pathlib import Path
 
 def _ensure(pkg, imp=None):
@@ -181,7 +181,7 @@ def run_interactive():
     sl_v=Slider(sx,130,sw,"V∞",1.0,0.2,3.0,0.05,"{:.2f}")
     sl_a=Slider(sx,164,sw,"α (deg)",5.0,-15.0,15.0,0.5,"{:.1f}°")
     sl_p=Slider(sx,198,sw,"Panels",120,20,500,4,"{:.0f}")  # P4: raised max 200→500
-    sl_c=Slider(sx,232,sw,"Size",1.0,0.3,2.0,0.05,"{:.2f}")
+    sl_c=Slider(sx,232,sw,"Chord (m)",1.0,0.3,2.0,0.05,"{:.2f}")
     sls=[sl_v,sl_a,sl_p,sl_c]
     ty=284; tg_=22
     t_str=Toggle(sx,ty,"Streamlines",True);   t_pre=Toggle(sx,ty+tg_,"Pressure field",True)
@@ -240,8 +240,22 @@ def run_interactive():
     status_msg = ""
     status_msg_timer = 0
 
-    # Physics constant for Re display
-    NU_AIR = 1.5e-5  # kinematic viscosity of air at 20°C, m²/s
+    # Physics constants
+    NU_AIR  = 1.5e-5   # kinematic viscosity of air at 20°C, m²/s
+    RHO_AIR = 1.225    # air density, kg/m³ (ISA sea-level)
+
+    # Background grid computation state
+    _bg_state = {'computing': False, 'result': None}
+
+    # Polar overlay state  (accumulates one point per solve)
+    polar_data    = []          # list of [alpha_deg, CL, CD_tot]
+    polar_visible = False
+    polar_pos     = [20, 20]    # top-left corner on the canvas
+    _polar_drag   = False
+    _polar_drag_origin = (0, 0)
+
+    # Help overlay
+    help_visible = False
 
     def do_image_import():
         nonlocal custom_coords, import_msg, import_msg_timer
@@ -487,58 +501,52 @@ def run_interactive():
         return surf
     # ------------------------------------------------------------------
 
-    def rebuild_caches(ch):
-        nonlocal c_press,c_stream,c_vec,c_body,c_cp,U_grid,V_grid,panel_arrays
-        if not solver.solved or not panels: return
-        xn,xx,yn,yx = SB; t0 = time.time()
-
-        # Velocity grid: GPU (CUDA or OpenCL) > Numba parallel > pure-Python
-        if HAS_CUPY or HAS_OPENCL:
-            U_grid, V_grid = build_velocity_grid_gpu(
-                VGRID_NX, VGRID_NY, xn, xx, yn, yx, sl_v.val, 0.0, *panel_arrays)
-        else:
-            U_grid, V_grid = _build_velocity_grid_jit(
-                VGRID_NX, VGRID_NY, xn, xx, yn, yx, sl_v.val, 0.0, *panel_arrays)
-
-        PRES = 400
-        pg_x = np.linspace(xn, xx, PRES, dtype=np.float64)
-        pg_y = np.linspace(yx, yn, PRES, dtype=np.float64)
-        PX, PY = np.meshgrid(pg_x, pg_y)
-        PU, PV = _velocity_batch_jit(PX.ravel(), PY.ravel(), PRES*PRES, sl_v.val, 0.0, *panel_arrays)
-        spd = np.sqrt(PU**2+PV**2).reshape(PRES,PRES)
-        Cp = 1-(spd/max(sl_v.val,0.01))**2
-        cols = pressure_color_array(Cp)
-        small = pygame.Surface((PRES,PRES))
-        pygame.surfarray.blit_array(small, cols.transpose(1,0,2))
-        c_press = pygame.transform.smoothscale(small,(CW,ch)); c_press.set_alpha(100)
-
-        if HAS_NUMBA and _compute_streamlines_jit is not None:
-            all_pts,starts,n_lines = _compute_streamlines_jit(40,800,0.012,sl_v.val,0.0,*panel_arrays,xn,xx,yn,yx)
-            c_stream = pygame.Surface((CW,ch),pygame.SRCALPHA)
+    def _apply_bg_grid_result(res, ch):
+        """Convert raw numpy data from bg thread into pygame surfaces (main-thread only)."""
+        nonlocal c_press, c_stream, c_vec, U_grid, V_grid
+        U_grid, V_grid = res['U'], res['V']
+        # Pressure field surface
+        cols = pressure_color_array(res['Cp_field'])
+        PRES = res['Cp_field'].shape[0]
+        small = pygame.Surface((PRES, PRES))
+        pygame.surfarray.blit_array(small, cols.transpose(1, 0, 2))
+        c_press = pygame.transform.smoothscale(small, (CW, ch))
+        c_press.set_alpha(100)
+        # Streamlines
+        all_pts, starts, n_lines = res['streamlines']
+        c_stream = pygame.Surface((CW, ch), pygame.SRCALPHA)
+        if all_pts is not None:
             for k in range(n_lines):
-                i0=starts[k]; i1=starts[k+1]
-                if i1-i0<6: continue
-                pts=[s2s(all_pts[i,0],all_pts[i,1],ch) for i in range(i0,i1)]
-                pygame.draw.aalines(c_stream,(100,200,255,120),False,pts)
-                for j in range(0,len(pts)-1,7):
-                    pd_x,pd_y=pts[j]
-                    if 0<=pd_x<CW and 0<=pd_y<ch:
-                        pygame.gfxdraw.aacircle(c_stream,pd_x,pd_y,1,(120,210,255,190))
-                        pygame.gfxdraw.filled_circle(c_stream,pd_x,pd_y,1,(120,210,255,190))
-        else:
-            c_stream = pygame.Surface((CW,ch),pygame.SRCALPHA)
+                i0 = starts[k]; i1 = starts[k + 1]
+                if i1 - i0 < 6: continue
+                pts = [s2s(all_pts[i, 0], all_pts[i, 1], ch) for i in range(i0, i1)]
+                pygame.draw.aalines(c_stream, (100, 200, 255, 120), False, pts)
+                for j in range(0, len(pts) - 1, 7):
+                    pd_x, pd_y = pts[j]
+                    if 0 <= pd_x < CW and 0 <= pd_y < ch:
+                        pygame.gfxdraw.aacircle(c_stream, pd_x, pd_y, 1, (120, 210, 255, 190))
+                        pygame.gfxdraw.filled_circle(c_stream, pd_x, pd_y, 1, (120, 210, 255, 190))
+        # Velocity vectors
+        snap_pa = res['panel_arrays']
+        c_vec = pygame.Surface((CW, ch), pygame.SRCALPHA)
+        step = 20
+        for px in range(step // 2, CW, step):
+            for py in range(step // 2, ch, step):
+                sim_x = SB[0] + px / CW * (SB[1] - SB[0])
+                sim_y = SB[3] - py / ch * (SB[3] - SB[2])
+                u, v = _velocity_at_jit(sim_x, sim_y, res['v_inf'], 0.0, *snap_pa)
+                mag = math.sqrt(u * u + v * v)
+                if mag < 0.02: continue
+                sc = 7 / max(res['v_inf'], 0.1)
+                br = min(255, int(80 + mag / max(res['v_inf'], 0.01) * 120))
+                pygame.draw.aaline(c_vec, (br, br, br, 55), (px, py), (int(px + u * sc), int(py - v * sc)))
 
-        c_vec = pygame.Surface((CW,ch),pygame.SRCALPHA)
-        step=20
-        for px in range(step//2,CW,step):
-            for py in range(step//2,ch,step):
-                sim_x=xn+px/CW*(xx-xn); sim_y=yx-py/ch*(yx-yn)
-                u,v=_velocity_at_jit(sim_x,sim_y,sl_v.val,0.0,*panel_arrays)
-                mag=math.sqrt(u*u+v*v)
-                if mag<0.02: continue
-                sc=7/max(sl_v.val,0.1); br=min(255,int(80+mag/max(sl_v.val,0.01)*120))
-                pygame.draw.aaline(c_vec,(br,br,br,55),(px,py),(int(px+u*sc),int(py-v*sc)))
+    def rebuild_caches(ch):
+        nonlocal c_body, c_cp, panel_arrays
+        if not solver.solved or not panels: return
+        xn, xx, yn, yx = SB; t0 = time.time()
 
+        # ── Fast surfaces (main thread) ──────────────────────────────────────
         c_body = pygame.Surface((CW,ch),pygame.SRCALPHA)
         bpts=[s2s(p.xa,p.ya,ch) for p in panels]
         if len(bpts)>2:
@@ -626,6 +634,47 @@ def run_interactive():
 
         print(f"  Caches rebuilt in {time.time()-t0:.2f}s")
 
+        # ── Slow surfaces: velocity grid, pressure field, streamlines ─────────
+        # Launch on a background thread so the main loop stays responsive.
+        # Pygame surface creation is deferred to the main thread (_apply_bg_grid_result).
+        snap_pa = panel_arrays
+        snap_v  = sl_v.val
+        def _bg_work():
+            try:
+                xn_, xx_, yn_, yx_ = SB
+                if HAS_CUPY or HAS_OPENCL:
+                    U_, V_ = build_velocity_grid_gpu(
+                        VGRID_NX, VGRID_NY, xn_, xx_, yn_, yx_, snap_v, 0.0, *snap_pa)
+                else:
+                    U_, V_ = _build_velocity_grid_jit(
+                        VGRID_NX, VGRID_NY, xn_, xx_, yn_, yx_, snap_v, 0.0, *snap_pa)
+                PRES_ = 400
+                pg_x_ = np.linspace(xn_, xx_, PRES_, dtype=np.float64)
+                pg_y_ = np.linspace(yx_, yn_, PRES_, dtype=np.float64)
+                PX_, PY_ = np.meshgrid(pg_x_, pg_y_)
+                PU_, PV_ = _velocity_batch_jit(
+                    PX_.ravel(), PY_.ravel(), PRES_*PRES_, snap_v, 0.0, *snap_pa)
+                spd_ = np.sqrt(PU_**2 + PV_**2).reshape(PRES_, PRES_)
+                Cp_  = 1 - (spd_ / max(snap_v, 0.01))**2
+                if HAS_NUMBA and _compute_streamlines_jit is not None:
+                    ap_, st_, nl_ = _compute_streamlines_jit(
+                        40, 800, 0.012, snap_v, 0.0, *snap_pa, xn_, xx_, yn_, yx_)
+                else:
+                    ap_, st_, nl_ = None, None, 0
+                _bg_state['result'] = {
+                    'U': U_, 'V': V_, 'Cp_field': Cp_,
+                    'streamlines': (ap_, st_, nl_),
+                    'ch': ch, 'v_inf': snap_v, 'panel_arrays': snap_pa,
+                }
+            except Exception as _e:
+                print(f"  BG grid error: {_e}")
+            finally:
+                _bg_state['computing'] = False
+        _bg_state['computing'] = True
+        _bg_state['result'] = None
+        t_ = threading.Thread(target=_bg_work, daemon=True)
+        t_.start()
+
     def build_and_solve():
         nonlocal panels, panel_arrays, body_vx, body_vy, p_count
         nonlocal wake_sim_time, wake_grid_timer
@@ -680,6 +729,12 @@ def run_interactive():
         # instability in the free-wake panel solve.
         wake.prev_bound_gamma = solver.get_circulation(0)
         rebuild_caches(H-(CP_H if t_cp.state else 0))
+        # Append one point to the drag polar (CL vs total CD)
+        _cl_p = solver.get_lift_coefficient(0, sl_c.val)
+        _cd_f = bl_result.get('Cd_friction') or 0.0
+        _cd_p = (solver.get_pressure_drag(0, sl_c.val)
+                 if hasattr(solver, 'get_pressure_drag') else 0.0) or 0.0
+        polar_data.append([sl_a.val, _cl_p, _cd_f + _cd_p])
 
     print("Warming up JIT..." if HAS_NUMBA else "Running in pure Python mode...")
     warmup_jit(); build_and_solve(); print("Ready.\n")
@@ -691,6 +746,14 @@ def run_interactive():
     while running:
         dt=clock.tick(60)/1000.0; fps_t+=dt; fps_c+=1
         if fps_t>0.5: fps_d=int(fps_c/fps_t); fps_c=0; fps_t=0
+
+        # Swap in background grid result when ready
+        if _bg_state['result'] is not None:
+            _res = _bg_state['result']
+            _bg_state['result'] = None
+            _apply_bg_grid_result(_res, _res['ch'])
+            if t_cp.state and panels:
+                c_cp = _build_cp_surf()
 
         needs_solve=False
         for e in pygame.event.get():
@@ -705,6 +768,19 @@ def run_interactive():
                 status_msg = f"Saved: {fname}"; status_msg_timer = 300
             elif e.type==pygame.KEYDOWN and e.key==pygame.K_r and not (e.mod & pygame.KMOD_CTRL):
                 needs_solve = True
+            elif e.type==pygame.KEYDOWN and e.key==pygame.K_h:
+                help_visible = not help_visible
+            elif e.type==pygame.KEYDOWN and e.key==pygame.K_p:
+                polar_visible = not polar_visible
+            # Arrow keys: ↑/↓ sweep α by 0.5°, ←/→ sweep V∞ by 0.05
+            elif e.type==pygame.KEYDOWN and e.key==pygame.K_UP and not (e.mod & pygame.KMOD_CTRL):
+                sl_a.val = max(sl_a.min, min(sl_a.max, sl_a.val + 0.5)); needs_solve = True
+            elif e.type==pygame.KEYDOWN and e.key==pygame.K_DOWN and not (e.mod & pygame.KMOD_CTRL):
+                sl_a.val = max(sl_a.min, min(sl_a.max, sl_a.val - 0.5)); needs_solve = True
+            elif e.type==pygame.KEYDOWN and e.key==pygame.K_RIGHT and not (e.mod & pygame.KMOD_CTRL):
+                sl_v.val = max(sl_v.min, min(sl_v.max, sl_v.val + 0.05)); needs_solve = True
+            elif e.type==pygame.KEYDOWN and e.key==pygame.K_LEFT and not (e.mod & pygame.KMOD_CTRL):
+                sl_v.val = max(sl_v.min, min(sl_v.max, sl_v.val - 0.05)); needs_solve = True
 
             # Ctrl+Z undo in drawing mode
             elif (e.type==pygame.KEYDOWN and e.key==pygame.K_z
@@ -764,11 +840,29 @@ def run_interactive():
                 draw_points.clear(); draw_undo_stack.clear()
                 draw_closed=False; custom_coords=None
                 wake.reset(); wake_sim_time=0.0; wake_grid_timer=0
+                polar_data.clear()
             if btn_ss.handle_event(e):
                 ts = time.strftime("%Y%m%d_%H%M%S")
                 fname = f"cfd_screenshot_{ts}.png"
                 pygame.image.save(screen, fname)
                 status_msg = f"Saved: {fname}"; status_msg_timer = 300
+
+            # --- Polar overlay drag ---
+            if polar_visible and e.type in (pygame.MOUSEBUTTONDOWN,
+                                            pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION):
+                mx, my = e.pos if hasattr(e, 'pos') else pygame.mouse.get_pos()
+                POW, POH = 240, 200   # polar overlay width/height
+                px0, py0 = polar_pos[0], polar_pos[1]
+                title_rect = pygame.Rect(px0, py0, POW, 18)
+                if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                    if title_rect.collidepoint(mx, my):
+                        _polar_drag = True
+                        _polar_drag_origin = (mx - px0, my - py0)
+                elif e.type == pygame.MOUSEBUTTONUP and e.button == 1:
+                    _polar_drag = False
+                elif e.type == pygame.MOUSEMOTION and _polar_drag:
+                    polar_pos[0] = max(0, min(CW - POW, mx - _polar_drag_origin[0]))
+                    polar_pos[1] = max(0, min(canvas_h - POH, my - _polar_drag_origin[1]))
 
             # --- Drawing tool canvas events ---
             if BTYPES[bg_.sel]=="Draw" and e.type in (
@@ -1069,6 +1163,28 @@ def run_interactive():
                     pygame.draw.aaline(screen,(255,170,50),(sx_p,sy_p),
                                        (sx_p+int(p.nx*18),sy_p-int(p.ny*18)))
 
+        # Stagnation point marker (panel with Cp closest to +1)
+        if solver.solved and panels:
+            _stag = min(panels, key=lambda _p: abs(_p.cp - 1.0))
+            _sx, _sy = s2s(_stag.xm, _stag.ym, canvas_h)
+            _ds = 6
+            pygame.draw.polygon(screen, (255, 240, 100),
+                [(_sx, _sy - _ds), (_sx + _ds, _sy),
+                 (_sx, _sy + _ds), (_sx - _ds, _sy)])
+            pygame.draw.polygon(screen, (20, 28, 46),
+                [(_sx, _sy - _ds + 2), (_sx + _ds - 2, _sy),
+                 (_sx, _sy + _ds - 2), (_sx - _ds + 2, _sy)])
+            screen.blit(lfont.render("S₀", True, (255, 240, 100)), (_sx + 8, _sy - 8))
+
+        # Kármán / Strouhal HUD for bluff bodies with wake active
+        if t_wake.state and BTYPES[bg_.sel] in ("Cylinder", "Square") and solver.solved:
+            _D = (sl_c.val * 0.6 if BTYPES[bg_.sel] == "Cylinder" else sl_c.val * 0.5)
+            _St = 0.2 if BTYPES[bg_.sel] == "Cylinder" else 0.15
+            _f_shed = _St * sl_v.val / max(_D, 1e-6)
+            _hud = f"Kármán  St ≈ {_St:.2f}  |  f ≈ {_f_shed:.2f} Hz"
+            _hw = lfont.size(_hud)[0]
+            screen.blit(lfont.render(_hud, True, (160, 185, 240)), (CW - _hw - 8, 8))
+
         # Wake vortex legend (bottom-left corner of canvas)
         if wake.count > 0:
             _leg_x, _leg_y = 8, canvas_h - 56
@@ -1207,6 +1323,100 @@ def run_interactive():
             elif c_cp:
                 screen.blit(c_cp, (0, canvas_h))
 
+        # ── Polar drag overlay ──────────────────────────────────
+        if polar_visible:
+            POW, POH = 240, 200
+            px0, py0 = int(polar_pos[0]), int(polar_pos[1])
+            _pol = pygame.Surface((POW, POH), pygame.SRCALPHA)
+            _pol.fill((12, 18, 32, 230))
+            pygame.draw.rect(_pol, (40, 60, 90), (0, 0, POW, POH), 1, border_radius=5)
+            # Title bar (drag handle)
+            pygame.draw.rect(_pol, (25, 38, 60), (0, 0, POW, 18), border_radius=5)
+            _pol.blit(lfont.render("Drag Polar  [P] close", True, (107, 125, 153)), (6, 2))
+            if len(polar_data) >= 2:
+                _pda = np.array(polar_data)
+                _a_arr  = _pda[:, 0]
+                _cl_arr = _pda[:, 1]
+                _cd_arr = np.abs(_pda[:, 2])
+                _ml, _mr, _mt, _mb = 36, 12, 22, 28
+                _pw_ = POW - _ml - _mr; _ph_ = POH - _mt - _mb
+                _cd_lo, _cd_hi = 0.0, max(_cd_arr.max() * 1.2, 1e-5)
+                _cl_lo, _cl_hi = _cl_arr.min() - 0.2, _cl_arr.max() + 0.2
+                def _p2s(cd, cl):
+                    px_ = int(_ml + (cd - _cd_lo) / (_cd_hi - _cd_lo + 1e-30) * _pw_)
+                    py_ = int(_mt + (_cl_hi - cl)  / (_cl_hi - _cl_lo + 1e-30) * _ph_)
+                    return (max(0, min(POW-1, px_)), max(0, min(POH-1, py_)))
+                # Grid lines
+                for _cv in np.linspace(_cd_lo, _cd_hi, 4):
+                    _gx = int(_ml + (_cv - _cd_lo) / (_cd_hi - _cd_lo + 1e-30) * _pw_)
+                    pygame.draw.line(_pol, (30, 46, 68), (_gx, _mt), (_gx, _mt + _ph_), 1)
+                    _pol.blit(lfont.render(f"{_cv:.3f}", True, (70, 88, 114)), (_gx - 10, _mt + _ph_ + 4))
+                for _cv in np.linspace(_cl_lo, _cl_hi, 5):
+                    _, _gy = _p2s(_cd_lo, _cv)
+                    pygame.draw.line(_pol, (30, 46, 68), (_ml, _gy), (_ml + _pw_, _gy), 1)
+                    _pol.blit(lfont.render(f"{_cv:.1f}", True, (70, 88, 114)), (2, _gy - 5))
+                # Axes labels
+                _pol.blit(lfont.render("CD", True, (107, 125, 153)), (POW // 2 - 8, POH - 14))
+                _pol.blit(lfont.render("CL", True, (107, 125, 153)), (2, _mt + _ph_ // 2 - 5))
+                # Data curve
+                _pts = [_p2s(_cd_arr[i], _cl_arr[i]) for i in range(len(_pda))]
+                if len(_pts) > 1:
+                    pygame.draw.aalines(_pol, (46, 232, 154), False, _pts)
+                for _pt in _pts:
+                    pygame.gfxdraw.filled_circle(_pol, _pt[0], _pt[1], 2, (46, 232, 154, 200))
+                # Current point highlight
+                _cur = _p2s(_cd_arr[-1], _cl_arr[-1])
+                pygame.gfxdraw.filled_circle(_pol, _cur[0], _cur[1], 4, (255, 200, 60, 255))
+            else:
+                _pol.blit(lfont.render("Sweep α (↑/↓) to build polar", True,
+                                       (107, 125, 153)), (16, POH // 2 - 6))
+            screen.blit(_pol, (px0, py0))
+
+        # ── Help overlay ────────────────────────────────────────
+        if help_visible:
+            _hov = pygame.Surface((CW, canvas_h), pygame.SRCALPHA)
+            _hov.fill((8, 12, 24, 210))
+            _lines = [
+                ("CFD PANEL METHOD — HELP",            (234, 240, 249), tfont),
+                ("",                                    None, None),
+                ("PHYSICS MODEL",                       (59, 158, 255),  tfont),
+                ("Hess-Smith potential-flow panel method (inviscid, incompressible,",
+                 (180, 195, 220), lfont),
+                ("irrotational). Cp from Bernoulli. BL coupling = XFOIL-style",
+                 (180, 195, 220), lfont),
+                ("transpiration. Vortex wake = free discrete vortex method.",
+                 (180, 195, 220), lfont),
+                ("Unsteady forces use quasi-steady approximation (no added mass).",
+                 (180, 195, 220), lfont),
+                ("",                                    None, None),
+                ("KEYBOARD SHORTCUTS",                  (59, 158, 255),  tfont),
+                ("Space        Pause / resume physics", (200, 215, 235), lfont),
+                ("↑ / ↓        Angle of attack ±0.5°", (200, 215, 235), lfont),
+                ("← / →        Free-stream speed ±0.05", (200, 215, 235), lfont),
+                ("R            Re-solve current geometry", (200, 215, 235), lfont),
+                ("S            Save screenshot",         (200, 215, 235), lfont),
+                ("P            Show / hide drag polar",  (200, 215, 235), lfont),
+                ("H            Toggle this help screen", (200, 215, 235), lfont),
+                ("Ctrl+Z       Undo last draw point",    (200, 215, 235), lfont),
+                ("Escape       Quit",                    (200, 215, 235), lfont),
+                ("",                                     None, None),
+                ("CANVAS SYMBOLS",                      (59, 158, 255),  tfont),
+                ("◇ yellow     Stagnation point (Cp = +1)", (200, 215, 235), lfont),
+                ("T marker     BL transition location",  (200, 215, 235), lfont),
+                ("S marker     BL separation location",  (200, 215, 235), lfont),
+                ("δ* ×5        Displacement thickness (5× exaggerated)", (200, 215, 235), lfont),
+                ("",                                     None, None),
+                ("Press H to close",                     (107, 125, 153), lfont),
+            ]
+            _iy = 30
+            for _txt, _col, _fnt in _lines:
+                if _col is None:
+                    _iy += 8
+                    continue
+                _hov.blit(_fnt.render(_txt, True, _col), (40, _iy))
+                _iy += _fnt.size(_txt)[1] + 4
+            screen.blit(_hov, (0, 0))
+
         # SIDEBAR
         pygame.draw.rect(screen,(15,21,32),(CW,0,SBW,H))
         pygame.draw.line(screen,(30,42,63),(CW,0),(CW,H),1)
@@ -1280,43 +1490,55 @@ def run_interactive():
         ry = _BN_Y + 108
         screen.blit(lfont.render("AERODYNAMICS",True,(107,125,153)),(sx,ry)); ry+=18
         Re_val = sl_v.val * sl_c.val / NU_AIR
+        # Re regime colour and label
+        if Re_val < 5e5:
+            _re_col = (80, 200, 120);  _re_regime = "Laminar"
+        elif Re_val < 1e6:
+            _re_col = (240, 185, 60);  _re_regime = "Trans."
+        else:
+            _re_col = (255, 100, 80);  _re_regime = "Turbulent"
+        _re_str = f"{Re_val:.2e} ({_re_regime})"
         if solver.solved and panels:
             CL=solver.get_lift_coefficient(0,sl_c.val)
             G=solver.get_circulation(0)
             CLt=2*np.pi*np.radians(sl_a.val)
             Cd_f=bl_result.get('Cd_friction')
             Cd_p=solver.get_pressure_drag(0,sl_c.val) if hasattr(solver,'get_pressure_drag') else None
+            L_per_span = 0.5 * RHO_AIR * sl_v.val**2 * CL * sl_c.val
             if t_flap.state and solver.n_bodies >= 2:
-                # Multi-element: show per-body CL and combined total
                 CL_fl = solver.get_lift_coefficient(1, sl_c.val * 0.3)
                 rd=[("CL main", f"{CL:.4f}",   (46,232,154) if CL>=0 else (255,85,119)),
                     ("CL flap", f"{CL_fl:.4f}", (255,185,55) if CL_fl>=0 else (255,85,119)),
                     ("CL total",f"{CL+CL_fl:.4f}",(200,212,230)),
-                    ("Panels",  f"{len(panels)}",(200,212,230)),
+                    ("L (N/m)", f"{L_per_span:.2f}", (200,212,230)),
                     ("Cd fric", f"{Cd_f:.5f}" if Cd_f is not None else "—",
                      (255,190,60) if Cd_f else (107,125,153)),
                     ("Cd pres", f"{Cd_p:.5f}" if Cd_p is not None else "—",
                      (255,150,80) if Cd_p else (107,125,153)),
-                    ("Re",      f"{Re_val:.2e}",(180,210,240))]
+                    ("Re", _re_str, _re_col)]
             else:
                 rd=[("CL",f"{CL:.4f}",(46,232,154) if CL>=0 else (255,85,119)),
                     ("Γ", f"{G:.4f}", (46,232,154) if G>=0 else (255,85,119)),
                     ("CL (theory)",f"{CLt:.4f}",(200,212,230)),
-                    ("Panels",f"{len(panels)}",(200,212,230)),
+                    ("L (N/m)",f"{L_per_span:.2f}",(200,212,230)),
                     ("Cd friction",f"{Cd_f:.5f}" if Cd_f is not None else "—",(255,190,60) if Cd_f else (107,125,153)),
                     ("Cd pressure",f"{Cd_p:.5f}" if Cd_p is not None else "—",(255,150,80) if Cd_p else (107,125,153)),
-                    ("Re",f"{Re_val:.2e}",(180,210,240))]
+                    ("Re", _re_str, _re_col)]
         else:
             rd=[("CL","—",(107,125,153)),("Γ","—",(107,125,153)),
-                ("CL (theory)","—",(107,125,153)),("Panels","0",(107,125,153)),
+                ("CL (theory)","—",(107,125,153)),("L (N/m)","—",(107,125,153)),
                 ("Cd friction","—",(107,125,153)),("Cd pressure","—",(107,125,153)),
-                ("Re",f"{Re_val:.2e}",(180,210,240))]
+                ("Re", _re_str, _re_col)]
         for i,(l,v,c) in enumerate(rd):
             row,ci=i//2,i%2; bx=sx+ci*(sw//2+4); by=ry+row*40
             box=pygame.Rect(bx,by,sw//2-2,34)
             pygame.draw.rect(screen,(10,14,23),box,border_radius=4)
             pygame.draw.rect(screen,(30,42,63),box,1,border_radius=4)
             screen.blit(lfont.render(l,True,(107,125,153)),(bx+8,by+4))
+            # Re box: add regime background tint
+            if l == "Re" and solver.solved:
+                pygame.draw.rect(screen, (*_re_col[:3], 18),
+                                 (bx+2, by+2, sw//2-6, 30), border_radius=3)
             screen.blit(mfont.render(v,True,c),(bx+8,by+18))
 
         # Solver error / screenshot status notification (below readouts)
@@ -1332,10 +1554,11 @@ def run_interactive():
               else "OpenCL+Numba" if HAS_OPENCL
               else "Numba JIT" if HAS_NUMBA else "Python")
         wake_info = f" | {wake.count} vortices" if wake.count > 0 else ""
+        _bg_ind = " ⟳" if _bg_state['computing'] else ""
         _pause_hint = "Space: resume" if paused else "Space: pause"
-        screen.blit(lfont.render(f"{_pause_hint}  |  S: screenshot  |  R: re-solve",
+        screen.blit(lfont.render(f"{_pause_hint}  |  ↑↓ α  |  ←→ V∞  |  H help  |  P polar",
                                  True,(60,78,108)),(sx,H-34))
-        screen.blit(lfont.render(f"{fps_d} fps | {p_count} particles{wake_info} | {jt}",
+        screen.blit(lfont.render(f"{fps_d} fps | {p_count} particles{wake_info}{_bg_ind} | {jt}",
                                  True,(107,125,153)),(sx,H-20))
         screen.blit(lfont.render("Hess-Smith · RK4 · Bernoulli Cp",True,(50,65,90)),
                     (8, canvas_h-18 if t_cp.state else H-18))
