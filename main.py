@@ -189,8 +189,9 @@ def run_interactive():
     t_nor=Toggle(sx,ty+tg_*4,"Panel normals",True);     t_cp=Toggle(sx,ty+tg_*5,"Cp plot",True)
     t_wake=Toggle(sx,ty+tg_*6,"Vortex shedding",False)
     t_osc=Toggle(sx,ty+tg_*7,"Pitch oscillation",False)
-    tgs=[t_str,t_pre,t_vec,t_par,t_nor,t_cp,t_wake,t_osc]
-    _BN_Y = ty + tg_*8 + 14           # button row y (was ty+tg_*7+14)
+    t_visc=Toggle(sx,ty+tg_*8,"Viscous BL coupling",False)
+    tgs=[t_str,t_pre,t_vec,t_par,t_nor,t_cp,t_wake,t_osc,t_visc]
+    _BN_Y = ty + tg_*9 + 14           # button row y
     btn_s=Button(sx,_BN_Y,70,28,"Solve")
     btn_c=Button(sx+78,_BN_Y,70,28,"Clear",(180,50,70))
     btn_ss=Button(sx+156,_BN_Y,sw-158,28,"Screenshot",(40,110,75))
@@ -203,6 +204,9 @@ def run_interactive():
     wake_grid_timer = 0
     # Track previous wake-toggle state to detect transitions
     wake_was_on = False
+
+    # --- Viscous BL coupling state ---
+    visc_was_on = False            # edge-detect toggle for viscous mode
 
     # --- Pitch oscillation state ---
     osc_t       = 0.0              # oscillation time counter (s)
@@ -300,7 +304,7 @@ def run_interactive():
     tm.register_at(sx + sw - 14, sl_a.rect.y + 4, *TIPS['alpha'])
     tm.register_at(sx + sw - 14, sl_p.rect.y + 4, *TIPS['panels'])
     tm.register_at(sx + sw - 14, sl_c.rect.y + 4, *TIPS['size'])
-    toggle_tips = ['streamlines','pressure','vectors','particles','normals','cpplot','wake','osc']
+    toggle_tips = ['streamlines','pressure','vectors','particles','normals','cpplot','wake','osc','viscous']
     for tg_w, tip_key in zip(tgs, toggle_tips):
         tm.register_at(sx + sw - 14, tg_w.y + 1, *TIPS[tip_key])
     tm.register_at(sx + sw - 14, sl_osc_f.rect.y + 4, *TIPS['osc_freq'])
@@ -481,7 +485,7 @@ def run_interactive():
     # ------------------------------------------------------------------
 
     def rebuild_caches(ch):
-        nonlocal c_press,c_stream,c_vec,c_body,c_cp,U_grid,V_grid
+        nonlocal c_press,c_stream,c_vec,c_body,c_cp,U_grid,V_grid,panel_arrays
         if not solver.solved or not panels: return
         xn,xx,yn,yx = SB; t0 = time.time()
 
@@ -547,12 +551,29 @@ def run_interactive():
 
         c_cp = _build_cp_surf()
 
-        # P9: Boundary layer solve — runs after every geometry change
+        # P9: Boundary layer solve — runs after every geometry change.
+        # When Viscous BL coupling is on, iterate panel→BL→transpiration 5×.
         nonlocal bl_result
         try:
             bl_result = compute_boundary_layer(
                 panels, (0, len(panels)),
                 V_inf=sl_v.val, Re=RE_DEFAULT, chord=sl_c.val)
+            if t_visc.state and solver.solved and bl_result:
+                # Viscous-inviscid iteration with under-relaxation.
+                # Relaxation factor 0.15 keeps the Ue change per step small
+                # enough to prevent BL overflow, while 5 × 0.15 = 75% of
+                # the total correction is applied after convergence.
+                VISC_RELAX = 0.15
+                for _vi in range(5):
+                    q_visc = bl_result.get('transpiration')
+                    if q_visc is not None and len(q_visc) >= len(panels):
+                        solver.solve_viscous(sl_v.val, 0.0,
+                                             np.asarray(q_visc) * VISC_RELAX)
+                        bl_result = compute_boundary_layer(
+                            panels, (0, len(panels)),
+                            V_inf=sl_v.val, Re=RE_DEFAULT, chord=sl_c.val)
+                # Refresh panel_arrays after viscous solve
+                panel_arrays = extract_panel_arrays(panels)
         except Exception:
             bl_result = {}
 
@@ -575,6 +596,22 @@ def run_interactive():
         _draw_bl_marker(bl_result.get('x_tr_lower'),  (255, 230,  60), "T",  1)
         _draw_bl_marker(bl_result.get('x_sep_upper'), (255,  80,  80), "S", -1)
         _draw_bl_marker(bl_result.get('x_sep_lower'), (255,  80,  80), "S",  1)
+
+        # Displacement body outline — offset each panel midpoint outward by δ*
+        # (scaled ×5 for visual clarity) when Viscous BL coupling is active.
+        if t_visc.state and bl_result.get('delta_star') is not None:
+            dstar = bl_result['delta_star']
+            DISP_SCALE = 5.0   # visual exaggeration factor (shown in UI label)
+            disp_pts = []
+            for i, p in enumerate(panels):
+                if i < len(dstar) and dstar[i] > 1e-8:
+                    dx = p.xm + p.nx * dstar[i] * DISP_SCALE
+                    dy = p.ym + p.ny * dstar[i] * DISP_SCALE
+                    disp_pts.append(s2s(dx, dy, ch))
+            if len(disp_pts) > 2:
+                pygame.draw.aalines(c_body, (0, 210, 180, 200), True, disp_pts)
+            c_body.blit(lfont.render("δ* ×5", True, (0, 180, 155)),
+                        (4, ch - 18))
 
         print(f"  Caches rebuilt in {time.time()-t0:.2f}s")
 
@@ -666,6 +703,10 @@ def run_interactive():
             if (t_osc.state and not osc_was_on) or sl_osc_f.changed or sl_osc_a.changed:
                 osc_t = 0.0; cl_hist_len = 0; cl_hist_idx = 0; c_osc = None
             osc_was_on = t_osc.state
+            # Viscous toggle: rebuild caches to run/stop the iteration loop
+            if t_visc.state != visc_was_on and solver.solved and panels:
+                rebuild_caches(H - (CP_H if t_cp.state else 0))
+            visc_was_on = t_visc.state
             if btn_s.handle_event(e):
                 if BTYPES[bg_.sel]=="Draw" and draw_closed:
                     if build_draw_shape(): needs_solve = True

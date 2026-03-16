@@ -459,6 +459,67 @@ class HessSmithSolver:
 
         return U, V
 
+    def solve_viscous(self, V_inf: float, alpha: float,
+                      transpiration_q: np.ndarray) -> bool:
+        """
+        Re-solve the panel system with a transpiration boundary condition.
+
+        This is the inner step of the XFOIL-style viscous-inviscid iteration.
+        The transpiration velocity q[i] = d(Ue·δ*)/ds is added to the
+        no-penetration RHS for each panel, representing the outward blowing
+        due to boundary-layer displacement.
+
+        Uses the cached LU factorisation → O(N²) per iteration, matching
+        the cost of a regular re-solve.  Calling this 5-10× per frame
+        gives rapid convergence without re-factorising A.
+
+        Args:
+            V_inf, alpha:      freestream speed and angle (radians)
+            transpiration_q:   shape (≥N,) normal blowing velocity per panel;
+                               compute from boundary_layer.compute_boundary_layer
+                               result['transpiration']
+        Returns:
+            True on success; False if geometry cache not yet built.
+        """
+        if self._A_lu is None or self.n_panels == 0:
+            return False
+
+        N  = self.n_panels
+        Nb = self.n_bodies
+        U_inf   = V_inf * np.cos(alpha)
+        V_inf_y = V_inf * np.sin(alpha)
+
+        # Same RHS as solve(), plus transpiration on no-penetration rows
+        b = np.zeros(N + Nb)
+        b[:N] = -(U_inf * self._nx_arr + V_inf_y * self._ny_arr)
+        q = np.asarray(transpiration_q, dtype=np.float64)
+        if q.ndim == 1 and len(q) >= N:
+            b[:N] += q[:N]
+
+        for k in range(Nb):
+            row = N + k
+            i_start, i_end = self.body_panel_ranges[k]
+            for pidx in [i_start, i_end - 1]:
+                pi = self.panels[pidx]
+                b[row] -= U_inf * pi.tx + V_inf_y * pi.ty
+
+        try:
+            x = lu_solve(self._A_lu, b)
+        except Exception:
+            return False
+
+        for i in range(N):
+            self.panels[i].sigma = x[i]
+        for k in range(Nb):
+            gamma_k = x[N + k]
+            i_start, i_end = self.body_panel_ranges[k]
+            for i in range(i_start, i_end):
+                self.panels[i].gamma = gamma_k
+
+        self._update_surface_cp(U_inf, V_inf_y)
+        self.solved = True
+        return True
+
     def get_circulation(self, body_id: int = 0) -> float:
         """Total circulation Gamma = gamma x sum(panel lengths) for body k."""
         if not self.solved or body_id >= self.n_bodies:

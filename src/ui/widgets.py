@@ -572,6 +572,23 @@ TIPS = {
         "theory is valid. Large amplitudes will show nonlinear behaviour not "
         "predicted by the linear theory overlay."),
 
+    'viscous': ("Viscous BL Coupling (XFOIL-style)",
+        "Iteratively couples the inviscid panel method with the integral\n"
+        "boundary-layer solver (Thwaites/Michel/Head) via transpiration velocity.\n\n"
+        "Each iteration:\n"
+        "  1. Panel solve → inviscid surface velocity Ue(s)\n"
+        "  2. BL integrate → δ*(s) = θ(s) × H(s)  (displacement thickness)\n"
+        "  3. Transpiration q = d(Ue·δ*)/ds added as normal-velocity BC\n"
+        "  4. Panel re-solves with the corrected effective geometry\n"
+        "  (5 iterations per frame for fast interactive convergence)\n\n"
+        "Effects on the solution:\n"
+        "  - Cp distribution shifts toward the viscous prediction\n"
+        "  - CL slightly reduced (effective camber change due to BL)\n"
+        "  - The faint teal outline shows the displacement body (×5 δ*)\n\n"
+        "Limitations: assumes attached flow.  Accuracy degrades near "
+        "the separation markers (S).  For separated flows, use a "
+        "full Navier-Stokes solver."),
+
     'screenshot': ("Save Screenshot",
         "Save the current canvas as a PNG image.\n\n"
         "The file is saved to the current directory with a timestamped name: "

@@ -103,6 +103,9 @@ def _integrate_bl(s: np.ndarray, Ue: np.ndarray, nu: float,
         if lam:
             # ── Thwaites' laminar integration ──────────────────────────
             # d(θ²·Ue⁶)/ds = 0.45·ν·Ue⁵  →  trapezoidal update
+            # Cap Ue at 1e2 to prevent Ue^6 overflow during viscous iteration
+            Ue_k   = min(Ue_k,   1e2)
+            Ue_km1 = min(Ue_km1, 1e2)
             I_new = 0.45 * nu * Ue_k   ** 5 * ds
             I_old = 0.45 * nu * Ue_km1 ** 5 * ds
             th2_new = (theta[k-1]**2 * Ue_km1**6 + 0.5*(I_new + I_old)) / Ue_k**6
@@ -221,7 +224,7 @@ def compute_boundary_layer(panels, body_range, V_inf: float = 1.0,
     def _run_side(mask_fn):
         idx = [k for k in range(n) if mask_fn(bp[k])]
         if len(idx) < 3:
-            return ({}, None, None, 0.0)
+            return ({}, None, None, 0.0, np.zeros(n), np.zeros(n))
         # Sort by arc-length from stagnation (closest to min-Ue first)
         stag = min(idx, key=lambda k: Ue_all[k])
         # Take the side from stagnation to the trailing edge
@@ -243,10 +246,48 @@ def compute_boundary_layer(panels, body_range, V_inf: float = 1.0,
             x_tr = x_side[min(ki, len(x_side)-1)]
         arrays = {'s': s_side, 'x': x_side, 'Ue': Ue_side,
                   'theta': theta_s, 'H': H_s, 'Cf': Cf_s, 'laminar': lam_s}
-        return arrays, x_tr, x_sep, cd_f
 
-    upper, x_tr_u, x_sep_u, cd_u = _run_side(lambda p: p.ym >= cy)
-    lower, x_tr_l, x_sep_l, cd_l = _run_side(lambda p: p.ym <  cy)
+        # Displacement thickness δ* = θ × H.
+        dstar_s = theta_s * H_s
+
+        # Transpiration q = d(Ue·δ*)/dx using x-coordinate ordering.
+        # The existing 'side' sort creates a non-monotone arc-length sequence
+        # (it interleaves panels from both sides of the stagnation), so we
+        # compute the gradient in the x-direction instead, which is always
+        # monotone from LE to TE on each surface.
+        ns = len(side)
+        order_x   = sorted(range(ns), key=lambda ki: x_side[ki])
+        x_mon     = x_side[order_x]
+        Uedst_mon = (Ue_side * dstar_s)[order_x]
+        q_mon     = np.zeros(ns)
+        if ns > 2:
+            dx         = np.maximum(x_mon[2:] - x_mon[:-2], 1e-12)
+            q_mon[1:-1] = (Uedst_mon[2:] - Uedst_mon[:-2]) / dx
+            q_mon[0]   = (Uedst_mon[1] - Uedst_mon[0]) / max(x_mon[1] - x_mon[0],    1e-12)
+            q_mon[-1]  = (Uedst_mon[-1] - Uedst_mon[-2]) / max(x_mon[-1] - x_mon[-2], 1e-12)
+        elif ns == 2:
+            q_mon[:] = (Uedst_mon[1] - Uedst_mon[0]) / max(x_mon[1] - x_mon[0], 1e-12)
+        # Map back to side-order
+        q_s = np.zeros(ns)
+        for xi, si in enumerate(order_x):
+            q_s[si] = q_mon[xi]
+
+        # Hard cap at 1 % of max local Ue — removes any residual LE spikes
+        # while keeping the physically meaningful mid-chord transpiration.
+        q_max = max(abs(Ue_side).max() * 0.01, 1e-8)
+        q_s = np.clip(q_s, -q_max, q_max)
+
+        # Map per-station values back to the full n-panel body index space
+        dstar_panel = np.zeros(n)
+        q_panel     = np.zeros(n)
+        for k_idx, k in enumerate(side):
+            dstar_panel[k] = dstar_s[k_idx]
+            q_panel[k]     = q_s[k_idx]
+
+        return arrays, x_tr, x_sep, cd_f, dstar_panel, q_panel
+
+    upper, x_tr_u, x_sep_u, cd_u, dstar_u, q_u = _run_side(lambda p: p.ym >= cy)
+    lower, x_tr_l, x_sep_l, cd_l, dstar_l, q_l = _run_side(lambda p: p.ym <  cy)
 
     return {
         'Cd_friction':  cd_u + cd_l,
@@ -256,4 +297,7 @@ def compute_boundary_layer(panels, body_range, V_inf: float = 1.0,
         'x_tr_lower':   x_tr_l,
         'upper':        upper,
         'lower':        lower,
+        # Per-panel (body-range-indexed) arrays for viscous-inviscid coupling:
+        'delta_star':    dstar_u + dstar_l,   # displacement thickness δ*(s)
+        'transpiration': q_u + q_l,           # d(Ue·δ*)/ds — normal blowing BC
     }
