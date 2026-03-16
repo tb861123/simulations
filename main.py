@@ -191,6 +191,7 @@ def run_interactive():
     tgs=[t_str,t_pre,t_vec,t_par,t_nor,t_cp,t_wake]
     btn_s=Button(sx,ty+tg_*7+14,70,28,"Solve")
     btn_c=Button(sx+78,ty+tg_*7+14,70,28,"Clear",(180,50,70))
+    btn_ss=Button(sx+156,ty+tg_*7+14,sw-158,28,"Screenshot",(40,110,75))
 
     # --- Vortex wake state ---
     wake = VortexWake(max_vortices=2000, core_radius=0.025)
@@ -213,6 +214,15 @@ def run_interactive():
     custom_coords = None
     import_msg = ""
     import_msg_timer = 0
+
+    # --- Solver error / status notification ---
+    solve_err_msg = ""
+    solve_err_timer = 0
+    status_msg = ""
+    status_msg_timer = 0
+
+    # Physics constant for Re display
+    NU_AIR = 1.5e-5  # kinematic viscosity of air at 20°C, m²/s
 
     def do_image_import():
         nonlocal custom_coords, import_msg, import_msg_timer
@@ -283,11 +293,12 @@ def run_interactive():
         tm.register_at(sx + sw - 14, tg_w.y + 1, *TIPS[tip_key])
     readout_y_base = ty + tg_ * 7 + 52 + 18
     for i, tip_key in enumerate(['cl', 'gamma', 'cl_theory', 'panel_count',
-                                  'cd_friction', 'cd_pressure']):
+                                  'cd_friction', 'cd_pressure', 're']):
         row, ci = i // 2, i % 2
         bx = sx + ci * (sw // 2 + 4)
         by = readout_y_base + row * 52
         tm.register_at(bx + sw // 2 - 18, by + 2, *TIPS[tip_key])
+    tm.register_at(btn_ss.rect.right - 14, btn_ss.rect.y + 4, *TIPS['screenshot'])
 
     # --- Particles ---
     MAX_P = 50000
@@ -391,6 +402,29 @@ def run_interactive():
         up=[c2s(xm[i],cpv[i]) for i in range(le+1)]; lo=[c2s(xm[i],cpv[i]) for i in range(le,len(xm))]
         if len(up)>1: pygame.draw.aalines(c_cp,(59,158,255),False,up)
         if len(lo)>1: pygame.draw.aalines(c_cp,(255,119,68),False,lo)
+
+        # Thin-airfoil theory reference lines (flat-plate prediction)
+        alpha_rad = math.radians(sl_a.val)
+        if abs(alpha_rad) > 1e-4:
+            xi_th = np.linspace(0.01, 0.99, 120)
+            x_th = xnc + xi_th * (xxc - xnc)
+            cp_mag = 2.0 * abs(alpha_rad) * np.sqrt((1.0 - xi_th) / xi_th)
+            cp_th_up = -np.sign(alpha_rad) * cp_mag   # upper: suction when α>0
+            cp_th_lo =  np.sign(alpha_rad) * cp_mag   # lower: pressure when α>0
+            th_pts_up = [c2s(x_th[k], cp_th_up[k])
+                         for k in range(len(xi_th))
+                         if clo <= cp_th_up[k] <= chi]
+            th_pts_lo = [c2s(x_th[k], cp_th_lo[k])
+                         for k in range(len(xi_th))
+                         if clo <= cp_th_lo[k] <= chi]
+            # Dashed effect: draw short 6-px gaps every 10px
+            def _draw_dashed(surf, pts, col):
+                for j in range(0, len(pts) - 1, 2):
+                    pygame.draw.line(surf, col, pts[j], pts[j + 1], 1)
+            if len(th_pts_up) > 4: _draw_dashed(c_cp, th_pts_up, (100, 160, 230))
+            if len(th_pts_lo) > 4: _draw_dashed(c_cp, th_pts_lo, (230, 160, 90))
+            c_cp.blit(lfont.render("-- TAT",True,(120,140,170)),(CW-mr-46, CP_H-18))
+
         c_cp.blit(lfont.render("Cp Distribution",True,(107,125,153)),(ml+4,6))
         c_cp.blit(lfont.render("● Upper",True,(59,158,255)),(CW-mr-130,6))
         c_cp.blit(lfont.render("● Lower",True,(255,119,68)),(CW-mr-62,6))
@@ -429,6 +463,7 @@ def run_interactive():
     def build_and_solve():
         nonlocal panels, panel_arrays, body_vx, body_vy, p_count
         nonlocal wake_sim_time, wake_grid_timer
+        nonlocal solve_err_msg, solve_err_timer
         np_=int(sl_p.val); ch=sl_c.val; alpha=sl_a.val; bt=BTYPES[bg_.sel]
         if bt=="NACA":     panels=make_naca_panels(NACA_OPTS[ndd.sel],np_,ch,angle_deg=-alpha)
         elif bt=="Cylinder": panels=make_cylinder_panels(0,0,ch*0.3,np_)
@@ -441,7 +476,14 @@ def run_interactive():
         else:
             return
         if len(panels) < 3: return
-        solver.set_panels(panels,[(0,len(panels))]); solver.solve(sl_v.val,alpha=0.0)
+        try:
+            solver.set_panels(panels,[(0,len(panels))]); solver.solve(sl_v.val,alpha=0.0)
+        except Exception as ex:
+            solve_err_msg = f"Solver failed: {ex}"
+            solve_err_timer = 400
+            print(f"  Solver error: {ex}")
+            return
+        solve_err_msg = ""
         panel_arrays=extract_panel_arrays(panels)
         body_vx=np.array([p.xa for p in panels],np.float64)
         body_vy=np.array([p.ya for p in panels],np.float64)
@@ -509,6 +551,11 @@ def run_interactive():
                 draw_points.clear(); draw_undo_stack.clear()
                 draw_closed=False; custom_coords=None
                 wake.reset(); wake_sim_time=0.0; wake_grid_timer=0
+            if btn_ss.handle_event(e):
+                ts = time.strftime("%Y%m%d_%H%M%S")
+                fname = f"cfd_screenshot_{ts}.png"
+                pygame.image.save(screen, fname)
+                status_msg = f"Saved: {fname}"; status_msg_timer = 300
 
             # --- Drawing tool canvas events ---
             if BTYPES[bg_.sel]=="Draw" and e.type in (
@@ -906,9 +953,10 @@ def run_interactive():
         for sl in sls: sl.draw(screen,font)
         screen.blit(lfont.render("VISUALISATION",True,(107,125,153)),(sx,270))
         for t in tgs: t.draw(screen,font)
-        btn_s.draw(screen,font); btn_c.draw(screen,font)
+        btn_s.draw(screen,font); btn_c.draw(screen,font); btn_ss.draw(screen,font)
 
         ry=ty+tg_*7+52; screen.blit(lfont.render("AERODYNAMICS",True,(107,125,153)),(sx,ry)); ry+=18
+        Re_val = sl_v.val * sl_c.val / NU_AIR
         if solver.solved and panels:
             CL=solver.get_lift_coefficient(0,sl_c.val)
             G=solver.get_circulation(0)
@@ -920,11 +968,13 @@ def run_interactive():
                 ("CL (theory)",f"{CLt:.4f}",(200,212,230)),
                 ("Panels",f"{len(panels)}",(200,212,230)),
                 ("Cd friction",f"{Cd_f:.5f}" if Cd_f is not None else "—",(255,190,60) if Cd_f else (107,125,153)),
-                ("Cd pressure",f"{Cd_p:.5f}" if Cd_p is not None else "—",(255,150,80) if Cd_p else (107,125,153))]
+                ("Cd pressure",f"{Cd_p:.5f}" if Cd_p is not None else "—",(255,150,80) if Cd_p else (107,125,153)),
+                ("Re",f"{Re_val:.2e}",(180,210,240))]
         else:
             rd=[("CL","—",(107,125,153)),("Γ","—",(107,125,153)),
                 ("CL (theory)","—",(107,125,153)),("Panels","0",(107,125,153)),
-                ("Cd friction","—",(107,125,153)),("Cd pressure","—",(107,125,153))]
+                ("Cd friction","—",(107,125,153)),("Cd pressure","—",(107,125,153)),
+                ("Re",f"{Re_val:.2e}",(180,210,240))]
         for i,(l,v,c) in enumerate(rd):
             row,ci=i//2,i%2; bx=sx+ci*(sw//2+4); by=ry+row*52
             box=pygame.Rect(bx,by,sw//2-2,46)
@@ -932,6 +982,15 @@ def run_interactive():
             pygame.draw.rect(screen,(30,42,63),box,1,border_radius=4)
             screen.blit(lfont.render(l,True,(107,125,153)),(bx+8,by+4))
             screen.blit(mfont.render(v,True,c),(bx+8,by+22))
+
+        # Solver error / screenshot status notification (below readouts)
+        notify_y = ry + math.ceil(len(rd)/2) * 52 + 4
+        if solve_err_msg and solve_err_timer > 0:
+            solve_err_timer -= 1
+            screen.blit(lfont.render(solve_err_msg, True, (255,90,90)), (sx, notify_y))
+        elif status_msg and status_msg_timer > 0:
+            status_msg_timer -= 1
+            screen.blit(lfont.render(status_msg, True, (46,232,154)), (sx, notify_y))
 
         jt = ("CUDA+Numba" if HAS_CUPY
               else "OpenCL+Numba" if HAS_OPENCL

@@ -533,4 +533,21 @@ TIPS = {
         "In attached potential flow this is nearly zero (D'Alembert's paradox). "
         "Non-zero values indicate asymmetric panel distributions or numerical "
         "noise. Combine with Cd_f for total drag estimate."),
+
+    're': ("Reynolds Number (Re)",
+        "Re = V∞ · c / ν\n\n"
+        "where V∞ is freestream speed, c is the chord/size, and ν = 1.5×10⁻⁵ m²/s "
+        "(kinematic viscosity of air at 20°C).\n\n"
+        "Re determines the flow regime:\n"
+        "  Re < 10⁴: viscous, laminar\n"
+        "  Re ~ 10⁵: transition range\n"
+        "  Re > 10⁶: turbulent boundary layer\n\n"
+        "Note: this potential-flow solver does not model viscosity — "
+        "Re is shown for reference only."),
+
+    'screenshot': ("Save Screenshot",
+        "Save the current canvas as a PNG image.\n\n"
+        "The file is saved to the current directory with a timestamped name: "
+        "cfd_screenshot_YYYYMMDD_HHMMSS.png\n\n"
+        "Captures the full window including the sidebar and Cp plot."),
 }
