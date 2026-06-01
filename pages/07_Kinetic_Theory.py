@@ -960,8 +960,9 @@ with right_col:
         # ── Advanced: Boyle's Law plot ────────────────────────────────────────
         if mode == "Advanced" and enable_boyle:
             st.divider()
+            _adv_colour2 = COLOURS["advanced"]
             st.markdown(
-                f"<p style='color:{COLOURS[\"advanced\"]};font-weight:600'>"
+                f"<p style='color:{_adv_colour2};font-weight:600'>"
                 "⚗️ Boyle's Law Explorer</p>",
                 unsafe_allow_html=True,
             )
