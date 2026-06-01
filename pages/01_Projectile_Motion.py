@@ -250,10 +250,12 @@ def make_magnus_deriv(cd: float, area: float, mass: float, omega: float):
     """
     k = 0.5 * RHO_AIR * cd * area          # drag constant  (kg/m)
     radius = np.sqrt(area / np.pi)          # ball radius (m)
-    # Magnus coefficient: 0.5·ρ·A·CL·|ω|·r  (units: kg/m)
-    km = 0.5 * RHO_AIR * area * CL_MAGNUS * abs(omega) * radius
-    # Physical spin axis in right-hand coords (clockwise → negative z)
-    omega_z = -omega  # rad/s (right-hand z-axis convention)
+    # Magnus acceleration coefficient: 0.5·ρ·A·CL·r / m  (units: m⁻¹)
+    # Full Magnus accel = km_acc * |ω| * v_perp (m/s²)
+    # where v_perp = perpendicular speed component from spin-axis cross product
+    km_acc = 0.5 * RHO_AIR * area * CL_MAGNUS * radius / mass
+    # Physical spin axis: topspin (clockwise when x-right, y-up) → omega_z < 0
+    omega_z = -omega  # rad/s  (right-hand z-axis convention)
 
     def deriv(t: float, y: np.ndarray) -> np.ndarray:
         """RHS of drag + Magnus ODE: [vx, vy, ax, ay]."""
@@ -266,11 +268,13 @@ def make_magnus_deriv(cd: float, area: float, mass: float, omega: float):
         drag_ax = -(k / mass) * speed * vx
         drag_ay = -g - (k / mass) * speed * vy
 
-        # Magnus: cross product (0,0,omega_z) × (vx,vy,0) gives direction
-        # (-omega_z·vy, omega_z·vx); magnitude scales with speed via km.
-        # km already encodes |omega|, so the full acceleration is:
-        magnus_ax = (km / mass) * (-omega_z * vy) / speed
-        magnus_ay = (km / mass) * ( omega_z * vx) / speed
+        # Magnus: F_M = 0.5·ρ·A·CL·(|ω|·r)·v  in direction perp to v
+        # Cross product (0,0,omega_z) × (vx,vy,0) = (-omega_z·vy, omega_z·vx, 0)
+        # |cross product| = |omega_z| * speed  →  unit perp = (-omega_z·vy, omega_z·vx)/(|omega_z|·speed)
+        # a_M = km_acc · |omega_z| · speed · unit_perp
+        #      = km_acc · (-omega_z·vy, omega_z·vx)    [|omega_z| and speed cancel]
+        magnus_ax = km_acc * (-omega_z * vy)
+        magnus_ay = km_acc * ( omega_z * vx)
 
         return np.array([vx, vy, drag_ax + magnus_ax, drag_ay + magnus_ay])
 
