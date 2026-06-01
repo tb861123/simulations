@@ -794,8 +794,9 @@ def main() -> None:
 
         # ── Metric row ────────────────────────────────────────────────────────
 
-        kepler_ratio = r0 ** 3 / T_period ** 2   # m³ s⁻²
-        kepler_theory = 4.0 * np.pi ** 2 / (G * M)  # 4π²/(GM)
+        # Kepler's 3rd law: T² = (4π²/GM) r³  →  r³/T² = GM/(4π²)
+        kepler_ratio = r0 ** 3 / T_period ** 2        # m³ s⁻²  (= GM/4π²)
+        kepler_theory = G * M / (4.0 * np.pi ** 2)   # m³ s⁻²  theoretical value
 
         metric_row(
             {
@@ -804,8 +805,8 @@ def main() -> None:
                     if not is_unbound
                     else "Unbound (open orbit)"
                 ),
-                "r³/T²": f"{kepler_ratio:.4e} m³/s²",
-                "4π²/GM": f"{kepler_theory:.4e} m³/s²",
+                "r³/T² (measured)": f"{kepler_ratio:.4e} m³/s²",
+                "GM/4π² (theory)": f"{kepler_theory:.4e} m³/s²",
             }
         )
 
@@ -861,9 +862,9 @@ def main() -> None:
 
         kepler_match_pct = abs(kepler_ratio - kepler_theory) / kepler_theory * 100.0
         st.caption(
-            f"Kepler's 3rd law check: r³/T² = {kepler_ratio:.4e},  "
-            f"4π²/GM = {kepler_theory:.4e}  "
-            f"(match to {100.0 - kepler_match_pct:.2f} %)"
+            f"Kepler's 3rd law check: r³/T² = {kepler_ratio:.4e} m³/s²,  "
+            f"GM/(4π²) = {kepler_theory:.4e} m³/s²  "
+            f"(agreement: {100.0 - kepler_match_pct:.2f} %)"
         )
 
         # ── Advanced: two-body plot ───────────────────────────────────────────

@@ -220,9 +220,7 @@ def build_time_series(
         secondary_y=True,
     )
 
-    # Phase-difference shading: shade first half-cycle region where the two
-    # signals diverge.  We shade a rectangle from t=0 to t=|φ|/ω.
-    T = 1.0 / f
+    # Phase-difference shading: shade a stripe of width |φ|/ω from t=0.
     omega = _safe_omega(f)
     phase_t_ms = abs(phi) / omega * 1e3   # width of shaded stripe in ms
 
@@ -306,18 +304,10 @@ def build_phasor_diagram(
     -------
     Plotly Figure with equal-aspect axes
     """
-    V_R_mag = I0 * abs(V0 / (V0 / np.sqrt(2) * np.sqrt(2)) * np.sqrt(V0**2 - (I0 * (X_L - X_C))**2))  # noqa
-    # Recompute component phasor magnitudes cleanly from circuit quantities
-    VR  = I0 * (V0 / np.sqrt((V0)**2) * np.sqrt((V0 / I0)**2 - (X_L - X_C)**2))  # noqa
-
-    # Simpler direct approach: component voltage amplitudes
-    mag_VR = I0 * (V0 / (V0 / I0 * I0)) * (V0 / I0 * I0 - 0)   # avoid confusion
-    # Cleanest: just use I0 * component
-    from_zero = True
-    mag_VR    = I0 * np.sqrt(max((V0 / I0)**2 - (X_L - X_C)**2, 0.0))
-    # Actually: R = (Z² - X_net²)^0.5 → mag_VR = I0*R; but R may not be available
-    # Use: mag_VR = V0 * cos(phi), because V_R = Z*I0*cos(phi) = V0*cos(phi)
-    mag_VR = V0 * np.cos(phi)
+    # Component phasor magnitudes
+    # V_R = I₀·R = V₀·cos(φ)  (projection of V_total onto current axis)
+    # V_L = I₀·X_L,  V_C = I₀·X_C
+    mag_VR = V0 * abs(np.cos(phi))   # always non-negative length
     mag_VL = I0 * X_L
     mag_VC = I0 * X_C
 
