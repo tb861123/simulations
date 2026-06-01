@@ -770,125 +770,122 @@ def render_sidebar() -> dict:
     -------
     dict containing all user-selected parameter values.
     """
-    with st.sidebar:
-        sim_header("〜 AC Circuits", SPEC_REF)
+    sim_header("〜 AC Circuits", SPEC_REF)
 
-        mode = mode_toggle()
+    mode = mode_toggle()
 
-        st.divider()
-        st.markdown("### Circuit")
-        circuit = st.selectbox(
-            "Circuit type",
-            ["Pure R", "RC Series", "RL Series", "RLC Series"],
-            index=0,
-            help="Select which series circuit to simulate.",
-        )
+    st.divider()
+    st.markdown("### Circuit")
+    circuit = st.selectbox(
+        "Circuit type",
+        ["Pure R", "RC Series", "RL Series", "RLC Series"],
+        index=0,
+        help="Select which series circuit to simulate.",
+    )
 
-        st.divider()
-        st.markdown("### Source")
+    st.divider()
+    st.markdown("### Source")
 
-        V0 = st.slider(
-            "Peak voltage V₀ (V)",
-            min_value=1,
-            max_value=100,
+    V0 = st.slider(
+        "Peak voltage V₀ (V)",
+        min_value=1,
+        max_value=100,
+        value=10,
+        step=1,
+        help="Peak (amplitude) of the sinusoidal supply voltage.",
+    )
+
+    f = st.select_slider(
+        "Frequency f (Hz)",
+        options=FREQ_OPTIONS,
+        value=50,
+        help="Supply frequency. Covers mains (50 Hz) to RF range.",
+    )
+
+    st.divider()
+    st.markdown("### Components")
+
+    R = st.slider(
+        "Resistance R (Ω)",
+        min_value=1,
+        max_value=10_000,
+        value=1_000,
+        step=1,
+        help="Series resistance.",
+    )
+
+    C_uF = None
+    L_mH = None
+
+    if circuit in ("RC Series", "RLC Series"):
+        C_uF = st.select_slider(
+            "Capacitance C (μF)",
+            options=C_OPTIONS_UF,
             value=10,
-            step=1,
-            help="Peak (amplitude) of the sinusoidal supply voltage.",
+            help="Series capacitance. X_C = 1/(ωC).",
         )
 
-        f = st.select_slider(
-            "Frequency f (Hz)",
-            options=FREQ_OPTIONS,
-            value=50,
-            help="Supply frequency. Covers mains (50 Hz) to RF range.",
+    if circuit in ("RL Series", "RLC Series"):
+        L_mH = st.select_slider(
+            "Inductance L (mH)",
+            options=L_OPTIONS_MH,
+            value=100,
+            help="Series inductance. X_L = ωL.",
         )
 
-        st.divider()
-        st.markdown("### Components")
+    show_bode       = False
+    show_resonance  = False
+    show_power      = False
+    show_lissajous  = False
 
-        R = st.slider(
-            "Resistance R (Ω)",
-            min_value=1,
-            max_value=10_000,
-            value=1_000,
-            step=1,
-            help="Series resistance.",
+    if mode == "Advanced":
+        advanced_divider()
+
+        st.markdown("**Frequency sweep**")
+        show_bode = st.checkbox(
+            "Show impedance vs frequency (Bode)",
+            value=False,
+            help="Sweep 1 Hz – 100 kHz and plot |Z| and φ.",
         )
 
-        C_uF = None
-        L_mH = None
-
-        if circuit in ("RC Series", "RLC Series"):
-            C_uF = st.select_slider(
-                "Capacitance C (μF)",
-                options=C_OPTIONS_UF,
-                value=10,
-                help="Series capacitance. X_C = 1/(ωC).",
-            )
-
-        if circuit in ("RL Series", "RLC Series"):
-            L_mH = st.select_slider(
-                "Inductance L (mH)",
-                options=L_OPTIONS_MH,
-                value=100,
-                help="Series inductance. X_L = ωL.",
-            )
-
-        # Advanced controls live in sidebar (after advanced_divider) so they
-        # are accessible even if the mode toggle is in the sidebar header area.
-        show_bode       = False
-        show_resonance  = False
-        show_power      = False
-        show_lissajous  = False
-
-        if mode == "Advanced":
-            advanced_divider()
-
-            st.markdown("**Frequency sweep**")
-            show_bode = st.checkbox(
-                "Show impedance vs frequency (Bode)",
+        if circuit == "RLC Series":
+            st.markdown("**Resonance**")
+            show_resonance = st.checkbox(
+                "Show RLC resonance curve",
                 value=False,
-                help="Sweep 1 Hz – 100 kHz and plot |Z| and φ.",
+                help="Plot I_rms vs f, mark f₀ and ±3 dB bandwidth.",
             )
 
-            if circuit == "RLC Series":
-                st.markdown("**Resonance**")
-                show_resonance = st.checkbox(
-                    "Show RLC resonance curve",
-                    value=False,
-                    help="Plot I_rms vs f, mark f₀ and ±3 dB bandwidth.",
-                )
-
-            st.markdown("**Power analysis**")
-            show_power = st.checkbox(
-                "Show power analysis",
-                value=False,
-                help="Plot p(t) and show power triangle.",
-            )
-
-            st.markdown("**Oscilloscope**")
-            show_lissajous = st.checkbox(
-                "Show Lissajous figure",
-                value=False,
-                help=(
-                    "Plot I vs V parametrically — an ellipse whose tilt and "
-                    "shape encode the phase angle."
-                ),
-            )
-
-        return dict(
-            mode=mode,
-            circuit=circuit,
-            V0=float(V0),
-            f=float(f),
-            R=float(R),
-            C_uF=float(C_uF) if C_uF is not None else 10.0,
-            L_mH=float(L_mH) if L_mH is not None else 100.0,
-            show_bode=show_bode,
-            show_resonance=show_resonance,
-            show_power=show_power,
-            show_lissajous=show_lissajous,
+        st.markdown("**Power analysis**")
+        show_power = st.checkbox(
+            "Show power analysis",
+            value=False,
+            help="Plot p(t) and show power triangle.",
         )
+
+        st.markdown("**Oscilloscope**")
+        show_lissajous = st.checkbox(
+            "Show Lissajous figure",
+            value=False,
+            help=(
+                "Plot I vs V parametrically — an ellipse whose tilt and "
+                "shape encode the phase angle."
+            ),
+        )
+
+    return dict(
+        mode=mode,
+        circuit=circuit,
+        V0=float(V0),
+        f=float(f),
+        R=float(R),
+        C_uF=float(C_uF) if C_uF is not None else 10.0,
+        L_mH=float(L_mH) if L_mH is not None else 100.0,
+        show_bode=show_bode,
+        show_resonance=show_resonance,
+        show_power=show_power,
+        show_lissajous=show_lissajous,
+    )
 
 
 # ── Main layout ───────────────────────────────────────────────────────────────
@@ -896,7 +893,10 @@ def render_sidebar() -> dict:
 
 def main() -> None:
     """Entry point — render the full simulation page."""
-    params = render_sidebar()
+    left_col, right_col = two_column_layout(left_weight=3, right_weight=7)
+
+    with left_col:
+        params = render_sidebar()
 
     mode    = params["mode"]
     circuit = params["circuit"]
@@ -921,11 +921,6 @@ def main() -> None:
     v        = V0 * np.sin(omega * t)
     i_trace  = I0 * np.sin(omega * t - phi)
 
-    # ── Main columns ──────────────────────────────────────────────────────────
-    left_col, right_col = two_column_layout(left_weight=3, right_weight=7)
-
-    # The left column is empty here because all controls are in the sidebar.
-    # We use it for the circuit-info summary card instead.
     with left_col:
         st.markdown("#### Circuit summary")
 

@@ -150,13 +150,12 @@ def compute_t_half_simulation(N_arr: np.ndarray, N0: int):
     return np.nan
 
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# ── Main layout ───────────────────────────────────────────────────────────────
 
-with st.sidebar:
-    sim_header(
-        "☢️ Nuclear Decay",
-        "Component 3, Topic 6",
-    )
+left_col, right_col = two_column_layout(3, 7)
+
+with left_col:
+    sim_header("☢️ Nuclear Decay", "Component 3, Topic 6")
     mode = mode_toggle()
     st.divider()
 
@@ -201,32 +200,27 @@ with st.sidebar:
 
     run_btn = st.button("▶ Run Simulation", type="primary", use_container_width=True)
 
-# ── Derived constants ─────────────────────────────────────────────────────────
+    # ── Derived constants ─────────────────────────────────────────────────────
 
-lam = -np.log(1.0 - p)          # decay constant (step⁻¹)
-t_half_theory = np.log(2) / lam  # theoretical half-life (steps)
+    lam = -np.log(1.0 - p)          # decay constant (step⁻¹)
+    t_half_theory = np.log(2) / lam  # theoretical half-life (steps)
 
-# ── Session-state management ──────────────────────────────────────────────────
+    # ── Session-state management ──────────────────────────────────────────────
 
-if "sim_N_arr" not in st.session_state:
-    st.session_state.sim_N_arr = None
-    st.session_state.sim_n_decay = None
-    st.session_state.sim_params = {}
+    if "sim_N_arr" not in st.session_state:
+        st.session_state.sim_N_arr = None
+        st.session_state.sim_n_decay = None
+        st.session_state.sim_params = {}
 
-if run_btn:
-    N_arr, n_decay_arr = run_single_simulation(N0, p, n_steps, int(seed))
-    st.session_state.sim_N_arr = N_arr
-    st.session_state.sim_n_decay = n_decay_arr
-    st.session_state.sim_params = {
-        "N0": N0, "p": p, "n_steps": n_steps, "seed": int(seed),
-        "lam": lam, "t_half_theory": t_half_theory,
-    }
+    if run_btn:
+        N_arr, n_decay_arr = run_single_simulation(N0, p, n_steps, int(seed))
+        st.session_state.sim_N_arr = N_arr
+        st.session_state.sim_n_decay = n_decay_arr
+        st.session_state.sim_params = {
+            "N0": N0, "p": p, "n_steps": n_steps, "seed": int(seed),
+            "lam": lam, "t_half_theory": t_half_theory,
+        }
 
-# ── Main layout ───────────────────────────────────────────────────────────────
-
-left_col, right_col = two_column_layout(3, 7)
-
-with left_col:
     st.info(
         "**Dice analogy:** Each nucleus independently has probability *p* of decaying "
         "each timestep — like rolling a die and removing it if it shows a 1. "

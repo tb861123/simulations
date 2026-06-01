@@ -455,124 +455,123 @@ def render_sidebar() -> dict:
         cap_combo, c1_uF, c2_uF, c3_uF,
         add_leakage, R_leak_ohm
     """
-    with st.sidebar:
-        sim_header(
-            "⚡ Capacitor Charge & Discharge",
-            SPEC_REF,
+    sim_header(
+        "⚡ Capacitor Charge & Discharge",
+        SPEC_REF,
+    )
+
+    mode = mode_toggle()
+
+    st.divider()
+    st.markdown("### Circuit parameters")
+
+    # ── Capacitance ───────────────────────────────────────────────────────
+    C_uF: int = st.slider(
+        "Capacitance C (μF)",
+        min_value=1,
+        max_value=10_000,
+        value=100,
+        step=1,
+        help="Capacitance in microfarads. τ = RC increases linearly with C.",
+    )
+    C_F = C_uF * 1e-6
+
+    # ── Resistance (select-slider for decade spacing) ─────────────────────
+    R_label: str = st.select_slider(
+        "Resistance R",
+        options=R_LABELS,
+        value="1 kΩ",
+        help="Series resistance. Higher R → longer time constant τ = RC.",
+    )
+    R_ohm = R_OPTIONS_OHM[R_LABELS.index(R_label)]
+
+    # ── Initial / supply voltage ──────────────────────────────────────────
+    V0: float = st.slider(
+        "Initial / supply voltage V₀ (V)",
+        min_value=1.0,
+        max_value=24.0,
+        value=9.0,
+        step=0.5,
+        help="For discharge: initial voltage across C. For charging: supply EMF.",
+    )
+
+    # ── Circuit mode ──────────────────────────────────────────────────────
+    circuit_mode: str = st.radio(
+        "Circuit mode",
+        ["Discharging", "Charging"],
+        index=0,
+        help="Discharging: V = V₀·exp(−t/RC). Charging: V = V₀·(1 − exp(−t/RC)).",
+    )
+
+    # ── Advanced controls ─────────────────────────────────────────────────
+    show_ln = False
+    use_c_total = False
+    c_total_F = C_F
+    cap_combo = "Parallel"
+    c1_uF = c2_uF = c3_uF = 100
+    add_leakage = False
+    R_leak_ohm = 1e6
+
+    if mode == "Advanced":
+        advanced_divider()
+
+        st.markdown("**Log-linear plot**")
+        show_ln = st.checkbox(
+            "Show ln(V) vs t",
+            value=False,
+            help=(
+                "A semi-log plot linearises exponential decay. "
+                "The gradient equals −1/RC."
+            ),
         )
 
-        mode = mode_toggle()
-
-        st.divider()
-        st.markdown("### Circuit parameters")
-
-        # ── Capacitance ───────────────────────────────────────────────────────
-        C_uF: int = st.slider(
-            "Capacitance C (μF)",
-            min_value=1,
-            max_value=10_000,
-            value=100,
-            step=1,
-            help="Capacitance in microfarads. τ = RC increases linearly with C.",
+        st.markdown("**Series / Parallel capacitor builder**")
+        c1_uF = st.number_input("C₁ (μF)", min_value=1, max_value=10_000, value=100, step=1)
+        c2_uF = st.number_input("C₂ (μF)", min_value=1, max_value=10_000, value=220, step=1)
+        c3_uF = st.number_input("C₃ (μF)", min_value=1, max_value=10_000, value=470, step=1)
+        cap_combo = st.radio(
+            "Combination",
+            ["Series", "Parallel"],
+            index=1,
+            horizontal=True,
         )
-        C_F = C_uF * 1e-6
+        if cap_combo == "Series":
+            c_total_uF = 1.0 / (1.0 / c1_uF + 1.0 / c2_uF + 1.0 / c3_uF)
+        else:
+            c_total_uF = float(c1_uF + c2_uF + c3_uF)
+        c_total_F = c_total_uF * 1e-6
 
-        # ── Resistance (select-slider for decade spacing) ─────────────────────
-        R_label: str = st.select_slider(
-            "Resistance R",
-            options=R_LABELS,
-            value="1 kΩ",
-            help="Series resistance. Higher R → longer time constant τ = RC.",
-        )
-        R_ohm = R_OPTIONS_OHM[R_LABELS.index(R_label)]
-
-        # ── Initial / supply voltage ──────────────────────────────────────────
-        V0: float = st.slider(
-            "Initial / supply voltage V₀ (V)",
-            min_value=1.0,
-            max_value=24.0,
-            value=9.0,
-            step=0.5,
-            help="For discharge: initial voltage across C. For charging: supply EMF.",
+        use_c_total = st.checkbox(
+            "Use C_total in simulation",
+            value=False,
+            help="Overrides the C slider with the combination result.",
         )
 
-        # ── Circuit mode ──────────────────────────────────────────────────────
-        circuit_mode: str = st.radio(
-            "Circuit mode",
-            ["Discharging", "Charging"],
-            index=0,
-            help="Discharging: V = V₀·exp(−t/RC). Charging: V = V₀·(1 − exp(−t/RC)).",
+        st.markdown("**Leaky capacitor**")
+        add_leakage = st.checkbox(
+            "Add leakage resistance",
+            value=False,
+            help=(
+                "Models a real capacitor with finite insulation resistance "
+                "R_leak in parallel with C, accelerating discharge."
+            ),
         )
-
-        # ── Advanced controls ─────────────────────────────────────────────────
-        show_ln = False
-        use_c_total = False
-        c_total_F = C_F
-        cap_combo = "Parallel"
-        c1_uF = c2_uF = c3_uF = 100
-        add_leakage = False
-        R_leak_ohm = 1e6
-
-        if mode == "Advanced":
-            advanced_divider()
-
-            st.markdown("**Log-linear plot**")
-            show_ln = st.checkbox(
-                "Show ln(V) vs t",
-                value=False,
-                help=(
-                    "A semi-log plot linearises exponential decay. "
-                    "The gradient equals −1/RC."
-                ),
+        if add_leakage:
+            R_leak_MOhm: float = st.slider(
+                "Leakage resistance R_leak (MΩ)",
+                min_value=0.1,
+                max_value=10.0,
+                value=1.0,
+                step=0.1,
+                help="Leakage resistance in parallel with the capacitor (MΩ).",
             )
+            R_leak_ohm = R_leak_MOhm * 1e6
 
-            st.markdown("**Series / Parallel capacitor builder**")
-            c1_uF = st.number_input("C₁ (μF)", min_value=1, max_value=10_000, value=100, step=1)
-            c2_uF = st.number_input("C₂ (μF)", min_value=1, max_value=10_000, value=220, step=1)
-            c3_uF = st.number_input("C₃ (μF)", min_value=1, max_value=10_000, value=470, step=1)
-            cap_combo = st.radio(
-                "Combination",
-                ["Series", "Parallel"],
-                index=1,
-                horizontal=True,
-            )
-            if cap_combo == "Series":
-                c_total_uF = 1.0 / (1.0 / c1_uF + 1.0 / c2_uF + 1.0 / c3_uF)
-            else:
-                c_total_uF = float(c1_uF + c2_uF + c3_uF)
-            c_total_F = c_total_uF * 1e-6
+    # Override C if requested
+    if use_c_total:
+        C_F = c_total_F
 
-            use_c_total = st.checkbox(
-                "Use C_total in simulation",
-                value=False,
-                help="Overrides the C slider with the combination result.",
-            )
-
-            st.markdown("**Leaky capacitor**")
-            add_leakage = st.checkbox(
-                "Add leakage resistance",
-                value=False,
-                help=(
-                    "Models a real capacitor with finite insulation resistance "
-                    "R_leak in parallel with C, accelerating discharge."
-                ),
-            )
-            if add_leakage:
-                R_leak_MOhm: float = st.slider(
-                    "Leakage resistance R_leak (MΩ)",
-                    min_value=0.1,
-                    max_value=10.0,
-                    value=1.0,
-                    step=0.1,
-                    help="Leakage resistance in parallel with the capacitor (MΩ).",
-                )
-                R_leak_ohm = R_leak_MOhm * 1e6
-
-        # Override C if requested
-        if use_c_total:
-            C_F = c_total_F
-
-        return dict(
+    return dict(
             mode=mode,
             circuit_mode=circuit_mode,
             C_F=C_F,
@@ -595,7 +594,10 @@ def render_sidebar() -> dict:
 
 def main() -> None:
     """Entry point — render the full simulation page."""
-    params = render_sidebar()
+    left_col, right_col = two_column_layout(left_weight=3, right_weight=7)
+
+    with left_col:
+        params = render_sidebar()
 
     mode = params["mode"]
     circuit_mode = params["circuit_mode"]
@@ -624,13 +626,7 @@ def main() -> None:
                 C_F, R_ohm, params["R_leak_ohm"], V0
             )
 
-    # ── Main plot area ─────────────────────────────────────────────────────────
-    left_col, right_col = two_column_layout(left_weight=3, right_weight=7)
-
     with right_col:
-        # Page header lives in the main area, not sidebar, so it is always visible
-        st.title("⚡ Capacitor Charge & Discharge")
-        st.caption(f"WJEC Eduqas A Level Physics — {SPEC_REF}")
 
         # ── Key metrics ───────────────────────────────────────────────────────
         Q0_uC_val = C_F * V0 * 1e6

@@ -333,172 +333,169 @@ def _build_stacked_area(
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 
 def render_sidebar() -> dict:
-    """Render sidebar controls, return a parameter dict."""
-    with st.sidebar:
-        sim_header("⚛️ Radioactive Decay Chains",
-                   "Component 3, Topic 6 / 7")
-        mode = mode_toggle()
-        st.divider()
+    """Render controls in the left column, return a parameter dict."""
+    sim_header("⚛️ Radioactive Decay Chains",
+               "Component 3, Topic 6 / 7")
+    mode = mode_toggle()
+    st.divider()
 
-        st.markdown("### Chain selector")
-        chain_name = st.selectbox(
-            "Preset chain",
-            list(CHAIN_PRESETS.keys()),
-            help="Choose a preset decay chain. The simplified chains collapse "
-                 "very short-lived intermediates for tractability.",
-        )
-        meta = CHAIN_PRESETS[chain_name]
+    st.markdown("### Chain selector")
+    chain_name = st.selectbox(
+        "Preset chain",
+        list(CHAIN_PRESETS.keys()),
+        help="Choose a preset decay chain. The simplified chains collapse "
+             "very short-lived intermediates for tractability.",
+    )
+    meta = CHAIN_PRESETS[chain_name]
 
-        # Time scale — only for chains with two timescales
-        timescale_label = meta["short_label"] if meta["has_timescale"] else ""
-        if meta["has_timescale"]:
-            timescale_label = st.radio(
-                "Time scale",
-                [meta["short_label"], meta["long_label"]],
-                index=0,
-                help="Short scale shows daughter ingrowth; long scale shows parent depletion.",
-            )
-
-        st.divider()
-        N0 = st.number_input(
-            "N₀ — initial parent atoms",
-            min_value=1e6,
-            max_value=1e12,
-            value=1e9,
-            format="%.2e",
-            step=1e8,
-            help="Number of parent nuclei at t = 0.  All daughters start at zero.",
+    # Time scale — only for chains with two timescales
+    timescale_label = meta["short_label"] if meta["has_timescale"] else ""
+    if meta["has_timescale"]:
+        timescale_label = st.radio(
+            "Time scale",
+            [meta["short_label"], meta["long_label"]],
+            index=0,
+            help="Short scale shows daughter ingrowth; long scale shows parent depletion.",
         )
 
-        compute_btn = st.button("▶ Compute", type="primary", use_container_width=True)
+    st.divider()
+    N0 = st.number_input(
+        "N₀ — initial parent atoms",
+        min_value=1e6,
+        max_value=1e12,
+        value=1e9,
+        format="%.2e",
+        step=1e8,
+        help="Number of parent nuclei at t = 0.  All daughters start at zero.",
+    )
 
-        # Advanced controls (in sidebar for chain builder)
-        adv_params: dict = {}
+    compute_btn = st.button("▶ Compute", type="primary", use_container_width=True)
 
-        if mode == "Advanced":
-            advanced_divider()
+    adv_params: dict = {}
 
-            st.markdown("**Secular equilibrium analysis**")
-            adv_params["secular"] = st.checkbox(
-                "Show secular equilibrium",
-                value=False,
-                help="Requires U-238 chain on Short time scale.",
+    if mode == "Advanced":
+        advanced_divider()
+
+        st.markdown("**Secular equilibrium analysis**")
+        adv_params["secular"] = st.checkbox(
+            "Show secular equilibrium",
+            value=False,
+            help="Requires U-238 chain on Short time scale.",
+        )
+
+        st.divider()
+        st.markdown("**Transient equilibrium demo**")
+        adv_params["transient"] = st.checkbox(
+            "Show transient equilibrium",
+            value=False,
+        )
+
+        st.divider()
+        st.markdown("**Custom chain builder**")
+        adv_params["custom"] = st.checkbox(
+            "Enable custom chain",
+            value=False,
+        )
+        if adv_params["custom"]:
+            n_custom = st.slider(
+                "Number of nuclides",
+                min_value=2,
+                max_value=4,
+                value=3,
+                key="n_custom",
             )
+            adv_params["n_custom"] = n_custom
 
-            st.divider()
-            st.markdown("**Transient equilibrium demo**")
-            adv_params["transient"] = st.checkbox(
-                "Show transient equilibrium",
-                value=False,
-            )
+            custom_nuclides: list[str] = []
+            custom_lambdas:  list[float] = []
+            unit_options = ["seconds", "minutes", "hours", "days", "years"]
+            unit_to_s = {
+                "seconds": 1.0,
+                "minutes": _SEC_PER_MIN,
+                "hours":   _SEC_PER_HOUR,
+                "days":    _SEC_PER_DAY,
+                "years":   _SEC_PER_YEAR,
+            }
+            default_names = ["A", "B", "C", "D"]
+            default_hl    = [10.0, 3.0, 1.0, 0.5]
+            default_units = ["days", "days", "days", "days"]
 
-            st.divider()
-            st.markdown("**Custom chain builder**")
-            adv_params["custom"] = st.checkbox(
-                "Enable custom chain",
-                value=False,
-            )
-            if adv_params["custom"]:
-                n_custom = st.slider(
-                    "Number of nuclides",
-                    min_value=2,
-                    max_value=4,
-                    value=3,
-                    key="n_custom",
-                )
-                adv_params["n_custom"] = n_custom
-
-                custom_nuclides: list[str] = []
-                custom_lambdas:  list[float] = []
-                unit_options = ["seconds", "minutes", "hours", "days", "years"]
-                unit_to_s = {
-                    "seconds": 1.0,
-                    "minutes": _SEC_PER_MIN,
-                    "hours":   _SEC_PER_HOUR,
-                    "days":    _SEC_PER_DAY,
-                    "years":   _SEC_PER_YEAR,
-                }
-                default_names = ["A", "B", "C", "D"]
-                default_hl    = [10.0, 3.0, 1.0, 0.5]
-                default_units = ["days", "days", "days", "days"]
-
-                for k in range(n_custom):
-                    st.markdown(f"*Nuclide {k + 1}*")
-                    is_last = (k == n_custom - 1)
-                    if is_last:
-                        stable_end = st.checkbox(
-                            "Stable end product",
-                            value=True,
-                            key=f"stable_end_{k}",
-                        )
-                    else:
-                        stable_end = False
-
-                    name_k = st.text_input(
-                        f"Name {k + 1}",
-                        value=default_names[k],
-                        key=f"cust_name_{k}",
+            for k in range(n_custom):
+                st.markdown(f"*Nuclide {k + 1}*")
+                is_last = (k == n_custom - 1)
+                if is_last:
+                    stable_end = st.checkbox(
+                        "Stable end product",
+                        value=True,
+                        key=f"stable_end_{k}",
                     )
-                    custom_nuclides.append(name_k or default_names[k])
+                else:
+                    stable_end = False
 
-                    if stable_end:
-                        custom_lambdas.append(0.0)
-                    else:
-                        hl_val = st.number_input(
-                            f"Half-life value {k + 1}",
-                            min_value=1e-6,
-                            value=default_hl[k],
-                            format="%.4g",
-                            key=f"cust_hl_{k}",
-                        )
-                        hl_unit = st.selectbox(
-                            f"Unit {k + 1}",
-                            unit_options,
-                            index=unit_options.index(default_units[k]),
-                            key=f"cust_unit_{k}",
-                        )
-                        hl_s = hl_val * unit_to_s[hl_unit]
-                        custom_lambdas.append(np.log(2) / hl_s)
+                name_k = st.text_input(
+                    f"Name {k + 1}",
+                    value=default_names[k],
+                    key=f"cust_name_{k}",
+                )
+                custom_nuclides.append(name_k or default_names[k])
 
-                adv_params["custom_nuclides"] = custom_nuclides
-                adv_params["custom_lambdas"]  = custom_lambdas
-                adv_params["custom_stable"]   = (
-                    stable_end if n_custom > 0 else False  # noqa: F821
-                )
+                if stable_end:
+                    custom_lambdas.append(0.0)
+                else:
+                    hl_val = st.number_input(
+                        f"Half-life value {k + 1}",
+                        min_value=1e-6,
+                        value=default_hl[k],
+                        format="%.4g",
+                        key=f"cust_hl_{k}",
+                    )
+                    hl_unit = st.selectbox(
+                        f"Unit {k + 1}",
+                        unit_options,
+                        index=unit_options.index(default_units[k]),
+                        key=f"cust_unit_{k}",
+                    )
+                    hl_s = hl_val * unit_to_s[hl_unit]
+                    custom_lambdas.append(np.log(2) / hl_s)
 
-                # Custom time range
-                adv_params["custom_N0"] = st.number_input(
-                    "Custom N₀",
-                    min_value=1e3,
-                    max_value=1e12,
-                    value=1e6,
-                    format="%.2e",
-                    key="cust_N0",
-                )
-                adv_params["custom_t_max"] = st.number_input(
-                    "Time range (max)",
-                    min_value=0.001,
-                    value=50.0,
-                    format="%.3g",
-                    key="cust_t_max",
-                )
-                adv_params["custom_t_unit"] = st.selectbox(
-                    "Time unit",
-                    unit_options,
-                    index=3,   # days
-                    key="cust_t_unit",
-                )
-                adv_params["custom_solve"] = st.button(
-                    "▶ Solve Custom Chain",
-                    key="cust_solve_btn",
-                )
-
-            st.divider()
-            st.markdown("**Activity plot**")
-            adv_params["show_activity"] = st.checkbox(
-                "Show activity (decays per second)",
-                value=False,
+            adv_params["custom_nuclides"] = custom_nuclides
+            adv_params["custom_lambdas"]  = custom_lambdas
+            adv_params["custom_stable"]   = (
+                stable_end if n_custom > 0 else False  # noqa: F821
             )
+
+            adv_params["custom_N0"] = st.number_input(
+                "Custom N₀",
+                min_value=1e3,
+                max_value=1e12,
+                value=1e6,
+                format="%.2e",
+                key="cust_N0",
+            )
+            adv_params["custom_t_max"] = st.number_input(
+                "Time range (max)",
+                min_value=0.001,
+                value=50.0,
+                format="%.3g",
+                key="cust_t_max",
+            )
+            adv_params["custom_t_unit"] = st.selectbox(
+                "Time unit",
+                unit_options,
+                index=3,   # days
+                key="cust_t_unit",
+            )
+            adv_params["custom_solve"] = st.button(
+                "▶ Solve Custom Chain",
+                key="cust_solve_btn",
+            )
+
+        st.divider()
+        st.markdown("**Activity plot**")
+        adv_params["show_activity"] = st.checkbox(
+            "Show activity (decays per second)",
+            value=False,
+        )
 
     return dict(
         mode=mode,
@@ -528,7 +525,11 @@ def _init_state() -> None:
 
 def main() -> None:
     _init_state()
-    p = render_sidebar()
+    left_col, right_col = two_column_layout(3, 7)
+
+    with left_col:
+        p = render_sidebar()
+
     mode        = p["mode"]
     meta        = p["meta"]
     chain_name  = p["chain_name"]
@@ -557,9 +558,6 @@ def main() -> None:
             "stable_idx":  stable_idx,
             "timescale":   p["timescale_label"],
         }
-
-    # ── Layout ────────────────────────────────────────────────────────────────
-    left_col, right_col = two_column_layout(3, 7)
 
     with left_col:
         st.markdown("### How to use")

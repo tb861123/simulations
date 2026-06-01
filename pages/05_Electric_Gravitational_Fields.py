@@ -292,6 +292,136 @@ def build_quiver_traces(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Field line tracing — numerical streamline integration
+# ─────────────────────────────────────────────────────────────────────────────
+
+def trace_field_lines(
+    X: np.ndarray,
+    Y: np.ndarray,
+    Fx: np.ndarray,
+    Fy: np.ndarray,
+    sources: list,          # list of (x, y, sign) where sign=+1 or -1
+    field_type: str = "electric",   # "electric" or "gravitational"
+    n_seeds: int = 12,
+    seed_radius: float = 0.35,
+    ds: float = 0.06,
+    max_steps: int = 800,
+    colour: str | None = None,
+) -> list:
+    """
+    Trace field lines by numerical integration from seed points.
+
+    For electric fields: seeds are placed around each positive charge and
+    integrated forward; seeds around negative charges integrate backward so
+    lines terminate there naturally.
+
+    For gravitational fields: seeds are placed on an outer circle at radius
+    5.5 m and integrated inward (forward, since g always points inward).
+
+    Parameters
+    ----------
+    X, Y       : meshgrid arrays (GRID_N × GRID_N)
+    Fx, Fy     : field component arrays
+    sources    : list of (x, y, sign) tuples; sign = +1 for + charge or mass,
+                 −1 for − charge
+    field_type : "electric" or "gravitational"
+    n_seeds    : seeds per source
+    seed_radius: distance of seeds from source centre (m)
+    ds         : integration step size (m)
+    max_steps  : maximum integration steps per line
+    colour     : line colour; defaults to COLOURS["text"]
+
+    Returns
+    -------
+    list containing a single go.Scatter trace (NaN-separated field lines)
+    """
+    if colour is None:
+        colour = COLOURS["text"]
+
+    domain = GRID_RANGE * 0.97   # stop when line exits this radius from origin
+    stop_r2 = 0.12 ** 2          # stop if within 0.12 m of any source (near-source singularity)
+
+    # Source positions for proximity check
+    source_pos = [(sx, sy) for sx, sy, _ in sources]
+
+    # ── Build seed points ─────────────────────────────────────────────────────
+    seeds: list[tuple[float, float, float]] = []  # (x, y, direction)
+
+    if field_type == "gravitational":
+        # Seed from outer ring — one ring for all masses collectively
+        r_outer = GRID_RANGE * 0.90
+        angles = np.linspace(0, 2 * np.pi, len(sources) * n_seeds, endpoint=False)
+        for ang in angles:
+            seeds.append((r_outer * np.cos(ang), r_outer * np.sin(ang), +1.0))
+    else:
+        # Electric: seed from each charge, direction depends on sign
+        for sx, sy, sign in sources:
+            angles = np.linspace(0, 2 * np.pi, n_seeds, endpoint=False)
+            # Offset starting angle slightly to avoid exact axis alignment
+            angles += np.pi / n_seeds
+            direction = float(sign)   # +1 integrates outward from +; −1 from −
+            for ang in angles:
+                seeds.append((
+                    sx + seed_radius * np.cos(ang),
+                    sy + seed_radius * np.sin(ang),
+                    direction,
+                ))
+
+    # ── Integrate each seed ───────────────────────────────────────────────────
+    xs_out: list[float] = []
+    ys_out: list[float] = []
+
+    for x0, y0, direction in seeds:
+        x, y = x0, y0
+        line_x: list[float] = [x]
+        line_y: list[float] = [y]
+
+        for _ in range(max_steps):
+            # Check domain
+            if abs(x) > domain or abs(y) > domain:
+                break
+            # Check proximity to any source
+            near = any((x - sx) ** 2 + (y - sy) ** 2 < stop_r2
+                       for sx, sy in source_pos)
+            if near:
+                break
+
+            # Interpolate field
+            fx = bilinear_interp(X, Y, Fx, x, y)
+            fy = bilinear_interp(X, Y, Fy, x, y)
+            mag = np.sqrt(fx ** 2 + fy ** 2)
+            if mag < 1e-30:
+                break
+
+            # Normalised step in direction
+            x += direction * ds * fx / mag
+            y += direction * ds * fy / mag
+            line_x.append(x)
+            line_y.append(y)
+
+        # Append with NaN separator
+        if len(line_x) > 2:
+            xs_out.extend(line_x)
+            xs_out.append(float("nan"))
+            ys_out.extend(line_y)
+            ys_out.append(float("nan"))
+
+    if not xs_out:
+        return []
+
+    return [go.Scatter(
+        x=xs_out,
+        y=ys_out,
+        mode="lines",
+        line=dict(color=colour, width=1.0),
+        name="Field lines",
+        showlegend=True,
+        hoverinfo="skip",
+        opacity=0.65,
+    )]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main field figure builder
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -306,13 +436,15 @@ def build_field_figure(
     colorscale: str,
     v_clip: float,
     source_markers: list | None = None,   # list of (x, y, label, colour)
+    field_line_sources: list | None = None,  # list of (x, y, sign) for streamline seeding
+    field_type: str = "electric",
     traj_x: np.ndarray | None = None,
     traj_y: np.ndarray | None = None,
     probe_xy: tuple | None = None,
     field_name: str = "Field",
 ) -> go.Figure:
     """
-    Build a Plotly figure showing equipotential contours + field arrows.
+    Build a Plotly figure showing equipotential contours + field lines + arrows.
 
     Parameters
     ----------
@@ -360,6 +492,21 @@ def build_field_figure(
     ))
 
     # ── Field arrows ──────────────────────────────────────────────────────────
+
+    # ── Field lines (streamline integration from each source) ─────────────────
+
+    if field_line_sources:
+        fl_traces = trace_field_lines(
+            X, Y, Fx, Fy,
+            sources=field_line_sources,
+            field_type=field_type,
+            n_seeds=12,
+            colour=COLOURS["primary"] if field_type == "electric" else COLOURS["secondary"],
+        )
+        for tr in fl_traces:
+            fig.add_trace(tr)
+
+    # ── Field arrows (quiver) ─────────────────────────────────────────────────
 
     arrow_traces = build_quiver_traces(
         X, Y, Fx, Fy,
@@ -969,14 +1116,17 @@ def main() -> None:
 
             # Source markers
             source_markers = []
+            field_line_sources = []
             for q_C, cx, cy in charges_list:
                 sign_str = "+" if q_C > 0 else "−"
                 mag_nc = abs(q_C) * 1e9
                 lbl = f"{sign_str}{mag_nc:.1f} nC"
                 col = COLOURS["highlight"] if q_C > 0 else COLOURS["primary"]
                 source_markers.append((cx, cy, lbl, col))
+                sign = +1 if q_C >= 0 else -1
+                field_line_sources.append((cx, cy, sign))
 
-            plot_title = "Electric Field — Equipotentials & Field Vectors"
+            plot_title = "Electric Field — Equipotentials, Field Lines & Vectors"
 
         else:
             masses_key = tuple(masses_list)
@@ -987,11 +1137,13 @@ def main() -> None:
             pot_label = "Vg (J/kg)"
 
             source_markers = []
+            field_line_sources = []
             for M_val, mx, my in masses_list:
                 lbl = f"{M_val:.1e} kg"
                 source_markers.append((mx, my, lbl, COLOURS["secondary"]))
+                field_line_sources.append((mx, my, +1))  # sign irrelevant for gravity seeding
 
-            plot_title = "Gravitational Field — Equipotentials & Field Vectors"
+            plot_title = "Gravitational Field — Equipotentials, Field Lines & Vectors"
 
         # ── Probe readout ─────────────────────────────────────────────────────
 
@@ -1053,6 +1205,8 @@ def main() -> None:
             colorscale=colorscale,
             v_clip=v_clip,
             source_markers=source_markers,
+            field_line_sources=field_line_sources,
+            field_type="electric" if field_type == "Electric Field" else "gravitational",
             traj_x=traj_x,
             traj_y=traj_y,
             probe_xy=(probe_x, probe_y),
