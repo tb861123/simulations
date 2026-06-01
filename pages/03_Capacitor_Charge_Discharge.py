@@ -465,35 +465,104 @@ def render_sidebar() -> dict:
     st.divider()
     st.markdown("### Circuit parameters")
 
+    # ── Real-world application presets (Basic mode) ───────────────────────
+    PRESETS: dict = {
+        "Custom": None,
+        "Camera flash": {
+            "C_uF": 4700, "R_ohm": 100, "V0": 330.0,
+            "info": lambda C_F, R, V0, tau: (
+                f"Stores {0.5 * C_F * V0**2:.1f} J, discharges in "
+                f"{5 * tau * 1000:.0f} ms. Most of that energy becomes the flash of light!"
+            ),
+        },
+        "Defibrillator": {
+            "C_uF": 150, "R_ohm": 50, "V0": 2000.0,
+            "info": lambda C_F, R, V0, tau: (
+                f"Stores {0.5 * C_F * V0**2:.1f} J "
+                f"≈ a {0.5 * C_F * V0**2 / 4.184:.2f} calorie. "
+                "Delivers a controlled shock to reset the heart rhythm."
+            ),
+        },
+        "Power supply smoother": {
+            "C_uF": 1000, "R_ohm": 10, "V0": 12.0,
+            "info": lambda C_F, R, V0, tau: (
+                "Smoothing capacitor: charges during each AC half-cycle, "
+                f"discharges between peaks. τ = {tau * 1000:.1f} ms must be >> "
+                "1/f_mains = 20 ms."
+            ),
+        },
+        "Audio crossover (tweeter)": {
+            "C_uF": 10, "R_ohm": 8, "V0": 5.0,
+            "info": lambda C_F, R, V0, tau: (
+                "High-pass filter for tweeters. Frequencies above "
+                f"f_c = 1/(2πRC) = {1 / (2 * np.pi * R * C_F):.0f} Hz are passed; "
+                "lower frequencies are blocked."
+            ),
+        },
+    }
+
+    selected_preset: str = st.selectbox(
+        "Real-world application",
+        options=list(PRESETS.keys()),
+        index=0,
+        help="Choose a preset to see typical component values and context.",
+    )
+
+    preset_data = PRESETS[selected_preset]
+
     # ── Capacitance ───────────────────────────────────────────────────────
+    _default_C = preset_data["C_uF"] if preset_data else 100
     C_uF: int = st.slider(
         "Capacitance C (μF)",
         min_value=1,
         max_value=10_000,
-        value=100,
+        value=_default_C,
         step=1,
         help="Capacitance in microfarads. τ = RC increases linearly with C.",
     )
     C_F = C_uF * 1e-6
 
     # ── Resistance (select-slider for decade spacing) ─────────────────────
+    _default_R_label = (
+        _format_resistance(preset_data["R_ohm"]) if preset_data else "1 kΩ"
+    )
+    # Clamp to nearest available label if preset R not in list
+    if preset_data and preset_data["R_ohm"] not in R_OPTIONS_OHM:
+        _default_R_label = "1 kΩ"
     R_label: str = st.select_slider(
         "Resistance R",
         options=R_LABELS,
-        value="1 kΩ",
+        value=_default_R_label,
         help="Series resistance. Higher R → longer time constant τ = RC.",
     )
     R_ohm = R_OPTIONS_OHM[R_LABELS.index(R_label)]
 
     # ── Initial / supply voltage ──────────────────────────────────────────
+    _default_V0 = preset_data["V0"] if preset_data else 9.0
+    # Clamp preset voltage to slider range
+    _default_V0 = max(1.0, min(24.0, _default_V0))
     V0: float = st.slider(
         "Initial / supply voltage V₀ (V)",
         min_value=1.0,
         max_value=24.0,
-        value=9.0,
+        value=_default_V0,
         step=0.5,
         help="For discharge: initial voltage across C. For charging: supply EMF.",
     )
+
+    # When preset is active override C_F, R_ohm, V0 with preset values
+    if preset_data:
+        C_uF = preset_data["C_uF"]
+        C_F = C_uF * 1e-6
+        R_ohm = float(preset_data["R_ohm"])
+        V0 = preset_data["V0"]
+        # Show context info card
+        _tau_preset = R_ohm * C_F
+        _U_preset = 0.5 * C_F * V0 ** 2
+        st.info(
+            preset_data["info"](C_F, R_ohm, V0, _tau_preset),
+            icon="💡",
+        )
 
     # ── Circuit mode ──────────────────────────────────────────────────────
     circuit_mode: str = st.radio(
@@ -567,6 +636,53 @@ def render_sidebar() -> dict:
             )
             R_leak_ohm = R_leak_MOhm * 1e6
 
+        # ── RC Target Calculator ──────────────────────────────────────────
+        with st.expander("🔧 RC Target Calculator"):
+            target_tau_ms: float = st.number_input(
+                "Target τ (ms)",
+                min_value=0.1,
+                max_value=100_000.0,
+                value=100.0,
+                step=1.0,
+                help="Enter the time constant you want to achieve.",
+            )
+            target_tau_s = target_tau_ms * 1e-3
+            fix_which: str = st.selectbox(
+                "Fix which?",
+                ["Fix R, choose C", "Fix C, choose R"],
+                key="rc_calc_fix",
+            )
+            if fix_which == "Fix R, choose C":
+                R_fixed: float = st.slider(
+                    "Fixed R (Ω)",
+                    min_value=100,
+                    max_value=100_000,
+                    value=1_000,
+                    step=100,
+                    key="rc_calc_r",
+                )
+                C_needed_F = target_tau_s / R_fixed
+                C_needed_uF = C_needed_F * 1e6
+                st.success(
+                    f"To achieve τ = {target_tau_ms:.1f} ms:  \n"
+                    f"use **R = {R_fixed:.0f} Ω**, **C = {C_needed_uF:.1f} μF**"
+                )
+            else:
+                C_fixed_uF: float = st.slider(
+                    "Fixed C (μF)",
+                    min_value=1,
+                    max_value=10_000,
+                    value=100,
+                    step=1,
+                    key="rc_calc_c",
+                )
+                C_fixed_F = C_fixed_uF * 1e-6
+                R_needed = target_tau_s / C_fixed_F
+                st.success(
+                    f"To achieve τ = {target_tau_ms:.1f} ms:  \n"
+                    f"use **R = {R_needed:.0f} Ω**, **C = {C_fixed_uF:.1f} μF**"
+                )
+
     # Override C if requested
     if use_c_total:
         C_F = c_total_F
@@ -636,6 +752,15 @@ def main() -> None:
             "Max charge Q₀": f"{Q0_uC_val:.2f} μC",
         })
 
+        # ── Enhancement 3: Time constant insight ──────────────────────────────
+        _tau_pct = "63.2% of maximum" if circuit_mode == "Charging" else "36.8% of initial"
+        _tau_end = "effectively fully charged" if circuit_mode == "Charging" else "effectively fully discharged"
+        st.info(
+            f"**τ = RC = {tau:.4f} s** — After one time constant, charge reaches "
+            f"{_tau_pct}. After 5τ = {5 * tau:.4f} s, the capacitor is {_tau_end} (99.3%).",
+            icon="ℹ️",
+        )
+
         # ── Main Q / V / I figure ─────────────────────────────────────────────
         fig_main = build_main_figure(
             t=t,
@@ -651,6 +776,21 @@ def main() -> None:
             V_leaky=V_leaky,
         )
         st.plotly_chart(fig_main, use_container_width=True)
+
+        # ── Enhancement 2: Energy efficiency callout (Charging mode only) ─────
+        if circuit_mode == "Charging":
+            _E_supply = C_F * V0 ** 2
+            _E_stored = 0.5 * C_F * V0 ** 2
+            st.info(
+                "⚡ **Energy efficiency:** The supply provides energy Q·V₀ = C·V₀². "
+                "The capacitor stores only ½CV₀². The other 50% is dissipated as heat "
+                "in the resistor — regardless of R. This is why charging a battery is "
+                "always less than 100% efficient.",
+            )
+            _ecol1, _ecol2, _ecol3 = st.columns(3)
+            _ecol1.metric("Energy from supply", f"{_E_supply:.4f} J")
+            _ecol2.metric("Energy stored in C", f"{_E_stored:.4f} J")
+            _ecol3.metric("Heat dissipated in R", f"{_E_stored:.4f} J")
 
         # ── Advanced: capacitor builder info box ──────────────────────────────
         if mode == "Advanced":

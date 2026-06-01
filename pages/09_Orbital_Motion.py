@@ -13,6 +13,7 @@ Covers:
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -44,6 +45,71 @@ KPC: float = 3.086e19             # m  (1 kiloparsec)
 
 MASS_OPTIONS: list[float] = [1e28, 1e29, 5e29, 1e30, 2e30, 5e30, 1e31]
 MASS_LABELS: list[str] = [f"{m / SOLAR_MASS:.2f} M☉" for m in MASS_OPTIONS]
+
+EARTH_MASS: float = 5.972e24   # kg
+
+# Real-world orbit presets: (label, M_kg, r0_m, v_ratio, context_text)
+ORBIT_PRESETS: list[tuple[str, float, float, float, str]] = [
+    (
+        "ISS (Low Earth Orbit)",
+        EARTH_MASS,
+        6.778e6,
+        1.0,
+        "The ISS orbits at 408 km altitude, completing one orbit every 92 minutes "
+        "at 7.66 km/s. Astronauts experience ~0.89g (not weightlessness — they're "
+        "in free fall!)",
+    ),
+    (
+        "GPS Satellite",
+        EARTH_MASS,
+        2.656e7,
+        1.0,
+        "GPS satellites orbit at ~20,200 km altitude with a 12-hour period. "
+        "You need 4 satellites in view for 3D positioning.",
+    ),
+    (
+        "Moon",
+        EARTH_MASS,
+        3.844e8,
+        1.0,
+        "The Moon's orbital speed is 1.02 km/s — much slower than ISS because "
+        "gravitational force decreases with distance².",
+    ),
+    (
+        "Geostationary",
+        EARTH_MASS,
+        4.216e7,
+        1.0,
+        "A geostationary satellite appears fixed in the sky. Period = 24h exactly. "
+        "Used for TV broadcasting and weather.",
+    ),
+    (
+        "Earth around Sun",
+        1.989e30,
+        1.496e11,
+        1.0,
+        "Earth orbits the Sun at 29.8 km/s. The gravitational force provides "
+        "~0.006 m/s² centripetal acceleration.",
+    ),
+    (
+        "Halley's Comet (approx)",
+        1.989e30,
+        8.77e10,
+        1.5,
+        "Halley's Comet has an orbital period of ~75 years and an eccentricity of "
+        "0.967 — nearly parabolic! It swings from inside Venus to beyond Neptune.",
+    ),
+]
+
+# Solar system planets for Kepler's 3rd law table
+KEPLER_PLANETS: list[tuple[str, float, float]] = [
+    ("Mercury", 0.387, 0.241),
+    ("Venus",   0.723, 0.615),
+    ("Earth",   1.000, 1.000),
+    ("Mars",    1.524, 1.881),
+    ("Jupiter", 5.203, 11.862),
+    ("Saturn",  9.537, 29.458),
+]
 
 SPEC_REF = "Component 2, Topic 8 (Orbits and the Wider Universe), sections (a)–(g)"
 
@@ -111,6 +177,51 @@ def classify_orbit(ratio: float) -> str:
         return "Parabolic (escape trajectory)"
     else:
         return "Hyperbolic (unbound orbit)"
+
+
+def format_period(T_s: float) -> str:
+    """Return a human-readable period string in appropriate units."""
+    if T_s < 3600.0:
+        return f"{T_s:.1f} s"
+    elif T_s < 86400.0:
+        return f"{T_s / 60.0:.1f} min"
+    elif T_s < 7 * 86400.0:
+        return f"{T_s / 3600.0:.2f} h"
+    else:
+        return f"{T_s / 86400.0:.2f} days"
+
+
+def hohmann_transfer(M: float, r_a: float, r_b: float) -> dict:
+    """
+    Compute Hohmann transfer orbit parameters between two circular orbits.
+
+    Parameters
+    ----------
+    M   : central mass (kg)
+    r_a : radius of initial circular orbit (m)
+    r_b : radius of target circular orbit (m)
+
+    Returns
+    -------
+    dict with keys: a_transfer, v1, v2, dv1, dv2, dv_total, T_transfer
+    """
+    a_transfer = (r_a + r_b) / 2.0
+    v1 = float(np.sqrt(G * M * (2.0 / r_a - 1.0 / a_transfer)))
+    v2 = float(np.sqrt(G * M * (2.0 / r_b - 1.0 / a_transfer)))
+    vc_a = v_circular(M, r_a)
+    vc_b = v_circular(M, r_b)
+    dv1 = v1 - vc_a
+    dv2 = vc_b - v2
+    T_transfer = np.pi * np.sqrt(a_transfer ** 3 / (G * M))
+    return {
+        "a_transfer": a_transfer,
+        "v1": v1,
+        "v2": v2,
+        "dv1": dv1,
+        "dv2": dv2,
+        "dv_total": abs(dv1) + abs(dv2),
+        "T_transfer": T_transfer,
+    }
 
 
 def make_single_body_ode(M: float):
@@ -271,6 +382,50 @@ def integrate_two_body(
     ode = make_two_body_ode(M, m)
     t_arr, y_arr = rk4_integrate(ode, y0, (0.0, t_end), dt)
     return t_arr, y_arr
+
+
+@st.cache_data(show_spinner=False)
+def integrate_hohmann_transfer(
+    M: float,
+    r0: float,
+    r_target: float,
+    dt_steps: int = 800,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Integrate the Hohmann transfer ellipse from r0 to r_target.
+
+    The transfer starts at periapsis (r0) with v1 tangential and ends when
+    r > r_target - tolerance or half the transfer period has elapsed.
+
+    Returns (t_arr, y_arr) with y columns [x, y, vx, vy].
+    """
+    from utils.physics import rk4_step  # type: ignore[attr-defined]
+
+    ht = hohmann_transfer(M, r0, r_target)
+    v1 = ht["v1"]
+    T_half = ht["T_transfer"]   # already π * sqrt(a³/GM) = half-period
+
+    y0 = np.array([r0, 0.0, 0.0, v1])
+    dt = T_half / dt_steps
+    ode = make_single_body_ode(M)
+
+    t_vals = [0.0]
+    y_vals = [y0.copy()]
+    t = 0.0
+    y = y0.copy()
+
+    r_limit_hi = max(r0, r_target) * 1.05
+
+    for _ in range(dt_steps):
+        y = rk4_step(ode, t, y, dt)
+        t += dt
+        t_vals.append(t)
+        y_vals.append(y.copy())
+        r_now = float(np.sqrt(y[0] ** 2 + y[1] ** 2))
+        if r_now > r_limit_hi:
+            break
+
+    return np.array(t_vals), np.array(y_vals)
 
 
 # ── Plot builders ─────────────────────────────────────────────────────────────
@@ -663,47 +818,89 @@ def main() -> None:
     # ── Left column: controls ─────────────────────────────────────────────────
 
     with left_col:
+        # ── Real-world preset selector (Basic mode) ───────────────────────────
+
+        preset_labels = ["Custom"] + [p[0] for p in ORBIT_PRESETS]
+        preset_choice = st.selectbox(
+            "Real-world orbit preset",
+            options=preset_labels,
+            index=0,
+            help="Select a real satellite or planetary orbit, or choose Custom to set parameters manually.",
+        )
+
+        # Resolve preset values
+        _preset_M: float | None = None
+        _preset_r0: float | None = None
+        _preset_vr: float | None = None
+        _preset_ctx: str | None = None
+
+        if preset_choice != "Custom":
+            for _label, _pm, _pr, _pv, _pc in ORBIT_PRESETS:
+                if _label == preset_choice:
+                    _preset_M = _pm
+                    _preset_r0 = _pr
+                    _preset_vr = _pv
+                    _preset_ctx = _pc
+                    break
+
         st.subheader("Central Star")
 
         # Central mass — select slider with solar-mass display labels
+        _default_M_index: int = 4
+        if _preset_M is not None:
+            # Find closest match in MASS_OPTIONS (or leave at default)
+            _diffs = [abs(m - _preset_M) for m in MASS_OPTIONS]
+            _default_M_index = int(np.argmin(_diffs))
+
         M_index = st.select_slider(
             "Central mass M",
             options=list(range(len(MASS_OPTIONS))),
-            value=4,   # default index → 2e30 ≈ solar mass
+            value=_default_M_index,
             format_func=lambda i: MASS_LABELS[i],
             help="Mass of the central body. Default ≈ 1 solar mass.",
+            disabled=(preset_choice != "Custom"),
         )
-        M = MASS_OPTIONS[M_index]
+        M = MASS_OPTIONS[M_index] if preset_choice == "Custom" else _preset_M
         st.caption(f"M = {M:.3e} kg = {M / SOLAR_MASS:.2f} M☉")
 
         st.divider()
         st.subheader("Planet Orbit")
 
+        _default_r0: float = _preset_r0 if _preset_r0 is not None else 1.5e11
+        # Clamp to slider range for display purposes; use raw value directly when preset
+        _r0_slider_val = float(np.clip(_default_r0, 1e10, 1e12))
+
         r0_raw = st.slider(
             "Initial orbital radius r₀ (m)",
             min_value=1e10,
             max_value=1e12,
-            value=1.5e11,
+            value=_r0_slider_val,
             step=1e10,
             format="%.2e",
             help="Distance from central star at t = 0. Default ≈ 1 AU.",
+            disabled=(preset_choice != "Custom"),
         )
-        r0: float = float(r0_raw)
-        st.caption(f"r₀ = {r0 / AU:.2f} AU")
+        # For presets that exceed slider range (e.g. Moon, Earth-Sun), use exact value
+        r0: float = _preset_r0 if _preset_r0 is not None else float(r0_raw)
+        st.caption(f"r₀ = {r0 / AU:.4f} AU  ({r0:.3e} m)")
 
         vc = v_circular(M, r0)
+        _default_vr: float = _preset_vr if _preset_vr is not None else 1.00
         v_ratio = st.slider(
             "v₀ / v_circular",
             min_value=0.10,
             max_value=2.00,
-            value=1.00,
+            value=float(np.clip(_default_vr, 0.10, 2.00)),
             step=0.05,
             help=(
                 "Fraction of circular orbital speed. "
                 "1.0 → circular orbit. "
                 "√2 ≈ 1.41 → escape velocity."
             ),
+            disabled=(preset_choice != "Custom"),
         )
+        # Use exact preset v_ratio (may be 1.5 etc.)
+        v_ratio = _preset_vr if _preset_vr is not None else v_ratio
         v0 = v_ratio * vc
         st.caption(
             f"v_circular = {vc:.2e} m/s\n\n"
@@ -711,12 +908,17 @@ def main() -> None:
             f"v_escape = {vc * np.sqrt(2):.2e} m/s"
         )
 
+        if _preset_ctx is not None:
+            st.info(_preset_ctx)
+
         # ── Advanced controls ─────────────────────────────────────────────────
 
         enable_two_body = False
         m_planet: float = 6e24
         enable_rotation_curve = False
         v_dm_kms: float = 150.0
+        enable_hohmann = False
+        r_target: float = 2.0 * r0
 
         if mode == "Advanced":
             advanced_divider()
@@ -745,6 +947,30 @@ def main() -> None:
                     f"m/M = {m_planet / M:.3e}  "
                     f"({'significant' if m_planet / M > 0.01 else 'negligible'})"
                 )
+
+            st.divider()
+
+            # Hohmann transfer toggle
+            enable_hohmann = st.checkbox(
+                "Show Hohmann transfer orbit",
+                value=False,
+                help=(
+                    "Overlay the most fuel-efficient elliptical transfer path "
+                    "from the current circular orbit to a target orbit."
+                ),
+            )
+            if enable_hohmann:
+                r_target_raw = st.slider(
+                    "Target orbit radius r_target (m)",
+                    min_value=1e10,
+                    max_value=1e12,
+                    value=float(np.clip(2.0 * r0, 1e10, 1e12)),
+                    step=1e10,
+                    format="%.2e",
+                    help="Radius of the destination circular orbit.",
+                )
+                r_target = float(r_target_raw)
+                st.caption(f"r_target = {r_target / AU:.4f} AU  ({r_target:.3e} m)")
 
             st.divider()
 
@@ -829,9 +1055,78 @@ def main() -> None:
                 v0_ratio=v_ratio,
             )
 
-        # Plot trajectory
+        # Optionally integrate Hohmann transfer and overlay on trajectory plot
         fig_traj = build_trajectory_fig(y_arr, r0, is_unbound=is_unbound)
+
+        if mode == "Advanced" and enable_hohmann and not is_unbound:
+            with st.spinner("Computing Hohmann transfer…"):
+                _, y_ht = integrate_hohmann_transfer(M, r0, r_target)
+            x_ht = y_ht[:, 0] / AU
+            y_ht_au = y_ht[:, 1] / AU
+            fig_traj.add_trace(
+                go.Scatter(
+                    x=x_ht,
+                    y=y_ht_au,
+                    mode="lines",
+                    name="Hohmann transfer",
+                    line=dict(color=COLOURS["advanced"], width=2, dash="dash"),
+                )
+            )
+            # Mark target orbit circle (dashed)
+            _theta = np.linspace(0, 2 * np.pi, 200)
+            _r_tgt_au = r_target / AU
+            fig_traj.add_trace(
+                go.Scatter(
+                    x=_r_tgt_au * np.cos(_theta),
+                    y=_r_tgt_au * np.sin(_theta),
+                    mode="lines",
+                    name="Target circular orbit",
+                    line=dict(color=COLOURS["advanced"], width=1, dash="dot"),
+                )
+            )
+
+        # Plot trajectory
         st.plotly_chart(fig_traj, use_container_width=True)
+
+        # ── Speed and altitude insights (Basic mode) ──────────────────────────
+
+        if mode == "Basic":
+            g_orbit = G * M / r0 ** 2
+            _vc_kms = v_circular(M, r0) / 1000.0
+            _T_fmt = format_period(orbital_period(r0, M))
+            metric_row(
+                {
+                    "Orbital speed": f"{_vc_kms:.2f} km/s",
+                    "Orbital period": _T_fmt,
+                    "g at orbit": f"{g_orbit:.3f} m/s²",
+                }
+            )
+            st.caption(
+                f"At this altitude, g = {g_orbit:.3f} m/s². "
+                "Astronauts appear weightless not because gravity is zero, "
+                "but because they are in FREE FALL — the spacecraft and "
+                "everything in it fall together."
+            )
+
+        # ── Hohmann transfer results (Advanced mode) ──────────────────────────
+
+        if mode == "Advanced" and enable_hohmann and not is_unbound:
+            st.markdown("---")
+            st.markdown("#### Hohmann Transfer Results")
+            ht = hohmann_transfer(M, r0, r_target)
+            metric_row(
+                {
+                    "Δv₁ (departure burn)": f"{ht['dv1'] / 1000.0:.3f} km/s",
+                    "Δv₂ (arrival burn)": f"{ht['dv2'] / 1000.0:.3f} km/s",
+                    "Total Δv": f"{ht['dv_total'] / 1000.0:.3f} km/s",
+                    "Transfer time": format_period(ht["T_transfer"]),
+                }
+            )
+            st.info(
+                "A Hohmann transfer is the most fuel-efficient path between two "
+                "circular orbits. The Mars mission (Earth→Mars) requires Δv ≈ 3.6 km/s "
+                "and takes ~259 days."
+            )
 
         # Plot energy
         fig_energy = build_energy_fig(t_arr, y_arr, M)
@@ -866,6 +1161,28 @@ def main() -> None:
             f"GM/(4π²) = {kepler_theory:.4e} m³/s²  "
             f"(agreement: {100.0 - kepler_match_pct:.2f} %)"
         )
+
+        # ── Kepler's 3rd Law verification table ──────────────────────────────
+
+        with st.expander("Kepler's 3rd Law Check", expanded=False):
+            _rows = []
+            for _planet, _r_au, _T_meas in KEPLER_PLANETS:
+                _T_pred = _r_au ** 1.5
+                _err_pct = abs(_T_pred - _T_meas) / _T_meas * 100.0
+                _rows.append(
+                    {
+                        "Planet": _planet,
+                        "r (AU)": round(_r_au, 3),
+                        "T measured (years)": round(_T_meas, 3),
+                        "T predicted = r^1.5 (years)": round(_T_pred, 3),
+                        "Error": f"{_err_pct:.2f}%",
+                    }
+                )
+            st.dataframe(pd.DataFrame(_rows), use_container_width=True, hide_index=True)
+            st.caption(
+                "Kepler's 3rd Law: T² = r³ (when T in years, r in AU). "
+                "This follows from F_grav = F_centripetal."
+            )
 
         # ── Advanced: two-body plot ───────────────────────────────────────────
 

@@ -330,6 +330,380 @@ def _build_stacked_area(
     return fig
 
 
+# ── Chain schematic renderer ──────────────────────────────────────────────────
+
+def _decay_badge(decay_type: str) -> str:
+    """Return an HTML badge coloured by decay type."""
+    if decay_type.startswith("α"):
+        bg = COLOURS["highlight"]   # red
+    elif decay_type.startswith("β"):
+        bg = COLOURS["primary"]     # blue
+    elif decay_type == "—":
+        bg = COLOURS["tertiary"]    # green (stable)
+    else:
+        bg = COLOURS["secondary"]
+    return (
+        f"<span style='background-color:{bg};padding:2px 6px;"
+        f"border-radius:3px;color:white;font-weight:bold;font-size:0.85em'>"
+        f"{decay_type}</span>"
+    )
+
+
+def _nuclide_box(name: str, stable: bool = False) -> str:
+    bg = COLOURS["tertiary"] if stable else "#2d3748"
+    border = COLOURS["tertiary"] if stable else COLOURS["grid"]
+    return (
+        f"<span style='background-color:{bg};border:1px solid {border};"
+        f"padding:3px 8px;border-radius:4px;color:white;font-weight:600'>"
+        f"{name}</span>"
+    )
+
+
+_CHAIN_SCHEMATICS: dict[str, list[tuple]] = {
+    # Each tuple: (nuclide_name, is_stable, arrow_label)
+    # arrow_label = None means no arrow after (last element)
+    "U-238 → Pb-206 (simplified)": [
+        ("U-238",  False, "α, 4.47 Gy"),
+        ("Th-234", False, "β⁻, 24.1 d"),
+        ("Pb-206", True,  None),
+    ],
+    "Th-232 → Pb-208 (simplified)": [
+        ("Th-232", False, "α, 14.0 Gy"),
+        ("Ra-228", False, "β⁻, 5.75 y"),
+        ("Pb-208", True,  None),
+    ],
+    "Rn-222 chain": [
+        ("Rn-222", False, "α, 3.82 d"),
+        ("Po-218", False, "α, 3.05 min"),
+        ("Pb-214", False, "β⁻, 26.8 min"),
+        ("Bi-214", False, "β⁻, 19.7 min"),
+        ("Pb-210", False, None),
+    ],
+}
+
+
+def _render_chain_schematic(chain_name: str, meta: dict) -> None:
+    """Render a visual HTML decay chain schematic with coloured badges."""
+    steps = _CHAIN_SCHEMATICS.get(chain_name)
+    if steps is None:
+        # Fallback to plain text
+        st.markdown("**Decay chain:**")
+        st.markdown(f"`{meta['chain_diagram']}`")
+        return
+
+    parts: list[str] = []
+    for nuclide, is_stable, arrow_label in steps:
+        parts.append(_nuclide_box(nuclide, stable=is_stable))
+        if arrow_label is not None:
+            # Determine decay type from the arrow label
+            if arrow_label.startswith("α"):
+                badge_type = "α"
+            elif arrow_label.startswith("β"):
+                badge_type = "β⁻"
+            else:
+                badge_type = arrow_label
+            badge = _decay_badge(badge_type)
+            # half-life part (everything after the comma)
+            if "," in arrow_label:
+                hl_part = arrow_label.split(",", 1)[1].strip()
+                hl_html = (
+                    f"<span style='color:#aaa;font-size:0.8em'>({hl_part})</span>"
+                )
+            else:
+                hl_html = ""
+            parts.append(
+                f"&nbsp;→&nbsp;{badge}&nbsp;{hl_html}&nbsp;→&nbsp;"
+            )
+
+    schematic_html = (
+        "<div style='background-color:#1a202c;padding:10px 14px;"
+        "border-radius:6px;border:1px solid #444;overflow-x:auto;"
+        "white-space:nowrap;margin:8px 0'>"
+        + "".join(parts)
+        + "</div>"
+    )
+    st.markdown("**Decay chain:**")
+    st.markdown(schematic_html, unsafe_allow_html=True)
+    st.markdown(
+        "**α decay** (loses 2p+2n, mass decreases by 4) &nbsp;|&nbsp; "
+        "**β⁻ decay** (neutron→proton, atomic number increases by 1) &nbsp;|&nbsp; "
+        + _decay_badge("α") + "&nbsp;= alpha &nbsp;"
+        + _decay_badge("β⁻") + "&nbsp;= beta-minus &nbsp;"
+        + _decay_badge("—") + "&nbsp;= stable",
+        unsafe_allow_html=True,
+    )
+
+
+# ── Tc-99m generator visualisation ───────────────────────────────────────────
+
+def _render_tc99m_generator() -> None:
+    """Render the Mo-99/Tc-99m generator expander with milking simulation."""
+    with st.expander("🏥 Tc-99m Medical Generator (Mo-99/Tc-99m)", expanded=False):
+        st.markdown(
+            "A **Mo-99/Tc-99m generator** ('technetium cow') is 'milked' daily in "
+            "hospitals. Mo-99 (T½ = 65.94 h) decays to Tc-99m (T½ = 6.01 h). "
+            "The short T½ of Tc-99m means it decays to safe levels within 24 h "
+            "after the scan, minimising patient radiation dose. Over **40 million** "
+            "Tc-99m procedures are performed annually worldwide."
+        )
+
+        # Chain: Mo-99 → Tc-99m → Tc-99 (stable approximation)
+        lam_Mo  = np.log(2) / (65.94 * _SEC_PER_HOUR)
+        lam_Tc  = np.log(2) / (6.01  * _SEC_PER_HOUR)
+
+        N0_Mo   = 1e12   # arbitrary initial Mo-99 atoms
+        t_days_total = 10.0
+        t_max_s = t_days_total * _SEC_PER_DAY
+        n_pts   = 2000
+        t_s     = np.linspace(0, t_max_s, n_pts)
+        dt      = t_s[1] - t_s[0]
+
+        # --- Simulate with daily milking (set N_Tc99m → 0 every 24 h) ---
+        N_Mo   = np.zeros(n_pts)
+        N_Tc_milk = np.zeros(n_pts)   # with milking
+        N_Mo[0]      = N0_Mo
+        N_Tc_milk[0] = 0.0
+
+        for k in range(1, n_pts):
+            # Simple Euler integration (fine resolution makes it accurate)
+            dNMo = -lam_Mo * N_Mo[k - 1]
+            dNTc = lam_Mo  * N_Mo[k - 1] - lam_Tc * N_Tc_milk[k - 1]
+            N_Mo[k]      = N_Mo[k - 1]      + dNMo * dt
+            N_Tc_milk[k] = N_Tc_milk[k - 1] + dNTc * dt
+            # Daily milking: reset Tc-99m to 0 at each 24-h boundary
+            day_k  = t_s[k]  / _SEC_PER_DAY
+            day_k1 = t_s[k - 1] / _SEC_PER_DAY
+            if int(day_k) > int(day_k1) and k > 1:
+                N_Tc_milk[k] = 0.0
+
+        # --- No-milking reference ---
+        N_Tc_free = np.zeros(n_pts)
+        N_Tc_free[0] = 0.0
+        for k in range(1, n_pts):
+            dNMo = -lam_Mo * N_Mo[k - 1]  # Mo-99 already computed
+            dNTc = lam_Mo  * N_Mo[k - 1] - lam_Tc * N_Tc_free[k - 1]
+            N_Tc_free[k] = N_Tc_free[k - 1] + dNTc * dt
+
+        t_days_arr = t_s / _SEC_PER_DAY
+
+        fig_tc = make_fig()
+        fig_tc.add_trace(go.Scatter(
+            x=t_days_arr,
+            y=N_Mo,
+            mode="lines",
+            name="Mo-99 (T½ = 65.94 h)",
+            line=dict(color=COLOURS["primary"], width=2, dash="dash"),
+        ))
+        fig_tc.add_trace(go.Scatter(
+            x=t_days_arr,
+            y=N_Tc_milk,
+            mode="lines",
+            name="Tc-99m with daily milking",
+            line=dict(color=COLOURS["highlight"], width=2),
+            fill="tozeroy",
+            fillcolor=f"rgba(231,76,60,0.15)",
+        ))
+        fig_tc.add_trace(go.Scatter(
+            x=t_days_arr,
+            y=N_Tc_free,
+            mode="lines",
+            name="Tc-99m (no milking — reference)",
+            line=dict(color=COLOURS["tertiary"], width=1.5, dash="dot"),
+        ))
+
+        # Mark daily milking events
+        for day in range(1, int(t_days_total)):
+            fig_tc.add_vline(
+                x=float(day),
+                line_dash="dot",
+                line_color=COLOURS["secondary"],
+                line_width=1,
+                annotation_text="milk" if day == 1 else "",
+                annotation_font_color=COLOURS["secondary"],
+                annotation_position="top right",
+            )
+
+        fig_tc.update_layout(**plotly_layout(
+            title="Mo-99/Tc-99m Generator — daily milking simulation",
+            xaxis_title="Time (days)",
+            yaxis_title="N (atoms)",
+            yaxis=dict(exponentformat="e", showexponent="all",
+                       gridcolor=COLOURS["grid"],
+                       linecolor=COLOURS["grid"],
+                       zerolinecolor=COLOURS["grid"]),
+            height=420,
+            legend=dict(
+                orientation="v",
+                yanchor="top",
+                y=1.0,
+                xanchor="left",
+                x=1.02,
+                bgcolor="rgba(0,0,0,0.4)",
+                bordercolor=COLOURS["grid"],
+                borderwidth=1,
+            ),
+            margin=dict(l=70, r=220, t=60, b=60),
+        ))
+        st.plotly_chart(fig_tc, use_container_width=True)
+
+        col_tc1, col_tc2, col_tc3 = st.columns(3)
+        col_tc1.metric("Mo-99 T½", "65.94 h")
+        col_tc2.metric("Tc-99m T½", "6.01 h")
+        col_tc3.metric("Milking interval", "24 h")
+
+        st.caption(
+            "The **saw-tooth pattern** shows Tc-99m building up after each 'milking' "
+            "(elution). The dashed Mo-99 curve decays with its own half-life. "
+            "The dotted green line shows the free (un-milked) equilibrium for comparison. "
+            "Key insight: within ~4 Tc-99m half-lives (~24 h) after elution, "
+            "the generator is ready for the next milking."
+        )
+
+
+# ── Time to safe level calculator ────────────────────────────────────────────
+
+_SAFE_LEVEL_ISOTOPES = {
+    "C-14":   {"T_half_s": 5730.0  * 365.25 * _SEC_PER_DAY,  "label": "C-14  (T½ = 5730 yr)"},
+    "I-131":  {"T_half_s": 8.02    * _SEC_PER_DAY,            "label": "I-131 (T½ = 8.02 d)"},
+    "Ra-226": {"T_half_s": 1600.0  * 365.25 * _SEC_PER_DAY,  "label": "Ra-226 (T½ = 1600 yr)"},
+    "Sr-90":  {"T_half_s": 28.8    * 365.25 * _SEC_PER_DAY,  "label": "Sr-90 (T½ = 28.8 yr)"},
+    "Tc-99m": {"T_half_s": 6.01    * _SEC_PER_HOUR,           "label": "Tc-99m (T½ = 6.01 h)"},
+    "U-238":  {"T_half_s": 4.468e9 * 365.25 * _SEC_PER_DAY,  "label": "U-238 (T½ = 4.47×10⁹ yr)"},
+    "Rn-222": {"T_half_s": 3.82    * _SEC_PER_DAY,            "label": "Rn-222 (T½ = 3.82 d)"},
+}
+
+
+def _format_duration(seconds: float) -> tuple[str, str]:
+    """Return (value_str, unit_str) for a duration in seconds, auto-scaled."""
+    if seconds < _SEC_PER_HOUR:
+        return f"{seconds / 60:.2f}", "minutes"
+    elif seconds < _SEC_PER_DAY:
+        return f"{seconds / _SEC_PER_HOUR:.2f}", "hours"
+    elif seconds < _SEC_PER_YEAR:
+        return f"{seconds / _SEC_PER_DAY:.2f}", "days"
+    elif seconds < 1e3 * _SEC_PER_YEAR:
+        return f"{seconds / _SEC_PER_YEAR:.2f}", "years"
+    elif seconds < 1e6 * _SEC_PER_YEAR:
+        return f"{seconds / _SEC_PER_YEAR / 1e3:.3f}", "millennia"
+    elif seconds < 1e9 * _SEC_PER_YEAR:
+        return f"{seconds / _SEC_PER_YEAR / 1e6:.3f}", "million years"
+    else:
+        return f"{seconds / _SEC_PER_YEAR / 1e9:.4g}", "billion years"
+
+
+def _render_safe_level_calculator() -> None:
+    """Render the 'Time to safe level' expander."""
+    with st.expander("⏱️ Time to safe level", expanded=False):
+        st.markdown(
+            "Calculate how long until a radioactive source falls to a safe "
+            "activity level.  Uses: $t_{safe} = T_{½} \\times \\log_2(A_0 / A_{safe})$"
+        )
+
+        iso_label = st.selectbox(
+            "Isotope of interest",
+            list(_SAFE_LEVEL_ISOTOPES.keys()),
+            format_func=lambda k: _SAFE_LEVEL_ISOTOPES[k]["label"],
+            key="safe_iso",
+        )
+        col_a1, col_a2 = st.columns(2)
+        A0     = col_a1.number_input(
+            "Initial activity (Bq)",
+            min_value=1.0,
+            max_value=1e15,
+            value=1000.0,
+            format="%.2e",
+            step=100.0,
+            key="safe_A0",
+        )
+        A_safe = col_a2.number_input(
+            "Safe level (Bq)",
+            min_value=1e-6,
+            max_value=1e12,
+            value=1.0,
+            format="%.2e",
+            step=1.0,
+            key="safe_Asafe",
+        )
+
+        if A0 <= A_safe:
+            st.info(
+                "Initial activity is already at or below the safe level.", icon="✅"
+            )
+            return
+
+        T_half_s = _SAFE_LEVEL_ISOTOPES[iso_label]["T_half_s"]
+        t_safe_s = T_half_s * np.log2(A0 / A_safe)
+
+        val_str, unit_str = _format_duration(t_safe_s)
+        st.markdown(
+            f"**Time for activity to fall from {A0:.0f} Bq to {A_safe:.0f} Bq:**"
+        )
+        st.metric(f"Time ({unit_str})", val_str)
+
+        # Small decay curve plot
+        # Use 300 points across 1.5× t_safe
+        t_plot_s  = np.linspace(0, t_safe_s * 1.5, 300)
+        lam_iso   = np.log(2) / T_half_s
+        A_plot    = A0 * np.exp(-lam_iso * t_plot_s)
+
+        # Convert to display units (same as the auto-unit)
+        unit_to_s_map = {
+            "minutes":       60.0,
+            "hours":         _SEC_PER_HOUR,
+            "days":          _SEC_PER_DAY,
+            "years":         _SEC_PER_YEAR,
+            "millennia":     1e3 * _SEC_PER_YEAR,
+            "million years": 1e6 * _SEC_PER_YEAR,
+            "billion years": 1e9 * _SEC_PER_YEAR,
+        }
+        denom = unit_to_s_map.get(unit_str, 1.0)
+        t_plot_disp = t_plot_s / denom
+        t_safe_disp = t_safe_s / denom
+
+        fig_sl = make_fig()
+        fig_sl.add_trace(go.Scatter(
+            x=t_plot_disp,
+            y=A_plot,
+            mode="lines",
+            name=f"A(t) — {iso_label}",
+            line=dict(color=COLOURS["primary"], width=2),
+        ))
+        # Safe level dashed horizontal line
+        fig_sl.add_hline(
+            y=A_safe,
+            line_dash="dash",
+            line_color=COLOURS["tertiary"],
+            annotation_text=f"Safe level: {A_safe:.2g} Bq",
+            annotation_font_color=COLOURS["tertiary"],
+            annotation_position="bottom right",
+        )
+        # Vertical marker at t_safe
+        fig_sl.add_vline(
+            x=t_safe_disp,
+            line_dash="dot",
+            line_color=COLOURS["highlight"],
+            annotation_text=f"t = {val_str} {unit_str}",
+            annotation_font_color=COLOURS["highlight"],
+            annotation_position="top right",
+        )
+        fig_sl.update_layout(**plotly_layout(
+            title=f"Activity decay — {iso_label}",
+            xaxis_title=f"Time ({unit_str})",
+            yaxis_title="Activity (Bq)",
+            yaxis=dict(
+                exponentformat="e",
+                showexponent="all",
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+                rangemode="tozero",
+            ),
+            height=320,
+            margin=dict(l=70, r=160, t=50, b=50),
+        ))
+        st.plotly_chart(fig_sl, use_container_width=True)
+
+
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 
 def render_sidebar() -> dict:
@@ -616,11 +990,19 @@ def main() -> None:
             )
             st.plotly_chart(fig, use_container_width=True)
 
-            # Chain diagram
-            st.markdown("**Decay chain:**")
-            st.markdown(
-                f"`{meta_cp['chain_diagram']}`",
-            )
+            # ── Chain schematic (visual HTML) ─────────────────────────────
+            _render_chain_schematic(cp["chain_name"], meta_cp)
+
+            # Radon home contamination context
+            if "Rn-222" in cp["chain_name"]:
+                st.warning(
+                    "☢️ **Radon in homes:** Rn-222 is produced by Ra-226 decay in soil "
+                    "and rock. It seeps into poorly ventilated buildings and is the second "
+                    "leading cause of lung cancer in the UK (after smoking), responsible for "
+                    "~1,100 deaths/year. Average UK indoor level: ~20 Bq/m³. UK action "
+                    "level: 200 Bq/m³. Simple fix: improved ventilation or sump pump. "
+                    "Check your home at radon.co.uk",
+                )
 
             # Metric row at final time
             N_final = N[-1]
@@ -647,6 +1029,9 @@ def main() -> None:
                 "</div>",
                 unsafe_allow_html=True,
             )
+
+        # ── Time to safe level calculator ────────────────────────────────────
+        _render_safe_level_calculator()
 
         # ── Advanced section ──────────────────────────────────────────────────
         if mode == "Advanced":
@@ -1025,6 +1410,10 @@ def main() -> None:
                         row=2, col=1,
                     )
                     st.plotly_chart(fig_2, use_container_width=True)
+
+                    # Tc-99m generator visualisation — only for U-238 chain
+                    if "U-238" in chain_name:
+                        _render_tc99m_generator()
 
                     st.info(
                         "**Tc-99m generator (medical physics application):**  \n"

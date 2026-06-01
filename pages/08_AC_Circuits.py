@@ -277,6 +277,7 @@ def build_phasor_diagram(
     X_L: float,
     X_C: float,
     phi: float,
+    show_current_circle: bool = False,
 ) -> go.Figure:
     """
     Static phasor diagram at t = 0.
@@ -388,6 +389,25 @@ def build_phasor_diagram(
             showlegend=False,
         )
     )
+
+    # Concentric circle at I0 scale (Advanced mode) — drawn as a parametric circle
+    # at radius = i_display_mag (= V0) to show "current phasor lives on this circle"
+    if show_current_circle and I0 > 1e-9:
+        _theta_circle = np.linspace(0, 2 * np.pi, 200)
+        fig.add_trace(
+            go.Scatter(
+                x=i_display_mag * np.cos(_theta_circle),
+                y=i_display_mag * np.sin(_theta_circle),
+                mode="lines",
+                name=f"I₀ = {I0:.4f} A (voltage scale)",
+                line=dict(
+                    color=COLOURS["secondary"],
+                    width=1,
+                    dash="dash",
+                ),
+                showlegend=True,
+            )
+        )
 
     # Axis range: symmetric about origin
     r = max_mag * 1.35
@@ -762,6 +782,71 @@ def build_lissajous(
 # ── Sidebar controls ──────────────────────────────────────────────────────────
 
 
+PRESETS = {
+    "Custom": None,
+    "Mains power supply (UK)": dict(
+        circuit="Pure R",
+        R=230.0,
+        C_uF=10.0,
+        L_mH=100.0,
+        f=50.0,
+        V0=325.0,
+        context=(
+            "UK mains: 230V rms, 50Hz. Peak voltage = 325V. "
+            "RMS voltage is equivalent DC for heating/power."
+        ),
+    ),
+    "AM radio tuner": dict(
+        circuit="RLC Series",
+        R=10.0,
+        C_uF=0.0001,   # 100 pF
+        L_mH=0.25,     # 250 μH
+        f=1000.0,
+        V0=10.0,
+        context=(
+            "AM radio uses a variable capacitor to tune an RLC circuit to the "
+            "station's carrier frequency (535–1705 kHz). At resonance, Z is "
+            "minimum and signal is maximum."
+        ),
+    ),
+    "Audio bass filter (subwoofer)": dict(
+        circuit="RC Series",
+        R=8.0,
+        C_uF=1000.0,
+        L_mH=100.0,
+        f=50.0,
+        V0=10.0,
+        context=None,   # built dynamically with X_C values
+    ),
+    "Fluorescent light ballast": dict(
+        circuit="RL Series",
+        R=100.0,
+        C_uF=10.0,
+        L_mH=500.0,
+        f=50.0,
+        V0=10.0,
+        context=(
+            "Traditional fluorescent lights use an inductor (ballast) to limit "
+            "current and create the necessary voltage spike for ignition. "
+            "X_L = 157 Ω at 50Hz."
+        ),
+    ),
+    "MRI gradient coil": dict(
+        circuit="RLC Series",
+        R=1.0,
+        C_uF=100.0,
+        L_mH=1.0,
+        f=1000.0,
+        V0=10.0,
+        context=(
+            "MRI gradient coils are tuned RLC circuits driven at specific "
+            "resonant frequencies. High Q factor maximises field strength from "
+            "available power."
+        ),
+    ),
+}
+
+
 def render_sidebar() -> dict:
     """
     Render all sidebar controls.
@@ -776,62 +861,129 @@ def render_sidebar() -> dict:
 
     st.divider()
     st.markdown("### Circuit")
+
+    # ── Real-world preset selector ────────────────────────────────────────────
+    preset_name = st.selectbox(
+        "Real-world application",
+        list(PRESETS.keys()),
+        index=0,
+        help="Choose a real-world preset or 'Custom' for free control.",
+    )
+    preset = PRESETS[preset_name]
+
+    # Determine defaults from preset (or fall back to Custom defaults)
+    def _preset_val(key, default):
+        return preset[key] if preset and key in preset else default
+
+    circuit_default = _preset_val("circuit", "Pure R")
     circuit = st.selectbox(
         "Circuit type",
         ["Pure R", "RC Series", "RL Series", "RLC Series"],
-        index=0,
+        index=["Pure R", "RC Series", "RL Series", "RLC Series"].index(circuit_default),
         help="Select which series circuit to simulate.",
+        disabled=(preset is not None),
     )
 
     st.divider()
     st.markdown("### Source")
 
-    V0 = st.slider(
-        "Peak voltage V₀ (V)",
-        min_value=1,
-        max_value=100,
-        value=10,
-        step=1,
-        help="Peak (amplitude) of the sinusoidal supply voltage.",
-    )
+    # Peak voltage — preset may override above slider range so we use number_input
+    # for preset values outside the slider range (e.g. V0=325 for mains).
+    _v0_default = int(_preset_val("V0", 10))
+    if preset is not None:
+        V0 = st.number_input(
+            "Peak voltage V₀ (V)",
+            value=_v0_default,
+            disabled=True,
+            help="Set by preset.",
+        )
+    else:
+        V0 = st.slider(
+            "Peak voltage V₀ (V)",
+            min_value=1,
+            max_value=1000,
+            value=min(_v0_default, 1000),
+            step=1,
+            help="Peak (amplitude) of the sinusoidal supply voltage.",
+        )
 
-    f = st.select_slider(
-        "Frequency f (Hz)",
-        options=FREQ_OPTIONS,
-        value=50,
-        help="Supply frequency. Covers mains (50 Hz) to RF range.",
-    )
+    _f_default = float(_preset_val("f", 50))
+    # Find nearest FREQ_OPTIONS value for preset frequencies not in the list
+    _f_nearest = min(FREQ_OPTIONS, key=lambda x: abs(x - _f_default))
+    if preset is not None:
+        f = st.number_input(
+            "Frequency f (Hz)",
+            value=_f_default,
+            disabled=True,
+            help="Set by preset.",
+        )
+    else:
+        f = st.select_slider(
+            "Frequency f (Hz)",
+            options=FREQ_OPTIONS,
+            value=_f_nearest,
+            help="Supply frequency. Covers mains (50 Hz) to RF range.",
+        )
 
     st.divider()
     st.markdown("### Components")
 
-    R = st.slider(
-        "Resistance R (Ω)",
-        min_value=1,
-        max_value=10_000,
-        value=1_000,
-        step=1,
-        help="Series resistance.",
-    )
+    _r_default = int(_preset_val("R", 1000))
+    if preset is not None:
+        R = st.number_input(
+            "Resistance R (Ω)",
+            value=float(_r_default),
+            disabled=True,
+            help="Set by preset.",
+        )
+    else:
+        R = st.slider(
+            "Resistance R (Ω)",
+            min_value=1,
+            max_value=10_000,
+            value=min(_r_default, 10_000),
+            step=1,
+            help="Series resistance.",
+        )
 
     C_uF = None
     L_mH = None
 
     if circuit in ("RC Series", "RLC Series"):
-        C_uF = st.select_slider(
-            "Capacitance C (μF)",
-            options=C_OPTIONS_UF,
-            value=10,
-            help="Series capacitance. X_C = 1/(ωC).",
-        )
+        _c_default = float(_preset_val("C_uF", 10))
+        _c_nearest = min(C_OPTIONS_UF, key=lambda x: abs(x - _c_default))
+        if preset is not None:
+            C_uF = st.number_input(
+                "Capacitance C (μF)",
+                value=_c_default,
+                disabled=True,
+                help="Set by preset.",
+            )
+        else:
+            C_uF = st.select_slider(
+                "Capacitance C (μF)",
+                options=C_OPTIONS_UF,
+                value=_c_nearest,
+                help="Series capacitance. X_C = 1/(ωC).",
+            )
 
     if circuit in ("RL Series", "RLC Series"):
-        L_mH = st.select_slider(
-            "Inductance L (mH)",
-            options=L_OPTIONS_MH,
-            value=100,
-            help="Series inductance. X_L = ωL.",
-        )
+        _l_default = float(_preset_val("L_mH", 100))
+        _l_nearest = min(L_OPTIONS_MH, key=lambda x: abs(x - _l_default))
+        if preset is not None:
+            L_mH = st.number_input(
+                "Inductance L (mH)",
+                value=_l_default,
+                disabled=True,
+                help="Set by preset.",
+            )
+        else:
+            L_mH = st.select_slider(
+                "Inductance L (mH)",
+                options=L_OPTIONS_MH,
+                value=_l_nearest,
+                help="Series inductance. X_L = ωL.",
+            )
 
     show_bode       = False
     show_resonance  = False
@@ -879,12 +1031,14 @@ def render_sidebar() -> dict:
         V0=float(V0),
         f=float(f),
         R=float(R),
-        C_uF=float(C_uF) if C_uF is not None else 10.0,
-        L_mH=float(L_mH) if L_mH is not None else 100.0,
+        C_uF=float(C_uF) if C_uF is not None else float(_preset_val("C_uF", 10)),
+        L_mH=float(L_mH) if L_mH is not None else float(_preset_val("L_mH", 100)),
         show_bode=show_bode,
         show_resonance=show_resonance,
         show_power=show_power,
         show_lissajous=show_lissajous,
+        preset_name=preset_name,
+        preset=preset,
     )
 
 
@@ -898,13 +1052,15 @@ def main() -> None:
     with left_col:
         params = render_sidebar()
 
-    mode    = params["mode"]
-    circuit = params["circuit"]
-    V0      = params["V0"]
-    f       = params["f"]
-    R       = params["R"]
-    C_F     = params["C_uF"] * 1e-6
-    L_H     = params["L_mH"] * 1e-3
+    mode        = params["mode"]
+    circuit     = params["circuit"]
+    V0          = params["V0"]
+    f           = params["f"]
+    R           = params["R"]
+    C_F         = params["C_uF"] * 1e-6
+    L_H         = params["L_mH"] * 1e-3
+    preset_name = params["preset_name"]
+    preset      = params["preset"]
 
     # ── Core circuit computation ───────────────────────────────────────────────
     X_L, X_C, X_net, Z, phi = compute_impedance(circuit, R, C_F, L_H, f)
@@ -922,6 +1078,21 @@ def main() -> None:
     i_trace  = I0 * np.sin(omega * t - phi)
 
     with left_col:
+        # ── Preset context card ────────────────────────────────────────────────
+        if preset is not None:
+            _ctx = preset.get("context")
+            if preset_name == "Audio bass filter (subwoofer)":
+                # Dynamic context with calculated X_C values
+                X_C_50  = 1.0 / (_safe_omega(50)  * C_F) if C_F > 0 else 0.0
+                X_C_200 = 1.0 / (_safe_omega(200) * C_F) if C_F > 0 else 0.0
+                _ctx = (
+                    f"A subwoofer crossover is a low-pass RC filter. "
+                    f"X_C = 1/(2πfC) = {X_C_50:.1f} Ω at 50Hz vs "
+                    f"{X_C_200:.1f} Ω at 200Hz — the capacitor blocks high frequencies."
+                )
+            if _ctx:
+                st.info(f"**{preset_name}**\n\n{_ctx}")
+
         st.markdown("#### Circuit summary")
 
         # Impedance triangle info box
@@ -1008,13 +1179,62 @@ def main() -> None:
 
         st.markdown("")
 
+        # ── Phase relationship insight card ────────────────────────────────────
+        _Q_react_card = V_rms * I_rms * abs(np.sin(phi))
+        _near_resonance = (
+            circuit == "RLC Series"
+            and abs(phi) < 0.1
+            and L_H > 0 and C_F > 0
+        )
+        if _near_resonance:
+            st.info(
+                f"**Near resonance!** Z ≈ R = {R:.0f} Ω (minimum impedance). "
+                "Maximum current flows. Power factor ≈ 1. "
+                "This is how a radio tuner selects a specific station.",
+                icon="\U0001f3af",
+            )
+        elif abs(phi) < 0.05:
+            st.info(
+                "**In phase:** Purely resistive circuit. "
+                "All power is dissipated as heat in R. "
+                f"Power factor = {np.cos(phi):.2f}.",
+                icon="⚡",
+            )
+        elif phi > 0:
+            st.info(
+                f"**Inductive regime:** Current LAGS voltage by {phi_deg:.1f}°. "
+                "The inductor stores energy in its magnetic field during part of "
+                f"the cycle and returns it. Reactive power = {_Q_react_card:.3f} VAR.",
+                icon="\U0001f504",
+            )
+        else:
+            st.info(
+                f"**Capacitive regime:** Current LEADS voltage by {abs(phi_deg):.1f}°. "
+                "The capacitor stores energy in its electric field and returns it. "
+                f"Reactive power = {_Q_react_card:.3f} VAR.",
+                icon="\U0001f50b",
+            )
+
         # ── Plot 1: V(t) and I(t) ─────────────────────────────────────────────
         fig_time = build_time_series(t, v, i_trace, phi, f)
         st.plotly_chart(fig_time, use_container_width=True)
 
         # ── Plot 2: Phasor diagram ─────────────────────────────────────────────
-        fig_phasor = build_phasor_diagram(V0, I0, X_L, X_C, phi)
+        fig_phasor = build_phasor_diagram(
+            V0, I0, X_L, X_C, phi,
+            show_current_circle=(mode == "Advanced"),
+        )
         st.plotly_chart(fig_phasor, use_container_width=True)
+        st.caption(
+            f"Phasors rotate anticlockwise at ω = {omega:.1f} rad/s. "
+            "The diagram shows the snapshot at t = 0. "
+            "The length of each phasor is the PEAK (amplitude) of that voltage."
+            + (
+                f" The dashed circle shows the current phasor scale (I₀ = {I0:.4f} A, "
+                "displayed at voltage scale)."
+                if mode == "Advanced" else ""
+            )
+        )
 
         # ── Advanced plots ─────────────────────────────────────────────────────
         if mode == "Advanced":
@@ -1122,7 +1342,11 @@ def main() -> None:
                 "An inductor causes current to lag voltage by 90° (it resists "
                 "changes in current). A capacitor causes current to lead voltage "
                 "by 90° (it stores charge). In RLC circuits, X_L and X_C "
-                "partially cancel, and resonance occurs when X_L = X_C."
+                "partially cancel, and resonance occurs when X_L = X_C.\n\n"
+                "**UK mains:** 230V rms at 50Hz. Peak voltage = 230×√2 = 325V. "
+                "The 'rms' value is the equivalent DC voltage for the same heating "
+                "effect. A 230V, 100W light bulb draws I_rms = 100/230 = 0.43A, "
+                "or peak current = 0.61A."
             ),
             advanced_text=(
                 "At resonance f₀, impedance is minimum (=R) and current is "

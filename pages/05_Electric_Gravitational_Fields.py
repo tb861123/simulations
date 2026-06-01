@@ -924,92 +924,221 @@ def main() -> None:
             label_visibility="collapsed",
         )
 
+        # ── Preset configurations ─────────────────────────────────────────────
+
+        # Preset definitions — keyed by field_type
+        _ELECTRIC_PRESETS: dict[str, dict] = {
+            "Custom": {
+                "context": None,
+                "charges": None,   # None → use sliders
+            },
+            "Electric dipole (±)": {
+                "context": (
+                    "A water molecule acts as an electric dipole. "
+                    "This is why water is such a good solvent."
+                ),
+                "charges": [
+                    (+3e-9, -2.0, 0.0),
+                    (-3e-9,  2.0, 0.0),
+                ],
+            },
+            "Two equal positive charges": {
+                "context": (
+                    "Like charges repel. There is a saddle point (unstable equilibrium) "
+                    "midway between them."
+                ),
+                "charges": [
+                    (+2e-9, -2.0, 0.0),
+                    (+2e-9,  2.0, 0.0),
+                ],
+            },
+            "Capacitor plates (approx)": {
+                "context": (
+                    "Between parallel plates, the field is approximately uniform "
+                    "— the basis of every capacitor."
+                ),
+                "charges": [
+                    (+5e-9, -1.0, -1.0),
+                    (+5e-9, -1.0,  1.0),
+                    (-5e-9,  1.0, -1.0),
+                    (-5e-9,  1.0,  1.0),
+                ],
+            },
+            "Three-phase symmetry": {
+                "context": (
+                    "Three-fold symmetry: the field cancels exactly at the centre."
+                ),
+                "charges": [
+                    (+3e-9,  0.0,   2.0),
+                    (+3e-9, -1.73, -1.0),
+                    (+3e-9,  1.73, -1.0),
+                ],
+            },
+        }
+
+        _GRAV_PRESETS: dict[str, dict] = {
+            "Custom": {
+                "context": None,
+                "masses": None,   # None → use sliders
+            },
+            "Earth-Moon system": {
+                "context": (
+                    "The Lagrange L1 point (between them) is where gravitational pulls exactly "
+                    "balance. The DSCOVR spacecraft orbits there."
+                ),
+                "masses": [
+                    (5.97e24, -2.0, 0.0),
+                    (7.34e22,  2.0, 0.0),
+                ],
+            },
+            "Binary star (equal masses)": {
+                "context": (
+                    "About half of all stars are in binary systems. Both stars orbit their "
+                    "common centre of mass."
+                ),
+                "masses": [
+                    (2e30, -2.0, 0.0),
+                    (2e30,  2.0, 0.0),
+                ],
+            },
+            "Star + giant planet": {
+                "context": (
+                    "Jupiter is 1/1000th the mass of the Sun. The Sun actually wobbles slightly "
+                    "— this is how exoplanets are detected (radial velocity method)."
+                ),
+                "masses": [
+                    (2e30, -1.0, 0.0),
+                    (1.9e27, 2.0, 0.0),
+                ],
+            },
+        }
+
+        preset_map = _ELECTRIC_PRESETS if field_type == "Electric Field" else _GRAV_PRESETS
+        preset_names = list(preset_map.keys())
+
+        preset_key = f"preset_{field_type}"
+        if preset_key not in st.session_state:
+            st.session_state[preset_key] = "Custom"
+
+        selected_preset = st.selectbox(
+            "Preset configuration",
+            options=preset_names,
+            index=preset_names.index(st.session_state[preset_key])
+            if st.session_state[preset_key] in preset_names else 0,
+            key=f"selectbox_{field_type}",
+        )
+        st.session_state[preset_key] = selected_preset
+
+        preset_data = preset_map[selected_preset]
+        if preset_data["context"]:
+            st.info(preset_data["context"])
+
         # ── Electric field controls ───────────────────────────────────────────
 
         charges_list: list[tuple[float, float, float]] = []  # (q_C, x, y)
         masses_list:  list[tuple[float, float, float]] = []  # (M, x, y)
 
         if field_type == "Electric Field":
-            st.markdown("### Charges")
 
-            n_charges = st.slider(
-                "Number of charges", min_value=1, max_value=4, value=2, step=1,
-            )
+            # If a preset is active, bypass sliders
+            if selected_preset != "Custom" and preset_data.get("charges"):
+                charges_list = list(preset_data["charges"])
+                st.markdown("### Charges")
+                st.caption(
+                    f"{len(charges_list)} charges defined by preset. "
+                    "Select **Custom** above to adjust individually."
+                )
+            else:
+                st.markdown("### Charges")
 
-            for i in range(n_charges):
-                def_x, def_y = _DEFAULT_POS[i]
-                with st.expander(f"Charge {i + 1}", expanded=(i < 2)):
-                    cx = st.slider(
-                        f"x position (m)##{i}",
-                        min_value=-5.0, max_value=5.0,
-                        value=def_x, step=0.5,
-                        format="%.1f",
-                        label_visibility="visible",
-                        key=f"charge_x_{i}",
-                    )
-                    cy = st.slider(
-                        f"y position (m)##{i}",
-                        min_value=-5.0, max_value=5.0,
-                        value=def_y, step=0.5,
-                        format="%.1f",
-                        key=f"charge_y_{i}",
-                    )
-                    cmag = st.slider(
-                        f"Magnitude (nC)##{i}",
-                        min_value=0.1, max_value=10.0,
-                        value=1.0, step=0.1,
-                        format="%.1f",
-                        key=f"charge_mag_{i}",
-                        help="1 nC = 1×10⁻⁹ C",
-                    )
-                    csign = st.radio(
-                        f"Sign##{i}",
-                        ["+", "−"],
-                        horizontal=True,
-                        key=f"charge_sign_{i}",
-                    )
-                    sign_val = +1.0 if csign == "+" else -1.0
-                    q_C = sign_val * cmag * 1e-9   # convert nC → C
-                    charges_list.append((q_C, cx, cy))
+                n_charges = st.slider(
+                    "Number of charges", min_value=1, max_value=4, value=2, step=1,
+                )
+
+                for i in range(n_charges):
+                    def_x, def_y = _DEFAULT_POS[i]
+                    with st.expander(f"Charge {i + 1}", expanded=(i < 2)):
+                        cx = st.slider(
+                            f"x position (m)##{i}",
+                            min_value=-5.0, max_value=5.0,
+                            value=def_x, step=0.5,
+                            format="%.1f",
+                            label_visibility="visible",
+                            key=f"charge_x_{i}",
+                        )
+                        cy = st.slider(
+                            f"y position (m)##{i}",
+                            min_value=-5.0, max_value=5.0,
+                            value=def_y, step=0.5,
+                            format="%.1f",
+                            key=f"charge_y_{i}",
+                        )
+                        cmag = st.slider(
+                            f"Magnitude (nC)##{i}",
+                            min_value=0.1, max_value=10.0,
+                            value=1.0, step=0.1,
+                            format="%.1f",
+                            key=f"charge_mag_{i}",
+                            help="1 nC = 1×10⁻⁹ C",
+                        )
+                        csign = st.radio(
+                            f"Sign##{i}",
+                            ["+", "−"],
+                            horizontal=True,
+                            key=f"charge_sign_{i}",
+                        )
+                        sign_val = +1.0 if csign == "+" else -1.0
+                        q_C = sign_val * cmag * 1e-9   # convert nC → C
+                        charges_list.append((q_C, cx, cy))
 
         # ── Gravitational field controls ──────────────────────────────────────
 
         else:
-            st.markdown("### Masses")
 
-            n_masses = st.slider(
-                "Number of masses", min_value=1, max_value=3, value=2, step=1,
-            )
+            # If a preset is active, bypass sliders
+            if selected_preset != "Custom" and preset_data.get("masses"):
+                masses_list = list(preset_data["masses"])
+                st.markdown("### Masses")
+                st.caption(
+                    f"{len(masses_list)} masses defined by preset. "
+                    "Select **Custom** above to adjust individually."
+                )
+            else:
+                st.markdown("### Masses")
 
-            for i in range(n_masses):
-                def_x, def_y = _DEFAULT_MASS_POS[i]
-                with st.expander(f"Mass {i + 1}", expanded=(i < 2)):
-                    mx = st.slider(
-                        f"x position (m)##{i}",
-                        min_value=-5.0, max_value=5.0,
-                        value=def_x, step=0.5,
-                        format="%.1f",
-                        key=f"mass_x_{i}",
-                    )
-                    my = st.slider(
-                        f"y position (m)##{i}",
-                        min_value=-5.0, max_value=5.0,
-                        value=def_y, step=0.5,
-                        format="%.1f",
-                        key=f"mass_y_{i}",
-                    )
-                    # Log-scale mass slider: map [0,1] to [1e10, 1e13]
-                    m_log = st.slider(
-                        f"log₁₀(Mass / kg)##{i}",
-                        min_value=10.0, max_value=13.0,
-                        value=12.0, step=0.1,
-                        format="%.1f",
-                        key=f"mass_val_{i}",
-                        help="Slide to set mass on a log scale. 12 → 1×10¹² kg",
-                    )
-                    M_val = 10.0 ** m_log
-                    st.caption(f"M = {M_val:.2e} kg")
-                    masses_list.append((M_val, mx, my))
+                n_masses = st.slider(
+                    "Number of masses", min_value=1, max_value=3, value=2, step=1,
+                )
+
+                for i in range(n_masses):
+                    def_x, def_y = _DEFAULT_MASS_POS[i]
+                    with st.expander(f"Mass {i + 1}", expanded=(i < 2)):
+                        mx = st.slider(
+                            f"x position (m)##{i}",
+                            min_value=-5.0, max_value=5.0,
+                            value=def_x, step=0.5,
+                            format="%.1f",
+                            key=f"mass_x_{i}",
+                        )
+                        my = st.slider(
+                            f"y position (m)##{i}",
+                            min_value=-5.0, max_value=5.0,
+                            value=def_y, step=0.5,
+                            format="%.1f",
+                            key=f"mass_y_{i}",
+                        )
+                        # Log-scale mass slider: map [0,1] to [1e10, 1e13]
+                        m_log = st.slider(
+                            f"log₁₀(Mass / kg)##{i}",
+                            min_value=10.0, max_value=13.0,
+                            value=12.0, step=0.1,
+                            format="%.1f",
+                            key=f"mass_val_{i}",
+                            help="Slide to set mass on a log scale. 12 → 1×10¹² kg",
+                        )
+                        M_val = 10.0 ** m_log
+                        st.caption(f"M = {M_val:.2e} kg")
+                        masses_list.append((M_val, mx, my))
 
         # ── Probe point controls ──────────────────────────────────────────────
 
@@ -1157,11 +1286,21 @@ def main() -> None:
                 "E at probe (V/m)": f"{F_mag:.3e}",
                 "V at probe (V)":   f"{V_probe:.3e}",
             })
+            st.caption(
+                "⚡ Real measurements: E field near thundercloud base ≈ 10,000 V/m. "
+                "E field that ionises air ≈ 3×10⁶ V/m (dielectric breakdown). "
+                "E inside a cell membrane ≈ 10⁷ V/m."
+            )
         else:
             metric_row({
                 "g at probe (N/kg)": f"{F_mag:.3e}",
                 "Vg at probe (J/kg)": f"{V_probe:.3e}",
             })
+            st.caption(
+                "🌍 Real measurements: g at Earth's surface = 9.81 N/kg. "
+                "g at ISS altitude (408 km) = 8.69 N/kg (only 11% less!). "
+                "g at Moon's surface = 1.62 N/kg."
+            )
 
         # ── Test-particle trajectory ──────────────────────────────────────────
 
@@ -1214,6 +1353,93 @@ def main() -> None:
         )
 
         st.plotly_chart(fig_field, use_container_width=True)
+
+        # ── Field strength vs distance (Basic mode) ───────────────────────────
+
+        if mode == "Basic":
+            show_fvd = st.checkbox(
+                "Show field vs distance graph",
+                value=False,
+                key="show_field_vs_dist",
+            )
+            if show_fvd:
+                r_arr = np.linspace(0.5, 6.0, 300)
+
+                if field_type == "Electric Field" and charges_list:
+                    q_first = charges_list[0][0]   # first charge (C)
+                    F_arr = k_e * abs(q_first) / r_arr ** 2
+                    y_label = "E (V/m)"
+                    title_fvd = f"Electric field strength vs distance (first charge: {q_first*1e9:.2f} nC)"
+                    E_1m = k_e * abs(q_first) / 1.0 ** 2
+                    E_2m = k_e * abs(q_first) / 2.0 ** 2
+                    ratio = E_1m / (E_2m + 1e-30)
+                    cols_fvd = st.columns(3)
+                    cols_fvd[0].metric("E at r = 1 m", f"{E_1m:.3e} V/m")
+                    cols_fvd[1].metric("E at r = 2 m", f"{E_2m:.3e} V/m")
+                    cols_fvd[2].metric(
+                        "Ratio (expect 4.0 for double distance)",
+                        f"{ratio:.2f}",
+                    )
+                else:
+                    M_first = masses_list[0][0] if masses_list else 1e12
+                    F_arr = G * M_first / r_arr ** 2
+                    y_label = "g (N/kg)"
+                    title_fvd = f"Gravitational field strength vs distance (first mass: {M_first:.2e} kg)"
+                    E_1m = G * M_first / 1.0 ** 2
+                    E_2m = G * M_first / 2.0 ** 2
+                    ratio = E_1m / (E_2m + 1e-30)
+                    cols_fvd = st.columns(3)
+                    cols_fvd[0].metric("g at r = 1 m", f"{E_1m:.3e} N/kg")
+                    cols_fvd[1].metric("g at r = 2 m", f"{E_2m:.3e} N/kg")
+                    cols_fvd[2].metric(
+                        "Ratio (expect 4.0 for double distance)",
+                        f"{ratio:.2f}",
+                    )
+
+                # Log-log chart (slope = -2 ↔ inverse-square law)
+                fig_fvd = go.Figure()
+                fig_fvd.add_trace(go.Scatter(
+                    x=r_arr,
+                    y=F_arr,
+                    mode="lines",
+                    line=dict(
+                        color=COLOURS["primary"] if field_type == "Electric Field"
+                        else COLOURS["secondary"],
+                        width=2,
+                    ),
+                    name=y_label,
+                    hovertemplate="r=%{x:.2f} m<br>" + y_label + "=%{y:.3e}<extra></extra>",
+                ))
+                fig_fvd.add_annotation(
+                    x=0.72, y=0.85,
+                    xref="paper", yref="paper",
+                    text="Slope = −2 confirms inverse-square law",
+                    showarrow=False,
+                    font=dict(size=11, color=COLOURS["text"]),
+                    bgcolor="rgba(0,0,0,0.5)",
+                    bordercolor=COLOURS["grid"],
+                    borderwidth=1,
+                )
+                fig_fvd.update_layout(
+                    **plotly_layout(
+                        title=dict(text=title_fvd, font=dict(size=13)),
+                        height=300,
+                        xaxis=dict(
+                            title="r (m)",
+                            type="log",
+                            gridcolor=COLOURS["grid"],
+                            linecolor=COLOURS["grid"],
+                        ),
+                        yaxis=dict(
+                            title=y_label,
+                            type="log",
+                            gridcolor=COLOURS["grid"],
+                            linecolor=COLOURS["grid"],
+                        ),
+                        margin=dict(l=60, r=30, t=55, b=50),
+                    )
+                )
+                st.plotly_chart(fig_fvd, use_container_width=True)
 
         # ── Energy conservation plot ──────────────────────────────────────────
 

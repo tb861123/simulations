@@ -68,7 +68,12 @@ ADVANCED_TEXT = (
     "**Real examples:** Tacoma Narrows Bridge (1940) — resonance disaster from "
     "wind-induced forced oscillation at the bridge's natural frequency. MRI "
     "scanners — tuned resonance of hydrogen nuclei in a magnetic field. "
-    "Car suspension — target near critical damping for comfort and handling."
+    "Car suspension — target near critical damping for comfort and handling.\n\n"
+    "**Musical instruments:** A guitar string is a forced oscillating system. "
+    "Fret position changes L → changes f. Tighter string increases tension → "
+    "increases k → higher f. Heavier string increases m → lower f. The Q factor "
+    "of a guitar string determines sustain — classical guitar strings have Q~1000, "
+    "giving long sustain."
 )
 
 N_POINTS = 1000          # time-series sample count
@@ -719,6 +724,16 @@ with left_col:
         omega0, T_period, freq = spring_params(m_eff, k_spring)
         L = 1.0  # unused for spring; set for function signatures
 
+    # ── Basic: period verification checkbox ──────────────────────────────────
+    show_period_verification = False
+    if mode == "Basic":
+        st.divider()
+        show_period_verification = st.checkbox(
+            "Show period verification",
+            value=False,
+            help="Show graphs illustrating how period depends on system parameters.",
+        )
+
     # ── Advanced controls (inside left column) ────────────────────────────────
     # Defaults needed before Advanced block
     zeta = 0.0
@@ -745,6 +760,53 @@ with left_col:
             st.info(f"Regime: **Underdamped** (ζ = {zeta:.2f} < 1) — decaying oscillation.")
         else:
             st.info(f"Regime: **Overdamped** (ζ = {zeta:.2f} > 1) — slow exponential return.")
+
+        # ── Real-world damping presets ────────────────────────────────────────
+        _DAMPING_PRESETS = {
+            "Custom": None,
+            "Car suspension (comfort)": (
+                0.25,
+                "Slightly underdamped: the body bounces gently once after a bump, "
+                "giving a plush ride feel.",
+            ),
+            "Car suspension (sport)": (
+                0.7,
+                "Well-damped: the suspension rebounds quickly and controlled — "
+                "minimal body roll, responsive handling.",
+            ),
+            "Building with TMD (tuned mass damper)": (
+                0.05,
+                "Very lightly damped: the tuned mass damper inside the building "
+                "absorbs sway energy during earthquakes or wind loading.",
+            ),
+            "Door damper (soft close)": (
+                1.0,
+                "Critically damped: the door closes smoothly to the frame without "
+                "bouncing or slamming — exactly critical damping.",
+            ),
+            "Old clock pendulum (air)": (
+                0.002,
+                "Extremely lightly damped: air resistance is tiny, so the pendulum "
+                "swings for hours before losing appreciable amplitude.",
+            ),
+            "Seismograph": (
+                0.6,
+                "Moderately damped: the needle responds clearly to ground motion "
+                "then settles quickly, ready to record the next wave.",
+            ),
+        }
+
+        preset_choice = st.selectbox(
+            "Real-world example",
+            options=list(_DAMPING_PRESETS.keys()),
+            index=0,
+            help="Select a preset to update ζ and see a real-world context card.",
+        )
+
+        if preset_choice != "Custom" and _DAMPING_PRESETS[preset_choice] is not None:
+            _preset_zeta, _preset_info = _DAMPING_PRESETS[preset_choice]
+            zeta = _preset_zeta
+            st.info(_preset_info)
 
         if zeta > 0.0:
             enable_forced = st.checkbox(
@@ -869,6 +931,190 @@ with right_col:
         fig_energy = build_energy_bar(KE_val, PE_val, t_selected)
         st.plotly_chart(fig_energy, use_container_width=True)
 
+    # ── Basic: period verification graphs ────────────────────────────────────
+    if mode == "Basic" and show_period_verification:
+        st.markdown("#### Period Verification")
+        pv_col_left, pv_col_right = st.columns(2)
+
+        if system == "Simple Pendulum":
+            # Left: T vs L
+            L_arr = np.linspace(0.1, 5.0, 300)
+            T_vs_L = 2 * np.pi * np.sqrt(L_arr / g)
+
+            fig_TL = go.Figure()
+            fig_TL.add_trace(
+                go.Scatter(
+                    x=L_arr,
+                    y=T_vs_L,
+                    mode="lines",
+                    name="T vs L",
+                    line=dict(color=COLOURS["primary"], width=2),
+                )
+            )
+            fig_TL.add_vline(
+                x=L,
+                line=dict(color=COLOURS["highlight"], dash="dash", width=1.5),
+                annotation_text=f"L={L:.2f} m",
+                annotation_position="top right",
+            )
+            # Log-log slope annotation
+            fig_TL.add_annotation(
+                x=0.5,
+                y=max(T_vs_L) * 0.85,
+                text="log-log slope = 0.5",
+                showarrow=False,
+                font=dict(color=COLOURS["advanced"], size=11),
+                xref="paper",
+                yref="y",
+            )
+            fig_TL.update_layout(
+                **plotly_layout(
+                    height=320,
+                    title=dict(text="T ∝ √L (Pendulum)", font=dict(size=13)),
+                    xaxis=dict(
+                        title="Length L (m)",
+                        gridcolor=COLOURS["grid"],
+                        linecolor=COLOURS["grid"],
+                        zerolinecolor=COLOURS["grid"],
+                    ),
+                    yaxis=dict(
+                        title="Period T (s)",
+                        gridcolor=COLOURS["grid"],
+                        linecolor=COLOURS["grid"],
+                        zerolinecolor=COLOURS["grid"],
+                    ),
+                )
+            )
+            with pv_col_left:
+                st.plotly_chart(fig_TL, use_container_width=True)
+
+            # Right: T on different planets
+            _PLANETS = {
+                "Moon": 1.62,
+                "Mars": 3.72,
+                "Earth": 9.81,
+                "Jupiter": 24.8,
+            }
+            _planet_names = list(_PLANETS.keys())
+            _planet_g = list(_PLANETS.values())
+            _planet_T = [2 * np.pi * np.sqrt(L / _gp) for _gp in _planet_g]
+
+            fig_Tg = go.Figure()
+            fig_Tg.add_trace(
+                go.Scatter(
+                    x=_planet_g,
+                    y=_planet_T,
+                    mode="markers+text",
+                    text=_planet_names,
+                    textposition="top center",
+                    marker=dict(color=COLOURS["secondary"], size=12),
+                    name="Planets",
+                )
+            )
+            fig_Tg.update_layout(
+                **plotly_layout(
+                    height=320,
+                    title=dict(text="T on different planets", font=dict(size=13)),
+                    xaxis=dict(
+                        title="g (m/s²)",
+                        gridcolor=COLOURS["grid"],
+                        linecolor=COLOURS["grid"],
+                        zerolinecolor=COLOURS["grid"],
+                    ),
+                    yaxis=dict(
+                        title="Period T (s)",
+                        gridcolor=COLOURS["grid"],
+                        linecolor=COLOURS["grid"],
+                        zerolinecolor=COLOURS["grid"],
+                    ),
+                )
+            )
+            with pv_col_right:
+                st.plotly_chart(fig_Tg, use_container_width=True)
+
+        else:  # Spring-Mass
+            # Left: T vs m (k fixed)
+            m_arr = np.linspace(0.1, 5.0, 300)
+            T_vs_m = 2 * np.pi * np.sqrt(m_arr / k_spring)
+
+            fig_Tm = go.Figure()
+            fig_Tm.add_trace(
+                go.Scatter(
+                    x=m_arr,
+                    y=T_vs_m,
+                    mode="lines",
+                    name="T vs m",
+                    line=dict(color=COLOURS["primary"], width=2),
+                )
+            )
+            fig_Tm.add_vline(
+                x=m_eff,
+                line=dict(color=COLOURS["highlight"], dash="dash", width=1.5),
+                annotation_text=f"m={m_eff:.1f} kg",
+                annotation_position="top right",
+            )
+            fig_Tm.update_layout(
+                **plotly_layout(
+                    height=320,
+                    title=dict(text="T ∝ √m (Spring-Mass)", font=dict(size=13)),
+                    xaxis=dict(
+                        title="Mass m (kg)",
+                        gridcolor=COLOURS["grid"],
+                        linecolor=COLOURS["grid"],
+                        zerolinecolor=COLOURS["grid"],
+                    ),
+                    yaxis=dict(
+                        title="Period T (s)",
+                        gridcolor=COLOURS["grid"],
+                        linecolor=COLOURS["grid"],
+                        zerolinecolor=COLOURS["grid"],
+                    ),
+                )
+            )
+            with pv_col_left:
+                st.plotly_chart(fig_Tm, use_container_width=True)
+
+            # Right: T vs k (m fixed)
+            k_arr = np.linspace(1.0, 200.0, 300)
+            T_vs_k = 2 * np.pi * np.sqrt(m_eff / k_arr)
+
+            fig_Tk = go.Figure()
+            fig_Tk.add_trace(
+                go.Scatter(
+                    x=k_arr,
+                    y=T_vs_k,
+                    mode="lines",
+                    name="T vs k",
+                    line=dict(color=COLOURS["primary"], width=2),
+                )
+            )
+            fig_Tk.add_vline(
+                x=k_spring,
+                line=dict(color=COLOURS["highlight"], dash="dash", width=1.5),
+                annotation_text=f"k={k_spring} N/m",
+                annotation_position="top right",
+            )
+            fig_Tk.update_layout(
+                **plotly_layout(
+                    height=320,
+                    title=dict(text="T ∝ 1/√k (Spring-Mass)", font=dict(size=13)),
+                    xaxis=dict(
+                        title="Spring constant k (N/m)",
+                        gridcolor=COLOURS["grid"],
+                        linecolor=COLOURS["grid"],
+                        zerolinecolor=COLOURS["grid"],
+                    ),
+                    yaxis=dict(
+                        title="Period T (s)",
+                        gridcolor=COLOURS["grid"],
+                        linecolor=COLOURS["grid"],
+                        zerolinecolor=COLOURS["grid"],
+                    ),
+                )
+            )
+            with pv_col_right:
+                st.plotly_chart(fig_Tk, use_container_width=True)
+
     # ── Advanced: amplitude–frequency response ────────────────────────────────
     if mode == "Advanced" and enable_forced:
         st.markdown("")
@@ -883,6 +1129,32 @@ with right_col:
             f"steady-state amplitude = **{A_ss:.3f}×** natural amplitude.  "
             f"Quality factor Q = 1/(2ζ) = **{Q_factor:.2f}**"
         )
+
+    # ── Key insight cards ─────────────────────────────────────────────────────
+    if mode == "Basic":
+        st.info(
+            "⚡ At equilibrium position (x=0): ALL energy is kinetic "
+            "(KE = ½mω²A²). At maximum displacement: ALL energy is potential "
+            "(PE = ½kA²)."
+        )
+        st.info(
+            f"🔄 The period T = {T_period:.3f} s is independent of amplitude — "
+            "this is what makes SHM special. A 10° swing takes the same time "
+            "as a 1° swing."
+        )
+    else:  # Advanced
+        if zeta < 1.0 and not (abs(zeta - 1.0) < ZETA_CRIT_TOL):
+            st.info(
+                f"⚠️ Damping ratio ζ = {zeta:.2f}: oscillations decay with envelope "
+                f"A·e^(−ζω₀t). The system still oscillates but amplitude shrinks "
+                "each cycle."
+            )
+        if enable_forced and abs(omega_drive_ratio - 1.0) < 0.15:
+            st.info(
+                "🔊 Near resonance! Maximum energy transfer from driver to system. "
+                "Real-world: Tacoma Narrows Bridge (1940) collapsed due to "
+                "wind-driven resonance."
+            )
 
     # ── Physics notes ─────────────────────────────────────────────────────────
     physics_notes(

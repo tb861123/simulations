@@ -17,6 +17,7 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+from scipy import stats as scipy_stats
 
 from utils.style import COLOURS, plotly_layout, make_fig
 from utils.physics import k_B, maxwell_boltzmann_pdf, rms_speed, mean_speed
@@ -336,10 +337,10 @@ def _build_particle_plot(
     """
     speeds = np.linalg.norm(vel, axis=1)
     r = 0.03 * L
-    marker_px = max(6, int(r * 200))  # approximate pixels
+    marker_px = max(8, int(r * 200))  # approximate pixels — minimum 8 for colour visibility
 
     v_ref = rms_speed(m, T)
-    color_norm = speeds / max(v_ref, 1e-30)
+    v_cmax = 2.5 * max(v_ref, 1e-30)  # colour scale: slow=blue, average=white/yellow, fast=red
 
     if two_species:
         N = len(pos)
@@ -353,9 +354,9 @@ def _build_particle_plot(
             marker=dict(
                 size=marker_px,
                 color=speeds[:n_heavy],
-                colorscale="Plasma",
+                colorscale="RdYlBu_r",
                 cmin=0,
-                cmax=2 * v_ref,
+                cmax=v_cmax,
                 showscale=False,
                 line=dict(width=1, color=COLOURS["secondary"]),
                 symbol="circle",
@@ -368,11 +369,11 @@ def _build_particle_plot(
             mode="markers",
             name="Light",
             marker=dict(
-                size=max(4, marker_px - 2),
+                size=max(6, marker_px - 2),
                 color=speeds[n_heavy:],
-                colorscale="Viridis",
+                colorscale="RdYlBu_r",
                 cmin=0,
-                cmax=2 * v_ref,
+                cmax=v_cmax,
                 showscale=False,
                 line=dict(width=1, color=COLOURS["tertiary"]),
                 symbol="diamond",
@@ -389,9 +390,9 @@ def _build_particle_plot(
                 marker=dict(
                     size=marker_px,
                     color=speeds,
-                    colorscale="Plasma",
+                    colorscale="RdYlBu_r",
                     cmin=0,
-                    cmax=2 * v_ref,
+                    cmax=v_cmax,
                     showscale=True,
                     colorbar=dict(
                         title="Speed (m/s)",
@@ -575,13 +576,30 @@ def _build_speed_histogram(
                 )
             )
 
-        # v_rms marker
-        v_rms_val = rms_speed(m, T)
+        # Three characteristic speeds: v_mp, v_mean, v_rms
+        v_mp_val   = np.sqrt(2 * k_B * T / m)          # most probable speed
+        v_mean_val = mean_speed(m, T)                   # mean speed
+        v_rms_val  = rms_speed(m, T)                    # root mean square speed
+
+        fig.add_vline(
+            x=v_mp_val,
+            line=dict(color=COLOURS["primary"], dash="dash", width=1.5),
+            annotation_text=f"v_mp = {v_mp_val:.0f} m/s",
+            annotation_font=dict(color=COLOURS["primary"], size=10),
+            annotation_position="top left",
+        )
+        fig.add_vline(
+            x=v_mean_val,
+            line=dict(color=COLOURS["secondary"], dash="dash", width=1.5),
+            annotation_text=f"v_mean = {v_mean_val:.0f} m/s",
+            annotation_font=dict(color=COLOURS["secondary"], size=10),
+            annotation_position="top right",
+        )
         fig.add_vline(
             x=v_rms_val,
-            line=dict(color=COLOURS["highlight"], dash="dash", width=1.5),
-            annotation_text=f"v_rms={v_rms_val:.0f}",
-            annotation_font=dict(color=COLOURS["highlight"], size=10),
+            line=dict(color=COLOURS["tertiary"], dash="dash", width=1.5),
+            annotation_text=f"v_rms = {v_rms_val:.0f} m/s",
+            annotation_font=dict(color=COLOURS["tertiary"], size=10),
             annotation_position="top right",
         )
 
@@ -738,6 +756,29 @@ with left_col:
         help="Mass of gas molecules determines speed at a given temperature.",
     )
     m = MASS_OPTIONS[mass_label]
+
+    # ── Real-world gas context card ───────────────────────────────────────────
+    _GAS_CONTEXT = {
+        "Nitrogen": (
+            "Makes up **78%** of Earth's atmosphere. The triple bond in N₂ makes it very "
+            "unreactive — hence its use in food packaging and tyre inflation. "
+            "v_rms at 25°C ≈ **515 m/s**."
+        ),
+        "Helium": (
+            "The lightest noble gas. Used in balloons, MRI coolant, and as a breathing mix "
+            "for deep-sea divers. So light it gradually escapes from Earth's upper atmosphere "
+            "— helium is **not renewed**."
+        ),
+        "Argon": (
+            "Third most abundant gas in Earth's atmosphere (**0.93%**). Used in welding "
+            "(inert shield), double glazing insulation, and as a fire suppressant. "
+            "v_rms at 25°C ≈ **431 m/s**."
+        ),
+    }
+    for _gas_key, _gas_info in _GAS_CONTEXT.items():
+        if _gas_key.lower() in mass_label.lower():
+            st.info(f"**{_gas_key}:** {_gas_info}")
+            break
 
     st.divider()
 
@@ -924,6 +965,12 @@ with right_col:
                 m_light=m_light_val,
             )
             st.plotly_chart(fig_hist, use_container_width=True)
+            if not two_species:
+                st.caption(
+                    "Speed ratios at any temperature: "
+                    "v_mp : v_mean : v_rms = 1 : 1.128 : 1.225  "
+                    "(ratio √2 : √(8/π) : √3)"
+                )
 
         # ── Ideal gas law info ────────────────────────────────────────────────
         st.info(
@@ -931,6 +978,30 @@ with right_col:
             f"→  P = N·k_B·T / L² = **{P_ideal:.4f} Pa·a.u.**  "
             f"(measured: {P_measured:.4f} Pa·a.u.)"
         )
+
+        # ── Atmosphere escape velocity context (Basic mode) ───────────────────
+        if mode == "Basic":
+            V_ESCAPE = 11_200.0  # m/s — Earth escape velocity
+            st.info(
+                "🌍 **Atmospheric escape:** For a molecule to escape Earth's gravity, it needs "
+                "speed > v_escape = 11,200 m/s. The Maxwell-Boltzmann distribution has a "
+                "high-speed tail — even at 300K, a tiny fraction of H₂ molecules "
+                "(m=3.34×10⁻²⁷ kg) have speeds near escape velocity. Over billions of years, "
+                "Earth has lost most of its primordial hydrogen this way. Heavier molecules "
+                "(N₂, O₂) have lower mean speeds and are retained. Mars, with lower gravity "
+                "(escape velocity 5,027 m/s), has lost much more atmosphere."
+            )
+            # Fraction of current species with speed above Earth escape velocity
+            # MB CDF via numerical integration of the PDF
+            _v_esc_arr = np.linspace(V_ESCAPE, V_ESCAPE * 5, 2000)
+            _pdf_arr   = maxwell_boltzmann_pdf(_v_esc_arr, m, max(T, 10.0))
+            _frac_escape = float(np.trapz(_pdf_arr, _v_esc_arr))
+            # Extract clean species name for display
+            _species_name = mass_label.split("(")[0].strip()
+            st.caption(
+                f"Fraction of {_species_name} molecules above escape velocity "
+                f"({V_ESCAPE:.0f} m/s) at {T} K: **{_frac_escape:.2e}**"
+            )
 
         # ── Two-species equipartition metrics ─────────────────────────────────
         if two_species and len(thermo["speeds_heavy"]) > 0 and len(thermo["speeds_light"]) > 0:

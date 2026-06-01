@@ -41,10 +41,24 @@ MARKER_INTERVAL: float = 0.5    # s  interval between time markers on trajectory
 # ── Real-world object presets ─────────────────────────────────────────────────
 
 PRESETS: dict[str, dict] = {
-    "Custom": {},
-    "Football":   {"mass": 0.43,  "area": 0.038,    "cd": 0.47},
-    "Golf ball":  {"mass": 0.046, "area": 0.00143,  "cd": 0.47},
-    "Cannonball": {"mass": 5.0,   "area": 0.0177,   "cd": 0.47},
+    "Custom":      {},
+    "Football":    {"mass": 0.43,  "area": 0.038,    "cd": 0.47},
+    "Golf ball":   {"mass": 0.046, "area": 0.00143,  "cd": 0.47},
+    "Cannonball":  {"mass": 5.0,   "area": 0.0177,   "cd": 0.47},
+    "Basketball":  {"mass": 0.62,  "area": 0.0452,   "cd": 0.47},
+    "Tennis ball": {"mass": 0.057, "area": 0.00346,  "cd": 0.55},
+    "Javelin":     {"mass": 0.8,   "area": 0.004,    "cd": 0.4},
+    "Shuttlecock": {"mass": 0.005, "area": 0.00283,  "cd": 0.6},
+}
+
+PRESET_FACTS: dict[str, str] = {
+    "Football":    "A professional free kick can reach 140 km/h. The ball curves due to spin (Magnus effect).",
+    "Golf ball":   "Dimples on a golf ball reduce drag and create lift — a smooth ball would travel ~50% less far.",
+    "Basketball":  "A 3-point shot is typically launched at 45–52° at ~7–8 m/s.",
+    "Tennis ball": "Topspin in tennis uses the Magnus effect to bring the ball down faster.",
+    "Javelin":     "Elite javelin throwers release at ~33 m/s at ~30° — slightly below the theoretical optimum due to aerodynamics.",
+    "Shuttlecock": "A shuttlecock decelerates from 300 km/h to 100 km/h in under 0.5 seconds due to extreme drag!",
+    "Cannonball":  "A 12-pounder Napoleon cannon fired at ~450 m/s. Air resistance was a major tactical consideration.",
 }
 
 # ── Spec / notes content ──────────────────────────────────────────────────────
@@ -67,6 +81,13 @@ EXPLANATION = (
     "height, then increases downward until landing. "
     "The result is a **parabolic** path. "
     "Range is maximised at $\\theta = 45°$ in the absence of air resistance."
+    "\n\n"
+    "**Horizontal velocity is CONSTANT (no air resistance in basic mode). "
+    "This is the key insight: x and y motions are completely independent.**"
+    "\n\n"
+    "**Energy:** At launch, all energy is kinetic ($\\frac{1}{2}mv^2$). "
+    "At maximum height: $KE = \\frac{1}{2}mv_0^2\\cos^2\\theta$ (horizontal), "
+    "$PE = mgh_{max}$."
 )
 
 ADVANCED_TEXT = (
@@ -387,6 +408,7 @@ def build_trajectory_figure(
     terminal_vel: float | None = None,
     v0: float,
     theta_deg: float,
+    colour_by_speed: bool = False,
 ) -> object:
     """
     Build the combined trajectory + velocity-components Plotly figure.
@@ -403,6 +425,7 @@ def build_trajectory_figure(
     terminal_vel         : terminal velocity (m/s), shown as annotation if given
     v0                   : initial speed (m/s)  — used for axis scaling
     theta_deg            : launch angle (degrees) — used in title
+    colour_by_speed      : if True, colour the vacuum trajectory by speed (plasma colorscale)
 
     Returns
     -------
@@ -423,18 +446,44 @@ def build_trajectory_figure(
 
     # ── Top subplot: trajectories ─────────────────────────────────────────────
 
-    # Vacuum trajectory
-    fig.add_trace(
-        go.Scatter(
-            x=x_arr,
-            y=y_arr,
-            mode="lines",
-            name="No drag",
-            line=dict(color=COLOURS["primary"], width=2),
-        ),
-        row=1,
-        col=1,
-    )
+    # Vacuum trajectory — optionally colour by speed
+    if colour_by_speed:
+        speed_arr = np.hypot(vx_arr, vy_arr)
+        fig.add_trace(
+            go.Scatter(
+                x=x_arr,
+                y=y_arr,
+                mode="lines+markers",
+                name="No drag",
+                marker=dict(
+                    color=speed_arr,
+                    colorscale="plasma",
+                    size=3,
+                    colorbar=dict(
+                        title="Speed (m/s)",
+                        thickness=12,
+                        len=0.45,
+                        y=0.78,
+                    ),
+                    showscale=True,
+                ),
+                line=dict(color=COLOURS["primary"], width=1.5),
+            ),
+            row=1,
+            col=1,
+        )
+    else:
+        fig.add_trace(
+            go.Scatter(
+                x=x_arr,
+                y=y_arr,
+                mode="lines",
+                name="No drag",
+                line=dict(color=COLOURS["primary"], width=2),
+            ),
+            row=1,
+            col=1,
+        )
 
     # Time markers on vacuum trajectory
     marker_idxs = _time_marker_indices(t_arr)
@@ -713,6 +762,10 @@ def main() -> None:
                         f"**A:** {area} m² &nbsp;|&nbsp; **Cᴅ:** {cd}",
                     )
 
+                # Preset fact card
+                if preset_name in PRESET_FACTS:
+                    st.info(PRESET_FACTS[preset_name])
+
                 # Magnus effect
                 magnus_enabled = st.checkbox(
                     "Enable Magnus effect (requires drag)",
@@ -741,6 +794,29 @@ def main() -> None:
                         f"Ball radius r = {radius * 100:.1f} cm  "
                         f"(inferred from A = π r²)"
                     )
+
+                # ── Optimal angle finder (drag enabled) ───────────────────────
+                angles_deg = np.arange(1, 90)
+                deriv_opt = make_drag_deriv(cd, area, mass)
+                ranges_with_drag = []
+                for ang in angles_deg:
+                    try:
+                        _, s = integrate_until_landing(
+                            deriv_opt, float(v0), np.radians(float(ang))
+                        )
+                        ranges_with_drag.append(float(s[-1, 0]))
+                    except Exception:
+                        ranges_with_drag.append(0.0)
+                optimal_angle = int(angles_deg[np.argmax(ranges_with_drag)])
+                st.metric(
+                    "Optimal angle (with drag)",
+                    f"{optimal_angle}°",
+                )
+                st.caption(
+                    "Without drag, optimal angle is always 45°. "
+                    "Air resistance shifts this downward — the heavier and "
+                    "more streamlined the object, the smaller the shift."
+                )
 
     # ── Right column: plots and metrics ───────────────────────────────────────
 
@@ -853,6 +929,7 @@ def main() -> None:
             terminal_vel=vt,
             v0=float(v0),
             theta_deg=float(theta_deg),
+            colour_by_speed=(mode == "Basic"),
         )
 
         st.plotly_chart(fig, use_container_width=True)

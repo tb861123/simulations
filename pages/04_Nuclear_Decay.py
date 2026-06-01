@@ -44,45 +44,50 @@ ISOTOPES = {
         "T_half_s": 5730 * 365.25 * 24 * 3600,
         "T_half_display": "5 730 years",
         "context": (
-            "Used in **radiocarbon dating**. Living organisms continuously replenish "
-            "their C-14 from atmospheric CO₂; at death the ratio C-14/C-12 begins "
-            "to fall. Useful for dating organic material up to ~50 000 years old."
+            "Used in **archaeology and geology**. Living organisms continuously replenish "
+            "their C-14 from atmospheric CO₂; at death the ratio C-14/C-12 begins to fall. "
+            "Calibrated using tree rings (dendrochronology) and coral records to correct for "
+            "historical variations in atmospheric ¹⁴C. Limit: ~50,000 years."
         ),
     },
     "Iodine-131": {
         "T_half_s": 8.02 * 24 * 3600,
         "T_half_display": "8.02 days",
         "context": (
-            "Used in **thyroid cancer treatment and imaging**. The thyroid gland "
-            "preferentially absorbs iodine; I-131 delivers a localised beta/gamma "
-            "dose. Its short half-life limits long-term contamination."
+            "Used in **thyroid cancer treatment** (targeted radiotherapy) and thyroid function "
+            "imaging. The thyroid gland preferentially absorbs iodine; I-131 delivers a "
+            "localised beta/gamma dose. Produced in nuclear reactors. The Chernobyl and "
+            "Fukushima accidents released significant I-131 into the environment."
         ),
     },
     "Radium-226": {
         "T_half_s": 1600 * 365.25 * 24 * 3600,
         "T_half_display": "1 600 years",
         "context": (
-            "Discovered by Marie Curie in 1898. Ra-226 is an alpha emitter and was "
-            "historically used in luminous paint (causing radiation sickness in 'Radium "
-            "Girls'). Now a source of radon gas in homes from soil and building materials."
+            "Used in early cancer treatment ('radium needles'). Now superseded by safer "
+            "isotopes. T½ = 1600 years means old medical equipment remains radioactive for "
+            "millennia. Historically used in luminous paint (causing radiation sickness in "
+            "the 'Radium Girls'); now a source of radon gas in homes."
         ),
     },
     "Strontium-90": {
         "T_half_s": 28.8 * 365.25 * 24 * 3600,
         "T_half_display": "28.8 years",
         "context": (
-            "A beta emitter produced by nuclear fission. Sr-90 is chemically similar "
-            "to calcium and is absorbed into bones, posing a long-term cancer risk. "
-            "A significant fallout isotope from nuclear weapons tests and accidents."
+            "A major concern in **nuclear fallout**. Chemically similar to calcium — the body "
+            "incorporates it into bone, where it irradiates bone marrow. T½ = 28.8 years means "
+            "it persists in the environment for decades. A significant fallout isotope from "
+            "nuclear weapons tests and accidents."
         ),
     },
     "Technetium-99m": {
         "T_half_s": 6.01 * 3600,
         "T_half_display": "6.01 hours",
         "context": (
-            "The most widely used **medical imaging** isotope (gamma emitter, 140 keV). "
-            "Its short half-life minimises patient radiation dose while still allowing "
-            "time for scanning procedures. Used in ~80% of nuclear medicine procedures."
+            "The workhorse of **nuclear medicine**: used in ~85% of diagnostic nuclear medicine "
+            "procedures (bone scans, heart imaging, kidney function). A gamma emitter at 140 keV. "
+            "Produced from Mo-99 decay in hospital generators, meaning hospitals need a constant "
+            "supply of fresh Mo-99."
         ),
     },
 }
@@ -228,6 +233,40 @@ with left_col:
         "random fluctuations that vanish as N → ∞.",
         icon="🎲",
     )
+
+    st.info(
+        "🎲 **The memoryless property:** A nucleus that has survived for 1000 years "
+        "is no more likely to decay NOW than it was when it was formed. The past does "
+        "not matter. This is unique to quantum decay — unlike radioactive humans, who age!"
+    )
+
+    # ── Individual nucleus lifetime chart ─────────────────────────────────────
+    _rng_mem = np.random.default_rng(int(seed) + 1000)
+    _lifetimes = _rng_mem.exponential(scale=1.0 / lam, size=20)
+    _fig_mem = go.Figure()
+    for _i, _lt in enumerate(_lifetimes):
+        _fig_mem.add_trace(go.Scatter(
+            x=[0, _lt],
+            y=[_i, _i],
+            mode="lines",
+            line=dict(color=COLOURS["primary"], width=4),
+            showlegend=False,
+        ))
+        _fig_mem.add_trace(go.Scatter(
+            x=[_lt],
+            y=[_i],
+            mode="markers",
+            marker=dict(color=COLOURS["highlight"], size=7, symbol="x"),
+            showlegend=False,
+        ))
+    _fig_mem.update_layout(**plotly_layout(
+        title=dict(text="20 individual nuclei — each decays at a random time", font_size=12),
+        xaxis_title="Lifetime (timesteps)",
+        yaxis_title="Nucleus #",
+        height=200,
+    ))
+    _fig_mem.update_yaxes(showticklabels=False)
+    st.plotly_chart(_fig_mem, use_container_width=True)
 
     if st.session_state.sim_N_arr is None:
         st.markdown(
@@ -718,6 +757,118 @@ with right_col:
             height=340,
         ))
         st.plotly_chart(fig_iso, use_container_width=True)
+
+        st.divider()
+
+        # ── 6. Carbon Dating Calculator ───────────────────────────────────────
+
+        st.markdown(
+            f"<p style='color:{_ADV_COLOUR};font-weight:600'>"
+            "6 — Carbon Dating Calculator</p>",
+            unsafe_allow_html=True,
+        )
+        with st.expander("🗿 Carbon Dating Calculator", expanded=True):
+            _fraction_pct = st.slider(
+                "Fraction of C-14 remaining (%)",
+                min_value=0.1,
+                max_value=100.0,
+                value=50.0,
+                step=0.1,
+                help="100% = fresh sample (just died); 0.1% = very old sample.",
+                key="c14_fraction",
+            )
+            _sample_type = st.selectbox(
+                "Sample type",
+                ["Wood/charcoal", "Bone (collagen)", "Shell (requires correction)",
+                 "Peat/organic sediment"],
+                key="c14_sample_type",
+            )
+
+            # Computation
+            _T_half_C14 = 5730.0          # Cambridge half-life (years)
+            _lam_C14 = np.log(2) / _T_half_C14
+            _epsilon = 1e-10              # guard against log(0)
+            _fraction = max(_fraction_pct / 100.0, _epsilon)
+            _age_years = -np.log(_fraction) / _lam_C14
+
+            # Display metric
+            if _age_years > 10_000:
+                _age_str = f"{_age_years / 1000:.2f} ka"
+            else:
+                _age_str = f"{_age_years:.0f} years"
+            st.metric("Estimated age", _age_str)
+
+            # Historical context
+            if _age_years < 100:
+                st.warning(
+                    "⚠️ Too recent for carbon dating (atmospheric C-14 levels "
+                    "fluctuate and must be calibrated)."
+                )
+            elif _age_years < 3_000:
+                st.info(
+                    "⚔️ Ancient history era. Romans, Greeks, early medieval settlements."
+                )
+            elif _age_years < 10_000:
+                st.info(
+                    "🏺 Neolithic/Bronze Age. Agricultural revolution began ~10,000 years ago."
+                )
+            elif _age_years < 30_000:
+                st.info(
+                    "🦣 Last Ice Age. Woolly mammoths, cave paintings, earliest modern humans "
+                    "in Europe."
+                )
+            elif _age_years < 50_000:
+                st.info(
+                    "🗿 Upper limit of reliable carbon dating. Beyond this, contamination "
+                    "errors dominate."
+                )
+            else:
+                st.warning(
+                    "⚠️ Beyond the reliable range of carbon dating (too little C-14 remains). "
+                    "Use K-Ar, U-Pb, or other methods."
+                )
+
+            # C-14 decay curve: ln(N/N₀) vs age
+            _t_c14 = np.linspace(0, 60_000, 500)
+            _ln_frac_curve = -_lam_C14 * _t_c14   # ln(N/N₀) = -λt
+            _ln_frac_point = np.log(_fraction)
+
+            _fig_c14 = make_fig()
+            _fig_c14.add_trace(go.Scatter(
+                x=_t_c14,
+                y=_ln_frac_curve,
+                mode="lines",
+                name="C-14 decay: ln(N/N₀)",
+                line=dict(color=COLOURS["advanced"], width=2.5),
+            ))
+            _fig_c14.add_trace(go.Scatter(
+                x=[_age_years],
+                y=[_ln_frac_point],
+                mode="markers",
+                name=f"Your sample ({_age_str})",
+                marker=dict(color=COLOURS["highlight"], size=10, symbol="star"),
+            ))
+            # Mark upper reliability limit
+            _fig_c14.add_vline(
+                x=50_000,
+                line_dash="dot",
+                line_color=COLOURS["grid"],
+                annotation_text="~50 ka limit",
+                annotation_font_color=COLOURS["text"],
+                annotation_font_size=10,
+            )
+            _fig_c14.update_layout(**plotly_layout(
+                title=dict(text="C-14 decay curve: ln(N/N₀) vs age", font_size=14),
+                xaxis_title="Age (years)",
+                yaxis_title="ln(N / N₀)",
+                height=320,
+            ))
+            st.plotly_chart(_fig_c14, use_container_width=True)
+            st.caption(
+                f"T½(C-14) = {_T_half_C14:,.0f} yr (Cambridge half-life) · "
+                f"λ = {_lam_C14:.5f} yr⁻¹ · "
+                f"Sample type: {_sample_type}"
+            )
 
     elif mode == "Advanced" and st.session_state.sim_N_arr is None:
         advanced_divider()

@@ -715,6 +715,15 @@ with left_col:
             unsafe_allow_html=True,
         )
 
+        show_spectrum = st.checkbox(
+            "Show full visible spectrum",
+            value=False,
+            help=(
+                "Overlay intensity patterns for multiple wavelengths across the "
+                "visible spectrum to create a rainbow fringe pattern."
+            ),
+        )
+
         a_mm = st.slider(
             "Slit separation a (mm)",
             min_value=0.1,
@@ -799,12 +808,65 @@ with left_col:
             unsafe_allow_html=True,
         )
 
-        d_um = st.select_slider(
-            "Grating spacing d (μm)",
-            options=[0.5, 1.0, 2.0, 5.0, 10.0, 20.0],
-            value=2.0,
-            help="Larger spacing → smaller diffraction angles.",
+        # ── Real-world grating presets ────────────────────────────────────────
+        _GRATING_PRESETS = {
+            "Custom": None,
+            "CD (1600 lines/mm)": (
+                625.0,
+                "A CD's rainbow shimmer is diffraction from its 1600 lines/mm pit "
+                "tracks. Each colour diffracts at a different angle.",
+            ),
+            "DVD (2400 lines/mm)": (
+                417.0,
+                "DVDs store more data on tighter tracks (2400 lines/mm). The colours "
+                "you see are the n=1 diffraction orders.",
+            ),
+            "Blu-ray (3200 lines/mm)": (
+                313.0,
+                "Blu-ray uses a 405 nm blue-violet laser — chosen because shorter λ "
+                "allows smaller pit sizes and higher data density.",
+            ),
+            "Spectrometer grating (600 lines/mm)": (
+                1667.0,
+                "Laboratory spectrometers use 600–1800 lines/mm. The resolving power "
+                "R = mN determines which wavelengths can be separated.",
+            ),
+            "Spectrometer (1200 lines/mm)": (
+                833.0,
+                None,
+            ),
+            "Human hair (≈70 μm)": (
+                70000.0,
+                "Human hair diffracts light! The fringe spacing Δy is large, so you'd "
+                "need a huge screen distance to see it clearly.",
+            ),
+        }
+
+        grating_preset = st.selectbox(
+            "Real grating preset",
+            options=list(_GRATING_PRESETS.keys()),
+            index=0,
+            help="Select a real-world grating to set d automatically.",
         )
+
+        _preset_val = _GRATING_PRESETS[grating_preset]
+        _preset_d_nm = _preset_val[0] if _preset_val is not None else None
+        _preset_context = _preset_val[1] if _preset_val is not None else None
+
+        if _preset_d_nm is not None and _preset_context:
+            st.info(_preset_context)
+
+        if _preset_d_nm is None:
+            d_um = st.select_slider(
+                "Grating spacing d (μm)",
+                options=[0.5, 1.0, 2.0, 5.0, 10.0, 20.0],
+                value=2.0,
+                help="Larger spacing → smaller diffraction angles.",
+            )
+        else:
+            d_um = _preset_d_nm / 1000.0   # nm → μm
+            st.caption(f"d = {_preset_d_nm:.0f} nm (set by preset)")
+
         d_m_val = d_um * 1e-6
         lines_per_mm = 1.0 / d_m_val / 1000.0
         st.caption(f"≈ {lines_per_mm:.0f} lines/mm")
@@ -943,6 +1005,12 @@ with right_col:
 
     if sim_type == "Young's Double Slit":
 
+        st.info(
+            "🔬 **Young's 1801 experiment** proved light is a wave (Newton's corpuscle "
+            "theory predicted NO fringes). The fringe spacing Δy = λD/a. At λ=550 nm, "
+            "a=1 mm, D=2 m: Δy = 1.1 mm — visible to the naked eye!"
+        )
+
         fig_ys, fringe_spacing, lam_D_a = build_youngs_fig(
             lam_nm=lam_nm,
             a_mm=a_mm,
@@ -953,7 +1021,34 @@ with right_col:
             show_n_slit=show_n_slit_ys,
             N_slits=N_slits_ys,
         )
-        st.plotly_chart(fig_ys, use_container_width=True)
+
+        # ── Spectrum overlay ──────────────────────────────────────────────────
+        if show_spectrum:
+            _spectrum_lambdas = [380, 430, 480, 530, 580, 630, 680, 730]
+            _a = a_mm * 1e-3
+            _y = np.linspace(-0.1, 0.1, 1000)
+            for _sl in _spectrum_lambdas:
+                _lam_m = _sl * 1e-9
+                _phase = np.pi * _a * _y / (_lam_m * D_m)
+                _I = 4.0 * np.cos(_phase) ** 2
+                _col = wavelength_to_rgb(_sl)
+                fig_ys.add_trace(
+                    go.Scatter(
+                        x=_y * 1e3,
+                        y=_I,
+                        mode="lines",
+                        name=f"λ={_sl} nm",
+                        line=dict(color=_col, width=1.5),
+                        opacity=0.5,
+                    )
+                )
+            st.plotly_chart(fig_ys, use_container_width=True)
+            st.caption(
+                "White light produces overlapping rainbow fringes — only the central "
+                "fringe (path difference = 0) is white. This is what Newton observed."
+            )
+        else:
+            st.plotly_chart(fig_ys, use_container_width=True)
 
         metric_row(
             {
@@ -963,7 +1058,34 @@ with right_col:
             }
         )
 
+        # ── Interactive fringe counter ────────────────────────────────────────
+        _lam_m = lam_nm * 1e-9
+        _a_m = a_mm * 1e-3
+        _screen_half = 0.05   # ±50 mm
+        _n_max_screen = int(_screen_half * _a_m / (_lam_m * D_m))
+        _n_bright_visible = 2 * _n_max_screen + 1   # both sides + central
+        _dark_spacing_mm = _lam_m * D_m / (2 * _a_m) * 1e3
+
+        col_fc1, col_fc2 = st.columns(2)
+        with col_fc1:
+            st.metric(
+                "Bright fringes visible on screen (±50 mm)",
+                _n_bright_visible,
+            )
+        with col_fc2:
+            st.metric(
+                "Dark fringe spacing from bright",
+                f"{_dark_spacing_mm:.3f} mm",
+            )
+
     elif sim_type == "Diffraction Grating":
+
+        st.info(
+            "🌈 **Why are gratings used in spectroscopy?** Each element/molecule has a "
+            "unique emission spectrum (fingerprint). By measuring the angles of "
+            "diffraction orders, we can identify chemical composition — from stars to "
+            "crime scenes."
+        )
 
         lam = lam_nm * 1e-9
         d_m_val = d_um * 1e-6
@@ -1010,6 +1132,13 @@ with right_col:
 
     elif sim_type == "Single Slit Diffraction":
 
+        st.info(
+            "📡 **Single-slit diffraction limits telescope resolution** (Rayleigh "
+            "criterion). The Hubble Space Telescope's 2.4 m mirror gives angular "
+            "resolution of ~0.05 arcseconds. A human eye (~3 mm pupil) gives "
+            "~1 arcminute."
+        )
+
         fig_ss, first_min_y = build_single_slit_fig(
             lam_nm=lam_nm,
             b_mm=b_mm,
@@ -1028,6 +1157,14 @@ with right_col:
         )
 
     else:  # Stationary Waves
+
+        st.info(
+            "🎸 **Musical instruments as stationary waves:** A guitar string fixed at "
+            "both ends can only support wavelengths where L = nλ/2. The fundamental "
+            "and harmonics give each instrument its characteristic timbre (tone "
+            "quality). A string of length 0.65 m (guitar A string) has fundamental "
+            "f = v/(2L) ≈ 110 Hz."
+        )
 
         fig_sw, lam_sw = build_stationary_fig(
             v=v_sw,
