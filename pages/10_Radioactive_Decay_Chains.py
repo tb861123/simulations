@@ -124,17 +124,56 @@ CHAIN_PRESETS = {
 
 # ── Cached solver wrapper ─────────────────────────────────────────────────────
 
+def _is_stiff(lambdas: tuple[float, ...]) -> bool:
+    """
+    Return True when the ratio of fastest to slowest non-zero decay constant
+    exceeds 1000 — flagging a stiff system that requires an implicit integrator.
+    """
+    active = [l for l in lambdas if l > 0]
+    if len(active) < 2:
+        return False
+    return max(active) / min(active) > 1_000.0
+
+
 @st.cache_data(show_spinner="Solving decay equations…")
 def cached_solve(
     lambdas: tuple[float, ...],
     N0: float,
-    t_arr_key: tuple,          # tuple so it is hashable
+    t_arr_key: tuple,
 ) -> np.ndarray:
-    """Cached wrapper around solve_decay_chain."""
+    """
+    Solve the Bateman equations and return N of shape (len(t_arr), len(lambdas)).
+
+    Stiff systems (stiffness ratio > 1000) use scipy Radau; others use the
+    shared RK4 helper from utils.physics.
+    """
     t_arr = np.array(t_arr_key)
-    # solve_decay_chain expects λ=0 for stable nuclides, but the ODE degenerates
-    # for λ=0: the last nuclide simply accumulates, which RK4 handles correctly.
-    return solve_decay_chain(list(lambdas), N0, t_arr)
+    lam   = np.array(lambdas, dtype=float)
+    n     = len(lam)
+
+    if _is_stiff(lambdas):
+        def deriv(t, y):
+            dy = np.zeros(n)
+            dy[0] = -lam[0] * y[0]
+            for i in range(1, n):
+                dy[i] = lam[i - 1] * y[i - 1] - lam[i] * y[i]
+            return dy
+
+        y0 = np.zeros(n)
+        y0[0] = float(N0)
+        sol = solve_ivp(
+            deriv,
+            t_span=(t_arr[0], t_arr[-1]),
+            y0=y0,
+            method="Radau",         # implicit — handles stiff ODEs robustly
+            t_eval=t_arr,
+            rtol=1e-8,
+            atol=1e-3,
+            dense_output=False,
+        )
+        return sol.y.T             # shape (len(t_arr), n)
+    else:
+        return solve_decay_chain(list(lambdas), float(N0), t_arr)
 
 
 def _compute_chain(
