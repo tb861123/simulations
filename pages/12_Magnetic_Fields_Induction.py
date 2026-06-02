@@ -1,10 +1,11 @@
 """
 Magnetic Fields & Electromagnetic Induction — WJEC Eduqas A Level Physics.
 
-Three sub-simulations:
+Four sub-simulations:
   1. Magnetic Force on a current-carrying wire / charged particle in a B field.
   2. Electromagnetic Induction (Faraday's law) — magnet moving through a coil.
   3. Transformer — turns ratio, voltages, currents and power.
+  4. DC Motor — torque on a current-carrying coil, commutator effect.
 
 Spec reference: Component 2, Topic 7 (Magnetic Fields), sections (a)–(n).
 """

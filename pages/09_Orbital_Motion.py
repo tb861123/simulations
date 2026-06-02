@@ -1,6 +1,7 @@
 """
 Orbital Motion — WJEC Eduqas A Level Physics
 Component 2, Topic 8 (Orbits and the Wider Universe), sections (a)–(g)
+Component 3, Topic 11 (Astrophysics) — binary star systems
 
 Covers:
   Basic  : single planet orbiting a central star — trajectory, energy
@@ -8,6 +9,8 @@ Covers:
   Advanced: orbit classification (elliptical / parabolic / hyperbolic),
             two-body problem (mutual gravity), galaxy rotation curve and
             dark matter.
+  Binary Stars: two stars orbiting their common barycentre — orbital diagram,
+                radial velocity curves, real-world presets.
 """
 
 from __future__ import annotations
@@ -100,6 +103,62 @@ ORBIT_PRESETS: list[tuple[str, float, float, float, str]] = [
         "0.967 — nearly parabolic! It swings from inside Venus to beyond Neptune.",
     ),
 ]
+
+# ── Binary star constants ─────────────────────────────────────────────────────
+
+BINARY_PRESETS: dict = {
+    "Custom": None,
+    "Alpha Centauri A & B": {
+        "M1_sol": 1.1,
+        "M2_sol": 0.907,
+        "d_AU": 23.4,
+        "note": (
+            "The nearest star system to Earth (4.37 ly). A and B orbit each other "
+            "every 79.9 years. Alpha Centauri C (Proxima) is a third, distant "
+            "companion orbiting both."
+        ),
+    },
+    "Sirius A & B": {
+        "M1_sol": 2.02,
+        "M2_sol": 0.978,
+        "d_AU": 8.2,
+        "note": (
+            "Sirius B is a white dwarf — the end state of a sun-like star. It has "
+            "the mass of the Sun compressed into the size of Earth. The pair orbit "
+            "every 50 years."
+        ),
+    },
+    "Cygnus X-1": {
+        "M1_sol": 21.0,
+        "M2_sol": 14.8,
+        "d_AU": 0.2,
+        "note": (
+            "Cygnus X-1 contains a stellar black hole of ~15 solar masses orbiting "
+            "a blue supergiant every 5.6 days. It was the first strong candidate for "
+            "a black hole (1964)."
+        ),
+    },
+    "TRAPPIST-1 b (star+planet)": {
+        "M1_sol": 0.089,
+        "M2_sol": 0.000267,
+        "d_AU": 0.0115,
+        "note": (
+            "TRAPPIST-1 is an ultra-cool red dwarf with 7 Earth-sized planets. "
+            "Planet b orbits in just 1.51 days. The host star has only 8% of the "
+            "Sun's mass."
+        ),
+    },
+    "Equal mass (theoretical)": {
+        "M1_sol": 1.0,
+        "M2_sol": 1.0,
+        "d_AU": 1.0,
+        "note": (
+            "With equal masses, both stars orbit the exact midpoint. The barycentre "
+            "is equidistant from both stars. This symmetric case is the simplest to "
+            "visualise."
+        ),
+    },
+}
 
 # Solar system planets for Kepler's 3rd law table
 KEPLER_PLANETS: list[tuple[str, float, float]] = [
@@ -803,15 +862,337 @@ def build_rotation_curve_fig(
     return fig
 
 
+# ── Binary star helpers ───────────────────────────────────────────────────────
+
+
+def binary_star_params(M1: float, M2: float, d: float) -> dict:
+    """
+    Compute binary star system parameters.
+
+    Parameters
+    ----------
+    M1, M2 : stellar masses (kg)
+    d      : orbital separation (m)
+
+    Returns
+    -------
+    dict with keys: r1, r2, omega, T, v1, v2, x_cm
+    """
+    M_total = M1 + M2
+    x_cm = M2 * d / M_total          # CoM distance from star 1
+    r1 = x_cm                         # star 1 orbital radius around CoM
+    r2 = M1 * d / M_total             # star 2 orbital radius around CoM
+    omega = float(np.sqrt(G * M_total / d ** 3))
+    T = 2.0 * np.pi / omega
+    v1 = omega * r1
+    v2 = omega * r2
+    return {
+        "r1": r1,
+        "r2": r2,
+        "omega": omega,
+        "T": T,
+        "v1": v1,
+        "v2": v2,
+        "x_cm": x_cm,
+    }
+
+
+def format_period_bs(T_s: float) -> str:
+    """Return a human-readable period (days or years)."""
+    if T_s < 86400.0:
+        return f"{T_s / 3600.0:.2f} h"
+    elif T_s < 365.25 * 86400.0:
+        return f"{T_s / 86400.0:.2f} days"
+    else:
+        return f"{T_s / (365.25 * 86400.0):.2f} years"
+
+
+def build_binary_orbit_fig(
+    M1: float,
+    M2: float,
+    d: float,
+    phi_deg: float,
+    show_trail: bool,
+) -> go.Figure:
+    """
+    Build the binary star orbital diagram.
+
+    Parameters
+    ----------
+    M1, M2    : stellar masses (kg)
+    d         : separation (m)
+    phi_deg   : phase angle (degrees)
+    show_trail: whether to draw the last 180° trail arc
+
+    Returns
+    -------
+    go.Figure
+    """
+    params = binary_star_params(M1, M2, d)
+    r1 = params["r1"]
+    r2 = params["r2"]
+    v1 = params["v1"]
+    v2 = params["v2"]
+
+    phi = np.radians(phi_deg)
+
+    # Current positions (relative to barycentre, in AU)
+    x1 = r1 * np.cos(phi) / AU
+    y1 = r1 * np.sin(phi) / AU
+    x2 = -r2 * np.cos(phi) / AU
+    y2 = -r2 * np.sin(phi) / AU
+
+    # Velocity directions (tangent to orbit, perpendicular to radius)
+    vx1_hat = -np.sin(phi)
+    vy1_hat = np.cos(phi)
+    vx2_hat = np.sin(phi)
+    vy2_hat = -np.cos(phi)
+
+    # Marker sizes: proportional to M^(1/3), scaled for visibility
+    _base_size = 18.0
+    _scale = max(M1, M2) ** (1.0 / 3.0)
+    s1 = max(8.0, _base_size * (M1 ** (1.0 / 3.0)) / _scale)
+    s2 = max(8.0, _base_size * (M2 ** (1.0 / 3.0)) / _scale)
+
+    fig = go.Figure()
+
+    # ── Orbital path circles ───────────────────────────────────────────────────
+    _theta = np.linspace(0, 2 * np.pi, 300)
+    r1_au = r1 / AU
+    r2_au = r2 / AU
+
+    fig.add_trace(
+        go.Scatter(
+            x=r1_au * np.cos(_theta),
+            y=r1_au * np.sin(_theta),
+            mode="lines",
+            name="M₁ orbit",
+            line=dict(color=COLOURS["primary"], width=1, dash="dash"),
+            hoverinfo="skip",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=r2_au * np.cos(_theta),
+            y=r2_au * np.sin(_theta),
+            mode="lines",
+            name="M₂ orbit",
+            line=dict(color=COLOURS["secondary"], width=1, dash="dash"),
+            hoverinfo="skip",
+        )
+    )
+
+    # ── Trail arcs (last 180°) ─────────────────────────────────────────────────
+    if show_trail:
+        _trail_angles = np.linspace(phi - np.pi, phi, 120)
+        fig.add_trace(
+            go.Scatter(
+                x=r1_au * np.cos(_trail_angles),
+                y=r1_au * np.sin(_trail_angles),
+                mode="lines",
+                name="M₁ trail",
+                line=dict(color=COLOURS["primary"], width=3),
+                opacity=0.35,
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=r2_au * np.cos(_trail_angles + np.pi),
+                y=r2_au * np.sin(_trail_angles + np.pi),
+                mode="lines",
+                name="M₂ trail",
+                line=dict(color=COLOURS["secondary"], width=3),
+                opacity=0.35,
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        )
+
+    # ── Velocity arrows ────────────────────────────────────────────────────────
+    _arrow_scale = max(r1_au, r2_au) * 0.35
+    _v_max = max(v1, v2)
+    _arr1 = _arrow_scale * (v1 / _v_max)
+    _arr2 = _arrow_scale * (v2 / _v_max)
+
+    fig.add_annotation(
+        ax=x1, ay=y1,
+        x=x1 + _arr1 * vx1_hat / AU * AU,
+        y=y1 + _arr1 * vy1_hat / AU * AU,
+        xref="x", yref="y", axref="x", ayref="y",
+        showarrow=True,
+        arrowhead=3,
+        arrowsize=1.2,
+        arrowwidth=2,
+        arrowcolor=COLOURS["primary"],
+    )
+    fig.add_annotation(
+        ax=x2, ay=y2,
+        x=x2 + _arr2 * vx2_hat / AU * AU,
+        y=y2 + _arr2 * vy2_hat / AU * AU,
+        xref="x", yref="y", axref="x", ayref="y",
+        showarrow=True,
+        arrowhead=3,
+        arrowsize=1.2,
+        arrowwidth=2,
+        arrowcolor=COLOURS["secondary"],
+    )
+
+    # ── Stars ──────────────────────────────────────────────────────────────────
+    fig.add_trace(
+        go.Scatter(
+            x=[x1], y=[y1],
+            mode="markers+text",
+            name="M₁",
+            text=["M₁"],
+            textposition="top center",
+            textfont=dict(color=COLOURS["primary"], size=13),
+            marker=dict(
+                color=COLOURS["primary"],
+                size=s1,
+                symbol="circle",
+                line=dict(color=COLOURS["text"], width=1),
+            ),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[x2], y=[y2],
+            mode="markers+text",
+            name="M₂",
+            text=["M₂"],
+            textposition="top center",
+            textfont=dict(color=COLOURS["secondary"], size=13),
+            marker=dict(
+                color=COLOURS["secondary"],
+                size=s2,
+                symbol="circle",
+                line=dict(color=COLOURS["text"], width=1),
+            ),
+        )
+    )
+
+    # ── Barycentre ─────────────────────────────────────────────────────────────
+    fig.add_trace(
+        go.Scatter(
+            x=[0.0], y=[0.0],
+            mode="markers+text",
+            name="CoM",
+            text=["CoM"],
+            textposition="bottom center",
+            textfont=dict(color=COLOURS["text"], size=11),
+            marker=dict(
+                color=COLOURS["text"],
+                size=8,
+                symbol="x",
+            ),
+        )
+    )
+
+    # ── Layout ─────────────────────────────────────────────────────────────────
+    _coord_range = (max(r1_au, r2_au) + 0.5 * max(r1_au, r2_au)) * 1.3
+    _coord_range = max(_coord_range, 0.01)
+
+    fig.update_layout(
+        **plotly_layout(
+            height=500,
+            title=dict(text="Binary Star Orbital Diagram", font=dict(size=14)),
+            xaxis=dict(
+                title="x (AU)",
+                range=[-_coord_range, _coord_range],
+                scaleanchor="y",
+                scaleratio=1,
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+            ),
+            yaxis=dict(
+                title="y (AU)",
+                range=[-_coord_range, _coord_range],
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+            ),
+        )
+    )
+    return fig
+
+
+def build_radial_velocity_fig(
+    v1: float,
+    v2: float,
+    incl_deg: float,
+) -> go.Figure:
+    """
+    Build the radial velocity curve figure.
+
+    v_radial = v * sin(i) * cos(phi)  for each star.
+
+    Parameters
+    ----------
+    v1, v2   : orbital speeds (m/s)
+    incl_deg : orbital inclination (degrees)
+
+    Returns
+    -------
+    go.Figure
+    """
+    phi_arr = np.linspace(0.0, 1.0, 500)        # phase 0→1
+    incl = np.radians(incl_deg)
+    phi_rad = 2.0 * np.pi * phi_arr
+
+    # Star 1 moves away when star 2 approaches (anti-correlated)
+    vr1 = v1 * np.sin(incl) * np.cos(phi_rad) / 1000.0    # km/s
+    vr2 = -v2 * np.sin(incl) * np.cos(phi_rad) / 1000.0   # km/s
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=phi_arr, y=vr1,
+            mode="lines",
+            name="Star 1 (M₁)",
+            line=dict(color=COLOURS["primary"], width=2),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=phi_arr, y=vr2,
+            mode="lines",
+            name="Star 2 (M₂)",
+            line=dict(color=COLOURS["secondary"], width=2),
+        )
+    )
+    fig.add_hline(y=0, line_dash="dot", line_color=COLOURS["grid"])
+
+    fig.update_layout(
+        **plotly_layout(
+            height=320,
+            title=dict(text="Radial Velocity Curves (spectroscopic binary)", font=dict(size=14)),
+            xaxis=dict(
+                title="Orbital phase",
+                range=[0.0, 1.0],
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+            ),
+            yaxis=dict(
+                title="Radial velocity (km/s)",
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+            ),
+        )
+    )
+    return fig
+
+
 # ── Main page ─────────────────────────────────────────────────────────────────
 
 
-def main() -> None:
-    """Render the full Orbital Motion simulation page."""
-
-    sim_header("Orbital Motion", SPEC_REF)
-
-    mode = mode_toggle()
+def render_orbital_mechanics_tab(mode: str) -> None:
+    """Render the Orbital Mechanics tab content."""
 
     left_col, right_col = two_column_layout(3, 7)
 
@@ -1249,6 +1630,205 @@ def main() -> None:
             advanced_text=ADVANCED_TEXT,
             mode=mode,
         )
+
+
+def render_binary_stars_tab(mode: str) -> None:
+    """Render the Binary Stars tab content."""
+
+    _BS_SPEC_REF = "Component 3, Topic 11 (Astrophysics) — binary star systems"
+    _BS_EQUATIONS = [
+        r"T^2 = \frac{4\pi^2 d^3}{G(M_1+M_2)}",
+        r"r_1 = \frac{M_2 d}{M_1 + M_2},\quad r_2 = \frac{M_1 d}{M_1 + M_2}",
+        r"v_1 = \omega r_1,\quad v_2 = \omega r_2",
+    ]
+
+    left_col, right_col = two_column_layout(3, 7)
+
+    with left_col:
+        # ── Preset selector ───────────────────────────────────────────────────
+        bs_preset_choice = st.selectbox(
+            "Real-world preset",
+            options=list(BINARY_PRESETS.keys()),
+            index=0,
+            key="bs_preset",
+            help="Select a real binary system or choose Custom.",
+        )
+
+        bs_preset = BINARY_PRESETS[bs_preset_choice]
+
+        # Resolve defaults from preset
+        _def_M1 = bs_preset["M1_sol"] if bs_preset else 2.0
+        _def_M2 = bs_preset["M2_sol"] if bs_preset else 1.0
+        _def_d  = bs_preset["d_AU"]   if bs_preset else 1.0
+
+        # ── Sliders ───────────────────────────────────────────────────────────
+        M1_sol = st.slider(
+            "M₁ (solar masses)",
+            min_value=0.1,
+            max_value=30.0,
+            value=float(np.clip(_def_M1, 0.1, 30.0)),
+            step=0.1,
+            key="bs_M1",
+            help="Mass of star 1 in solar masses.",
+            disabled=(bs_preset_choice != "Custom"),
+        )
+        M2_sol = st.slider(
+            "M₂ (solar masses)",
+            min_value=0.1,
+            max_value=30.0,
+            value=float(np.clip(_def_M2, 0.1, 30.0)),
+            step=0.1,
+            key="bs_M2",
+            help="Mass of star 2 in solar masses.",
+            disabled=(bs_preset_choice != "Custom"),
+        )
+        d_AU = st.slider(
+            "Separation d (AU)",
+            min_value=0.01,
+            max_value=10.0,
+            value=float(np.clip(_def_d, 0.01, 10.0)),
+            step=0.01,
+            key="bs_d",
+            help="Orbital separation between the two stars.",
+            disabled=(bs_preset_choice != "Custom"),
+        )
+        phi_deg = st.slider(
+            "Phase angle φ (°)",
+            min_value=0,
+            max_value=360,
+            value=0,
+            step=1,
+            key="bs_phi",
+            help="Current orbital phase angle.",
+        )
+        show_trail = st.checkbox(
+            "Show trail (last 180°)",
+            value=False,
+            key="bs_trail",
+            help="Draw a faded arc showing the recent orbital path.",
+        )
+
+        # Show preset note
+        if bs_preset and bs_preset.get("note"):
+            st.info(bs_preset["note"])
+
+        # ── Advanced: inclination slider ──────────────────────────────────────
+        incl_deg: float = 60.0
+        if mode == "Advanced":
+            advanced_divider()
+            incl_deg = float(
+                st.slider(
+                    "Inclination i (°)",
+                    min_value=0,
+                    max_value=90,
+                    value=60,
+                    step=1,
+                    key="bs_incl",
+                    help=(
+                        "Angle between the orbital plane and the line of sight. "
+                        "i=90° is edge-on (maximum Doppler signal); i=0° is face-on "
+                        "(zero radial velocity)."
+                    ),
+                )
+            )
+
+    # ── Compute physics ────────────────────────────────────────────────────────
+    M1 = M1_sol * SOLAR_MASS
+    M2 = M2_sol * SOLAR_MASS
+    d  = d_AU * AU
+
+    params = binary_star_params(M1, M2, d)
+    T_s  = params["T"]
+    r1_m = params["r1"]
+    r2_m = params["r2"]
+    v1   = params["v1"]
+    v2   = params["v2"]
+
+    with right_col:
+        # ── Metrics ───────────────────────────────────────────────────────────
+        metric_row(
+            {
+                "Period T":         format_period_bs(T_s),
+                "r₁ (AU)":          f"{r1_m / AU:.4f}",
+                "r₂ (AU)":          f"{r2_m / AU:.4f}",
+                "v₁ (km/s)":        f"{v1 / 1000.0:.3f}",
+                "v₂ (km/s)":        f"{v2 / 1000.0:.3f}",
+                "CoM from M₁ (AU)": f"{params['x_cm'] / AU:.4f}",
+            }
+        )
+
+        # ── Orbital diagram ───────────────────────────────────────────────────
+        fig_orbit = build_binary_orbit_fig(M1, M2, d, phi_deg, show_trail)
+        st.plotly_chart(fig_orbit, use_container_width=True)
+
+        # ── Radial velocity curves (Advanced) ─────────────────────────────────
+        if mode == "Advanced":
+            fig_rv = build_radial_velocity_fig(v1, v2, incl_deg)
+            st.plotly_chart(fig_rv, use_container_width=True)
+            st.caption(
+                "Astronomers detect binary stars from this anti-correlated Doppler "
+                "wobble — even when the stars can't be resolved visually."
+            )
+
+        # ── Context info ──────────────────────────────────────────────────────
+        st.info(
+            "Most stars in the Milky Way are in binary or multiple systems — our Sun "
+            "is unusual in being solitary. Binary stars are crucial for measuring "
+            "stellar masses: Newton's form of Kepler's 3rd Law gives M₁+M₂ from "
+            "d and T."
+        )
+
+        if mode == "Advanced":
+            st.info(
+                "Close binary stars emit gravitational waves, slowly losing energy. "
+                "The first indirect evidence for gravitational waves came from the "
+                "Hulse-Taylor binary pulsar (1974), which earned the 1993 Nobel Prize "
+                "— the orbital period shortens at exactly the rate predicted by GR."
+            )
+
+        # ── Physics notes ─────────────────────────────────────────────────────
+        physics_notes(
+            spec_ref=_BS_SPEC_REF,
+            equations=_BS_EQUATIONS,
+            explanation=(
+                "Two stars of masses M₁ and M₂ orbit their common centre of mass "
+                "(barycentre). The barycentre divides the separation d in the "
+                "inverse ratio of the masses. Both stars share the same angular "
+                "velocity ω and period T, but their orbital radii and speeds differ. "
+                "Spectroscopic binaries are identified by the periodic Doppler shift "
+                "of their spectral lines — the radial velocity curves are exactly "
+                "anti-correlated, providing M₁+M₂ via Kepler's Third Law."
+            ),
+            advanced_text=(
+                "**Radial velocity method:** Observers measure the line-of-sight "
+                "component of each star's velocity, $v_r = v\\sin i\\cos\\phi$. "
+                "The semi-amplitudes K₁ and K₂ give the mass ratio: "
+                "$M_1/M_2 = K_2/K_1$. Combined with Kepler's Third Law this yields "
+                "individual masses (if i is known from eclipses or astrometry).\n\n"
+                "**Gravitational waves:** Inspiralling binaries lose orbital energy "
+                "to gravitational radiation at a rate predicted by GR. The "
+                "Hulse-Taylor pulsar (PSR B1913+16) loses energy at exactly the "
+                "predicted rate, providing indirect proof of gravitational waves "
+                "16 years before LIGO's direct detection in 2015."
+            ),
+            mode=mode,
+        )
+
+
+def main() -> None:
+    """Render the full Orbital Motion simulation page."""
+
+    sim_header("Orbital Motion", SPEC_REF)
+
+    mode = mode_toggle()
+
+    tab_orbital, tab_binary = st.tabs(["Orbital Mechanics", "Binary Stars"])
+
+    with tab_orbital:
+        render_orbital_mechanics_tab(mode)
+
+    with tab_binary:
+        render_binary_stars_tab(mode)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

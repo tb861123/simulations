@@ -81,6 +81,7 @@ SIM_TYPES = [
     "Diffraction Grating",
     "Single Slit Diffraction",
     "Stationary Waves",
+    "Stationary Waves (Harmonics)",
 ]
 
 # ── Physics / colour helpers ──────────────────────────────────────────────────
@@ -672,6 +673,366 @@ def build_stationary_fig(
     return fig, lam
 
 
+# ── Plot builders — Stationary Waves (Harmonics) ─────────────────────────────
+
+
+@st.cache_data
+def compute_stationary_harmonic(
+    wave_type: str,
+    n: int,
+    f1: float,
+    v: float,
+    phase_deg: float,
+    num_points: int = 600,
+) -> dict:
+    """
+    Compute arrays for a standing-wave harmonic pattern.
+
+    Parameters
+    ----------
+    wave_type  : "Vibrating String", "Open Pipe", or "Closed Pipe (one end)"
+    n          : harmonic number
+    f1         : fundamental frequency (Hz)
+    v          : wave speed (m/s)
+    phase_deg  : snapshot phase angle (degrees)
+    num_points : x-axis resolution
+
+    Returns
+    -------
+    dict with keys: x, y_standing, y_nodes, x_nodes, y_antinodes, x_antinodes,
+                    fn, lam_n, L, n_nodes, n_antinodes, k, omega
+    """
+    # Closed pipe: only odd harmonics
+    if wave_type == "Closed Pipe (one end)" and n % 2 == 0:
+        n = max(1, n - 1)
+
+    fn = n * f1
+
+    # Effective length from fundamental: L = v/(2f1) for string/open, v/(4f1) for closed
+    if wave_type == "Closed Pipe (one end)":
+        L = v / (4.0 * f1)
+        lam_n = 4.0 * L / n
+    else:
+        L = v / (2.0 * f1)
+        lam_n = 2.0 * L / n
+
+    k = 2.0 * np.pi / lam_n
+    omega = 2.0 * np.pi * fn
+    phase_rad = np.radians(phase_deg)
+
+    x = np.linspace(0.0, L, num_points)
+
+    # Standing wave: y(x) = A sin(kx) cos(phase)
+    # Closed pipe: displacement node at x=0 (closed end), sin(kx) gives that naturally
+    y_standing = np.sin(k * x) * np.cos(phase_rad)
+
+    # Node positions (displacement nodes): sin(kx)=0 → kx = mπ → x = mπ/k = m*lam_n/2
+    if wave_type == "Closed Pipe (one end)":
+        # nodes where sin(kx)=0: x = m * lam_n/2, m=0,1,2,...
+        node_xs = [m * lam_n / 2.0 for m in range(0, n + 2) if 0.0 <= m * lam_n / 2.0 <= L + 1e-9]
+    else:
+        node_xs = [m * lam_n / 2.0 for m in range(0, n + 2) if 0.0 <= m * lam_n / 2.0 <= L + 1e-9]
+
+    node_xs = [x_n for x_n in node_xs if x_n <= L + 1e-9]
+
+    # Antinode positions: sin(kx)=±1 → kx = π/2 + mπ → x = (2m+1)*lam_n/4
+    antinode_xs = [
+        (2 * m + 1) * lam_n / 4.0
+        for m in range(0, 2 * n + 2)
+        if 0.0 <= (2 * m + 1) * lam_n / 4.0 <= L + 1e-9
+    ]
+    antinode_xs = [x_a for x_a in antinode_xs if x_a <= L + 1e-9]
+
+    # y values at antinodes from standing pattern
+    antinode_ys = [float(np.sin(k * x_a) * np.cos(phase_rad)) for x_a in antinode_xs]
+
+    return {
+        "x": x,
+        "y_standing": y_standing,
+        "x_nodes": node_xs,
+        "x_antinodes": antinode_xs,
+        "y_antinodes": antinode_ys,
+        "fn": fn,
+        "lam_n": lam_n,
+        "L": L,
+        "n_nodes": len(node_xs),
+        "n_antinodes": len(antinode_xs),
+        "k": k,
+        "omega": omega,
+        "n_eff": n,
+    }
+
+
+@st.cache_data
+def compute_travelling_waves(
+    k: float,
+    omega: float,
+    L: float,
+    phase_deg: float,
+    num_points: int = 600,
+) -> tuple:
+    """
+    Compute the two travelling waves that superpose to form the standing wave.
+
+    Parameters
+    ----------
+    k         : wavenumber (rad/m)
+    omega     : angular frequency (rad/s)
+    L         : string/pipe length (m)
+    phase_deg : current phase / time offset (degrees; 0°→t=0)
+    num_points: resolution
+
+    Returns
+    -------
+    (x, y1, y2) arrays — right- and left-travelling half-amplitude waves
+    """
+    phase_rad = np.radians(phase_deg)
+    t_eff = phase_rad / omega if omega > 0 else 0.0
+    x = np.linspace(0.0, L, num_points)
+    y1 = 0.5 * np.sin(k * x - omega * t_eff)
+    y2 = 0.5 * np.sin(k * x + omega * t_eff)
+    return x, y1, y2
+
+
+def build_harmonic_fig(
+    wave_type: str,
+    n: int,
+    f1: float,
+    v: float,
+    phase_deg: float,
+    show_travelling: bool = False,
+) -> tuple:
+    """
+    Build the standing-wave displacement figure for a given harmonic.
+
+    Parameters
+    ----------
+    wave_type        : "Vibrating String", "Open Pipe", or "Closed Pipe (one end)"
+    n                : harmonic number (odd only for closed pipe)
+    f1               : fundamental frequency (Hz)
+    v                : wave speed (m/s)
+    phase_deg        : snapshot phase (degrees)
+    show_travelling  : overlay the two component travelling waves (Advanced)
+
+    Returns
+    -------
+    (fig, data_dict)
+    """
+    data = compute_stationary_harmonic(wave_type, n, f1, v, phase_deg)
+
+    x = data["x"]
+    y = data["y_standing"]
+    L = data["L"]
+    fn = data["fn"]
+    lam_n = data["lam_n"]
+    n_eff = data["n_eff"]
+
+    fig = go.Figure()
+
+    # Overlay travelling waves first (so standing wave is on top)
+    if show_travelling:
+        x_tw, y1_tw, y2_tw = compute_travelling_waves(
+            data["k"], data["omega"], L, phase_deg
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=x_tw,
+                y=y1_tw,
+                mode="lines",
+                name="→ Right-travelling (y₁)",
+                line=dict(color=COLOURS["secondary"], width=1.5, dash="dash"),
+                opacity=0.65,
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=x_tw,
+                y=y2_tw,
+                mode="lines",
+                name="← Left-travelling (y₂)",
+                line=dict(color=COLOURS["tertiary"], width=1.5, dash="dash"),
+                opacity=0.65,
+            )
+        )
+
+    # Standing wave — main trace
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=y,
+            mode="lines",
+            name=f"Standing wave (n={n_eff})",
+            line=dict(color=COLOURS["primary"], width=3),
+        )
+    )
+
+    # Nodes: grey vertical dashed lines + "N" label
+    for i, xn in enumerate(data["x_nodes"]):
+        fig.add_vline(
+            x=xn,
+            line=dict(color="grey", dash="dash", width=1.2),
+            opacity=0.6,
+            annotation_text="N" if i == 0 else "N",
+            annotation_position="bottom",
+            annotation_font=dict(size=9, color="grey"),
+        )
+
+    # Antinodes: orange dots labelled "A"
+    if data["x_antinodes"]:
+        fig.add_trace(
+            go.Scatter(
+                x=data["x_antinodes"],
+                y=data["y_antinodes"],
+                mode="markers+text",
+                name="Antinodes",
+                text=["A"] * len(data["x_antinodes"]),
+                textposition="top center",
+                textfont=dict(color=COLOURS["secondary"], size=10),
+                marker=dict(
+                    color=COLOURS["secondary"],
+                    size=10,
+                    symbol="circle",
+                    line=dict(color=COLOURS["text"], width=1),
+                ),
+            )
+        )
+
+    # Endpoint markers for context
+    if wave_type == "Vibrating String":
+        # Fixed nodes at both ends (already covered by node vlines, but add endpoint dots)
+        fig.add_trace(
+            go.Scatter(
+                x=[0.0, L],
+                y=[0.0, 0.0],
+                mode="markers",
+                name="Fixed ends",
+                marker=dict(color=COLOURS["highlight"], size=12, symbol="square"),
+                showlegend=True,
+            )
+        )
+    elif wave_type == "Open Pipe":
+        # Pressure nodes at both open ends (displacement antinodes there)
+        fig.add_annotation(
+            x=0.0, y=1.1, text="Open end", showarrow=False,
+            font=dict(color=COLOURS["quaternary"], size=9),
+        )
+        fig.add_annotation(
+            x=L, y=1.1, text="Open end", showarrow=False,
+            font=dict(color=COLOURS["quaternary"], size=9),
+        )
+    else:  # Closed Pipe
+        fig.add_annotation(
+            x=0.0, y=1.1, text="Closed end\n(disp. node)", showarrow=False,
+            font=dict(color=COLOURS["highlight"], size=9),
+        )
+        fig.add_annotation(
+            x=L, y=1.1, text="Open end\n(disp. antinode)", showarrow=False,
+            font=dict(color=COLOURS["quaternary"], size=9),
+        )
+
+    type_label = wave_type.replace(" (one end)", "")
+    fig.update_layout(
+        **plotly_layout(
+            height=420,
+            title=dict(
+                text=(
+                    f"{type_label} — n = {n_eff}, "
+                    f"f₁ = {f1:.0f} Hz → fₙ = {fn:.0f} Hz, "
+                    f"λₙ = {lam_n:.3f} m, L = {L:.3f} m"
+                ),
+                font=dict(size=13),
+            ),
+            xaxis=dict(
+                title="Position x (m)",
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+                range=[-0.02 * L, 1.05 * L],
+            ),
+            yaxis=dict(
+                title="Normalised displacement",
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+                range=[-1.35, 1.35],
+            ),
+        )
+    )
+    return fig, data
+
+
+def build_harmonic_spectrum_fig(
+    wave_type: str,
+    f1: float,
+    n_selected: int,
+    n_harmonics: int = 8,
+) -> go.Figure:
+    """
+    Build a bar-chart showing the first n_harmonics harmonic frequencies.
+
+    Parameters
+    ----------
+    wave_type   : "Vibrating String", "Open Pipe", or "Closed Pipe (one end)"
+    f1          : fundamental frequency (Hz)
+    n_selected  : currently selected harmonic (highlighted in red)
+    n_harmonics : how many harmonics to show
+
+    Returns
+    -------
+    Plotly Figure
+    """
+    ns = list(range(1, n_harmonics + 1))
+    freqs = []
+    colours = []
+
+    for nn in ns:
+        if wave_type == "Closed Pipe (one end)" and nn % 2 == 0:
+            # Even harmonics absent in closed pipe
+            freqs.append(0.0)
+            colours.append("rgba(100,100,100,0.4)")
+        else:
+            freqs.append(nn * f1)
+            if nn == n_selected:
+                colours.append(COLOURS["highlight"])
+            else:
+                colours.append(COLOURS["primary"])
+
+    fig = go.Figure(
+        go.Bar(
+            x=ns,
+            y=freqs,
+            marker_color=colours,
+            text=[f"{f:.0f} Hz" if f > 0 else "—" for f in freqs],
+            textposition="outside",
+            textfont=dict(size=9, color=COLOURS["text"]),
+        )
+    )
+
+    fig.update_layout(
+        **plotly_layout(
+            height=300,
+            title=dict(
+                text="Harmonic Frequency Spectrum",
+                font=dict(size=13),
+            ),
+            xaxis=dict(
+                title="Harmonic number n",
+                tickvals=ns,
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+            ),
+            yaxis=dict(
+                title="Frequency (Hz)",
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+            ),
+            showlegend=False,
+        )
+    )
+    return fig
+
+
 # ── Streamlit page ────────────────────────────────────────────────────────────
 
 sim_header("Wave Interference", SPEC_REF)
@@ -960,7 +1321,7 @@ with left_col:
             key="D_single_slit",
         )
 
-    else:  # Stationary Waves
+    elif sim_type == "Stationary Waves":
 
         v_sw = st.slider(
             "Wave speed v (m/s)",
@@ -998,6 +1359,143 @@ with left_col:
             help="Advance through one full period to animate the wave.",
         )
         t_sw_s = t_sw * 1e-3   # convert ms → s
+
+    else:  # Stationary Waves (Harmonics)
+
+        sw_wave_type = st.selectbox(
+            "Stationary Wave type",
+            ["Vibrating String", "Open Pipe", "Closed Pipe (one end)"],
+            key="sw_wave_type",
+            help=(
+                "String and open pipe support all harmonics. "
+                "Closed pipe (one end closed) supports only odd harmonics."
+            ),
+        )
+
+        # For closed pipe, only odd n values are physical
+        if sw_wave_type == "Closed Pipe (one end)":
+            _sw_n_options = list(range(1, 9))
+            sw_n_raw = st.slider(
+                "Harmonic number n",
+                min_value=1,
+                max_value=8,
+                value=1,
+                step=1,
+                key="sw_n",
+                help="Only odd harmonics (1, 3, 5, 7) are present in a closed pipe.",
+            )
+            # Snap to nearest odd number
+            sw_n = sw_n_raw if sw_n_raw % 2 == 1 else max(1, sw_n_raw - 1)
+            if sw_n != sw_n_raw:
+                st.caption(f"Closed pipe: snapped to nearest odd harmonic n = {sw_n}")
+        else:
+            sw_n = st.slider(
+                "Harmonic number n",
+                min_value=1,
+                max_value=8,
+                value=1,
+                step=1,
+                key="sw_n",
+                help="n=1 is the fundamental; n=2,3,... are overtones.",
+            )
+
+        sw_f1 = st.slider(
+            "f₁ (Hz)",
+            min_value=50,
+            max_value=2000,
+            value=220,
+            step=10,
+            key="sw_f1",
+            help="Fundamental frequency f₁. fₙ = n × f₁.",
+        )
+
+        sw_v = st.slider(
+            "Wave speed v (m/s)",
+            min_value=10,
+            max_value=1000,
+            value=340,
+            step=5,
+            key="sw_v",
+            help=(
+                "Speed of the wave. For a string: v = √(T/μ). "
+                "For sound in air ≈ 340 m/s."
+            ),
+        )
+
+        # Advanced: separate T and μ for string
+        sw_show_travelling = False
+        if mode == "Advanced":
+            advanced_divider()
+
+            if sw_wave_type == "Vibrating String":
+                st.markdown(
+                    "<span style='font-size:0.85rem;color:#fafafa'>"
+                    "String tension & linear density (v = √(T/μ))</span>",
+                    unsafe_allow_html=True,
+                )
+                sw_T = st.slider(
+                    "Tension T (N)",
+                    min_value=1,
+                    max_value=500,
+                    value=64,
+                    step=1,
+                    key="sw_T",
+                    help="String tension in Newtons.",
+                )
+                sw_mu = st.slider(
+                    "Linear density μ (g/m)",
+                    min_value=1,
+                    max_value=100,
+                    value=55,
+                    step=1,
+                    key="sw_mu",
+                    help="Mass per unit length (grams per metre).",
+                )
+                sw_v_derived = float(np.sqrt(sw_T / (sw_mu * 1e-3)))
+                st.caption(
+                    f"v = √(T/μ) = √({sw_T}/{sw_mu * 1e-3:.3f}) "
+                    f"= {sw_v_derived:.1f} m/s (overrides v slider)"
+                )
+                sw_v = sw_v_derived
+
+            sw_show_travelling = st.checkbox(
+                "Show component travelling waves",
+                value=False,
+                key="sw_show_travelling",
+                help=(
+                    "Overlay the two counter-propagating waves "
+                    "y₁ = ½A sin(kx − ωt) and y₂ = ½A sin(kx + ωt) "
+                    "that add to form the standing wave."
+                ),
+            )
+
+        sw_animate = st.checkbox(
+            "Show animation (phase sweep)",
+            value=False,
+            key="sw_animate",
+            help="Tick to animate; untick to use the phase slider for a frozen snapshot.",
+        )
+
+        if sw_animate:
+            sw_phase_deg = st.slider(
+                "Phase (°) — drag to animate",
+                min_value=0,
+                max_value=360,
+                value=0,
+                step=5,
+                key="sw_phase",
+                help="Equivalent to advancing time through one full period.",
+            )
+        else:
+            sw_phase_deg = st.slider(
+                "Snapshot phase (°)",
+                min_value=0,
+                max_value=360,
+                value=0,
+                step=5,
+                key="sw_phase",
+                help="Show the wave at a fixed phase angle (0° = maximum displacement).",
+            )
 
 # ── Right column: plots & metrics ─────────────────────────────────────────────
 
@@ -1156,7 +1654,7 @@ with right_col:
             }
         )
 
-    else:  # Stationary Waves
+    elif sim_type == "Stationary Waves":
 
         st.info(
             "🎸 **Musical instruments as stationary waves:** A guitar string fixed at "
@@ -1180,6 +1678,118 @@ with right_col:
                 "Frequency": f"{f_sw:.0f} Hz",
                 "Wave speed": f"{v_sw:.0f} m/s",
             }
+        )
+
+    else:  # Stationary Waves (Harmonics)
+
+        # ── Context info cards ────────────────────────────────────────────────
+        if sw_wave_type == "Vibrating String":
+            st.info(
+                "🎸 **Guitar string:** A guitar string vibrating at its 1st harmonic "
+                "(fundamental) produces a pure tone. The frets shorten the string to "
+                "raise pitch. Harmonics (overtones) give each instrument its "
+                "characteristic timbre."
+            )
+        elif sw_wave_type == "Open Pipe":
+            st.info(
+                "🎵 **Flute (open pipe):** A flute is approximately an open pipe. "
+                "All harmonics are present, giving a bright, rich sound."
+            )
+        else:
+            st.info(
+                "🎷 **Clarinet (closed pipe):** A clarinet is approximately a closed "
+                "pipe (closed at the reed end). Only odd harmonics sound — giving a "
+                "hollow, woody timbre. The octave key activates the 3rd harmonic "
+                "(n=3) rather than n=2."
+            )
+
+        # ── Build and display main standing-wave figure ───────────────────────
+        _sw_show_tw = sw_show_travelling if mode == "Advanced" else False
+        fig_harm, sw_data = build_harmonic_fig(
+            wave_type=sw_wave_type,
+            n=sw_n,
+            f1=sw_f1,
+            v=sw_v,
+            phase_deg=sw_phase_deg,
+            show_travelling=_sw_show_tw,
+        )
+        st.plotly_chart(fig_harm, use_container_width=True)
+
+        # ── Metrics row ───────────────────────────────────────────────────────
+        _sw_n_eff = sw_data["n_eff"]
+        _sw_fn = sw_data["fn"]
+        _sw_lam_n = sw_data["lam_n"]
+        _sw_L = sw_data["L"]
+        _sw_n_nodes = sw_data["n_nodes"]
+        _sw_n_antinodes = sw_data["n_antinodes"]
+        _sw_L_over_lam = _sw_L / _sw_lam_n if _sw_lam_n > 0 else 0.0
+
+        metric_row(
+            {
+                "fₙ (Hz)": f"{_sw_fn:.1f}",
+                "λₙ (m)": f"{_sw_lam_n:.3f}",
+                "Nodes": str(_sw_n_nodes),
+                "Antinodes": str(_sw_n_antinodes),
+                "L / λₙ": f"{_sw_L_over_lam:.2f}",
+            }
+        )
+
+        # ── Harmonic frequency spectrum ───────────────────────────────────────
+        fig_spec = build_harmonic_spectrum_fig(
+            wave_type=sw_wave_type,
+            f1=sw_f1,
+            n_selected=_sw_n_eff,
+        )
+        st.plotly_chart(fig_spec, use_container_width=True)
+
+        if sw_wave_type == "Closed Pipe (one end)":
+            st.caption(
+                "Closed pipe: only **odd** harmonics present (hollow timbre — like a "
+                "clarinet). Even harmonics shown in grey at zero amplitude."
+            )
+        else:
+            st.caption(
+                "String / open pipe: **all** harmonics present (rich timbre). "
+                "The selected harmonic is highlighted in red."
+            )
+
+        # ── Physics notes for this tab ────────────────────────────────────────
+        _sw_spec_ref = "Component 3, Topic 8 (Waves and the Electromagnetic Spectrum)"
+        _sw_equations = [
+            r"f_n = \frac{nv}{2L} \text{ (string / open pipe)}",
+            r"f_n = \frac{nv}{4L},\ n = 1,3,5,\ldots \text{ (closed pipe)}",
+            r"y(x,t) = 2A\sin(kx)\cos(\omega t)",
+        ]
+        _sw_explanation = (
+            "A **stationary (standing) wave** is formed when two identical waves "
+            "travel in opposite directions. Superposition gives **nodes** (zero "
+            "displacement at all times) and **antinodes** (maximum displacement). "
+            "For a **vibrating string** or **open pipe** of length L, only "
+            "wavelengths satisfying $L = n\\lambda/2$ are supported, giving "
+            "harmonics $f_n = nv/(2L)$. A **closed pipe** (one end closed) must "
+            "have a displacement node at the closed end and antinode at the open "
+            "end, so only $L = n\\lambda/4$ with odd n is allowed: "
+            "$f_n = nv/(4L)$, $n = 1,3,5,\\ldots$"
+        )
+        _sw_advanced = (
+            "**Travelling-wave decomposition:** The standing wave "
+            "$y = 2A\\sin(kx)\\cos(\\omega t)$ is the sum of "
+            "$y_1 = A\\sin(kx - \\omega t)$ and $y_2 = A\\sin(kx + \\omega t)$. "
+            "Enable 'Show component travelling waves' above to visualise this.\n\n"
+            "**String physics:** Wave speed $v = \\sqrt{T/\\mu}$ where $T$ is "
+            "tension (N) and $\\mu$ is linear density (kg/m). Tightening a string "
+            "increases $v$ → higher $f_n$. Fretting shortens L → higher $f_n$.\n\n"
+            "**Timbre:** Real instruments produce many harmonics simultaneously. "
+            "The relative amplitudes of the harmonics determine the tone colour "
+            "(timbre). A clarinet's odd-only spectrum gives it a distinctly hollow "
+            "sound compared with a flute or guitar."
+        )
+        physics_notes(
+            spec_ref=_sw_spec_ref,
+            equations=_sw_equations,
+            explanation=_sw_explanation,
+            advanced_text=_sw_advanced,
+            mode=mode,
         )
 
     # ── Physics notes (all modes) ─────────────────────────────────────────────

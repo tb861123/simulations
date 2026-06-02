@@ -1127,7 +1127,9 @@ with left_col:
 # We use st.tabs after the column split so that the tab bar appears inside right_col
 
 with right_col:
-    tab1, tab2, tab3 = st.tabs(["Snell's Law & TIR", "Prism & Dispersion", "Converging Lens"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        ["Snell's Law & TIR", "Prism & Dispersion", "Converging Lens", "Diverging Lens", "Fibre Optics"]
+    )
 
 # ════════════════════════════════════════════════════════════════════════════════
 # SUB-SIM 1 — Snell's Law & TIR

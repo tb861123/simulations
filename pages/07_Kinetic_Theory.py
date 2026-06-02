@@ -20,7 +20,7 @@ import streamlit as st
 from scipy import stats as scipy_stats
 
 from utils.style import COLOURS, plotly_layout, make_fig
-from utils.physics import k_B, maxwell_boltzmann_pdf, rms_speed, mean_speed
+from utils.physics import k_B, R_gas, N_A, maxwell_boltzmann_pdf, rms_speed, mean_speed
 from utils.ui_components import (
     mode_toggle,
     two_column_layout,
