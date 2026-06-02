@@ -2308,6 +2308,73 @@ def main() -> None:
                 mode=mode,
             )
 
+        # ── Tab 4: Conical Pendulum ───────────────────────────────────────────
+        with plot_tab4:
+            cp_vals = compute_conical_pendulum(cp_L, cp_theta_deg, cp_m)
+            cp_omega = cp_vals["omega"]
+            cp_T_period = cp_vals["T_period"]
+            cp_r = cp_vals["r"]
+            cp_v = cp_vals["v"]
+            cp_T_string = cp_vals["T_string"]
+            cp_a_cent = cp_vals["a_cent"]
+
+            # Metrics
+            metric_row(
+                {
+                    "Period T": f"{cp_T_period:.3f} s",
+                    "ω": f"{cp_omega:.3f} rad/s",
+                    "Speed v": f"{cp_v:.3f} m/s",
+                    "Radius r": f"{cp_r:.3f} m",
+                    "Tension T_string": f"{cp_T_string:.3f} N",
+                    "Centripetal a": f"{cp_a_cent:.3f} m/s²",
+                }
+            )
+
+            # Preset info card
+            if cp_preset_data is not None:
+                st.info(f"**{cp_preset_choice}:** {cp_preset_data['note']}")
+
+            # Governor historical note
+            st.info(
+                "The conical pendulum governor was one of the first practical feedback "
+                "control systems. James Watt's 1788 steam engine governor used this "
+                "principle — as speed increased, the angle increased, which mechanically "
+                "throttled the steam valve to reduce speed. It was automatic speed "
+                "control before electronics existed."
+            )
+
+            # Figure 1: 3D-style conical pendulum diagram (2D side view)
+            fig_cp_diagram = build_conical_diagram_fig(
+                cp_L, cp_theta_deg, cp_show_forces, cp_vals
+            )
+            st.plotly_chart(fig_cp_diagram, use_container_width=True)
+            st.caption("The string makes angle θ with the vertical.")
+
+            # Figure 2: Period vs angle θ
+            fig_cp_period = build_conical_period_fig(cp_L, cp_theta_deg)
+            st.plotly_chart(fig_cp_period, use_container_width=True)
+            st.caption(
+                "At θ→0°, period = 2π√(L/g) (simple pendulum limit). "
+                "As θ→90°, period → 0 (infinitely fast rotation)."
+            )
+
+            # Figure 3: ω vs θ (Advanced mode)
+            if mode == "Advanced":
+                fig_cp_omega = build_conical_omega_fig(cp_L, cp_theta_deg)
+                st.plotly_chart(fig_cp_omega, use_container_width=True)
+                st.caption(
+                    "To achieve a large angle, you need a high angular velocity. "
+                    "The relationship is non-linear."
+                )
+
+            physics_notes(
+                spec_ref=CP_SPEC_REF,
+                equations=CP_EQUATIONS,
+                explanation=CP_EXPLANATION,
+                advanced_text=CP_ADVANCED_TEXT,
+                mode=mode,
+            )
+
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
