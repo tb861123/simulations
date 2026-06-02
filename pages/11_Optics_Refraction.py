@@ -43,7 +43,7 @@ EQUATIONS = [
     r"\sin\theta_c = \frac{n_2}{n_1} \quad (n_1 > n_2)",
     r"n(\lambda) = A + \frac{B}{\lambda^2} \quad \text{(Cauchy's equation)}",
     r"\frac{1}{f} = \frac{1}{v} - \frac{1}{u} \quad \text{(lens equation, real-is-positive)}",
-    r"m = \frac{v}{u} \quad \text{(linear magnification)}",
+    r"m = -\frac{v}{u} \quad \text{(linear magnification, real-is-positive)}",
 ]
 
 EXPLANATION = (
@@ -58,7 +58,8 @@ EXPLANATION = (
     "a spectrum. **Converging lenses** obey the lens equation $1/f = 1/v - 1/u$ "
     "(real-is-positive convention). A real, inverted image forms when $u > f$; a "
     "virtual upright image forms when $u < f$ (magnifying glass effect). Magnification "
-    "$m = v/u$ gives image size relative to object size."
+    "$m = -v/u$ (real-is-positive) gives image size relative to object size; "
+    "negative m means an inverted image."
 )
 
 ADVANCED_TEXT = (
@@ -294,7 +295,8 @@ def lens_image(f_cm: float, u_cm: float) -> tuple[float, float, str, str]:
         # Object at focal point — image at infinity
         return float("inf"), float("inf"), "At infinity", "N/A"
     v_cm = (f_cm * u_cm) / (u_cm - f_cm)
-    mag = v_cm / u_cm
+    # Real-is-positive convention: m = -v/u (negative = inverted for real images)
+    mag = -v_cm / u_cm
     image_type = "Real" if v_cm > 0 else "Virtual"
     orientation = "Inverted" if mag < 0 else "Upright"
     return float(v_cm), float(mag), image_type, orientation
@@ -1526,11 +1528,13 @@ with tab3:
         lhs = 1.0 / f_val
         one_over_v = 1.0 / v_val if abs(v_val) > 0.001 else 0.0
         one_over_u = 1.0 / u_val
+        # Lens equation: 1/f = 1/v + 1/u (using u_signed = -u, v_signed = v)
+        # Equivalently: 1/v_signed - 1/u_signed = 1/f → 1/v + 1/u = 1/f  (real-is-positive magnitudes)
+        # v = fu/(u-f) → 1/v = (u-f)/(fu) = 1/f - 1/u  ✓
         st.caption(
             f"Lens equation check: 1/f = {lhs:.4f} cm⁻¹  |  "
-            f"1/v − 1/u = {one_over_v:.4f} − {one_over_u:.4f}... "
-            f"Wait — standard form: 1/v = 1/f - 1/u → 1/v = {lhs:.4f} − {one_over_u:.4f} "
-            f"= {lhs - one_over_u:.4f} cm⁻¹  ✓"
+            f"1/v + 1/(-u) = {one_over_v:.4f} − {one_over_u:.4f} = "
+            f"{one_over_v - one_over_u:.4f} cm⁻¹  (should equal 1/f = {lhs:.4f} cm⁻¹)  ✓"
         )
 
     # Advanced: table
