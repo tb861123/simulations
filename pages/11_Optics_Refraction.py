@@ -1618,3 +1618,530 @@ with tab3:
         advanced_text=ADVANCED_TEXT,
         mode=mode,
     )
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# SUB-SIM 4 — Diverging Lens
+# ════════════════════════════════════════════════════════════════════════════════
+
+# Diverging lens real-world presets: (label -> (f_cm magnitude, u_cm, note))
+DIVERGING_LENS_PRESETS: dict[str, tuple[float, float, str]] = {
+    "Custom": (15.0, 25.0, ""),
+    "Shortsighted correction": (
+        25.0, 25.0,
+        "Short-sighted eyes have too-strong corneas — diverging glasses spread "
+        "light before it enters the eye, correcting focus. Prescription given in "
+        "dioptres: P = 1/f(m), negative for diverging.",
+    ),
+    "Camera wide-angle": (
+        20.0, 50.0,
+        "Wide-angle camera lenses use diverging elements to capture a wider field "
+        "of view. The virtual image is diminished — fitting more scene into the frame.",
+    ),
+    "Door peephole": (
+        5.0, 200.0,
+        "A door peephole uses a strongly diverging lens to give a wide field of "
+        "view of the corridor. The image is very small and virtual.",
+    ),
+}
+
+with left_col:
+    st.divider()
+    st.markdown(
+        f"<p style='color:{COLOURS['advanced']};font-weight:700;"
+        "font-size:0.9rem;margin-bottom:2px'>Tab 4 — Diverging Lens</p>",
+        unsafe_allow_html=True,
+    )
+
+    dl_preset_label = st.selectbox(
+        "Real-world preset",
+        list(DIVERGING_LENS_PRESETS.keys()),
+        index=0,
+        key="dl_preset",
+        help="Select a real-world diverging lens application.",
+    )
+    dl_preset_f_mag, dl_preset_u, _ = DIVERGING_LENS_PRESETS[dl_preset_label]
+
+    dl_f_mag = st.slider(
+        "Focal length |f| (cm)",
+        min_value=5, max_value=40, value=int(dl_preset_f_mag),
+        key="dl_f_mag",
+        help="Magnitude of focal length. The lens equation uses f = −|f| (negative for diverging).",
+    )
+    dl_u = st.slider(
+        "Object distance u (cm)",
+        min_value=5, max_value=60, value=int(min(dl_preset_u, 60)),
+        key="dl_u",
+        help="Distance of the object from the diverging lens (positive, object on left).",
+    )
+
+    if mode == "Advanced":
+        advanced_divider()
+        show_dl_lensmaker = st.checkbox(
+            "Show lens maker's equation",
+            value=False,
+            key="dl_lensmaker",
+            help="Show how the radii of curvature R₁, R₂ determine f via the lens maker's equation.",
+        )
+    else:
+        show_dl_lensmaker = False
+
+with tab4:
+    # Compute image — f is NEGATIVE for diverging lens
+    dl_f_signed = -abs(dl_f_mag)
+    dl_v, dl_mag, dl_img_type, dl_orientation = lens_image(dl_f_signed, float(dl_u))
+
+    # Preset context card
+    _, _, dl_context = DIVERGING_LENS_PRESETS[dl_preset_label]
+    if dl_context:
+        st.info(dl_context)
+
+    # Ray diagram — reuse build_lens_fig with negative f
+    dl_fig = build_lens_fig(
+        f_cm=dl_f_signed,
+        u_cm=float(dl_u),
+        v_cm=dl_v,
+        mag=dl_mag,
+        image_type=dl_img_type,
+    )
+    # Patch the title to say "Diverging Lens"
+    dl_fig.update_layout(
+        title=dict(
+            text=f"Diverging Lens — f = {dl_f_signed} cm, u = {dl_u} cm",
+            font=dict(size=14),
+        )
+    )
+    st.plotly_chart(dl_fig, use_container_width=True)
+
+    # Dioptric power
+    dl_power = 100.0 / dl_f_signed  # f in metres = f_cm / 100
+    v_display_dl = f"{dl_v:.1f} cm" if dl_img_type not in ("At infinity",) else "∞"
+    mag_display_dl = f"{abs(dl_mag):.3f}×" if dl_img_type not in ("At infinity",) else "∞"
+    metric_row(
+        {
+            "Image distance v": v_display_dl,
+            "Magnification |m|": mag_display_dl,
+            "Image type": dl_img_type,
+            "Orientation": dl_orientation,
+            "Power P": f"{dl_power:.2f} D",
+        }
+    )
+
+    st.info(
+        "Diverging lenses always produce virtual, upright, diminished images — "
+        "the image is always between the object and the lens. They are used in "
+        "spectacles for short-sightedness and in Galilean telescopes."
+    )
+
+    if mode == "Advanced" and show_dl_lensmaker:
+        advanced_divider()
+        st.markdown("**Lens Maker's Equation**")
+        st.latex(
+            r"\frac{1}{f} = (n - 1)\left(\frac{1}{R_1} - \frac{1}{R_2}\right)"
+        )
+        st.markdown(
+            "For a double-concave (diverging) lens: $R_1 < 0$ (first surface curves "
+            "away) and $R_2 > 0$ (second surface curves toward object), making $1/f$ "
+            "negative. The shape of the lens — its radii of curvature and the glass's "
+            "refractive index — determines the focal length. A more curved lens (smaller "
+            "|R|) or a higher-index glass gives a shorter (more powerful) focal length."
+        )
+        # Interactive: let user set n and R values to see f
+        dl_n_glass = st.slider(
+            "Glass refractive index n",
+            min_value=1.40, max_value=1.90, value=1.50, step=0.01,
+            key="dl_n_glass",
+        )
+        dl_R1 = st.slider(
+            "R₁ (cm, negative for concave first surface)",
+            min_value=-80, max_value=-5, value=-30,
+            key="dl_R1",
+        )
+        dl_R2 = st.slider(
+            "R₂ (cm, positive for concave second surface)",
+            min_value=5, max_value=80, value=30,
+            key="dl_R2",
+        )
+        if abs(dl_R1) > 0.01 and abs(dl_R2) > 0.01:
+            dl_f_lm = 1.0 / ((dl_n_glass - 1.0) * (1.0 / dl_R1 - 1.0 / dl_R2))
+            st.success(
+                f"Lens maker's equation gives: f = **{dl_f_lm:.2f} cm** "
+                f"(P = {100.0 / dl_f_lm:.2f} D)"
+            )
+
+    physics_notes(
+        spec_ref=SPEC_REF,
+        equations=EQUATIONS,
+        explanation=EXPLANATION,
+        advanced_text=ADVANCED_TEXT,
+        mode=mode,
+    )
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# SUB-SIM 5 — Fibre Optics
+# ════════════════════════════════════════════════════════════════════════════════
+
+# Fibre optics presets: (label -> (n_core, n_clad, note))
+FIBRE_PRESETS: dict[str, tuple[float, float, str]] = {
+    "Custom": (1.50, 1.46, ""),
+    "Single-mode fibre": (
+        1.458, 1.450,
+        "Used in telecoms — only one light mode propagates, preventing pulse "
+        "dispersion. Carries internet data over thousands of km.",
+    ),
+    "Multi-mode fibre": (
+        1.50, 1.46,
+        "Multiple light paths propagate — used for shorter distances. Modal "
+        "dispersion limits bandwidth.",
+    ),
+    "Medical endoscope fibre": (
+        1.62, 1.52,
+        "High NA for bright image. Flexible bundles of thousands of fibres "
+        "transmit images from inside the body.",
+    ),
+}
+
+
+def build_fibre_fig(
+    n_core: float,
+    n_clad: float,
+    theta_input_deg: float,
+    n_bounces: int,
+) -> go.Figure:
+    """
+    Build a side-view Plotly figure of light propagation in an optical fibre.
+
+    Parameters
+    ----------
+    n_core        : refractive index of fibre core
+    n_clad        : refractive index of cladding (< n_core)
+    theta_input_deg : angle of input ray from fibre axis (degrees)
+    n_bounces     : number of TIR bounces to draw
+
+    Returns
+    -------
+    Plotly Figure
+    """
+    fig = make_fig()
+
+    fibre_length = 10.0   # arbitrary display units
+    core_half = 0.5       # half-height of core in display units
+    clad_extra = 0.25     # cladding shown beyond core
+
+    # Critical angle
+    theta_c_rad = np.arcsin(n_clad / n_core)
+    theta_c_deg = np.degrees(theta_c_rad)
+
+    # Numerical aperture and acceptance angle
+    NA = np.sqrt(n_core**2 - n_clad**2)
+    theta_accept_deg = np.degrees(np.arcsin(min(NA, 1.0)))
+
+    # ── Cladding regions (shaded bands) ──────────────────────────────────────
+    # Upper cladding
+    fig.add_trace(
+        go.Scatter(
+            x=[0, fibre_length, fibre_length, 0, 0],
+            y=[core_half, core_half, core_half + clad_extra, core_half + clad_extra, core_half],
+            mode="lines",
+            fill="toself",
+            fillcolor="rgba(80,100,180,0.18)",
+            line=dict(color=COLOURS["quaternary"], width=1.5),
+            name="Cladding",
+            showlegend=True,
+            hoverinfo="skip",
+        )
+    )
+    # Lower cladding
+    fig.add_trace(
+        go.Scatter(
+            x=[0, fibre_length, fibre_length, 0, 0],
+            y=[-core_half, -core_half, -core_half - clad_extra, -core_half - clad_extra, -core_half],
+            mode="lines",
+            fill="toself",
+            fillcolor="rgba(80,100,180,0.18)",
+            line=dict(color=COLOURS["quaternary"], width=1.5),
+            showlegend=False,
+            hoverinfo="skip",
+        )
+    )
+
+    # Core region (subtle fill)
+    fig.add_trace(
+        go.Scatter(
+            x=[0, fibre_length, fibre_length, 0, 0],
+            y=[-core_half, -core_half, core_half, core_half, -core_half],
+            mode="lines",
+            fill="toself",
+            fillcolor="rgba(40,60,120,0.25)",
+            line=dict(color=COLOURS["primary"], width=2),
+            name="Core",
+            showlegend=True,
+            hoverinfo="skip",
+        )
+    )
+
+    # ── Acceptance cone at input face ─────────────────────────────────────────
+    cone_len = 1.2
+    accept_rad = np.radians(theta_accept_deg)
+    fig.add_trace(
+        go.Scatter(
+            x=[0, -cone_len, -cone_len, 0],
+            y=[0, cone_len * np.tan(accept_rad), -cone_len * np.tan(accept_rad), 0],
+            mode="lines",
+            fill="toself",
+            fillcolor="rgba(100,220,100,0.12)",
+            line=dict(color=COLOURS["secondary"], width=1.2, dash="dash"),
+            name=f"Acceptance cone (±{theta_accept_deg:.1f}°)",
+            showlegend=True,
+            hoverinfo="skip",
+        )
+    )
+
+    # ── Ray path inside core ──────────────────────────────────────────────────
+    theta_ray_deg = theta_input_deg   # angle from axis
+    theta_ray_rad = np.radians(theta_ray_deg)
+
+    # The internal angle of incidence at core-cladding boundary is (90° - theta_ray)
+    theta_at_boundary = 90.0 - theta_ray_deg   # angle from normal at boundary
+    guided = theta_at_boundary >= theta_c_deg  # TIR occurs if >= critical angle
+
+    # Trace zigzag path
+    x_pos = 0.0
+    y_pos = 0.0
+    direction = +1  # +1 = heading upward, -1 = heading downward
+
+    ray_x = [x_pos]
+    ray_y = [y_pos]
+
+    escape_traces = []   # list of (x0, y0, x1, y1) for escape rays
+
+    for _ in range(n_bounces + 1):
+        # Advance to next wall
+        if direction == +1:
+            dy_to_wall = core_half - y_pos
+        else:
+            dy_to_wall = -core_half - y_pos   # negative
+
+        if abs(np.tan(theta_ray_rad)) < 1e-9:
+            # Perfectly axial ray — no bouncing
+            ray_x.append(fibre_length)
+            ray_y.append(y_pos)
+            break
+
+        dx = abs(dy_to_wall) / np.tan(theta_ray_rad)
+        next_x = x_pos + dx
+        next_y = y_pos + dy_to_wall
+
+        if next_x > fibre_length:
+            # Ray exits end of fibre before hitting wall
+            remaining_x = fibre_length - x_pos
+            final_y = y_pos + remaining_x * np.tan(theta_ray_rad) * direction
+            ray_x.append(fibre_length)
+            ray_y.append(final_y)
+            break
+
+        ray_x.append(next_x)
+        ray_y.append(next_y)
+
+        if not guided:
+            # Show escape ray at each reflection point
+            escape_ang = np.radians(theta_at_boundary - theta_c_deg) * 0.5 + theta_ray_rad
+            escape_len = 0.5
+            escape_dx = escape_len * np.cos(escape_ang)
+            escape_dy = escape_len * np.sin(escape_ang) * direction
+            escape_traces.append((next_x, next_y, next_x + escape_dx, next_y + escape_dy))
+
+        x_pos = next_x
+        y_pos = next_y
+        direction *= -1   # reflect
+
+    # Draw main ray
+    ray_colour = COLOURS["highlight"] if guided else "rgba(200,80,80,0.7)"
+    fig.add_trace(
+        go.Scatter(
+            x=ray_x, y=ray_y,
+            mode="lines",
+            name="Guided ray (TIR)" if guided else "Ray (leaking)",
+            line=dict(color=ray_colour, width=2.5),
+            showlegend=True,
+        )
+    )
+
+    # Draw escape rays
+    for ex0, ey0, ex1, ey1 in escape_traces:
+        fig.add_trace(
+            go.Scatter(
+                x=[ex0, ex1], y=[ey0, ey1],
+                mode="lines",
+                line=dict(color="rgba(255,60,60,0.8)", width=1.5, dash="dash"),
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+
+    # ── Critical angle arc annotation at first bounce ─────────────────────────
+    if len(ray_x) >= 2:
+        bx = ray_x[1] if len(ray_x) > 1 else fibre_length / 2
+        by = ray_y[1] if len(ray_y) > 1 else core_half
+        arc_r = 0.15
+        boundary_dir = +1 if by > 0 else -1
+        ang_start = np.pi / 2 * boundary_dir
+        ang_end = ang_start - theta_at_boundary * np.pi / 180.0 * boundary_dir
+        arc_t = np.linspace(ang_start, ang_end, 20)
+        fig.add_trace(
+            go.Scatter(
+                x=(bx + arc_r * np.cos(arc_t)).tolist(),
+                y=(by + arc_r * np.sin(arc_t)).tolist(),
+                mode="lines",
+                line=dict(color=COLOURS["tertiary"], width=1.2, dash="dot"),
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+        fig.add_annotation(
+            x=bx + arc_r * 1.5 * np.cos((ang_start + ang_end) / 2),
+            y=by + arc_r * 1.5 * np.sin((ang_start + ang_end) / 2),
+            text=f"θ={theta_at_boundary:.0f}°",
+            showarrow=False,
+            font=dict(color=COLOURS["tertiary"], size=9),
+        )
+
+    # ── Labels ────────────────────────────────────────────────────────────────
+    fig.add_annotation(
+        x=fibre_length / 2, y=0,
+        text=f"Core  n = {n_core:.3f}",
+        showarrow=False,
+        font=dict(color=COLOURS["text"], size=11),
+    )
+    fig.add_annotation(
+        x=fibre_length / 2, y=core_half + clad_extra / 2,
+        text=f"Cladding  n = {n_clad:.3f}",
+        showarrow=False,
+        font=dict(color=COLOURS["text"], size=10),
+    )
+
+    guided_str = "GUIDED (TIR)" if guided else "LEAKING"
+    fig.update_layout(
+        **plotly_layout(
+            height=420,
+            title=dict(
+                text=(
+                    f"Optical Fibre — θ_c = {theta_c_deg:.1f}°, "
+                    f"NA = {NA:.4f}, θ_accept = {theta_accept_deg:.1f}°  |  "
+                    f"Input ray: {guided_str}"
+                ),
+                font=dict(size=13),
+            ),
+            xaxis=dict(
+                title="Position along fibre (arb. units)",
+                range=[-1.5, fibre_length + 0.3],
+            ),
+            yaxis=dict(
+                title="Transverse position",
+                range=[-(core_half + clad_extra + 0.4), core_half + clad_extra + 0.4],
+                scaleanchor="x",
+                scaleratio=1,
+            ),
+        )
+    )
+    return fig
+
+
+with left_col:
+    st.divider()
+    st.markdown(
+        f"<p style='color:{COLOURS['advanced']};font-weight:700;"
+        "font-size:0.9rem;margin-bottom:2px'>Tab 5 — Fibre Optics</p>",
+        unsafe_allow_html=True,
+    )
+
+    fo_preset_label = st.selectbox(
+        "Fibre preset",
+        list(FIBRE_PRESETS.keys()),
+        index=0,
+        key="fo_preset",
+        help="Choose a real-world fibre type to pre-populate n_core and n_clad.",
+    )
+    fo_preset_ncore, fo_preset_nclad, _ = FIBRE_PRESETS[fo_preset_label]
+
+    fo_n_core = st.slider(
+        "Core refractive index n_core",
+        min_value=1.40, max_value=1.80, step=0.01,
+        value=float(fo_preset_ncore),
+        key="fo_n_core",
+        help="Refractive index of the fibre core (must be > n_clad).",
+    )
+    fo_n_clad = st.slider(
+        "Cladding refractive index n_clad",
+        min_value=1.35, max_value=float(round(fo_n_core - 0.01, 2)), step=0.01,
+        value=float(min(fo_preset_nclad, fo_n_core - 0.01)),
+        key="fo_n_clad",
+        help="Refractive index of the cladding (must be < n_core for TIR).",
+    )
+    fo_theta = st.slider(
+        "Input ray angle θ from axis (°)",
+        min_value=0, max_value=60, value=15,
+        key="fo_theta",
+        help="Angle of the incoming ray measured from the fibre axis. Small = nearly parallel.",
+    )
+    fo_n_bounces = st.slider(
+        "Number of bounces to show",
+        min_value=3, max_value=10, value=5,
+        key="fo_n_bounces",
+        help="How many TIR reflections to draw in the diagram.",
+    )
+
+with tab5:
+    # Compute fibre optics parameters
+    fo_theta_c = float(np.degrees(np.arcsin(fo_n_clad / fo_n_core)))
+    fo_NA = float(np.sqrt(fo_n_core**2 - fo_n_clad**2))
+    fo_theta_accept = float(np.degrees(np.arcsin(min(fo_NA, 1.0))))
+    # Angle of incidence at core-cladding boundary
+    fo_theta_boundary = 90.0 - fo_theta
+
+    # Preset context
+    _, _, fo_context = FIBRE_PRESETS[fo_preset_label]
+    if fo_context:
+        st.info(fo_context)
+
+    # Guided / not guided feedback
+    if fo_theta_boundary >= fo_theta_c:
+        st.success("Ray is guided by Total Internal Reflection.")
+    else:
+        st.warning("Ray will NOT be guided — it escapes through the cladding.")
+
+    # Figure
+    fo_fig = build_fibre_fig(
+        n_core=fo_n_core,
+        n_clad=fo_n_clad,
+        theta_input_deg=float(fo_theta),
+        n_bounces=fo_n_bounces,
+    )
+    st.plotly_chart(fo_fig, use_container_width=True)
+
+    # Metrics
+    metric_row(
+        {
+            "Critical angle θ_c": f"{fo_theta_c:.2f}°",
+            "Numerical aperture NA": f"{fo_NA:.4f}",
+            "Acceptance angle θ_accept": f"{fo_theta_accept:.2f}°",
+            "Boundary angle θ": f"{fo_theta_boundary:.1f}°",
+            "Guided?": "Yes" if fo_theta_boundary >= fo_theta_c else "No",
+        }
+    )
+
+    st.info(
+        "Optical fibres carry internet data as pulses of light — a single hair-thin "
+        "fibre can carry thousands of phone calls simultaneously using different "
+        "wavelengths (wavelength division multiplexing). The critical principle is "
+        "Total Internal Reflection you studied in Snell's Law."
+    )
+
+    physics_notes(
+        spec_ref=SPEC_REF,
+        equations=EQUATIONS,
+        explanation=EXPLANATION,
+        advanced_text=ADVANCED_TEXT,
+        mode=mode,
+    )

@@ -703,6 +703,736 @@ def _build_boyle_plot(N: int, m: float, T: float) -> go.Figure:
     return fig
 
 
+# ── Gas species options for the PV tab ───────────────────────────────────────
+
+PV_GAS_OPTIONS = {
+    "N₂ (Nitrogen, 4.65e-26 kg)": 4.65e-26,
+    "He (Helium, 6.64e-27 kg)":   6.64e-27,
+    "CO₂ (Carbon dioxide, 7.30e-26 kg)": 7.30e-26,
+    "O₂ (Oxygen, 5.32e-26 kg)":   5.32e-26,
+}
+
+_D_MOLECULE = 3.7e-10  # m — effective diameter for mean free path (N₂ reference)
+
+# ── Ideal Gas Law plot builders ───────────────────────────────────────────────
+
+
+def _build_pv_diagram(n_mol: float, T: float, V_current: float) -> go.Figure:
+    """
+    Build PV diagram showing three isotherms at T/2, T, and 2T.
+
+    Parameters
+    ----------
+    n_mol     : amount of gas (mol)
+    T         : current temperature (K) — the primary isotherm
+    V_current : current volume (m³) — marks the state point
+
+    Returns
+    -------
+    fig : Plotly Figure
+    """
+    V_range = np.linspace(0.001, 0.1, 100)
+
+    T_vals = [T / 2.0, T, 2.0 * T]
+    colours = [
+        "rgba(31,119,180,0.35)",   # T/2 — faded primary
+        COLOURS["primary"],        # T — bright
+        COLOURS["secondary"],      # 2T — medium
+    ]
+    widths = [1.5, 2.5, 2.0]
+
+    fig = go.Figure()
+
+    for T_iso, col, lw in zip(T_vals, colours, widths):
+        P_iso = n_mol * R_gas * T_iso / V_range
+        fig.add_trace(
+            go.Scatter(
+                x=V_range,
+                y=P_iso,
+                mode="lines",
+                name=f"T = {T_iso:.0f} K",
+                line=dict(color=col, width=lw),
+            )
+        )
+
+    # Mark current state point
+    P_current = n_mol * R_gas * T / V_current
+    fig.add_trace(
+        go.Scatter(
+            x=[V_current],
+            y=[P_current],
+            mode="markers",
+            name="Current state",
+            marker=dict(
+                color=COLOURS["highlight"],
+                size=12,
+                symbol="circle",
+                line=dict(color=COLOURS["text"], width=1.5),
+            ),
+        )
+    )
+
+    fig.update_layout(
+        **plotly_layout(
+            height=400,
+            title=dict(text="PV Diagram — Isotherms (Boyle's Law)", font=dict(size=14)),
+            xaxis=dict(
+                title="Volume V (m³)",
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+            ),
+            yaxis=dict(
+                title="Pressure P (Pa)",
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+            ),
+            showlegend=True,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                bgcolor="rgba(0,0,0,0.4)",
+                bordercolor=COLOURS["grid"],
+                borderwidth=1,
+                font=dict(size=10),
+            ),
+        )
+    )
+    return fig
+
+
+def _build_pt_ke_plot(
+    n_mol: float,
+    V: float,
+    T_current: float,
+    mode: str,
+    m_molecule: float,
+) -> go.Figure:
+    """
+    Dual y-axis plot: pressure P and mean KE per molecule vs temperature T.
+
+    Left axis  (blue) : P = nRT/V
+    Right axis (orange): mean KE = (3/2)k_B T
+    Optional third trace (Advanced): mean free path λ = kT/(√2 π d² P)
+
+    Parameters
+    ----------
+    n_mol       : moles of gas
+    V           : fixed volume (m³)
+    T_current   : current temperature for the vertical marker
+    mode        : "Basic" or "Advanced"
+    m_molecule  : molecular mass (kg) — used for mean free path
+
+    Returns
+    -------
+    fig : Plotly Figure
+    """
+    T_range = np.linspace(100, 2000, 200)
+    P_range = n_mol * R_gas * T_range / V
+    KE_range = 1.5 * k_B * T_range
+
+    show_mfp = mode == "Advanced"
+
+    if show_mfp:
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+    else:
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    # Left axis: pressure
+    fig.add_trace(
+        go.Scatter(
+            x=T_range,
+            y=P_range,
+            mode="lines",
+            name="Pressure P (Pa)",
+            line=dict(color=COLOURS["primary"], width=2),
+        ),
+        secondary_y=False,
+    )
+
+    # Right axis: mean KE
+    fig.add_trace(
+        go.Scatter(
+            x=T_range,
+            y=KE_range,
+            mode="lines",
+            name="Mean KE per molecule (J)",
+            line=dict(color=COLOURS["secondary"], width=2),
+        ),
+        secondary_y=True,
+    )
+
+    # Advanced: mean free path (third trace on right axis, separate scale not practical
+    # in Plotly dual-axis — plot normalised or as annotation)
+    if show_mfp:
+        mfp_range = k_B * T_range / (np.sqrt(2) * np.pi * _D_MOLECULE**2 * P_range)
+        fig.add_trace(
+            go.Scatter(
+                x=T_range,
+                y=mfp_range * 1e9,  # convert to nm
+                mode="lines",
+                name="Mean free path λ (nm)",
+                line=dict(color=COLOURS["advanced"], width=2, dash="dot"),
+            ),
+            secondary_y=True,
+        )
+
+    # Vertical line at current T
+    fig.add_vline(
+        x=T_current,
+        line=dict(color=COLOURS["highlight"], dash="dash", width=1.5),
+        annotation_text=f"T = {T_current:.0f} K",
+        annotation_font=dict(color=COLOURS["highlight"], size=10),
+        annotation_position="top right",
+    )
+
+    base_layout = plotly_layout(
+        height=400,
+        title=dict(text="P and Mean KE vs Temperature", font=dict(size=14)),
+        xaxis=dict(
+            title="Temperature T (K)",
+            gridcolor=COLOURS["grid"],
+            linecolor=COLOURS["grid"],
+            zerolinecolor=COLOURS["grid"],
+        ),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            bgcolor="rgba(0,0,0,0.4)",
+            bordercolor=COLOURS["grid"],
+            borderwidth=1,
+            font=dict(size=10),
+        ),
+    )
+    fig.update_layout(**base_layout)
+    fig.update_yaxes(
+        title_text="Pressure P (Pa)",
+        title_font=dict(color=COLOURS["primary"]),
+        tickfont=dict(color=COLOURS["primary"]),
+        gridcolor=COLOURS["grid"],
+        secondary_y=False,
+    )
+    fig.update_yaxes(
+        title_text="Mean KE per molecule (J)" + (" / Mean free path λ (nm)" if show_mfp else ""),
+        title_font=dict(color=COLOURS["secondary"]),
+        tickfont=dict(color=COLOURS["secondary"]),
+        gridcolor=COLOURS["grid"],
+        secondary_y=True,
+    )
+    return fig
+
+
+# ── Tab renderers ─────────────────────────────────────────────────────────────
+
+
+def render_particle_sim(mode: str) -> None:
+    """Render the existing 2D particle simulation sub-tab."""
+
+    left_col, right_col = two_column_layout(3, 7)
+
+    # ── Left column: controls ─────────────────────────────────────────────────
+    with left_col:
+        st.subheader("Simulation Controls")
+
+        N = st.slider(
+            "N particles",
+            min_value=20,
+            max_value=200,
+            value=50,
+            step=5,
+            help="Total number of gas particles.",
+        )
+
+        T = st.slider(
+            "Temperature T (K)",
+            min_value=100,
+            max_value=2000,
+            value=300,
+            step=10,
+            help="Sets the mean kinetic energy via Maxwell-Boltzmann distribution.",
+        )
+
+        L = st.slider(
+            "Box size L (a.u.)",
+            min_value=1.0,
+            max_value=5.0,
+            value=2.0,
+            step=0.1,
+            help="Side length of the square simulation box.",
+        )
+
+        mass_label = st.selectbox(
+            "Particle mass (species)",
+            list(MASS_OPTIONS.keys()),
+            index=0,
+            help="Mass of gas molecules determines speed at a given temperature.",
+        )
+        m = MASS_OPTIONS[mass_label]
+
+        # ── Real-world gas context card ───────────────────────────────────────
+        _GAS_CONTEXT = {
+            "Nitrogen": (
+                "Makes up **78%** of Earth's atmosphere. The triple bond in N₂ makes it very "
+                "unreactive — hence its use in food packaging and tyre inflation. "
+                "v_rms at 25°C ≈ **515 m/s**."
+            ),
+            "Helium": (
+                "The lightest noble gas. Used in balloons, MRI coolant, and as a breathing mix "
+                "for deep-sea divers. So light it gradually escapes from Earth's upper atmosphere "
+                "— helium is **not renewed**."
+            ),
+            "Argon": (
+                "Third most abundant gas in Earth's atmosphere (**0.93%**). Used in welding "
+                "(inert shield), double glazing insulation, and as a fire suppressant. "
+                "v_rms at 25°C ≈ **431 m/s**."
+            ),
+        }
+        for _gas_key, _gas_info in _GAS_CONTEXT.items():
+            if _gas_key.lower() in mass_label.lower():
+                st.info(f"**{_gas_key}:** {_gas_info}")
+                break
+
+        st.divider()
+
+        # Advanced options needed early so we can pass two_species to reinit check
+        two_species = False
+        enable_boyle = False
+        T_target = T
+
+        if mode == "Advanced":
+            advanced_divider()
+
+            T_target = st.slider(
+                "Target temperature T_target (K)",
+                min_value=100,
+                max_value=2000,
+                value=int(T),
+                step=10,
+                key="T_target_slider",
+                help="Rescale all velocities to reach this temperature (thermostat).",
+            )
+
+            heat_cool_btn = st.button(
+                "🌡️ Heat / Cool",
+                help="Multiply all velocities by √(T_target / T_current) to thermostat.",
+            )
+
+            st.divider()
+
+            enable_boyle = st.checkbox(
+                "Boyle's Law explorer",
+                value=False,
+                help="Plot P vs 1/L² at constant N and T (theoretical ideal gas).",
+            )
+
+            two_species = st.checkbox(
+                "Enable two-species gas",
+                value=False,
+                help=(
+                    "First N/2 particles: heavy (mass m). "
+                    "Second N/2: light (mass m/4). "
+                    "Demonstrates equipartition of energy."
+                ),
+            )
+        else:
+            heat_cool_btn = False
+
+        st.divider()
+
+        init_btn = st.button(
+            "🔄 Initialise",
+            type="primary",
+            help="Reset all particles to random positions with Maxwell-Boltzmann speeds.",
+        )
+
+        col_step_btn, col_step_n = st.columns([1, 1])
+        with col_step_n:
+            n_steps_per_click = st.slider(
+                "Frames per step",
+                min_value=1,
+                max_value=50,
+                value=5,
+                step=1,
+                key="n_steps_slider",
+                help="Number of DT steps advanced per button click.",
+            )
+        with col_step_btn:
+            st.markdown("<div style='margin-top:1.6rem'></div>", unsafe_allow_html=True)
+            step_btn = st.button(
+                f"▶ Step {n_steps_per_click}",
+                help=f"Advance simulation by {n_steps_per_click} frames.",
+            )
+
+        auto_run = st.checkbox(
+            "Auto-run",
+            value=False,
+            key="auto_run",
+            help="Continuously step the simulation. Uncheck to pause.",
+        )
+
+        # Show step counter
+        current_step = st.session_state.get(_ss_key("step"), 0)
+        st.caption(f"Step: {current_step}  |  Time: {current_step * DT:.3f} a.u.")
+
+        if mode == "Basic":
+            # Simulation key stats for quick reference
+            v_rms_theory = rms_speed(m, T)
+            v_mean_theory = mean_speed(m, T)
+            st.info(
+                f"**Theory (set T={T} K)**\n\n"
+                f"v_rms = {v_rms_theory:.1f} m/s\n\n"
+                f"v̄ = {v_mean_theory:.1f} m/s"
+            )
+
+    # ── Session state management ──────────────────────────────────────────────
+
+    # Auto-reinit when parameters change
+    if _needs_reinit(N, T, L, m, two_species) or init_btn:
+        _initialise_particles(N, m, T, L, two_species)
+        _save_params(N, T, L, m, two_species)
+        # Clear accumulated pressure history on reinit
+        st.session_state[_ss_key("pressure_history")] = []
+
+    # Apply thermostat (Heat/Cool button)
+    if heat_cool_btn and _ss_key("vel") in st.session_state:
+        vel_curr = st.session_state[_ss_key("vel")]
+        masses_curr = st.session_state[_ss_key("masses")]
+        speeds_curr = np.linalg.norm(vel_curr, axis=1)
+        ke_curr = np.mean(0.5 * masses_curr * speeds_curr**2)
+        T_current = ke_curr / k_B
+        if T_current > 0:
+            scale = np.sqrt(T_target / T_current)
+            st.session_state[_ss_key("vel")] = vel_curr * scale
+
+    # Step the simulation
+    pressure_this_step = 0.0
+    if step_btn or auto_run:
+        if _ss_key("pos") in st.session_state:
+            pressure_this_step = _step_simulation(L, n_steps_per_click)
+            # Maintain a rolling pressure history (last 50 measurements)
+            hist = st.session_state.get(_ss_key("pressure_history"), [])
+            hist.append(pressure_this_step)
+            if len(hist) > 50:
+                hist = hist[-50:]
+            st.session_state[_ss_key("pressure_history")] = hist
+
+    # ── Retrieve state for rendering ──────────────────────────────────────────
+
+    pos = st.session_state.get(_ss_key("pos"))
+    vel = st.session_state.get(_ss_key("vel"))
+    masses_arr = st.session_state.get(_ss_key("masses"))
+    pressure_history = st.session_state.get(_ss_key("pressure_history"), [])
+
+    m_light_val = m / 4.0 if two_species else None
+
+    # ── Right column: plots ───────────────────────────────────────────────────
+    with right_col:
+
+        if pos is None or vel is None or masses_arr is None:
+            st.info("Press **Initialise** to start the simulation.")
+        else:
+            # ── Thermodynamics ────────────────────────────────────────────────
+            thermo = _compute_thermodynamics(masses_arr, vel)
+            speeds_all = thermo["speeds"]
+            mean_KE = thermo["mean_KE"]
+            T_measured = thermo["T_measured"]
+
+            # Pressure: use rolling average for stability
+            P_measured = float(np.mean(pressure_history)) if pressure_history else 0.0
+            P_ideal = N * k_B * T / L**2  # ideal gas law in 2D: P = NkT/A = NkT/L²
+
+            # ── Metric row ────────────────────────────────────────────────────
+            metric_row(
+                {
+                    "Mean KE": f"{mean_KE:.3e} J",
+                    "T (measured)": f"{T_measured:.0f} K",
+                    "P (measured)": f"{P_measured:.4f} Pa·a.u.",
+                }
+            )
+
+            # ── Main plots: particles | speed histogram ───────────────────────
+            plot_left, plot_right = st.columns(2)
+
+            with plot_left:
+                fig_particles = _build_particle_plot(
+                    pos=pos,
+                    vel=vel,
+                    masses=masses_arr,
+                    L=L,
+                    m=m,
+                    T=T,
+                    two_species=two_species,
+                )
+                st.plotly_chart(fig_particles, use_container_width=True)
+
+            with plot_right:
+                fig_hist = _build_speed_histogram(
+                    speeds=speeds_all,
+                    m=m,
+                    T=T,
+                    T_measured=T_measured,
+                    two_species=two_species,
+                    speeds_heavy=thermo["speeds_heavy"] if two_species else None,
+                    speeds_light=thermo["speeds_light"] if two_species else None,
+                    m_light=m_light_val,
+                )
+                st.plotly_chart(fig_hist, use_container_width=True)
+                if not two_species:
+                    st.caption(
+                        "Speed ratios at any temperature: "
+                        "v_mp : v_mean : v_rms = 1 : 1.128 : 1.225  "
+                        "(ratio √2 : √(8/π) : √3)"
+                    )
+
+            # ── Ideal gas law info ────────────────────────────────────────────
+            st.info(
+                f"**Ideal gas law predicts:** P·A = N·k_B·T  "
+                f"→  P = N·k_B·T / L² = **{P_ideal:.4f} Pa·a.u.**  "
+                f"(measured: {P_measured:.4f} Pa·a.u.)"
+            )
+
+            # ── Atmosphere escape velocity context (Basic mode) ───────────────
+            if mode == "Basic":
+                V_ESCAPE = 11_200.0  # m/s — Earth escape velocity
+                st.info(
+                    "🌍 **Atmospheric escape:** For a molecule to escape Earth's gravity, it needs "
+                    "speed > v_escape = 11,200 m/s. The Maxwell-Boltzmann distribution has a "
+                    "high-speed tail — even at 300K, a tiny fraction of H₂ molecules "
+                    "(m=3.34×10⁻²⁷ kg) have speeds near escape velocity. Over billions of years, "
+                    "Earth has lost most of its primordial hydrogen this way. Heavier molecules "
+                    "(N₂, O₂) have lower mean speeds and are retained. Mars, with lower gravity "
+                    "(escape velocity 5,027 m/s), has lost much more atmosphere."
+                )
+                # Fraction of current species with speed above Earth escape velocity
+                # MB CDF via numerical integration of the PDF
+                _v_esc_arr = np.linspace(V_ESCAPE, V_ESCAPE * 5, 2000)
+                _pdf_arr   = maxwell_boltzmann_pdf(_v_esc_arr, m, max(T, 10.0))
+                _frac_escape = float(np.trapz(_pdf_arr, _v_esc_arr))
+                # Extract clean species name for display
+                _species_name = mass_label.split("(")[0].strip()
+                st.caption(
+                    f"Fraction of {_species_name} molecules above escape velocity "
+                    f"({V_ESCAPE:.0f} m/s) at {T} K: **{_frac_escape:.2e}**"
+                )
+
+            # ── Two-species equipartition metrics ─────────────────────────────
+            if two_species and len(thermo["speeds_heavy"]) > 0 and len(thermo["speeds_light"]) > 0:
+                st.divider()
+                _adv_colour = COLOURS["advanced"]
+                st.markdown(
+                    f"<p style='color:{_adv_colour};font-weight:600'>"
+                    "⚗️ Equipartition check (two-species)</p>",
+                    unsafe_allow_html=True,
+                )
+                metric_row(
+                    {
+                        "⟨KE⟩ heavy": f"{thermo['mean_KE_heavy']:.3e} J",
+                        "⟨KE⟩ light": f"{thermo['mean_KE_light']:.3e} J",
+                        "Ratio KE_light/KE_heavy": (
+                            f"{thermo['mean_KE_light']/thermo['mean_KE_heavy']:.3f}"
+                            if thermo["mean_KE_heavy"] > 0 else "N/A"
+                        ),
+                        "k_B·T (ref)": f"{k_B * T:.3e} J",
+                    }
+                )
+                st.caption(
+                    "Equipartition theorem predicts ⟨KE⟩_heavy = ⟨KE⟩_light = k_B·T "
+                    "(2 DOF, 2D gas). Ratio → 1 at equilibrium."
+                )
+
+            # ── Advanced: Boyle's Law plot ────────────────────────────────────
+            if mode == "Advanced" and enable_boyle:
+                st.divider()
+                _adv_colour2 = COLOURS["advanced"]
+                st.markdown(
+                    f"<p style='color:{_adv_colour2};font-weight:600'>"
+                    "⚗️ Boyle's Law Explorer</p>",
+                    unsafe_allow_html=True,
+                )
+                fig_boyle = _build_boyle_plot(N, m, T)
+                st.plotly_chart(fig_boyle, use_container_width=True)
+                st.caption(
+                    "Theoretical ideal gas: P = NkT / L². At constant N and T, "
+                    "P is proportional to 1/L² — a linear relationship with zero intercept."
+                )
+
+            # ── Physics notes ─────────────────────────────────────────────────
+            physics_notes(
+                spec_ref=SPEC_REF,
+                equations=EQUATIONS,
+                explanation=EXPLANATION,
+                advanced_text=ADVANCED_TEXT,
+                mode=mode,
+            )
+
+    # ── Auto-run: trigger rerun after a short render delay ───────────────────
+    # We use a step counter in session_state so the rerun only fires when auto_run
+    # is active and the simulation has been displayed at least once.
+    if auto_run and pos is not None:
+        import time as _time
+        _time.sleep(0.05)   # small yield to allow Streamlit to render the frame
+        st.rerun()
+
+
+def render_ideal_gas_law(mode: str) -> None:
+    """
+    Render the Ideal Gas Law & PV sub-tab.
+
+    Connects the macroscopic ideal gas law (PV = nRT) to the microscopic
+    kinetic theory derivation (P = (1/3) * N/V * m * <v²>).
+    """
+
+    _PV_SPEC_REF = "Component 1, Topic 4 (Thermal Physics), sections on ideal gas"
+    _PV_EQUATIONS = [
+        r"PV = nRT = Nk_BT",
+        r"P = \frac{1}{3}\frac{N}{V}m\langle v^2 \rangle",
+        r"\frac{1}{2}m\langle v^2 \rangle = \frac{3}{2}k_BT",
+    ]
+
+    left_col, right_col = two_column_layout(3, 7)
+
+    # ── Left column: controls ─────────────────────────────────────────────────
+    with left_col:
+        st.subheader("Gas Law Controls")
+
+        T_pv = st.slider(
+            "Temperature T (K)",
+            min_value=100,
+            max_value=2000,
+            value=300,
+            step=10,
+            key="pv_T",
+            help="Gas temperature in kelvin.",
+        )
+
+        n_pv = st.slider(
+            "Amount n (mol)",
+            min_value=0.01,
+            max_value=2.0,
+            value=0.1,
+            step=0.01,
+            key="pv_n",
+            help="Number of moles of gas.",
+        )
+
+        V_pv = st.slider(
+            "Volume V (m³)",
+            min_value=0.001,
+            max_value=0.1,
+            value=0.01,
+            step=0.001,
+            key="pv_V",
+            format="%.3f",
+            help="Container volume in cubic metres.",
+        )
+
+        gas_label_pv = st.selectbox(
+            "Gas species",
+            list(PV_GAS_OPTIONS.keys()),
+            index=0,
+            key="pv_species",
+            help="Molecular mass determines v_rms and mean free path.",
+        )
+        m_pv = PV_GAS_OPTIONS[gas_label_pv]
+
+        st.divider()
+
+        # ── Derived quantities ────────────────────────────────────────────────
+        P_from_law    = n_pv * R_gas * T_pv / V_pv           # Pa
+        N_molecules   = n_pv * N_A                             # dimensionless
+        v_rms_pv      = rms_speed(m_pv, T_pv)                 # m/s
+        mean_KE_pv    = 1.5 * k_B * T_pv                      # J per molecule
+        P_from_kinetic = (1.0 / 3.0) * (N_molecules / V_pv) * m_pv * v_rms_pv**2  # Pa
+
+        st.metric("P (gas law, Pa)", f"{P_from_law:.3e}")
+        st.metric("P (kinetic theory, Pa)", f"{P_from_kinetic:.3e}")
+        st.metric("T (K)", f"{T_pv:.0f}")
+        st.metric("V (m³)", f"{V_pv:.4f}")
+        st.metric("n (mol)", f"{n_pv:.3f}")
+        st.metric("N (molecules)", f"{N_molecules:.3e}")
+        st.metric("Mean KE per molecule (J)", f"{mean_KE_pv:.3e}")
+        st.metric("v_rms (m/s)", f"{v_rms_pv:.1f}")
+
+        if mode == "Advanced":
+            advanced_divider()
+            P_for_mfp = max(P_from_law, 1e-30)
+            mfp_m = k_B * T_pv / (np.sqrt(2) * np.pi * _D_MOLECULE**2 * P_for_mfp)
+            if mfp_m >= 1e-6:
+                mfp_display = f"{mfp_m * 1e6:.3f} μm"
+            else:
+                mfp_display = f"{mfp_m * 1e9:.3f} nm"
+            st.metric("Mean free path λ", mfp_display)
+
+    # ── Right column: plots ───────────────────────────────────────────────────
+    with right_col:
+
+        # ── Figure 1: PV diagram ──────────────────────────────────────────────
+        fig_pv = _build_pv_diagram(n_pv, T_pv, V_pv)
+        st.plotly_chart(fig_pv, use_container_width=True)
+        st.caption(
+            "Each curve is a Boyle's Law hyperbola: PV = nRT = constant at fixed T. "
+            "Moving along a curve keeps T constant (isothermal). The red dot marks your "
+            "current state (V, P). Changing T moves you between isotherms."
+        )
+
+        st.divider()
+
+        # ── Figure 2: P and mean KE vs T (dual axis) ─────────────────────────
+        fig_pt = _build_pt_ke_plot(n_pv, V_pv, T_pv, mode, m_pv)
+        st.plotly_chart(fig_pt, use_container_width=True)
+        st.caption(
+            "Both P and mean KE are proportional to T — the connection between "
+            "temperature and molecular motion. "
+            + (
+                "The dotted purple curve (Advanced) shows mean free path λ: "
+                "how far a molecule travels between collisions. λ increases with T "
+                "because higher pressure at fixed V means more collisions."
+                if mode == "Advanced" else ""
+            )
+        )
+
+        # ── Info banner ───────────────────────────────────────────────────────
+        st.info(
+            "Kinetic theory bridges the microscopic (individual molecules moving at v_rms) "
+            "and macroscopic (pressure P on the container walls). The pressure you measure "
+            "with a gauge is the average force from ~10²³ molecular collisions per second."
+        )
+
+        # ── Physics notes ─────────────────────────────────────────────────────
+        _PV_EXPLANATION = (
+            "The ideal gas law PV = nRT connects measurable macroscopic quantities "
+            "(pressure, volume, temperature) to the amount of gas (moles). "
+            "Kinetic theory derives the same result from first principles: "
+            "P = (1/3)(N/V)m⟨v²⟩. Since ⟨v²⟩ = 3k_BT/m, this gives P = Nk_BT/V = nRT/V. "
+            "The mean kinetic energy per molecule ½m⟨v²⟩ = (3/2)k_BT shows that "
+            "temperature is a direct measure of the average translational kinetic energy."
+        )
+        _PV_ADVANCED = (
+            "**Mean free path λ = k_BT / (√2 π d² P):** The average distance a molecule "
+            "travels between collisions. At STP, λ ≈ 68 nm for N₂ — roughly 200 molecular "
+            "diameters. λ grows with T (faster molecules) and shrinks with P "
+            "(more molecules per unit volume).\n\n"
+            "**Microscopic validation:** P from the ideal gas law and P = (1/3)(N/V)m v_rms² "
+            "give identical results — confirming that temperature is *defined* by the "
+            "equipartition relation ½m⟨v²⟩ = (3/2)k_BT."
+        )
+        physics_notes(
+            spec_ref=_PV_SPEC_REF,
+            equations=_PV_EQUATIONS,
+            explanation=_PV_EXPLANATION,
+            advanced_text=_PV_ADVANCED,
+            mode=mode,
+        )
+
+
 # ── Streamlit page ────────────────────────────────────────────────────────────
 
 st.set_page_config(
@@ -716,347 +1446,10 @@ sim_header("Kinetic Theory of Gases", SPEC_REF)
 
 mode = mode_toggle()
 
-left_col, right_col = two_column_layout(3, 7)
+tab_particle, tab_pv = st.tabs(["⚛️ Particle Simulation", "📊 Ideal Gas Law & PV"])
 
-# ── Left column: controls ─────────────────────────────────────────────────────
-with left_col:
-    st.subheader("Simulation Controls")
+with tab_particle:
+    render_particle_sim(mode)
 
-    N = st.slider(
-        "N particles",
-        min_value=20,
-        max_value=200,
-        value=50,
-        step=5,
-        help="Total number of gas particles.",
-    )
-
-    T = st.slider(
-        "Temperature T (K)",
-        min_value=100,
-        max_value=2000,
-        value=300,
-        step=10,
-        help="Sets the mean kinetic energy via Maxwell-Boltzmann distribution.",
-    )
-
-    L = st.slider(
-        "Box size L (a.u.)",
-        min_value=1.0,
-        max_value=5.0,
-        value=2.0,
-        step=0.1,
-        help="Side length of the square simulation box.",
-    )
-
-    mass_label = st.selectbox(
-        "Particle mass (species)",
-        list(MASS_OPTIONS.keys()),
-        index=0,
-        help="Mass of gas molecules determines speed at a given temperature.",
-    )
-    m = MASS_OPTIONS[mass_label]
-
-    # ── Real-world gas context card ───────────────────────────────────────────
-    _GAS_CONTEXT = {
-        "Nitrogen": (
-            "Makes up **78%** of Earth's atmosphere. The triple bond in N₂ makes it very "
-            "unreactive — hence its use in food packaging and tyre inflation. "
-            "v_rms at 25°C ≈ **515 m/s**."
-        ),
-        "Helium": (
-            "The lightest noble gas. Used in balloons, MRI coolant, and as a breathing mix "
-            "for deep-sea divers. So light it gradually escapes from Earth's upper atmosphere "
-            "— helium is **not renewed**."
-        ),
-        "Argon": (
-            "Third most abundant gas in Earth's atmosphere (**0.93%**). Used in welding "
-            "(inert shield), double glazing insulation, and as a fire suppressant. "
-            "v_rms at 25°C ≈ **431 m/s**."
-        ),
-    }
-    for _gas_key, _gas_info in _GAS_CONTEXT.items():
-        if _gas_key.lower() in mass_label.lower():
-            st.info(f"**{_gas_key}:** {_gas_info}")
-            break
-
-    st.divider()
-
-    # Advanced options needed early so we can pass two_species to reinit check
-    two_species = False
-    enable_boyle = False
-    T_target = T
-
-    if mode == "Advanced":
-        advanced_divider()
-
-        T_target = st.slider(
-            "Target temperature T_target (K)",
-            min_value=100,
-            max_value=2000,
-            value=int(T),
-            step=10,
-            key="T_target_slider",
-            help="Rescale all velocities to reach this temperature (thermostat).",
-        )
-
-        heat_cool_btn = st.button(
-            "🌡️ Heat / Cool",
-            help="Multiply all velocities by √(T_target / T_current) to thermostat.",
-        )
-
-        st.divider()
-
-        enable_boyle = st.checkbox(
-            "Boyle's Law explorer",
-            value=False,
-            help="Plot P vs 1/L² at constant N and T (theoretical ideal gas).",
-        )
-
-        two_species = st.checkbox(
-            "Enable two-species gas",
-            value=False,
-            help=(
-                "First N/2 particles: heavy (mass m). "
-                "Second N/2: light (mass m/4). "
-                "Demonstrates equipartition of energy."
-            ),
-        )
-    else:
-        heat_cool_btn = False
-
-    st.divider()
-
-    init_btn = st.button(
-        "🔄 Initialise",
-        type="primary",
-        help="Reset all particles to random positions with Maxwell-Boltzmann speeds.",
-    )
-
-    col_step_btn, col_step_n = st.columns([1, 1])
-    with col_step_n:
-        n_steps_per_click = st.slider(
-            "Frames per step",
-            min_value=1,
-            max_value=50,
-            value=5,
-            step=1,
-            key="n_steps_slider",
-            help="Number of DT steps advanced per button click.",
-        )
-    with col_step_btn:
-        st.markdown("<div style='margin-top:1.6rem'></div>", unsafe_allow_html=True)
-        step_btn = st.button(
-            f"▶ Step {n_steps_per_click}",
-            help=f"Advance simulation by {n_steps_per_click} frames.",
-        )
-
-    auto_run = st.checkbox(
-        "Auto-run",
-        value=False,
-        key="auto_run",
-        help="Continuously step the simulation. Uncheck to pause.",
-    )
-
-    # Show step counter
-    current_step = st.session_state.get(_ss_key("step"), 0)
-    st.caption(f"Step: {current_step}  |  Time: {current_step * DT:.3f} a.u.")
-
-    if mode == "Basic":
-        # Simulation key stats for quick reference
-        v_rms_theory = rms_speed(m, T)
-        v_mean_theory = mean_speed(m, T)
-        st.info(
-            f"**Theory (set T={T} K)**\n\n"
-            f"v_rms = {v_rms_theory:.1f} m/s\n\n"
-            f"v̄ = {v_mean_theory:.1f} m/s"
-        )
-
-# ── Session state management ──────────────────────────────────────────────────
-
-# Auto-reinit when parameters change
-if _needs_reinit(N, T, L, m, two_species) or init_btn:
-    _initialise_particles(N, m, T, L, two_species)
-    _save_params(N, T, L, m, two_species)
-    # Clear accumulated pressure history on reinit
-    st.session_state[_ss_key("pressure_history")] = []
-
-# Apply thermostat (Heat/Cool button)
-if heat_cool_btn and _ss_key("vel") in st.session_state:
-    vel_curr = st.session_state[_ss_key("vel")]
-    masses_curr = st.session_state[_ss_key("masses")]
-    speeds_curr = np.linalg.norm(vel_curr, axis=1)
-    ke_curr = np.mean(0.5 * masses_curr * speeds_curr**2)
-    T_current = ke_curr / k_B
-    if T_current > 0:
-        scale = np.sqrt(T_target / T_current)
-        st.session_state[_ss_key("vel")] = vel_curr * scale
-
-# Step the simulation
-pressure_this_step = 0.0
-if step_btn or auto_run:
-    if _ss_key("pos") in st.session_state:
-        pressure_this_step = _step_simulation(L, n_steps_per_click)
-        # Maintain a rolling pressure history (last 50 measurements)
-        hist = st.session_state.get(_ss_key("pressure_history"), [])
-        hist.append(pressure_this_step)
-        if len(hist) > 50:
-            hist = hist[-50:]
-        st.session_state[_ss_key("pressure_history")] = hist
-
-# ── Retrieve state for rendering ──────────────────────────────────────────────
-
-pos = st.session_state.get(_ss_key("pos"))
-vel = st.session_state.get(_ss_key("vel"))
-masses_arr = st.session_state.get(_ss_key("masses"))
-pressure_history = st.session_state.get(_ss_key("pressure_history"), [])
-
-m_light_val = m / 4.0 if two_species else None
-
-# ── Right column: plots ───────────────────────────────────────────────────────
-with right_col:
-
-    if pos is None or vel is None or masses_arr is None:
-        st.info("Press **Initialise** to start the simulation.")
-    else:
-        # ── Thermodynamics ────────────────────────────────────────────────────
-        thermo = _compute_thermodynamics(masses_arr, vel)
-        speeds_all = thermo["speeds"]
-        mean_KE = thermo["mean_KE"]
-        T_measured = thermo["T_measured"]
-
-        # Pressure: use rolling average for stability
-        P_measured = float(np.mean(pressure_history)) if pressure_history else 0.0
-        P_ideal = N * k_B * T / L**2  # ideal gas law in 2D: P = NkT/A = NkT/L²
-
-        # ── Metric row ────────────────────────────────────────────────────────
-        metric_row(
-            {
-                "Mean KE": f"{mean_KE:.3e} J",
-                "T (measured)": f"{T_measured:.0f} K",
-                "P (measured)": f"{P_measured:.4f} Pa·a.u.",
-            }
-        )
-
-        # ── Main plots: particles | speed histogram ───────────────────────────
-        plot_left, plot_right = st.columns(2)
-
-        with plot_left:
-            fig_particles = _build_particle_plot(
-                pos=pos,
-                vel=vel,
-                masses=masses_arr,
-                L=L,
-                m=m,
-                T=T,
-                two_species=two_species,
-            )
-            st.plotly_chart(fig_particles, use_container_width=True)
-
-        with plot_right:
-            fig_hist = _build_speed_histogram(
-                speeds=speeds_all,
-                m=m,
-                T=T,
-                T_measured=T_measured,
-                two_species=two_species,
-                speeds_heavy=thermo["speeds_heavy"] if two_species else None,
-                speeds_light=thermo["speeds_light"] if two_species else None,
-                m_light=m_light_val,
-            )
-            st.plotly_chart(fig_hist, use_container_width=True)
-            if not two_species:
-                st.caption(
-                    "Speed ratios at any temperature: "
-                    "v_mp : v_mean : v_rms = 1 : 1.128 : 1.225  "
-                    "(ratio √2 : √(8/π) : √3)"
-                )
-
-        # ── Ideal gas law info ────────────────────────────────────────────────
-        st.info(
-            f"**Ideal gas law predicts:** P·A = N·k_B·T  "
-            f"→  P = N·k_B·T / L² = **{P_ideal:.4f} Pa·a.u.**  "
-            f"(measured: {P_measured:.4f} Pa·a.u.)"
-        )
-
-        # ── Atmosphere escape velocity context (Basic mode) ───────────────────
-        if mode == "Basic":
-            V_ESCAPE = 11_200.0  # m/s — Earth escape velocity
-            st.info(
-                "🌍 **Atmospheric escape:** For a molecule to escape Earth's gravity, it needs "
-                "speed > v_escape = 11,200 m/s. The Maxwell-Boltzmann distribution has a "
-                "high-speed tail — even at 300K, a tiny fraction of H₂ molecules "
-                "(m=3.34×10⁻²⁷ kg) have speeds near escape velocity. Over billions of years, "
-                "Earth has lost most of its primordial hydrogen this way. Heavier molecules "
-                "(N₂, O₂) have lower mean speeds and are retained. Mars, with lower gravity "
-                "(escape velocity 5,027 m/s), has lost much more atmosphere."
-            )
-            # Fraction of current species with speed above Earth escape velocity
-            # MB CDF via numerical integration of the PDF
-            _v_esc_arr = np.linspace(V_ESCAPE, V_ESCAPE * 5, 2000)
-            _pdf_arr   = maxwell_boltzmann_pdf(_v_esc_arr, m, max(T, 10.0))
-            _frac_escape = float(np.trapz(_pdf_arr, _v_esc_arr))
-            # Extract clean species name for display
-            _species_name = mass_label.split("(")[0].strip()
-            st.caption(
-                f"Fraction of {_species_name} molecules above escape velocity "
-                f"({V_ESCAPE:.0f} m/s) at {T} K: **{_frac_escape:.2e}**"
-            )
-
-        # ── Two-species equipartition metrics ─────────────────────────────────
-        if two_species and len(thermo["speeds_heavy"]) > 0 and len(thermo["speeds_light"]) > 0:
-            st.divider()
-            _adv_colour = COLOURS["advanced"]
-            st.markdown(
-                f"<p style='color:{_adv_colour};font-weight:600'>"
-                "⚗️ Equipartition check (two-species)</p>",
-                unsafe_allow_html=True,
-            )
-            metric_row(
-                {
-                    "⟨KE⟩ heavy": f"{thermo['mean_KE_heavy']:.3e} J",
-                    "⟨KE⟩ light": f"{thermo['mean_KE_light']:.3e} J",
-                    "Ratio KE_light/KE_heavy": (
-                        f"{thermo['mean_KE_light']/thermo['mean_KE_heavy']:.3f}"
-                        if thermo["mean_KE_heavy"] > 0 else "N/A"
-                    ),
-                    "k_B·T (ref)": f"{k_B * T:.3e} J",
-                }
-            )
-            st.caption(
-                "Equipartition theorem predicts ⟨KE⟩_heavy = ⟨KE⟩_light = k_B·T "
-                "(2 DOF, 2D gas). Ratio → 1 at equilibrium."
-            )
-
-        # ── Advanced: Boyle's Law plot ────────────────────────────────────────
-        if mode == "Advanced" and enable_boyle:
-            st.divider()
-            _adv_colour2 = COLOURS["advanced"]
-            st.markdown(
-                f"<p style='color:{_adv_colour2};font-weight:600'>"
-                "⚗️ Boyle's Law Explorer</p>",
-                unsafe_allow_html=True,
-            )
-            fig_boyle = _build_boyle_plot(N, m, T)
-            st.plotly_chart(fig_boyle, use_container_width=True)
-            st.caption(
-                "Theoretical ideal gas: P = NkT / L². At constant N and T, "
-                "P is proportional to 1/L² — a linear relationship with zero intercept."
-            )
-
-        # ── Physics notes ─────────────────────────────────────────────────────
-        physics_notes(
-            spec_ref=SPEC_REF,
-            equations=EQUATIONS,
-            explanation=EXPLANATION,
-            advanced_text=ADVANCED_TEXT,
-            mode=mode,
-        )
-
-# ── Auto-run: trigger rerun after a short render delay ───────────────────────
-# We use a step counter in session_state so the rerun only fires when auto_run
-# is active and the simulation has been displayed at least once.
-if auto_run and pos is not None:
-    import time as _time
-    _time.sleep(0.05)   # small yield to allow Streamlit to render the frame
-    st.rerun()
+with tab_pv:
+    render_ideal_gas_law(mode)
