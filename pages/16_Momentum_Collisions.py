@@ -238,177 +238,756 @@ def compute_2d_collision(
 
 
 def build_collision_animation(m1, m2, u1, u2, v1, v2):
-    """Build p5.js 1D collision animation."""
-    import json
+    """
+    Build an enhanced p5.js 1D collision animation.
+
+    Features
+    --------
+    - 3-phase animation (before / collision / after) with auto-reset.
+    - Ball radii proportional to cube-root of mass.
+    - Velocity arrows on each ball.
+    - Momentum conservation bar at the bottom.
+    - Play/Pause, Replay, and speed (1x / 2x / 4x) controls.
+
+    Enhanced features
+    -----------------
+    1. Drag velocity arrows (setup phase): drag the tip of each arrow to set
+       u1/u2 before launch.  "Launch" button starts the collision.
+       Labels update live: "u₁ = X.X m/s".
+    2. Slow-motion replay button: after the collision, replay at 0.1x speed
+       with a deformation visual and a running timestamp "t = X.XXX s".
+    3. Newton's Cradle mode: 5-ball cradle with clickable leftmost ball.
+       Click ball 1 to pull back; release to run.  Each ball is numbered.
+    4. Coefficient of Restitution indicator: shows
+       e = v_rel_after / v_rel_before = X.XX with an elastic (flash) or
+       inelastic (stick + combined-mass label) visual.
+    """
 
     # Normalise for display: map velocities to pixel speeds
     max_speed = max(abs(u1), abs(u2), abs(v1), abs(v2), 0.1)
+
+    # Compute e for display (may be NaN if relative approach speed is zero)
+    rel_approach = u1 - u2
+    rel_separation = v2 - v1
+    if abs(rel_approach) > 1e-12:
+        e_display = rel_separation / rel_approach
+    else:
+        e_display = float("nan")
 
     data = json.dumps({
         "m1": float(m1), "m2": float(m2),
         "u1": float(u1), "u2": float(u2),
         "v1": float(v1), "v2": float(v2),
-        "maxSpeed": float(max_speed)
+        "maxSpeed": float(max_speed),
+        "eVal": float(e_display) if not (e_display != e_display) else -999,
     })
 
     return f"""<!DOCTYPE html>
 <html><head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
-<style>body{{margin:0;overflow:hidden;background:#0e1117;}}</style>
+<style>
+  body{{margin:0;overflow:hidden;background:#0e1117;}}
+  canvas{{display:block;}}
+</style>
 </head><body>
 <script>
+// ── Simulation data from Python ──────────────────────────────────────────────
 const D = {data};
-const SCALE=80;  // px per m/s
-const TRACK_Y_FRAC=0.5;
-let phase='before';  // 'before', 'collision', 'after'
+const SCALE = 80;
+const TRACK_Y_FRAC = 0.48;
+
+// ── Modes ────────────────────────────────────────────────────────────────────
+// appMode: 'collision' | 'cradle'
+let appMode = 'collision';
+
+// ── Collision-mode state ─────────────────────────────────────────────────────
+// simPhase: 'setup' | 'before' | 'collision' | 'after' | 'slowmo'
+let simPhase = 'before';
 let b1x, b2x, b1vx, b2vx;
-let playing=true, speed=1;
-let t=0, collisionT=null;
-let flashAlpha=0;
+let playing = true, simSpeed = 1;
+let t = 0, collisionT = null, flashAlpha = 0;
 
-// Ball radii proportional to mass (cube root)
-function ballR(m){{ return max(15, min(45, pow(m,1/3)*20)); }}
+// Drag state for velocity arrows (setup phase)
+let draggingArrow = 0;   // 0=none, 1=ball1, 2=ball2
+let dragU1, dragU2;      // dragged velocities (m/s)
+let setupMode = false;   // show drag arrows?
 
-function setup(){{
-  createCanvas(windowWidth||700, 380);
+// Slow-mo state
+let slowmoActive = false;
+let slowmoT = 0;
+let slowmoB1x, slowmoB2x, slowmoB1vx, slowmoB2vx;
+let deformAlpha = 0, deformR = 0;
+
+// CoR display
+let eDisplay = D.eVal === -999 ? NaN : D.eVal;
+let stickTogether = (Math.abs(D.v1 - D.v2) < 0.001);
+let elasticFlash = 0;
+
+// ── Cradle-mode state ────────────────────────────────────────────────────────
+const N_CRADLE = 5;
+const CRADLE_L = 110;        // string length px
+const CRADLE_R = 16;         // ball radius px
+const CRADLE_SPACING = 34;   // centre-to-centre px
+const CRADLE_MAX_ANGLE = 0.75; // radians (~43°)
+let cradleAngle = 0;         // current angle of leftmost ball (rad)
+let cradleVel = 0;           // angular velocity of leftmost ball
+let cradlePulling = false;   // user dragging ball 1
+let cradleRunning = false;
+let cradlePhaseL = 0, cradlePhaseR = 0;  // left/right group angles
+let cradleVelL = 0, cradleVelR = 0;
+let cradleState = 'idle';    // 'idle' | 'swingLeft' | 'impact' | 'swingRight' | 'returnRight' | 'returnImpact' | 'returnLeft'
+let cradleTimer = 0;
+let cradlePullX, cradlePullY;  // mouse position during pull
+
+// ── Utility ──────────────────────────────────────────────────────────────────
+function ballR(m) {{ return max(15, min(45, pow(m, 1/3) * 20)); }}
+function sgn(x)   {{ return x > 0 ? 1 : x < 0 ? -1 : 0; }}
+function setLineDash(list) {{ drawingContext.setLineDash(list); }}
+
+// ── p5 lifecycle ─────────────────────────────────────────────────────────────
+function setup() {{
+  createCanvas(windowWidth || 700, 420);
   textFont('monospace');
-  resetSim();
-}}
-function windowResized(){{ resizeCanvas(windowWidth,380); }}
-
-function resetSim(){{
-  let r1=ballR(D.m1), r2=ballR(D.m2);
-  // Place balls so they approach collision at centre
-  let cy=height*TRACK_Y_FRAC;
-  let spd1=abs(D.u1)*SCALE*0.012+1;
-  let spd2=abs(D.u2)*SCALE*0.012+1;
-  // Start positions: ball1 on left, ball2 on right
-  b1x=width*0.25;
-  b2x=width*0.75;
-  b1vx=D.u1/abs(D.maxSpeed+0.001)*(SCALE*0.8);
-  b2vx=D.u2/abs(D.maxSpeed+0.001)*(SCALE*0.8);
-  // If both have same-sign velocities, adjust start
-  phase='before'; t=0; collisionT=null; flashAlpha=0;
-  playing=true;
+  resetCollision();
 }}
 
-function mousePressed(){{
-  if(mouseX>width-120&&mouseX<width-10){{
-    if(mouseY>10&&mouseY<40) playing=!playing;
-    else if(mouseY>50&&mouseY<80) resetSim();
-    else if(mouseY>90&&mouseY<120) speed=speed===1?2:speed===2?4:1;
+function windowResized() {{
+  resizeCanvas(windowWidth, 420);
+}}
+
+// ── Reset helpers ─────────────────────────────────────────────────────────────
+function resetCollision() {{
+  let r1 = ballR(D.m1), r2 = ballR(D.m2);
+  b1x = width * 0.25;
+  b2x = width * 0.75;
+  b1vx = D.u1 / (Math.abs(D.maxSpeed) + 0.001) * (SCALE * 0.8);
+  b2vx = D.u2 / (Math.abs(D.maxSpeed) + 0.001) * (SCALE * 0.8);
+  simPhase = 'before';
+  t = 0; collisionT = null; flashAlpha = 0;
+  playing = true; slowmoActive = false;
+  deformAlpha = 0; deformR = 0; elasticFlash = 0;
+  if (setupMode) {{
+    simPhase = 'setup';
+    dragU1 = D.u1; dragU2 = D.u2;
+    // Recompute pixel velocities from dragged values
+    b1vx = dragU1 / (Math.abs(D.maxSpeed) + 0.001) * (SCALE * 0.8);
+    b2vx = dragU2 / (Math.abs(D.maxSpeed) + 0.001) * (SCALE * 0.8);
   }}
 }}
 
-function drawBall(x,y,r,col,label,vx){{
+function resetCradle() {{
+  cradlePhaseL = CRADLE_MAX_ANGLE;
+  cradlePhaseR = 0;
+  cradleVelL = 0; cradleVelR = 0;
+  cradleState = 'idle';
+  cradleRunning = false;
+  cradleTimer = 0;
+  cradlePulling = false;
+}}
+
+// ── Input ─────────────────────────────────────────────────────────────────────
+function mousePressed() {{
+  // ── Top-left mode buttons ──
+  // [Cradle] button: x=10..80, y=10..35
+  if (mouseX >= 10 && mouseX <= 85 && mouseY >= 10 && mouseY <= 35) {{
+    appMode = (appMode === 'collision') ? 'cradle' : 'collision';
+    if (appMode === 'cradle') resetCradle();
+    else resetCollision();
+    return;
+  }}
+  // [Slow-mo] button: x=90..175, y=10..35  (only in collision mode, post-collision)
+  if (appMode === 'collision' && mouseX >= 90 && mouseX <= 175 && mouseY >= 10 && mouseY <= 35) {{
+    if (simPhase === 'after') startSlowmo();
+    return;
+  }}
+  // [Setup] toggle: x=180..255, y=10..35
+  if (appMode === 'collision' && mouseX >= 180 && mouseX <= 260 && mouseY >= 10 && mouseY <= 35) {{
+    setupMode = !setupMode;
+    resetCollision();
+    return;
+  }}
+
+  // ── Right-side controls ──
+  if (mouseX > width - 120 && mouseX < width - 10) {{
+    if (mouseY > 50 && mouseY < 80)  {{ playing = !playing; return; }}
+    if (mouseY > 88 && mouseY < 118) {{ resetCollision(); return; }}
+    if (mouseY > 126 && mouseY < 156) {{
+      simSpeed = simSpeed === 1 ? 2 : simSpeed === 2 ? 4 : 1;
+      return;
+    }}
+  }}
+
+  // ── Setup mode: drag-arrow hit test ──
+  if (appMode === 'collision' && simPhase === 'setup') {{
+    let cy = height * TRACK_Y_FRAC;
+    let r1 = ballR(D.m1), r2 = ballR(D.m2);
+    // Arrow tip positions
+    let tip1x = arrowTipX(b1x, r1, dragU1);
+    let tip2x = arrowTipX(b2x, r2, dragU2);
+    if (dist(mouseX, mouseY, tip1x, cy) < 14) {{ draggingArrow = 1; return; }}
+    if (dist(mouseX, mouseY, tip2x, cy) < 14) {{ draggingArrow = 2; return; }}
+
+    // Launch button
+    let lbx = width / 2, lby = cy + max(r1, r2) + 45;
+    if (mouseX >= lbx - 40 && mouseX <= lbx + 40 && mouseY >= lby - 14 && mouseY <= lby + 14) {{
+      launchFromSetup();
+      return;
+    }}
+  }}
+
+  // ── Cradle mode: click ball 1 to pull ──
+  if (appMode === 'cradle' && !cradleRunning) {{
+    let cx0 = cradleCentreX(0);
+    let cy0 = cradleBallY(0, cradlePhaseL);
+    let pivY = height * 0.22;
+    if (dist(mouseX, mouseY, cx0, cy0) < CRADLE_R + 8) {{
+      cradlePulling = true;
+      return;
+    }}
+    // [Release] button area
+    if (mouseX >= 10 && mouseX <= 95 && mouseY >= height - 45 && mouseY <= height - 18) {{
+      if (!cradleRunning) launchCradle();
+      return;
+    }}
+  }}
+}}
+
+function mouseDragged() {{
+  if (appMode === 'collision' && simPhase === 'setup') {{
+    let cy = height * TRACK_Y_FRAC;
+    if (draggingArrow === 1) {{
+      let dx = mouseX - b1x;
+      dragU1 = dx / (SCALE * 0.8) * (Math.abs(D.maxSpeed) + 0.001);
+      dragU1 = constrain(dragU1, -15, 15);
+    }}
+    if (draggingArrow === 2) {{
+      let dx = mouseX - b2x;
+      dragU2 = dx / (SCALE * 0.8) * (Math.abs(D.maxSpeed) + 0.001);
+      dragU2 = constrain(dragU2, -15, 15);
+    }}
+  }}
+  if (appMode === 'cradle' && cradlePulling) {{
+    cradlePullX = mouseX;
+    cradlePullY = mouseY;
+    // Compute angle from pivot
+    let pivX = cradleCentreX(0);
+    let pivY = height * 0.22 - CRADLE_L;
+    let dx = mouseX - pivX;
+    let dy = mouseY - (pivY + CRADLE_L);
+    cradlePhaseL = constrain(atan2(-dx, CRADLE_L), -CRADLE_MAX_ANGLE, 0.0);
+  }}
+}}
+
+function mouseReleased() {{
+  draggingArrow = 0;
+  if (cradlePulling) {{
+    cradlePulling = false;
+    // auto-launch on release if pulled back
+    if (cradlePhaseL < -0.05) launchCradle();
+  }}
+}}
+
+// ── Setup-phase helpers ───────────────────────────────────────────────────────
+function arrowTipX(bx, r, u) {{
+  let len = map(abs(u), 0, 15, 0, 90) * sgn(u);
+  return bx + sgn(u) * (r + 5) + len;
+}}
+
+function launchFromSetup() {{
+  let ms = max(abs(dragU1), abs(dragU2), 0.1);
+  b1vx = dragU1 / ms * (SCALE * 0.8);
+  b2vx = dragU2 / ms * (SCALE * 0.8);
+  simPhase = 'before';
+  playing = true;
+}}
+
+// ── Slow-mo helpers ───────────────────────────────────────────────────────────
+function startSlowmo() {{
+  let r1 = ballR(D.m1), r2 = ballR(D.m2);
+  // Rewind to just before collision
+  slowmoB1x = width / 2 - r1 - 8;
+  slowmoB2x = width / 2 + r2 + 8;
+  let ms = Math.abs(D.maxSpeed) + 0.001;
+  slowmoB1vx = D.u1 / ms * (SCALE * 0.8);
+  slowmoB2vx = D.u2 / ms * (SCALE * 0.8);
+  slowmoT = 0;
+  slowmoActive = true;
+  simPhase = 'slowmo';
+  playing = true;
+  deformAlpha = 0; deformR = 0;
+}}
+
+// ── Cradle helpers ────────────────────────────────────────────────────────────
+function cradleCentreX(i) {{
+  let totalW = N_CRADLE * CRADLE_SPACING;
+  return width / 2 - totalW / 2 + (i + 0.5) * CRADLE_SPACING;
+}}
+
+function cradleBallY(i, angle) {{
+  let pivY = height * 0.22 - CRADLE_L + CRADLE_L; // pivot is at height*0.22
+  return height * 0.22 + CRADLE_L * cos(angle);
+}}
+
+function launchCradle() {{
+  cradleRunning = true;
+  cradleVelL = 0;
+  cradleState = 'swingLeft';
+  cradleTimer = 0;
+}}
+
+// ── Main draw ─────────────────────────────────────────────────────────────────
+function draw() {{
+  background('#0e1117');
+
+  // ── Top bar ──────────────────────────────────────────────────────────────
+  drawTopButtons();
+
+  if (appMode === 'cradle') {{
+    drawCradle();
+  }} else {{
+    drawCollisionSim();
+  }}
+
+  // ── Right controls ────────────────────────────────────────────────────────
+  drawRightControls();
+}}
+
+// ── Top buttons ───────────────────────────────────────────────────────────────
+function drawTopButtons() {{
+  noStroke();
+  // Cradle toggle
+  fill(appMode === 'cradle' ? color(44,160,44) : color(40,40,60));
+  rect(10, 10, 75, 25, 5);
+  fill('#fff'); textSize(10); textAlign(LEFT);
+  text(appMode === 'cradle' ? '● Cradle' : '○ Cradle', 15, 27);
+
+  // Slow-mo (collision mode only)
+  if (appMode === 'collision') {{
+    let smActive = simPhase === 'slowmo';
+    fill(smActive ? color(148,103,189) : color(40,40,60));
+    rect(90, 10, 85, 25, 5);
+    fill('#fff'); textSize(10);
+    text(smActive ? '⏪ Slow-mo' : '⏪ Slow-mo', 95, 27);
+
+    // Setup toggle
+    fill(setupMode ? color(214,39,40) : color(40,40,60));
+    rect(180, 10, 80, 25, 5);
+    fill('#fff'); textSize(10);
+    text(setupMode ? '✎ Setup ON' : '✎ Setup', 185, 27);
+  }}
+  textAlign(LEFT);
+}}
+
+// ── Right-side controls ───────────────────────────────────────────────────────
+function drawRightControls() {{
+  noStroke(); fill(15, 15, 25, 220); rect(width - 118, 45, 110, 120, 6);
+  fill('#fafafa'); textSize(11); textAlign(LEFT);
+  text(playing ? '⏸ Pause' : '▶ Play',   width - 112, 65);
+  text('↺ Replay',                         width - 112, 105);
+  text('⚡ ' + simSpeed + 'x',             width - 112, 143);
+  textAlign(LEFT);
+}}
+
+// ── Collision simulation ──────────────────────────────────────────────────────
+function drawCollisionSim() {{
+  let cy = height * TRACK_Y_FRAC;
+  let r1 = ballR(D.m1), r2 = ballR(D.m2);
+
+  // Track
+  stroke('#2a2a2a'); strokeWeight(2);
+  line(20, cy + max(r1, r2) + 18, width - 20, cy + max(r1, r2) + 18);
+
+  // Phase label
+  noStroke(); fill('#777'); textSize(11); textAlign(LEFT);
+  let phaseLabels = {{
+    'setup':     'Setup — drag arrow tips to set velocities',
+    'before':    'Before collision',
+    'collision': 'COLLISION!',
+    'after':     'After collision',
+    'slowmo':    'Slow-motion replay (0.1x)'
+  }};
+  text(phaseLabels[simPhase] || '', width/2 - 120, cy - max(r1, r2) - 25);
+
+  // Collision / slowmo flash & deform
+  if (flashAlpha > 0) {{
+    noStroke();
+    let isElastic = (Math.abs(eDisplay - 1.0) < 0.05);
+    fill(isElastic ? color(255, 230, 80, flashAlpha) : color(255, 80, 80, flashAlpha));
+    circle(width / 2, cy, 120);
+    flashAlpha -= 6;
+  }}
+  if (deformAlpha > 0 && simPhase === 'slowmo') {{
+    noStroke(); fill(255, 160, 60, deformAlpha);
+    ellipse(width / 2, cy, deformR * 2, deformR * 1.3);
+    deformAlpha -= 3;
+  }}
+
+  // ── Draw balls ────────────────────────────────────────────────────────────
+  let col1 = color(31, 119, 180);
+  let col2 = color(255, 127, 14);
+
+  if (simPhase === 'slowmo') {{
+    drawBall(slowmoB1x, cy, r1, col1, 'm₁', slowmoB1vx);
+    drawBall(slowmoB2x, cy, r2, col2, 'm₂', slowmoB2vx);
+    // Timestamp
+    noStroke(); fill('#aef'); textSize(10); textAlign(LEFT);
+    text('t = ' + nf(slowmoT, 1, 3) + ' s', 20, height - 20);
+    textAlign(LEFT);
+  }} else {{
+    drawBall(b1x, cy, r1, col1, 'm₁', simPhase === 'setup' ? dragU1 / (Math.abs(D.maxSpeed)+0.001) * (SCALE*0.8) : b1vx);
+    drawBall(b2x, cy, r2, col2, 'm₂', simPhase === 'setup' ? dragU2 / (Math.abs(D.maxSpeed)+0.001) * (SCALE*0.8) : b2vx);
+  }}
+
+  // ── Setup UI ──────────────────────────────────────────────────────────────
+  if (simPhase === 'setup') {{
+    drawSetupArrows(cy, r1, r2);
+  }}
+
+  // ── Stuck-together label ──────────────────────────────────────────────────
+  if (simPhase === 'after' && stickTogether) {{
+    let mx = (b1x + b2x) / 2;
+    noStroke(); fill(255, 80, 80, 200);
+    rect(mx - 38, cy - max(r1,r2) - 42, 76, 18, 4);
+    fill('#fff'); textSize(9); textAlign(CENTER);
+    text('Combined mass: ' + nf(D.m1 + D.m2, 1, 2) + ' kg', mx, cy - max(r1,r2) - 29);
+    textAlign(LEFT);
+  }}
+
+  // ── Elastic flash overlay ─────────────────────────────────────────────────
+  if (elasticFlash > 0) {{
+    noStroke(); fill(255, 255, 100, elasticFlash);
+    circle(width / 2, cy, 60);
+    elasticFlash -= 5;
+  }}
+
+  // ── CoR indicator ─────────────────────────────────────────────────────────
+  drawCoR(cy, r1, r2);
+
+  // ── Momentum bar ─────────────────────────────────────────────────────────
+  drawMomentumBar(cy, r1, r2);
+
+  // ── Update physics ────────────────────────────────────────────────────────
+  if (playing) updateCollisionPhysics(r1, r2);
+}}
+
+function drawSetupArrows(cy, r1, r2) {{
+  // Draw draggable arrows for u1 and u2
+  drawDragArrow(b1x, cy, r1, dragU1, color(31,119,180), 'u₁ = ' + nf(dragU1, 1, 1) + ' m/s', 1);
+  drawDragArrow(b2x, cy, r2, dragU2, color(255,127,14), 'u₂ = ' + nf(dragU2, 1, 1) + ' m/s', 2);
+
+  // Launch button
+  let lbx = width / 2, lby = cy + max(r1, r2) + 45;
+  fill(44, 160, 44); noStroke(); rect(lbx - 40, lby - 14, 80, 28, 6);
+  fill('#fff'); textSize(12); textAlign(CENTER);
+  text('Launch ►', lbx, lby + 4);
+  textAlign(LEFT);
+}}
+
+function drawDragArrow(bx, cy, r, u, col, label, idx) {{
+  let len = map(abs(u), 0, 15, 0, 90) * sgn(u);
+  let ax = bx + sgn(u) * (r + 5);
+  let ex = ax + len;
+  // Shaft
+  stroke(col); strokeWeight(2.5); fill(col);
+  line(ax, cy, ex, cy);
+  // Arrowhead
+  let s = sgn(u); if (s === 0) s = 1;
+  triangle(ex, cy, ex - s*12, cy - 6, ex - s*12, cy + 6);
+  // Draggable tip circle (highlighted)
+  noStroke();
+  fill(draggingArrow === idx ? color(255,255,100,200) : color(255,255,255,160));
+  circle(ex, cy, 14);
+  // Label
+  noStroke(); fill(col); textSize(10); textAlign(CENTER);
+  text(label, bx, cy - r - 14);
+  textAlign(LEFT);
+}}
+
+function drawBall(x, y, r, col, label, vx) {{
   // Glow
   noStroke();
-  for(let rr=r+12;rr>r;rr-=4) fill(red(col),green(col),blue(col),map(rr,r,r+12,25,0));
-  for(let rr=r+12;rr>r;rr-=4) circle(x,y,rr*2);
-  // Ball
-  fill(col); stroke('#ffffff'); strokeWeight(1.5); circle(x,y,r*2);
-  // Label
-  noStroke(); fill('#ffffff'); textSize(max(9,r*0.55)); textAlign(CENTER);
-  text(label,x,y+4);
+  for (let rr = r + 12; rr > r; rr -= 4)
+    fill(red(col), green(col), blue(col), map(rr, r, r + 12, 25, 0));
+  for (let rr = r + 12; rr > r; rr -= 4) circle(x, y, rr * 2);
+  // Ball body
+  fill(col); stroke('#ffffff'); strokeWeight(1.5); circle(x, y, r * 2);
+  // Mass label
+  noStroke(); fill('#ffffff'); textSize(max(9, r * 0.55)); textAlign(CENTER);
+  text(label, x, y + 4);
   textAlign(LEFT);
   // Velocity arrow
-  if(abs(vx)>0.5){{
-    let len=map(abs(vx),0,SCALE*1.2,0,70);
-    let ax=x+sign(vx)*(r+5), ay=y;
-    let ex=ax+sign(vx)*len;
+  if (abs(vx) > 0.5) {{
+    let len = map(abs(vx), 0, SCALE * 1.2, 0, 70);
+    let ax = x + sgn(vx) * (r + 5), ay = y;
+    let ex = ax + sgn(vx) * len;
     stroke('#ff7f0e'); fill('#ff7f0e'); strokeWeight(2);
-    line(ax,ay,ex,ay);
-    triangle(ex,ay,ex-sign(vx)*10,ay-5,ex-sign(vx)*10,ay+5);
+    line(ax, ay, ex, ay);
+    triangle(ex, ay, ex - sgn(vx)*10, ay - 5, ex - sgn(vx)*10, ay + 5);
     noStroke(); fill('#ff7f0e'); textSize(9); textAlign(CENTER);
-    text(abs(vx/SCALE*D.maxSpeed*0.8).toFixed(1)+' m/s',ex+sign(vx)*20,ay-8);
+    let spd = abs(vx) / (SCALE * 0.8) * (Math.abs(D.maxSpeed) + 0.001);
+    text(nf(spd, 1, 1) + ' m/s', ex + sgn(vx) * 22, ay - 9);
     textAlign(LEFT);
   }}
 }}
 
-function draw(){{
-  background('#0e1117');
-  let cy=height*TRACK_Y_FRAC;
-  let r1=ballR(D.m1), r2=ballR(D.m2);
-
-  // Track
-  stroke('#2a2a2a'); strokeWeight(2);
-  line(20, cy+max(r1,r2)+15, width-20, cy+max(r1,r2)+15);
-
-  // Phase label
-  noStroke(); fill('#777'); textSize(11);
-  let phaseText = phase==='before'?'Before collision': phase==='collision'?'COLLISION!':'After collision';
-  text(phaseText, width/2-40, cy-max(r1,r2)-20);
-
-  // Collision flash
-  if(flashAlpha>0){{
-    noStroke(); fill(255,200,50,flashAlpha);
-    circle(width/2,cy,100);
-    flashAlpha-=8;
+function drawCoR(cy, r1, r2) {{
+  let corY = cy - max(r1, r2) - 52;
+  noStroke(); fill('#555'); textSize(9); textAlign(LEFT);
+  if (isNaN(eDisplay)) {{
+    text('e = —  (u₁ = u₂, no approach)', 20, corY);
+  }} else {{
+    let eLabel = isFinite(eDisplay) ? nf(constrain(eDisplay, 0, 2), 1, 2) : '?';
+    let desc = (eDisplay >= 0.97) ? 'elastic' : (eDisplay < 0.03) ? 'perfectly inelastic' : 'partial';
+    fill(eDisplay >= 0.97 ? color(255,220,60) : eDisplay < 0.03 ? color(255,80,80) : color(180,180,255));
+    text('e = v₂−v₁ / u₁−u₂ = ' + eLabel + '  [' + desc + ']', 20, corY);
   }}
-
-  // Draw balls
-  let col1=color(31,119,180);
-  let col2=color(255,127,14);
-  drawBall(b1x,cy,r1,col1,'m₁',b1vx);
-  drawBall(b2x,cy,r2,col2,'m₂',b2vx);
-
-  // Momentum bar
-  let barY=height-45, barH=16, barW=(width-80)/2;
-  let p1=D.m1*(phase==='after'?D.v1:D.u1);
-  let p2=D.m2*(phase==='after'?D.v2:D.u2);
-  let pTotal=p1+p2;
-  let pMax=max(abs(p1)+abs(p2),0.01)*1.2;
-  noStroke(); fill('#1a1a2a'); rect(40,barY-barH,width-80,barH,3);
-  fill(31,119,180,180); rect(40+barW,barY-barH, p1/pMax*barW, barH);
-  fill(255,127,14,180); rect(40+barW+p1/pMax*barW,barY-barH, p2/pMax*barW, barH);
-  fill('#fafafa'); textSize(9);
-  text('p = '+pTotal.toFixed(2)+' kg·m/s (conserved)', 40, barY+10);
-  stroke('#2ca02c'); strokeWeight(1); setLineDash([4,3]);
-  line(40+barW,barY-barH-2,40+barW,barY+2); setLineDash([]);
-  noStroke(); fill('#2ca02c'); textSize(8); text('p=0',42+barW,barY-barH-4);
-
-  // Update positions
-  if(playing){{
-    for(let s=0;s<speed;s++){{
-      t+=0.016;
-      if(phase==='before'){{
-        b1x+=b1vx*0.016*60;
-        b2x+=b2vx*0.016*60;
-        // Check collision
-        if(b2x-b1x<=r1+r2){{
-          phase='collision'; collisionT=t; flashAlpha=200;
-          // Snap to contact
-          let mid=(b1x+b2x)/2;
-          b1x=mid-r1; b2x=mid+r2;
-        }}
-      }} else if(phase==='collision'){{
-        if(t-collisionT>0.15){{
-          // Switch to after-collision velocities
-          phase='after';
-          b1vx=D.v1/abs(D.maxSpeed+0.001)*(SCALE*0.8);
-          b2vx=D.v2/abs(D.maxSpeed+0.001)*(SCALE*0.8);
-        }}
-      }} else {{
-        b1x+=b1vx*0.016*60;
-        b2x+=b2vx*0.016*60;
-        // Reset when both off screen
-        if((b1x<-100&&b2x<-100)||(b1x>width+100&&b2x>width+100)||(b1x<-100&&b2x>width+100)){{
-          setTimeout(()=>{{resetSim();}}, 1000);
-        }}
-      }}
-    }}
-  }}
-
-  // Controls
-  noStroke(); fill(15,15,25,220); rect(width-118,8,110,120,6);
-  fill('#fafafa'); textSize(11);
-  text(playing?'⏸ Pause':'▶ Play',width-112,28);
-  text('↺ Replay',width-112,68);
-  text('⚡ '+speed+'x',width-112,108);
+  textAlign(LEFT);
 }}
 
-function sign(x){{ return x>0?1:x<0?-1:0; }}
-function setLineDash(list){{ drawingContext.setLineDash(list); }}
+function drawMomentumBar(cy, r1, r2) {{
+  let barY = height - 38, barH = 14, barW = (width - 80) / 2;
+  let isAfter = (simPhase === 'after' || simPhase === 'slowmo');
+  let p1 = D.m1 * (isAfter ? D.v1 : (simPhase === 'setup' ? dragU1 : D.u1));
+  let p2 = D.m2 * (isAfter ? D.v2 : (simPhase === 'setup' ? dragU2 : D.u2));
+  let pTotal = p1 + p2;
+  let pMax = max(abs(p1) + abs(p2), 0.01) * 1.2;
+  noStroke(); fill('#1a1a2a'); rect(40, barY - barH, width - 80, barH, 3);
+  fill(31, 119, 180, 180); rect(40 + barW, barY - barH, p1 / pMax * barW, barH);
+  fill(255, 127, 14, 180); rect(40 + barW + p1 / pMax * barW, barY - barH, p2 / pMax * barW, barH);
+  fill('#fafafa'); textSize(9); textAlign(LEFT);
+  text('p = ' + nf(pTotal, 1, 2) + ' kg·m/s (conserved)', 40, barY + 9);
+  stroke('#2ca02c'); strokeWeight(1); setLineDash([4, 3]);
+  line(40 + barW, barY - barH - 2, 40 + barW, barY + 2); setLineDash([]);
+  noStroke(); fill('#2ca02c'); textSize(8);
+  text('p=0', 42 + barW, barY - barH - 4);
+  textAlign(LEFT);
+}}
+
+function updateCollisionPhysics(r1, r2) {{
+  let iters = simPhase === 'slowmo' ? 1 : simSpeed;
+  let dt = simPhase === 'slowmo' ? 0.016 * 0.1 : 0.016;
+
+  for (let s = 0; s < iters; s++) {{
+    if (simPhase === 'slowmo') {{
+      slowmoT += dt;
+      slowmoB1x += slowmoB1vx * dt * 60;
+      slowmoB2x += slowmoB2vx * dt * 60;
+      // Detect collision in slow-mo
+      if (slowmoB2x - slowmoB1x <= r1 + r2 && slowmoT < 0.3) {{
+        deformAlpha = 180; deformR = (r1 + r2) * 0.6;
+        // Switch to after velocities
+        let ms = Math.abs(D.maxSpeed) + 0.001;
+        slowmoB1vx = D.v1 / ms * (SCALE * 0.8);
+        slowmoB2vx = D.v2 / ms * (SCALE * 0.8);
+      }}
+      // End slow-mo
+      if (slowmoT > 2.0) {{
+        simPhase = 'after';
+        b1x = slowmoB1x; b2x = slowmoB2x;
+        let ms = Math.abs(D.maxSpeed) + 0.001;
+        b1vx = D.v1 / ms * (SCALE * 0.8);
+        b2vx = D.v2 / ms * (SCALE * 0.8);
+        slowmoActive = false;
+      }}
+    }} else if (simPhase === 'before') {{
+      t += dt;
+      b1x += b1vx * dt * 60;
+      b2x += b2vx * dt * 60;
+      if (b2x - b1x <= r1 + r2) {{
+        simPhase = 'collision'; collisionT = t; flashAlpha = 220;
+        let isElastic = (Math.abs(eDisplay - 1.0) < 0.05 && !isNaN(eDisplay));
+        if (isElastic) elasticFlash = 180;
+        let mid = (b1x + b2x) / 2;
+        b1x = mid - r1; b2x = mid + r2;
+      }}
+    }} else if (simPhase === 'collision') {{
+      t += dt;
+      if (t - collisionT > 0.15) {{
+        simPhase = 'after';
+        let ms = Math.abs(D.maxSpeed) + 0.001;
+        b1vx = D.v1 / ms * (SCALE * 0.8);
+        b2vx = D.v2 / ms * (SCALE * 0.8);
+        // If inelastic, keep together
+        if (stickTogether) b2x = b1x + r1 + r2;
+      }}
+    }} else if (simPhase === 'after') {{
+      t += dt;
+      if (stickTogether) {{
+        // Move combined mass
+        let vCombined = (D.m1 * b1vx + D.m2 * b2vx) / (D.m1 + D.m2);
+        b1vx = vCombined; b2vx = vCombined;
+        b1x += b1vx * dt * 60;
+        b2x = b1x + r1 + r2;
+      }} else {{
+        b1x += b1vx * dt * 60;
+        b2x += b2vx * dt * 60;
+      }}
+      // Auto-reset
+      let offLeft  = b1x < -120 && b2x < -120;
+      let offRight = b1x > width + 120 && b2x > width + 120;
+      let offBoth  = b1x < -120 && b2x > width + 120;
+      if (offLeft || offRight || offBoth) {{
+        setTimeout(() => {{ resetCollision(); }}, 800);
+        playing = false;
+      }}
+    }}
+    // setup phase: no auto-physics, waiting for Launch
+  }}
+}}
+
+// ── Newton's Cradle ───────────────────────────────────────────────────────────
+function drawCradle() {{
+  let pivY = height * 0.22;   // pivot bar y
+  let barX0 = cradleCentreX(0) - CRADLE_R - 10;
+  let barX1 = cradleCentreX(N_CRADLE - 1) + CRADLE_R + 10;
+
+  // Draw top bar
+  stroke('#888'); strokeWeight(5);
+  line(barX0, pivY - CRADLE_L, barX1, pivY - CRADLE_L);
+  // Support struts
+  strokeWeight(2); stroke('#555');
+  line(barX0, pivY - CRADLE_L - 18, barX0, pivY - CRADLE_L);
+  line(barX1, pivY - CRADLE_L - 18, barX1, pivY - CRADLE_L);
+
+  // Update cradle physics
+  if (playing) updateCradlePhysics();
+
+  // Draw each ball
+  for (let i = 0; i < N_CRADLE; i++) {{
+    let angle = cradleBallAngle(i);
+    let px = cradleCentreX(i);
+    let py = pivY - CRADLE_L;
+    let bx = px + CRADLE_L * sin(angle);
+    let by = py + CRADLE_L * cos(angle);
+
+    // String
+    stroke('#666'); strokeWeight(1.5);
+    line(px, py, bx, by);
+
+    // Ball colour
+    let bc;
+    if (i === 0 && cradlePhaseL < -0.02) bc = color(31, 119, 180);
+    else if (i === N_CRADLE - 1 && cradlePhaseR > 0.02) bc = color(214, 39, 40);
+    else bc = color(150, 150, 160);
+
+    // Glow
+    noStroke();
+    for (let rr = CRADLE_R + 8; rr > CRADLE_R; rr -= 3)
+      fill(red(bc), green(bc), blue(bc), map(rr, CRADLE_R, CRADLE_R+8, 20, 0));
+    for (let rr = CRADLE_R + 8; rr > CRADLE_R; rr -= 3) circle(bx, by, rr * 2);
+    fill(bc); stroke('#fff'); strokeWeight(1.5); circle(bx, by, CRADLE_R * 2);
+
+    // Number label
+    noStroke(); fill('#fff'); textSize(10); textAlign(CENTER);
+    text(str(i + 1), bx, by + 4);
+    textAlign(LEFT);
+  }}
+
+  // Instruction / release button
+  noStroke();
+  if (!cradleRunning) {{
+    fill(color(44,160,44)); rect(10, height - 45, 90, 27, 5);
+    fill('#fff'); textSize(10); textAlign(LEFT);
+    text(cradlePhaseL < -0.05 ? 'Release ►' : 'Pull ball 1', 16, height - 27);
+
+    fill('#888'); textSize(9);
+    text('Drag ball 1 to pull back, or click Release', 110, height - 28);
+    textAlign(LEFT);
+  }} else {{
+    // Replay cradle button
+    fill(color(40,40,80)); rect(10, height - 45, 90, 27, 5);
+    fill('#fff'); textSize(10); textAlign(LEFT);
+    text('↺ Reset', 16, height - 27);
+    textAlign(LEFT);
+
+    // Momentum annotation
+    fill('#aaa'); textSize(9);
+    let pCradle = D.m1 * 2.0; // placeholder speed
+    text('p and KE both conserved — 1 ball in, 1 ball out', 110, height - 28);
+    textAlign(LEFT);
+  }}
+
+  // Cradle reset (click Reset button)
+  // Handled in mousePressed via appMode check already, but also support
+  // clicking the new Reset button during running state
+}}
+
+function mousePressed_extra() {{
+  // Extension for cradle reset during running
+  if (appMode === 'cradle' && cradleRunning) {{
+    if (mouseX >= 10 && mouseX <= 100 && mouseY >= height - 45 && mouseY <= height - 18) {{
+      resetCradle();
+    }}
+  }}
+}}
+
+function cradleBallAngle(i) {{
+  if (i === 0) return cradlePhaseL;
+  if (i === N_CRADLE - 1) return cradlePhaseR;
+  return 0.0;
+}}
+
+function updateCradlePhysics() {{
+  let g_eff = 0.0025;  // effective gravity in canvas units per frame^2
+  let dt = 1.0;
+
+  if (!cradleRunning) return;
+
+  if (cradleState === 'swingLeft') {{
+    // Ball 0 swings from angle cradlePhaseL toward 0
+    cradleVelL += -g_eff * sin(cradlePhaseL);
+    cradleVelL *= 0.999;
+    cradlePhaseL += cradleVelL;
+    if (cradlePhaseL >= 0) {{
+      cradlePhaseL = 0; cradleVelL = 0;
+      cradleState = 'impact';
+      cradleTimer = 0;
+    }}
+  }} else if (cradleState === 'impact') {{
+    cradleTimer++;
+    if (cradleTimer > 3) {{
+      // Transfer: ball N-1 swings out
+      cradlePhaseR = 0;
+      cradleVelR = 0.025;  // kick rightmost ball out
+      cradleState = 'swingRight';
+    }}
+  }} else if (cradleState === 'swingRight') {{
+    cradleVelR += -g_eff * sin(cradlePhaseR);
+    cradleVelR *= 0.999;
+    cradlePhaseR += cradleVelR;
+    if (cradlePhaseR <= 0 && cradleVelR < 0) {{
+      // Right ball returns
+      cradleVelR *= -0.98;  // slight damping
+      cradleState = 'returnRight';
+    }}
+    cradlePhaseR = constrain(cradlePhaseR, -0.1, CRADLE_MAX_ANGLE);
+  }} else if (cradleState === 'returnRight') {{
+    cradleVelR += -g_eff * sin(cradlePhaseR);
+    cradleVelR *= 0.999;
+    cradlePhaseR += cradleVelR;
+    if (cradlePhaseR <= 0) {{
+      cradlePhaseR = 0; cradleVelR = 0;
+      cradleState = 'returnImpact';
+      cradleTimer = 0;
+    }}
+  }} else if (cradleState === 'returnImpact') {{
+    cradleTimer++;
+    if (cradleTimer > 3) {{
+      cradlePhaseL = 0;
+      cradleVelL = -0.025;
+      cradleState = 'returnLeft';
+    }}
+  }} else if (cradleState === 'returnLeft') {{
+    cradleVelL += -g_eff * sin(cradlePhaseL);
+    cradleVelL *= 0.999;
+    cradlePhaseL += cradleVelL;
+    if (cradlePhaseL >= 0 && cradleVelL > 0) {{
+      cradleVelL *= -0.98;
+      cradleState = 'swingLeft';
+    }}
+    cradlePhaseL = constrain(cradlePhaseL, -CRADLE_MAX_ANGLE, 0.1);
+  }}
+}}
 </script></body></html>"""
 
 

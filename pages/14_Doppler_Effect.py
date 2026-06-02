@@ -971,7 +971,19 @@ def _hex_to_rgba(hex_colour: str, alpha: float = 0.15) -> str:
 
 
 def build_doppler_animation(f_s, v_s, v_sound, source_approaching):
-    """Build p5.js Doppler wavefront animation."""
+    """Build enhanced p5.js Doppler wavefront animation.
+
+    Enhancements over the original:
+    - Draggable source: click-drag the orange dot to reposition it;
+      drag velocity sets the source speed and direction.
+    - Multiple listeners: click on empty canvas area to place up to 5
+      listener dots, each showing their own f_obs label. Right-click
+      (or the Clear button) removes all listeners.
+    - Pitch playback: speaker button in corner plays a Web Audio tone
+      at the observed frequency for 1 second.
+    - Mach cone label: for supersonic sources the Mach angle is shown
+      as "Mach angle = arcsin(1/M) = X deg".
+    """
     data = json.dumps({
         "fSource": float(f_s),
         "vSource": float(v_s),
@@ -983,149 +995,372 @@ def build_doppler_animation(f_s, v_s, v_sound, source_approaching):
     return f"""<!DOCTYPE html>
 <html><head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
-<style>body{{margin:0;overflow:hidden;background:#0e1117;}}</style>
+<style>
+  body{{margin:0;overflow:hidden;background:#0e1117;}}
+  #clearBtn{{
+    position:absolute;top:10px;left:230px;
+    background:rgba(15,15,25,0.85);color:#fafafa;
+    border:1px solid #444;border-radius:5px;
+    padding:4px 10px;font-size:11px;font-family:monospace;
+    cursor:pointer;z-index:10;
+  }}
+  #clearBtn:hover{{background:rgba(80,20,20,0.9);}}
+</style>
 </head><body>
+<button id="clearBtn">🗑 Clear Listeners</button>
 <script>
 const D = {data};
-let t=0, playing=true, speed=1;
-// Each wavefront: {{x: source_x_at_emission, t_emitted: time}}
-let wavefronts=[];
-let sourceX=0;
-let emitInterval=1.0/D.fSource;  // seconds between emissions
-let lastEmit=-emitInterval;
-const DT=0.016;  // time step per frame (seconds)
-const SCALE=40;  // pixels per metre
 
-function setup(){{
-  createCanvas(windowWidth||700,420);
-  textFont('monospace');
-  // Start source from left or right depending on direction
-  sourceX = D.approaching ? -width/(2*SCALE) : width/(2*SCALE);
-  wavefronts=[];
+// ── Simulation state ──────────────────────────────────────────────────────────
+let t = 0, playing = true, simSpeed = 1;
+let wavefronts = [];
+let sourceX = 0;                          // metres, relative to canvas centre
+let sourceVx = D.approaching ? D.vSource : -D.vSource;  // m/s, signed
+let emitInterval = 1.0 / D.fSource;
+let lastEmit = -emitInterval;
+const DT    = 0.016;   // seconds per animation frame
+const SCALE = 40;      // pixels per metre
+
+// ── Drag state ────────────────────────────────────────────────────────────────
+let draggingSource = false;
+let dragPrevPixX   = 0;
+let dragPrevTime   = 0;
+let dragVxPx       = 0;   // pixel/s velocity while dragging
+let showDragReadout = false;
+
+// ── Listeners ─────────────────────────────────────────────────────────────────
+let listeners = [];   // each: {{x, y}} in metres relative to canvas centre
+const MAX_LISTENERS = 5;
+
+// ── Audio ─────────────────────────────────────────────────────────────────────
+function playDopplerTone(freq) {{
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.frequency.value = Math.min(freq, 2000);
+  gain.gain.setValueAtTime(0.3, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.0);
+  osc.start();
+  osc.stop(ctx.currentTime + 1.0);
 }}
-function windowResized(){{ resizeCanvas(windowWidth,420); }}
 
-function mousePressed(){{
-  if(mouseX>width-120&&mouseX<width-10){{
-    if(mouseY>10&&mouseY<40) playing=!playing;
-    else if(mouseY>50&&mouseY<80){{ resetSim(); }}
-    else if(mouseY>90&&mouseY<120) speed=speed===1?2:speed===2?4:1;
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function setLineDash(list) {{ drawingContext.setLineDash(list); }}
+
+function sourcePixX() {{ return width / 2 + sourceX * SCALE; }}
+
+function fObsForListener(lx, ly) {{
+  // lx, ly: listener position in metres (canvas-centre coords)
+  // Positive sourceVx = source moving right (+x direction)
+  // cos of angle between source velocity vector and source-to-listener vector
+  let dx = lx - sourceX;
+  let dy = ly;          // listener y relative to source (source always on y=0)
+  let dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 0.001) return D.fSource;
+  // Unit vector from source to listener
+  let ux = dx / dist;
+  // Radial component of source velocity toward listener
+  let vsr = sourceVx * ux;   // positive = approaching listener
+  let denom = D.vSound - vsr;
+  if (Math.abs(denom) < 0.01) return NaN;
+  return D.fSource * D.vSound / denom;
+}}
+
+function fObsMainObserver() {{
+  // Observer at canvas centre (x=0, y=0)
+  return fObsForListener(0, 0);
+}}
+
+function isOverSource(mx, my) {{
+  let sx = sourcePixX();
+  let cy = height / 2;
+  return dist(mx, my, sx, cy) < 18;
+}}
+
+function isOverControls(mx, my) {{
+  return mx > width - 120 && my < 160;
+}}
+
+function isOverSpeaker(mx, my) {{
+  return mx > width - 120 && my >= 160 && my < 200;
+}}
+
+// ── Setup ─────────────────────────────────────────────────────────────────────
+function setup() {{
+  createCanvas(windowWidth || 700, 420);
+  textFont('monospace');
+  sourceX = D.approaching ? -width / (2 * SCALE) : width / (2 * SCALE);
+  wavefronts = [];
+
+  // Clear-listeners button
+  document.getElementById('clearBtn').addEventListener('click', function() {{
+    listeners = [];
+  }});
+}}
+
+function windowResized() {{ resizeCanvas(windowWidth, 420); }}
+
+// ── Mouse events ──────────────────────────────────────────────────────────────
+function mousePressed() {{
+  // Right-click clears listeners (contextmenu fires separately, but handle here too)
+  if (mouseButton === RIGHT) {{
+    listeners = [];
+    return false;
+  }}
+
+  // Speaker button
+  if (isOverSpeaker(mouseX, mouseY)) {{
+    let f = fObsMainObserver();
+    if (isFinite(f) && f > 0) playDopplerTone(f);
+    return;
+  }}
+
+  // Control panel buttons (top-right)
+  if (isOverControls(mouseX, mouseY)) {{
+    if (mouseY > 10 && mouseY < 45)  playing = !playing;
+    else if (mouseY > 50 && mouseY < 85)  resetSim();
+    else if (mouseY > 90 && mouseY < 125) simSpeed = simSpeed === 1 ? 2 : simSpeed === 2 ? 4 : 1;
+    return;
+  }}
+
+  // Start dragging source?
+  if (isOverSource(mouseX, mouseY)) {{
+    draggingSource  = true;
+    dragPrevPixX    = mouseX;
+    dragPrevTime    = millis();
+    dragVxPx        = 0;
+    showDragReadout = true;
+    return;
+  }}
+
+  // Place listener on empty canvas
+  if (listeners.length < MAX_LISTENERS) {{
+    let lx = (mouseX - width  / 2) / SCALE;
+    let ly = (mouseY - height / 2) / SCALE;
+    listeners.push({{ x: lx, y: ly }});
   }}
 }}
 
-function resetSim(){{
-  t=0; wavefronts=[];
-  sourceX=D.approaching ? -width/(2*SCALE) : width/(2*SCALE);
-  lastEmit=-emitInterval;
-  playing=true;
+function mouseDragged() {{
+  if (!draggingSource) return;
+  let now = millis();
+  let dt  = (now - dragPrevTime) / 1000.0;
+  if (dt > 0.001) {{
+    dragVxPx = (mouseX - dragPrevPixX) / dt;  // px/s
+  }}
+  // Move source to mouse position
+  sourceX        = (mouseX - width / 2) / SCALE;
+  dragPrevPixX   = mouseX;
+  dragPrevTime   = now;
 }}
 
-function draw(){{
-  background(14,17,23,240);
+function mouseReleased() {{
+  if (draggingSource) {{
+    // Infer velocity from drag (cap at 5× speed of sound for safety)
+    let vxMs = dragVxPx / SCALE;
+    vxMs = constrain(vxMs, -5 * D.vSound, 5 * D.vSound);
+    sourceVx = vxMs;
+    // Update D-like mutable state
+    D.approaching = (sourceVx > 0);
+    draggingSource  = false;
+    showDragReadout = false;
+  }}
+}}
 
-  let cx=width/2, cy=height/2;
+// Prevent context menu on right-click
+document.addEventListener('contextmenu', e => e.preventDefault());
 
-  // Observer (ear icon) at centre
-  fill('#fafafa'); noStroke(); textSize(20); textAlign(CENTER);
-  text('👂', cx, cy+8);
-  textAlign(LEFT);
-  noStroke(); fill('#777'); textSize(9);
-  text('observer', cx-22, cy+26);
+// ── Reset ─────────────────────────────────────────────────────────────────────
+function resetSim() {{
+  t          = 0;
+  wavefronts = [];
+  sourceX    = D.approaching ? -width / (2 * SCALE) : width / (2 * SCALE);
+  sourceVx   = D.approaching ? D.vSource : -D.vSource;
+  lastEmit   = -emitInterval;
+  playing    = true;
+  listeners  = [];
+}}
+
+// ── Draw ──────────────────────────────────────────────────────────────────────
+function draw() {{
+  background(14, 17, 23, 240);
+
+  let cx = width / 2;
+  let cy = height / 2;
 
   // Ground line
   stroke('#2a2a2a'); strokeWeight(1);
-  line(0, cy+30, width, cy+30);
+  line(0, cy + 30, width, cy + 30);
 
-  // Update simulation
-  if(playing){{
-    for(let s=0;s<speed;s++){{
-      let dt=DT;
-      t+=dt;
+  // ── Update simulation ─────────────────────────────────────────────────────
+  if (playing && !draggingSource) {{
+    for (let s = 0; s < simSpeed; s++) {{
+      t += DT;
 
-      // Move source
-      let dir=D.approaching ? 1 : -1;
-      sourceX+=dir*D.vSource*dt;
+      // Move source according to current signed velocity
+      sourceX += sourceVx * DT;
 
       // Emit wavefront
-      if(t-lastEmit>=emitInterval){{
-        wavefronts.push({{x: sourceX, tEmit: t}});
-        lastEmit=t;
+      if (t - lastEmit >= emitInterval) {{
+        wavefronts.push({{ x: sourceX, tEmit: t }});
+        lastEmit = t;
       }}
 
-      // Remove old wavefronts (off screen)
-      wavefronts=wavefronts.filter(w=>{{
-        let r=(t-w.tEmit)*D.vSound*SCALE;
-        let sx=cx+w.x*SCALE;
-        return r<max(width,height) && sx+r>0 && sx-r<width;
+      // Remove wavefronts that have left the screen
+      wavefronts = wavefronts.filter(w => {{
+        let r  = (t - w.tEmit) * D.vSound * SCALE;
+        let sx = cx + w.x * SCALE;
+        return r < max(width, height) && sx + r > 0 && sx - r < width;
       }});
     }}
   }}
 
-  // Draw wavefronts
-  for(let i=0;i<wavefronts.length;i++){{
-    let w=wavefronts[i];
-    let r=(t-w.tEmit)*D.vSound*SCALE;
-    let sx=cx+w.x*SCALE;
-    let age=t-w.tEmit;
-    let alpha=map(age,0,3,200,20);
-
-    // Colour: ahead (toward observer) blue, behind red
-    let toObs=D.approaching; // approaching = wavefronts compressed toward right=observer
-    noFill();
-    // Use a gradient-like effect: compressed side = blue, stretched = red
-    stroke(31,119,180,alpha);
+  // ── Draw wavefronts ───────────────────────────────────────────────────────
+  noFill();
+  for (let i = 0; i < wavefronts.length; i++) {{
+    let w   = wavefronts[i];
+    let r   = (t - w.tEmit) * D.vSound * SCALE;
+    let sx  = cx + w.x * SCALE;
+    let age = t - w.tEmit;
+    let alpha = map(age, 0, 3, 200, 20);
+    stroke(31, 119, 180, alpha);
     strokeWeight(1.5);
-    circle(sx,cy,r*2);
+    circle(sx, cy, r * 2);
   }}
 
-  // Source (vehicle/speaker)
-  let sxPx=cx+sourceX*SCALE;
-  if(sxPx>-30 && sxPx<width+30){{
-    noStroke();
-    for(let rr=18;rr>0;rr-=4) fill(255,127,14,map(rr,0,18,0,25));
-    for(let rr=18;rr>0;rr-=4) circle(sxPx,cy,rr*2);
-    fill('#ff7f0e'); stroke('#ffffff'); strokeWeight(1.5);
-    circle(sxPx,cy,18);
-    // Direction arrow
-    fill('#ff7f0e'); noStroke(); textSize(14); textAlign(CENTER);
-    text(D.approaching?'→':'←', sxPx, cy-22);
+  // ── Main observer (ear) at canvas centre ──────────────────────────────────
+  fill('#fafafa'); noStroke(); textSize(20); textAlign(CENTER);
+  text('👂', cx, cy + 8);
+  textAlign(LEFT);
+  noStroke(); fill('#777'); textSize(9);
+  text('observer', cx - 22, cy + 26);
+
+  // ── Listener dots ─────────────────────────────────────────────────────────
+  for (let i = 0; i < listeners.length; i++) {{
+    let L  = listeners[i];
+    let px = cx + L.x * SCALE;
+    let py = cy + L.y * SCALE;
+
+    // Dot
+    fill('#2ecc71'); stroke('#ffffff'); strokeWeight(1);
+    circle(px, py, 14);
+    noStroke(); fill('#2ecc71'); textSize(10); textAlign(CENTER);
+    text('👁', px, py + 4);
+
+    // Observed frequency label
+    let fL = fObsForListener(L.x, L.y);
+    let labelStr = isFinite(fL) && fL > 0
+      ? 'f_obs = ' + fL.toFixed(0) + ' Hz'
+      : 'f_obs = N/A';
+    textAlign(LEFT);
+    noStroke(); fill(15, 15, 25, 200);
+    let lw = textWidth(labelStr) + 8;
+    rect(px + 10, py - 14, lw, 16, 3);
+    fill('#2ecc71'); textSize(9);
+    text(labelStr, px + 14, py - 2);
     textAlign(LEFT);
   }}
 
-  // Mach cone (if supersonic)
-  if(D.mach>=1.0 && D.mach<10){{
-    let halfAngle=asin(1.0/D.mach);
-    let coneLen=180;
-    stroke(231,76,60,160); strokeWeight(2); setLineDash([8,5]);
-    let dir=D.approaching?-1:1;
-    line(sxPx,cy, sxPx+dir*coneLen*cos(halfAngle), cy-coneLen*sin(halfAngle));
-    line(sxPx,cy, sxPx+dir*coneLen*cos(halfAngle), cy+coneLen*sin(halfAngle));
-    setLineDash([]);
-    noStroke(); fill('#e74c3c'); textSize(9);
-    text('Mach cone α='+degrees(halfAngle).toFixed(1)+'°', sxPx+8, cy-coneLen*sin(halfAngle)-8);
+  // ── Source (vehicle/speaker) ──────────────────────────────────────────────
+  let sxPx = sourcePixX();
+  if (sxPx > -30 && sxPx < width + 30) {{
+    // Glow
+    noStroke();
+    for (let rr = 18; rr > 0; rr -= 4) fill(255, 127, 14, map(rr, 0, 18, 0, 25));
+    for (let rr = 18; rr > 0; rr -= 4) circle(sxPx, cy, rr * 2);
+
+    // Main dot — highlight if draggable (hover)
+    let hovering = isOverSource(mouseX, mouseY) || draggingSource;
+    fill(hovering ? '#ffaa44' : '#ff7f0e');
+    stroke('#ffffff'); strokeWeight(hovering ? 2.5 : 1.5);
+    circle(sxPx, cy, 18);
+
+    // Drag cursor hint
+    if (hovering && !draggingSource) {{
+      fill('#ffffff'); noStroke(); textSize(8); textAlign(CENTER);
+      text('drag', sxPx, cy + 30);
+    }}
+
+    // Direction arrow (based on live velocity)
+    fill('#ff7f0e'); noStroke(); textSize(14); textAlign(CENTER);
+    text(sourceVx >= 0 ? '→' : '←', sxPx, cy - 22);
+    textAlign(LEFT);
+
+    // Drag velocity readout
+    if (showDragReadout) {{
+      let vMs = dragVxPx / SCALE;
+      noStroke(); fill(15, 15, 25, 200); rect(sxPx - 60, cy - 52, 120, 18, 3);
+      fill('#ffaa44'); textSize(9); textAlign(CENTER);
+      text('v_s = ' + abs(vMs).toFixed(0) + ' m/s', sxPx, cy - 38);
+      textAlign(LEFT);
+    }}
   }}
 
-  // Info panel
-  let f_obs=D.vSound/(D.vSound - (D.approaching?D.vSource:-D.vSource))*D.fSource;
-  if(D.mach>=1 && D.approaching) f_obs=NaN;
-  noStroke(); fill(15,15,25,200); rect(8,8,210,70,6);
+  // ── Mach cone (if supersonic, based on live velocity) ────────────────────
+  let liveMach = abs(sourceVx) / D.vSound;
+  if (liveMach >= 1.0 && liveMach < 15) {{
+    let halfAngle = asin(1.0 / liveMach);
+    let coneLen   = 180;
+    stroke(231, 76, 60, 160); strokeWeight(2); setLineDash([8, 5]);
+    let coneDir = (sourceVx >= 0) ? -1 : 1;
+    let cxEnd   = sxPx + coneDir * coneLen * cos(halfAngle);
+    line(sxPx, cy, cxEnd, cy - coneLen * sin(halfAngle));
+    line(sxPx, cy, cxEnd, cy + coneLen * sin(halfAngle));
+    setLineDash([]);
+
+    // Mach angle label (enhancement 4)
+    noStroke(); fill('#e74c3c'); textSize(9);
+    let labelX = sxPx + coneDir * 12;
+    let labelY = cy - coneLen * sin(halfAngle) - 8;
+    let machAngleDeg = degrees(halfAngle);
+    text(
+      'Mach angle = arcsin(1/' + liveMach.toFixed(2) + ') = ' + machAngleDeg.toFixed(1) + '°',
+      labelX + (coneDir < 0 ? -160 : 0),
+      labelY
+    );
+  }}
+
+  // ── Info panel (top-left) ─────────────────────────────────────────────────
+  let f_obs_main = fObsMainObserver();
+  let fObsStr = (isNaN(f_obs_main) || !isFinite(f_obs_main))
+    ? 'N/A (Mach≥1)'
+    : f_obs_main.toFixed(0) + ' Hz';
+  noStroke(); fill(15, 15, 25, 200); rect(8, 8, 215, 82, 6);
   fill('#fafafa'); textSize(10);
-  text('f_source = '+D.fSource.toFixed(0)+' Hz', 14, 26);
-  text('f_obs = '+(isNaN(f_obs)||!isFinite(f_obs)?'N/A (Mach>1)':f_obs.toFixed(0)+' Hz'), 14, 44);
-  text('Mach = '+D.mach.toFixed(2), 14, 62);
+  text('f_source  = ' + D.fSource.toFixed(0) + ' Hz',   14, 26);
+  text('f_obs     = ' + fObsStr,                         14, 44);
+  text('v_source  = ' + abs(sourceVx).toFixed(0) + ' m/s', 14, 62);
+  text('Mach      = ' + liveMach.toFixed(2),             14, 80);
 
-  // Controls
-  noStroke(); fill(15,15,25,220); rect(width-118,8,110,120,6);
+  // ── Control panel (top-right) ─────────────────────────────────────────────
+  noStroke(); fill(15, 15, 25, 220); rect(width - 120, 8, 112, 200, 6);
   fill('#fafafa'); textSize(11);
-  text(playing?'⏸ Pause':'▶ Play',width-112,28);
-  text('↺ Reset',width-112,68);
-  text('⚡ '+speed+'x',width-112,108);
+  // Play/Pause
+  noStroke(); fill(playing ? '#1a3a1a' : '#3a1a1a');
+  rect(width - 118, 12, 108, 30, 4);
+  fill('#fafafa'); textSize(11);
+  text(playing ? '⏸ Pause' : '▶ Play', width - 112, 32);
+  // Reset
+  noStroke(); fill('#1a1a3a'); rect(width - 118, 50, 108, 30, 4);
+  fill('#fafafa'); text('↺ Reset', width - 112, 70);
+  // Speed
+  noStroke(); fill('#1a2a3a'); rect(width - 118, 88, 108, 30, 4);
+  fill('#fafafa'); text('⚡ ' + simSpeed + 'x speed', width - 112, 108);
+  // Speaker button (pitch playback - enhancement 3)
+  noStroke(); fill('#2a1a3a'); rect(width - 118, 126, 108, 30, 4);
+  fill('#fafafa'); text('🔊 Play pitch', width - 112, 146);
+  // Listener hint
+  noStroke(); fill(15, 15, 25, 0);
+  fill('#888'); textSize(9);
+  text('Click canvas:', width - 116, 170);
+  text('add listener (' + listeners.length + '/' + MAX_LISTENERS + ')', width - 116, 182);
+  text('Right-click: clear', width - 116, 194);
 
-  // Reset when source goes off screen
-  if(sxPx < -50 || sxPx > width+50) resetSim();
+  // ── Auto-reset when source leaves screen ─────────────────────────────────
+  if ((sxPx < -60 || sxPx > width + 60) && !draggingSource) resetSim();
 }}
-
-function setLineDash(list){{ drawingContext.setLineDash(list); }}
 </script></body></html>"""
 
 

@@ -662,10 +662,19 @@ def build_trajectory_figure(
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def build_projectile_animation(x_arr, y_arr, vx_arr, vy_arr, x_max, y_max):
-    """Build p5.js animated projectile HTML."""
-    import json
-    import numpy as np
+def build_projectile_animation(x_arr, y_arr, vx_arr, vy_arr, x_max, y_max, g=9.81):
+    """Build enhanced p5.js animated projectile HTML.
+
+    Features added over the original:
+      - Drag-to-launch (Angry Birds style) with slingshot preview
+      - Ghost trajectory traces (last 3, fading)
+      - Hover crosshair with x/y/t readout and speed snap-to-trajectory
+      - Target challenge mode with score counter and "New Target" button
+      - Wind toggle (W key) with trajectory deflection and corner indicator
+      - All original features retained: velocity vectors, landing flash,
+        play/pause, speed controls, pre-computed trajectory overlay
+    """
+    import json as _json
 
     # Subsample to 300 frames max
     n = len(x_arr)
@@ -675,46 +684,76 @@ def build_projectile_animation(x_arr, y_arr, vx_arr, vy_arr, x_max, y_max):
     vxs = vx_arr[::step].tolist()
     vys = vy_arr[::step].tolist()
 
-    data = json.dumps({
+    data = _json.dumps({
         "x": xs, "y": ys, "vx": vxs, "vy": vys,
         "xMax": float(x_max), "yMax": float(y_max),
-        "n": len(xs)
+        "n": len(xs),
+        "g": float(g),
+        "windAx": -2.5,   # m/s^2 horizontal wind acceleration when wind ON
     })
 
     return f"""<!DOCTYPE html>
 <html><head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
-<style>body{{margin:0;overflow:hidden;background:#0e1117;}}</style>
+<style>
+body{{margin:0;overflow:hidden;background:#0e1117;}}
+#newTargetBtn{{
+  position:absolute;top:10px;left:50px;
+  background:#1a1a2e;color:#fafafa;border:1px solid #555;
+  border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;
+  font-family:monospace;
+}}
+#newTargetBtn:hover{{background:#2a2a4e;}}
+</style>
 </head><body>
+<button id="newTargetBtn">New Target</button>
 <script>
 const D = {data};
 const PAD = 40;
+
+// ── Animation state ────────────────────────────────────────────────────────
 let frame = 0, playing = true, speed = 2;
 let trailLen = 60;
 
-function setup() {{
-  let cnv = createCanvas(windowWidth || 700, 420);
-  cnv.mousePressed(togglePlay);
-  textFont('monospace');
-}}
+// ── Active trajectory (switches between pre-computed and drag-launched) ────
+let activeX = D.x.slice(), activeY = D.y.slice();
+let activeVX = D.vx.slice(), activeVY = D.vy.slice();
+let activeN = D.n;
 
-function windowResized() {{ resizeCanvas(windowWidth, 420); }}
+// ── Drag-to-launch state ───────────────────────────────────────────────────
+// Modes: 'idle' = no launch yet / after launch; 'dragging' = user pulling back
+let dragMode = 'idle';   // 'idle' | 'dragging'
+let dragStartX = 0, dragStartY = 0;  // screen coords where drag started (ball pos)
+let dragCurX = 0, dragCurY = 0;      // current mouse screen coords
+let previewPts = [];                 // ghost trajectory preview while dragging
 
-function togglePlay() {{
-  // click play/pause area
-  if (mouseX > width-110 && mouseX < width-10 && mouseY > 10 && mouseY < 40) {{
-    playing = !playing;
-  }} else if (mouseX > width-110 && mouseX < width-10 && mouseY > 50 && mouseY < 80) {{
-    frame = 0; playing = true;
-  }} else if (mouseX > width-110 && mouseX < width-10 && mouseY > 90 && mouseY < 120) {{
-    speed = speed === 1 ? 2 : speed === 2 ? 4 : 1;
-  }}
-}}
+// ── Ghost traces (last 3 launches) ────────────────────────────────────────
+let ghosts = [];   // array of {{pts:[{{sx,sy}},...], alpha:255}}
 
+// ── Score ──────────────────────────────────────────────────────────────────
+let hits = 0, shots = 0;
+let hitFlash = 0;           // frames remaining for HIT! flash
+
+// ── Target ────────────────────────────────────────────────────────────────
+let targetWorldX = 0, targetWorldY = 0;
+
+// ── Wind ──────────────────────────────────────────────────────────────────
+D.windOn = false;
+
+// ── Hover ─────────────────────────────────────────────────────────────────
+let hoverInfo = null;   // null or {{wx, wy, t, snap, v}}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
 function worldToScreen(wx, wy) {{
   let sx = PAD + (wx / D.xMax) * (width - 2*PAD);
   let sy = height - PAD - (wy / D.yMax) * (height - 2*PAD - 20);
   return [sx, sy];
+}}
+
+function screenToWorld(sx, sy) {{
+  let wx = (sx - PAD) / (width - 2*PAD) * D.xMax;
+  let wy = (height - PAD - sy) / (height - 2*PAD - 20) * D.yMax;
+  return [wx, wy];
 }}
 
 function drawArrow(x1, y1, x2, y2, col) {{
@@ -729,31 +768,200 @@ function drawArrow(x1, y1, x2, y2, col) {{
   pop();
 }}
 
+// ── Trajectory computation (used for drag-to-launch preview & launch) ──────
+function computeTrajectory(vx0, vy0) {{
+  const g = D.g || 9.81;
+  let pts = [], x=0, y=0, vx=vx0, vy=vy0;
+  const dt = 0.02;
+  while (y >= 0 && pts.length < 500) {{
+    pts.push({{x, y, vx, vy, t: pts.length * dt}});
+    vx += (D.windOn ? D.windAx : 0) * dt;
+    vy -= g * dt;
+    x += vx * dt;
+    y += vy * dt;
+  }}
+  return pts;
+}}
+
+function launchFromDrag() {{
+  // Pull-back vector in screen space → invert for launch direction
+  let dsx = dragStartX - dragCurX;
+  let dsy = dragStartY - dragCurY;
+  // Scale: 1px pull-back ≈ 0.4 m/s (tunable)
+  let scaleFactor = 0.4 * D.xMax / 100;
+  let vx0 = dsx * scaleFactor;
+  let vy0 = -dsy * scaleFactor;  // screen y is inverted
+  if (vx0 < 0) vx0 = 0;         // only allow forward launches
+
+  let rawPts = computeTrajectory(vx0, vy0);
+  if (rawPts.length < 2) return;
+
+  // Convert to screen coords for ghost
+  let ghostPts = rawPts.map(p => {{
+    let [sx,sy] = worldToScreen(p.x, p.y);
+    return {{sx, sy}};
+  }});
+
+  // Push ghost (keep last 3)
+  ghosts.push({{pts: ghostPts, alpha: 120}});
+  if (ghosts.length > 3) ghosts.shift();
+
+  // Update active trajectory arrays
+  activeX  = rawPts.map(p => p.x);
+  activeY  = rawPts.map(p => p.y);
+  activeVX = rawPts.map(p => p.vx);
+  activeVY = rawPts.map(p => p.vy);
+  activeN  = rawPts.length;
+
+  // Check hit
+  shots++;
+  let landX = activeX[activeN-1];
+  if (abs(landX - targetWorldX) / D.xMax < 0.05) {{
+    hits++;
+    hitFlash = 90;
+  }}
+
+  frame = 0;
+  playing = true;
+}}
+
+function randomTarget() {{
+  // Place target between 30%–85% of xMax, on the ground
+  targetWorldX = D.xMax * (0.30 + random(0.55));
+  targetWorldY = 0;
+}}
+
+// ── p5 setup ──────────────────────────────────────────────────────────────
+function setup() {{
+  let cnv = createCanvas(windowWidth || 700, 440);
+  cnv.mousePressed(onMousePressed);
+  cnv.mouseReleased(onMouseReleased);
+  textFont('monospace');
+  randomTarget();
+
+  document.getElementById('newTargetBtn').addEventListener('click', function() {{
+    randomTarget();
+    hitFlash = 0;
+  }});
+}}
+
+function windowResized() {{ resizeCanvas(windowWidth, 440); }}
+
+function keyPressed() {{
+  if (key === 'w' || key === 'W') {{
+    D.windOn = !D.windOn;
+    // Recompute preview if dragging
+    if (dragMode === 'dragging') updatePreview();
+  }}
+}}
+
+function onMousePressed() {{
+  // Controls panel clicks (top-right)
+  if (mouseX > width-110 && mouseX < width-10) {{
+    if (mouseY > 10 && mouseY < 40)  {{ playing = !playing; return; }}
+    if (mouseY > 50 && mouseY < 80)  {{ frame = 0; playing = true; return; }}
+    if (mouseY > 90 && mouseY < 120) {{ speed = speed===1?2:speed===2?4:1; return; }}
+  }}
+
+  // Drag-to-launch: only start drag in canvas area (not controls)
+  let [originSX, originSY] = worldToScreen(0, 0);
+  let distToOrigin = dist(mouseX, mouseY, originSX, originSY);
+  if (distToOrigin < 40) {{
+    // Start drag from launch origin
+    dragMode = 'dragging';
+    dragStartX = originSX;
+    dragStartY = originSY;
+    dragCurX = mouseX;
+    dragCurY = mouseY;
+    playing = false;
+    updatePreview();
+  }}
+}}
+
+function onMouseReleased() {{
+  if (dragMode === 'dragging') {{
+    dragMode = 'idle';
+    previewPts = [];
+    launchFromDrag();
+  }}
+}}
+
+function mouseDragged() {{
+  if (dragMode === 'dragging') {{
+    dragCurX = mouseX;
+    dragCurY = mouseY;
+    updatePreview();
+  }}
+}}
+
+function updatePreview() {{
+  let dsx = dragStartX - dragCurX;
+  let dsy = dragStartY - dragCurY;
+  let scaleFactor = 0.4 * D.xMax / 100;
+  let vx0 = dsx * scaleFactor;
+  let vy0 = -dsy * scaleFactor;
+  if (vx0 < 0) vx0 = 0;
+  let rawPts = computeTrajectory(vx0, vy0);
+  previewPts = rawPts.map(p => worldToScreen(p.x, p.y));
+}}
+
+// ── Hover info ────────────────────────────────────────────────────────────
+function updateHoverInfo() {{
+  hoverInfo = null;
+  // Only show when mouse is in the canvas plot area
+  if (mouseX < PAD || mouseX > width-PAD || mouseY < PAD || mouseY > height-PAD) return;
+  if (dragMode === 'dragging') return;
+
+  let [wx, wy] = screenToWorld(mouseX, mouseY);
+  let tEst = (wx / D.xMax) * activeN * 0.02;  // rough time estimate
+
+  // Snap to nearest trajectory point within 20px
+  let snapV = null;
+  let bestDist = 20;
+  for (let i=0; i<activeN; i++) {{
+    let [sx,sy] = worldToScreen(activeX[i], activeY[i]);
+    let d = dist(mouseX, mouseY, sx, sy);
+    if (d < bestDist) {{
+      bestDist = d;
+      let vxp = activeVX[i], vyp = activeVY[i];
+      snapV = sqrt(vxp*vxp + vyp*vyp);
+      wx = activeX[i];
+      wy = activeY[i];
+      tEst = i * 0.02;
+    }}
+  }}
+
+  hoverInfo = {{wx: wx, wy: max(wy,0), t: tEst, snap: snapV !== null, v: snapV}};
+}}
+
+// ── Main draw ─────────────────────────────────────────────────────────────
 function draw() {{
   background('#0e1117');
 
-  // Grid
+  updateHoverInfo();
+
+  // ── Grid ──────────────────────────────────────────────────────────────
   stroke('#2a2a2a'); strokeWeight(1);
   let gx = (width-2*PAD)/5;
   let gy = (height-2*PAD-20)/4;
   for(let i=0;i<=5;i++) line(PAD+i*gx, PAD, PAD+i*gx, height-PAD);
   for(let i=0;i<=4;i++) line(PAD, PAD+i*gy, width-PAD, PAD+i*gy);
 
-  // Axes
+  // ── Axes ──────────────────────────────────────────────────────────────
   stroke('#fafafa'); strokeWeight(1.5);
   line(PAD, height-PAD, width-PAD, height-PAD);
   line(PAD, height-PAD, PAD, PAD);
 
-  // Ground
+  // ── Ground ────────────────────────────────────────────────────────────
   stroke('#2ca02c'); strokeWeight(2);
   line(PAD, height-PAD, width-PAD, height-PAD);
 
-  // Axis labels
+  // ── Axis labels ───────────────────────────────────────────────────────
   noStroke(); fill('#fafafa'); textSize(10);
   text('x (m)', width/2, height-8);
   push(); translate(12, height/2); rotate(-HALF_PI); text('y (m)', 0, 0); pop();
 
-  // Tick labels
+  // ── Tick labels ───────────────────────────────────────────────────────
   textSize(9); fill('#999');
   for(let i=0;i<=5;i++) {{
     let val = (D.xMax * i/5).toFixed(0);
@@ -764,7 +972,21 @@ function draw() {{
     text(val, 2, PAD+i*gy+4);
   }}
 
-  // Full trajectory (faint path)
+  // ── Ghost traces (last 3 launches) ────────────────────────────────────
+  for (let gi=0; gi<ghosts.length; gi++) {{
+    let ghost = ghosts[gi];
+    let fadeAlpha = map(gi, 0, ghosts.length, 30, 80);
+    stroke(180,180,180, fadeAlpha);
+    strokeWeight(1.5);
+    noFill();
+    // Draw dotted by skipping every other segment
+    for (let pi=0; pi<ghost.pts.length-1; pi+=2) {{
+      line(ghost.pts[pi].sx, ghost.pts[pi].sy,
+           ghost.pts[pi+1].sx, ghost.pts[pi+1].sy);
+    }}
+  }}
+
+  // ── Pre-computed trajectory (faint reference path) ────────────────────
   noFill(); stroke(100,100,150,60); strokeWeight(1);
   beginShape();
   for(let i=0;i<D.n;i++) {{
@@ -773,20 +995,20 @@ function draw() {{
   }}
   endShape();
 
-  // Trail
+  // ── Active trajectory trail ────────────────────────────────────────────
   let trailStart = max(0, frame - trailLen);
-  for(let i=trailStart; i<frame && i<D.n; i++) {{
+  for(let i=trailStart; i<frame && i<activeN; i++) {{
     let alpha = map(i, trailStart, frame, 20, 200);
-    let [sx,sy] = worldToScreen(D.x[i], D.y[i]);
+    let [sx,sy] = worldToScreen(activeX[i], activeY[i]);
     let r=i===frame-1?8:4;
     noStroke();
     fill(31,119,180, alpha);
     circle(sx, sy, r);
   }}
 
-  // Current ball
-  if(frame < D.n) {{
-    let [bx,by] = worldToScreen(D.x[frame], D.y[frame]);
+  // ── Current ball ──────────────────────────────────────────────────────
+  if(frame < activeN) {{
+    let [bx,by] = worldToScreen(activeX[frame], activeY[frame]);
 
     // Glow
     noStroke();
@@ -799,15 +1021,15 @@ function draw() {{
 
     // Velocity vector
     let vscale = min(width,height)*0.15 / (D.xMax * 0.5 + 1);
-    let vx = D.vx[frame], vy = D.vy[frame];
+    let vx = activeVX[frame], vy = activeVY[frame];
     let vmag = sqrt(vx*vx + vy*vy);
     if(vmag > 0.1) {{
-      let vxs = vx * vscale * 0.3;
-      let vys = vy * vscale * 0.3;
-      drawArrow(bx, by, bx+vxs, by-vys, color(255,127,14));
+      let vxs2 = vx * vscale * 0.3;
+      let vys2 = vy * vscale * 0.3;
+      drawArrow(bx, by, bx+vxs2, by-vys2, color(255,127,14));
     }}
 
-    // Gravity vector (always down, fixed length)
+    // Gravity vector
     drawArrow(bx, by, bx, by+35, color(231,76,60));
 
     // Labels
@@ -817,17 +1039,98 @@ function draw() {{
     text('g', bx+4, by+40);
   }}
 
-  // Landing impact flash
-  if(frame >= D.n-1) {{
-    let [lx,ly] = worldToScreen(D.x[D.n-1], 0);
-    let alpha = 255 - (frame-(D.n-1))*20;
+  // ── Landing impact flash ──────────────────────────────────────────────
+  if(frame >= activeN-1) {{
+    let [lx,ly] = worldToScreen(activeX[activeN-1], 0);
+    let alpha = 255 - (frame-(activeN-1))*20;
     if(alpha > 0) {{
       noStroke(); fill(255,200,50,alpha);
       for(let r=40;r>0;r-=8) {{ circle(lx,ly,r); }}
     }}
   }}
 
-  // Controls panel
+  // ── Slingshot launcher at origin ──────────────────────────────────────
+  let [orgX, orgY] = worldToScreen(0, 0);
+  // Draw slingshot fork
+  stroke('#8B4513'); strokeWeight(3); noFill();
+  line(orgX-6, orgY, orgX-10, orgY-22);
+  line(orgX+6, orgY, orgX+10, orgY-22);
+  // Base post
+  stroke('#5C3317'); strokeWeight(4);
+  line(orgX, orgY, orgX, orgY+14);
+
+  if (dragMode === 'dragging') {{
+    // ── Slingshot rubber bands ─────────────────────────────────────────
+    stroke(255,140,0,200); strokeWeight(2);
+    line(orgX-10, orgY-22, dragCurX, dragCurY);
+    line(orgX+10, orgY-22, dragCurX, dragCurY);
+
+    // Pull-back ball
+    fill('#1f77b4'); stroke('#ffffff'); strokeWeight(1.5);
+    circle(dragCurX, dragCurY, 16);
+
+    // Launch direction arrow (from drag point forward)
+    let dsx2 = dragStartX - dragCurX;
+    let dsy2 = dragStartY - dragCurY;
+    let dmag = sqrt(dsx2*dsx2 + dsy2*dsy2);
+    if (dmag > 5) {{
+      let arrowLen = min(dmag * 0.6, 60);
+      let ax = orgX + (dsx2/dmag)*arrowLen;
+      let ay = orgY + (dsy2/dmag)*arrowLen;
+      drawArrow(orgX, orgY, ax, ay, color(255,255,100,200));
+    }}
+
+    // Ghost preview trajectory (dotted gray)
+    stroke(200,200,200,100); strokeWeight(1.5); noFill();
+    for (let pi=0; pi<previewPts.length-1; pi+=2) {{
+      let [sx1,sy1] = previewPts[pi];
+      let [sx2,sy2] = previewPts[pi+1];
+      line(sx1, sy1, sx2, sy2);
+    }}
+
+    // Speed/angle readout near drag point
+    let scaleFactor = 0.4 * D.xMax / 100;
+    let pvx = dsx2 * scaleFactor;
+    let pvy = -dsy2 * scaleFactor;
+    let speed0 = sqrt(pvx*pvx + pvy*pvy).toFixed(1);
+    let ang = (degrees(atan2(pvy, pvx))).toFixed(0);
+    noStroke(); fill(255,255,100,220); textSize(10);
+    text('v₀=' + speed0 + ' m/s  θ=' + ang + '°', dragCurX+12, dragCurY-10);
+
+  }} else {{
+    // Idle: show "drag to launch" hint near origin
+    noStroke(); fill(180,180,180,120); textSize(9);
+    text('drag to launch', orgX+8, orgY-4);
+  }}
+
+  // ── Target bullseye ───────────────────────────────────────────────────
+  let [tx, ty] = worldToScreen(targetWorldX, targetWorldY);
+  // Bullseye rings
+  noFill();
+  stroke(255,60,60,200); strokeWeight(2); circle(tx, ty, 32);
+  stroke(255,60,60,130); strokeWeight(1.5); circle(tx, ty, 20);
+  fill(255,60,60,200); noStroke(); circle(tx, ty, 8);
+  // Target label
+  noStroke(); fill(255,100,100,200); textSize(9);
+  text('TARGET', tx-18, ty-20);
+
+  // ── HIT! flash ────────────────────────────────────────────────────────
+  if (hitFlash > 0) {{
+    let fa = map(hitFlash, 90, 0, 255, 0);
+    noStroke(); fill(255,230,50,fa); textSize(28);
+    textStyle(BOLD);
+    text('HIT!', tx-30, ty-40);
+    textStyle(NORMAL);
+    hitFlash--;
+  }}
+
+  // ── Score counter (top-right area, above controls panel) ─────────────
+  let scX = width-105, scY = 135;
+  noStroke(); fill(20,20,30,180); rect(scX-5, scY-5, 100, 30, 4);
+  fill('#7fff7f'); textSize(10);
+  text('Hits: ' + hits + ' / Shots: ' + shots, scX, scY+14);
+
+  // ── Controls panel ────────────────────────────────────────────────────
   let cx = width-105, cy = 15;
   noStroke(); fill(20,20,30,200); rect(cx-5,cy-5,100,120,6);
   fill('#fafafa'); textSize(11);
@@ -835,12 +1138,42 @@ function draw() {{
   text('↺ Replay', cx, cy+54);
   text('⚡ ' + speed + 'x speed', cx, cy+94);
 
-  // Frame counter
-  noStroke(); fill('#555'); textSize(9);
-  text('t = ' + (frame/D.n * D.xMax / (D.xMax/(D.n*0.033+0.001))).toFixed(1) + 's', PAD+4, PAD+14);
+  // ── Wind indicator (top-left) ─────────────────────────────────────────
+  let windX = PAD+4, windY = PAD+16;
+  noStroke(); fill(20,20,30,160); rect(windX-2, windY-12, 110, 22, 3);
+  if (D.windOn) {{
+    fill('#7ecfff'); textSize(10);
+    text('Wind: ON', windX, windY+2);
+    // Wind arrow
+    drawArrow(windX+70, windY-4, windX+100, windY-4, color(126,207,255,200));
+  }} else {{
+    fill('#666'); textSize(10);
+    text('Wind: OFF  [W]', windX, windY+2);
+  }}
 
-  if(playing && frame < D.n + 20) frame += speed;
-  if(frame >= D.n + 20) {{ frame = D.n-1; playing = false; }}
+  // ── Hover crosshair ───────────────────────────────────────────────────
+  if (hoverInfo && frame >= activeN-1) {{
+    // Crosshair
+    stroke(255,255,255,80); strokeWeight(1);
+    let hsx = mouseX, hsy = mouseY;
+    line(hsx-12, hsy, hsx+12, hsy);
+    line(hsx, hsy-12, hsx, hsy+12);
+
+    // Readout box
+    let ri = hoverInfo;
+    let lineA = 'x = ' + ri.wx.toFixed(1) + ' m  y = ' + ri.wy.toFixed(1) + ' m';
+    let lineB = 't ≈ ' + ri.t.toFixed(2) + ' s';
+    let lineC = ri.snap ? ('v = ' + ri.v.toFixed(1) + ' m/s') : '';
+    noStroke(); fill(15,15,25,210); rect(4, 4, 180, ri.snap ? 52 : 38, 4);
+    fill('#ddd'); textSize(9);
+    text(lineA, 8, 17);
+    text(lineB, 8, 30);
+    if (ri.snap) text(lineC, 8, 43);
+  }}
+
+  // ── Advance frame ─────────────────────────────────────────────────────
+  if(playing && frame < activeN + 20) frame += speed;
+  if(frame >= activeN + 20) {{ frame = activeN-1; playing = false; }}
 }}
 </script></body></html>"""
 
@@ -1111,12 +1444,14 @@ def main() -> None:
         anim_x_max = float(max(x_arr)) * 1.1
         anim_y_max = float(max(y_arr)) * 1.1 if float(max(y_arr)) > 0 else 1.0
         anim_html = build_projectile_animation(
-            x_arr, y_arr, vx_arr, vy_arr, anim_x_max, anim_y_max
+            x_arr, y_arr, vx_arr, vy_arr, anim_x_max, anim_y_max, g=float(g)
         )
         components.html(anim_html, height=430)
 
         st.caption(
-            "Click the canvas to play/pause · Click ↺ to replay · Click ⚡ to change speed"
+            "Drag from origin to launch · Click ↺ to replay · Click ⚡ to change speed · "
+            "Press W to toggle wind · Hover canvas after landing for crosshair readout · "
+            "Click 'New Target' to randomise the target position"
         )
 
         st.divider()

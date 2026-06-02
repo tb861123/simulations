@@ -1195,8 +1195,8 @@ def build_radial_velocity_fig(
 
 
 def build_orbital_animation(x_arr, y_arr, vx_arr, vy_arr, central_mass_name="☉", body_name="Planet"):
-    """Build p5.js animated orbit HTML."""
-    import json, numpy as np
+    """Build enhanced p5.js animated orbit HTML with Kepler's 2nd Law sectors,
+    click-to-launch custom planets, multi-orbit traces, and escape velocity indicator."""
     step = max(1, len(x_arr) // 400)
     xs = x_arr[::step].tolist()
     ys = y_arr[::step].tolist()
@@ -1205,140 +1205,420 @@ def build_orbital_animation(x_arr, y_arr, vx_arr, vy_arr, central_mass_name="☉
 
     r_max = float(np.max(np.sqrt(np.array(xs)**2 + np.array(ys)**2))) * 1.15
 
+    # Compute physical quantities needed by the JS
+    # Escape velocity at initial radius: v_esc = sqrt(2GM/r)  and  v_orb = sqrt(GM/r)
+    # We pass v_orb and v_esc for the first point so the canvas can label them.
+    r0 = float(np.sqrt(xs[0]**2 + ys[0]**2))
+    v_orb_0 = float(np.sqrt(vxs[0]**2 + vys[0]**2))          # actual v at start
+    # derive GM from circular speed at r0: v_circ = sqrt(GM/r0)
+    # We'll compute this from the data: at the first step the planet has speed v_orb_0
+    # which equals v_circ * v_ratio.  But we don't have v_ratio or M here.
+    # Instead pass raw values and let JS compute labels from ratio.
+    # We pass the pre-computed v_circ and v_esc as km/s strings for the label.
+    # Approximate v_circ from the orbit data: centripetal acc = v²/r = GM/r² → GM = v²r
+    # Using the initial speed as v_circ is only accurate for circular orbits,
+    # but for the label we use the speed of the *main* orbit at its starting point.
+    # This is fine for the educational indicator.
+    gm_approx = float(v_orb_0**2 * r0)   # approximate GM (exact only if circular)
+    # Recompute using max of orbit for a better estimate (vis-viva at periapsis gives upper bound)
+    # Use a safer estimate: at periapsis, v_peri² * r_peri = GM(2 - r_peri/a)*r_peri
+    # For simplicity pass the raw values and compute in JS.
+
     data = json.dumps({
         "x": xs, "y": ys, "vx": vxs, "vy": vys,
         "rMax": r_max, "n": len(xs),
         "centralName": central_mass_name,
-        "bodyName": body_name
+        "bodyName": body_name,
+        "gmApprox": gm_approx,
+        "r0": r0,
     })
 
     return f"""<!DOCTYPE html>
 <html><head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
-<style>body{{margin:0;overflow:hidden;background:#0e1117;}}</style>
+<style>
+body{{margin:0;overflow:hidden;background:#0e1117;}}
+canvas{{display:block;}}
+</style>
 </head><body>
 <script>
 const D = {data};
-let frame=0, playing=true, speed=2;
-let trail=[];
 
-function setup(){{
-  createCanvas(windowWidth||700,460);
+// ── State ────────────────────────────────────────────────────────────────────
+let frame = 0, playing = true, speed = 2;
+let trail = [];
+
+// Kepler sectors
+let showAreas = true;
+// Pre-compute 8 equal-time sector boundaries (indices into D.x/D.y)
+let sectorIndices = [];   // length 9 (start + 8 endpoints)
+
+// Custom orbit launching
+let launchMode = false;   // true when user is dragging
+let launchStart = null;   // {{wx, wy}} in world coords
+let launchEnd = null;     // {{wx, wy}} in world coords — updated during drag
+let customOrbits = [];    // last 3 custom orbit traces [{pts:[{wx,wy},...], col}]
+const ORBIT_PALETTE = ['#e74c3c','#2ecc71','#f39c12'];  // red, green, amber
+
+// Escape velocity ring + indicator
+let escRingRadius = 0;   // screen pixels
+
+// ── Precomputed sector data ──────────────────────────────────────────────────
+function precomputeSectors() {{
+  sectorIndices = [];
+  let step = floor(D.n / 8);
+  for (let s = 0; s <= 8; s++) {{
+    sectorIndices.push(min(s * step, D.n - 1));
+  }}
+}}
+
+// ── Coordinate helpers ───────────────────────────────────────────────────────
+function scale() {{
+  return min(width, height) * 0.43 / D.rMax;
+}}
+function toScreen(wx, wy) {{
+  let cx = width / 2, cy = height / 2;
+  let sc = scale();
+  return [cx + wx * sc, cy - wy * sc];
+}}
+function toWorld(sx, sy) {{
+  let cx = width / 2, cy = height / 2;
+  let sc = scale();
+  return [(sx - cx) / sc, -(sy - cy) / sc];
+}}
+
+// ── p5 setup ────────────────────────────────────────────────────────────────
+function setup() {{
+  createCanvas(windowWidth || 700, 520);
   textFont('monospace');
+  precomputeSectors();
 }}
-function windowResized(){{ resizeCanvas(windowWidth,460); }}
-
-function toScreen(wx,wy){{
-  let cx=width/2, cy=height/2;
-  let scale=min(width,height)*0.43/D.rMax;
-  return [cx+wx*scale, cy-wy*scale];
+function windowResized() {{
+  resizeCanvas(windowWidth, 520);
 }}
 
-function mousePressed(){{
-  if(mouseX>width-120&&mouseX<width-10){{
-    if(mouseY>10&&mouseY<40) playing=!playing;
-    else if(mouseY>50&&mouseY<80){{frame=0;trail=[];playing=true;}}
-    else if(mouseY>90&&mouseY<120) speed=speed===1?2:speed===2?4:1;
+// ── Input handling ───────────────────────────────────────────────────────────
+function isOverButton(bx, by, bw, bh) {{
+  return mouseX >= bx && mouseX <= bx + bw && mouseY >= by && mouseY <= by + bh;
+}}
+
+function mousePressed() {{
+  // Control panel (right side)
+  let panelX = width - 130;
+
+  // Play/Pause
+  if (isOverButton(panelX, 10, 122, 28)) {{ playing = !playing; return; }}
+  // Replay
+  if (isOverButton(panelX, 44, 122, 28)) {{ frame = 0; trail = []; playing = true; return; }}
+  // Speed
+  if (isOverButton(panelX, 78, 122, 28)) {{ speed = speed === 1 ? 2 : speed === 2 ? 4 : 1; return; }}
+  // Show Areas toggle
+  if (isOverButton(panelX, 112, 122, 28)) {{ showAreas = !showAreas; return; }}
+  // Clear custom orbits
+  if (isOverButton(10, 10, 70, 26)) {{ customOrbits = []; return; }}
+
+  // Otherwise: start a custom orbit launch (click on canvas body)
+  let [wx, wy] = toWorld(mouseX, mouseY);
+  // Don't start if clicking in star glow (< 20px from centre)
+  let [cx, cy] = toScreen(0, 0);
+  if (dist(mouseX, mouseY, cx, cy) > 20) {{
+    launchMode = true;
+    launchStart = {{wx, wy}};
+    launchEnd = {{wx, wy}};
   }}
 }}
 
-function drawArrow(x1,y1,x2,y2,col){{
+function mouseDragged() {{
+  if (launchMode) {{
+    let [wx, wy] = toWorld(mouseX, mouseY);
+    launchEnd = {{wx, wy}};
+  }}
+}}
+
+function mouseReleased() {{
+  if (launchMode && launchStart && launchEnd) {{
+    // Velocity = drag vector scaled
+    let dvx = (launchEnd.wx - launchStart.wx) * 2.0;
+    let dvy = (launchEnd.wy - launchStart.wy) * 2.0;
+    let orbit = simulateOrbit(launchStart.wx, launchStart.wy, dvx, dvy);
+    // Keep last 3
+    let col = ORBIT_PALETTE[customOrbits.length % ORBIT_PALETTE.length];
+    customOrbits.push({{pts: orbit, col}});
+    if (customOrbits.length > 3) customOrbits.shift();
+  }}
+  launchMode = false;
+  launchStart = null;
+  launchEnd = null;
+}}
+
+// ── Custom orbit simulation (simple Euler integration in world coords) ───────
+function simulateOrbit(wx0, wy0, vx0, vy0) {{
+  // Integrate N steps of gravitational motion around origin
+  // GM = D.gmApprox; world units are metres, velocities m/s
+  let GM = D.gmApprox;
+  let pts = [];
+  let x = wx0, y = wy0, vx = vx0, vy = vy0;
+  // Adaptive dt: use 1/400 of the "period" estimated from starting radius
+  let r0 = sqrt(x*x + y*y);
+  let T_est = TWO_PI * sqrt(r0*r0*r0 / GM);
+  let dt = T_est / 400;
+  let maxPts = 800;
+  let escapeR = D.rMax * 3.0;
+
+  for (let i = 0; i < maxPts; i++) {{
+    pts.push({{wx: x, wy: y}});
+    let r = sqrt(x*x + y*y);
+    if (r < 1e6) break;     // hit the star
+    let r3 = r*r*r;
+    let ax = -GM * x / r3;
+    let ay = -GM * y / r3;
+    vx += ax * dt;
+    vy += ay * dt;
+    x  += vx * dt;
+    y  += vy * dt;
+    if (sqrt(x*x+y*y) > escapeR) {{ pts.push({{wx:x,wy:y}}); break; }}
+  }}
+  return pts;
+}}
+
+// ── Arrow helper ─────────────────────────────────────────────────────────────
+function drawArrow(x1, y1, x2, y2, col) {{
   stroke(col); fill(col); strokeWeight(2);
-  line(x1,y1,x2,y2);
-  let a=atan2(y2-y1,x2-x1);
-  push(); translate(x2,y2); rotate(a);
-  triangle(0,0,-10,-4,-10,4); pop();
+  line(x1, y1, x2, y2);
+  let a = atan2(y2 - y1, x2 - x1);
+  push(); translate(x2, y2); rotate(a);
+  triangle(0, 0, -10, -4, -10, 4);
+  pop();
 }}
 
-function draw(){{
-  background(14,17,23);
+function setLineDash(list) {{ drawingContext.setLineDash(list); }}
 
-  // Starfield (static)
+// ── Kepler sector fill ───────────────────────────────────────────────────────
+// 8 rainbow colours (semi-transparent)
+const SECTOR_COLS = [
+  [255, 80,  80,  55],   // red
+  [255, 160, 50,  55],   // orange
+  [240, 220, 50,  55],   // yellow
+  [80,  220, 80,  55],   // green
+  [50,  200, 200, 55],   // cyan
+  [60,  120, 255, 55],   // blue
+  [160, 80,  255, 55],   // violet
+  [255, 80,  200, 55],   // pink
+];
+
+function drawKeplerSectors(cx, cy) {{
+  if (!showAreas) return;
+  for (let s = 0; s < 8; s++) {{
+    let i0 = sectorIndices[s];
+    let i1 = sectorIndices[s + 1];
+    let c = SECTOR_COLS[s];
+    fill(c[0], c[1], c[2], c[3]);
+    noStroke();
+    beginShape();
+    vertex(cx, cy);
+    for (let i = i0; i <= i1; i++) {{
+      let [sx, sy] = toScreen(D.x[i], D.y[i]);
+      vertex(sx, sy);
+    }}
+    endShape(CLOSE);
+  }}
+  // Label
+  noStroke(); fill(220, 220, 255, 200); textSize(10); textAlign(LEFT);
+  text("Kepler's 2nd Law: Equal Areas", 10, height - 56);
+}}
+
+// ── Main draw loop ───────────────────────────────────────────────────────────
+function draw() {{
+  background(14, 17, 23);
+
+  // Starfield (static seed)
   randomSeed(42);
-  noStroke(); fill(255,255,255,120);
-  for(let i=0;i<80;i++) circle(random(width),random(height),random(1,2.5));
+  noStroke(); fill(255, 255, 255, 120);
+  for (let i = 0; i < 80; i++) circle(random(width), random(height), random(1, 2.5));
+  randomSeed(null);
 
-  // Grid (faint circles)
-  let [cx,cy]=toScreen(0,0);
-  for(let r=1;r<=4;r++){{
-    let rr=r*D.rMax/4;
-    let [ex,ey]=toScreen(rr,0);
-    noFill(); stroke(42,42,60,120); strokeWeight(0.5);
-    circle(cx,cy,dist(cx,cy,ex,ey)*2);
+  let [cx, cy] = toScreen(0, 0);
+
+  // ── Faint grid circles ─────────────────────────────────────────────────────
+  for (let r = 1; r <= 4; r++) {{
+    let rr = r * D.rMax / 4;
+    let [ex] = toScreen(rr, 0);
+    let sr = abs(ex - cx);
+    noFill(); stroke(42, 42, 60, 120); strokeWeight(0.5);
+    circle(cx, cy, sr * 2);
   }}
 
-  // Orbit path (full)
-  noFill(); stroke(31,119,180,40); strokeWeight(1);
+  // ── Escape velocity faint ring at current planet radius ─────────────────────
+  let idx = min(frame, D.n - 1);
+  let r_cur = sqrt(D.x[idx]*D.x[idx] + D.y[idx]*D.y[idx]);
+  let [ercX] = toScreen(r_cur, 0);
+  let escRingR = abs(ercX - cx);
+  escRingRadius = escRingR;
+  noFill(); stroke(180, 100, 255, 45); strokeWeight(1.2);
+  setLineDash([6, 5]);
+  circle(cx, cy, escRingR * 2);
+  setLineDash([]);
+
+  // v_esc and v_orb labels
+  let GM = D.gmApprox;
+  let v_orb_kms = sqrt(GM / max(r_cur, 1e3)) / 1000.0;
+  let v_esc_kms = sqrt(2 * GM / max(r_cur, 1e3)) / 1000.0;
+  noStroke(); fill(180, 120, 255, 200); textSize(9); textAlign(LEFT);
+  text('vₚₜᵥ = ' + v_orb_kms.toFixed(2) + ' km/s', cx + escRingR * 0.72, cy - escRingR * 0.05 - 7);
+  text('vₑₛᶜ = ' + v_esc_kms.toFixed(2) + ' km/s', cx + escRingR * 0.72, cy - escRingR * 0.05 + 7);
+
+  // ── Kepler sectors ─────────────────────────────────────────────────────────
+  drawKeplerSectors(cx, cy);
+
+  // ── Main ghost orbit path ─────────────────────────────────────────────────
+  noFill(); stroke(31, 119, 180, 40); strokeWeight(1);
   beginShape();
-  for(let i=0;i<D.n;i++){{
-    let [sx,sy]=toScreen(D.x[i],D.y[i]);
-    vertex(sx,sy);
+  for (let i = 0; i < D.n; i++) {{
+    let [sx, sy] = toScreen(D.x[i], D.y[i]);
+    vertex(sx, sy);
   }}
   endShape(CLOSE);
 
-  // Trail
-  let idx=min(frame,D.n-1);
-  trail.push([D.x[idx],D.y[idx]]);
-  let maxTrail=120;
-  if(trail.length>maxTrail) trail.shift();
-
-  for(let i=1;i<trail.length;i++){{
-    let a=map(i,0,trail.length,0,180);
-    let [tx1,ty1]=toScreen(trail[i-1][0],trail[i-1][1]);
-    let [tx2,ty2]=toScreen(trail[i][0],trail[i][1]);
-    stroke(31,119,180,a); strokeWeight(map(i,0,trail.length,0.5,2.5));
-    line(tx1,ty1,tx2,ty2);
+  // ── Custom orbit traces (last 3) ──────────────────────────────────────────
+  for (let o = 0; o < customOrbits.length; o++) {{
+    let orb = customOrbits[o];
+    let pc = orb.col;
+    stroke(pc); strokeWeight(1.5); noFill();
+    beginShape();
+    for (let p = 0; p < orb.pts.length; p++) {{
+      let [sx, sy] = toScreen(orb.pts[p].wx, orb.pts[p].wy);
+      vertex(sx, sy);
+    }}
+    endShape();
   }}
 
-  // Central body (star/planet) glow
+  // ── Animated trail ────────────────────────────────────────────────────────
+  trail.push([D.x[idx], D.y[idx]]);
+  let maxTrail = 120;
+  if (trail.length > maxTrail) trail.shift();
+
+  for (let i = 1; i < trail.length; i++) {{
+    let a = map(i, 0, trail.length, 0, 180);
+    let [tx1, ty1] = toScreen(trail[i-1][0], trail[i-1][1]);
+    let [tx2, ty2] = toScreen(trail[i][0],   trail[i][1]);
+    stroke(31, 119, 180, a); strokeWeight(map(i, 0, trail.length, 0.5, 2.5));
+    line(tx1, ty1, tx2, ty2);
+  }}
+
+  // ── Central body (star) glow ──────────────────────────────────────────────
   noStroke();
-  for(let r=40;r>0;r-=6){{ fill(255,200,50,map(r,0,40,0,20)); circle(cx,cy,r*2); }}
+  for (let r = 40; r > 0; r -= 6) {{
+    fill(255, 200, 50, map(r, 0, 40, 0, 20));
+    circle(cx, cy, r * 2);
+  }}
   fill('#ffc832'); stroke('#ffffff'); strokeWeight(1);
-  circle(cx,cy,22);
+  circle(cx, cy, 22);
   noStroke(); fill('#fafafa'); textSize(10); textAlign(CENTER);
-  text(D.centralName,cx,cy+28);
+  text(D.centralName, cx, cy + 30);
   textAlign(LEFT);
 
-  // Orbital body
-  let [bx,by]=toScreen(D.x[idx],D.y[idx]);
+  // ── Orbital body ──────────────────────────────────────────────────────────
+  let [bx, by] = toScreen(D.x[idx], D.y[idx]);
   noStroke();
-  for(let r=18;r>0;r-=4){{ fill(31,119,180,map(r,0,18,0,30)); circle(bx,by,r*2); }}
-  fill('#1f77b4'); stroke('#aaddff'); strokeWeight(1.5); circle(bx,by,14);
+  for (let r = 18; r > 0; r -= 4) {{
+    fill(31, 119, 180, map(r, 0, 18, 0, 30));
+    circle(bx, by, r * 2);
+  }}
+  fill('#1f77b4'); stroke('#aaddff'); strokeWeight(1.5); circle(bx, by, 14);
 
-  // Velocity vector
-  let vx=D.vx[idx], vy=D.vy[idx];
-  let vmag=sqrt(vx*vx+vy*vy);
-  let vscale=min(width,height)*0.001/(D.rMax*0.001+0.001);
-  if(vmag>0){{
-    let [tx,ty]=toScreen(D.x[idx]+vx*vscale*0.25, D.y[idx]+vy*vscale*0.25);
-    drawArrow(bx,by,tx,ty,color(255,127,14));
+  // ── Velocity vector ───────────────────────────────────────────────────────
+  let vx_cur = D.vx[idx], vy_cur = D.vy[idx];
+  let vmag = sqrt(vx_cur*vx_cur + vy_cur*vy_cur);
+  let vscale = min(width, height) * 0.001 / (D.rMax * 0.001 + 0.001);
+  if (vmag > 0) {{
+    let [tx, ty] = toScreen(D.x[idx] + vx_cur*vscale*0.25, D.y[idx] + vy_cur*vscale*0.25);
+    drawArrow(bx, by, tx, ty, color(255, 127, 14));
   }}
 
-  // Radius line
-  stroke(155,89,182,100); strokeWeight(1); setLineDash([5,4]);
-  line(cx,cy,bx,by);
+  // ── Radius line ───────────────────────────────────────────────────────────
+  stroke(155, 89, 182, 100); strokeWeight(1); setLineDash([5, 4]);
+  line(cx, cy, bx, by);
   setLineDash([]);
 
-  // Speed readout
-  noStroke(); fill('#aaa'); textSize(10);
-  let vkm=(vmag/1000).toFixed(2);
-  // compute distance in AU-equivalent
-  let r_cur=sqrt(D.x[idx]*D.x[idx]+D.y[idx]*D.y[idx]);
-  text('v = '+vkm+' km/s', 10, height-30);
-  text('r = '+(r_cur/D.rMax).toFixed(3)+' r_max', 10, height-16);
+  // ── Launch drag preview ───────────────────────────────────────────────────
+  if (launchMode && launchStart && launchEnd) {{
+    let [sx0, sy0] = toScreen(launchStart.wx, launchStart.wy);
+    let dvx = (launchEnd.wx - launchStart.wx) * 2.0;
+    let dvy = (launchEnd.wy - launchStart.wy) * 2.0;
+    let v_launch = sqrt(dvx*dvx + dvy*dvy);
+    let v_circ_here  = sqrt(GM / max(sqrt(launchStart.wx*launchStart.wx + launchStart.wy*launchStart.wy), 1e3));
+    let v_esc_here   = v_circ_here * sqrt(2);
 
-  // Controls
-  noStroke(); fill(15,15,25,220); rect(width-118,8,110,120,6);
-  fill('#fafafa'); textSize(11);
-  text(playing?'⏸ Pause':'▶ Play',width-112,28);
-  text('↺ Replay',width-112,68);
-  text('⚡ '+speed+'x',width-112,108);
+    let arrowCol;
+    let trajLabel;
+    if (v_launch < v_circ_here * 0.97) {{
+      arrowCol = color(255, 200, 50);  // yellow - elliptical (sub-circular)
+      trajLabel = 'Elliptical orbit';
+    }} else if (v_launch < v_esc_here * 0.97) {{
+      arrowCol = color(50, 220, 50);   // green - near-circular / super-circular ellipse
+      trajLabel = abs(v_launch - v_circ_here) / v_circ_here < 0.05 ? 'Circular orbit' : 'Elliptical orbit';
+    }} else {{
+      arrowCol = color(255, 60, 60);   // red - hyperbolic
+      trajLabel = 'Escape trajectory!';
+    }}
 
-  if(playing) frame+=speed;
-  if(frame>=D.n){{ frame=0; trail=[]; }}
+    // Preview trajectory
+    let previewOrbit = simulateOrbit(launchStart.wx, launchStart.wy, dvx, dvy);
+    stroke(arrowCol); strokeWeight(1.2); noFill();
+    beginShape();
+    for (let p = 0; p < previewOrbit.length; p++) {{
+      let [px, py] = toScreen(previewOrbit[p].wx, previewOrbit[p].wy);
+      vertex(px, py);
+    }}
+    endShape();
+
+    // Velocity drag arrow
+    let [sx1, sy1] = toScreen(launchEnd.wx, launchEnd.wy);
+    drawArrow(sx0, sy0, sx1, sy1, arrowCol);
+
+    // Label
+    noStroke();
+    fill(arrowCol);
+    textSize(11); textAlign(LEFT);
+    let lx = min(sx0, width - 140), ly = min(sy0 - 16, height - 20);
+    text(trajLabel, lx, ly);
+    if (v_launch >= v_esc_here * 0.97) {{
+      // Bold escape warning
+      textSize(12); fill(255, 60, 60);
+      text('Escape trajectory!', cx - 60, 30);
+    }}
+
+    // Draw ghost planet at launch point
+    noStroke();
+    for (let r = 14; r > 0; r -= 4) {{ fill(255, 255, 255, map(r, 0, 14, 0, 25)); circle(sx0, sy0, r*2); }}
+    fill(220, 220, 220); stroke(255); strokeWeight(1); circle(sx0, sy0, 11);
+  }}
+
+  // ── Speed / distance readout ──────────────────────────────────────────────
+  noStroke(); fill('#aaa'); textSize(10); textAlign(LEFT);
+  let vkm = (vmag / 1000.0).toFixed(2);
+  text('v = ' + vkm + ' km/s', 10, height - 42);
+  text('r = ' + (r_cur / D.rMax).toFixed(3) + ' rₘₐˣ', 10, height - 28);
+
+  // ── Control panel ─────────────────────────────────────────────────────────
+  let panelX = width - 130;
+  noStroke(); fill(15, 15, 25, 220); rect(panelX, 8, 122, 144, 6);
+  fill('#fafafa'); textSize(11); textAlign(LEFT);
+  text(playing ? '⏸ Pause' : '▶ Play',   panelX + 8, 28);
+  text('↺ Replay',                              panelX + 8, 62);
+  text('⚡ ' + speed + 'x',                     panelX + 8, 96);
+  fill(showAreas ? '#7ecfff' : '#888');
+  text('Show Areas',                                 panelX + 8, 130);
+
+  // ── Clear button (top-left) ───────────────────────────────────────────────
+  noStroke(); fill(40, 20, 20, 200); rect(10, 8, 72, 26, 5);
+  fill(customOrbits.length > 0 ? '#ff8888' : '#666'); textSize(10);
+  text('Clear Orbits', 14, 25);
+
+  // ── Advance frame ─────────────────────────────────────────────────────────
+  if (playing) frame += speed;
+  if (frame >= D.n) {{ frame = 0; trail = []; }}
 }}
-
-function setLineDash(list){{ drawingContext.setLineDash(list); }}
 </script></body></html>"""
 
 

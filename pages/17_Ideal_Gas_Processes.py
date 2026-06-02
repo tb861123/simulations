@@ -1623,11 +1623,6 @@ new p5(function(p) {{
     dragging = false;
   }};
 
-  // ── Expose PROC_MAP to JS scope ───────────────────────────────
-  const PROC_MAP = {{
-    'Isothermal': 'iso-t', 'Adiabatic': 'adiab',
-    'Isobaric':  'iso-p',  'Isochoric': 'iso-v'
-  }};
 }});
 </script>
 </body>
@@ -2164,6 +2159,21 @@ def main() -> None:
             if not processes_selected:
                 st.warning("Select at least one process in the controls panel.")
             else:
+                # ── p5.js piston-cylinder animation ───────────────────────
+                _process_val = processes_selected[0]
+                _P_val = float(P_start_pv)
+                _V_val = float(V_start_pv)
+                _T_val = float(T_start_pv)
+                _n_val = float(n_pv)
+                components.html(
+                    build_gas_animation(_P_val, _V_val, _T_val, _n_val, _process_val),
+                    height=440,
+                )
+                st.caption(
+                    "▶ Play/pause · Drag piston · Click process type buttons · Click flame to heat"
+                )
+                st.divider()
+
                 fig_pv, thermo_results = build_pv_diagram(
                     n=n_pv,
                     T_start=float(T_start_pv),

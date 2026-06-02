@@ -1039,140 +1039,403 @@ def build_harmonic_spectrum_fig(
 
 
 def build_interference_animation(wavelength_nm, slit_sep_mm, num_sources=2):
-    """Build p5.js animated wave interference HTML."""
+    """Build enhanced p5.js animated wave interference HTML.
+
+    Features:
+    - Pixel-level interference pattern via createGraphics/loadPixels
+    - Draggable S1/S2 sources (constrained to barrier line)
+    - Intensity probe: hover to see I and path-difference readout
+    - On-canvas phase offset slider (0 → 2π)
+    - Source toggle buttons (S1 / S2 on/off)
+    - Path-difference dashed lines to cursor, coloured green/red
+    """
     data = json.dumps({
         "lambda": float(wavelength_nm),
         "slitSep": float(slit_sep_mm),
-        "numSources": int(num_sources)
+        "numSources": int(num_sources),
     })
 
     return f"""<!DOCTYPE html>
 <html><head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
-<style>body{{margin:0;overflow:hidden;background:#0e1117;}}</style>
+<style>
+  body{{margin:0;overflow:hidden;background:#0e1117;}}
+  canvas{{display:block;}}
+</style>
 </head><body>
 <script>
-const D = {data};
-let t=0, playing=true, speed=1;
+const CFG = {data};
+
+// ── Layout constants ────────────────────────────────────────────────────────
+const MARGIN   = 62;   // left/right margin (px)
+const TOP      = 22;   // top margin (px)
+const BTM_RSV  = 56;   // space reserved at bottom for phase slider
+
+// ── Buffer resolution (pattern is computed here then stretched) ─────────────
+const BW = 260, BH = 220;
+
+// ── State ───────────────────────────────────────────────────────────────────
+let t = 0, playing = true, speed = 1;
 let waveBuffer;
 
-function setup(){{
-  createCanvas(windowWidth||700, 420);
-  waveBuffer=createGraphics(200,200);
+// Source positions in BUFFER coords (updated each frame from canvas coords)
+// Initial positions: fixed fraction of buffer
+let s1bx, s1by, s2bx, s2by;      // buffer-space coords
+
+// Source active flags
+let s1On = true, s2On = true;
+
+// Phase offset (radians, 0..TWO_PI)
+let phaseOffset = 0;
+
+// Drag state
+let dragging = null;   // null | 's1' | 's2' | 'phase'
+
+// Hover probe
+let probeActive = false;
+
+// ── Computed layout (set in setup / windowResized) ──────────────────────────
+let drawW, drawH;
+let barXCanvas;   // x pixel of the barrier on canvas
+
+// ── Phase slider geometry ───────────────────────────────────────────────────
+let sliderX, sliderY, sliderW;
+const SLIDER_H = 14;
+
+function setup() {{
+  createCanvas(windowWidth || 700, 460);
+  waveBuffer = createGraphics(BW, BH);
   textFont('monospace');
   frameRate(30);
-}}
-function windowResized(){{ resizeCanvas(windowWidth,420); }}
+  _recalcLayout();
 
-function mousePressed(){{
-  if(mouseX>width-120&&mouseX<width-10){{
-    if(mouseY>10&&mouseY<40) playing=!playing;
-    else if(mouseY>50&&mouseY<80) speed=speed===1?2:speed===2?4:1;
+  // Initial source positions in buffer coords
+  s1bx = BW * 0.18;
+  s2bx = BW * 0.18;
+  s1by = BH * 0.5 - BH * 0.22;
+  s2by = BH * 0.5 + BH * 0.22;
+}}
+
+function windowResized() {{
+  resizeCanvas(windowWidth, 460);
+  _recalcLayout();
+}}
+
+function _recalcLayout() {{
+  drawW = width - MARGIN * 2;
+  drawH = height - TOP - BTM_RSV;
+  barXCanvas = MARGIN + (BW * 0.18) * (drawW / BW) + 12;
+
+  sliderW = min(260, drawW * 0.55);
+  sliderX = MARGIN + (drawW - sliderW) / 2;
+  sliderY = height - BTM_RSV + 24;
+}}
+
+// ── Coordinate helpers ──────────────────────────────────────────────────────
+// Buffer ↔ canvas transforms
+function bufToCanvasX(bx) {{ return MARGIN + bx * (drawW / BW); }}
+function bufToCanvasY(by) {{ return TOP   + by * (drawH / BH); }}
+function canvasToBufX(cx) {{ return (cx - MARGIN) * (BW / drawW); }}
+function canvasToBufY(cy) {{ return (cy - TOP)    * (BH / drawH); }}
+
+// ── Intensity at a canvas point ─────────────────────────────────────────────
+function intensityAt(cx, cy) {{
+  let bx = canvasToBufX(cx);
+  let by = canvasToBufY(cy);
+  let k  = TWO_PI * 5 / BW;
+  let r1 = dist(bx, by, s1bx, s1by);
+  let r2 = dist(bx, by, s2bx, s2by);
+  let total = 0, count = 0;
+  if (s1On) {{ total += sin(k * r1); count++; }}
+  if (s2On) {{ total += sin(k * r2 + phaseOffset); count++; }}
+  if (count === 0) return 0;
+  let amp = total / count;   // -1..1 instantaneous amplitude
+  return amp * amp;          // 0..1  time-averaged intensity proxy
+}}
+
+// ── Path difference in wavelengths ──────────────────────────────────────────
+function pathDiffLambda(cx, cy) {{
+  let bx = canvasToBufX(cx);
+  let by = canvasToBufY(cy);
+  let r1 = dist(bx, by, s1bx, s1by);
+  let r2 = dist(bx, by, s2bx, s2by);
+  // Convert buffer pixels to "wavelengths": k = 2π*5/BW → λ_buf = BW/5
+  let lamBuf = BW / 5.0;
+  return (r2 - r1) / lamBuf;   // in units of wavelengths
+}}
+
+// ── Mouse helpers ───────────────────────────────────────────────────────────
+function _inSourceHandle(sx, sy, cx, cy) {{
+  return dist(sx, sy, cx, cy) < 14;
+}}
+
+function _inToggleBtn(bx, by, cx, cy) {{
+  // 28×16 button drawn to the right of the source
+  return cx >= bx && cx <= bx + 30 && cy >= by - 9 && cy <= by + 9;
+}}
+
+function _inPlayBtn()  {{ return mouseX > width-126 && mouseX < width-6  && mouseY > 8  && mouseY < 36; }}
+function _inSpeedBtn() {{ return mouseX > width-126 && mouseX < width-6  && mouseY > 42 && mouseY < 70; }}
+
+function _inSlider() {{
+  return mouseX >= sliderX && mouseX <= sliderX + sliderW &&
+         mouseY >= sliderY - SLIDER_H && mouseY <= sliderY + SLIDER_H;
+}}
+
+function mousePressed() {{
+  // Play / speed buttons
+  if (_inPlayBtn())  {{ playing = !playing; return; }}
+  if (_inSpeedBtn()) {{ speed = speed === 1 ? 2 : speed === 2 ? 4 : 1; return; }}
+
+  // Phase slider grab
+  if (_inSlider()) {{ dragging = 'phase'; _updatePhaseFromMouse(); return; }}
+
+  // Source toggle buttons (small labelled buttons beside each source)
+  let s1cx = bufToCanvasX(s1bx), s1cy = bufToCanvasY(s1by);
+  let s2cx = bufToCanvasX(s2bx), s2cy = bufToCanvasY(s2by);
+  if (_inToggleBtn(s1cx + 14, s1cy, mouseX, mouseY)) {{ s1On = !s1On; return; }}
+  if (_inToggleBtn(s2cx + 14, s2cy, mouseX, mouseY)) {{ s2On = !s2On; return; }}
+
+  // Drag sources
+  if (_inSourceHandle(s1cx, s1cy, mouseX, mouseY)) {{ dragging = 's1'; return; }}
+  if (_inSourceHandle(s2cx, s2cy, mouseX, mouseY)) {{ dragging = 's2'; return; }}
+}}
+
+function mouseDragged() {{
+  if (dragging === 's1') {{
+    // Constrain to barrier X, free Y within buffer
+    s1by = constrain(canvasToBufY(mouseY), 2, BH - 2);
+  }} else if (dragging === 's2') {{
+    s2by = constrain(canvasToBufY(mouseY), 2, BH - 2);
+  }} else if (dragging === 'phase') {{
+    _updatePhaseFromMouse();
   }}
 }}
 
-function draw(){{
+function mouseReleased() {{
+  dragging = null;
+}}
+
+function _updatePhaseFromMouse() {{
+  let frac = constrain((mouseX - sliderX) / sliderW, 0, 1);
+  phaseOffset = frac * TWO_PI;
+}}
+
+// ── Main draw ───────────────────────────────────────────────────────────────
+function draw() {{
   background('#0e1117');
 
-  // Draw interference pattern into buffer
-  let bw=waveBuffer.width, bh=waveBuffer.height;
+  // Check if mouse is on the canvas interior (probe zone)
+  probeActive = (mouseIsPressed === false || dragging === null) &&
+                mouseX > MARGIN && mouseX < MARGIN + drawW - 4 &&
+                mouseY > TOP    && mouseY < TOP + drawH;
+
+  // ── 1. Render interference pattern into pixel buffer ────────────────────
+  let k     = TWO_PI * 5 / BW;
+  let omega = TWO_PI * 0.3;
+
   waveBuffer.loadPixels();
+  for (let py = 0; py < BH; py++) {{
+    for (let px = 0; px < BW; px++) {{
+      let r1 = dist(px, py, s1bx, s1by);
+      let r2 = dist(px, py, s2bx, s2by);
 
-  // Scale: canvas represents a physical area
-  // Source separation in normalised units: 0.15 of canvas half-height
-  let sep=0.3;  // fraction of buffer height between sources
-  let s1y=bh/2 - bh*sep/2;
-  let s2y=bh/2 + bh*sep/2;
-  let s1x=bw*0.15;  // sources on left
-  let s2x=bw*0.15;
-
-  // Wave number: scale so ~5 wavelengths fit across buffer
-  let k=TWO_PI*5/bw;
-  let omega=TWO_PI*0.3;
-
-  for(let py=0;py<bh;py++){{
-    for(let px=0;px<bw;px++){{
-      let r1=dist(px,py,s1x,s1y);
-      let r2=dist(px,py,s2x,s2y);
-      let w1=sin(k*r1-omega*t);
-      let w2=sin(k*r2-omega*t);
-      let amp=(w1+w2)*0.5;  // -1 to +1
-
-      // Map to colour: dark blue (trough) → black → bright white/yellow (crest)
-      let intensity=amp;  // -1 to 1
-      let r,g,b;
-      if(intensity>0){{
-        // crest: white-yellow glow
-        r=int(map(intensity,0,1,14,255));
-        g=int(map(intensity,0,1,17,220));
-        b=int(map(intensity,0,1,23,80));
-      }} else {{
-        // trough: dark blue
-        r=int(map(intensity,-1,0,10,14));
-        g=int(map(intensity,-1,0,10,17));
-        b=int(map(intensity,-1,0,80,23));
+      let amp = 0;
+      if (s1On && s2On) {{
+        let w1 = sin(k * r1 - omega * t);
+        let w2 = sin(k * r2 - omega * t + phaseOffset);
+        amp = (w1 + w2) * 0.5;
+      }} else if (s1On) {{
+        amp = sin(k * r1 - omega * t);
+      }} else if (s2On) {{
+        amp = sin(k * r2 - omega * t + phaseOffset);
       }}
-      let idx=(py*bw+px)*4;
-      waveBuffer.pixels[idx]=r;
-      waveBuffer.pixels[idx+1]=g;
-      waveBuffer.pixels[idx+2]=b;
-      waveBuffer.pixels[idx+3]=255;
+
+      let rr, g, b;
+      if (amp > 0) {{
+        rr = int(map(amp,  0, 1, 14, 255));
+        g  = int(map(amp,  0, 1, 17, 220));
+        b  = int(map(amp,  0, 1, 23,  80));
+      }} else {{
+        rr = int(map(amp, -1, 0, 10,  14));
+        g  = int(map(amp, -1, 0, 10,  17));
+        b  = int(map(amp, -1, 0, 80,  23));
+      }}
+      let idx = (py * BW + px) * 4;
+      waveBuffer.pixels[idx]     = rr;
+      waveBuffer.pixels[idx + 1] = g;
+      waveBuffer.pixels[idx + 2] = b;
+      waveBuffer.pixels[idx + 3] = 255;
     }}
   }}
   waveBuffer.updatePixels();
 
-  // Draw buffer scaled to fill canvas area (leaving margins)
-  let margin=60;
-  let drawW=width-margin*2;
-  let drawH=height-margin*1.5;
-  image(waveBuffer, margin, 20, drawW, drawH);
+  // ── 2. Blit buffer to canvas ────────────────────────────────────────────
+  image(waveBuffer, MARGIN, TOP, drawW, drawH);
 
-  // Source dots
-  let s1px=margin+s1x*(drawW/bw);
-  let s2px=margin+s2x*(drawW/bw);
-  let s1py=20+s1y*(drawH/bh);
-  let s2py=20+s2y*(drawH/bh);
-
-  // Draw screen on right
+  // ── 3. Screen line (right edge) ────────────────────────────────────────
   stroke('#fafafa'); strokeWeight(3);
-  line(margin+drawW-2, 20, margin+drawW-2, 20+drawH);
+  line(MARGIN + drawW - 2, TOP, MARGIN + drawW - 2, TOP + drawH);
   noStroke(); fill('#fafafa'); textSize(9);
-  text('screen', margin+drawW+2, 20+drawH/2);
+  text('screen', MARGIN + drawW + 2, TOP + drawH / 2);
 
-  // Source markers
-  for(let [sx,sy,lbl] of [[s1px,s1py,'S₁'],[s2px,s2py,'S₂']]){{
-    noStroke();
-    for(let rr=14;rr>0;rr-=3) fill(44,160,44,map(rr,0,14,0,40));
-    for(let rr=14;rr>0;rr-=3) circle(sx,sy,rr*2);
-    fill('#2ca02c'); stroke('#ffffff'); strokeWeight(1); circle(sx,sy,10);
-    noStroke(); fill('#fafafa'); textSize(10); text(lbl,sx+8,sy-4);
+  // ── 4. Barrier ─────────────────────────────────────────────────────────
+  let s1cx = bufToCanvasX(s1bx), s1cy = bufToCanvasY(s1by);
+  let s2cx = bufToCanvasX(s2bx), s2cy = bufToCanvasY(s2by);
+  let barX = bufToCanvasX(s1bx) + 12;
+
+  stroke('#888'); strokeWeight(4);
+  line(barX, TOP,         barX, s1cy - 8);
+  line(barX, s1cy + 8,    barX, s2cy - 8);
+  line(barX, s2cy + 8,    barX, TOP + drawH);
+
+  // ── 5. Source markers + toggle buttons ─────────────────────────────────
+  _drawSource(s1cx, s1cy, 'S₁', s1On);
+  _drawSource(s2cx, s2cy, 'S₂', s2On);
+
+  // ── 6. Hover probe — path difference lines + intensity readout ─────────
+  if (probeActive && (s1On || s2On)) {{
+    _drawProbe(mouseX, mouseY);
   }}
 
-  // Barrier with slits
-  let barX=margin+s1x*(drawW/bw)+10;
-  stroke('#888'); strokeWeight(4);
-  line(barX, 20, barX, s1py-8);
-  line(barX, s1py+8, barX, s2py-8);
-  line(barX, s2py+8, barX, 20+drawH);
+  // ── 7. Phase slider ─────────────────────────────────────────────────────
+  _drawPhaseSlider();
 
-  // Labels: constructive/destructive lines
-  noStroke(); fill(255,255,255,100); textSize(9);
-  text('Constructive →', margin+drawW*0.55, 20+drawH*0.25);
-  text('Destructive', margin+drawW*0.55, 20+drawH*0.38);
+  // ── 8. Info labels (bottom-left) ────────────────────────────────────────
+  noStroke(); fill('#fafafa'); textSize(9);
+  text('λ = ' + CFG.lambda.toFixed(0) + ' nm', 8, height - 40);
+  text('d = ' + CFG.slitSep.toFixed(2) + ' mm',    8, height - 27);
+  text('Δx = λD/d',                       8, height - 14);
 
-  // λ, d labels
-  fill('#fafafa'); textSize(9);
-  text('λ = '+D.lambda.toFixed(0)+' nm', 8, height-40);
-  text('d = '+D.slitSep.toFixed(2)+' mm', 8, height-26);
-  text('Δx = λD/d', 8, height-12);
-
-  // Controls
-  noStroke(); fill(15,15,25,220); rect(width-118,8,110,90,6);
+  // ── 9. Play / speed controls ─────────────────────────────────────────────
+  noStroke(); fill(15, 15, 25, 220); rect(width - 128, 6, 122, 72, 6);
   fill('#fafafa'); textSize(11);
-  text(playing?'⏸ Pause':'▶ Play',width-112,28);
-  text('⚡ '+speed+'x',width-112,65);
+  text(playing ? '⏸ Pause' : '▶ Play', width - 122, 26);
+  text('⚡ ' + speed + 'x',                  width - 122, 58);
 
-  if(playing) t+=0.1*speed;
+  // ── 10. Advance time ────────────────────────────────────────────────────
+  if (playing) t += 0.07 * speed;
+}}
+
+// ── Draw one source dot with glow + toggle button ───────────────────────────
+function _drawSource(cx, cy, lbl, isOn) {{
+  // Glow rings
+  noStroke();
+  let gc = isOn ? [44, 160, 44] : [120, 60, 60];
+  for (let rr = 14; rr > 0; rr -= 3) {{
+    fill(gc[0], gc[1], gc[2], map(rr, 0, 14, 0, 35));
+    circle(cx, cy, rr * 2);
+  }}
+  // Core dot
+  fill(isOn ? '#2ca02c' : '#7c3030');
+  stroke('#ffffff'); strokeWeight(1);
+  circle(cx, cy, 10);
+
+  // Label
+  noStroke(); fill('#fafafa'); textSize(10);
+  text(lbl, cx - 18, cy - 7);
+
+  // Toggle button (drawn to the right of the source dot)
+  let bx = cx + 14, by = cy;
+  let btnCol = isOn ? [40, 140, 40, 210] : [140, 40, 40, 210];
+  noStroke(); fill(btnCol[0], btnCol[1], btnCol[2], btnCol[3]);
+  rect(bx, by - 8, 30, 16, 4);
+  fill('#fafafa'); textSize(8);
+  text(isOn ? 'ON' : 'OFF', bx + 4, by + 4);
+}}
+
+// ── Draw hover probe elements ───────────────────────────────────────────────
+function _drawProbe(cx, cy) {{
+  let dl = pathDiffLambda(cx, cy);     // signed path difference in λ
+  let absDL = abs(dl);
+  let nearestN = round(absDL);
+  let remainder = absDL - nearestN;
+  let isConstructive = abs(remainder) < 0.15;  // within 0.15λ of integer
+
+  let lineCol = isConstructive ? [80, 220, 80] : [220, 60, 60];
+
+  // Cursor highlight circle
+  noFill(); stroke(lineCol[0], lineCol[1], lineCol[2], 200); strokeWeight(1.5);
+  circle(cx, cy, 22);
+  stroke(lineCol[0], lineCol[1], lineCol[2], 80); strokeWeight(0.8);
+  circle(cx, cy, 36);
+
+  // Dashed lines from each source to cursor
+  let s1cx = bufToCanvasX(s1bx), s1cy = bufToCanvasY(s1by);
+  let s2cx = bufToCanvasX(s2bx), s2cy = bufToCanvasY(s2by);
+
+  _dashedLine(s1cx, s1cy, cx, cy, lineCol, s1On ? 200 : 60);
+  _dashedLine(s2cx, s2cy, cx, cy, lineCol, s2On ? 200 : 60);
+
+  // Vertical guide line from cursor to top of canvas
+  stroke(255, 255, 255, 40); strokeWeight(1);
+  line(cx, TOP, cx, cy - 12);
+
+  // Intensity readout
+  let I = intensityAt(cx, cy);
+  let nlbl = isConstructive
+    ? 'n=' + nearestN + 'λ (constructive)'
+    : (abs(absDL - (nearestN + 0.5)) < 0.15
+        ? 'n=' + nearestN + '.5λ (destructive)'
+        : 'ΔL=' + absDL.toFixed(2) + 'λ');
+
+  // Background pill
+  let readX = cx + 14, readY = cy - 28;
+  if (readX + 130 > width) readX = cx - 144;
+  if (readY < TOP + 12)    readY = cy + 40;
+
+  noStroke(); fill(10, 10, 18, 210); rect(readX - 4, readY - 14, 140, 46, 5);
+
+  fill(lineCol[0], lineCol[1], lineCol[2]); textSize(9);
+  text('I = ' + I.toFixed(2) + ' (rel)', readX, readY);
+  text('ΔL = ' + dl.toFixed(2) + ' λ',   readX, readY + 13);
+  fill('#fafafa');
+  text(nlbl, readX, readY + 26);
+}}
+
+// ── Draw dashed line ─────────────────────────────────────────────────────────
+function _dashedLine(x1, y1, x2, y2, col, alpha) {{
+  let d = dist(x1, y1, x2, y2);
+  let dashLen = 6, gapLen = 4, step = dashLen + gapLen;
+  let steps = floor(d / step);
+  stroke(col[0], col[1], col[2], alpha); strokeWeight(1.2);
+  for (let i = 0; i < steps; i++) {{
+    let t0 = (i * step) / d;
+    let t1 = (i * step + dashLen) / d;
+    line(lerp(x1, x2, t0), lerp(y1, y2, t0),
+         lerp(x1, x2, t1), lerp(y1, y2, t1));
+  }}
+}}
+
+// ── Phase offset slider ───────────────────────────────────────────────────────
+function _drawPhaseSlider() {{
+  let frac = phaseOffset / TWO_PI;
+  let knobX = sliderX + frac * sliderW;
+
+  // Track
+  noStroke(); fill(40, 40, 60, 220);
+  rect(sliderX, sliderY - SLIDER_H / 2, sliderW, SLIDER_H, 7);
+
+  // Filled portion
+  fill(60, 120, 200, 200);
+  rect(sliderX, sliderY - SLIDER_H / 2, frac * sliderW, SLIDER_H, 7);
+
+  // Knob
+  fill(200, 220, 255); stroke('#ffffff'); strokeWeight(1);
+  circle(knobX, sliderY, 18);
+
+  // Labels
+  noStroke(); fill('#fafafa'); textSize(9);
+  text('Phase offset: φ = ' + (phaseOffset / PI).toFixed(2) + 'π',
+       sliderX, sliderY - SLIDER_H - 4);
+  text('0',     sliderX - 8,          sliderY + SLIDER_H + 10);
+  text('2π', sliderX + sliderW - 4, sliderY + SLIDER_H + 10);
+
+  // Phase-inversion hint
+  if (abs(phaseOffset - PI) < 0.18) {{
+    fill(255, 200, 80); textSize(8);
+    text('φ=π: pattern inverted', sliderX + sliderW / 2 - 42, sliderY + SLIDER_H + 22);
+  }}
 }}
 </script></body></html>"""
 

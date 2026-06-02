@@ -660,236 +660,566 @@ def build_amplitude_response(
 
 def build_shm_animation(t_arr, x_arr, v_arr, sim_type, params):
     """
-    Build p5.js animated SHM HTML.
+    Build p5.js animated SHM HTML with enhanced interactive features.
 
     sim_type: 'spring' or 'pendulum'
-    params: dict with keys like 'omega0', 'amplitude', 'L' (pendulum length)
+    params: dict with keys like 'omega0', 'amplitude', 'L' (pendulum length),
+            and optionally 'zeta' (damping ratio).
+
+    Enhanced features:
+    - Drag to displace and release: click/drag mass or pendulum bob to set a
+      new initial displacement; rubber-band stretch indicator shown while dragging.
+    - Phase space portrait (mini panel): bottom-right corner shows live x-vs-v
+      ellipse with colour-coded dot (red at max displacement, blue at max velocity).
+    - Energy display bar: full-width KE (orange) + PE (blue) bars with numeric
+      values and constant total-E dotted line.
+    - Multi-pendulum mode: up to 3 pendulums (pendulum only), Add/Clear buttons,
+      colour-coded (white, orange, cyan), beat frequency visible when lengths differ.
+    - Damping visual: if zeta > 0, draws fading dashed amplitude-envelope curves.
     """
-    import json, numpy as np
-    step = max(1, len(t_arr)//300)
+    import json
+    step = max(1, len(t_arr) // 300)
     ts = t_arr[::step].tolist()
-    xs = x_arr[::step].tolist()  # displacement in metres (or radians for pendulum)
+    xs = x_arr[::step].tolist()
     vs = v_arr[::step].tolist()
 
     x_max = float(np.max(np.abs(x_arr))) or 1.0
     v_max = float(np.max(np.abs(v_arr))) or 1.0
+    omega0 = float(params.get("omega0", 1.0))
+    amplitude = float(params.get("amplitude", x_max))
+    zeta = float(params.get("zeta", 0.0))
+    L_param = float(params.get("L", 1.0))
 
     data = json.dumps({
         "t": ts, "x": xs, "v": vs,
         "xMax": x_max, "vMax": v_max,
         "simType": sim_type,
         "n": len(ts),
-        "params": params
+        "omega0": omega0,
+        "amplitude": amplitude,
+        "zeta": zeta,
+        "L": L_param,
     })
 
     return f"""<!DOCTYPE html>
 <html><head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
-<style>body{{margin:0;overflow:hidden;background:#0e1117;}}</style>
+<style>
+body{{margin:0;overflow:hidden;background:#0e1117;}}
+</style>
 </head><body>
 <script>
 const D = {data};
-let frame=0, playing=true, speed=1;
+
+// ── Playback state ────────────────────────────────────────────────────────────
+let frame = 0, playing = true, speed = 1;
+
+// ── Drag-to-displace state ────────────────────────────────────────────────────
+let dragging = false;
+let dragStartX = 0, dragStartY = 0;
+let dragCurrentX = 0, dragCurrentY = 0;
+let customAmplitude = D.amplitude;   // currently active amplitude (may be overridden by drag)
+let customFrame = -1;                // if >= 0: replay from custom amplitude
+
+// ── Phase-space trail ─────────────────────────────────────────────────────────
 let phaseTrail = [];
 
+// ── Multi-pendulum state (pendulum mode only) ─────────────────────────────────
+// pendulums[0] is always the primary (from data), extras are computed live
+let extraPendulums = [];   // each: {{lengthFactor, color, frame, trail}}
+const PEND_COLORS = ['#ffffff', '#ff7f0e', '#17becf'];
+
+// ── Canvas geometry helpers (set in draw) ─────────────────────────────────────
+let pivX, pivY, pendLpx;   // pendulum pivot and pixel-length
+let wallX, ceilY, restLen; // spring wall, ceiling, rest length
+let massW = 40, massH = 40;
+
+// ── Utility ───────────────────────────────────────────────────────────────────
+function sign(v){{ return v > 0 ? 1 : v < 0 ? -1 : 0; }}
+function setLineDash(list){{ drawingContext.setLineDash(list); }}
+
+// Compute (x, v) for a SHM oscillator at a given frame index, given an amplitude.
+// Uses the same cosine formula as the Python shm_kinematics().
+function shmXV(frameIdx, amp, omega){{
+  let t = frameIdx / D.n * (D.t[D.n - 1] || 1.0);
+  let x = amp * Math.cos(omega * t);
+  let v = -amp * omega * Math.sin(omega * t);
+  return [x, v];
+}}
+
+// ── Setup / resize ────────────────────────────────────────────────────────────
 function setup(){{
-  createCanvas(windowWidth||700, 420);
+  createCanvas(windowWidth || 700, 520);
   textFont('monospace');
 }}
-function windowResized(){{ resizeCanvas(windowWidth,420); }}
+function windowResized(){{ resizeCanvas(windowWidth, 520); }}
 
-function mousePressed(){{
-  if(mouseX>width-120&&mouseX<width-10){{
-    if(mouseY>10&&mouseY<40) playing=!playing;
-    else if(mouseY>50&&mouseY<80){{frame=0;playing=true;phaseTrail=[];}}
-    else if(mouseY>90&&mouseY<120) speed=speed===1?2:speed===2?4:1;
+// ── Geometry helpers ──────────────────────────────────────────────────────────
+function updateSpringGeometry(){{
+  wallX   = 50;
+  ceilY   = height / 2 - 20;
+  restLen = 150;
+}}
+function updatePendulumGeometry(){{
+  pivX    = width / 2;
+  pivY    = 85;
+  pendLpx = min(width, height - 160) * 0.38;
+}}
+
+// ── Hit-testing for drag ──────────────────────────────────────────────────────
+function getMassCenter(){{
+  if (D.simType === 'spring') {{
+    let idx = customFrame >= 0 ? min(customFrame, D.n - 1) : min(frame, D.n - 1);
+    let x   = customFrame >= 0 ? shmXV(customFrame, customAmplitude, D.omega0)[0] : D.x[idx];
+    let dispPx = x / D.xMax * 120;
+    return [wallX + restLen + dispPx, ceilY];
+  }} else {{
+    let idx = customFrame >= 0 ? min(customFrame, D.n - 1) : min(frame, D.n - 1);
+    let theta = customFrame >= 0 ? shmXV(customFrame, customAmplitude, D.omega0)[0] : D.x[idx];
+    return [pivX + pendLpx * sin(theta), pivY + 8 + pendLpx * cos(theta)];
   }}
 }}
 
-function drawSpring(x1,y1,x2,y2,coils,w){{
-  // Draw a coil spring between two points
-  let dx=x2-x1, dy=y2-y1;
-  let len=sqrt(dx*dx+dy*dy);
-  let nx=-dy/len, ny=dx/len;
-  let segs=coils*2+2;
-  beginShape();
-  vertex(x1,y1);
-  for(let i=1;i<segs;i++){{
-    let t=i/segs;
-    let mx=x1+dx*t, my=y1+dy*t;
-    let sign=(i%2===0)?1:-1;
-    vertex(mx+nx*sign*w, my+ny*sign*w);
+// ── Mouse interaction ─────────────────────────────────────────────────────────
+function mousePressed(){{
+  // Control panel (top-right)
+  let ctrlX = width - 118, ctrlW = 110;
+  if (mouseX > ctrlX && mouseX < ctrlX + ctrlW) {{
+    if (mouseY > 8  && mouseY < 40)  {{ playing = !playing; return; }}
+    if (mouseY > 48 && mouseY < 80)  {{ resetSim(); return; }}
+    if (mouseY > 88 && mouseY < 120) {{ speed = speed === 1 ? 2 : speed === 2 ? 4 : 1; return; }}
   }}
-  vertex(x2,y2);
+
+  // Multi-pendulum buttons (top-left, pendulum only)
+  if (D.simType === 'pendulum') {{
+    if (mouseX > 10 && mouseX < 110 && mouseY > 8 && mouseY < 36) {{
+      addExtraPendulum(); return;
+    }}
+    if (mouseX > 118 && mouseX < 180 && mouseY > 8 && mouseY < 36) {{
+      extraPendulums = []; return;
+    }}
+  }}
+
+  // Drag hit-test: within 30 px of mass/bob centre
+  let [cx, cy] = getMassCenter();
+  if (dist(mouseX, mouseY, cx, cy) < 35) {{
+    dragging  = true;
+    playing   = false;
+    dragStartX = cx; dragStartY = cy;
+    dragCurrentX = mouseX; dragCurrentY = mouseY;
+  }}
+}}
+
+function mouseDragged(){{
+  if (dragging) {{
+    dragCurrentX = mouseX;
+    dragCurrentY = mouseY;
+  }}
+}}
+
+function mouseReleased(){{
+  if (!dragging) return;
+  dragging = false;
+
+  // Compute new amplitude from drag
+  if (D.simType === 'spring') {{
+    let dx = (dragCurrentX - (wallX + restLen)) / 120 * D.xMax;
+    customAmplitude = constrain(abs(dx), 0.001, D.xMax * 1.5);
+  }} else {{
+    // Angle from pivot
+    let dx = dragCurrentX - pivX;
+    let dy = dragCurrentY - (pivY + 8);
+    let theta = atan2(dx, dy);   // angle from downward vertical
+    customAmplitude = constrain(abs(theta), 0.001, PI * 0.45);
+  }}
+
+  // Restart oscillation
+  customFrame = 0;
+  phaseTrail  = [];
+  extraPendulums.forEach(p => {{ p.frame = 0; p.trail = []; }});
+  playing = true;
+}}
+
+function addExtraPendulum(){{
+  if (extraPendulums.length >= 2) return;   // max 3 total (1 primary + 2 extra)
+  let factor = extraPendulums.length === 0 ? 1.10 : 0.92;
+  extraPendulums.push({{
+    lengthFactor: factor,
+    color: PEND_COLORS[extraPendulums.length + 1],
+    frame: customFrame >= 0 ? customFrame : frame,
+    trail: [],
+  }});
+}}
+
+function resetSim(){{
+  frame          = 0;
+  customFrame    = -1;
+  customAmplitude = D.amplitude;
+  playing        = true;
+  phaseTrail     = [];
+  extraPendulums = [];
+}}
+
+// ── Spring coil drawing ───────────────────────────────────────────────────────
+function drawSpring(x1, y1, x2, y2, coils, w){{
+  let dx = x2 - x1, dy = y2 - y1;
+  let len = sqrt(dx * dx + dy * dy) || 1;
+  let nx = -dy / len, ny = dx / len;
+  let segs = coils * 2 + 2;
+  beginShape();
+  vertex(x1, y1);
+  for (let i = 1; i < segs; i++) {{
+    let tt = i / segs;
+    let mx = x1 + dx * tt, my = y1 + dy * tt;
+    let sg = (i % 2 === 0) ? 1 : -1;
+    vertex(mx + nx * sg * w, my + ny * sg * w);
+  }}
+  vertex(x2, y2);
   endShape();
 }}
 
+// ── Phase-space mini panel ────────────────────────────────────────────────────
+function drawPhasePanel(x, v){{
+  let phX = width - 90, phY = height - 150, phR = 68;
+
+  // Background circle
+  noStroke(); fill(11, 11, 20, 220);
+  circle(phX, phY, phR * 2 + 16);
+  stroke('#2a2a2a'); strokeWeight(1); noFill();
+  circle(phX, phY, phR * 2);
+
+  // Axis labels
+  noStroke(); fill('#555'); textSize(8);
+  textAlign(CENTER);
+  text('x', phX, phY + phR + 12);
+  textAlign(LEFT);
+  text('v', phX - phR - 10, phY + 4);
+
+  // Axis ticks
+  stroke('#2a2a2a'); strokeWeight(1);
+  line(phX - phR, phY, phX + phR, phY);
+  line(phX, phY - phR, phX, phY + phR);
+
+  // Update trail
+  phaseTrail.push([x, v]);
+  if (phaseTrail.length > 120) phaseTrail.shift();
+
+  // Draw trail with colour-coded gradient: red at extremes, blue at centre
+  for (let i = 1; i < phaseTrail.length; i++) {{
+    let alpha  = map(i, 0, phaseTrail.length, 30, 220);
+    let xFrac  = abs(phaseTrail[i][0]) / D.xMax;      // 1 at max displacement
+    let r = lerp(50,  220, xFrac);
+    let b = lerp(220, 50,  xFrac);
+    let g = 50;
+    let px1 = phX + phaseTrail[i-1][0] / D.xMax * phR;
+    let py1 = phY - phaseTrail[i-1][1] / D.vMax * phR;
+    let px2 = phX + phaseTrail[i  ][0] / D.xMax * phR;
+    let py2 = phY - phaseTrail[i  ][1] / D.vMax * phR;
+    stroke(r, g, b, alpha); strokeWeight(1.5);
+    line(px1, py1, px2, py2);
+  }}
+
+  // Live dot
+  let dotX = phX + x / D.xMax * phR;
+  let dotY = phY - v / D.vMax * phR;
+  let xF   = abs(x) / D.xMax;
+  let dr = lerp(50, 220, xF), db = lerp(220, 50, xF);
+  noStroke(); fill(dr, 50, db);
+  circle(dotX, dotY, 7);
+
+  // Label
+  fill('#777'); noStroke(); textSize(8); textAlign(CENTER);
+  text('phase space', phX, phY + phR + 22);
+  textAlign(LEFT);
+}}
+
+// ── Full-width energy bar ─────────────────────────────────────────────────────
+function drawEnergyBar(ke, pe, xVal, vVal){{
+  let bx = 10, bw = width - 200, barH = 14, barY = height - 14;
+  let totalE = D.xMax * D.xMax;   // proportional reference (normalised)
+  let keNorm = constrain(ke * ke / (D.vMax * D.vMax), 0, 1);   // v²/vMax²
+  let peNorm = constrain(xVal * xVal / (D.xMax * D.xMax), 0, 1); // x²/xMax²
+
+  // Background
+  noStroke(); fill(20, 20, 30);
+  rect(bx, barY - barH * 2 - 8, bw, barH * 2 + 8, 4);
+
+  // KE bar (orange)
+  fill('#ff7f0e');
+  rect(bx + 2, barY - barH * 2 - 5, (bw - 4) * keNorm, barH - 2, 3);
+
+  // PE bar (blue)
+  fill('#1f77b4');
+  rect(bx + 2, barY - barH - 3, (bw - 4) * peNorm, barH - 2, 3);
+
+  // Total-E dotted line
+  stroke('#2ca02c'); strokeWeight(1.5); setLineDash([4, 3]);
+  line(bx + bw - 2, barY - barH * 2 - 8, bx + bw - 2, barY);
+  setLineDash([]);
+
+  // Labels inside
+  noStroke(); fill('#fafafa'); textSize(9);
+  let keJ  = 0.5 * vVal * vVal;    // proportional (m=1)
+  let peJ  = 0.5 * xVal * xVal;
+  let totJ = keJ + peJ;
+  // clamp display to 3 sig figs
+  text('KE', bx + 4, barY - barH - 8);
+  text('PE', bx + 4, barY - 3);
+  fill('#aaa'); textSize(8);
+  text('KE: ' + keJ.toFixed(3) + '  PE: ' + peJ.toFixed(3) + '  E: ' + totJ.toFixed(3),
+       bx + 25, barY - barH - 4);
+
+  // Total E label
+  fill('#2ca02c'); textSize(8);
+  text('E', bx + bw + 2, barY - 5);
+}}
+
+// ── Damping envelope ──────────────────────────────────────────────────────────
+function drawDampingEnvelope(originX, originY, isSpring){{
+  if (D.zeta <= 0) return;
+  // Draw amplitude-decay envelope as dashed curves sampling t values
+  let nEnv  = 60;
+  let tFull = D.t[D.n - 1] || 1;
+  stroke(180, 180, 60, 120); strokeWeight(1); setLineDash([5, 4]);
+  noFill();
+
+  if (isSpring) {{
+    // Horizontal spring: envelope appears as vertical band around ceilY
+    // Draw top and bottom envelope as curves in the time domain isn't applicable
+    // here — instead shade ±envelope width at the current mass position
+    let envAmp = D.amplitude * exp(-D.zeta * D.omega0 * (frame / D.n * tFull));
+    let envPx  = envAmp / D.xMax * 120;
+    setLineDash([6, 4]);
+    stroke(180, 180, 60, 150); strokeWeight(1.5);
+    // Draw dashed lines at ±envelope displacement from rest
+    line(wallX + restLen + envPx,  ceilY - 45, wallX + restLen + envPx,  ceilY + 45);
+    line(wallX + restLen - envPx,  ceilY - 45, wallX + restLen - envPx,  ceilY + 45);
+    setLineDash([]);
+    // Label
+    noStroke(); fill(180, 180, 60); textSize(9);
+    text('Damping: β=' + D.zeta.toFixed(2), wallX + restLen + envPx + 6, ceilY - 30);
+  }} else {{
+    // Pendulum: draw arc showing current envelope angle
+    let envAmp  = D.amplitude * exp(-D.zeta * D.omega0 * (frame / D.n * tFull));
+    let envLpx  = pendLpx;
+    // Draw ± envelope arcs
+    stroke(180, 180, 60, 180); strokeWeight(1.5); setLineDash([5, 4]); noFill();
+    arc(pivX, pivY + 8, envLpx * 2, envLpx * 2,
+        HALF_PI - envAmp, HALF_PI);          // right half
+    arc(pivX, pivY + 8, envLpx * 2, envLpx * 2,
+        HALF_PI, HALF_PI + envAmp);          // left half
+    setLineDash([]);
+    noStroke(); fill(180, 180, 60); textSize(9);
+    text('β=' + D.zeta.toFixed(2), pivX + envLpx * sin(envAmp) + 5, pivY + 8 + envLpx * cos(envAmp));
+  }}
+}}
+
+// ── Draw one pendulum (given theta, color) ────────────────────────────────────
+function drawOnePendulum(theta, col, showArrow, v){{
+  let bobX = pivX + pendLpx * sin(theta);
+  let bobY = pivY + 8 + pendLpx * cos(theta);
+
+  // Rod
+  stroke(col); strokeWeight(2);
+  line(pivX, pivY + 8, bobX, bobY);
+
+  // Bob glow
+  let cr = red(color(col)), cg = green(color(col)), cb = blue(color(col));
+  noStroke();
+  for (let r = 22; r > 0; r -= 5) fill(cr, cg, cb, map(r, 0, 22, 0, 25));
+  for (let r = 22; r > 0; r -= 5) circle(bobX, bobY, r * 2);
+
+  stroke(col); strokeWeight(1.5); fill(col);
+  circle(bobX, bobY, 22);
+
+  // Velocity arrow
+  if (showArrow && abs(v) > 0.01) {{
+    let tx = -cos(theta) * sign(v), ty = sin(theta) * sign(v);
+    let spd = map(abs(v), 0, D.vMax, 0, 50);
+    stroke('#ff7f0e'); fill('#ff7f0e'); strokeWeight(2);
+    let ax = bobX + tx * spd, ay = bobY + ty * spd;
+    line(bobX, bobY, ax, ay);
+    let ang = atan2(ty, tx);
+    push(); translate(ax, ay); rotate(ang);
+    triangle(0, 0, -10, -5, -10, 5); pop();
+  }}
+}}
+
+// ── Main draw ─────────────────────────────────────────────────────────────────
 function draw(){{
   background('#0e1117');
-  let idx=min(frame, D.n-1);
-  let x=D.x[idx], v=D.v[idx];
+  updateSpringGeometry();
+  updatePendulumGeometry();
 
-  // Energy
-  let ke=v*v/(D.vMax*D.vMax);
-  let pe=x*x/(D.xMax*D.xMax);
+  // Resolve current (x, v) — either from data or from custom-drag replay
+  let idx = min(frame, D.n - 1);
+  let x, v;
+  if (customFrame >= 0) {{
+    [x, v] = shmXV(customFrame, customAmplitude, D.omega0);
+  }} else {{
+    x = D.x[idx]; v = D.v[idx];
+  }}
 
-  if(D.simType==='spring'){{
-    // ── SPRING-MASS ──
-    let wallX=50, ceilY=height/2;
-    let restLen=150, massW=40, massH=40;
-    let dispPx=x/D.xMax * 120;  // px displacement
-    let massX=wallX+restLen+dispPx;
-    let massY=ceilY-massH/2;
+  // ── SPRING-MASS ───────────────────────────────────────────────────────────
+  if (D.simType === 'spring') {{
+    let dispPx = x / D.xMax * 120;
+    let massX  = wallX + restLen + dispPx;
+    let massY  = ceilY - massH / 2;
 
-    // Support rail
+    // Wall
     stroke('#555'); strokeWeight(3);
-    line(wallX, ceilY-60, wallX, ceilY+60);
-    // Hatch wall
+    line(wallX, ceilY - 70, wallX, ceilY + 70);
     stroke('#555'); strokeWeight(1);
-    for(let i=-3;i<=3;i++) line(wallX-12,ceilY+i*20,wallX,ceilY+i*20-12);
+    for (let i = -4; i <= 4; i++) line(wallX - 12, ceilY + i * 17, wallX, ceilY + i * 17 - 12);
+
+    // Damping envelope (before spring so it's behind)
+    drawDampingEnvelope(0, 0, true);
 
     // Spring
     stroke('#17becf'); strokeWeight(2); noFill();
     drawSpring(wallX, ceilY, massX, ceilY, 8, 14);
 
+    // Drag rubber-band
+    if (dragging) {{
+      stroke(255, 220, 80, 180); strokeWeight(2); setLineDash([5, 3]);
+      line(wallX + restLen, ceilY, dragCurrentX, ceilY);
+      setLineDash([]);
+      let dxM = (dragCurrentX - (wallX + restLen)) / 120 * D.xMax;
+      noStroke(); fill(255, 220, 80); textSize(10);
+      text('x = ' + abs(dxM).toFixed(3) + ' m', dragCurrentX + 8, ceilY - 12);
+    }}
+
+    // Equilibrium dashed line
+    stroke('#2a2a2a'); strokeWeight(1); setLineDash([6, 4]);
+    line(wallX + restLen, 55, wallX + restLen, height - 90);
+    setLineDash([]);
+
     // Mass glow
     noStroke();
-    for(let r=30;r>0;r-=6) fill(31,119,180,map(r,0,30,0,25));
-    for(let r=30;r>0;r-=6) rect(massX-massW/2-r/4,massY-r/4,massW+r/2,massH+r/2,4);
+    for (let r = 32; r > 0; r -= 6) fill(31, 119, 180, map(r, 0, 32, 0, 22));
+    for (let r = 32; r > 0; r -= 6) rect(massX - massW/2 - r/4, massY - r/4, massW + r/2, massH + r/2, 4);
 
     // Mass block
     fill('#1f77b4'); stroke('#ffffff'); strokeWeight(1.5);
-    rect(massX-massW/2, massY, massW, massH, 4);
+    rect(massX - massW/2, massY, massW, massH, 4);
     noStroke(); fill('#ffffff'); textSize(10); textAlign(CENTER);
-    text('m', massX, massY+massH/2+4);
+    text('m', massX, massY + massH/2 + 4);
     textAlign(LEFT);
 
-    // Equilibrium line
-    stroke('#2a2a2a'); strokeWeight(1); setLineDash([6,4]);
-    line(wallX+restLen, 60, wallX+restLen, height-60);
-    setLineDash([]);
-
     // Velocity arrow
-    if(abs(v)>0.01){{
+    if (!dragging && abs(v) > 0.01) {{
       stroke('#ff7f0e'); fill('#ff7f0e'); strokeWeight(2);
-      let arrowLen=map(abs(v),0,D.vMax,0,60)*sign(v);
-      let ax=massX+massW/2, ay=ceilY;
-      line(ax,ay,ax+arrowLen,ay);
-      let dir=v>0?1:-1;
-      triangle(ax+arrowLen,ay, ax+arrowLen-dir*10,ay-5, ax+arrowLen-dir*10,ay+5);
+      let arrowLen = map(abs(v), 0, D.vMax, 0, 60) * sign(v);
+      let ax = massX + massW/2, ay = ceilY;
+      line(ax, ay, ax + arrowLen, ay);
+      let dir = v > 0 ? 1 : -1;
+      triangle(ax + arrowLen, ay, ax + arrowLen - dir*10, ay-5, ax + arrowLen - dir*10, ay+5);
     }}
 
+  // ── PENDULUM ──────────────────────────────────────────────────────────────
   }} else {{
-    // ── PENDULUM ──
-    let pivX=width/2, pivY=80;
-    let L=min(width,height)*0.35;
-    let theta=x;  // x is angle in radians
-    let bobX=pivX+L*sin(theta);
-    let bobY=pivY+L*cos(theta);
-
     // Support
     stroke('#555'); strokeWeight(3); fill('#555');
-    rect(pivX-30, 60, 60, 20, 3);
-    // Hatch
+    rect(pivX - 30, 62, 60, 20, 3);
     stroke('#555'); strokeWeight(1);
-    for(let i=-3;i<=3;i++) line(pivX-30+i*10,60,pivX-20+i*10,42);
-
-    // Rod/string
-    stroke('#aaa'); strokeWeight(2);
-    line(pivX, pivY+8, bobX, bobY);
+    for (let i = -3; i <= 3; i++) line(pivX - 30 + i*10, 62, pivX - 20 + i*10, 44);
 
     // Pivot
-    fill('#888'); noStroke(); circle(pivX, pivY+8, 10);
+    fill('#888'); noStroke(); circle(pivX, pivY + 8, 10);
 
     // Equilibrium dashed line
-    stroke('#2a2a2a'); strokeWeight(1); setLineDash([6,4]);
-    line(pivX, pivY+8, pivX, pivY+L+20);
+    stroke('#2a2a2a'); strokeWeight(1); setLineDash([6, 4]);
+    line(pivX, pivY + 8, pivX, pivY + 8 + pendLpx + 20);
     setLineDash([]);
 
-    // Angle arc
-    if(abs(theta)>0.02){{
+    // Damping envelope
+    drawDampingEnvelope(pivX, pivY, false);
+
+    // Multi-pendulum buttons (top-left)
+    noStroke(); fill(15, 15, 25, 220); rect(8, 6, 170, 32, 5);
+    fill(extraPendulums.length < 2 ? '#2ca02c' : '#555'); noStroke();
+    rect(10, 8, 98, 28, 4);
+    fill('#fff'); textSize(10);
+    text('+ Add Pendulum', 14, 26);
+    fill('#c0392b'); noStroke(); rect(116, 8, 58, 28, 4);
+    fill('#fff'); text('Clear', 125, 26);
+
+    // Draw extra pendulums first (behind primary)
+    for (let ep of extraPendulums) {{
+      let epOmega = D.omega0 / sqrt(ep.lengthFactor);  // ω ∝ 1/√L
+      let epAmp   = customAmplitude;
+      let [ex, ev] = shmXV(ep.frame, epAmp, epOmega);
+      let epLpx   = pendLpx * sqrt(ep.lengthFactor);
+      // Temporarily override pendLpx for drawing
+      let savedLpx = pendLpx;
+      pendLpx = epLpx;
+      drawOnePendulum(ex, ep.color, false, ev);
+      pendLpx = savedLpx;
+      ep.trail.push([ex, ev]);
+      if (ep.trail.length > 80) ep.trail.shift();
+      if (playing) ep.frame += speed;
+      if (ep.frame >= D.n) ep.frame = 0;
+    }}
+
+    // Primary pendulum
+    drawOnePendulum(x, PEND_COLORS[0], true, v);
+
+    // Drag rubber-band (pendulum)
+    if (dragging) {{
+      stroke(255, 220, 80, 180); strokeWeight(2); setLineDash([5, 3]);
+      line(pivX, pivY + 8, dragCurrentX, dragCurrentY);
+      setLineDash([]);
+      let dx2 = dragCurrentX - pivX, dy2 = dragCurrentY - (pivY + 8);
+      let dragTheta = atan2(dx2, dy2);
+      noStroke(); fill(255, 220, 80); textSize(10);
+      text('θ = ' + degrees(abs(dragTheta)).toFixed(1) + '°', dragCurrentX + 8, dragCurrentY - 8);
+    }}
+
+    // Angle arc (primary pendulum)
+    let theta = x;
+    if (abs(theta) > 0.02) {{
       noFill(); stroke('#9b59b6'); strokeWeight(1.5);
-      arc(pivX, pivY+8, 60, 60, PI/2-abs(theta)/2, PI/2+abs(theta)/2);
+      arc(pivX, pivY + 8, 70, 70, HALF_PI - abs(theta), HALF_PI);
+      arc(pivX, pivY + 8, 70, 70, HALF_PI, HALF_PI + abs(theta));
       noStroke(); fill('#9b59b6'); textSize(9);
-      text('θ='+degrees(abs(theta)).toFixed(1)+'°', pivX+8, pivY+40);
+      text('θ=' + degrees(abs(theta)).toFixed(1) + '°', pivX + 8, pivY + 46);
     }}
 
-    // Bob glow
-    noStroke();
-    for(let r=24;r>0;r-=5) fill(31,119,180,map(r,0,24,0,30));
-    for(let r=24;r>0;r-=5) circle(bobX,bobY,r*2);
-
-    fill('#1f77b4'); stroke('#ffffff'); strokeWeight(1.5);
-    circle(bobX, bobY, 24);
-
-    // Velocity arrow (tangential)
-    if(abs(v)>0.01){{
-      let tx=-cos(theta)*sign(v), ty=sin(theta)*sign(v);  // tangential direction
-      let spd=map(abs(v),0,D.vMax,0,60);
-      stroke('#ff7f0e'); fill('#ff7f0e'); strokeWeight(2);
-      let ax=bobX+tx*spd, ay=bobY+ty*spd;
-      line(bobX,bobY,ax,ay);
-      let ang=atan2(ty,tx);
-      push(); translate(ax,ay); rotate(ang);
-      triangle(0,0,-10,-5,-10,5); pop();
-    }}
-
-    // Gravity arrow
+    // Gravity arrow on primary bob
+    let bobX = pivX + pendLpx * sin(theta);
+    let bobY = pivY + 8 + pendLpx * cos(theta);
     stroke('#e74c3c'); fill('#e74c3c'); strokeWeight(2);
-    line(bobX,bobY,bobX,bobY+40);
-    triangle(bobX,bobY+40,bobX-4,bobY+30,bobX+4,bobY+30);
+    line(bobX, bobY, bobX, bobY + 38);
+    triangle(bobX, bobY + 38, bobX - 4, bobY + 28, bobX + 4, bobY + 28);
   }}
 
-  // ── ENERGY BARS (bottom) ──
-  let barY=height-30, barH=18, barW=160, bx=PAD=20;
-  // KE
-  noStroke(); fill('#2a2a2a'); rect(bx,barY-barH,barW,barH,3);
-  fill('#ff7f0e'); rect(bx,barY-barH,barW*ke,barH,3);
-  fill('#fafafa'); textSize(9); text('KE',bx+barW+5,barY-4);
-  // PE
-  fill('#2a2a2a'); rect(bx,barY-barH*2-4,barW,barH,3);
-  fill('#1f77b4'); rect(bx,barY-barH*2-4,barW*pe,barH,3);
-  fill('#fafafa'); text('PE',bx+barW+5,barY-barH-8);
-  // TE line
-  stroke('#2ca02c'); strokeWeight(1); setLineDash([4,3]);
-  line(bx+barW,barY-barH*2-4,bx+barW,barY);
-  setLineDash([]);
-  fill('#2ca02c'); noStroke(); textSize(9); text('Total E',bx+barW-35,barY+12);
+  // ── ENERGY BAR (bottom) ───────────────────────────────────────────────────
+  drawEnergyBar(v, x, x, v);
 
-  // Phase space trail (x vs v)
-  phaseTrail.push([x,v]);
-  if(phaseTrail.length>80) phaseTrail.shift();
-  let phX=width-120, phY=height/2, phR=70;
-  noStroke(); fill('#111',200); circle(phX,phY,phR*2+10);
-  stroke('#2a2a2a'); strokeWeight(1); noFill();
-  circle(phX,phY,phR*2);
-  // trail
-  for(let i=1;i<phaseTrail.length;i++){{
-    let alpha=map(i,0,phaseTrail.length,30,200);
-    let px1=phX+phaseTrail[i-1][0]/D.xMax*phR;
-    let py1=phY-phaseTrail[i-1][1]/D.vMax*phR;
-    let px2=phX+phaseTrail[i][0]/D.xMax*phR;
-    let py2=phY-phaseTrail[i][1]/D.vMax*phR;
-    stroke(155,89,182,alpha); strokeWeight(1.5);
-    line(px1,py1,px2,py2);
-  }}
-  noStroke(); fill('#9b59b6'); textSize(8);
-  text('phase', phX-18, phY+phR+14);
+  // ── PHASE SPACE PANEL ─────────────────────────────────────────────────────
+  drawPhasePanel(x, v);
 
-  // Controls
-  noStroke(); fill(15,15,25,220); rect(width-118,8,110,120,6);
+  // ── CONTROLS PANEL (top-right) ────────────────────────────────────────────
+  noStroke(); fill(15, 15, 25, 220); rect(width - 118, 8, 110, 130, 6);
   fill('#fafafa'); textSize(11);
-  text(playing?'⏸ Pause':'▶ Play', width-112, 28);
-  text('↺ Replay', width-112, 68);
-  text('⚡ '+speed+'x', width-112, 108);
+  text(playing ? '⏸ Pause' : '▶ Play',  width - 112, 28);
+  text('↺ Replay',                        width - 112, 68);
+  text('⚡ ' + speed + 'x',               width - 112, 108);
 
-  if(playing) frame+=speed;
-  if(frame>=D.n){{ frame=0; phaseTrail=[]; }}
-}}
+  // Drag hint
+  fill('#777'); textSize(8);
+  text('drag mass to displace', width - 112, 128);
 
-function sign(x){{ return x>0?1:x<0?-1:0; }}
-function setLineDash(list){{
-  drawingContext.setLineDash(list);
+  // ── ADVANCE FRAME ─────────────────────────────────────────────────────────
+  if (playing && !dragging) {{
+    if (customFrame >= 0) {{
+      customFrame += speed;
+      if (customFrame >= D.n) {{ customFrame = 0; phaseTrail = []; }}
+    }} else {{
+      frame += speed;
+      if (frame >= D.n) {{ frame = 0; phaseTrail = []; }}
+    }}
+  }}
 }}
 </script></body></html>"""
 

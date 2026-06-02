@@ -1790,129 +1790,479 @@ CP_ADVANCED_TEXT = (
 
 
 def build_circular_animation(r, omega, m):
-    """Build p5.js circular motion animation."""
-    import json
+    """Build enhanced p5.js circular motion animation with drag-radius, string
+    snap, stroboscope view, and banking car icon."""
     data = json.dumps({
         "r": float(r),
         "omega": float(omega),
         "m": float(m),
-        "v": float(omega * r),
-        "a": float(omega**2 * r),
-        "F": float(m * omega**2 * r),
-        "T": float(2 * 3.14159 / omega)
+        "g": 9.81,
     })
 
     return f"""<!DOCTYPE html>
 <html><head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
-<style>body{{margin:0;overflow:hidden;background:#0e1117;}}</style>
+<style>
+  body{{margin:0;overflow:hidden;background:#0e1117;}}
+  canvas{{display:block;}}
+</style>
 </head><body>
 <script>
-const D = {data};
-let angle=0, playing=true, speed=1;
-let trail=[];
-const TRAIL_LEN=60;
+// ── Simulation constants injected from Python ─────────────────────────────
+const INIT = {data};
 
+// ── Mutable simulation state ──────────────────────────────────────────────
+let omega   = INIT.omega;   // rad/s (fixed from slider)
+let m       = INIT.m;       // kg
+let G_ACC   = INIT.g;       // m/s²
+
+// Display scale: pixels per metre — computed each draw from canvas size
+// radiusM is the PHYSICS radius in metres (user-draggable)
+let radiusM = INIT.r;
+const R_MIN_M = 0.5;
+const R_MAX_M = 25.0;
+
+// Animation state
+let angle   = 0.0;
+let playing = true;
+let speedMult = 1;          // 1x / 2x / 4x
+
+// Trail (normal mode)
+let trail = [];
+const TRAIL_LEN = 60;
+
+// Stroboscope state
+let strobeMode  = false;
+let strobeFrame = 0;        // counts frames since last strobe "flash"
+let strobeN     = 8;        // show ball every N frames (strobe period)
+let strobePositions = [];   // recorded angles
+const STROBE_MAX = 12;      // max ghost positions kept
+
+// String-snap state
+let snapped      = false;
+let snapTimer    = 0;       // ms countdown after snap
+const SNAP_RESET = 2000;    // ms before auto-reset
+let flyX = 0, flyY = 0;    // pixel position of flying ball post-snap
+let flyVX = 0, flyVY = 0;  // pixel velocity of flying ball
+let flashAlpha  = 0;        // flash effect 0-255
+
+// Drag-radius state
+let draggingRadius = false;
+let dragStartDist  = 0;
+let dragStartR     = 0;
+
+// ── Layout helpers ────────────────────────────────────────────────────────
+function cx(){{ return width  / 2; }}
+function cy(){{ return height / 2; }}
+// pixels per metre: fit the largest allowed radius inside ~38% of the smaller dimension
+function pxPerM(){{ return min(width, height) * 0.38 / R_MAX_M * 8; }}
+function rPx(){{ return radiusM * pxPerM(); }}
+
+// ── Derived physics (always up-to-date) ──────────────────────────────────
+function calcV(){{  return omega * radiusM; }}
+function calcA(){{  return omega * omega * radiusM; }}
+function calcF(){{  return m * calcA(); }}
+function calcT(){{  return (2 * PI) / omega; }}
+// Critical speed: when tension would be 10× the normal centripetal force
+// T_max = 10 * F_cent  →  v_crit = sqrt(10) * v_normal
+// Here we define it as v_crit = sqrt(10) * omega * r  (i.e. 10× the centripetal force limit)
+function calcVCrit(){{ return sqrt(10.0) * calcV(); }}
+// Danger fraction: 0 = safe, 1 = snap
+function dangerFrac(){{
+  let vc = calcVCrit();
+  if(vc <= 0) return 0;
+  return constrain(calcV() / vc, 0, 1);
+}}
+
+// ── p5.js setup ───────────────────────────────────────────────────────────
 function setup(){{
-  createCanvas(windowWidth||700,420);
+  createCanvas(windowWidth || 720, 480);
   textFont('monospace');
+  angleMode(RADIANS);
 }}
-function windowResized(){{ resizeCanvas(windowWidth,420); }}
+function windowResized(){{ resizeCanvas(windowWidth, 480); }}
 
+// ── Mouse interaction ─────────────────────────────────────────────────────
 function mousePressed(){{
-  if(mouseX>width-120&&mouseX<width-10){{
-    if(mouseY>10&&mouseY<40) playing=!playing;
-    else if(mouseY>50&&mouseY<80) speed=speed===1?2:speed===2?4:1;
+  if(snapped) return;
+
+  // Control buttons (top-right panel)
+  if(mouseX > width - 130 && mouseX < width - 10){{
+    if(mouseY > 10 && mouseY < 42)   {{ playing = !playing; return; }}
+    if(mouseY > 48 && mouseY < 80)   {{ speedMult = speedMult===1?2:speedMult===2?4:1; return; }}
+    if(mouseY > 86 && mouseY < 118)  {{ strobeMode = !strobeMode; strobePositions=[]; return; }}
+  }}
+
+  // Strobe-rate buttons (top-left when in strobe mode)
+  if(strobeMode){{
+    if(mouseX > 10 && mouseX < 26 && mouseY > 10 && mouseY < 26){{
+      strobeN = max(2, strobeN - 1); return;
+    }}
+    if(mouseX > 28 && mouseX < 44 && mouseY > 10 && mouseY < 26){{
+      strobeN = min(30, strobeN + 1); return;
+    }}
+  }}
+
+  // Drag-radius: check if click is near the orbit circle
+  let dx = mouseX - cx();
+  let dy = mouseY - cy();
+  let dist = sqrt(dx*dx + dy*dy);
+  let rp   = rPx();
+  if(abs(dist - rp) < 18){{
+    draggingRadius = true;
+    dragStartDist  = dist;
+    dragStartR     = radiusM;
   }}
 }}
 
-function drawArrow(x1,y1,x2,y2,col,label){{
+function mouseDragged(){{
+  if(!draggingRadius || snapped) return;
+  let dx   = mouseX - cx();
+  let dy   = mouseY - cy();
+  let dist = sqrt(dx*dx + dy*dy);
+  let newR = dist / pxPerM();
+  radiusM  = constrain(newR, R_MIN_M, R_MAX_M);
+}}
+
+function mouseReleased(){{
+  draggingRadius = false;
+}}
+
+// ── Arrow drawing helper ──────────────────────────────────────────────────
+function drawArrow(x1, y1, x2, y2, col, label){{
+  let dx = x2 - x1, dy = y2 - y1;
+  let len = sqrt(dx*dx + dy*dy);
+  if(len < 4) return;
   stroke(col); fill(col); strokeWeight(2.5);
-  line(x1,y1,x2,y2);
-  let a=atan2(y2-y1,x2-x1);
-  push(); translate(x2,y2); rotate(a); triangle(0,0,-12,-5,-12,5); pop();
+  line(x1, y1, x2, y2);
+  let a = atan2(dy, dx);
+  push();
+    translate(x2, y2); rotate(a);
+    noStroke(); triangle(0,0,-13,-5,-13,5);
+  pop();
   if(label){{
-    noStroke(); textSize(11);
-    fill(col); text(label, x2+6, y2+4);
+    noStroke(); textSize(11); fill(col);
+    text(label, x2 + dx/len*8 + 3, y2 + dy/len*8 + 4);
   }}
 }}
 
+// ── Dashed-line helpers ───────────────────────────────────────────────────
+function setLineDash(list){{ drawingContext.setLineDash(list); }}
+function clearLineDash(){{   drawingContext.setLineDash([]); }}
+
+// ── Main draw loop ────────────────────────────────────────────────────────
 function draw(){{
   background('#0e1117');
 
-  let cx=width/2, cy=height/2;
-  let displayR=min(width,height)*0.35;
+  let _cx = cx(), _cy = cy();
+  let _rPx = rPx();
+  let dt   = 0.016 * speedMult;   // seconds per frame (approx 60 fps)
 
-  // Orbit circle (dashed)
-  noFill(); stroke('#2a2a2a'); strokeWeight(1.5);
-  setLineDash([8,6]); circle(cx,cy,displayR*2); setLineDash([]);
+  // ── Snap physics: flying ball ─────────────────────────────────────────
+  if(snapped){{
+    // Flash overlay
+    if(flashAlpha > 0){{
+      noStroke(); fill(255, 200, 50, flashAlpha);
+      rect(0, 0, width, height);
+      flashAlpha = max(0, flashAlpha - 18);
+    }}
 
-  // Centre cross
-  stroke('#555'); strokeWeight(1);
-  line(cx-10,cy,cx+10,cy); line(cx,cy-10,cx,cy+10);
+    // Move flying ball
+    flyX += flyVX;
+    flyY += flyVY;
 
-  // Stroboscope dots (last TRAIL_LEN positions)
-  trail.push(angle);
-  if(trail.length>TRAIL_LEN) trail.shift();
-  for(let i=0;i<trail.length;i++){{
-    let a=trail[i];
-    let bx=cx+displayR*cos(a), by=cy+displayR*sin(a);
-    let alpha=map(i,0,trail.length,20,120);
-    noStroke(); fill(31,119,180,alpha);
-    circle(bx,by,max(3,map(i,0,trail.length,2,8)));
+    // Draw flying ball
+    noStroke(); fill(255, 220, 80, 200);
+    circle(flyX, flyY, 22);
+    fill(255, 255, 255, 180); textSize(13);
+    text('STRING SNAPPED!', _cx - 68, _cy);
+
+    // Countdown to reset
+    snapTimer -= deltaTime;
+    if(snapTimer <= 0) resetSnap();
+    return;
   }}
 
-  // Object position
-  let bx=cx+displayR*cos(angle);
-  let by=cy+displayR*sin(angle);
+  // ── Check string-snap condition ───────────────────────────────────────
+  let df   = dangerFrac();
+  let _v   = calcV();
+  let _a   = calcA();
+  let _F   = calcF();
+  let _T   = calcT();
+  let vCrit = calcVCrit();
 
-  // Radius line
-  stroke(155,89,182,80); strokeWeight(1); setLineDash([5,4]);
-  line(cx,cy,bx,by); setLineDash([]);
-  noStroke(); fill('#9b59b6'); textSize(9);
-  text('r', cx+(bx-cx)*0.5+5, cy+(by-cy)*0.5-4);
+  if(df >= 1.0 && playing){{
+    // SNAP!
+    snapped   = true;
+    snapTimer = SNAP_RESET;
+    flashAlpha = 200;
+    // Ball position at snap
+    flyX = _cx + _rPx * cos(angle);
+    flyY = _cy + _rPx * sin(angle);
+    // Tangential velocity in pixels: direction perpendicular to radius
+    let spd = _rPx * omega * speedMult * 0.9;
+    flyVX = -sin(angle) * spd * dt * 60;
+    flyVY =  cos(angle) * spd * dt * 60;
+    return;
+  }}
 
-  // Centripetal vector (toward centre)
-  let len_a=min(80, D.a/20*50+15);
-  let toX=cx-bx, toY=cy-by;
-  let td=sqrt(toX*toX+toY*toY);
-  drawArrow(bx,by, bx+toX/td*len_a, by+toY/td*len_a, color(231,76,60), 'F_c');
+  // ── Orbit circle colour (danger-aware) ───────────────────────────────
+  let orbitR, orbitG, orbitB;
+  if(df < 0.5){{
+    // Safe: grey-blue
+    orbitR = 42; orbitG = 42; orbitB = 62;
+  }} else if(df < 0.8){{
+    // Warning: yellow
+    let t = (df - 0.5) / 0.3;
+    orbitR = lerp(42, 230, t); orbitG = lerp(42, 200, t); orbitB = lerp(62, 20, t);
+  }} else{{
+    // Danger: red (pulsing)
+    let pulse = 0.5 + 0.5 * sin(frameCount * 0.25);
+    orbitR = lerp(200, 255, pulse); orbitG = lerp(30, 80, pulse); orbitB = 20;
+  }}
 
-  // Velocity vector (tangential)
-  let len_v=min(90, D.v*5+10);
-  let vdirX=-sin(angle), vdirY=cos(angle);
-  drawArrow(bx,by, bx+vdirX*len_v, by+vdirY*len_v, color(255,127,14), 'v');
+  // ── Road-curve texture: thick grey arc around orbit ───────────────────
+  noFill();
+  for(let w=0; w<4; w++){{
+    stroke(60, 60, 70, 60 - w*14);
+    strokeWeight(_rPx*0.06 + w*2);
+    circle(_cx, _cy, (_rPx + w * _rPx*0.035) * 2);
+  }}
+  clearLineDash();
 
-  // Object glow + ball
+  // ── Orbit dashed circle ───────────────────────────────────────────────
+  stroke(orbitR, orbitG, orbitB);
+  strokeWeight(draggingRadius ? 2.8 : 1.8);
+  setLineDash([8, 5]);
+  circle(_cx, _cy, _rPx * 2);
+  clearLineDash();
+
+  // Drag hint
+  if(draggingRadius){{
+    noStroke(); fill(180, 180, 255, 120); textSize(10);
+    text('r = ' + radiusM.toFixed(1) + ' m  (drag)', _cx + _rPx + 6, _cy - 6);
+  }}
+
+  // Danger label
+  if(df >= 0.8){{
+    noStroke(); fill(255, 60, 60); textSize(13);
+    text('DANGER!', _cx - 28, _cy - _rPx - 12);
+  }}
+
+  // ── Centre cross ──────────────────────────────────────────────────────
+  stroke(80, 80, 100); strokeWeight(1);
+  line(_cx-12, _cy, _cx+12, _cy);
+  line(_cx, _cy-12, _cx, _cy+12);
+
+  // ── Ball position ─────────────────────────────────────────────────────
+  let bx = _cx + _rPx * cos(angle);
+  let by = _cy + _rPx * sin(angle);
+
+  // ── TRAIL / STROBOSCOPE ───────────────────────────────────────────────
+  if(!strobeMode){{
+    // Normal trail
+    trail.push(angle);
+    if(trail.length > TRAIL_LEN) trail.shift();
+    for(let i = 0; i < trail.length; i++){{
+      let ta  = trail[i];
+      let tx  = _cx + _rPx * cos(ta);
+      let ty  = _cy + _rPx * sin(ta);
+      let alp = map(i, 0, trail.length, 15, 110);
+      noStroke(); fill(31, 119, 180, alp);
+      circle(tx, ty, max(3, map(i, 0, trail.length, 2, 9)));
+    }}
+  }} else{{
+    // Strobe mode: dark background between flashes
+    noStroke(); fill(0, 0, 10, 190);
+    rect(0, 0, width, height);
+
+    strobeFrame++;
+    if(strobeFrame >= strobeN){{
+      strobeFrame = 0;
+      strobePositions.push(angle);
+      if(strobePositions.length > STROBE_MAX) strobePositions.shift();
+    }}
+
+    // Draw strobe ghosts
+    for(let i = 0; i < strobePositions.length; i++){{
+      let sa  = strobePositions[i];
+      let sx  = _cx + _rPx * cos(sa);
+      let sy  = _cy + _rPx * sin(sa);
+      let alp = map(i, 0, strobePositions.length, 30, 220);
+      noStroke(); fill(31, 119, 180, alp);
+      circle(sx, sy, 18);
+      // white cross-hair on latest
+      if(i === strobePositions.length - 1){{
+        stroke(255, 255, 255, 180); strokeWeight(1);
+        line(sx-8, sy, sx+8, sy); line(sx, sy-8, sx, sy+8);
+      }}
+    }}
+
+    // In strobe mode only show ball on flash frame (strobeFrame===0)
+    if(strobeFrame !== 0) {{
+      // tick angle forward but skip rendering ball
+      if(playing) angle += omega * dt;
+      drawInfoPanel(_cx, _cy, _rPx, _v, _a, _F, _T, df, vCrit);
+      drawControls();
+      drawStrobeControls();
+      return;
+    }}
+  }}
+
+  // ── Radius line ───────────────────────────────────────────────────────
+  stroke(155, 89, 182, 90); strokeWeight(1.2); setLineDash([5, 4]);
+  line(_cx, _cy, bx, by); clearLineDash();
+  noStroke(); fill(180, 140, 220); textSize(9);
+  text('r', _cx+(bx-_cx)*0.5 + 5, _cy+(by-_cy)*0.5 - 4);
+
+  // ── String colour (danger-aware) ─────────────────────────────────────
+  let strR = lerp(100, orbitR, df);
+  let strG = lerp(80,  orbitG, df);
+  let strB = lerp(160, orbitB, df);
+  stroke(strR, strG, strB, 200); strokeWeight(2.2);
+  line(_cx, _cy, bx, by);
+
+  // ── Centripetal vector ────────────────────────────────────────────────
+  let len_a = constrain(_a / 20 * 55 + 15, 10, 90);
+  let toX = _cx - bx, toY = _cy - by;
+  let td  = sqrt(toX*toX + toY*toY);
+  drawArrow(bx, by, bx + toX/td*len_a, by + toY/td*len_a, color(231, 76, 60), 'F_c');
+
+  // ── Velocity vector ───────────────────────────────────────────────────
+  let len_v  = constrain(_v * 5 + 10, 10, 100);
+  let vdirX  = -sin(angle), vdirY = cos(angle);
+  drawArrow(bx, by, bx + vdirX*len_v, by + vdirY*len_v, color(255, 165, 30), 'v');
+
+  // ── Ball glow + ball ──────────────────────────────────────────────────
   noStroke();
-  for(let rr=22;rr>0;rr-=5) fill(31,119,180,map(rr,0,22,0,25));
-  for(let rr=22;rr>0;rr-=5) circle(bx,by,rr*2);
-  fill('#1f77b4'); stroke('#ffffff'); strokeWeight(1.5); circle(bx,by,20);
+  for(let rr = 24; rr > 0; rr -= 5) {{
+    fill(31, 119, 180, map(rr, 0, 24, 0, 28));
+    circle(bx, by, rr * 2);
+  }}
+  fill(31, 119, 180); stroke(255, 255, 255); strokeWeight(1.5);
+  circle(bx, by, 20);
 
-  // Angle arc
-  noFill(); stroke('#9b59b6',120); strokeWeight(1);
-  arc(cx,cy,50,50,0,angle%(TWO_PI));
-  noStroke(); fill('#9b59b6'); textSize(9);
-  text((degrees(angle)%360).toFixed(0)+'°', cx+30, cy-4);
+  // ── Angle arc ─────────────────────────────────────────────────────────
+  noFill(); stroke(155, 89, 182, 120); strokeWeight(1);
+  let arcEnd = ((angle % TWO_PI) + TWO_PI) % TWO_PI;
+  arc(_cx, _cy, 48, 48, 0, arcEnd);
+  noStroke(); fill(180, 140, 220); textSize(9);
+  text(((degrees(angle) % 360 + 360) % 360).toFixed(0) + '°', _cx + 28, _cy - 4);
 
-  // Info panel (bottom left)
-  noStroke(); fill(15,15,25,200); rect(8,height-90,220,80,6);
-  fill('#fafafa'); textSize(10);
-  text('ω = '+D.omega.toFixed(2)+' rad/s', 16, height-68);
-  text('v = '+D.v.toFixed(2)+' m/s', 16, height-52);
-  text('a = '+D.a.toFixed(2)+' m/s²', 16, height-36);
-  text('T = '+D.T.toFixed(2)+' s', 16, height-20);
+  // ── Banking car icon ──────────────────────────────────────────────────
+  // Compute banking angle: arctan(v²/(r*g)) in radians
+  let bankAngle = atan2(_v * _v, radiusM * G_ACC);
+  // Car sits on the orbit circle, perpendicular to the radius
+  // Position: same as ball but half-orbit ahead
+  let carAngle = angle + PI / 2;   // place car 90° ahead of ball for visibility
+  let carX     = _cx + _rPx * cos(carAngle);
+  let carY     = _cy + _rPx * sin(carAngle);
+  // Tangential direction (CCW) at carAngle: (-sin, cos)
+  let tangX = -sin(carAngle), tangY = cos(carAngle);
+  // Inward radial direction: toward centre
+  let radInX = -cos(carAngle), radInY = -sin(carAngle);
+  // Bank tilt: inward lean by bankAngle
+  // Car body: small triangle pointing "up" in local frame (perpendicular to orbit)
+  let carSize = 10;
+  push();
+    translate(carX, carY);
+    // Rotate to align with tangential direction, then tilt by banking angle
+    let tangAngle = atan2(tangY, tangX);
+    rotate(tangAngle - PI/2 + bankAngle);
+    // Draw road surface (small grey rect)
+    noStroke(); fill(80, 80, 90, 160);
+    rect(-carSize * 1.4, 0, carSize * 2.8, 4, 1);
+    // Draw car body (triangle)
+    fill(52, 152, 219, 220); stroke(200, 230, 255); strokeWeight(1);
+    triangle(0, -carSize*1.5, -carSize, carSize*0.4, carSize, carSize*0.4);
+    // Wheels
+    noStroke(); fill(30, 30, 40);
+    circle(-carSize*0.85, carSize*0.4, 5);
+    circle( carSize*0.85, carSize*0.4, 5);
+  pop();
+  // Banking angle label (small, near car)
+  let bankDeg = degrees(bankAngle);
+  noStroke(); fill(100, 200, 255, 180); textSize(8);
+  text('Bank: '+bankDeg.toFixed(1)+'°', carX + 14, carY - 8);
 
-  // Controls
-  noStroke(); fill(15,15,25,220); rect(width-118,8,110,90,6);
-  fill('#fafafa'); textSize(11);
-  text(playing?'⏸ Pause':'▶ Play',width-112,28);
-  text('⚡ '+speed+'x speed',width-112,65);
+  // ── Info panel ────────────────────────────────────────────────────────
+  drawInfoPanel(_cx, _cy, _rPx, _v, _a, _F, _T, df, vCrit);
 
-  if(playing) angle+=D.omega*0.016*speed;
+  // ── Controls ──────────────────────────────────────────────────────────
+  drawControls();
+  if(strobeMode) drawStrobeControls();
+
+  // ── Advance angle ─────────────────────────────────────────────────────
+  if(playing) angle += omega * dt;
 }}
 
-function setLineDash(list){{ drawingContext.setLineDash(list); }}
+// ── Info panel (bottom-left) ──────────────────────────────────────────────
+function drawInfoPanel(_cx, _cy, _rPx, _v, _a, _F, _T, df, vCrit){{
+  let panW = 230, panH = 110;
+  let px = 10, py = height - panH - 8;
+  noStroke(); fill(12, 14, 26, 210);
+  rect(px, py, panW, panH, 7);
+  fill(220, 220, 240); textSize(10);
+  text('ω  = ' + omega.toFixed(3)  + ' rad/s',   px+10, py+18);
+  text('v  = ' + _v.toFixed(3)     + ' m/s',     px+10, py+34);
+  text('a  = ' + _a.toFixed(3)     + ' m/s²',    px+10, py+50);
+  text('T  = ' + _T.toFixed(3)     + ' s',       px+10, py+66);
+  text('F  = ' + _F.toFixed(3)     + ' N',       px+10, py+82);
+  // Live radius readout
+  let rCol = df < 0.5 ? color(100,220,140) : df < 0.8 ? color(240,210,30) : color(255,70,70);
+  fill(rCol); text('r  = ' + radiusM.toFixed(2) + ' m', px+10, py+98);
+  // Danger bar
+  if(df > 0.3){{
+    fill(255, 60, 60, 160); noStroke();
+    rect(px, py + panH - 5, panW * df, 4, 2);
+    fill(255, 60, 60); textSize(8);
+    text('v_crit = ' + vCrit.toFixed(2) + ' m/s', px + 10, py + panH - 8);
+  }}
+}}
+
+// ── Control buttons (top-right) ───────────────────────────────────────────
+function drawControls(){{
+  let bx = width - 130, by = 10;
+  noStroke(); fill(12, 14, 26, 215);
+  rect(bx, by, 120, 118, 7);
+  fill(220, 220, 240); textSize(11);
+  text(playing ? '⏸ Pause' : '▶ Play',  bx+10, by+22);
+  text('⚡ ' + speedMult + 'x speed',          bx+10, by+58);
+  text(strobeMode ? '💡 Strobe ON' : '💡 Strobe',  bx+10, by+94);
+  // Button borders
+  stroke(60,60,80); strokeWeight(1); noFill();
+  rect(bx+4,  by+8,  112, 30, 4);
+  rect(bx+4,  by+44, 112, 30, 4);
+  rect(bx+4,  by+80, 112, 30, 4);
+}}
+
+// ── Stroboscope rate controls (top-left) ──────────────────────────────────
+function drawStrobeControls(){{
+  noStroke(); fill(12, 14, 26, 200);
+  rect(8, 8, 130, 32, 5);
+  fill(220, 220, 240); textSize(10);
+  text('Strobe rate: ' + strobeN, 14, 28);
+  // [ - ] and [ + ] hit zones
+  stroke(80,80,100); strokeWeight(1); noFill();
+  rect(10, 10, 16, 16, 3);
+  rect(28, 10, 16, 16, 3);
+  fill(200,200,200); noStroke(); textSize(11);
+  text('-', 14, 23);
+  text('+', 31, 23);
+}}
+
+// ── Reset after snap ──────────────────────────────────────────────────────
+function resetSnap(){{
+  snapped    = false;
+  angle      = 0;
+  trail      = [];
+  strobePositions = [];
+  strobeFrame = 0;
+  flashAlpha  = 0;
+}}
+
+function setLineDash(list){{  drawingContext.setLineDash(list);  }}
+function clearLineDash(){{    drawingContext.setLineDash([]);     }}
 </script></body></html>"""
 
 
