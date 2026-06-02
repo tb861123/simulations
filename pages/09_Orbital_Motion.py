@@ -1018,8 +1018,8 @@ def build_binary_orbit_fig(
 
     fig.add_annotation(
         ax=x1, ay=y1,
-        x=x1 + _arr1 * vx1_hat / AU * AU,
-        y=y1 + _arr1 * vy1_hat / AU * AU,
+        x=x1 + _arr1 * vx1_hat,
+        y=y1 + _arr1 * vy1_hat,
         xref="x", yref="y", axref="x", ayref="y",
         showarrow=True,
         arrowhead=3,
@@ -1029,8 +1029,8 @@ def build_binary_orbit_fig(
     )
     fig.add_annotation(
         ax=x2, ay=y2,
-        x=x2 + _arr2 * vx2_hat / AU * AU,
-        y=y2 + _arr2 * vy2_hat / AU * AU,
+        x=x2 + _arr2 * vx2_hat,
+        y=y2 + _arr2 * vy2_hat,
         xref="x", yref="y", axref="x", ayref="y",
         showarrow=True,
         arrowhead=3,
