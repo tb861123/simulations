@@ -234,6 +234,184 @@ def compute_2d_collision(
     }
 
 
+# ── Animation builder ─────────────────────────────────────────────────────────
+
+
+def build_collision_animation(m1, m2, u1, u2, v1, v2):
+    """Build p5.js 1D collision animation."""
+    import json
+
+    # Normalise for display: map velocities to pixel speeds
+    max_speed = max(abs(u1), abs(u2), abs(v1), abs(v2), 0.1)
+
+    data = json.dumps({
+        "m1": float(m1), "m2": float(m2),
+        "u1": float(u1), "u2": float(u2),
+        "v1": float(v1), "v2": float(v2),
+        "maxSpeed": float(max_speed)
+    })
+
+    return f"""<!DOCTYPE html>
+<html><head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<style>body{{margin:0;overflow:hidden;background:#0e1117;}}</style>
+</head><body>
+<script>
+const D = {data};
+const SCALE=80;  // px per m/s
+const TRACK_Y_FRAC=0.5;
+let phase='before';  // 'before', 'collision', 'after'
+let b1x, b2x, b1vx, b2vx;
+let playing=true, speed=1;
+let t=0, collisionT=null;
+let flashAlpha=0;
+
+// Ball radii proportional to mass (cube root)
+function ballR(m){{ return max(15, min(45, pow(m,1/3)*20)); }}
+
+function setup(){{
+  createCanvas(windowWidth||700, 380);
+  textFont('monospace');
+  resetSim();
+}}
+function windowResized(){{ resizeCanvas(windowWidth,380); }}
+
+function resetSim(){{
+  let r1=ballR(D.m1), r2=ballR(D.m2);
+  // Place balls so they approach collision at centre
+  let cy=height*TRACK_Y_FRAC;
+  let spd1=abs(D.u1)*SCALE*0.012+1;
+  let spd2=abs(D.u2)*SCALE*0.012+1;
+  // Start positions: ball1 on left, ball2 on right
+  b1x=width*0.25;
+  b2x=width*0.75;
+  b1vx=D.u1/abs(D.maxSpeed+0.001)*(SCALE*0.8);
+  b2vx=D.u2/abs(D.maxSpeed+0.001)*(SCALE*0.8);
+  // If both have same-sign velocities, adjust start
+  phase='before'; t=0; collisionT=null; flashAlpha=0;
+  playing=true;
+}}
+
+function mousePressed(){{
+  if(mouseX>width-120&&mouseX<width-10){{
+    if(mouseY>10&&mouseY<40) playing=!playing;
+    else if(mouseY>50&&mouseY<80) resetSim();
+    else if(mouseY>90&&mouseY<120) speed=speed===1?2:speed===2?4:1;
+  }}
+}}
+
+function drawBall(x,y,r,col,label,vx){{
+  // Glow
+  noStroke();
+  for(let rr=r+12;rr>r;rr-=4) fill(red(col),green(col),blue(col),map(rr,r,r+12,25,0));
+  for(let rr=r+12;rr>r;rr-=4) circle(x,y,rr*2);
+  // Ball
+  fill(col); stroke('#ffffff'); strokeWeight(1.5); circle(x,y,r*2);
+  // Label
+  noStroke(); fill('#ffffff'); textSize(max(9,r*0.55)); textAlign(CENTER);
+  text(label,x,y+4);
+  textAlign(LEFT);
+  // Velocity arrow
+  if(abs(vx)>0.5){{
+    let len=map(abs(vx),0,SCALE*1.2,0,70);
+    let ax=x+sign(vx)*(r+5), ay=y;
+    let ex=ax+sign(vx)*len;
+    stroke('#ff7f0e'); fill('#ff7f0e'); strokeWeight(2);
+    line(ax,ay,ex,ay);
+    triangle(ex,ay,ex-sign(vx)*10,ay-5,ex-sign(vx)*10,ay+5);
+    noStroke(); fill('#ff7f0e'); textSize(9); textAlign(CENTER);
+    text(abs(vx/SCALE*D.maxSpeed*0.8).toFixed(1)+' m/s',ex+sign(vx)*20,ay-8);
+    textAlign(LEFT);
+  }}
+}}
+
+function draw(){{
+  background('#0e1117');
+  let cy=height*TRACK_Y_FRAC;
+  let r1=ballR(D.m1), r2=ballR(D.m2);
+
+  // Track
+  stroke('#2a2a2a'); strokeWeight(2);
+  line(20, cy+max(r1,r2)+15, width-20, cy+max(r1,r2)+15);
+
+  // Phase label
+  noStroke(); fill('#777'); textSize(11);
+  let phaseText = phase==='before'?'Before collision': phase==='collision'?'COLLISION!':'After collision';
+  text(phaseText, width/2-40, cy-max(r1,r2)-20);
+
+  // Collision flash
+  if(flashAlpha>0){{
+    noStroke(); fill(255,200,50,flashAlpha);
+    circle(width/2,cy,100);
+    flashAlpha-=8;
+  }}
+
+  // Draw balls
+  let col1=color(31,119,180);
+  let col2=color(255,127,14);
+  drawBall(b1x,cy,r1,col1,'m₁',b1vx);
+  drawBall(b2x,cy,r2,col2,'m₂',b2vx);
+
+  // Momentum bar
+  let barY=height-45, barH=16, barW=(width-80)/2;
+  let p1=D.m1*(phase==='after'?D.v1:D.u1);
+  let p2=D.m2*(phase==='after'?D.v2:D.u2);
+  let pTotal=p1+p2;
+  let pMax=max(abs(p1)+abs(p2),0.01)*1.2;
+  noStroke(); fill('#1a1a2a'); rect(40,barY-barH,width-80,barH,3);
+  fill(31,119,180,180); rect(40+barW,barY-barH, p1/pMax*barW, barH);
+  fill(255,127,14,180); rect(40+barW+p1/pMax*barW,barY-barH, p2/pMax*barW, barH);
+  fill('#fafafa'); textSize(9);
+  text('p = '+pTotal.toFixed(2)+' kg·m/s (conserved)', 40, barY+10);
+  stroke('#2ca02c'); strokeWeight(1); setLineDash([4,3]);
+  line(40+barW,barY-barH-2,40+barW,barY+2); setLineDash([]);
+  noStroke(); fill('#2ca02c'); textSize(8); text('p=0',42+barW,barY-barH-4);
+
+  // Update positions
+  if(playing){{
+    for(let s=0;s<speed;s++){{
+      t+=0.016;
+      if(phase==='before'){{
+        b1x+=b1vx*0.016*60;
+        b2x+=b2vx*0.016*60;
+        // Check collision
+        if(b2x-b1x<=r1+r2){{
+          phase='collision'; collisionT=t; flashAlpha=200;
+          // Snap to contact
+          let mid=(b1x+b2x)/2;
+          b1x=mid-r1; b2x=mid+r2;
+        }}
+      }} else if(phase==='collision'){{
+        if(t-collisionT>0.15){{
+          // Switch to after-collision velocities
+          phase='after';
+          b1vx=D.v1/abs(D.maxSpeed+0.001)*(SCALE*0.8);
+          b2vx=D.v2/abs(D.maxSpeed+0.001)*(SCALE*0.8);
+        }}
+      }} else {{
+        b1x+=b1vx*0.016*60;
+        b2x+=b2vx*0.016*60;
+        // Reset when both off screen
+        if((b1x<-100&&b2x<-100)||(b1x>width+100&&b2x>width+100)||(b1x<-100&&b2x>width+100)){{
+          setTimeout(()=>{{resetSim();}}, 1000);
+        }}
+      }}
+    }}
+  }}
+
+  // Controls
+  noStroke(); fill(15,15,25,220); rect(width-118,8,110,120,6);
+  fill('#fafafa'); textSize(11);
+  text(playing?'⏸ Pause':'▶ Play',width-112,28);
+  text('↺ Replay',width-112,68);
+  text('⚡ '+speed+'x',width-112,108);
+}}
+
+function sign(x){{ return x>0?1:x<0?-1:0; }}
+function setLineDash(list){{ drawingContext.setLineDash(list); }}
+</script></body></html>"""
+
+
 # ── Plot builders ─────────────────────────────────────────────────────────────
 
 
@@ -1340,6 +1518,12 @@ def main() -> None:
                 "Larger collision time → smaller force for the same change in momentum. "
                 "This is why car airbags, helmets, and crumple zones save lives."
             )
+
+            # Live collision animation
+            anim_html = build_collision_animation(m1_1d, m2_1d, u1_1d, u2_1d, v1_r, v2_r)
+            components.html(anim_html, height=390)
+            st.caption("Ball size ∝ mass · Orange arrows = velocity · ⚡ Speed · ↺ Replay")
+            st.divider()
 
             # Velocity vector diagram
             fig_vec = build_1d_vector_diagram(m1_1d, m2_1d, u1_1d, u2_1d, v1_r, v2_r)
