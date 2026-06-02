@@ -12,10 +12,12 @@ Covers:
 
 from __future__ import annotations
 
+import json
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+import streamlit.components.v1 as components
 
 from utils.style import COLOURS, plotly_layout, make_fig
 from utils.physics import k_B, N_A, R_gas
@@ -1049,6 +1051,587 @@ def build_engine_pv_fig(
                    zerolinecolor=COLOURS["grid"]),
     ))
     return fig
+
+
+# ── p5.js Gas Animation ───────────────────────────────────────────────────────
+
+
+def build_gas_animation(P, V, T, n_moles, process_type):
+    """
+    Build an interactive piston-cylinder animation with live PV curve using p5.js.
+
+    Parameters
+    ----------
+    P            : pressure (Pa)
+    V            : volume (m³)
+    T            : temperature (K)
+    n_moles      : moles of gas
+    process_type : one of 'Isothermal', 'Isobaric', 'Isochoric', 'Adiabatic'
+
+    Returns
+    -------
+    HTML string containing a self-contained p5.js animation
+    """
+    import math
+    R = 8.314
+    data = json.dumps({
+        "P": float(P), "V": float(V), "T": float(T),
+        "n": float(n_moles), "process": process_type,
+        "R": R
+    })
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body {{ margin: 0; background: #0e1117; overflow: hidden; font-family: sans-serif; }}
+  canvas {{ display: block; }}
+</style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<script>
+const GAS_DATA = {data};
+
+new p5(function(p) {{
+  // ── Layout constants ──────────────────────────────────────────
+  const W = 760, H = 420;
+  const CYL_X = 30, CYL_Y = 30;
+  const CYL_W = 440, CYL_H = 300;
+  const PV_X = 490, PV_Y = 30, PV_W = 260, PV_H = 260;
+  const WALL = 14;          // cylinder wall thickness
+  const BTN_Y = 350;
+  const BTN_H = 32, BTN_W = 80;
+
+  // ── State ─────────────────────────────────────────────────────
+  let P0 = GAS_DATA.P;   // current pressure (Pa)
+  let V0 = GAS_DATA.V;   // current volume (m³)
+  let T0 = GAS_DATA.T;   // current temperature (K)
+  const n = GAS_DATA.n;
+  const R = GAS_DATA.R;
+  const gamma = 1.4;
+
+  // Map process name to short key
+  const PROC_MAP = {{
+    'Isothermal': 'iso-t', 'Adiabatic': 'adiab',
+    'Isobaric': 'iso-p', 'Isochoric': 'iso-v'
+  }};
+  let processKey = PROC_MAP[GAS_DATA.process] || 'iso-t';
+
+  // Piston: pistonY is the y-coordinate of the bottom face of the piston
+  // cylinder interior spans from (CYL_Y + WALL) top to (CYL_Y + CYL_H - WALL) bottom
+  const TOP_WALL_Y = CYL_Y + WALL;
+  const BOT_WALL_Y = CYL_Y + CYL_H - WALL;
+  const INTERIOR_H = BOT_WALL_Y - TOP_WALL_Y;   // total interior height in px
+
+  // Volume → piston y mapping
+  // At V0 (initial), piston at its initial position; min V → piston near top, max V → piston near bottom
+  const V_MIN = V0 * 0.2;
+  const V_MAX = V0 * 3.0;
+  function vToPistonY(v) {{
+    let frac = (v - V_MIN) / (V_MAX - V_MIN);
+    frac = p.constrain(frac, 0.05, 0.95);
+    return TOP_WALL_Y + frac * INTERIOR_H;
+  }}
+
+  let pistonY = vToPistonY(V0);
+  const PISTON_H = 16;
+
+  // Drag state
+  let dragging = false;
+  let dragOffsetY = 0;
+
+  // Particles
+  const N_PARTICLES = Math.min(50, Math.max(6, Math.round(10 * n)));
+  let particles = [];
+
+  // PV path history: array of {{v, p}} in normalised units
+  let pvPath = [{{v: V0, p: P0}}];
+  const MAX_PATH = 200;
+
+  // Play/pause
+  let playing = false;
+  let animDir = 1;     // +1 expand, -1 compress
+  let animPhase = 0;   // 0..1
+
+  // Heat source (flame toggle)
+  let flameOn = false;
+  let flameTimer = 0;
+
+  // Background isotherms for PV panel
+  const ISOTHERM_Ts = [T0 * 0.4, T0 * 0.7, T0, T0 * 1.5, T0 * 2.2];
+  const ISOTHERM_COLS = [
+    [80, 120, 200, 60],
+    [80, 160, 200, 70],
+    [200, 200, 80, 80],
+    [220, 140, 60, 70],
+    [220, 80, 60, 60]
+  ];
+
+  // Process colours
+  const PROC_COLS = {{
+    'iso-t':  [255, 165,   0],
+    'adiab':  [ 80, 140, 255],
+    'iso-p':  [ 60, 200,  80],
+    'iso-v':  [220,  60,  60]
+  }};
+
+  // Process buttons: label, key, x position
+  const BUTTONS = [
+    {{ label: 'ISO-T', key: 'iso-t',  x: CYL_X }},
+    {{ label: 'ADIAB', key: 'adiab',  x: CYL_X + 90 }},
+    {{ label: 'ISO-P', key: 'iso-p',  x: CYL_X + 180 }},
+    {{ label: 'ISO-V', key: 'iso-v',  x: CYL_X + 270 }},
+  ];
+  const PLAY_BTN  = {{ label: '▶ Play',  x: CYL_X + 365, y: BTN_Y, w: 70 }};
+  const FLAME_BTN = {{ label: '🔥 Heat', x: CYL_X + 365, y: BTN_Y + 38, w: 70 }};
+
+  // ── p5 setup ──────────────────────────────────────────────────
+  p.setup = function() {{
+    let cnv = p.createCanvas(W, H);
+    p.frameRate(40);
+    initParticles();
+  }};
+
+  function initParticles() {{
+    particles = [];
+    const CYL_LEFT  = CYL_X + WALL;
+    const CYL_RIGHT = CYL_X + CYL_W - WALL;
+    for (let i = 0; i < N_PARTICLES; i++) {{
+      let spd = baseSpeed();
+      let angle = p.random(p.TWO_PI);
+      particles.push({{
+        x: p.random(CYL_LEFT + 4, CYL_RIGHT - 4),
+        y: p.random(pistonY + 4, BOT_WALL_Y - 4),
+        vx: spd * Math.cos(angle),
+        vy: spd * Math.sin(angle)
+      }});
+    }}
+  }}
+
+  function baseSpeed() {{
+    // Speed proportional to sqrt(T), calibrated so sqrt(300) → ~1.5 px/frame
+    return 1.5 * Math.sqrt(T0 / 300);
+  }}
+
+  function currentSpeed() {{
+    return 1.5 * Math.sqrt(T0 / 300);
+  }}
+
+  // ── p5 draw ───────────────────────────────────────────────────
+  p.draw = function() {{
+    p.background(14, 17, 23);
+
+    if (playing && !dragging) {{
+      animPhase += 0.008 * animDir;
+      if (animPhase >= 1) {{ animPhase = 1; animDir = -1; }}
+      if (animPhase <= 0) {{ animPhase = 0; animDir =  1; }}
+      let targetV = V_MIN + animPhase * (V_MAX - V_MIN);
+      updateState(targetV);
+    }}
+
+    if (flameOn && !playing) {{
+      flameTimer++;
+      if (flameTimer % 4 === 0) {{
+        // Isochoric heating: increase T and P at constant V
+        T0 = Math.min(T0 * 1.02, T0 * 5);
+        P0 = n * R * T0 / V0;
+        recordPV();
+      }}
+    }}
+
+    updateParticles();
+    drawCylinder();
+    drawPVPanel();
+    drawButtons();
+  }};
+
+  // ── State update ──────────────────────────────────────────────
+  function updateState(newV) {{
+    newV = p.constrain(newV, V_MIN, V_MAX);
+    let oldV = V0;
+    V0 = newV;
+    pistonY = vToPistonY(V0);
+
+    if (processKey === 'iso-t') {{
+      // Isothermal: T const, P = nRT/V
+      P0 = n * R * T0 / V0;
+    }} else if (processKey === 'adiab') {{
+      // Adiabatic: PV^γ = const
+      P0 = P0 * Math.pow(oldV / V0, gamma);
+      T0 = P0 * V0 / (n * R);
+    }} else if (processKey === 'iso-p') {{
+      // Isobaric: P const, T = PV/(nR)
+      T0 = P0 * V0 / (n * R);
+    }} else if (processKey === 'iso-v') {{
+      // Isochoric: V const — don't move piston
+      V0 = oldV;
+      pistonY = vToPistonY(V0);
+    }}
+
+    // Clamp T to physical range
+    T0 = Math.max(10, Math.min(T0, 10000));
+    recordPV();
+  }}
+
+  function recordPV() {{
+    let last = pvPath[pvPath.length - 1];
+    if (Math.abs(last.v - V0) > V0 * 0.005 || Math.abs(last.p - P0) > P0 * 0.005) {{
+      pvPath.push({{v: V0, p: P0}});
+      if (pvPath.length > MAX_PATH) pvPath.shift();
+    }}
+  }}
+
+  // ── Particles ─────────────────────────────────────────────────
+  function updateParticles() {{
+    const CYL_LEFT  = CYL_X + WALL;
+    const CYL_RIGHT = CYL_X + CYL_W - WALL;
+    const gasTop    = pistonY + PISTON_H;
+    const gasBot    = BOT_WALL_Y;
+
+    let spd = currentSpeed();
+    // Rescale each particle speed towards current T
+    for (let pt of particles) {{
+      let curSpd = Math.sqrt(pt.vx * pt.vx + pt.vy * pt.vy);
+      if (curSpd > 0) {{
+        let factor = 0.05;
+        let newSpd = curSpd + factor * (spd - curSpd);
+        pt.vx *= newSpd / curSpd;
+        pt.vy *= newSpd / curSpd;
+      }}
+      pt.x += pt.vx;
+      pt.y += pt.vy;
+      // Bounce off walls
+      if (pt.x < CYL_LEFT  + 3) {{ pt.x = CYL_LEFT  + 3; pt.vx = Math.abs(pt.vx); }}
+      if (pt.x > CYL_RIGHT - 3) {{ pt.x = CYL_RIGHT - 3; pt.vx = -Math.abs(pt.vx); }}
+      if (pt.y < gasTop + 3)    {{ pt.y = gasTop + 3;     pt.vy = Math.abs(pt.vy); }}
+      if (pt.y > gasBot - 3)    {{ pt.y = gasBot - 3;     pt.vy = -Math.abs(pt.vy); }}
+    }}
+  }}
+
+  // ── Draw cylinder ─────────────────────────────────────────────
+  function drawCylinder() {{
+    // Walls
+    p.noStroke();
+    p.fill(70, 75, 85);
+    p.rect(CYL_X, CYL_Y, WALL, CYL_H);                         // left wall
+    p.rect(CYL_X + CYL_W - WALL, CYL_Y, WALL, CYL_H);          // right wall
+    p.rect(CYL_X, CYL_Y + CYL_H - WALL, CYL_W, WALL);          // bottom wall
+
+    // Gas fill (colour by temperature)
+    let tFrac = p.constrain((T0 - 100) / 2000, 0, 1);
+    let gr = p.lerp(30, 220, tFrac);
+    let gb = p.lerp(120, 40, tFrac);
+    let gg = p.lerp(60, 60, tFrac);
+    p.fill(gr, gg, gb, 55);
+    p.noStroke();
+    p.rect(CYL_X + WALL, pistonY + PISTON_H, CYL_W - 2 * WALL,
+           BOT_WALL_Y - pistonY - PISTON_H);
+
+    // Particles
+    for (let pt of particles) {{
+      let col = tempColour(tFrac);
+      p.fill(col[0], col[1], col[2], 210);
+      p.noStroke();
+      p.circle(pt.x, pt.y, 6);
+    }}
+
+    // Piston rectangle
+    p.fill(160, 170, 180);
+    p.stroke(200, 210, 220);
+    p.strokeWeight(1.5);
+    p.rect(CYL_X + WALL, pistonY, CYL_W - 2 * WALL, PISTON_H, 3);
+
+    // Piston label
+    let pAtm = P0 / 101325;
+    p.noStroke();
+    p.fill(240, 240, 240);
+    p.textSize(11);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text(`P = ${{pAtm.toFixed(2)}} atm`, CYL_X + CYL_W / 2, pistonY - 10);
+
+    // Temperature display inside gas
+    p.textSize(12);
+    p.fill(255, 255, 200, 200);
+    p.text(`T = ${{T0.toFixed(0)}} K`, CYL_X + CYL_W / 2, (pistonY + PISTON_H + BOT_WALL_Y) / 2);
+
+    // Heat flow arrows (non-adiabatic)
+    if (processKey !== 'adiab') {{
+      drawHeatArrows();
+    }}
+
+    // Flame icon if heating
+    if (flameOn) {{
+      drawFlame();
+    }}
+  }}
+
+  function tempColour(frac) {{
+    let r = Math.round(p.lerp(80, 255, frac));
+    let g = Math.round(p.lerp(140,  60, frac));
+    let b = Math.round(p.lerp(255,  40, frac));
+    return [r, g, b];
+  }}
+
+  function drawHeatArrows() {{
+    let frame = p.frameCount;
+    // Wavy red arrows at bottom of cylinder
+    let arrowCount = 3;
+    let baseX = CYL_X + WALL + 20;
+    let spacing = (CYL_W - 2 * WALL - 40) / (arrowCount - 1);
+    for (let i = 0; i < arrowCount; i++) {{
+      let ax = baseX + i * spacing;
+      let ay = BOT_WALL_Y - 8 + Math.sin(frame * 0.15 + i * 1.2) * 4;
+      p.stroke(255, 100, 40, 180);
+      p.strokeWeight(2);
+      p.line(ax, ay, ax, ay - 18);
+      // Arrowhead
+      p.fill(255, 100, 40, 180);
+      p.noStroke();
+      p.triangle(ax, ay - 22, ax - 4, ay - 14, ax + 4, ay - 14);
+    }}
+  }}
+
+  function drawFlame() {{
+    let cx = CYL_X + CYL_W / 2;
+    let cy = BOT_WALL_Y + 18;
+    let frame = p.frameCount;
+    // Simple animated flame shapes
+    for (let layer = 0; layer < 3; layer++) {{
+      let wobble = Math.sin(frame * 0.3 + layer * 2) * 4;
+      let alpha = 200 - layer * 50;
+      p.noStroke();
+      if (layer === 0) p.fill(255, 60, 0, alpha);
+      else if (layer === 1) p.fill(255, 160, 0, alpha);
+      else p.fill(255, 220, 50, alpha);
+      p.ellipse(cx + wobble, cy - layer * 6, 22 - layer * 4, 28 - layer * 4);
+    }}
+  }}
+
+  // ── Draw PV panel ─────────────────────────────────────────────
+  function drawPVPanel() {{
+    // Background
+    p.fill(20, 24, 34);
+    p.stroke(60, 70, 90);
+    p.strokeWeight(1);
+    p.rect(PV_X, PV_Y, PV_W, PV_H, 4);
+
+    // Collect all P and V values for axis scaling
+    let allP = pvPath.map(pt => pt.p);
+    let allV = pvPath.map(pt => pt.v);
+    // Include isotherms range
+    let vMin = Math.min(...allV, V0 * 0.15);
+    let vMax = Math.max(...allV, V0 * 3.2);
+    let pMin = 0;
+    let pMax = Math.max(...allP, P0 * 0.1) * 1.3;
+
+    function toCanvasX(v) {{
+      return PV_X + 32 + (v - vMin) / (vMax - vMin) * (PV_W - 44);
+    }}
+    function toCanvasY(pr) {{
+      return PV_Y + PV_H - 28 - (pr - pMin) / (pMax - pMin) * (PV_H - 44);
+    }}
+
+    // Background isotherms
+    for (let ti = 0; ti < ISOTHERM_Ts.length; ti++) {{
+      let Tiso = ISOTHERM_Ts[ti];
+      let col = ISOTHERM_COLS[ti];
+      p.stroke(col[0], col[1], col[2], col[3]);
+      p.strokeWeight(1);
+      p.noFill();
+      p.beginShape();
+      let steps = 40;
+      for (let s = 0; s <= steps; s++) {{
+        let v = vMin + (s / steps) * (vMax - vMin);
+        if (v <= 0) continue;
+        let pr = n * R * Tiso / v;
+        if (pr > pMax * 1.5 || pr < 0) continue;
+        p.vertex(toCanvasX(v), toCanvasY(pr));
+      }}
+      p.endShape();
+    }}
+
+    // PV path trace
+    let pcol = PROC_COLS[processKey] || [200, 200, 200];
+    p.stroke(pcol[0], pcol[1], pcol[2], 200);
+    p.strokeWeight(2);
+    p.noFill();
+    if (pvPath.length > 1) {{
+      p.beginShape();
+      for (let pt of pvPath) {{
+        let cx = toCanvasX(pt.v);
+        let cy = toCanvasY(pt.p);
+        p.vertex(cx, cy);
+      }}
+      p.endShape();
+    }}
+
+    // Current state dot
+    let dotX = toCanvasX(V0);
+    let dotY = toCanvasY(P0);
+    p.noStroke();
+    p.fill(255, 230, 50);
+    p.circle(dotX, dotY, 10);
+    p.stroke(255, 230, 50, 120);
+    p.strokeWeight(1);
+    p.noFill();
+    p.circle(dotX, dotY, 18);
+
+    // Axes
+    p.stroke(120, 130, 150);
+    p.strokeWeight(1);
+    // X axis
+    p.line(PV_X + 32, PV_Y + PV_H - 28, PV_X + PV_W - 8, PV_Y + PV_H - 28);
+    // Y axis
+    p.line(PV_X + 32, PV_Y + 8, PV_X + 32, PV_Y + PV_H - 28);
+
+    // Axis labels
+    p.noStroke();
+    p.fill(160, 170, 190);
+    p.textSize(10);
+    p.textAlign(p.CENTER, p.TOP);
+    p.text('V (m³)', PV_X + PV_W / 2, PV_Y + PV_H - 18);
+    p.push();
+    p.translate(PV_X + 10, PV_Y + PV_H / 2);
+    p.rotate(-p.HALF_PI);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text('P (Pa)', 0, 0);
+    p.pop();
+
+    // Panel title
+    p.fill(200, 210, 230);
+    p.textSize(11);
+    p.textAlign(p.CENTER, p.TOP);
+    p.text('PV Diagram', PV_X + PV_W / 2, PV_Y + 4);
+
+    // Process label
+    let pLabel = Object.entries(PROC_MAP).find(([k,v]) => v === processKey);
+    let pLabelStr = pLabel ? pLabel[0] : processKey;
+    p.fill(pcol[0], pcol[1], pcol[2]);
+    p.textSize(10);
+    p.textAlign(p.RIGHT, p.TOP);
+    p.text(pLabelStr, PV_X + PV_W - 6, PV_Y + 18);
+  }}
+
+  // ── Draw buttons ──────────────────────────────────────────────
+  function drawButtons() {{
+    p.textSize(11);
+
+    // Process buttons
+    for (let btn of BUTTONS) {{
+      let active = (btn.key === processKey);
+      let pcol = PROC_COLS[btn.key] || [160, 160, 160];
+      if (active) {{
+        p.fill(pcol[0], pcol[1], pcol[2], 200);
+        p.stroke(pcol[0], pcol[1], pcol[2]);
+      }} else {{
+        p.fill(40, 48, 62);
+        p.stroke(80, 90, 110);
+      }}
+      p.strokeWeight(1.5);
+      p.rect(btn.x, BTN_Y, BTN_W, BTN_H, 4);
+      p.noStroke();
+      p.fill(active ? 10 : 200, active ? 10 : 210, active ? 10 : 230);
+      p.textAlign(p.CENTER, p.CENTER);
+      p.text(btn.label, btn.x + BTN_W / 2, BTN_Y + BTN_H / 2);
+    }}
+
+    // Play/pause button
+    {{
+      let btn = PLAY_BTN;
+      p.fill(playing ? 80 : 40, playing ? 130 : 80, playing ? 80 : 60);
+      p.stroke(playing ? 100 : 80, playing ? 200 : 120, playing ? 100 : 80);
+      p.strokeWeight(1.5);
+      p.rect(btn.x, btn.y, btn.w, BTN_H, 4);
+      p.noStroke();
+      p.fill(200, 230, 200);
+      p.textAlign(p.CENTER, p.CENTER);
+      p.text(playing ? '⏸ Pause' : '▶ Play', btn.x + btn.w / 2, btn.y + BTN_H / 2);
+    }}
+
+    // Flame button
+    {{
+      let btn = FLAME_BTN;
+      p.fill(flameOn ? 120 : 40, flameOn ? 60 : 40, flameOn ? 20 : 50);
+      p.stroke(flameOn ? 255 : 100, flameOn ? 120 : 80, flameOn ? 20 : 80);
+      p.strokeWeight(1.5);
+      p.rect(btn.x, btn.y, btn.w, BTN_H, 4);
+      p.noStroke();
+      p.fill(230, 200, 180);
+      p.textAlign(p.CENTER, p.CENTER);
+      p.text(flameOn ? '🔥 On' : '🔥 Heat', btn.x + btn.w / 2, btn.y + BTN_H / 2);
+    }}
+
+    // Drag hint
+    p.noStroke();
+    p.fill(100, 110, 130);
+    p.textSize(10);
+    p.textAlign(p.LEFT, p.TOP);
+    p.text('← Drag piston to change volume', CYL_X, BTN_Y + 78);
+  }}
+
+  // ── Mouse interaction ─────────────────────────────────────────
+  p.mousePressed = function() {{
+    let mx = p.mouseX, my = p.mouseY;
+
+    // Check process buttons
+    for (let btn of BUTTONS) {{
+      if (mx >= btn.x && mx <= btn.x + BTN_W && my >= BTN_Y && my <= BTN_Y + BTN_H) {{
+        processKey = btn.key;
+        pvPath = [{{v: V0, p: P0}}];
+        return;
+      }}
+    }}
+
+    // Play/pause
+    let pb = PLAY_BTN;
+    if (mx >= pb.x && mx <= pb.x + pb.w && my >= pb.y && my <= pb.y + BTN_H) {{
+      playing = !playing;
+      return;
+    }}
+
+    // Flame toggle
+    let fb = FLAME_BTN;
+    if (mx >= fb.x && mx <= fb.x + fb.w && my >= fb.y && my <= fb.y + BTN_H) {{
+      flameOn = !flameOn;
+      flameTimer = 0;
+      return;
+    }}
+
+    // Check piston drag
+    let pistonTop = pistonY, pistonBot = pistonY + PISTON_H;
+    let cylLeft = CYL_X + WALL, cylRight = CYL_X + CYL_W - WALL;
+    if (mx >= cylLeft && mx <= cylRight && my >= pistonTop - 10 && my <= pistonBot + 10) {{
+      dragging = true;
+      dragOffsetY = my - pistonY;
+      playing = false;
+    }}
+  }};
+
+  p.mouseDragged = function() {{
+    if (!dragging) return;
+    let newPistonY = p.mouseY - dragOffsetY;
+    newPistonY = p.constrain(newPistonY, TOP_WALL_Y + 2, BOT_WALL_Y - PISTON_H - 2);
+    pistonY = newPistonY;
+    // Convert pistonY → volume
+    let frac = (pistonY - TOP_WALL_Y) / INTERIOR_H;
+    let newV = V_MIN + frac * (V_MAX - V_MIN);
+    updateState(newV);
+  }};
+
+  p.mouseReleased = function() {{
+    dragging = false;
+  }};
+
+  // ── Expose PROC_MAP to JS scope ───────────────────────────────
+  const PROC_MAP = {{
+    'Isothermal': 'iso-t', 'Adiabatic': 'adiab',
+    'Isobaric':  'iso-p',  'Isochoric': 'iso-v'
+  }};
+}});
+</script>
+</body>
+</html>"""
 
 
 # ── Main page ─────────────────────────────────────────────────────────────────

@@ -9,9 +9,12 @@ capacitor overlay.
 Spec reference: Component 2, Topic 4 (Capacitance), sections (i) and (j).
 """
 
+import json
+
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 from plotly.subplots import make_subplots
 
 from utils import physics  # noqa: F401 — constants available if needed
@@ -705,6 +708,617 @@ def render_sidebar() -> dict:
         )
 
 
+# ── p5.js Animation ───────────────────────────────────────────────────────────
+
+
+def build_capacitor_animation(R, C, V0, mode):
+    """
+    Build a complete p5.js RC circuit animation as an HTML string.
+
+    Parameters
+    ----------
+    R    : resistance in Ohms
+    C    : capacitance in Farads
+    V0   : supply / initial voltage in Volts
+    mode : 'charge' or 'discharge' (sets the initial animation state)
+
+    Returns
+    -------
+    str  : full HTML document embedding the p5.js sketch
+    """
+    tau = float(R * C)
+    data = json.dumps({
+        "R": float(R),
+        "C": float(C),
+        "V0": float(V0),
+        "tau": tau,
+        "mode": mode,
+    })
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<style>
+body{{margin:0;background:#0e1117;overflow:hidden;font-family:monospace}}
+canvas{{display:block}}
+</style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<script>
+const D = {data};
+
+new p5(function(p) {{
+  // ── layout constants ────────────────────────────────────────────────────────
+  const W = 700, H = 420;
+  // Circuit bounding box
+  const CX = 80,  CY = 60,  CW = 340, CH = 220;
+  // Nodes: TL=top-left, TR=top-right, BL=bottom-left, BR=bottom-right
+  const TL = {{x: CX,      y: CY}};
+  const TR = {{x: CX+CW,   y: CY}};
+  const BL = {{x: CX,      y: CY+CH}};
+  const BR = {{x: CX+CW,   y: CY+CH}};
+  // Component centres
+  const BAT_X = CX,        BAT_Y = CY + CH/2;   // battery mid-left
+  const RES_X = CX + CW/2, RES_Y = CY;           // resistor mid-top
+  const CAP_X = CX + CW,   CAP_Y = CY + CH/2;   // capacitor mid-right
+  // Meter panel
+  const MX = 460, MY = 40, MW = 220, MH = 340;
+
+  // ── physics constants ───────────────────────────────────────────────────────
+  const tau   = D.tau;   // RC (s)
+  const V0    = D.V0;
+  const SPEED_OPTIONS = [1, 2, 4];
+
+  // ── state ───────────────────────────────────────────────────────────────────
+  let tSim      = 0;           // simulated time (s)
+  let charging  = (D.mode === 'charge');
+  let paused    = false;
+  let speedIdx  = 0;
+  let sparkTimer = 0;          // frames left for spark flash
+  let fullyCharged = false;
+  let fullyDischarged = false;
+
+  // Charge packets
+  const N_PACKETS = 8;
+  let packets = [];
+
+  // Buttons (populated in setup)
+  let btnPlay, btnSpeed;
+
+  // ── helpers ─────────────────────────────────────────────────────────────────
+  function vC(t) {{
+    if (charging) return V0 * (1 - Math.exp(-t / tau));
+    else          return V0 * Math.exp(-t / tau);
+  }}
+
+  function iC(t) {{
+    // Always positive magnitude; direction handled by packet flow
+    return (V0 / D.R) * Math.exp(-t / tau);
+  }}
+
+  function chargeRatio() {{
+    return Math.min(vC(tSim) / V0, 1.0);
+  }}
+
+  // Perimeter path: BL → TL (battery left) → TR (top, resistor) → BR → BL
+  // Returns position along perimeter [0,1].
+  function perimeterPos(frac) {{
+    // Total perimeter = 2*(CW + CH)
+    const perim = 2 * (CW + CH);
+    let d = ((frac % 1) + 1) % 1 * perim;
+
+    // Segment 1: BL → TL (left side, going up), length=CH
+    if (d < CH) {{
+      return {{x: BL.x, y: BL.y - d}};
+    }}
+    d -= CH;
+    // Segment 2: TL → TR (top, going right), length=CW
+    if (d < CW) {{
+      return {{x: TL.x + d, y: TL.y}};
+    }}
+    d -= CW;
+    // Segment 3: TR → BR (right side, going down), length=CH
+    if (d < CH) {{
+      return {{x: TR.x, y: TR.y + d}};
+    }}
+    d -= CH;
+    // Segment 4: BR → BL (bottom, going left), length=CW
+    return {{x: BR.x - d, y: BR.y}};
+  }}
+
+  function initPackets() {{
+    packets = [];
+    for (let i = 0; i < N_PACKETS; i++) {{
+      packets.push({{
+        frac: i / N_PACKETS,
+        alpha: p.random(180, 255),
+      }});
+    }}
+  }}
+
+  // ── p5 lifecycle ─────────────────────────────────────────────────────────────
+  p.setup = function() {{
+    let cnv = p.createCanvas(W, H);
+    cnv.parent(document.body);
+    p.textFont('monospace');
+    initPackets();
+
+    // Play/pause button
+    btnPlay = p.createButton('⏸ Pause');
+    btnPlay.position(W - 170, 8);
+    btnPlay.style('background', '#1f77b4');
+    btnPlay.style('color', '#fff');
+    btnPlay.style('border', 'none');
+    btnPlay.style('border-radius', '4px');
+    btnPlay.style('padding', '4px 10px');
+    btnPlay.style('cursor', 'pointer');
+    btnPlay.style('font-size', '12px');
+    btnPlay.mousePressed(function() {{
+      paused = !paused;
+      btnPlay.html(paused ? '▶ Play' : '⏸ Pause');
+    }});
+
+    // Speed button
+    btnSpeed = p.createButton('1x');
+    btnSpeed.position(W - 65, 8);
+    btnSpeed.style('background', '#ff7f0e');
+    btnSpeed.style('color', '#fff');
+    btnSpeed.style('border', 'none');
+    btnSpeed.style('border-radius', '4px');
+    btnSpeed.style('padding', '4px 10px');
+    btnSpeed.style('cursor', 'pointer');
+    btnSpeed.style('font-size', '12px');
+    btnSpeed.mousePressed(function() {{
+      speedIdx = (speedIdx + 1) % SPEED_OPTIONS.length;
+      btnSpeed.html(SPEED_OPTIONS[speedIdx] + 'x');
+    }});
+  }};
+
+  p.windowResized = function() {{
+    p.resizeCanvas(p.windowWidth || W, H);
+  }};
+
+  p.mousePressed = function() {{
+    // Click on capacitor region to trigger discharge
+    let capLeft  = CAP_X - 25;
+    let capRight = CAP_X + 25;
+    let capTop   = CAP_Y - 55;
+    let capBot   = CAP_Y + 55;
+    if (p.mouseX > capLeft && p.mouseX < capRight &&
+        p.mouseY > capTop  && p.mouseY < capBot) {{
+      if (charging && chargeRatio() > 0.05) {{
+        // Trigger discharge
+        let currentV = vC(tSim);
+        charging = false;
+        tSim = -tau * Math.log(currentV / V0);  // reset tSim so vC(tSim)=currentV
+        sparkTimer = 30;
+        fullyCharged = false;
+      }}
+    }}
+  }};
+
+  p.draw = function() {{
+    p.background('#0e1117');
+    let speed = SPEED_OPTIONS[speedIdx];
+
+    // ── Advance simulation time ──────────────────────────────────────────────
+    if (!paused) {{
+      // dt in simulated seconds: 60fps assumed, each frame = (1/60)*speed * timeScale
+      // timeScale makes tau feel ~3 seconds at 1x for good visual pacing
+      let timeScale = 3.0 / tau;
+      tSim += (1 / 60) * speed * timeScale * tau / 3.0;  // simplifies to speed/60
+
+      // Actually: advance tSim so that one full charge takes ~3 real seconds at 1x
+      // => need to traverse from 0 to ~5*tau in 3s => dt per frame = 5*tau / (3*60)
+      tSim += (5 * tau) / (3 * 60) * speed;
+
+      // Move packets
+      let packetSpeed = speed * 0.004;
+      for (let pk of packets) {{
+        if (charging) pk.frac += packetSpeed;
+        else          pk.frac -= packetSpeed;
+        pk.frac = ((pk.frac % 1) + 1) % 1;
+      }}
+
+      // Check fully charged / discharged
+      let ratio = chargeRatio();
+      if (charging && ratio >= 0.993) {{
+        fullyCharged = true;
+        // Auto-restart discharge after 2s pause equivalent (~120 frames)
+        if (!fullyDischarged) {{
+          tSim = 5.1 * tau;  // clamp
+        }}
+      }} else {{
+        fullyCharged = false;
+      }}
+      if (!charging && ratio <= 0.007) {{
+        fullyDischarged = true;
+        // Auto-restart charging
+        charging = true;
+        tSim = 0;
+        initPackets();
+        fullyDischarged = false;
+      }} else {{
+        fullyDischarged = false;
+      }}
+    }}
+
+    if (sparkTimer > 0) sparkTimer--;
+
+    // ── Draw circuit wires ─────────────────────────────────────────────────
+    p.stroke(80, 80, 100);
+    p.strokeWeight(2);
+    p.noFill();
+    // Left wire: BL → TL (skipping battery body)
+    p.line(BL.x, BL.y, BL.x, BAT_Y + 30);
+    p.line(BL.x, BAT_Y - 30, TL.x, TL.y);
+    // Top wire: TL → resistor left gap, then resistor right gap → TR
+    p.line(TL.x, TL.y, RES_X - 30, RES_Y);
+    p.line(RES_X + 30, RES_Y, TR.x, TR.y);
+    // Right wire: TR → capacitor top gap, then capacitor bottom gap → BR
+    p.line(TR.x, TR.y, CAP_X, CAP_Y - 55);
+    p.line(CAP_X, CAP_Y + 55, BR.x, BR.y);
+    // Bottom wire: BR → BL
+    p.line(BR.x, BR.y, BL.x, BL.y);
+
+    // ── Draw battery ────────────────────────────────────────────────────────
+    drawBattery(BAT_X, BAT_Y);
+
+    // ── Draw resistor ──────────────────────────────────────────────────────
+    drawResistor(RES_X, RES_Y);
+
+    // ── Draw capacitor ────────────────────────────────────────────────────
+    drawCapacitor(CAP_X, CAP_Y, chargeRatio());
+
+    // ── Draw charge packets ───────────────────────────────────────────────
+    if (!paused) {{
+      drawPackets();
+    }}
+
+    // ── Spark flash ───────────────────────────────────────────────────────
+    if (sparkTimer > 0) {{
+      drawSpark(CAP_X, CAP_Y, sparkTimer);
+    }}
+
+    // ── Fully charged banner ──────────────────────────────────────────────
+    if (fullyCharged) {{
+      p.noStroke();
+      p.fill(255, 215, 0, 180 + 40 * Math.sin(p.frameCount * 0.2));
+      p.textSize(13);
+      p.textAlign(p.CENTER);
+      p.text('FULLY CHARGED', CAP_X, CAP_Y - 75);
+    }}
+
+    // ── Voltage meter panel ───────────────────────────────────────────────
+    drawMeter(MX, MY, MW, MH);
+
+    // ── Component labels ──────────────────────────────────────────────────
+    drawLabels();
+  }};
+
+  // ── Drawing sub-routines ────────────────────────────────────────────────────
+
+  function drawBattery(x, y) {{
+    // Long line = +ve terminal (top), short line = -ve terminal (bottom)
+    p.stroke(200, 200, 220);
+    p.strokeWeight(3);
+    // +ve terminal (top)
+    p.line(x - 14, y - 20, x + 14, y - 20);
+    // -ve terminal (bottom)
+    p.line(x - 8,  y - 10, x + 8,  y - 10);
+    p.line(x - 14, y + 10, x + 14, y + 10);
+    p.line(x - 8,  y + 20, x + 8,  y + 20);
+    // Vertical connectors
+    p.stroke(80, 80, 100);
+    p.strokeWeight(2);
+    p.line(x, y - 30, x, y - 20);
+    p.line(x, y + 20, x, y + 30);
+    // + / - symbols
+    p.noStroke();
+    p.fill(100, 200, 120);
+    p.textSize(11);
+    p.textAlign(p.CENTER);
+    p.text('+', x + 22, y - 16);
+    p.fill(220, 100, 100);
+    p.text('−', x + 22, y + 24);
+    // Label
+    p.fill(180, 180, 200);
+    p.textSize(10);
+    p.text('EMF', x - 28, y - 4);
+    p.text(V0.toFixed(1) + ' V', x - 28, y + 10);
+  }}
+
+  function drawResistor(x, y) {{
+    // Zigzag resistor symbol
+    p.stroke(255, 165, 50);
+    p.strokeWeight(2);
+    p.noFill();
+    p.beginShape();
+    let sx = x - 30, sy = y;
+    p.vertex(sx, sy);
+    let segs = 6;
+    let segW = 60 / segs;
+    for (let i = 0; i < segs; i++) {{
+      let nx = sx + (i + 0.5) * segW;
+      let ny = (i % 2 === 0) ? sy - 10 : sy + 10;
+      p.vertex(nx, ny);
+    }}
+    p.vertex(x + 30, sy);
+    p.endShape();
+    // Label
+    p.noStroke();
+    p.fill(255, 165, 50);
+    p.textSize(10);
+    p.textAlign(p.CENTER);
+    p.text('R = ' + formatSI(D.R, 'Ω'), x, y - 20);
+  }}
+
+  function drawCapacitor(x, y, ratio) {{
+    let plateH = 50;
+    let gap = 10;
+    // Glow fill between plates (charge level)
+    let fillAlpha = ratio * 200;
+    p.noStroke();
+    // Blue fill growing with charge
+    p.fill(31, 119, 180, fillAlpha);
+    p.rect(x - gap, y - plateH / 2, gap * 2, plateH);
+    // Plates
+    let plateColor = p.lerpColor(
+      p.color(140, 160, 200),
+      p.color(100, 180, 255),
+      ratio
+    );
+    p.stroke(plateColor);
+    p.strokeWeight(4);
+    p.line(x - gap, y - plateH / 2, x - gap, y + plateH / 2);
+    p.line(x + gap, y - plateH / 2, x + gap, y + plateH / 2);
+    // Outer glow when charged
+    if (ratio > 0.8) {{
+      let glowA = p.map(ratio, 0.8, 1.0, 0, 80);
+      p.noFill();
+      p.stroke(100, 180, 255, glowA);
+      p.strokeWeight(8);
+      p.line(x - gap, y - plateH / 2, x - gap, y + plateH / 2);
+      p.line(x + gap, y - plateH / 2, x + gap, y + plateH / 2);
+    }}
+    // Clickable hint ring
+    p.noFill();
+    p.stroke(255, 127, 14, 60);
+    p.strokeWeight(1);
+    p.ellipse(x, y, 54, 120);
+    // Label
+    p.noStroke();
+    p.fill(100, 180, 255);
+    p.textSize(10);
+    p.textAlign(p.CENTER);
+    p.text('C = ' + formatSI(D.C, 'F'), x, y + plateH / 2 + 18);
+    p.fill(150, 150, 180);
+    p.textSize(9);
+    p.text('(click)', x, y + plateH / 2 + 30);
+  }}
+
+  function drawPackets() {{
+    let ratio = chargeRatio();
+    // Current magnitude governs opacity/size
+    let i_now = (V0 / D.R) * Math.exp(-tSim / tau);
+    let i_max = V0 / D.R;
+    let strength = Math.min(i_now / i_max, 1.0);
+    if (strength < 0.01) return;
+
+    for (let pk of packets) {{
+      // Don't draw packet inside battery or capacitor bodies
+      let pos = perimeterPos(pk.frac);
+      // Skip if inside component housings
+      let inBat = (Math.abs(pos.x - BAT_X) < 20 && Math.abs(pos.y - BAT_Y) < 35);
+      let inCap = (Math.abs(pos.x - CAP_X) < 20 && Math.abs(pos.y - CAP_Y) < 60);
+      if (inBat || inCap) continue;
+
+      let a = strength * pk.alpha;
+      // Core dot
+      p.noStroke();
+      p.fill(255, 127, 14, a);
+      p.ellipse(pos.x, pos.y, 8, 8);
+      // Glow halo
+      p.fill(255, 127, 14, a * 0.3);
+      p.ellipse(pos.x, pos.y, 16, 16);
+    }}
+  }}
+
+  function drawSpark(x, y, timer) {{
+    let t = timer / 30;  // 1→0
+    p.push();
+    p.translate(x, y);
+    // Flash
+    p.noStroke();
+    p.fill(231, 76, 60, t * 200);
+    p.ellipse(0, 0, 80 * t, 80 * t);
+    // Rays
+    p.stroke(255, 200, 100, t * 255);
+    p.strokeWeight(2);
+    for (let i = 0; i < 8; i++) {{
+      let ang = (i / 8) * p.TWO_PI;
+      let len = p.random(20, 50) * t;
+      p.line(0, 0, Math.cos(ang) * len, Math.sin(ang) * len);
+    }}
+    // SPARK text
+    p.noStroke();
+    p.fill(255, 200, 100, t * 255);
+    p.textSize(16);
+    p.textAlign(p.CENTER);
+    p.text('⚡ DISCHARGE!', 0, -70);
+    p.pop();
+  }}
+
+  function drawMeter(mx, my, mw, mh) {{
+    // Panel background
+    p.noStroke();
+    p.fill(20, 25, 40);
+    p.rect(mx, my, mw, mh, 8);
+    p.stroke(50, 70, 110);
+    p.strokeWeight(1);
+    p.noFill();
+    p.rect(mx, my, mw, mh, 8);
+
+    // Title
+    p.noStroke();
+    p.fill(180, 200, 230);
+    p.textSize(11);
+    p.textAlign(p.LEFT);
+    p.text('VOLTAGE METER', mx + 10, my + 18);
+
+    // Current Vc
+    let vc = vC(tSim);
+    let ratio = chargeRatio();
+    p.fill(100, 180, 255);
+    p.textSize(22);
+    p.textAlign(p.CENTER);
+    p.text(vc.toFixed(2) + ' V', mx + mw / 2, my + 48);
+
+    // Mode
+    p.textSize(10);
+    p.fill(charging ? '#2ecc71' : '#e74c3c');
+    p.text(charging ? '▲ CHARGING' : '▼ DISCHARGING', mx + mw / 2, my + 63);
+
+    // Mini graph area
+    let gx = mx + 14, gy = my + 75, gw = mw - 28, gh = 140;
+    p.noFill();
+    p.stroke(40, 55, 80);
+    p.strokeWeight(1);
+    p.rect(gx, gy, gw, gh);
+
+    // Draw V(t) curve
+    p.stroke(31, 119, 180);
+    p.strokeWeight(2);
+    p.noFill();
+    p.beginShape();
+    let nPts = 80;
+    for (let i = 0; i <= nPts; i++) {{
+      let tFrac = i / nPts;
+      let tVal  = tFrac * 5 * tau;
+      let vVal  = charging
+        ? V0 * (1 - Math.exp(-tVal / tau))
+        : V0 * Math.exp(-tVal / tau);
+      let px2 = gx + tFrac * gw;
+      let py2 = gy + gh - (vVal / V0) * gh;
+      p.vertex(px2, py2);
+    }}
+    p.endShape();
+
+    // τ dotted line
+    let tauX = gx + (tau / (5 * tau)) * gw;
+    let tauV  = charging ? V0 * (1 - Math.exp(-1)) : V0 * Math.exp(-1);
+    let tauY  = gy + gh - (tauV / V0) * gh;
+    p.stroke(231, 76, 60, 180);
+    p.strokeWeight(1);
+    p.drawingContext.setLineDash([4, 4]);
+    p.line(tauX, gy, tauX, gy + gh);
+    p.line(gx, tauY, gx + gw, tauY);
+    p.drawingContext.setLineDash([]);
+
+    // τ label
+    p.noStroke();
+    p.fill(231, 76, 60);
+    p.textSize(9);
+    p.textAlign(p.LEFT);
+    p.text('τ', tauX + 2, gy + 10);
+
+    // Current time marker (vertical line)
+    let curTClamped = Math.min(tSim, 5 * tau);
+    let curX = gx + (curTClamped / (5 * tau)) * gw;
+    p.stroke(255, 200, 80, 200);
+    p.strokeWeight(2);
+    p.line(curX, gy, curX, gy + gh);
+
+    // Current V dot
+    let curVY = gy + gh - ratio * gh;
+    p.noStroke();
+    p.fill(255, 200, 80);
+    p.ellipse(curX, curVY, 7, 7);
+
+    // Axis labels
+    p.noStroke();
+    p.fill(120, 140, 170);
+    p.textSize(8);
+    p.textAlign(p.LEFT);
+    p.text('0', gx - 10, gy + gh + 2);
+    p.text('5τ', gx + gw - 10, gy + gh + 2);
+    p.text('V₀', gx - 20, gy + 4);
+    p.text('0', gx - 12, gy + gh);
+    p.textAlign(p.CENTER);
+    p.text('t →', gx + gw / 2, gy + gh + 10);
+
+    // Stats below graph
+    let sy = gy + gh + 18;
+    p.fill(160, 180, 210);
+    p.textSize(9);
+    p.textAlign(p.LEFT);
+    p.text('τ = RC = ' + tau.toFixed(4) + ' s', mx + 10, sy);
+    p.text('V₀ = ' + V0.toFixed(1) + ' V', mx + 10, sy + 13);
+    p.text('t = ' + tSim.toFixed(3) + ' s', mx + 10, sy + 26);
+    p.text('Vᴄ = ' + vc.toFixed(3) + ' V', mx + 10, sy + 39);
+
+    // Charge bar
+    let barY = sy + 56;
+    p.fill(30, 40, 60);
+    p.rect(mx + 10, barY, mw - 20, 14, 3);
+    let barColor = p.lerpColor(p.color('#1f77b4'), p.color('#2ecc71'), ratio);
+    p.fill(barColor);
+    p.rect(mx + 10, barY, (mw - 20) * ratio, 14, 3);
+    p.noStroke();
+    p.fill(200, 220, 240);
+    p.textSize(9);
+    p.textAlign(p.CENTER);
+    p.text((ratio * 100).toFixed(1) + '% charged', mx + mw / 2, barY + 10);
+
+    // Formula
+    p.fill(120, 140, 180);
+    p.textSize(9);
+    p.textAlign(p.CENTER);
+    let formulaY = barY + 28;
+    if (charging) {{
+      p.text('V = V₀(1 − e^(−t/RC))', mx + mw / 2, formulaY);
+    }} else {{
+      p.text('V = V₀·e^(−t/RC)', mx + mw / 2, formulaY);
+    }}
+  }}
+
+  function drawLabels() {{
+    p.noStroke();
+    p.textAlign(p.CENTER);
+    // Battery label
+    p.fill(160, 200, 160);
+    p.textSize(10);
+    p.text('Battery', BAT_X - 38, BAT_Y + 50);
+    // Resistor label
+    p.fill(255, 165, 50);
+    p.textSize(10);
+    p.text('Resistor', RES_X, RES_Y + 28);
+    // Capacitor label
+    p.fill(100, 180, 255);
+    p.textSize(10);
+    p.text('Capacitor', CAP_X + 38, CAP_Y - 10);
+    // Title
+    p.fill(200, 210, 230);
+    p.textSize(13);
+    p.text('RC Circuit — Capacitor Charge/Discharge', W / 2 - 60, H - 14);
+  }}
+
+  function formatSI(val, unit) {{
+    if (val >= 1e6)  return (val / 1e6).toPrecision(3)  + ' M' + unit;
+    if (val >= 1e3)  return (val / 1e3).toPrecision(3)  + ' k' + unit;
+    if (val >= 1)    return val.toPrecision(3)           + ' '  + unit;
+    if (val >= 1e-3) return (val * 1e3).toPrecision(3)  + ' m' + unit;
+    if (val >= 1e-6) return (val * 1e6).toPrecision(3)  + ' μ' + unit;
+    if (val >= 1e-9) return (val * 1e9).toPrecision(3)  + ' n' + unit;
+    return val.toExponential(2) + ' ' + unit;
+  }}
+
+}});
+</script>
+</body>
+</html>"""
+
+
 # ── Main layout ───────────────────────────────────────────────────────────────
 
 
@@ -760,6 +1374,15 @@ def main() -> None:
             f"{_tau_pct}. After 5τ = {5 * tau:.4f} s, the capacitor is {_tau_end} (99.3%).",
             icon="ℹ️",
         )
+
+        # ── p5.js circuit animation ───────────────────────────────────────────
+        _anim_mode = 'charge' if circuit_mode == 'Charging' else 'discharge'
+        components.html(
+            build_capacitor_animation(R_ohm, C_F, V0, _anim_mode),
+            height=440,
+        )
+        st.caption("▶ Play/pause · ⚡ speed · Click capacitor to discharge")
+        st.divider()
 
         # ── Main Q / V / I figure ─────────────────────────────────────────────
         fig_main = build_main_figure(

@@ -8,10 +8,12 @@ Advanced mode adds multi-run averaging, log-linear regression, background
 radiation correction, activity traces, and real-world isotope data.
 """
 
+import json
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+import streamlit.components.v1 as components
 from scipy import stats
 
 from utils.style import COLOURS, plotly_layout, make_fig
@@ -155,6 +157,381 @@ def compute_t_half_simulation(N_arr: np.ndarray, N0: int):
     return np.nan
 
 
+# ── p5.js animation ──────────────────────────────────────────────────────────
+
+
+def build_decay_animation(N0, lam, t_half):
+    display_N = min(int(N0), 200)
+    data = json.dumps({"N0": display_N, "lam": float(lam), "tHalf": float(t_half)})
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+  body {{ background: #0e1117; overflow: hidden; }}
+  canvas {{ display: block; }}
+</style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<script>
+const SIM_DATA = {data};
+
+new p5(function(p) {{
+  // ── Simulation state ──────────────────────────────────────────────────────
+  const N0    = SIM_DATA.N0;
+  const lam   = SIM_DATA.lam;
+  const tHalf = SIM_DATA.tHalf;
+
+  // Nuclei: each has {{x, y, alive, flashing, flashTimer, dead}}
+  let nuclei = [];
+  // Radiation particles: {{x, y, vx, vy, alpha}}
+  let particles = [];
+  // History for mini-graph
+  let history = [];   // {{t, n}}
+
+  let simTime  = 0;
+  let playing  = true;
+  let speed    = 1;
+  const BASE_DT = 0.05;   // simulation seconds per frame at 1x
+  let allDecayed    = false;
+  let resetTimer    = 0;
+  const RESET_DELAY = 120; // frames before auto-reset
+
+  // Speed options
+  const SPEEDS = [0.5, 1, 2, 5];
+
+  // Layout constants (computed in setup)
+  let cols, rows, cellW, cellH;
+  let gridX, gridY, gridW, gridH;
+  let miniX, miniY, miniW, miniH;
+  let btnY, playBtnX, speedBtnXs;
+
+  // ── p5 setup ──────────────────────────────────────────────────────────────
+  p.setup = function() {{
+    let cnv = p.createCanvas(p.windowWidth || 700, 420);
+    cnv.canvas.addEventListener('click', handleClick);
+    p.textFont('monospace');
+    initLayout();
+    initNuclei();
+    history.push({{t: 0, n: N0}});
+  }};
+
+  function initLayout() {{
+    // Top bar: 30px, bottom mini-graph: 120px, grid: rest
+    btnY    = 15;
+    gridX   = 10;
+    gridY   = 40;
+    miniW   = Math.min(200, p.width * 0.28);
+    miniH   = 110;
+    miniX   = p.width - miniW - 10;
+    miniY   = p.height - miniH - 10;
+    gridW   = miniX - gridX - 10;
+    gridH   = miniY - gridY - 10;
+
+    // Arrange nuclei in a grid
+    cols = Math.ceil(Math.sqrt(N0 * (gridW / gridH)));
+    rows = Math.ceil(N0 / cols);
+    cellW = gridW / cols;
+    cellH = gridH / rows;
+
+    // Button positions
+    playBtnX = 10;
+    speedBtnXs = SPEEDS.map(function(_, i) {{ return 90 + i * 52; }});
+  }}
+
+  function initNuclei() {{
+    nuclei    = [];
+    particles = [];
+    history   = [{{t: 0, n: N0}}];
+    simTime   = 0;
+    allDecayed = false;
+    resetTimer = 0;
+    for (let i = 0; i < N0; i++) {{
+      let col = i % cols;
+      let row = Math.floor(i / cols);
+      nuclei.push({{
+        x: gridX + (col + 0.5) * cellW,
+        y: gridY + (row + 0.5) * cellH,
+        alive: true,
+        flashing: false,
+        flashTimer: 0,
+        dead: false,
+      }});
+    }}
+  }}
+
+  // ── Draw loop ─────────────────────────────────────────────────────────────
+  p.draw = function() {{
+    p.background('#0e1117');
+
+    if (allDecayed) {{
+      drawAllDecayedScreen();
+      resetTimer++;
+      if (resetTimer >= RESET_DELAY) {{
+        initNuclei();
+      }}
+      return;
+    }}
+
+    if (playing) {{
+      stepSimulation();
+    }}
+
+    drawNuclei();
+    updateAndDrawParticles();
+    drawMiniGraph();
+    drawCounter();
+    drawButtons();
+    drawTopBar();
+  }};
+
+  // ── Simulation step ───────────────────────────────────────────────────────
+  function stepSimulation() {{
+    let dt = BASE_DT * speed;
+    simTime += dt;
+    let p_decay = 1 - Math.exp(-lam * dt);
+    let nAlive = 0;
+    for (let i = 0; i < nuclei.length; i++) {{
+      let nuc = nuclei[i];
+      if (!nuc.alive) continue;
+      nAlive++;
+      if (Math.random() < p_decay) {{
+        decayNucleus(nuc);
+        nAlive--;
+      }}
+    }}
+    history.push({{t: simTime, n: nAlive}});
+    if (history.length > 800) history.shift();
+    if (nAlive === 0) {{
+      allDecayed = true;
+    }}
+  }}
+
+  function decayNucleus(nuc) {{
+    nuc.alive    = false;
+    nuc.flashing = true;
+    nuc.flashTimer = 8;
+    // Emit a radiation particle in a random direction
+    let angle = Math.random() * Math.PI * 2;
+    let spd   = p.random(1.5, 3.5);
+    particles.push({{
+      x: nuc.x,
+      y: nuc.y,
+      vx: Math.cos(angle) * spd,
+      vy: Math.sin(angle) * spd,
+      alpha: 255,
+    }});
+  }}
+
+  // ── Drawing helpers ───────────────────────────────────────────────────────
+  function drawNuclei() {{
+    let r = Math.max(3, Math.min(cellW, cellH) * 0.38);
+    for (let i = 0; i < nuclei.length; i++) {{
+      let nuc = nuclei[i];
+      if (nuc.flashing) {{
+        p.fill(255, 255, 255);
+        p.noStroke();
+        p.circle(nuc.x, nuc.y, r * 2.6);
+        nuc.flashTimer--;
+        if (nuc.flashTimer <= 0) {{
+          nuc.flashing = false;
+          nuc.dead = true;
+        }}
+      }} else if (nuc.alive) {{
+        p.fill('#ff7f0e');
+        p.noStroke();
+        p.circle(nuc.x, nuc.y, r * 2);
+      }} else {{
+        p.fill('#3a3a3a');
+        p.noStroke();
+        p.circle(nuc.x, nuc.y, r * 2);
+      }}
+    }}
+  }}
+
+  function updateAndDrawParticles() {{
+    for (let i = particles.length - 1; i >= 0; i--) {{
+      let pt = particles[i];
+      pt.x += pt.vx;
+      pt.y += pt.vy;
+      pt.alpha -= 8;
+      if (pt.alpha <= 0) {{
+        particles.splice(i, 1);
+        continue;
+      }}
+      p.fill(231, 76, 60, pt.alpha);
+      p.noStroke();
+      p.circle(pt.x, pt.y, 5);
+    }}
+  }}
+
+  function drawMiniGraph() {{
+    // Background
+    p.fill(20, 22, 30);
+    p.stroke('#444');
+    p.strokeWeight(1);
+    p.rect(miniX, miniY, miniW, miniH, 4);
+
+    if (history.length < 2) return;
+
+    let maxT = Math.max(history[history.length - 1].t, tHalf * 2, 1);
+
+    // Half-life dotted line
+    let halfX = miniX + (tHalf / maxT) * miniW;
+    if (halfX < miniX + miniW) {{
+      p.stroke(200, 200, 80, 160);
+      p.strokeWeight(1);
+      p.drawingContext.setLineDash([4, 4]);
+      p.line(halfX, miniY + 4, halfX, miniY + miniH - 4);
+      p.drawingContext.setLineDash([]);
+    }}
+
+    // Decay curve
+    p.stroke('#ff7f0e');
+    p.strokeWeight(1.5);
+    p.noFill();
+    p.beginShape();
+    for (let k = 0; k < history.length; k++) {{
+      let hx = miniX + (history[k].t / maxT) * miniW;
+      let hy = miniY + miniH - (history[k].n / N0) * miniH;
+      p.vertex(hx, hy);
+    }}
+    p.endShape();
+
+    // Labels
+    p.noStroke();
+    p.fill(180);
+    p.textSize(9);
+    p.textAlign(p.LEFT, p.TOP);
+    p.text('N vs t', miniX + 4, miniY + 3);
+
+    // T½ label
+    if (halfX < miniX + miniW - 18) {{
+      p.fill(200, 200, 80, 200);
+      p.textSize(8);
+      p.text('T½', halfX + 2, miniY + 4);
+    }}
+  }}
+
+  function drawCounter() {{
+    let nAlive = nuclei.filter(function(n) {{ return n.alive; }}).length;
+    p.noStroke();
+    p.fill('#ff7f0e');
+    p.textSize(13);
+    p.textAlign(p.LEFT, p.TOP);
+    p.text('N = ' + nAlive + ' / ' + N0, gridX, gridY - 20);
+    p.fill(160);
+    p.textSize(11);
+    p.text('t = ' + simTime.toFixed(1) + ' s', gridX + 120, gridY - 19);
+  }}
+
+  function drawButtons() {{
+    // Play/Pause button
+    let playLabel = playing ? '⏸ Pause' : '▶ Play';
+    drawBtn(playLabel, playBtnX, btnY - 10, 70, 22, playing ? '#2a6a9a' : '#2a7a3a');
+
+    // Speed buttons
+    for (let i = 0; i < SPEEDS.length; i++) {{
+      let active = (SPEEDS[i] === speed);
+      drawBtn(SPEEDS[i] + 'x', speedBtnXs[i], btnY - 10, 44, 22,
+              active ? '#7a4a0a' : '#333');
+    }}
+  }}
+
+  function drawBtn(label, x, y, w, h, col) {{
+    p.fill(col);
+    p.stroke('#666');
+    p.strokeWeight(1);
+    p.rect(x, y, w, h, 4);
+    p.noStroke();
+    p.fill(220);
+    p.textSize(10);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text(label, x + w / 2, y + h / 2);
+  }}
+
+  function drawTopBar() {{
+    p.noStroke();
+    p.fill(130);
+    p.textSize(10);
+    p.textAlign(p.RIGHT, p.CENTER);
+    p.text('λ=' + lam.toFixed(4) + ' s⁻¹  T½=' + tHalf.toFixed(2) + ' s',
+           p.width - 10, btnY);
+  }}
+
+  function drawAllDecayedScreen() {{
+    drawNuclei();
+    drawMiniGraph();
+    // Overlay message
+    p.fill(0, 0, 0, 160);
+    p.noStroke();
+    p.rect(0, 0, p.width, p.height);
+    p.fill(255);
+    p.textSize(28);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text('ALL DECAYED', p.width / 2, p.height / 2 - 16);
+    p.fill(180);
+    p.textSize(13);
+    let secsLeft = ((RESET_DELAY - resetTimer) / 60).toFixed(1);
+    p.text('Resetting in ' + secsLeft + ' s...', p.width / 2, p.height / 2 + 18);
+  }}
+
+  // ── Interaction ───────────────────────────────────────────────────────────
+  function handleClick(evt) {{
+    let rect = evt.target.getBoundingClientRect();
+    let mx = evt.clientX - rect.left;
+    let my = evt.clientY - rect.top;
+
+    // Play/pause button
+    if (mx >= playBtnX && mx <= playBtnX + 70 &&
+        my >= btnY - 10 && my <= btnY + 12) {{
+      playing = !playing;
+      return;
+    }}
+
+    // Speed buttons
+    for (let i = 0; i < SPEEDS.length; i++) {{
+      let bx = speedBtnXs[i];
+      if (mx >= bx && mx <= bx + 44 && my >= btnY - 10 && my <= btnY + 12) {{
+        speed = SPEEDS[i];
+        return;
+      }}
+    }}
+
+    // Click on a nucleus to force decay
+    let r = Math.max(3, Math.min(cellW, cellH) * 0.38);
+    for (let i = 0; i < nuclei.length; i++) {{
+      let nuc = nuclei[i];
+      if (!nuc.alive) continue;
+      let dx = mx - nuc.x;
+      let dy = my - nuc.y;
+      if (dx * dx + dy * dy <= r * r * 1.8) {{
+        decayNucleus(nuc);
+        return;
+      }}
+    }}
+  }}
+
+  // ── Window resize ─────────────────────────────────────────────────────────
+  p.windowResized = function() {{
+    p.resizeCanvas(p.windowWidth || 700, 420);
+    initLayout();
+    // Reposition nuclei
+    for (let i = 0; i < nuclei.length; i++) {{
+      let col = i % cols;
+      let row = Math.floor(i / cols);
+      nuclei[i].x = gridX + (col + 0.5) * cellW;
+      nuclei[i].y = gridY + (row + 0.5) * cellH;
+    }}
+  }};
+}});
+</script>
+</body>
+</html>"""
+
+
 # ── Main layout ───────────────────────────────────────────────────────────────
 
 left_col, right_col = two_column_layout(3, 7)
@@ -284,6 +661,15 @@ with left_col:
         })
 
 with right_col:
+
+    # ── p5.js nucleus animation ───────────────────────────────────────────────
+
+    components.html(
+        build_decay_animation(N0, lam, t_half_theory),
+        height=440,
+    )
+    st.caption("▶ Play/pause · ⚡ speed · Click any nucleus to force decay")
+    st.divider()
 
     # ── Basic plot ────────────────────────────────────────────────────────────
 

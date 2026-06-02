@@ -13,10 +13,12 @@ Covers:
   - Two-species mixture demonstrating equipartition theorem (Advanced)
 """
 
+import json
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+import streamlit.components.v1 as components
 from scipy import stats as scipy_stats
 
 from utils.style import COLOURS, plotly_layout, make_fig
@@ -930,6 +932,359 @@ def _build_pt_ke_plot(
     return fig
 
 
+# ── p5.js kinetic animation ───────────────────────────────────────────────────
+
+
+def build_kinetic_animation(T, N, mass_amu):
+    """
+    Return an HTML string containing a self-contained p5.js particle simulation.
+
+    Parameters
+    ----------
+    T        : temperature (K)
+    N        : number of particles (capped at 150)
+    mass_amu : molecular mass in atomic mass units
+    """
+    import math
+    k_B = 1.380649e-23
+    m = float(mass_amu) * 1.66054e-27
+    v_rms = float((3 * k_B * float(T) / m) ** 0.5)
+    data = json.dumps({"T": float(T), "N": min(int(N), 150), "vRms": v_rms, "mass": float(m)})
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+  body {{ margin: 0; background: #0e1117; overflow: hidden; }}
+  canvas {{ display: block; }}
+</style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<script>
+const INIT = {data};
+
+new p5(function(p) {{
+  // ── Config ──────────────────────────────────────────────────────────────────
+  const BG       = '#0e1117';
+  const BOX_FRAC = 0.68;   // fraction of canvas width for particle box
+  const HIST_FRAC = 0.30;  // fraction for histogram panel
+  const MARGIN   = 6;
+
+  // ── State ───────────────────────────────────────────────────────────────────
+  let W, H, boxX, boxW, boxH, boxY;
+  let histX, histW;
+  let particles = [];
+  let pistonX;          // current right-wall x of box (pixels)
+  let pistonDrag = false;
+  let dragOffsetX = 0;
+  let running = true;
+  let simSpeed = 1;     // steps per frame
+  let frameCount2 = 0;
+  let histBins = [];
+  let histMax  = 1;
+  let T_display = INIT.T;
+  let compressText = 0; // countdown frames for "Adiabatic compression!" label
+  let prevPistonX;
+
+  // ── Setup ───────────────────────────────────────────────────────────────────
+  p.setup = function() {{
+    let cnv = p.createCanvas(p.windowWidth || 700, 420);
+    cnv.style('display', 'block');
+    p.textFont('monospace');
+    layout();
+    spawnParticles(INIT.N);
+    computeHist();
+  }};
+
+  function layout() {{
+    W = p.width;
+    H = p.height;
+    boxY  = 50;
+    boxH  = H - boxY - 30;
+    boxX  = MARGIN;
+    boxW  = Math.floor(W * BOX_FRAC);
+    pistonX  = boxX + boxW;
+    prevPistonX = pistonX;
+    histX = boxX + boxW + Math.floor(W * 0.02);
+    histW = Math.floor(W * HIST_FRAC) - MARGIN;
+  }}
+
+  // ── Particle factory ─────────────────────────────────────────────────────────
+  function makeParticle(px, py) {{
+    let angle  = p.random(p.TWO_PI);
+    let speed  = INIT.vRms * p.sqrt(-2.0 * p.log(p.max(p.random(), 1e-10)));
+    let vx = speed * p.cos(angle);
+    let vy = speed * p.sin(angle);
+    // Scale to pixel space: use 1 unit = 80 pixels notionally
+    let scale = 80;
+    return {{ x: px, y: py, vx: vx / scale, vy: vy / scale, r: 5 }};
+  }}
+
+  function spawnParticles(n) {{
+    particles = [];
+    for (let i = 0; i < n; i++) {{
+      let px = p.random(boxX + 8, pistonX - 8);
+      let py = p.random(boxY + 8, boxY + boxH - 8);
+      particles.push(makeParticle(px, py));
+    }}
+  }}
+
+  // ── Speed → colour ───────────────────────────────────────────────────────────
+  function speedColour(speed) {{
+    // Reference scale: 1 pixel-unit/frame ≈ 80 m/s (our scaling factor)
+    let scale = 80;
+    let vRef = INIT.vRms / scale;
+    let t = p.constrain(speed / (2.5 * vRef), 0, 1);
+    let slow = p.color(50, 100, 255);
+    let mid  = p.color(50, 220, 80);
+    let fast = p.color(255, 60, 40);
+    if (t < 0.5) return p.lerpColor(slow, mid, t * 2);
+    return p.lerpColor(mid, fast, (t - 0.5) * 2);
+  }}
+
+  // ── Simulation step ──────────────────────────────────────────────────────────
+  function stepSim() {{
+    // Piston velocity (pixels per frame) for energy exchange
+    let pistonVel = pistonX - prevPistonX;
+    prevPistonX = pistonX;
+
+    for (let pt of particles) {{
+      pt.x += pt.vx;
+      pt.y += pt.vy;
+
+      // Left wall
+      if (pt.x - pt.r < boxX) {{
+        pt.x = boxX + pt.r;
+        pt.vx = p.abs(pt.vx);
+      }}
+      // Right wall (piston)
+      if (pt.x + pt.r > pistonX) {{
+        pt.x = pistonX - pt.r;
+        // Energy exchange with moving piston
+        pt.vx = -(pt.vx - pistonVel * 0.015) - pistonVel * 0.015;
+        pt.vx = -p.abs(pt.vx);  // ensure heading left
+      }}
+      // Top wall
+      if (pt.y - pt.r < boxY) {{
+        pt.y = boxY + pt.r;
+        pt.vy = p.abs(pt.vy);
+      }}
+      // Bottom wall
+      if (pt.y + pt.r > boxY + boxH) {{
+        pt.y = boxY + boxH - pt.r;
+        pt.vy = -p.abs(pt.vy);
+      }}
+    }}
+  }}
+
+  // ── Histogram computation (every 30 frames) ───────────────────────────────────
+  function computeHist() {{
+    let speeds = particles.map(pt => p.sqrt(pt.vx * pt.vx + pt.vy * pt.vy));
+    let maxV = p.max(speeds) * 1.05 + 1e-9;
+    let nBins = 20;
+    histBins = new Array(nBins).fill(0);
+    for (let s of speeds) {{
+      let b = p.floor((s / maxV) * nBins);
+      if (b >= nBins) b = nBins - 1;
+      histBins[b]++;
+    }}
+    histMax = p.max(histBins) || 1;
+
+    // Compute display temperature from mean KE
+    let meanV2 = speeds.reduce((a, v) => a + v * v, 0) / (speeds.length || 1);
+    let scale = 80;
+    let v_ms2 = meanV2 * scale * scale;
+    T_display = (INIT.mass * v_ms2) / (2 * 1.380649e-23);
+  }}
+
+  // ── Draw ─────────────────────────────────────────────────────────────────────
+  p.draw = function() {{
+    p.background(BG);
+
+    if (running) {{
+      for (let s = 0; s < simSpeed; s++) stepSim();
+      frameCount2++;
+      if (frameCount2 % 30 === 0) computeHist();
+    }}
+
+    // ── Box outline ───────────────────────────────────────────────────────────
+    p.noFill();
+    p.stroke(180, 180, 200);
+    p.strokeWeight(2);
+    p.rect(boxX, boxY, pistonX - boxX, boxH);
+
+    // ── Piston handle ─────────────────────────────────────────────────────────
+    p.fill(255, 140, 0);
+    p.noStroke();
+    p.rect(pistonX, boxY + boxH * 0.3, 14, boxH * 0.4, 4);
+    p.stroke(255, 200, 0);
+    p.strokeWeight(2);
+    p.line(pistonX, boxY, pistonX, boxY + boxH);
+
+    // Compression label
+    if (compressText > 0) {{
+      compressText--;
+      p.noStroke();
+      p.fill(255, 180, 0);
+      p.textSize(12);
+      p.textAlign(p.CENTER);
+      p.text('Adiabatic compression!', boxX + (pistonX - boxX) / 2, boxY + 22);
+    }}
+
+    // ── Particles ─────────────────────────────────────────────────────────────
+    p.noStroke();
+    for (let pt of particles) {{
+      let spd = p.sqrt(pt.vx * pt.vx + pt.vy * pt.vy);
+      p.fill(speedColour(spd));
+      p.ellipse(pt.x, pt.y, pt.r * 2, pt.r * 2);
+    }}
+
+    // ── Temperature readout ───────────────────────────────────────────────────
+    p.noStroke();
+    p.fill(220, 220, 240);
+    p.textSize(12);
+    p.textAlign(p.LEFT);
+    p.text('T ≈ ' + p.nf(T_display, 1, 0) + ' K', boxX + 8, boxY + 18);
+    p.text('N = ' + particles.length, boxX + 8, boxY + 34);
+
+    // ── Histogram panel ───────────────────────────────────────────────────────
+    p.noStroke();
+    p.fill(100, 110, 140);
+    p.rect(histX - 2, boxY, histW + 4, boxH, 4);
+
+    p.fill(220, 220, 240);
+    p.textSize(11);
+    p.textAlign(p.CENTER);
+    p.text('Speed distribution', histX + histW / 2, boxY + 14);
+
+    let barW = histW / histBins.length;
+    for (let i = 0; i < histBins.length; i++) {{
+      let barH = (histBins[i] / histMax) * (boxH - 30);
+      let t = i / histBins.length;
+      let slow = p.color(50, 100, 255);
+      let mid  = p.color(50, 220, 80);
+      let fast = p.color(255, 60, 40);
+      let col;
+      if (t < 0.5) col = p.lerpColor(slow, mid, t * 2);
+      else col = p.lerpColor(mid, fast, (t - 0.5) * 2);
+      p.fill(col);
+      p.noStroke();
+      p.rect(histX + i * barW, boxY + boxH - barH, barW - 1, barH);
+    }}
+
+    // Axis labels
+    p.fill(180, 180, 200);
+    p.textSize(9);
+    p.textAlign(p.LEFT);
+    p.text('slow', histX + 2, boxY + boxH + 12);
+    p.textAlign(p.RIGHT);
+    p.text('fast', histX + histW - 2, boxY + boxH + 12);
+
+    // ── Controls UI ───────────────────────────────────────────────────────────
+    drawControls();
+  }};
+
+  function drawControls() {{
+    // Play/pause button
+    let bx = W - 120, by = 8, bw = 52, bh = 22;
+    p.fill(running ? '#2a7a4b' : '#7a2a2a');
+    p.noStroke();
+    p.rect(bx, by, bw, bh, 4);
+    p.fill(240);
+    p.textSize(11);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text(running ? '⏸ Pause' : '▶ Play', bx + bw / 2, by + bh / 2);
+
+    // Speed buttons
+    let sx = W - 62, sy = 8;
+    p.fill(60, 60, 90);
+    p.rect(sx, sy, 26, 22, 4);
+    p.fill(240);
+    p.text('×' + simSpeed, sx + 13, sy + 11);
+
+    p.fill(50, 50, 80);
+    p.rect(sx + 28, sy, 22, 10, 3);
+    p.fill(200);
+    p.textSize(9);
+    p.text('+', sx + 39, sy + 5);
+    p.rect(sx + 28, sy + 12, 22, 10, 3);
+    p.text('−', sx + 39, sy + 17);
+  }}
+
+  // ── Mouse interaction ─────────────────────────────────────────────────────────
+  p.mousePressed = function() {{
+    let mx = p.mouseX, my = p.mouseY;
+
+    // Play/pause
+    let bx = W - 120, by = 8, bw = 52, bh = 22;
+    if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {{
+      running = !running;
+      return;
+    }}
+
+    // Speed + / −
+    let sx = W - 62, sy = 8;
+    if (mx >= sx + 28 && mx <= sx + 50) {{
+      if (my >= sy && my <= sy + 10) {{ simSpeed = p.min(simSpeed + 1, 5); return; }}
+      if (my >= sy + 12 && my <= sy + 22) {{ simSpeed = p.max(simSpeed - 1, 1); return; }}
+    }}
+
+    // Piston drag — hit zone: piston line ±10 px + handle rectangle
+    if (mx >= pistonX - 4 && mx <= pistonX + 18 &&
+        my >= boxY && my <= boxY + boxH) {{
+      pistonDrag = true;
+      dragOffsetX = mx - pistonX;
+      return;
+    }}
+
+    // Click inside box → add particle
+    if (mx > boxX + 8 && mx < pistonX - 8 &&
+        my > boxY + 8 && my < boxY + boxH - 8) {{
+      particles.push(makeParticle(mx, my));
+    }}
+  }};
+
+  p.mouseDragged = function() {{
+    if (!pistonDrag) return;
+    let newPiston = p.constrain(
+      p.mouseX - dragOffsetX,
+      boxX + 40,          // minimum compression
+      boxX + boxW         // maximum (original) position
+    );
+    if (newPiston < pistonX - 0.5) {{
+      compressText = 60;
+    }}
+    // Clamp particles inside new piston boundary
+    for (let pt of particles) {{
+      if (pt.x + pt.r > newPiston) {{
+        pt.x = newPiston - pt.r;
+        pt.vx = -p.abs(pt.vx) * 1.04; // slight speed boost on compression
+      }}
+    }}
+    pistonX = newPiston;
+  }};
+
+  p.mouseReleased = function() {{
+    pistonDrag = false;
+  }};
+
+  // ── Window resize ─────────────────────────────────────────────────────────────
+  p.windowResized = function() {{
+    p.resizeCanvas(p.windowWidth || 700, 420);
+    layout();
+    // Rescale particle positions proportionally
+    for (let pt of particles) {{
+      pt.x = p.constrain(pt.x, boxX + pt.r, pistonX - pt.r);
+      pt.y = p.constrain(pt.y, boxY + pt.r, boxY + boxH - pt.r);
+    }}
+  }};
+}});
+</script>
+</body>
+</html>"""
+
+
 # ── Tab renderers ─────────────────────────────────────────────────────────────
 
 
@@ -1135,6 +1490,17 @@ def render_particle_sim(mode: str) -> None:
 
     # ── Right column: plots ───────────────────────────────────────────────────
     with right_col:
+
+        # ── p5.js interactive animation ───────────────────────────────────────
+        mass_amu_val = m / 1.66054e-27
+        components.html(
+            build_kinetic_animation(T, N, mass_amu_val),
+            height=440,
+        )
+        st.caption(
+            "▶ Play/pause · Drag piston to compress · Click container to add particle"
+        )
+        st.divider()
 
         if pos is None or vel is None or masses_arr is None:
             st.info("Press **Initialise** to start the simulation.")

@@ -11,9 +11,13 @@ Covers:
 
 from __future__ import annotations
 
+import json
+import math as _math
+
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 from utils.style import COLOURS, make_fig, plotly_layout
 from utils.ui_components import (
@@ -1110,6 +1114,294 @@ def build_lens_fig(
     return fig
 
 
+# ── p5.js interactive Snell's Law animation ──────────────────────────────────
+
+
+def build_snell_animation(n1: float, n2: float, angle_deg: float) -> str:
+    """
+    Build an HTML string containing a p5.js interactive ray-optics diagram
+    for Snell's law / Total Internal Reflection.
+
+    Parameters
+    ----------
+    n1        : refractive index of incident medium (top half of canvas)
+    n2        : refractive index of refracted medium (bottom half)
+    angle_deg : initial angle of incidence in degrees (from normal)
+
+    Returns
+    -------
+    Self-contained HTML string suitable for ``components.html()``.
+    """
+    theta1_rad = _math.radians(float(angle_deg))
+    sin_t2 = float(n1) * _math.sin(theta1_rad) / float(n2)
+    tir = sin_t2 >= 1.0
+    theta2_deg = 0.0 if tir else _math.degrees(_math.asin(sin_t2))
+    theta_c = (
+        _math.degrees(_math.asin(float(n2) / float(n1)))
+        if float(n1) > float(n2)
+        else 90.0
+    )
+    data = json.dumps(
+        {
+            "n1": float(n1),
+            "n2": float(n2),
+            "theta1": float(angle_deg),
+            "theta2": theta2_deg,
+            "tir": tir,
+            "thetaC": theta_c,
+        }
+    )
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+  body {{margin:0;padding:0;background:#0d1117;overflow:hidden;}}
+  canvas {{display:block;}}
+  #controls {{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);
+             display:flex;align-items:center;gap:10px;}}
+  #playBtn {{background:#1f6feb;color:#fff;border:none;border-radius:4px;
+             padding:4px 14px;cursor:pointer;font-size:13px;}}
+  #playBtn:hover {{background:#388bfd;}}
+</style>
+</head>
+<body>
+<div id="controls">
+  <button id="playBtn">&#9654; Auto-scan</button>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+<script>
+const INIT = {data};
+
+new p5(function(p) {{
+  // ── state ─────────────────────────────────────────────────────────────────
+  let n1      = INIT.n1;
+  let n2      = INIT.n2;
+  let theta1  = INIT.theta1;   // degrees
+  let thetaC  = INIT.thetaC;   // degrees
+
+  let dragging  = false;
+  let autoScan  = false;
+  let scanDir   = 1;
+  let scanSpeed = 0.4;         // degrees per frame
+
+  // canvas geometry
+  const W = 560, H = 420;
+  const cx = W / 2, cy = H / 2;   // interface point
+  const RAY_LEN = 190;             // pixels
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+  function computeTheta2(t1_deg) {{
+    const s = n1 * Math.sin(t1_deg * Math.PI / 180) / n2;
+    if (s >= 1.0) return null;   // TIR
+    return Math.asin(s) * 180 / Math.PI;
+  }}
+
+  function degToVec(deg) {{
+    // angle from normal (vertical); returns unit vector
+    const r = deg * Math.PI / 180;
+    return {{ x: Math.sin(r), y: Math.cos(r) }};
+  }}
+
+  // ── p5 setup ─────────────────────────────────────────────────────────────
+  p.setup = function() {{
+    const cnv = p.createCanvas(W, H);
+    cnv.parent(document.body);
+    p.textFont('monospace');
+
+    document.getElementById('playBtn').addEventListener('click', function() {{
+      autoScan = !autoScan;
+      this.innerHTML = autoScan ? '&#9646;&#9646; Pause' : '&#9654; Auto-scan';
+    }});
+  }};
+
+  // ── draw ─────────────────────────────────────────────────────────────────
+  p.draw = function() {{
+    // auto-scan
+    if (autoScan) {{
+      theta1 += scanDir * scanSpeed;
+      if (theta1 >= 89) {{ theta1 = 89; scanDir = -1; }}
+      if (theta1 <= 0)  {{ theta1 = 0;  scanDir =  1; }}
+    }}
+
+    const t2 = computeTheta2(theta1);
+    const isTIR = (t2 === null);
+    const nearTIR = !isTIR && n1 > n2 && (theta1 / thetaC > 0.92);
+
+    // ── backgrounds ──────────────────────────────────────────────────────
+    // Medium 1 — dark navy
+    p.noStroke();
+    p.fill(14, 24, 50);
+    p.rect(0, 0, W, cy);
+    // Medium 2 — slightly lighter blue
+    p.fill(20, 36, 70);
+    p.rect(0, cy, W, cy);
+
+    // ── medium labels ────────────────────────────────────────────────────
+    p.textSize(13);
+    p.noStroke();
+    p.fill(130, 160, 220);
+    p.textAlign(p.LEFT, p.TOP);
+    p.text('n₁ = ' + n1.toFixed(3) + '  (c⁄' + n1.toFixed(2) + ')', 10, 10);
+    p.fill(100, 180, 140);
+    p.textAlign(p.LEFT, p.BOTTOM);
+    p.text('n₂ = ' + n2.toFixed(3) + '  (c⁄' + n2.toFixed(2) + ')', 10, H - 8);
+
+    // ── interface line ───────────────────────────────────────────────────
+    p.stroke(200, 200, 200, 160);
+    p.strokeWeight(1.5);
+    p.drawingContext.setLineDash([10, 6]);
+    p.line(0, cy, W, cy);
+    p.drawingContext.setLineDash([]);
+
+    // ── normal line ──────────────────────────────────────────────────────
+    p.stroke(120, 120, 120, 140);
+    p.strokeWeight(1);
+    p.drawingContext.setLineDash([6, 5]);
+    p.line(cx, cy - RAY_LEN - 10, cx, cy + RAY_LEN + 10);
+    p.drawingContext.setLineDash([]);
+
+    // ── critical angle indicator (if n1 > n2) ────────────────────────────
+    if (n1 > n2 && thetaC < 90) {{
+      const cRad = thetaC * Math.PI / 180;
+      const cEx  = cx - Math.sin(cRad) * RAY_LEN;
+      const cEy  = cy - Math.cos(cRad) * RAY_LEN;
+      p.stroke(255, 160, 0, 90);
+      p.strokeWeight(1);
+      p.drawingContext.setLineDash([4, 4]);
+      p.line(cx, cy, cEx, cEy);
+      p.drawingContext.setLineDash([]);
+      p.noStroke();
+      p.fill(255, 160, 0, 130);
+      p.textSize(10);
+      p.textAlign(p.RIGHT, p.CENTER);
+      p.text('θᶜ = ' + thetaC.toFixed(1) + '°', cEx - 4, cEy);
+    }}
+
+    // ── incident ray ─────────────────────────────────────────────────────
+    const t1Rad = theta1 * Math.PI / 180;
+    const incEx = cx - Math.sin(t1Rad) * RAY_LEN;
+    const incEy = cy - Math.cos(t1Rad) * RAY_LEN;
+    p.stroke(80, 140, 255);
+    p.strokeWeight(2.5);
+    drawArrow(p, incEx, incEy, cx, cy, 10);
+
+    // ── reflected ray (always shown, brighter at TIR) ────────────────────
+    const refAlpha = isTIR ? 255 : (nearTIR ? 200 : 100);
+    const refEx    = cx + Math.sin(t1Rad) * RAY_LEN;
+    const refEy    = cy - Math.cos(t1Rad) * RAY_LEN;
+    p.stroke(255, 220, 60, refAlpha);
+    p.strokeWeight(isTIR ? 3 : 1.5);
+    drawArrow(p, cx, cy, refEx, refEy, 10);
+
+    // ── refracted ray (hidden if TIR) ─────────────────────────────────────
+    if (!isTIR) {{
+      const t2Rad = t2 * Math.PI / 180;
+      const rfrEx = cx + Math.sin(t2Rad) * RAY_LEN;
+      const rfrEy = cy + Math.cos(t2Rad) * RAY_LEN;
+      p.stroke(60, 200, 140);
+      p.strokeWeight(2.5);
+      drawArrow(p, cx, cy, rfrEx, rfrEy, 10);
+
+      // θ₂ arc
+      drawAngleArc(p, cx, cy, Math.PI / 2, -t2 * Math.PI / 180, 55, [60, 200, 140, 200]);
+      // θ₂ label
+      const mid2 = Math.PI / 2 - (t2 * Math.PI / 180) / 2;
+      p.noStroke(); p.fill(60, 200, 140);
+      p.textSize(12); p.textAlign(p.LEFT, p.CENTER);
+      p.text('θ₂=' + t2.toFixed(1) + '°',
+             cx + 72 * Math.cos(-mid2 + Math.PI / 2),
+             cy + 72 * Math.sin(-mid2 + Math.PI / 2));
+    }}
+
+    // ── θ₁ arc ───────────────────────────────────────────────────────────
+    drawAngleArc(p, cx, cy, -Math.PI / 2, t1Rad, 55, [80, 140, 255, 200]);
+    const mid1 = -Math.PI / 2 + t1Rad / 2;
+    p.noStroke(); p.fill(80, 140, 255);
+    p.textSize(12); p.textAlign(p.RIGHT, p.CENTER);
+    p.text('θ₁=' + theta1.toFixed(1) + '°',
+           cx - 72 * Math.cos(Math.PI / 2 - t1Rad / 2),
+           cy - 72 * Math.sin(Math.PI / 2 - t1Rad / 2));
+
+    // ── drag handle ──────────────────────────────────────────────────────
+    p.fill(80, 140, 255, 200);
+    p.noStroke();
+    p.ellipse(incEx, incEy, 14, 14);
+
+    // ── TIR overlay ──────────────────────────────────────────────────────
+    if (isTIR) {{
+      p.noStroke();
+      p.fill(255, 50, 50, 220);
+      p.textSize(17);
+      p.textAlign(p.CENTER, p.CENTER);
+      p.text('TOTAL INTERNAL REFLECTION', cx, cy - RAY_LEN - 18);
+    }}
+
+    // ── Snell's law readout ───────────────────────────────────────────────
+    p.noStroke();
+    p.fill(180, 180, 180, 200);
+    p.textSize(11);
+    p.textAlign(p.RIGHT, p.BOTTOM);
+    const lhs = (n1 * Math.sin(t1Rad)).toFixed(4);
+    const rhs = isTIR ? 'TIR' : (n2 * Math.sin(t2 * Math.PI / 180)).toFixed(4);
+    p.text('n₁ sinθ₁ = ' + lhs + '   n₂ sinθ₂ = ' + rhs, W - 8, H - 8);
+  }};
+
+  // ── mouse interaction ─────────────────────────────────────────────────────
+  p.mousePressed = function() {{
+    const t1Rad = theta1 * Math.PI / 180;
+    const hx = cx - Math.sin(t1Rad) * RAY_LEN;
+    const hy = cy - Math.cos(t1Rad) * RAY_LEN;
+    if (p.dist(p.mouseX, p.mouseY, hx, hy) < 18) {{
+      dragging = true;
+    }}
+  }};
+
+  p.mouseDragged = function() {{
+    if (!dragging) return;
+    const dx = cx - p.mouseX;
+    const dy = cy - p.mouseY;
+    if (dy <= 0) return;   // must be in upper half
+    let newAngle = Math.atan2(dx, dy) * 180 / Math.PI;
+    newAngle = Math.max(0, Math.min(89, newAngle));
+    theta1 = newAngle;
+  }};
+
+  p.mouseReleased = function() {{
+    dragging = false;
+  }};
+
+  // ── drawing utilities ─────────────────────────────────────────────────────
+  function drawArrow(p, x1, y1, x2, y2, arrowSize) {{
+    p.line(x1, y1, x2, y2);
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    p.fill(p.drawingContext.strokeStyle);
+    p.noStroke();
+    p.push();
+    p.translate(x2, y2);
+    p.rotate(angle);
+    p.triangle(0, 0, -arrowSize, -arrowSize / 2.5, -arrowSize, arrowSize / 2.5);
+    p.pop();
+    p.noFill();
+    p.stroke(p.drawingContext.strokeStyle);
+  }}
+
+  function drawAngleArc(p, cx, cy, startAngle, sweepAngle, r, col) {{
+    p.noFill();
+    p.stroke(col[0], col[1], col[2], col[3]);
+    p.strokeWeight(1.2);
+    p.drawingContext.setLineDash([3, 3]);
+    p.arc(cx, cy, r * 2, r * 2, startAngle, startAngle + sweepAngle);
+    p.drawingContext.setLineDash([]);
+  }}
+
+}});
+</script>
+</body>
+</html>"""
+
+
 # ── Streamlit page layout ─────────────────────────────────────────────────────
 
 sim_header("Optics: Refraction, Dispersion & Lenses", SPEC_REF)
@@ -1211,6 +1503,16 @@ with tab1:
                 f"θ_c = {critical_result:.1f}°. "
                 "Increase θ₁ to trigger Total Internal Reflection."
             )
+
+    # Interactive p5.js animation (drag the incident ray to change angle)
+    components.html(
+        build_snell_animation(n1_val, n2_val, theta1_val),
+        height=440,
+    )
+    st.caption(
+        "▶ Drag incident ray to change angle interactively · Auto-scan play/pause"
+    )
+    st.divider()
 
     # Ray diagram
     snells_fig = build_snells_fig(

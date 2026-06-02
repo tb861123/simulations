@@ -10,10 +10,13 @@ Four sub-simulations:
 Spec reference: Component 2, Topic 7 (Magnetic Fields), sections (a)–(n).
 """
 
+import json
+
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+import streamlit.components.v1 as components
 
 from utils.physics import mu0, e_charge, m_e, m_p  # noqa: F401
 from utils.style import COLOURS, make_fig, plotly_layout
@@ -410,6 +413,488 @@ def build_transformer_plot(
     return fig
 
 
+# ── p5.js animation ───────────────────────────────────────────────────────────
+
+def build_induction_animation(v_magnet: float, B_field: float, N_coil: int) -> str:
+    """
+    Return a self-contained HTML/p5.js string that animates electromagnetic
+    induction: a bar magnet moves toward/away from a solenoid coil and a
+    galvanometer needle deflects in proportion to the induced EMF.
+
+    Parameters
+    ----------
+    v_magnet : float  — magnet speed from the Streamlit slider (m/s)
+    B_field  : float  — peak B field from the Streamlit slider (T)
+    N_coil   : int    — number of coil turns from the Streamlit slider
+    """
+    data = json.dumps({"vMagnet": float(v_magnet), "B": float(B_field), "N": int(N_coil)})
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+  body {{
+    margin: 0; padding: 0;
+    background: #0e1117;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-start;
+    font-family: 'Segoe UI', sans-serif;
+    color: #fafafa;
+    overflow: hidden;
+  }}
+  #controls {{
+    width: 780px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 12px;
+    background: #1a1d27;
+    border-radius: 8px;
+    margin: 6px 0 2px;
+    font-size: 12px;
+  }}
+  #controls button {{
+    background: #2d4a8a; color: #fff; border: none;
+    padding: 4px 14px; border-radius: 5px; cursor: pointer;
+    font-size: 12px;
+  }}
+  #controls button:hover {{ background: #3a5eb0; }}
+  #speedLabel {{ min-width: 60px; }}
+  #eqBox {{
+    width: 780px;
+    background: #161922;
+    border: 1px solid #2a3044;
+    border-radius: 6px;
+    padding: 5px 14px;
+    font-size: 12px;
+    color: #a0b4d8;
+    margin-top: 3px;
+    text-align: center;
+    min-height: 22px;
+  }}
+  canvas {{ display: block; }}
+</style>
+</head>
+<body>
+<div id="controls">
+  <div>
+    <button id="playBtn">⏸ Pause</button>
+  </div>
+  <div>
+    Speed:
+    <input id="speedSlider" type="range" min="0.2" max="3" step="0.1" value="1" style="width:100px; vertical-align:middle;"/>
+    <span id="speedLabel">×1.0</span>
+  </div>
+  <div style="color:#7090c0; font-size:11px;">Drag magnet ← → to induce EMF manually</div>
+</div>
+<canvas id="c"></canvas>
+<div id="eqBox">ℰ = −N dΦ/dt</div>
+
+<script>
+// ── Simulation parameters from Python ────────────────────────────────────────
+const PARAMS = {data};
+const V_BASE   = Math.min(Math.max(PARAMS.vMagnet, 0.1), 5.0);
+const B_BASE   = Math.min(Math.max(PARAMS.B, 0.01), 2.0);
+const N_TURNS  = Math.min(Math.max(PARAMS.N, 1), 500);
+
+// ── Canvas setup ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const W = 780, H = 360;
+canvas.width  = W;
+canvas.height = H;
+
+// Layout zones
+const COIL_CX   = 210;   // centre-x of coil
+const COIL_CY   = H / 2;
+const COIL_RY   = 54;    // ellipse y-radius (loop height/2)
+const COIL_RX   = 18;    // ellipse x-radius (loop depth)
+const COIL_W    = 90;    // physical width of solenoid
+const METER_CX  = W / 2; // galvanometer centre-x
+const METER_CY  = H / 2;
+const METER_R   = 52;
+const MAG_W     = 100;   // magnet total width
+const MAG_H     = 32;    // magnet height
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let auto      = true;           // auto-oscillation running
+let speedMult = 1.0;
+let magX      = 560;            // magnet centre-x  (right half: ~450–750)
+let magDir    = -1;             // -1 = moving left (toward coil), +1 = away
+let lastTime  = null;
+let dragging  = false;
+let dragOffX  = 0;
+let prevMagX  = magX;
+let dragVel   = 0;              // estimated drag velocity (px/s)
+let lastDragTime = null;
+let emfNeedle = 0;              // current needle deflection (radians, smoothed)
+
+// Auto-oscillation bounds
+const AUTO_LEFT  = 360;  // closest approach (just outside coil right edge ~300)
+const AUTO_RIGHT = 680;  // furthest right
+let autoPaused = false;
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+document.getElementById('playBtn').addEventListener('click', () => {{
+  autoPaused = !autoPaused;
+  auto = !autoPaused;
+  document.getElementById('playBtn').textContent = autoPaused ? '▶ Play' : '⏸ Pause';
+}});
+document.getElementById('speedSlider').addEventListener('input', function() {{
+  speedMult = parseFloat(this.value);
+  document.getElementById('speedLabel').textContent = '×' + speedMult.toFixed(1);
+}});
+
+// ── Drag handling ─────────────────────────────────────────────────────────────
+function magHit(mx, my) {{
+  return mx >= magX - MAG_W/2 - 8 && mx <= magX + MAG_W/2 + 8 &&
+         my >= METER_CY - MAG_H/2 - 8 && my <= METER_CY + MAG_H/2 + 8;
+}}
+canvas.addEventListener('mousedown', e => {{
+  const r = canvas.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  if (magHit(mx, my)) {{
+    dragging  = true; autoPaused = true; auto = false;
+    dragOffX  = mx - magX;
+    prevMagX  = magX;
+    lastDragTime = performance.now();
+    document.getElementById('playBtn').textContent = '▶ Play';
+  }}
+}});
+canvas.addEventListener('mousemove', e => {{
+  if (!dragging) return;
+  const r   = canvas.getBoundingClientRect();
+  const mx  = e.clientX - r.left;
+  const now = performance.now();
+  const dt  = (now - lastDragTime) / 1000 || 0.016;
+  prevMagX  = magX;
+  magX      = Math.min(Math.max(mx - dragOffX, 290), 730);
+  dragVel   = (magX - prevMagX) / dt;   // px/s (+ = rightward = away from coil)
+  lastDragTime = now;
+}});
+canvas.addEventListener('mouseup',    () => {{ dragging = false; }});
+canvas.addEventListener('mouseleave', () => {{ dragging = false; }});
+
+// Touch support
+canvas.addEventListener('touchstart', e => {{
+  e.preventDefault();
+  const r  = canvas.getBoundingClientRect();
+  const t  = e.touches[0];
+  const mx = t.clientX - r.left, my = t.clientY - r.top;
+  if (magHit(mx, my)) {{
+    dragging = true; autoPaused = true; auto = false;
+    dragOffX = mx - magX; prevMagX = magX; lastDragTime = performance.now();
+  }}
+}}, {{passive: false}});
+canvas.addEventListener('touchmove', e => {{
+  if (!dragging) return; e.preventDefault();
+  const r  = canvas.getBoundingClientRect();
+  const t  = e.touches[0];
+  const mx = t.clientX - r.left;
+  const now = performance.now();
+  const dt  = (now - lastDragTime) / 1000 || 0.016;
+  prevMagX  = magX;
+  magX      = Math.min(Math.max(mx - dragOffX, 290), 730);
+  dragVel   = (magX - prevMagX) / dt;
+  lastDragTime = now;
+}}, {{passive: false}});
+canvas.addEventListener('touchend', () => {{ dragging = false; }});
+
+// ── Physics helpers ───────────────────────────────────────────────────────────
+// Distance from magnet centre to coil centre
+function distToCoil() {{
+  return magX - (COIL_CX + COIL_W / 2);  // +ve = magnet right of coil
+}}
+
+// Instantaneous flux linkage (normalised, Gaussian falloff with distance)
+function fluxNorm() {{
+  const d  = distToCoil();
+  const sigma = 120 / Math.max(V_BASE, 0.1);   // scale sigma with base speed
+  return B_BASE * Math.exp(-(d * d) / (2 * sigma * sigma));
+}}
+
+// EMF = -N * dΦ/dt  →  proportional to velocity toward coil * field strength
+// Returns value in range roughly ±1 (normalised for display)
+function computeEMF(velPxPerSec) {{
+  // Negative sign: toward coil (vel < 0 in our convention) → positive EMF
+  const dFluxdx = -fluxNorm() * (distToCoil()) /
+                  (Math.pow(120 / Math.max(V_BASE, 0.1), 2));
+  const rawEMF  = -N_TURNS * dFluxdx * velPxPerSec / 200;  // normalise px→m
+  return Math.max(-1, Math.min(1, rawEMF / 50));  // clamp to ±1
+}}
+
+// ── Drawing helpers ───────────────────────────────────────────────────────────
+function drawBackground() {{
+  ctx.fillStyle = '#0e1117';
+  ctx.fillRect(0, 0, W, H);
+  // Subtle divider line between coil half and magnet half
+  ctx.setLineDash([4, 6]);
+  ctx.strokeStyle = '#2a3044';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(W/2, 20); ctx.lineTo(W/2, H-10); ctx.stroke();
+  ctx.setLineDash([]);
+  // Labels
+  ctx.fillStyle = '#4a6080'; ctx.font = '11px Segoe UI'; ctx.textAlign = 'center';
+  ctx.fillText('COIL', 120, 22);
+  ctx.fillText('MAGNET', 660, 22);
+  ctx.fillText('GALVANOMETER', METER_CX, 22);
+}}
+
+// Draw solenoid coil as stacked ellipses
+function drawCoil() {{
+  const visLoops = Math.min(N_TURNS, 14);   // cap visible loops
+  const step     = COIL_W / (visLoops + 1);
+  const coilLeft = COIL_CX - COIL_W / 2;
+
+  // Wire connecting coil to meter (top)
+  ctx.strokeStyle = '#4a7aaa'; ctx.lineWidth = 2; ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(COIL_CX + COIL_W/2, COIL_CY - COIL_RY);
+  ctx.lineTo(METER_CX - METER_R * 0.6, METER_CY - METER_R * 0.6);
+  ctx.stroke();
+  // Wire connecting coil to meter (bottom)
+  ctx.beginPath();
+  ctx.moveTo(COIL_CX + COIL_W/2, COIL_CY + COIL_RY);
+  ctx.lineTo(METER_CX - METER_R * 0.6, METER_CY + METER_R * 0.6);
+  ctx.stroke();
+
+  // Draw back halves of ellipses first (faded)
+  for (let i = 0; i < visLoops; i++) {{
+    const cx = coilLeft + step * (i + 1);
+    ctx.beginPath();
+    ctx.ellipse(cx, COIL_CY, COIL_RX, COIL_RY, 0, Math.PI, 2 * Math.PI);
+    ctx.strokeStyle = '#1e3a5a';
+    ctx.lineWidth   = 2.5;
+    ctx.stroke();
+  }}
+  // Draw front halves (solid)
+  for (let i = 0; i < visLoops; i++) {{
+    const cx = coilLeft + step * (i + 1);
+    ctx.beginPath();
+    ctx.ellipse(cx, COIL_CY, COIL_RX, COIL_RY, 0, 0, Math.PI);
+    ctx.strokeStyle = '#5599dd';
+    ctx.lineWidth   = 2.5;
+    ctx.stroke();
+  }}
+
+  // Coil label
+  ctx.fillStyle = '#5599dd'; ctx.font = 'bold 11px Segoe UI'; ctx.textAlign = 'center';
+  ctx.fillText(`N = ${{N_TURNS}} turns`, COIL_CX, COIL_CY + COIL_RY + 20);
+}}
+
+// Draw galvanometer (needle meter)
+function drawMeter(needleAngle) {{
+  // Outer circle
+  ctx.beginPath();
+  ctx.arc(METER_CX, METER_CY, METER_R, 0, 2 * Math.PI);
+  ctx.fillStyle   = '#131825';
+  ctx.fill();
+  ctx.strokeStyle = '#3a5080';
+  ctx.lineWidth   = 2;
+  ctx.stroke();
+
+  // Scale arc (bottom semicircle)
+  ctx.beginPath();
+  ctx.arc(METER_CX, METER_CY, METER_R - 10, Math.PI * 0.85, Math.PI * 0.15);
+  ctx.strokeStyle = '#2a3a55';
+  ctx.lineWidth   = 1;
+  ctx.stroke();
+
+  // Tick marks
+  const maxAngle = Math.PI * 0.65;
+  for (let t = -maxAngle; t <= maxAngle + 0.01; t += maxAngle / 4) {{
+    const sinT = Math.sin(t - Math.PI/2 + Math.PI);
+    const cosT = Math.cos(t - Math.PI/2 + Math.PI);
+    const r1 = METER_R - 10, r2 = METER_R - 16;
+    ctx.beginPath();
+    ctx.moveTo(METER_CX + r1 * sinT, METER_CY - r1 * cosT + 8);
+    ctx.lineTo(METER_CX + r2 * sinT, METER_CY - r2 * cosT + 8);
+    ctx.strokeStyle = '#4a6080'; ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }}
+
+  // Needle
+  const needleLen = METER_R - 14;
+  // Map needleAngle ±1 → angle sweeping left/right from bottom-centre
+  const swingMax  = Math.PI * 0.55;
+  const angle     = -Math.PI/2 + needleAngle * swingMax;
+  ctx.beginPath();
+  ctx.moveTo(METER_CX, METER_CY + 8);
+  ctx.lineTo(METER_CX + needleLen * Math.cos(angle),
+             METER_CY + 8 + needleLen * Math.sin(angle));
+  const needleColour = needleAngle > 0.05  ? '#ff6644'
+                     : needleAngle < -0.05 ? '#44aaff'
+                     : '#aabbcc';
+  ctx.strokeStyle = needleColour; ctx.lineWidth = 2.5; ctx.stroke();
+
+  // Pivot dot
+  ctx.beginPath(); ctx.arc(METER_CX, METER_CY + 8, 4, 0, 2 * Math.PI);
+  ctx.fillStyle = '#667799'; ctx.fill();
+
+  // "G" label
+  ctx.fillStyle = '#8899bb'; ctx.font = 'bold 13px Segoe UI'; ctx.textAlign = 'center';
+  ctx.fillText('G', METER_CX, METER_CY - METER_R + 14);
+
+  // +/- labels
+  ctx.font = '10px Segoe UI'; ctx.fillStyle = '#4a6080';
+  ctx.fillText('−', METER_CX - METER_R + 10, METER_CY + 12);
+  ctx.fillText('+', METER_CX + METER_R - 10, METER_CY + 12);
+}}
+
+// Draw bar magnet
+function drawMagnet() {{
+  const my   = METER_CY;
+  const half = MAG_W / 2;
+  const mh2  = MAG_H / 2;
+
+  // N pole (red, left half)
+  ctx.fillStyle = '#cc2222';
+  ctx.beginPath();
+  ctx.roundRect(magX - half, my - mh2, half, MAG_H, [6, 0, 0, 6]);
+  ctx.fill();
+  ctx.fillStyle = '#ff5555'; ctx.font = 'bold 14px Segoe UI'; ctx.textAlign = 'center';
+  ctx.fillText('N', magX - half/2, my + 5);
+
+  // S pole (blue, right half)
+  ctx.fillStyle = '#2244bb';
+  ctx.beginPath();
+  ctx.roundRect(magX, my - mh2, half, MAG_H, [0, 6, 6, 0]);
+  ctx.fill();
+  ctx.fillStyle = '#77aaff'; ctx.font = 'bold 14px Segoe UI'; ctx.textAlign = 'center';
+  ctx.fillText('S', magX + half/2, my + 5);
+
+  // Outline
+  ctx.strokeStyle = '#667799'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(magX - half, my - mh2, MAG_W, MAG_H, 6);
+  ctx.stroke();
+}}
+
+// Draw dashed field lines curving from N pole toward coil
+function drawFieldLines(flux) {{
+  if (flux < 0.005) return;
+  const alpha = Math.min(flux / B_BASE, 1) * 0.7 + 0.1;
+  const nPole = magX - MAG_W / 2;   // left face of magnet = N pole
+  const coilR = COIL_CX + COIL_W / 2;  // right face of coil
+
+  const offsets = [-28, -12, 0, 12, 28];   // vertical spread of lines
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.setLineDash([5, 6]);
+  ctx.lineWidth = 1.5;
+
+  offsets.forEach((dy, idx) => {{
+    // Colour gradient: red near magnet, purple near coil
+    const t   = idx / (offsets.length - 1);
+    const r   = Math.round(200 - t * 140);
+    const g   = Math.round(40  + t * 20);
+    const b   = Math.round(40  + t * 160);
+    ctx.strokeStyle = `rgb(${{r}},${{g}},${{b}})`;
+    ctx.beginPath();
+    ctx.moveTo(nPole, METER_CY + dy);
+    const cpx = (nPole + coilR) / 2;
+    const cpy = METER_CY + dy * 1.4;
+    ctx.quadraticCurveTo(cpx, cpy, coilR, COIL_CY + dy * 0.5);
+    ctx.stroke();
+
+    // Arrowhead on field line
+    const t2  = 0.85;
+    const ax  = (1-t2)*(1-t2)*nPole + 2*(1-t2)*t2*cpx + t2*t2*coilR;
+    const ay  = (1-t2)*(1-t2)*(METER_CY+dy) + 2*(1-t2)*t2*cpy + t2*t2*(COIL_CY+dy*0.5);
+    const t3  = 0.83;
+    const bx  = (1-t3)*(1-t3)*nPole + 2*(1-t3)*t3*cpx + t3*t3*coilR;
+    const by  = (1-t3)*(1-t3)*(METER_CY+dy) + 2*(1-t3)*t3*cpy + t3*t3*(COIL_CY+dy*0.5);
+    const ang = Math.atan2(ay - by, ax - bx);
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - 8*Math.cos(ang-0.4), ay - 8*Math.sin(ang-0.4));
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - 8*Math.cos(ang+0.4), ay - 8*Math.sin(ang+0.4));
+    ctx.stroke();
+    ctx.setLineDash([5, 6]);
+  }});
+  ctx.restore();
+}}
+
+// ── Main animation loop ───────────────────────────────────────────────────────
+function frame(ts) {{
+  const dt = lastTime === null ? 0.016 : Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
+
+  // Auto-oscillation
+  if (auto && !dragging) {{
+    const speed = V_BASE * speedMult * 60;   // px/s
+    magX += magDir * speed * dt;
+    if (magX <= AUTO_LEFT)  {{ magX = AUTO_LEFT;  magDir =  1; }}
+    if (magX >= AUTO_RIGHT) {{ magX = AUTO_RIGHT; magDir = -1; }}
+  }}
+
+  // Compute velocity for EMF
+  let vel;
+  if (dragging) {{
+    vel = dragVel;
+  }} else if (auto) {{
+    vel = magDir * V_BASE * speedMult * 60;  // px/s
+  }} else {{
+    vel = 0;
+  }}
+
+  // Compute EMF and smooth needle
+  const targetEMF = computeEMF(vel);
+  const tau = 0.12;   // smoothing time constant
+  emfNeedle += (targetEMF - emfNeedle) * (1 - Math.exp(-dt / tau));
+
+  // Flux for field-line opacity
+  const flux = fluxNorm();
+
+  // Compute actual EMF in Volts (approximate)
+  const sigma_m  = 1.0 / Math.max(V_BASE, 0.1);        // Gaussian width in seconds
+  const dFluxdx  = -B_BASE * (distToCoil() / 200) *    // rough metres
+                    Math.exp(-(distToCoil()/200)**2 / (2 * sigma_m**2)) / (sigma_m**2);
+  const velMS    = vel / 200 * Math.max(V_BASE, 0.1);  // rough m/s
+  // EMF ≈ -N * dΦ/dt ≈ -N * (dΦ/dx) * (dx/dt)
+  const A_coil   = 0.01;  // default coil area m² (representative)
+  const emfVolts = -N_TURNS * dFluxdx * A_coil * velMS;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  drawBackground();
+  drawCoil();
+  drawFieldLines(flux);
+  drawMagnet();
+  drawMeter(emfNeedle);
+
+  // Cursor hint over magnet
+  const pMouse = canvas._lastMouse;
+  if (pMouse && magHit(pMouse[0], pMouse[1])) {{
+    canvas.style.cursor = 'ew-resize';
+  }} else {{
+    canvas.style.cursor = dragging ? 'ew-resize' : 'default';
+  }}
+
+  // Update equation box
+  const sign    = emfVolts >= 0 ? '+' : '';
+  const absEMF  = Math.abs(emfVolts).toFixed(3);
+  const fluxMWb = (flux * A_coil * 1000).toFixed(3);
+  document.getElementById('eqBox').innerHTML =
+    `ℰ = −N dΦ/dt &nbsp;|&nbsp; N = ${{N_TURNS}} &nbsp; Φ = ${{fluxMWb}} mWb &nbsp;|&nbsp; ` +
+    `ℰ ≈ <b style="color:${{emfVolts>=0?'#ff8866':'#66aaff'}}">${{sign}}${{emfVolts.toFixed(3)}} V</b>` +
+    ` &nbsp; (B_max = ${{B_BASE}} T, v = ${{V_BASE}} m/s)`;
+
+  requestAnimationFrame(frame);
+}}
+
+// Track mouse position for cursor
+canvas.addEventListener('mousemove', e => {{
+  const r = canvas.getBoundingClientRect();
+  canvas._lastMouse = [e.clientX - r.left, e.clientY - r.top];
+}});
+canvas.addEventListener('mouseleave', () => {{ canvas._lastMouse = null; }});
+
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>"""
+
+
 # ── Sub-sim renderers ─────────────────────────────────────────────────────────
 
 def render_magnetic_force(mode: str) -> None:
@@ -647,6 +1132,10 @@ def render_induction(mode: str) -> None:
             "coil. The induced current creates its own field that repels the "
             "approaching magnet."
         )
+
+        components.html(build_induction_animation(v_mag, B_max, N), height=440)
+        st.caption("▶ Play/pause auto-oscillation · Drag magnet to induce EMF manually")
+        st.divider()
 
         fig_ind = build_induction_plot(
             t_arr, flux, emf, N,

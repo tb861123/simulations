@@ -10,8 +10,10 @@ Covers:
              trajectory integrated with RK4, energy-conservation check.
 """
 
+import json
 import numpy as np
 import streamlit as st
+import streamlit.components.v1 as components
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -898,6 +900,418 @@ def integrate_trajectory(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# p5.js interactive field animation
+# ─────────────────────────────────────────────────────────────────────────────
+
+def build_field_animation(
+    field_type: str,
+    charges: list,
+    field_strength: float = 1.0,
+) -> str:
+    """
+    Build a self-contained HTML/p5.js field-line animation.
+
+    Parameters
+    ----------
+    field_type : 'electric' or 'gravitational'
+    charges    : list of dicts with keys x (0-1), y (0-1), sign (+1/-1), magnitude
+    field_strength : overall scale factor (unused by JS, kept for API symmetry)
+
+    Returns
+    -------
+    HTML string suitable for components.html()
+    """
+    data = json.dumps({
+        "field_type": field_type,
+        "charges": charges,
+        "field_strength": field_strength,
+    })
+
+    html = """<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+  body {{ margin:0; padding:0; background:#0e1117; overflow:hidden; }}
+  canvas {{ display:block; }}
+  #clear-btn {{
+    position:absolute; top:8px; left:8px;
+    background:rgba(30,30,40,0.85); color:#aaa;
+    border:1px solid #444; border-radius:4px;
+    padding:3px 8px; font-size:11px; cursor:pointer;
+    font-family:sans-serif; z-index:10;
+  }}
+  #clear-btn:hover {{ color:#fff; border-color:#888; }}
+  #field-readout {{
+    position:absolute; bottom:6px; left:8px;
+    background:rgba(20,20,30,0.80); color:#aaa;
+    border:1px solid #333; border-radius:4px;
+    padding:3px 8px; font-size:11px;
+    font-family:monospace; pointer-events:none; z-index:10;
+  }}
+</style>
+</head>
+<body>
+<button id="clear-btn">Clear particles</button>
+<div id="field-readout">|F| = —</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<script>
+const CONFIG = {data};
+
+new p5(function(p) {{
+
+  // ── Config ────────────────────────────────────────────────────────────────
+  const FIELD_TYPE  = CONFIG.field_type;          // 'electric' | 'gravitational'
+  const RAW_CHARGES = CONFIG.charges;              // normalised 0-1 positions
+  const BG          = '#0e1117';
+  const COL_POS     = '#e74c3c';
+  const COL_NEG     = '#1f77b4';
+  const COL_GRAV    = '#f39c12';
+  const COL_LINE    = [100, 110, 130];
+  const COL_PART    = '#ff7f0e';
+  const CHARGE_R    = 14;        // charge circle radius (px)
+  const N_SEEDS     = 14;        // field-line seeds per source
+  const SEED_R      = 18;        // seed offset from centre (px)
+  const STEP        = 3.5;       // field-line step (px)
+  const MAX_STEPS   = 600;
+  const STOP_R2     = CHARGE_R * CHARGE_R * 1.4;
+  const PART_MASS   = 1.0;
+  const PART_SPEED  = 0.18;      // acceleration scale
+  const TRAIL_MAX   = 180;
+  const K_E         = 8.988e9;
+  const G_CONST     = 6.674e-11;
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  let charges = [];           // {{cx, cy, sign, mag, col}} in canvas px
+  let particles = [];         // test particles
+  let dragIdx = -1;           // index of dragged charge
+  let fieldLines = [];        // cached [[{{x,y}},...], ...] segments
+  let dirty = true;           // recompute field lines?
+  let W, H;
+
+  // ── Setup ─────────────────────────────────────────────────────────────────
+  p.setup = function() {{
+    W = window.innerWidth || 700;
+    H = 420;
+    p.createCanvas(W, H);
+    p.colorMode(p.RGB, 255);
+    initCharges();
+    document.getElementById('clear-btn').addEventListener('click', function() {{
+      particles = [];
+    }});
+  }};
+
+  p.windowResized = function() {{
+    W = window.innerWidth || 700;
+    H = 420;
+    p.resizeCanvas(W, H);
+    initCharges();
+    dirty = true;
+  }};
+
+  function initCharges() {{
+    charges = RAW_CHARGES.map(function(c) {{
+      return {{
+        cx: c.x * W,
+        cy: c.y * H,
+        sign: c.sign,
+        mag: c.magnitude,
+        col: FIELD_TYPE === 'gravitational' ? COL_GRAV
+             : (c.sign >= 0 ? COL_POS : COL_NEG),
+      }};
+    }});
+    dirty = true;
+  }}
+
+  // ── Field computation ─────────────────────────────────────────────────────
+  function fieldAt(px, py) {{
+    let fx = 0, fy = 0;
+    for (let i = 0; i < charges.length; i++) {{
+      const c = charges[i];
+      const dx = px - c.cx;
+      const dy = py - c.cy;
+      const r2 = dx*dx + dy*dy + 1e-6;
+      const r  = Math.sqrt(r2);
+      // For electric: Coulomb; for gravitational: Newton (always attractive → inward)
+      let strength;
+      if (FIELD_TYPE === 'electric') {{
+        strength = (K_E * c.mag * c.sign) / r2;
+      }} else {{
+        strength = -(G_CONST * c.mag) / r2;   // negative → points toward mass
+      }}
+      fx += strength * dx / r;
+      fy += strength * dy / r;
+    }}
+    return {{fx, fy, mag: Math.sqrt(fx*fx + fy*fy)}};
+  }}
+
+  // ── Field-line tracing ────────────────────────────────────────────────────
+  function traceLines() {{
+    fieldLines = [];
+    if (charges.length === 0) return;
+
+    const seeds = [];
+
+    if (FIELD_TYPE === 'gravitational') {{
+      // Seeds on outer ring, integrate inward (follow field)
+      const outerR = Math.min(W, H) * 0.44;
+      const cx0 = W / 2, cy0 = H / 2;
+      const total = charges.length * N_SEEDS;
+      for (let i = 0; i < total; i++) {{
+        const ang = (2 * Math.PI * i) / total;
+        seeds.push({{x: cx0 + outerR*Math.cos(ang), y: cy0 + outerR*Math.sin(ang), dir: 1}});
+      }}
+    }} else {{
+      // Electric: seeds around each charge; positive → forward, negative → backward
+      for (let ci = 0; ci < charges.length; ci++) {{
+        const c = charges[ci];
+        for (let si = 0; si < N_SEEDS; si++) {{
+          const ang = (2 * Math.PI * si) / N_SEEDS + 0.13;
+          const sx = c.cx + SEED_R * Math.cos(ang);
+          const sy = c.cy + SEED_R * Math.sin(ang);
+          // Only seed outward from positive; let negative ones attract lines naturally
+          if (c.sign > 0) {{
+            seeds.push({{x: sx, y: sy, dir: 1}});
+          }} else {{
+            seeds.push({{x: sx, y: sy, dir: -1}});
+          }}
+        }}
+      }}
+    }}
+
+    for (let si = 0; si < seeds.length; si++) {{
+      const seed = seeds[si];
+      let x = seed.x, y = seed.y;
+      const seg = [{{x, y}}];
+      for (let step = 0; step < MAX_STEPS; step++) {{
+        if (x < 0 || x > W || y < 0 || y > H) break;
+        // Check if near any charge
+        let nearCharge = false;
+        for (let ci = 0; ci < charges.length; ci++) {{
+          const c = charges[ci];
+          const dx = x - c.cx, dy = y - c.cy;
+          if (dx*dx + dy*dy < STOP_R2) {{ nearCharge = true; break; }}
+        }}
+        if (nearCharge) break;
+
+        const f = fieldAt(x, y);
+        if (f.mag < 1e-30) break;
+        x += seed.dir * STEP * f.fx / f.mag;
+        y += seed.dir * STEP * f.fy / f.mag;
+        seg.push({{x, y}});
+      }}
+      if (seg.length > 3) fieldLines.push(seg);
+    }}
+  }}
+
+  // ── Background gradient (field strength heat-map, faint) ──────────────────
+  function drawBackground() {{
+    p.background(BG);
+    // Sample a coarse grid and tint by field magnitude
+    const gw = 20, gh = 16;
+    const cw = W / gw, ch = H / gh;
+    // Find max for normalisation (rough)
+    let maxMag = 0;
+    for (let gi = 0; gi < gw; gi++) {{
+      for (let gj = 0; gj < gh; gj++) {{
+        const gx = (gi + 0.5) * cw, gy = (gj + 0.5) * ch;
+        const m = fieldAt(gx, gy).mag;
+        if (m > maxMag) maxMag = m;
+      }}
+    }}
+    if (maxMag < 1e-20) return;
+    p.noStroke();
+    for (let gi = 0; gi < gw; gi++) {{
+      for (let gj = 0; gj < gh; gj++) {{
+        const gx = (gi + 0.5) * cw, gy = (gj + 0.5) * ch;
+        const m = fieldAt(gx, gy).mag;
+        const t = Math.min(Math.log1p(m / maxMag * 10) / Math.log1p(10), 1.0);
+        const alpha = t * 28;   // very subtle tint
+        if (FIELD_TYPE === 'electric') {{
+          p.fill(100, 120, 200, alpha);
+        }} else {{
+          p.fill(100, 180, 100, alpha);
+        }}
+        p.rect(gi * cw, gj * ch, cw + 1, ch + 1);
+      }}
+    }}
+  }}
+
+  // ── Draw field lines ──────────────────────────────────────────────────────
+  function drawFieldLines() {{
+    p.strokeWeight(1.1);
+    p.noFill();
+    for (let li = 0; li < fieldLines.length; li++) {{
+      const seg = fieldLines[li];
+      if (seg.length < 2) continue;
+      const alpha = 140;
+      p.stroke(COL_LINE[0], COL_LINE[1], COL_LINE[2], alpha);
+      p.beginShape();
+      for (let pi2 = 0; pi2 < seg.length; pi2++) {{
+        p.vertex(seg[pi2].x, seg[pi2].y);
+      }}
+      p.endShape();
+    }}
+  }}
+
+  // ── Draw charges ─────────────────────────────────────────────────────────
+  function drawCharges() {{
+    p.textAlign(p.CENTER, p.CENTER);
+    p.textSize(13);
+    p.textStyle(p.BOLD);
+    for (let ci = 0; ci < charges.length; ci++) {{
+      const c = charges[ci];
+      // Glow ring
+      p.noFill();
+      p.strokeWeight(1.5);
+      const col = p.color(c.col);
+      col.setAlpha(60);
+      p.stroke(col);
+      p.circle(c.cx, c.cy, CHARGE_R * 2 + 10);
+      // Filled circle
+      col.setAlpha(255);
+      p.fill(col);
+      p.strokeWeight(2);
+      p.stroke(240);
+      p.circle(c.cx, c.cy, CHARGE_R * 2);
+      // Label
+      p.noStroke();
+      p.fill(255);
+      if (FIELD_TYPE === 'electric') {{
+        p.text(c.sign > 0 ? '+' : '−', c.cx, c.cy);
+      }} else {{
+        p.textSize(10);
+        p.text('M', c.cx, c.cy);
+        p.textSize(13);
+      }}
+    }}
+  }}
+
+  // ── Test particles ────────────────────────────────────────────────────────
+  function updateParticles() {{
+    for (let pi2 = particles.length - 1; pi2 >= 0; pi2--) {{
+      const part = particles[pi2];
+      const f = fieldAt(part.x, part.y);
+      if (f.mag > 1e-20) {{
+        part.vx += PART_SPEED * f.fx / f.mag;
+        part.vy += PART_SPEED * f.fy / f.mag;
+      }}
+      // Cap speed
+      const spd = Math.sqrt(part.vx*part.vx + part.vy*part.vy);
+      if (spd > 6) {{ part.vx *= 6/spd; part.vy *= 6/spd; }}
+      part.x += part.vx;
+      part.y += part.vy;
+      part.trail.push({{x: part.x, y: part.y}});
+      if (part.trail.length > TRAIL_MAX) part.trail.shift();
+      // Remove if out of bounds
+      if (part.x < -20 || part.x > W+20 || part.y < -20 || part.y > H+20) {{
+        particles.splice(pi2, 1);
+      }}
+    }}
+  }}
+
+  function drawParticles() {{
+    for (let pi2 = 0; pi2 < particles.length; pi2++) {{
+      const part = particles[pi2];
+      // Fading trail
+      for (let ti = 1; ti < part.trail.length; ti++) {{
+        const t = ti / part.trail.length;
+        const alpha = t * 200;
+        p.stroke(255, 127, 14, alpha);
+        p.strokeWeight(1.5 * t);
+        p.line(part.trail[ti-1].x, part.trail[ti-1].y, part.trail[ti].x, part.trail[ti].y);
+      }}
+      // Particle dot
+      p.noStroke();
+      p.fill(COL_PART);
+      p.circle(part.x, part.y, 7);
+      // Velocity arrow
+      const spd = Math.sqrt(part.vx*part.vx + part.vy*part.vy);
+      if (spd > 0.05) {{
+        const scale = 6;
+        const ax = part.x + part.vx * scale;
+        const ay = part.y + part.vy * scale;
+        p.stroke(255, 200, 100, 200);
+        p.strokeWeight(1.5);
+        p.line(part.x, part.y, ax, ay);
+        // Arrowhead
+        const ang = Math.atan2(part.vy, part.vx);
+        const hl = 5;
+        p.line(ax, ay, ax - hl*Math.cos(ang - 0.4), ay - hl*Math.sin(ang - 0.4));
+        p.line(ax, ay, ax - hl*Math.cos(ang + 0.4), ay - hl*Math.sin(ang + 0.4));
+      }}
+    }}
+  }}
+
+  // ── Field readout ─────────────────────────────────────────────────────────
+  function updateReadout() {{
+    const f = fieldAt(p.mouseX, p.mouseY);
+    let label;
+    if (FIELD_TYPE === 'electric') {{
+      label = '|E| = ' + f.mag.toExponential(2) + ' V/m';
+    }} else {{
+      label = '|g| = ' + f.mag.toExponential(2) + ' N/kg';
+    }}
+    document.getElementById('field-readout').textContent = label;
+  }}
+
+  // ── Draw loop ─────────────────────────────────────────────────────────────
+  p.draw = function() {{
+    if (dirty) {{
+      traceLines();
+      dirty = false;
+    }}
+    drawBackground();
+    drawFieldLines();
+    updateParticles();
+    drawParticles();
+    drawCharges();
+    updateReadout();
+  }};
+
+  // ── Mouse interaction ─────────────────────────────────────────────────────
+  p.mousePressed = function() {{
+    // Check if clicking on a charge
+    for (let ci = 0; ci < charges.length; ci++) {{
+      const c = charges[ci];
+      const dx = p.mouseX - c.cx, dy = p.mouseY - c.cy;
+      if (dx*dx + dy*dy < (CHARGE_R + 6) * (CHARGE_R + 6)) {{
+        dragIdx = ci;
+        return false;
+      }}
+    }}
+    // Click on empty area → drop test particle
+    particles.push({{
+      x: p.mouseX, y: p.mouseY,
+      vx: 0, vy: 0,
+      trail: [],
+    }});
+    return false;
+  }};
+
+  p.mouseDragged = function() {{
+    if (dragIdx >= 0) {{
+      charges[dragIdx].cx = p.mouseX;
+      charges[dragIdx].cy = p.mouseY;
+      dirty = true;
+    }}
+    return false;
+  }};
+
+  p.mouseReleased = function() {{
+    dragIdx = -1;
+  }};
+
+}});
+</script>
+</body>
+</html>
+""".format(data=data)
+
+    return html
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main page
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1335,6 +1749,41 @@ def main() -> None:
 
             except Exception as exc:
                 st.warning(f"Trajectory integration failed: {exc}")
+
+        # ── p5.js interactive animation ───────────────────────────────────────
+
+        _GRID_HALF = GRID_RANGE   # ± metres visible on plot
+        if field_type == "Electric Field":
+            _anim_charges = [
+                {
+                    "x": (cx + _GRID_HALF) / (2 * _GRID_HALF),
+                    "y": 1.0 - (cy + _GRID_HALF) / (2 * _GRID_HALF),
+                    "sign": +1 if q_C >= 0 else -1,
+                    "magnitude": abs(q_C) * 1e9,   # nC — JS uses relative units
+                }
+                for q_C, cx, cy in charges_list
+            ]
+            _anim_field_type = "electric"
+            _anim_strength = float(np.hypot(Fx_probe, Fy_probe))
+        else:
+            _anim_charges = [
+                {
+                    "x": (mx + _GRID_HALF) / (2 * _GRID_HALF),
+                    "y": 1.0 - (my + _GRID_HALF) / (2 * _GRID_HALF),
+                    "sign": +1,
+                    "magnitude": float(M_val),
+                }
+                for M_val, mx, my in masses_list
+            ]
+            _anim_field_type = "gravitational"
+            _anim_strength = float(np.hypot(Fx_probe, Fy_probe))
+
+        components.html(
+            build_field_animation(_anim_field_type, _anim_charges, _anim_strength),
+            height=440,
+        )
+        st.caption("Drag charges to move  ·  Click empty area to release test particle")
+        st.divider()
 
         # ── Main field figure ─────────────────────────────────────────────────
 

@@ -8,10 +8,12 @@ power.
 Spec reference: Component 3, Option A (Alternating Currents), sections (a)–(p).
 """
 
+import json
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+import streamlit.components.v1 as components
 
 from utils import physics  # noqa: F401 — constants available if needed
 from utils.style import COLOURS, make_fig, plotly_layout
@@ -1042,6 +1044,535 @@ def render_sidebar() -> dict:
     )
 
 
+# ── p5.js Animation ───────────────────────────────────────────────────────────
+
+
+def build_ac_animation(freq, R, L, C, V0, circuit_type):
+    """
+    Build a split-panel p5.js animation: phasor diagram (left) + oscilloscope (right).
+
+    Parameters
+    ----------
+    freq         : supply frequency (Hz)
+    R            : resistance (Ω)
+    L            : inductance (H) or None/0 if not in circuit
+    C            : capacitance (F) or None/0 if not in circuit
+    V0           : peak voltage (V)
+    circuit_type : one of 'Pure R', 'RC Series', 'RL Series', 'RLC Series'
+    """
+    import math
+
+    omega = 2 * math.pi * float(freq)
+    L_val = float(L) if L else 0.0
+    C_val = float(C) if C else 0.0
+    Z_L = omega * L_val if L_val > 0 else 0.0
+    Z_C = 1.0 / (omega * C_val) if (C_val > 0 and omega > 0) else 1e9
+    R_val = float(R) if R else 1e-9
+
+    if circuit_type == "Pure R":
+        X_net = 0.0
+        Z = R_val
+        phi = 0.0
+    elif circuit_type == "RC Series":
+        X_net = -Z_C
+        Z = math.sqrt(R_val ** 2 + Z_C ** 2)
+        phi = -math.atan2(Z_C, R_val)
+    elif circuit_type == "RL Series":
+        X_net = Z_L
+        Z = math.sqrt(R_val ** 2 + Z_L ** 2)
+        phi = math.atan2(Z_L, R_val)
+    else:  # RLC Series
+        X_net = Z_L - Z_C
+        Z = math.sqrt(R_val ** 2 + X_net ** 2)
+        phi = math.atan2(X_net, R_val)
+
+    f_res = (
+        1.0 / (2 * math.pi * math.sqrt(L_val * C_val))
+        if (L_val > 0 and C_val > 0)
+        else 0.0
+    )
+
+    data = json.dumps({
+        "freq":  float(freq),
+        "R":     R_val,
+        "L":     L_val,
+        "C":     C_val,
+        "V0":    float(V0),
+        "omega": omega,
+        "phi":   phi,
+        "Z":     Z,
+        "Z_L":   Z_L,
+        "Z_C":   Z_C,
+        "fRes":  f_res,
+        "type":  circuit_type,
+    })
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ background:#0e1117; overflow:hidden; font-family:monospace; }}
+  canvas {{ display:block; }}
+</style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+<script>
+const SIM = {data};
+
+new p5(function(p) {{
+  // ── state ──────────────────────────────────────────────────────────────────
+  let t = 0;
+  let speed = 1;
+  let playing = true;
+
+  let freq  = SIM.freq;
+  let omega = SIM.omega;
+  let phi   = SIM.phi;
+  let Z     = SIM.Z;
+  let V0    = SIM.V0;
+  let Z_L   = SIM.Z_L;
+  let Z_C   = SIM.Z_C;
+  let fRes  = SIM.fRes;
+  let ctype = SIM.type;
+
+  const I0 = V0 / Z;
+
+  // history buffer for oscilloscope rolling display
+  const HIST = 400;
+  let vBuf = new Array(HIST).fill(0);
+  let iBuf = new Array(HIST).fill(0);
+
+  // layout constants (set in setup, updated on resize)
+  let W, H;
+  let leftW, rightX;
+
+  // button hit-boxes (populated in draw)
+  let btnPlay, btnSpeed, btnTypes;
+
+  // colours
+  const COL = {{
+    bg:      '#0e1117',
+    grid:    '#1f2937',
+    vWave:   '#e5e5e5',
+    iWave:   '#f97316',
+    vPhasor: '#e5e5e5',
+    iPhasor: '#f97316',
+    vR:      '#22c55e',
+    vL:      '#3b82f6',
+    vC:      '#ef4444',
+    glow:    '#facc15',
+    text:    '#94a3b8',
+    accent:  '#6366f1',
+  }};
+
+  // ── p5 lifecycle ────────────────────────────────────────────────────────────
+  p.setup = function() {{
+    W = p.windowWidth;
+    H = 420;
+    p.createCanvas(W, H);
+    p.textFont('monospace');
+    updateLayout();
+  }};
+
+  p.windowResized = function() {{
+    W = p.windowWidth;
+    p.resizeCanvas(W, H);
+    updateLayout();
+  }};
+
+  function updateLayout() {{
+    leftW  = Math.floor(W * 0.40);
+    rightX = leftW + 1;
+  }}
+
+  p.draw = function() {{
+    p.background(COL.bg);
+
+    if (playing) {{
+      t += (omega * speed) / p.frameRate();
+    }}
+
+    // push history
+    let vNow = V0 * Math.sin(t);
+    let iNow = I0 * Math.sin(t - phi);
+    vBuf.push(vNow);
+    iBuf.push(iNow);
+    if (vBuf.length > HIST) {{ vBuf.shift(); iBuf.shift(); }}
+
+    drawPhasor();
+    drawScope();
+    drawControls();
+
+    // divider
+    p.stroke(COL.grid);
+    p.strokeWeight(1);
+    p.line(leftW, 0, leftW, H);
+  }};
+
+  // ── phasor panel ────────────────────────────────────────────────────────────
+  function drawPhasor() {{
+    let cx = leftW / 2;
+    let cy = H / 2 - 20;
+    let scale = Math.min(leftW, H - 60) * 0.35;
+
+    // background label
+    p.noStroke();
+    p.fill(COL.text);
+    p.textSize(10);
+    p.textAlign(p.LEFT, p.TOP);
+    p.text('PHASOR DIAGRAM', 8, 8);
+
+    // grid circle
+    p.noFill();
+    p.stroke(COL.grid);
+    p.strokeWeight(1);
+    p.ellipse(cx, cy, scale * 2, scale * 2);
+    p.ellipse(cx, cy, scale, scale);
+
+    // axes
+    p.stroke(30, 40, 60);
+    p.strokeWeight(1);
+    p.line(cx - scale * 1.1, cy, cx + scale * 1.1, cy);
+    p.line(cx, cy - scale * 1.1, cx, cy + scale * 1.1);
+
+    // resonance glow
+    let nearRes = fRes > 0 && Math.abs(freq - fRes) / fRes < 0.05;
+    if (nearRes) {{
+      p.noStroke();
+      for (let r = 30; r > 0; r -= 5) {{
+        p.fill(250, 204, 21, r * 2);
+        p.ellipse(cx, cy, scale * 2 + r * 2, scale * 2 + r * 2);
+      }}
+    }}
+
+    // helper: draw arrow phasor
+    function phasorArrow(angle, mag, col, label) {{
+      if (mag < 0.001) return;
+      let ex = cx + mag * scale * Math.cos(angle);
+      let ey = cy - mag * scale * Math.sin(angle);
+      p.stroke(col);
+      p.strokeWeight(2.5);
+      p.line(cx, cy, ex, ey);
+      // arrowhead
+      let aw = 8;
+      let ang = Math.atan2(ey - cy, ex - cx);
+      p.fill(col);
+      p.noStroke();
+      p.triangle(
+        ex, ey,
+        ex - aw * Math.cos(ang - 0.4), ey - aw * Math.sin(ang - 0.4),
+        ex - aw * Math.cos(ang + 0.4), ey - aw * Math.sin(ang + 0.4)
+      );
+      // label
+      p.fill(col);
+      p.noStroke();
+      p.textSize(9);
+      p.textAlign(p.CENTER, p.CENTER);
+      let lx = cx + (mag * scale + 14) * Math.cos(angle);
+      let ly = cy - (mag * scale + 14) * Math.sin(angle);
+      p.text(label, lx, ly);
+    }}
+
+    // rotating angle
+    let vAngle = t;               // V phasor angle (reference)
+    let iAngle = t - phi;         // I lags by phi
+
+    // component phasors (only if they exist in circuit)
+    let hasL = (Z_L > 0.001);
+    let hasC = (Z_C < 1e8);
+
+    // V_R (in-phase with I)
+    let vR = I0 * SIM.R;
+    let vRnorm = V0 > 0 ? vR / V0 : 0;
+    if (ctype !== 'Pure R') {{
+      phasorArrow(iAngle, vRnorm, COL.vR, 'Vⱼ');
+    }}
+    // V_L (I + 90°)
+    if (hasL) {{
+      let vLmag = I0 * Z_L;
+      let vLnorm = V0 > 0 ? vLmag / V0 : 0;
+      phasorArrow(iAngle + Math.PI / 2, vLnorm, COL.vL, 'Vₗ');
+    }}
+    // V_C (I - 90°)
+    if (hasC && ctype !== 'RL Series') {{
+      let vCmag = I0 * Z_C;
+      let vCnorm = V0 > 0 ? vCmag / V0 : 0;
+      phasorArrow(iAngle - Math.PI / 2, vCnorm, COL.vC, 'Vᴄ');
+    }}
+
+    // V total (white)
+    let vGlow = nearRes ? 255 : 220;
+    phasorArrow(vAngle, 1.0, p.color(vGlow, vGlow, vGlow), 'V');
+
+    // I (orange, same length for display)
+    let iCol = nearRes ? p.color(250, 204, 21) : p.color(COL.iWave);
+    phasorArrow(iAngle, 1.0, iCol, 'I');
+
+    // phase angle arc between V and I
+    if (Math.abs(phi) > 0.02) {{
+      p.noFill();
+      p.stroke(150, 150, 200, 180);
+      p.strokeWeight(1.5);
+      let arcR = scale * 0.28;
+      // arc from iAngle to vAngle (counter-clockwise = positive = p5 negative y)
+      // p5 angles: 0=right, clockwise positive
+      let a1 = -vAngle;
+      let a2 = -iAngle;
+      p.arc(cx, cy, arcR * 2, arcR * 2, Math.min(a1, a2), Math.max(a1, a2));
+      p.noStroke();
+      p.fill(150, 150, 200);
+      p.textSize(9);
+      p.textAlign(p.CENTER, p.CENTER);
+      let midAng = -(vAngle + iAngle) / 2;
+      p.text('φ', cx + arcR * 1.5 * Math.cos(midAng), cy + arcR * 1.5 * Math.sin(midAng));
+    }}
+
+    // centre dot
+    p.noStroke();
+    p.fill(200);
+    p.ellipse(cx, cy, 6, 6);
+
+    // resonance label
+    if (nearRes) {{
+      p.noStroke();
+      p.fill(250, 204, 21);
+      p.textSize(11);
+      p.textAlign(p.CENTER, p.TOP);
+      p.text('RESONANCE!', cx, cy + scale + 8);
+    }}
+
+    // phi readout
+    p.noStroke();
+    p.fill(COL.text);
+    p.textSize(9);
+    p.textAlign(p.LEFT, p.BOTTOM);
+    let phiDeg = (phi * 180 / Math.PI).toFixed(1);
+    p.text('φ = ' + phiDeg + '°', 6, H - 60);
+    p.text('f = ' + freq.toFixed(0) + ' Hz', 6, H - 48);
+    if (fRes > 0) {{
+      p.text('f₀ = ' + fRes.toFixed(1) + ' Hz', 6, H - 36);
+    }}
+  }}
+
+  // ── oscilloscope panel ──────────────────────────────────────────────────────
+  function drawScope() {{
+    let x0 = rightX + 4;
+    let y0 = 24;
+    let sw = W - rightX - 8;
+    let sh = H - y0 - 70;
+
+    // label
+    p.noStroke();
+    p.fill(COL.text);
+    p.textSize(10);
+    p.textAlign(p.LEFT, p.TOP);
+    p.text('OSCILLOSCOPE', rightX + 8, 8);
+
+    // CRT-style background
+    p.noStroke();
+    p.fill(0, 10, 4);
+    p.rect(x0, y0, sw, sh, 4);
+
+    // grid lines
+    let gCols = 8;
+    let gRows = 6;
+    p.stroke(0, 50, 20);
+    p.strokeWeight(1);
+    for (let c = 0; c <= gCols; c++) {{
+      let gx = x0 + (c / gCols) * sw;
+      p.line(gx, y0, gx, y0 + sh);
+    }}
+    for (let r = 0; r <= gRows; r++) {{
+      let gy = y0 + (r / gRows) * sh;
+      p.line(x0, gy, x0 + sw, gy);
+    }}
+
+    // zero line emphasis
+    p.stroke(0, 80, 30);
+    p.strokeWeight(1.5);
+    p.line(x0, y0 + sh / 2, x0 + sw, y0 + sh / 2);
+
+    // plot buffer
+    let vMax = Math.max(V0, I0 * Z, 0.001);
+    let iMax = Math.max(I0, 0.0001);
+    let scaleV = (sh / 2 - 6) / V0;
+    let scaleI = (sh / 2 - 6) / iMax;
+
+    // V(t) — white
+    p.stroke(COL.vWave);
+    p.strokeWeight(2);
+    p.noFill();
+    p.beginShape();
+    for (let k = 0; k < vBuf.length; k++) {{
+      let px = x0 + (k / (vBuf.length - 1)) * sw;
+      let py = y0 + sh / 2 - vBuf[k] * scaleV;
+      p.vertex(px, py);
+    }}
+    p.endShape();
+
+    // I(t) — orange
+    p.stroke(COL.iWave);
+    p.strokeWeight(2);
+    p.noFill();
+    p.beginShape();
+    for (let k = 0; k < iBuf.length; k++) {{
+      let px = x0 + (k / (iBuf.length - 1)) * sw;
+      let py = y0 + sh / 2 - iBuf[k] * scaleI;
+      p.vertex(px, py);
+    }}
+    p.endShape();
+
+    // period markers on x-axis
+    if (omega > 0) {{
+      let T = (2 * Math.PI / omega);
+      let dt = T * p.frameRate() / speed;  // samples per period
+      // how many samples fit in HIST? approx HIST/dt periods visible
+      if (dt > 5) {{
+        let nMarks = Math.floor(HIST / dt);
+        p.stroke(0, 120, 50, 180);
+        p.strokeWeight(1);
+        for (let m = 0; m <= nMarks; m++) {{
+          let mx = x0 + sw - (m * dt / (HIST - 1)) * sw;
+          if (mx >= x0 && mx <= x0 + sw) {{
+            p.line(mx, y0 + sh - 5, mx, y0 + sh);
+          }}
+        }}
+      }}
+    }}
+
+    // clip to panel
+    // legend
+    p.noStroke();
+    p.fill(COL.vWave);
+    p.textSize(9);
+    p.textAlign(p.RIGHT, p.TOP);
+    p.text('V(t)', x0 + sw - 4, y0 + 4);
+    p.fill(COL.iWave);
+    p.text('I(t)', x0 + sw - 4, y0 + 15);
+
+    // instant readout
+    p.fill(COL.text);
+    p.textSize(9);
+    p.textAlign(p.LEFT, p.BOTTOM);
+    let vNow = vBuf[vBuf.length - 1];
+    let iNow = iBuf[iBuf.length - 1];
+    p.text('V = ' + vNow.toFixed(2) + ' V', x0 + 4, y0 + sh - 2);
+    p.text('I = ' + (iNow * 1000).toFixed(2) + ' mA', x0 + 4 + sw / 3, y0 + sh - 2);
+    p.text('Z = ' + Z.toFixed(2) + ' Ω', x0 + 4 + (2 * sw) / 3, y0 + sh - 2);
+  }}
+
+  // ── controls ────────────────────────────────────────────────────────────────
+  function drawControls() {{
+    // ── play/pause (top-right of scope panel) ─────────────────────────────────
+    let btnW = 36, btnH = 20, gap = 4;
+    let bx = W - 4 - btnW;
+    let by = 2;
+
+    // play/pause
+    btnPlay = {{x: bx, y: by, w: btnW, h: btnH}};
+    p.fill(playing ? '#1e3a5f' : '#1a3320');
+    p.stroke(playing ? '#3b82f6' : '#22c55e');
+    p.strokeWeight(1);
+    p.rect(bx, by, btnW, btnH, 3);
+    p.noStroke();
+    p.fill(playing ? '#93c5fd' : '#86efac');
+    p.textSize(10);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text(playing ? '⏸' : '▶', bx + btnW / 2, by + btnH / 2);
+
+    // speed buttons
+    let speeds = [0.5, 1, 2];
+    let speedLabels = ['0.5x', '1x', '2x'];
+    btnSpeed = [];
+    for (let s = 0; s < speeds.length; s++) {{
+      let sx = bx - (speeds.length - s) * (btnW + gap);
+      let active = (speed === speeds[s]);
+      btnSpeed.push({{x: sx, y: by, w: btnW, h: btnH, val: speeds[s]}});
+      p.fill(active ? '#312e81' : '#1e1b2e');
+      p.stroke(active ? '#818cf8' : '#374151');
+      p.strokeWeight(1);
+      p.rect(sx, by, btnW, btnH, 3);
+      p.noStroke();
+      p.fill(active ? '#a5b4fc' : '#6b7280');
+      p.textSize(9);
+      p.textAlign(p.CENTER, p.CENTER);
+      p.text(speedLabels[s], sx + btnW / 2, by + btnH / 2);
+    }}
+
+    // circuit type buttons (bottom-left)
+    let ctypes = ['Pure R', 'RL', 'RC', 'RLC'];
+    let ctypeMap = {{
+      'Pure R': 'Pure R',
+      'RL':     'RL Series',
+      'RC':     'RC Series',
+      'RLC':    'RLC Series',
+    }};
+    let ctW = 38, ctH = 20;
+    btnTypes = [];
+    for (let c = 0; c < ctypes.length; c++) {{
+      let cx2 = 4 + c * (ctW + 3);
+      let cy2 = H - ctH - 4;
+      let active = (ctypes[c] === 'Pure R' ? ctype === 'Pure R'
+                  : ctypes[c] === 'RL'     ? ctype === 'RL Series'
+                  : ctypes[c] === 'RC'     ? ctype === 'RC Series'
+                  :                          ctype === 'RLC Series');
+      btnTypes.push({{x: cx2, y: cy2, w: ctW, h: ctH, label: ctypes[c], mapped: ctypeMap[ctypes[c]]}});
+      p.fill(active ? '#7c3aed' : '#1e1b2e');
+      p.stroke(active ? '#a78bfa' : '#374151');
+      p.strokeWeight(1);
+      p.rect(cx2, cy2, ctW, ctH, 3);
+      p.noStroke();
+      p.fill(active ? '#e9d5ff' : '#9ca3af');
+      p.textSize(9);
+      p.textAlign(p.CENTER, p.CENTER);
+      p.text(ctypes[c], cx2 + ctW / 2, cy2 + ctH / 2);
+    }}
+  }}
+
+  // ── mouse interaction ────────────────────────────────────────────────────────
+  p.mousePressed = function() {{
+    if (!btnPlay) return;
+
+    // play/pause
+    if (inBtn(p.mouseX, p.mouseY, btnPlay)) {{
+      playing = !playing;
+      return;
+    }}
+
+    // speed
+    if (btnSpeed) {{
+      for (let b of btnSpeed) {{
+        if (inBtn(p.mouseX, p.mouseY, b)) {{
+          speed = b.val;
+          return;
+        }}
+      }}
+    }}
+
+    // circuit type buttons are informational only in embedded mode
+    // (Streamlit controls the actual circuit — buttons just highlight)
+    if (btnTypes) {{
+      for (let b of btnTypes) {{
+        if (inBtn(p.mouseX, p.mouseY, b)) {{
+          ctype = b.mapped;
+          return;
+        }}
+      }}
+    }}
+  }};
+
+  function inBtn(mx, my, b) {{
+    return mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h;
+  }}
+}});
+</script>
+</body>
+</html>"""
+
+
 # ── Main layout ───────────────────────────────────────────────────────────────
 
 
@@ -1214,6 +1745,17 @@ def main() -> None:
                 f"Reactive power = {_Q_react_card:.3f} VAR.",
                 icon="\U0001f50b",
             )
+
+        # ── p5.js animation (phasor + oscilloscope) ───────────────────────────
+        # Determine which L/C values to pass based on the active circuit type
+        _anim_L = L_H if circuit in ("RL Series", "RLC Series") else None
+        _anim_C = C_F if circuit in ("RC Series", "RLC Series") else None
+        components.html(
+            build_ac_animation(f, R, _anim_L, _anim_C, V0, circuit),
+            height=440,
+        )
+        st.caption("▶ Play/pause · ⚡ speed · Click circuit type buttons on canvas")
+        st.divider()
 
         # ── Plot 1: V(t) and I(t) ─────────────────────────────────────────────
         fig_time = build_time_series(t, v, i_trace, phi, f)

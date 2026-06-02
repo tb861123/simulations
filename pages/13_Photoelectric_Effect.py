@@ -8,9 +8,12 @@ hypothesis and wave-particle duality.
 Spec reference: Component 2, Topic 6 (Photons and Wave-Particle Duality)
 """
 
+import json
+
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 from utils.physics import h_planck, c_light, e_charge
 from utils.style import COLOURS, make_fig, plotly_layout
@@ -779,6 +782,505 @@ def build_photon_energy_bar(
     return fig
 
 
+# ── p5.js animation ───────────────────────────────────────────────────────────
+
+
+def build_photoelectric_animation(
+    freq_hz: float,
+    work_function_ev: float,
+    intensity: float,
+) -> str:
+    """
+    Build an interactive p5.js photon-metal animation for the photoelectric effect.
+
+    Parameters
+    ----------
+    freq_hz         : photon frequency in Hz
+    work_function_ev: metal work function in eV
+    intensity       : relative light intensity (controls photon rate)
+
+    Returns
+    -------
+    HTML string containing the self-contained p5.js animation
+    """
+    h = 6.626e-34
+    e = 1.602e-19
+    hf_ev = float(freq_hz) * h / e
+    threshold_hz = float(work_function_ev) * e / h
+    above_threshold = hf_ev > float(work_function_ev)
+    ke_ev = max(0.0, hf_ev - float(work_function_ev))
+    data = json.dumps({
+        "freq": float(freq_hz),
+        "phi": float(work_function_ev),
+        "hf_ev": hf_ev,
+        "threshold_hz": threshold_hz,
+        "above": above_threshold,
+        "ke_ev": ke_ev,
+        "intensity": float(intensity),
+    })
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+  body {{ margin:0; background:#0e1117; overflow:hidden; font-family:sans-serif; }}
+  canvas {{ display:block; }}
+</style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<script>
+const SIM = {data};
+
+new p5(function(p) {{
+  // ── constants ──────────────────────────────────────────────────────────────
+  const W = 680, H = 430;
+  const METAL_Y = H * 0.62;   // top of metal band
+  const METAL_H = 60;         // metal band thickness
+  const LAMP_X = 60, LAMP_Y = 40;
+
+  // ── state ──────────────────────────────────────────────────────────────────
+  let photons = [];
+  let electrons = [];
+  let flashMessages = [];
+  let playing = true;
+  let speed = 1.0;
+  let thresholdGlow = 0;      // 0-255 alpha for golden glow
+  let frameCount = 0;
+  let spawnTimer = 0;
+
+  // Determine photon colour from frequency
+  function photonColour() {{
+    const f = SIM.freq;
+    if (f < 4e14)       return p.color(255, 60,  60);   // red
+    if (f < 5e14)       return p.color(255, 165,  0);   // orange
+    if (f < 6e14)       return p.color(255, 230,  0);   // yellow
+    if (f < 7e14)       return p.color(60,  210, 60);   // green
+    if (f < 7.5e14)     return p.color(60,  120, 255);  // blue
+    return               p.color(180,  60, 255);         // violet
+  }}
+
+  // Spawn interval in frames (lower intensity → slower spawn)
+  function spawnInterval() {{
+    return Math.max(4, Math.round(30 / (SIM.intensity * speed)));
+  }}
+
+  function spawnPhoton() {{
+    // Random x near lamp
+    const x = LAMP_X + p.random(-15, 15);
+    photons.push({{
+      x: x,
+      y: LAMP_Y + 20,
+      vx: p.random(-0.4, 0.4),
+      vy: 2.5 * speed,
+      r: 6,
+      col: photonColour(),
+      bouncing: false,
+      bounceVy: 0,
+      alpha: 255,
+      id: Math.random(),
+      clicked: false,
+      clickTimer: 0,
+    }});
+  }}
+
+  function spawnElectron(x, y) {{
+    // velocity proportional to sqrt(KE)
+    const ke = Math.max(0.05, SIM.ke_ev);
+    const speed_e = Math.sqrt(ke) * 80;
+    photons.push({{
+      x: x,
+      y: y,
+      vx: p.random(-1.5, 1.5) * speed,
+      vy: -(speed_e * 0.04 + p.random(1, 3)) * speed,
+      r: 5,
+      col: p.color(255, 230, 50),
+      isElectron: true,
+      alpha: 255,
+      trail: [],
+    }});
+  }}
+
+  function addFlash(msg, x, y, col) {{
+    flashMessages.push({{ msg, x, y, col, alpha: 255, life: 90 }});
+  }}
+
+  // ── p5 setup ───────────────────────────────────────────────────────────────
+  p.setup = function() {{
+    const cnv = p.createCanvas(W, H);
+    cnv.parent(document.body);
+    p.textFont('monospace');
+
+    // Check threshold proximity (within 2%)
+    const ratio = SIM.freq / SIM.threshold_hz;
+    if (ratio > 0.96 && ratio < 1.04) {{
+      thresholdGlow = 200;
+    }}
+  }};
+
+  // ── p5 draw ────────────────────────────────────────────────────────────────
+  p.draw = function() {{
+    if (!playing) return;
+    frameCount++;
+
+    // Background
+    p.background(14, 17, 23);
+
+    // ── Metal surface (gradient band) ─────────────────────────────────────
+    const glowAlpha = thresholdGlow;
+    if (glowAlpha > 0) {{
+      // Golden glow behind metal
+      p.noStroke();
+      p.fill(255, 200, 0, glowAlpha * 0.4);
+      p.rect(0, METAL_Y - 10, W, METAL_H + 20, 4);
+      thresholdGlow = Math.max(0, thresholdGlow - 1);
+    }}
+
+    for (let row = 0; row < METAL_H; row++) {{
+      const t = row / METAL_H;
+      const brightness = p.lerp(160, 90, t);
+      p.stroke(brightness, brightness + 5, brightness + 10);
+      p.line(0, METAL_Y + row, W, METAL_Y + row);
+    }}
+    p.noStroke();
+    p.fill(200, 200, 210, 40);
+    p.rect(0, METAL_Y, W, METAL_H);
+
+    // Metal label
+    p.noStroke();
+    p.fill(180, 180, 200);
+    p.textSize(11);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text('METAL SURFACE  φ = ' + SIM.phi.toFixed(2) + ' eV', W / 2, METAL_Y + METAL_H / 2);
+
+    // ── Threshold glow text ───────────────────────────────────────────────
+    if (glowAlpha > 50) {{
+      p.fill(255, 220, 0, glowAlpha);
+      p.textSize(18);
+      p.textAlign(p.CENTER, p.CENTER);
+      p.text('⚡ THRESHOLD! ⚡', W / 2, METAL_Y - 30);
+    }}
+
+    // ── Lamp / light source ───────────────────────────────────────────────
+    const lcol = photonColour();
+    p.fill(lcol);
+    p.noStroke();
+    // Glow halo
+    p.fill(p.red(lcol), p.green(lcol), p.blue(lcol), 40);
+    p.ellipse(LAMP_X, LAMP_Y, 50, 50);
+    p.fill(lcol);
+    p.ellipse(LAMP_X, LAMP_Y, 22, 22);
+    p.fill(255, 255, 255, 180);
+    p.ellipse(LAMP_X - 4, LAMP_Y - 4, 7, 7);
+
+    // Lamp label
+    p.fill(200, 200, 200);
+    p.textSize(10);
+    p.textAlign(p.LEFT, p.CENTER);
+    p.text('Light source', LAMP_X + 16, LAMP_Y);
+    p.text('f = ' + (SIM.freq / 1e14).toFixed(2) + ' ×10¹⁴ Hz', LAMP_X + 16, LAMP_Y + 13);
+
+    // ── Info panel (top-right) ─────────────────────────────────────────────
+    p.fill(20, 24, 35, 200);
+    p.stroke(80, 90, 120);
+    p.strokeWeight(1);
+    p.rect(W - 200, 8, 190, 100, 6);
+    p.noStroke();
+    p.fill(180, 210, 255);
+    p.textSize(11);
+    p.textAlign(p.LEFT, p.TOP);
+    p.text('hf  = ' + SIM.hf_ev.toFixed(3) + ' eV', W - 192, 16);
+    p.text('φ   = ' + SIM.phi.toFixed(3) + ' eV', W - 192, 32);
+    p.text('f₀  = ' + (SIM.threshold_hz / 1e14).toFixed(2) + ' ×10¹⁴ Hz', W - 192, 48);
+    if (SIM.above) {{
+      p.fill(80, 255, 120);
+      p.text('KE  = ' + SIM.ke_ev.toFixed(3) + ' eV  ✓ Emission', W - 192, 64);
+    }} else {{
+      p.fill(255, 100, 100);
+      p.text('hf < φ — No emission ✗', W - 192, 64);
+    }}
+    p.fill(160, 180, 200);
+    p.text('Intensity: ' + SIM.intensity.toFixed(1) + '×', W - 192, 82);
+
+    // ── Mini I-V curve (bottom-right) ─────────────────────────────────────
+    drawMiniIVCurve();
+
+    // ── Spawn photons ─────────────────────────────────────────────────────
+    spawnTimer++;
+    if (spawnTimer >= spawnInterval()) {{
+      spawnPhoton();
+      spawnTimer = 0;
+    }}
+
+    // ── Update & draw photons / electrons ─────────────────────────────────
+    for (let i = photons.length - 1; i >= 0; i--) {{
+      const ph = photons[i];
+
+      if (ph.isElectron) {{
+        // Curved trajectory (gravity-like drift)
+        ph.vy += 0.05 * speed;
+        ph.vx *= 0.995;
+        if (ph.trail) {{
+          ph.trail.push({{ x: ph.x, y: ph.y }});
+          if (ph.trail.length > 20) ph.trail.shift();
+        }}
+        ph.x += ph.vx;
+        ph.y += ph.vy;
+        ph.alpha -= 2.5;
+        if (ph.alpha <= 0 || ph.y > H + 20 || ph.y < -30) {{
+          photons.splice(i, 1);
+          continue;
+        }}
+        // Draw trail
+        if (ph.trail && ph.trail.length > 1) {{
+          for (let t = 1; t < ph.trail.length; t++) {{
+            const ta = (t / ph.trail.length) * ph.alpha * 0.5;
+            p.stroke(255, 230, 50, ta);
+            p.strokeWeight(1.5);
+            p.line(ph.trail[t-1].x, ph.trail[t-1].y, ph.trail[t].x, ph.trail[t].y);
+          }}
+        }}
+        p.noStroke();
+        p.fill(p.red(ph.col), p.green(ph.col), p.blue(ph.col), ph.alpha);
+        p.ellipse(ph.x, ph.y, ph.r * 2, ph.r * 2);
+        // Label
+        p.fill(255, 230, 50, ph.alpha);
+        p.textSize(9);
+        p.textAlign(p.LEFT);
+        p.text('e⁻', ph.x + 7, ph.y);
+
+      }} else if (ph.bouncing) {{
+        // Bouncing back photon (reflected)
+        ph.x += ph.vx;
+        ph.y += ph.bounceVy;
+        ph.alpha -= 5;
+        if (ph.alpha <= 0 || ph.y < -10) {{
+          photons.splice(i, 1);
+          continue;
+        }}
+        p.noStroke();
+        p.fill(p.red(ph.col), p.green(ph.col), p.blue(ph.col), ph.alpha * 0.6);
+        p.ellipse(ph.x, ph.y, ph.r * 1.4, ph.r * 1.4);
+
+      }} else {{
+        // Normal downward photon
+        ph.x += ph.vx;
+        ph.y += ph.vy;
+
+        // Check metal hit
+        if (ph.y + ph.r >= METAL_Y) {{
+          if (SIM.above) {{
+            // Eject electron
+            spawnElectron(ph.x, METAL_Y - 5);
+            addFlash(
+              'hf > φ  KE=' + SIM.ke_ev.toFixed(2) + ' eV',
+              ph.x, METAL_Y - 25,
+              p.color(80, 255, 120)
+            );
+          }} else {{
+            // Bounce back
+            ph.bouncing = true;
+            ph.bounceVy = -Math.abs(ph.vy) * 0.7;
+            addFlash('hf < φ — no emission', ph.x, METAL_Y - 20, p.color(255, 100, 100));
+          }}
+          // Remove non-bouncing photon
+          if (!SIM.above) {{
+            // keep as bouncing (already set)
+          }} else {{
+            photons.splice(i, 1);
+            continue;
+          }}
+        }}
+
+        // Out of bounds
+        if (ph.y > H + 10 || ph.x < -20 || ph.x > W + 20) {{
+          photons.splice(i, 1);
+          continue;
+        }}
+
+        // Glow
+        p.noStroke();
+        p.fill(p.red(ph.col), p.green(ph.col), p.blue(ph.col), 40);
+        p.ellipse(ph.x, ph.y, ph.r * 3.5, ph.r * 3.5);
+        // Core
+        p.fill(p.red(ph.col), p.green(ph.col), p.blue(ph.col), 220);
+        p.ellipse(ph.x, ph.y, ph.r * 2, ph.r * 2);
+        // Highlight
+        p.fill(255, 255, 255, 160);
+        p.ellipse(ph.x - 2, ph.y - 2, ph.r * 0.7, ph.r * 0.7);
+
+        // Click label
+        if (ph.clicked && ph.clickTimer > 0) {{
+          ph.clickTimer--;
+          p.fill(255, 255, 200, Math.min(255, ph.clickTimer * 5));
+          p.textSize(10);
+          p.textAlign(p.LEFT);
+          p.text('E = hf = ' + SIM.hf_ev.toFixed(2) + ' eV', ph.x + 9, ph.y - 5);
+        }}
+      }}
+    }}
+
+    // ── Flash messages ────────────────────────────────────────────────────
+    for (let i = flashMessages.length - 1; i >= 0; i--) {{
+      const fm = flashMessages[i];
+      fm.life--;
+      fm.alpha = Math.min(255, fm.life * 4);
+      if (fm.life <= 0) {{ flashMessages.splice(i, 1); continue; }}
+      p.fill(p.red(fm.col), p.green(fm.col), p.blue(fm.col), fm.alpha);
+      p.textSize(11);
+      p.textAlign(p.CENTER);
+      p.text(fm.msg, fm.x, fm.y - (90 - fm.life) * 0.3);
+    }}
+
+    // ── Controls bar ──────────────────────────────────────────────────────
+    drawControls();
+  }};
+
+  // ── Mini I-V curve ─────────────────────────────────────────────────────────
+  function drawMiniIVCurve() {{
+    const cx = W - 195, cy = H - 10, cw = 185, ch = 90;
+    p.fill(18, 22, 32, 210);
+    p.stroke(70, 80, 110);
+    p.strokeWeight(1);
+    p.rect(cx, cy - ch, cw, ch, 4);
+
+    p.noStroke();
+    p.fill(150, 160, 180);
+    p.textSize(9);
+    p.textAlign(p.LEFT, p.TOP);
+    p.text('I-V Curve (V_s vs f)', cx + 4, cy - ch + 4);
+
+    // Axes
+    const axL = cx + 10, axR = cx + cw - 8;
+    const axB = cy - 10, axT = cy - ch + 18;
+    p.stroke(80, 90, 120);
+    p.strokeWeight(1);
+    p.line(axL, axB, axR, axB);
+    p.line(axL, axB, axL, axT);
+
+    // Plot V_s vs f line
+    const fMin = SIM.threshold_hz;
+    const fMax = fMin * 2.5;
+    const vMax = (fMax - fMin) * 6.626e-34 / 1.602e-19;
+
+    p.stroke(80, 160, 255);
+    p.strokeWeight(1.5);
+    p.noFill();
+    p.beginShape();
+    for (let fi = fMin; fi <= fMax; fi += (fMax - fMin) / 40) {{
+      const vs = (fi - fMin) * 6.626e-34 / 1.602e-19;
+      const px2 = p.map(fi, fMin, fMax, axL, axR);
+      const py2 = p.map(vs, 0, vMax, axB, axT);
+      p.vertex(px2, py2);
+    }}
+    p.endShape();
+
+    // Current frequency marker
+    if (SIM.freq >= fMin) {{
+      const vs_cur = Math.max(0, (SIM.freq - fMin) * 6.626e-34 / 1.602e-19);
+      const mx = p.map(SIM.freq, fMin, fMax, axL, axR);
+      const my = p.map(vs_cur, 0, vMax, axB, axT);
+      p.stroke(255, 200, 0);
+      p.strokeWeight(1);
+      p.line(mx, axB, mx, my);
+      p.fill(255, 200, 0);
+      p.noStroke();
+      p.ellipse(mx, my, 5, 5);
+    }}
+
+    // Axis labels
+    p.noStroke();
+    p.fill(120, 130, 150);
+    p.textSize(8);
+    p.textAlign(p.CENTER);
+    p.text('f →', (axL + axR) / 2, axB + 8);
+    p.textAlign(p.RIGHT);
+    p.text('V_s', axL - 1, (axT + axB) / 2);
+  }}
+
+  // ── Controls bar ───────────────────────────────────────────────────────────
+  function drawControls() {{
+    const barY = H - 36;
+    p.fill(20, 24, 35, 200);
+    p.noStroke();
+    p.rect(0, barY, W, 36);
+
+    // Play/Pause button
+    const btnX = 10, btnY = barY + 4, btnW = 70, btnH = 26;
+    p.fill(playing ? 60 : 40, playing ? 120 : 60, playing ? 200 : 80);
+    p.rect(btnX, btnY, btnW, btnH, 4);
+    p.fill(220, 230, 255);
+    p.textSize(11);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text(playing ? '⏸ Pause' : '▶ Play', btnX + btnW / 2, btnY + btnH / 2);
+
+    // Speed label
+    p.fill(160, 170, 190);
+    p.textSize(10);
+    p.textAlign(p.LEFT, p.CENTER);
+    p.text('Speed: ' + speed.toFixed(1) + '×', 90, barY + 18);
+
+    // Speed – button
+    const s1x = 160, sY = barY + 4;
+    p.fill(50, 60, 90);
+    p.rect(s1x, sY, 28, 26, 4);
+    p.fill(200, 210, 240);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.text('−', s1x + 14, sY + 13);
+
+    // Speed + button
+    const s2x = 194;
+    p.fill(50, 60, 90);
+    p.rect(s2x, sY, 28, 26, 4);
+    p.fill(200, 210, 240);
+    p.text('+', s2x + 14, sY + 13);
+
+    // Hint
+    p.fill(100, 110, 130);
+    p.textSize(9);
+    p.textAlign(p.RIGHT, p.CENTER);
+    p.text('Click a photon to see its energy', W - 10, barY + 18);
+  }}
+
+  // ── Mouse interaction ──────────────────────────────────────────────────────
+  p.mousePressed = function() {{
+    const barY = H - 36;
+
+    // Play/pause button
+    if (p.mouseX >= 10 && p.mouseX <= 80 && p.mouseY >= barY + 4 && p.mouseY <= barY + 30) {{
+      playing = !playing;
+      return;
+    }}
+    // Speed – button
+    if (p.mouseX >= 160 && p.mouseX <= 188 && p.mouseY >= barY + 4 && p.mouseY <= barY + 30) {{
+      speed = Math.max(0.25, speed - 0.25);
+      return;
+    }}
+    // Speed + button
+    if (p.mouseX >= 194 && p.mouseX <= 222 && p.mouseY >= barY + 4 && p.mouseY <= barY + 30) {{
+      speed = Math.min(3.0, speed + 0.25);
+      return;
+    }}
+
+    // Click on photon to show energy
+    for (const ph of photons) {{
+      if (!ph.isElectron && !ph.bouncing) {{
+        const d = p.dist(p.mouseX, p.mouseY, ph.x, ph.y);
+        if (d < ph.r + 6) {{
+          ph.clicked = true;
+          ph.clickTimer = 80;
+          break;
+        }}
+      }}
+    }}
+  }};
+}});
+</script>
+</body>
+</html>"""
+
+
 # ── Main layout ───────────────────────────────────────────────────────────────
 
 
@@ -899,6 +1401,15 @@ def main() -> None:
             "but doesn't increase their energy. Only shorter wavelength (higher "
             "frequency) increases KE."
         )
+
+        # p5.js animation — photon-metal interaction
+        freq_val_1 = c_light / (float(wavelength_nm) * 1e-9)
+        components.html(
+            build_photoelectric_animation(freq_val_1, phi_eV_1, intensity_1),
+            height=440,
+        )
+        st.caption("▶ Play/pause · Click photon to see energy · Watch threshold glow")
+        st.divider()
 
         # Main particle diagram
         fig_pe = build_photoelectric_diagram(

@@ -9,11 +9,13 @@ shared RK4 helper.  Advanced mode covers secular/transient equilibrium,
 a custom chain builder, and activity plots with the Tc-99m medical application.
 """
 
+import json
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from scipy.integrate import solve_ivp
 import streamlit as st
+import streamlit.components.v1 as components
 
 from utils.style import COLOURS, plotly_layout, make_fig
 from utils.physics import solve_decay_chain          # used for non-stiff chains
@@ -895,6 +897,485 @@ def _init_state() -> None:
         st.session_state.custom_params  = {}
 
 
+# ── p5.js nucleus transformation animation ────────────────────────────────────
+
+def build_chain_animation(chain_data: list[dict]) -> str:
+    """
+    Return an HTML string containing a p5.js nucleus transformation animation.
+
+    Parameters
+    ----------
+    chain_data : list of dicts, each with keys:
+        name          – element symbol + mass number (str)
+        Z             – atomic number (int)
+        A             – mass number (int)
+        decay_type    – 'alpha', 'beta-', 'beta+', or 'stable' (str)
+        half_life_str – human-readable half-life (str)
+        color         – hex colour for this nuclide (str)
+    """
+    data_json = json.dumps({"chain": chain_data})
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ background:#0d1117; font-family:'Segoe UI',sans-serif; overflow:hidden; }}
+  #controls {{
+    position:absolute; top:8px; right:10px; display:flex; gap:6px;
+    align-items:center; z-index:10;
+  }}
+  #controls button {{
+    background:#2d3748; color:#e2e8f0; border:1px solid #4a5568;
+    border-radius:4px; padding:3px 10px; cursor:pointer; font-size:12px;
+  }}
+  #controls button:hover {{ background:#4a5568; }}
+  #controls select {{
+    background:#2d3748; color:#e2e8f0; border:1px solid #4a5568;
+    border-radius:4px; padding:3px 6px; font-size:12px;
+  }}
+  #timeline {{
+    position:absolute; bottom:0; left:0; right:0; height:82px;
+    display:flex; align-items:center; justify-content:center;
+    gap:4px; padding:6px 10px; background:rgba(0,0,0,0.55);
+    overflow-x:auto; flex-wrap:nowrap;
+  }}
+  .tbox {{
+    display:flex; flex-direction:column; align-items:center;
+    min-width:52px; padding:4px 6px; border-radius:5px;
+    border:1.5px solid #4a5568; background:#1a202c;
+    cursor:pointer; transition:background 0.15s,border-color 0.15s;
+    font-size:10px; color:#e2e8f0; user-select:none;
+  }}
+  .tbox:hover {{ background:#2d3748; border-color:#63b3ed; }}
+  .tbox.active {{ border-color:#f6e05e; background:#2d3748; }}
+  .tbox .tsym {{ font-weight:700; font-size:12px; }}
+  .tbox .tnum {{ color:#a0aec0; font-size:9px; }}
+  .tarrow {{ color:#4a5568; font-size:18px; align-self:center; flex-shrink:0; }}
+  canvas {{ display:block; }}
+</style>
+</head>
+<body>
+<div id="controls">
+  <button id="playpause">⏸ Pause</button>
+  <select id="speedsel">
+    <option value="0.5">0.5x</option>
+    <option value="1" selected>1x</option>
+    <option value="2">2x</option>
+    <option value="5">5x</option>
+  </select>
+</div>
+<div id="timeline"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+<script>
+const RAW = {data_json};
+const CHAIN = RAW.chain;
+
+// ── Geiger click sound ────────────────────────────────────────────────────────
+function playGeigerClick() {{
+  try {{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 3000 + Math.random()*2000;
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+    osc.start(); osc.stop(ctx.currentTime + 0.05);
+  }} catch(e) {{}}
+}}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentIdx  = 0;
+let isPlaying   = true;
+let speed       = 1.0;
+
+// Animation phases:
+//   'idle'   – just showing current nucleus
+//   'eject'  – particle flying out
+//   'morph'  – nucleus label morphing to next
+let phase       = 'idle';
+let phaseTimer  = 0;          // frames elapsed in this phase
+const IDLE_DUR   = 90;        // frames to show nucleus before decaying
+const EJECT_DUR  = 50;        // frames for particle ejection
+const MORPH_DUR  = 30;        // frames for morph fade
+
+// Particle state
+let particleX = 0, particleY = 0;
+let particleVX = 0, particleVY = 0;
+let particleAlpha = 255;
+
+// Morph alpha (fade old label out)
+let morphAlpha = 255;
+
+// Nucleus jitter (shake on decay)
+let jitterX = 0, jitterY = 0;
+
+// ── Build timeline DOM ────────────────────────────────────────────────────────
+function buildTimeline() {{
+  const tl = document.getElementById('timeline');
+  tl.innerHTML = '';
+  CHAIN.forEach((n, i) => {{
+    if (i > 0) {{
+      const arr = document.createElement('span');
+      arr.className = 'tarrow';
+      arr.textContent = '→';
+      tl.appendChild(arr);
+    }}
+    const box = document.createElement('div');
+    box.className = 'tbox' + (i === currentIdx ? ' active' : '');
+    box.id = 'tbox-' + i;
+    box.title = 'T½: ' + n.half_life_str;
+    box.innerHTML = `<span class="tsym">${{n.name}}</span><span class="tnum">Z=${{n.Z}} A=${{n.A}}</span>`;
+    box.addEventListener('click', () => jumpTo(i));
+    tl.appendChild(box);
+  }});
+}}
+
+function updateTimeline() {{
+  CHAIN.forEach((_, i) => {{
+    const box = document.getElementById('tbox-' + i);
+    if (box) box.className = 'tbox' + (i === currentIdx ? ' active' : '');
+  }});
+}}
+
+function jumpTo(idx) {{
+  currentIdx = Math.max(0, Math.min(idx, CHAIN.length - 1));
+  phase = 'idle';
+  phaseTimer = 0;
+  morphAlpha = 255;
+  updateTimeline();
+}}
+
+buildTimeline();
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+document.getElementById('playpause').addEventListener('click', () => {{
+  isPlaying = !isPlaying;
+  document.getElementById('playpause').textContent = isPlaying ? '⏸ Pause' : '▶ Play';
+}});
+document.getElementById('speedsel').addEventListener('change', (e) => {{
+  speed = parseFloat(e.target.value);
+}});
+
+// ── p5.js sketch ──────────────────────────────────────────────────────────────
+new p5(function(p) {{
+  const W = 640, H = 360;
+  const CX = W/2, CY = H/2 - 30;   // nucleus centre (leave space for timeline)
+  const BASE_R = 70;                 // nucleus circle radius
+
+  p.setup = function() {{
+    const cnv = p.createCanvas(W, H);
+    cnv.parent(document.body);
+    p.frameRate(60);
+    p.textFont('monospace');
+  }};
+
+  // ── Draw packed nucleus (Fermi-style protons + neutrons) ───────────────────
+  function drawNucleusParticles(cx, cy, Z, A, r, alphaVal) {{
+    const totalN = Math.min(A, 80);   // cap for performance
+    const dotR   = Math.max(3, Math.min(7, r * 0.18));
+    const layoutR = r * 0.72;
+    p.push();
+    p.noStroke();
+    for (let i = 0; i < totalN; i++) {{
+      const angle = i * 2.399963;  // golden angle spiral
+      const radius = layoutR * Math.sqrt(i / totalN);
+      const nx = cx + radius * Math.cos(angle);
+      const ny = cy + radius * Math.sin(angle);
+      const isProton = (i < Z);
+      if (isProton) {{
+        p.fill(220, 60, 60, alphaVal);   // red = proton
+      }} else {{
+        p.fill(80, 130, 220, alphaVal);  // blue = neutron
+      }}
+      p.circle(nx, ny, dotR * 2);
+    }}
+    p.pop();
+  }}
+
+  // ── Draw the nucleus shell ─────────────────────────────────────────────────
+  function drawNucleus(nuclide, r, alphaVal) {{
+    const hexColor = nuclide.color || '#4299e1';
+    const cr = parseInt(hexColor.slice(1,3),16);
+    const cg = parseInt(hexColor.slice(3,5),16);
+    const cb = parseInt(hexColor.slice(5,7),16);
+
+    p.push();
+    // Outer glow
+    p.noFill();
+    for (let g = 18; g >= 2; g -= 2) {{
+      p.stroke(cr, cg, cb, alphaVal * 0.06);
+      p.strokeWeight(g);
+      p.circle(CX + jitterX, CY + jitterY, r*2);
+    }}
+    // Main circle
+    p.strokeWeight(2.5);
+    p.stroke(cr, cg, cb, alphaVal);
+    p.fill(10, 15, 25, alphaVal * 0.85);
+    p.circle(CX + jitterX, CY + jitterY, r*2);
+    p.pop();
+
+    // Packed nucleons
+    drawNucleusParticles(CX + jitterX, CY + jitterY, nuclide.Z, nuclide.A, r, alphaVal);
+  }}
+
+  // ── Draw element label ─────────────────────────────────────────────────────
+  function drawLabel(nuclide, alphaVal) {{
+    p.push();
+    p.textAlign(p.CENTER, p.CENTER);
+    p.noStroke();
+
+    // Semi-transparent label background
+    p.fill(0, 0, 0, alphaVal * 0.5);
+    p.rect(CX + jitterX - 48, CY + jitterY - 22, 96, 44, 6);
+
+    // Element symbol
+    p.textSize(26);
+    p.fill(240, 240, 240, alphaVal);
+    p.text(nuclide.name, CX + jitterX, CY + jitterY - 4);
+
+    // Z and A numbers
+    p.textSize(11);
+    p.fill(180, 200, 220, alphaVal);
+    p.text('Z=' + nuclide.Z + '  A=' + nuclide.A, CX + jitterX, CY + jitterY + 16);
+    p.pop();
+  }}
+
+  // ── Draw decay type badge ──────────────────────────────────────────────────
+  function drawDecayBadge(decayType, alphaVal) {{
+    let label, r, g, b;
+    if (decayType === 'alpha')  {{ label = 'α decay'; r=230; g=200; b=40;  }}
+    else if (decayType === 'beta-') {{ label = 'β⁻ decay'; r=80;  g=160; b=230; }}
+    else if (decayType === 'beta+') {{ label = 'β⁺ decay'; r=230; g=140; b=50;  }}
+    else {{ return; }}
+    p.push();
+    p.noStroke();
+    p.fill(r, g, b, alphaVal * 0.2);
+    p.rect(CX - 45, CY + BASE_R + 10, 90, 22, 4);
+    p.fill(r, g, b, alphaVal);
+    p.textAlign(p.CENTER, p.CENTER);
+    p.textSize(12);
+    p.text(label, CX, CY + BASE_R + 21);
+    p.pop();
+  }}
+
+  // ── Draw ejected particle ──────────────────────────────────────────────────
+  function drawParticle(decayType, alpha) {{
+    if (decayType === 'alpha') {{
+      // He-4: large yellow-green circle
+      p.push();
+      p.noStroke();
+      p.fill(180, 230, 50, alpha);
+      p.circle(particleX, particleY, 22);
+      p.fill(240, 255, 100, alpha);
+      p.textAlign(p.CENTER, p.CENTER);
+      p.textSize(9);
+      p.text('He-4', particleX, particleY);
+      p.pop();
+    }} else if (decayType === 'beta-') {{
+      // electron: small blue dot
+      p.push();
+      p.noStroke();
+      p.fill(80, 160, 255, alpha);
+      p.circle(particleX, particleY, 10);
+      // antineutrino: tiny dotted particle trailing behind
+      p.fill(180, 180, 180, alpha * 0.6);
+      p.circle(particleX - particleVX * 8, particleY - particleVY * 8, 5);
+      p.pop();
+    }} else if (decayType === 'beta+') {{
+      // positron: small orange dot
+      p.push();
+      p.noStroke();
+      p.fill(255, 140, 40, alpha);
+      p.circle(particleX, particleY, 10);
+      p.pop();
+    }}
+  }}
+
+  // ── Advance animation phase ────────────────────────────────────────────────
+  function advancePhase() {{
+    const nuclide = CHAIN[currentIdx];
+    const isStable = (nuclide.decay_type === 'stable' || currentIdx >= CHAIN.length - 1);
+    const framesPerStep = Math.max(1, Math.round(1 / speed));
+
+    if (!isPlaying) return;
+
+    for (let s = 0; s < Math.max(1, speed); s++) {{
+      phaseTimer++;
+    }}
+
+    if (phase === 'idle') {{
+      jitterX = 0; jitterY = 0;
+      if (isStable) return;   // stable: stay forever
+      if (phaseTimer >= IDLE_DUR) {{
+        // Start ejection
+        phase = 'eject';
+        phaseTimer = 0;
+        playGeigerClick();
+
+        // Random direction, biased away from canvas edges
+        const angle = p.random(-p.HALF_PI * 0.8, p.HALF_PI * 0.8) + (p.random() > 0.5 ? 0 : p.PI);
+        const spd   = nuclide.decay_type === 'alpha' ? 4 : 6;
+        particleX   = CX;
+        particleY   = CY;
+        particleVX  = Math.cos(angle) * spd;
+        particleVY  = Math.sin(angle) * spd;
+        particleAlpha = 255;
+      }}
+    }} else if (phase === 'eject') {{
+      particleX += particleVX * speed;
+      particleY += particleVY * speed;
+      particleAlpha = p.map(phaseTimer, 0, EJECT_DUR, 255, 0);
+
+      // Jitter nucleus
+      jitterX = p.random(-3, 3) * (1 - phaseTimer/EJECT_DUR);
+      jitterY = p.random(-3, 3) * (1 - phaseTimer/EJECT_DUR);
+
+      if (phaseTimer >= EJECT_DUR) {{
+        phase = 'morph';
+        phaseTimer = 0;
+        morphAlpha = 255;
+        jitterX = 0; jitterY = 0;
+      }}
+    }} else if (phase === 'morph') {{
+      morphAlpha = p.map(phaseTimer, 0, MORPH_DUR, 255, 0);
+      if (phaseTimer >= MORPH_DUR) {{
+        // Advance to next nuclide
+        currentIdx = Math.min(currentIdx + 1, CHAIN.length - 1);
+        updateTimeline();
+        phase = 'idle';
+        phaseTimer = 0;
+        morphAlpha = 255;
+      }}
+    }}
+  }}
+
+  p.draw = function() {{
+    p.background(13, 17, 23);
+    advancePhase();
+
+    const nuclide = CHAIN[currentIdx];
+    const nextNuclide = (currentIdx + 1 < CHAIN.length) ? CHAIN[currentIdx + 1] : null;
+    const isStable = (nuclide.decay_type === 'stable' || currentIdx >= CHAIN.length - 1);
+
+    // Half-life text top-left
+    p.push();
+    p.noStroke();
+    p.fill(160, 180, 200, 200);
+    p.textSize(11);
+    p.textAlign(p.LEFT, p.TOP);
+    p.text('T½ = ' + nuclide.half_life_str, 10, 10);
+    if (isStable) {{
+      p.fill(100, 220, 130, 200);
+      p.text('STABLE — end of chain', 10, 26);
+    }}
+    p.pop();
+
+    if (phase === 'morph' && nextNuclide) {{
+      // Fade old nucleus out, fade new in
+      const oldAlpha = morphAlpha;
+      const newAlpha = 255 - morphAlpha;
+      drawNucleus(nuclide, BASE_R, oldAlpha);
+      drawLabel(nuclide, oldAlpha);
+      drawNucleus(nextNuclide, BASE_R, newAlpha);
+      drawLabel(nextNuclide, newAlpha);
+    }} else {{
+      drawNucleus(nuclide, BASE_R, 255);
+      drawLabel(nuclide, 255);
+    }}
+
+    // Decay badge (show during idle and eject phases)
+    if ((phase === 'idle' || phase === 'eject') && !isStable) {{
+      const badgeAlpha = phase === 'eject' ? p.map(phaseTimer, 0, EJECT_DUR, 255, 80) : 200;
+      drawDecayBadge(nuclide.decay_type, badgeAlpha);
+    }}
+
+    // Particle
+    if (phase === 'eject' && !isStable) {{
+      drawParticle(nuclide.decay_type, particleAlpha);
+    }}
+
+    // Legend: proton/neutron key
+    p.push();
+    p.noStroke();
+    p.fill(220, 60, 60, 180);
+    p.circle(10, H - 102, 8);
+    p.fill(200, 210, 220, 180);
+    p.textSize(10);
+    p.textAlign(p.LEFT, p.CENTER);
+    p.text('proton', 18, H - 102);
+    p.fill(80, 130, 220, 180);
+    p.circle(10, H - 90, 8);
+    p.fill(200, 210, 220, 180);
+    p.text('neutron', 18, H - 90);
+    p.pop();
+  }};
+}});
+</script>
+</body>
+</html>"""
+
+
+# ── Helper: build chain_data list for animation ───────────────────────────────
+
+# Colour palette for animation timeline boxes — one per nuclide slot
+_ANIM_COLOURS = ["#4299e1", "#ed8936", "#48bb78", "#f56565", "#9f7aea", "#38b2ac"]
+
+# Map CHAIN_PRESETS decay_type strings to canonical animation keys
+_DECAY_TYPE_MAP = {
+    "α":     "alpha",
+    "β⁻":    "beta-",
+    "β⁻/α":  "beta-",   # simplified — Bi-214 primary mode
+    "β⁺":    "beta+",
+    "—":     "stable",
+    "":      "stable",
+}
+
+# Approximate Z (atomic number) for nuclides that appear in the presets
+_NUCLIDE_Z = {
+    "U-238":  92, "Th-234": 90, "Pb-206":  82,
+    "Th-232": 90, "Ra-228":  88, "Pb-208": 82,
+    "Rn-222": 86, "Po-218":  84, "Pb-214": 82,
+    "Bi-214": 83, "Pb-210":  82,
+}
+
+
+def _build_chain_data(meta: dict) -> list[dict]:
+    """
+    Convert a CHAIN_PRESETS entry into the chain_data list expected by
+    build_chain_animation().
+    """
+    nuclides     = meta["nuclides"]
+    hl_disp      = meta["halflife_disp"]
+    decay_types  = meta["decay_types"]
+    chain_data   = []
+
+    for i, name in enumerate(nuclides):
+        # Parse A from the nuclide name, e.g. "U-238" → A=238, "Rn-222" → A=222
+        try:
+            A = int(name.split("-")[1])
+        except (IndexError, ValueError):
+            A = 0
+
+        Z = _NUCLIDE_Z.get(name, 0)
+        raw_decay = decay_types[i] if i < len(decay_types) else "—"
+        decay_type = _DECAY_TYPE_MAP.get(raw_decay, "stable")
+        hl_str = hl_disp[i] if i < len(hl_disp) else "—"
+        colour = _ANIM_COLOURS[i % len(_ANIM_COLOURS)]
+
+        chain_data.append({
+            "name":          name,
+            "Z":             Z,
+            "A":             A,
+            "decay_type":    decay_type,
+            "half_life_str": hl_str,
+            "color":         colour,
+        })
+
+    return chain_data
+
+
 # ── Main page ─────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -968,6 +1449,12 @@ def main() -> None:
     with right_col:
         st.title("⚛️ Radioactive Decay Chains")
         st.caption("WJEC Eduqas A Level Physics — Component 3, Topic 6 / 7")
+
+        # ── Nucleus transformation animation ──────────────────────────────────
+        chain_data_list = _build_chain_data(meta)
+        components.html(build_chain_animation(chain_data_list), height=440)
+        st.caption("▶ Play/pause · ⚡ speed · Click timeline boxes · 🔊 Geiger sounds on decay")
+        st.divider()
 
         # ── Main basic plot ───────────────────────────────────────────────────
         if st.session_state.chain_N is not None:
