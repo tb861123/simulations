@@ -42,6 +42,40 @@ SPEC_REF = "Component 1, Topic 3 (Circular Motion), sections (a)–(k)"
 
 MU_FRICTION: float = 0.7   # typical tyre-road friction coefficient
 
+CONICAL_PRESETS: dict[str, dict | None] = {
+    "Custom": None,
+    "Governor (steam engine)": {
+        "L": 0.3,
+        "theta_deg": 45.0,
+        "m": 0.5,
+        "note": (
+            "The Watt centrifugal governor (1788) used conical pendulums to regulate "
+            "steam engine speed. As speed increased, balls flew outward (θ increased), "
+            "throttling the steam supply — an early feedback control mechanism."
+        ),
+    },
+    "Carnival ride (chair swing)": {
+        "L": 5.0,
+        "theta_deg": 35.0,
+        "m": 70.0,
+        "note": (
+            "Chair-swing fairground rides use cables of ~5m. At full speed, cables "
+            "make ~35° from vertical, giving riders ~0.7g of centripetal acceleration "
+            "— the 'pushed back' feeling."
+        ),
+    },
+    "Short demo pendulum": {
+        "L": 0.5,
+        "theta_deg": 20.0,
+        "m": 0.1,
+        "note": (
+            "A simple lab demonstration. Period depends only on L and θ — not on mass. "
+            "If you increase θ by spinning faster, the period decreases (shorter "
+            "effective pendulum length L cos θ)."
+        ),
+    },
+}
+
 PRESETS: dict[str, dict | None] = {
     "Custom": None,
     "Washing machine spin (1400 rpm)": {
@@ -241,6 +275,45 @@ def compute_vertical_circle(
         "v_top_min": v_top_min,
         "theta_leave_deg": theta_leave_deg,
         "completes_loop": completes_loop,
+    }
+
+
+@st.cache_data(show_spinner=False)
+def compute_conical_pendulum(
+    L: float, theta_deg: float, m: float
+) -> dict[str, float]:
+    """
+    Compute conical pendulum quantities.
+
+    Parameters
+    ----------
+    L         : string length (m)
+    theta_deg : angle from vertical (degrees)
+    m         : mass (kg)
+
+    Returns
+    -------
+    dict with keys: omega, T_period, r, v, T_string, a_cent
+    """
+    theta_rad = np.radians(theta_deg)
+    cos_t = np.cos(theta_rad)
+    sin_t = np.sin(theta_rad)
+    cos_t = max(cos_t, 1e-9)   # avoid division by zero near 90°
+
+    omega = float(np.sqrt(g / (L * cos_t)))
+    T_period = 2.0 * np.pi / omega
+    r = L * sin_t
+    v = omega * r
+    T_string = m * g / cos_t
+    a_cent = omega ** 2 * r
+
+    return {
+        "omega": omega,
+        "T_period": T_period,
+        "r": r,
+        "v": v,
+        "T_string": T_string,
+        "a_cent": a_cent,
     }
 
 
