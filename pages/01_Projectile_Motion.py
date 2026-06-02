@@ -8,8 +8,10 @@ Covers:
             backspin), terminal velocity, real-world object presets.
 """
 
+import json
 import numpy as np
 import streamlit as st
+import streamlit.components.v1 as components
 
 from utils.style import COLOURS, make_fig
 from utils.physics import g, rk4_integrate
@@ -656,6 +658,194 @@ def build_trajectory_figure(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# p5.js animation builder
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def build_projectile_animation(x_arr, y_arr, vx_arr, vy_arr, x_max, y_max):
+    """Build p5.js animated projectile HTML."""
+    import json
+    import numpy as np
+
+    # Subsample to 300 frames max
+    n = len(x_arr)
+    step = max(1, n // 300)
+    xs = x_arr[::step].tolist()
+    ys = y_arr[::step].tolist()
+    vxs = vx_arr[::step].tolist()
+    vys = vy_arr[::step].tolist()
+
+    data = json.dumps({
+        "x": xs, "y": ys, "vx": vxs, "vy": vys,
+        "xMax": float(x_max), "yMax": float(y_max),
+        "n": len(xs)
+    })
+
+    return f"""<!DOCTYPE html>
+<html><head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<style>body{{margin:0;overflow:hidden;background:#0e1117;}}</style>
+</head><body>
+<script>
+const D = {data};
+const PAD = 40;
+let frame = 0, playing = true, speed = 2;
+let trailLen = 60;
+
+function setup() {{
+  let cnv = createCanvas(windowWidth || 700, 420);
+  cnv.mousePressed(togglePlay);
+  textFont('monospace');
+}}
+
+function windowResized() {{ resizeCanvas(windowWidth, 420); }}
+
+function togglePlay() {{
+  // click play/pause area
+  if (mouseX > width-110 && mouseX < width-10 && mouseY > 10 && mouseY < 40) {{
+    playing = !playing;
+  }} else if (mouseX > width-110 && mouseX < width-10 && mouseY > 50 && mouseY < 80) {{
+    frame = 0; playing = true;
+  }} else if (mouseX > width-110 && mouseX < width-10 && mouseY > 90 && mouseY < 120) {{
+    speed = speed === 1 ? 2 : speed === 2 ? 4 : 1;
+  }}
+}}
+
+function worldToScreen(wx, wy) {{
+  let sx = PAD + (wx / D.xMax) * (width - 2*PAD);
+  let sy = height - PAD - (wy / D.yMax) * (height - 2*PAD - 20);
+  return [sx, sy];
+}}
+
+function drawArrow(x1, y1, x2, y2, col) {{
+  stroke(col); strokeWeight(2); fill(col);
+  line(x1, y1, x2, y2);
+  let angle = atan2(y2-y1, x2-x1);
+  let hs = 8;
+  push();
+  translate(x2, y2);
+  rotate(angle);
+  triangle(0,0,-hs,-hs/2,-hs,hs/2);
+  pop();
+}}
+
+function draw() {{
+  background('#0e1117');
+
+  // Grid
+  stroke('#2a2a2a'); strokeWeight(1);
+  let gx = (width-2*PAD)/5;
+  let gy = (height-2*PAD-20)/4;
+  for(let i=0;i<=5;i++) line(PAD+i*gx, PAD, PAD+i*gx, height-PAD);
+  for(let i=0;i<=4;i++) line(PAD, PAD+i*gy, width-PAD, PAD+i*gy);
+
+  // Axes
+  stroke('#fafafa'); strokeWeight(1.5);
+  line(PAD, height-PAD, width-PAD, height-PAD);
+  line(PAD, height-PAD, PAD, PAD);
+
+  // Ground
+  stroke('#2ca02c'); strokeWeight(2);
+  line(PAD, height-PAD, width-PAD, height-PAD);
+
+  // Axis labels
+  noStroke(); fill('#fafafa'); textSize(10);
+  text('x (m)', width/2, height-8);
+  push(); translate(12, height/2); rotate(-HALF_PI); text('y (m)', 0, 0); pop();
+
+  // Tick labels
+  textSize(9); fill('#999');
+  for(let i=0;i<=5;i++) {{
+    let val = (D.xMax * i/5).toFixed(0);
+    text(val, PAD+i*gx-10, height-PAD+12);
+  }}
+  for(let i=0;i<=4;i++) {{
+    let val = (D.yMax * (4-i)/4).toFixed(0);
+    text(val, 2, PAD+i*gy+4);
+  }}
+
+  // Full trajectory (faint path)
+  noFill(); stroke(100,100,150,60); strokeWeight(1);
+  beginShape();
+  for(let i=0;i<D.n;i++) {{
+    let [sx,sy] = worldToScreen(D.x[i], D.y[i]);
+    vertex(sx, sy);
+  }}
+  endShape();
+
+  // Trail
+  let trailStart = max(0, frame - trailLen);
+  for(let i=trailStart; i<frame && i<D.n; i++) {{
+    let alpha = map(i, trailStart, frame, 20, 200);
+    let [sx,sy] = worldToScreen(D.x[i], D.y[i]);
+    let r=i===frame-1?8:4;
+    noStroke();
+    fill(31,119,180, alpha);
+    circle(sx, sy, r);
+  }}
+
+  // Current ball
+  if(frame < D.n) {{
+    let [bx,by] = worldToScreen(D.x[frame], D.y[frame]);
+
+    // Glow
+    noStroke();
+    for(let r=20;r>0;r-=4) {{
+      fill(31,119,180, map(r,0,20,0,30));
+      circle(bx,by,r*2);
+    }}
+    fill('#1f77b4'); stroke('#ffffff'); strokeWeight(1.5);
+    circle(bx, by, 16);
+
+    // Velocity vector
+    let vscale = min(width,height)*0.15 / (D.xMax * 0.5 + 1);
+    let vx = D.vx[frame], vy = D.vy[frame];
+    let vmag = sqrt(vx*vx + vy*vy);
+    if(vmag > 0.1) {{
+      let vxs = vx * vscale * 0.3;
+      let vys = vy * vscale * 0.3;
+      drawArrow(bx, by, bx+vxs, by-vys, color(255,127,14));
+    }}
+
+    // Gravity vector (always down, fixed length)
+    drawArrow(bx, by, bx, by+35, color(231,76,60));
+
+    // Labels
+    noStroke(); fill('#ff7f0e'); textSize(10);
+    text('v = ' + vmag.toFixed(1) + ' m/s', bx+12, by-12);
+    fill('#e74c3c');
+    text('g', bx+4, by+40);
+  }}
+
+  // Landing impact flash
+  if(frame >= D.n-1) {{
+    let [lx,ly] = worldToScreen(D.x[D.n-1], 0);
+    let alpha = 255 - (frame-(D.n-1))*20;
+    if(alpha > 0) {{
+      noStroke(); fill(255,200,50,alpha);
+      for(let r=40;r>0;r-=8) {{ circle(lx,ly,r); }}
+    }}
+  }}
+
+  // Controls panel
+  let cx = width-105, cy = 15;
+  noStroke(); fill(20,20,30,200); rect(cx-5,cy-5,100,120,6);
+  fill('#fafafa'); textSize(11);
+  text(playing ? '⏸ Pause' : '▶ Play', cx, cy+14);
+  text('↺ Replay', cx, cy+54);
+  text('⚡ ' + speed + 'x speed', cx, cy+94);
+
+  // Frame counter
+  noStroke(); fill('#555'); textSize(9);
+  text('t = ' + (frame/D.n * D.xMax / (D.xMax/(D.n*0.033+0.001))).toFixed(1) + 's', PAD+4, PAD+14);
+
+  if(playing && frame < D.n + 20) frame += speed;
+  if(frame >= D.n + 20) {{ frame = D.n-1; playing = false; }}
+}}
+</script></body></html>"""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main page
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -913,6 +1103,23 @@ def main() -> None:
                         "Time of Flight (s)": f"{magnus_tof:.2f}",
                     }
                 )
+
+        # ── Live animation panel ──────────────────────────────────────────────
+
+        st.markdown("#### Live Animation")
+
+        anim_x_max = float(max(x_arr)) * 1.1
+        anim_y_max = float(max(y_arr)) * 1.1 if float(max(y_arr)) > 0 else 1.0
+        anim_html = build_projectile_animation(
+            x_arr, y_arr, vx_arr, vy_arr, anim_x_max, anim_y_max
+        )
+        components.html(anim_html, height=430)
+
+        st.caption(
+            "Click the canvas to play/pause · Click ↺ to replay · Click ⚡ to change speed"
+        )
+
+        st.divider()
 
         # ── Build and render figure ───────────────────────────────────────────
 

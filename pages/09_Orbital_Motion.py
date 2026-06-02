@@ -15,10 +15,13 @@ Covers:
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 from utils.physics import G, rk4_integrate
 from utils.style import COLOURS, make_fig, plotly_layout
@@ -1188,6 +1191,157 @@ def build_radial_velocity_fig(
     return fig
 
 
+# ── p5.js animation builder ───────────────────────────────────────────────────
+
+
+def build_orbital_animation(x_arr, y_arr, vx_arr, vy_arr, central_mass_name="☉", body_name="Planet"):
+    """Build p5.js animated orbit HTML."""
+    import json, numpy as np
+    step = max(1, len(x_arr) // 400)
+    xs = x_arr[::step].tolist()
+    ys = y_arr[::step].tolist()
+    vxs = vx_arr[::step].tolist()
+    vys = vy_arr[::step].tolist()
+
+    r_max = float(np.max(np.sqrt(np.array(xs)**2 + np.array(ys)**2))) * 1.15
+
+    data = json.dumps({
+        "x": xs, "y": ys, "vx": vxs, "vy": vys,
+        "rMax": r_max, "n": len(xs),
+        "centralName": central_mass_name,
+        "bodyName": body_name
+    })
+
+    return f"""<!DOCTYPE html>
+<html><head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<style>body{{margin:0;overflow:hidden;background:#0e1117;}}</style>
+</head><body>
+<script>
+const D = {data};
+let frame=0, playing=true, speed=2;
+let trail=[];
+
+function setup(){{
+  createCanvas(windowWidth||700,460);
+  textFont('monospace');
+}}
+function windowResized(){{ resizeCanvas(windowWidth,460); }}
+
+function toScreen(wx,wy){{
+  let cx=width/2, cy=height/2;
+  let scale=min(width,height)*0.43/D.rMax;
+  return [cx+wx*scale, cy-wy*scale];
+}}
+
+function mousePressed(){{
+  if(mouseX>width-120&&mouseX<width-10){{
+    if(mouseY>10&&mouseY<40) playing=!playing;
+    else if(mouseY>50&&mouseY<80){{frame=0;trail=[];playing=true;}}
+    else if(mouseY>90&&mouseY<120) speed=speed===1?2:speed===2?4:1;
+  }}
+}}
+
+function drawArrow(x1,y1,x2,y2,col){{
+  stroke(col); fill(col); strokeWeight(2);
+  line(x1,y1,x2,y2);
+  let a=atan2(y2-y1,x2-x1);
+  push(); translate(x2,y2); rotate(a);
+  triangle(0,0,-10,-4,-10,4); pop();
+}}
+
+function draw(){{
+  background(14,17,23);
+
+  // Starfield (static)
+  randomSeed(42);
+  noStroke(); fill(255,255,255,120);
+  for(let i=0;i<80;i++) circle(random(width),random(height),random(1,2.5));
+
+  // Grid (faint circles)
+  let [cx,cy]=toScreen(0,0);
+  for(let r=1;r<=4;r++){{
+    let rr=r*D.rMax/4;
+    let [ex,ey]=toScreen(rr,0);
+    noFill(); stroke(42,42,60,120); strokeWeight(0.5);
+    circle(cx,cy,dist(cx,cy,ex,ey)*2);
+  }}
+
+  // Orbit path (full)
+  noFill(); stroke(31,119,180,40); strokeWeight(1);
+  beginShape();
+  for(let i=0;i<D.n;i++){{
+    let [sx,sy]=toScreen(D.x[i],D.y[i]);
+    vertex(sx,sy);
+  }}
+  endShape(CLOSE);
+
+  // Trail
+  let idx=min(frame,D.n-1);
+  trail.push([D.x[idx],D.y[idx]]);
+  let maxTrail=120;
+  if(trail.length>maxTrail) trail.shift();
+
+  for(let i=1;i<trail.length;i++){{
+    let a=map(i,0,trail.length,0,180);
+    let [tx1,ty1]=toScreen(trail[i-1][0],trail[i-1][1]);
+    let [tx2,ty2]=toScreen(trail[i][0],trail[i][1]);
+    stroke(31,119,180,a); strokeWeight(map(i,0,trail.length,0.5,2.5));
+    line(tx1,ty1,tx2,ty2);
+  }}
+
+  // Central body (star/planet) glow
+  noStroke();
+  for(let r=40;r>0;r-=6){{ fill(255,200,50,map(r,0,40,0,20)); circle(cx,cy,r*2); }}
+  fill('#ffc832'); stroke('#ffffff'); strokeWeight(1);
+  circle(cx,cy,22);
+  noStroke(); fill('#fafafa'); textSize(10); textAlign(CENTER);
+  text(D.centralName,cx,cy+28);
+  textAlign(LEFT);
+
+  // Orbital body
+  let [bx,by]=toScreen(D.x[idx],D.y[idx]);
+  noStroke();
+  for(let r=18;r>0;r-=4){{ fill(31,119,180,map(r,0,18,0,30)); circle(bx,by,r*2); }}
+  fill('#1f77b4'); stroke('#aaddff'); strokeWeight(1.5); circle(bx,by,14);
+
+  // Velocity vector
+  let vx=D.vx[idx], vy=D.vy[idx];
+  let vmag=sqrt(vx*vx+vy*vy);
+  let vscale=min(width,height)*0.001/(D.rMax*0.001+0.001);
+  if(vmag>0){{
+    let [tx,ty]=toScreen(D.x[idx]+vx*vscale*0.25, D.y[idx]+vy*vscale*0.25);
+    drawArrow(bx,by,tx,ty,color(255,127,14));
+  }}
+
+  // Radius line
+  stroke(155,89,182,100); strokeWeight(1); setLineDash([5,4]);
+  line(cx,cy,bx,by);
+  setLineDash([]);
+
+  // Speed readout
+  noStroke(); fill('#aaa'); textSize(10);
+  let vkm=(vmag/1000).toFixed(2);
+  // compute distance in AU-equivalent
+  let r_cur=sqrt(D.x[idx]*D.x[idx]+D.y[idx]*D.y[idx]);
+  text('v = '+vkm+' km/s', 10, height-30);
+  text('r = '+(r_cur/D.rMax).toFixed(3)+' r_max', 10, height-16);
+
+  // Controls
+  noStroke(); fill(15,15,25,220); rect(width-118,8,110,120,6);
+  fill('#fafafa'); textSize(11);
+  text(playing?'⏸ Pause':'▶ Play',width-112,28);
+  text('↺ Replay',width-112,68);
+  text('⚡ '+speed+'x',width-112,108);
+
+  if(playing) frame+=speed;
+  if(frame>=D.n){{ frame=0; trail=[]; }}
+}}
+
+function setLineDash(list){{ drawingContext.setLineDash(list); }}
+</script></body></html>"""
+
+
 # ── Main page ─────────────────────────────────────────────────────────────────
 
 
@@ -1465,6 +1619,16 @@ def render_orbital_mechanics_tab(mode: str) -> None:
                     line=dict(color=COLOURS["advanced"], width=1, dash="dot"),
                 )
             )
+
+        # Animated p5.js canvas — live orbit with glowing trail and velocity vector
+        x_arr = y_arr[:, 0]
+        y_arr_pos = y_arr[:, 1]
+        vx_arr = y_arr[:, 2]
+        vy_arr = y_arr[:, 3]
+        anim_html = build_orbital_animation(x_arr, y_arr_pos, vx_arr, vy_arr)
+        components.html(anim_html, height=470)
+        st.caption("▶ Play/Pause · ↺ Replay · ⚡ Speed — Central body at origin")
+        st.divider()
 
         # Plot trajectory
         st.plotly_chart(fig_traj, use_container_width=True)

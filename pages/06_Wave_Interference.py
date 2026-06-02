@@ -13,10 +13,12 @@ Covers:
   - Two-wavelength resolution and Rayleigh criterion (Advanced)
 """
 
+import json
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+import streamlit.components.v1 as components
 
 from utils.style import COLOURS, plotly_layout, make_fig
 from utils.ui_components import (
@@ -1033,6 +1035,148 @@ def build_harmonic_spectrum_fig(
     return fig
 
 
+# ── p5.js animation builder ───────────────────────────────────────────────────
+
+
+def build_interference_animation(wavelength_nm, slit_sep_mm, num_sources=2):
+    """Build p5.js animated wave interference HTML."""
+    data = json.dumps({
+        "lambda": float(wavelength_nm),
+        "slitSep": float(slit_sep_mm),
+        "numSources": int(num_sources)
+    })
+
+    return f"""<!DOCTYPE html>
+<html><head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<style>body{{margin:0;overflow:hidden;background:#0e1117;}}</style>
+</head><body>
+<script>
+const D = {data};
+let t=0, playing=true, speed=1;
+let waveBuffer;
+
+function setup(){{
+  createCanvas(windowWidth||700, 420);
+  waveBuffer=createGraphics(200,200);
+  textFont('monospace');
+  frameRate(30);
+}}
+function windowResized(){{ resizeCanvas(windowWidth,420); }}
+
+function mousePressed(){{
+  if(mouseX>width-120&&mouseX<width-10){{
+    if(mouseY>10&&mouseY<40) playing=!playing;
+    else if(mouseY>50&&mouseY<80) speed=speed===1?2:speed===2?4:1;
+  }}
+}}
+
+function draw(){{
+  background('#0e1117');
+
+  // Draw interference pattern into buffer
+  let bw=waveBuffer.width, bh=waveBuffer.height;
+  waveBuffer.loadPixels();
+
+  // Scale: canvas represents a physical area
+  // Source separation in normalised units: 0.15 of canvas half-height
+  let sep=0.3;  // fraction of buffer height between sources
+  let s1y=bh/2 - bh*sep/2;
+  let s2y=bh/2 + bh*sep/2;
+  let s1x=bw*0.15;  // sources on left
+  let s2x=bw*0.15;
+
+  // Wave number: scale so ~5 wavelengths fit across buffer
+  let k=TWO_PI*5/bw;
+  let omega=TWO_PI*0.3;
+
+  for(let py=0;py<bh;py++){{
+    for(let px=0;px<bw;px++){{
+      let r1=dist(px,py,s1x,s1y);
+      let r2=dist(px,py,s2x,s2y);
+      let w1=sin(k*r1-omega*t);
+      let w2=sin(k*r2-omega*t);
+      let amp=(w1+w2)*0.5;  // -1 to +1
+
+      // Map to colour: dark blue (trough) → black → bright white/yellow (crest)
+      let intensity=amp;  // -1 to 1
+      let r,g,b;
+      if(intensity>0){{
+        // crest: white-yellow glow
+        r=int(map(intensity,0,1,14,255));
+        g=int(map(intensity,0,1,17,220));
+        b=int(map(intensity,0,1,23,80));
+      }} else {{
+        // trough: dark blue
+        r=int(map(intensity,-1,0,10,14));
+        g=int(map(intensity,-1,0,10,17));
+        b=int(map(intensity,-1,0,80,23));
+      }}
+      let idx=(py*bw+px)*4;
+      waveBuffer.pixels[idx]=r;
+      waveBuffer.pixels[idx+1]=g;
+      waveBuffer.pixels[idx+2]=b;
+      waveBuffer.pixels[idx+3]=255;
+    }}
+  }}
+  waveBuffer.updatePixels();
+
+  // Draw buffer scaled to fill canvas area (leaving margins)
+  let margin=60;
+  let drawW=width-margin*2;
+  let drawH=height-margin*1.5;
+  image(waveBuffer, margin, 20, drawW, drawH);
+
+  // Source dots
+  let s1px=margin+s1x*(drawW/bw);
+  let s2px=margin+s2x*(drawW/bw);
+  let s1py=20+s1y*(drawH/bh);
+  let s2py=20+s2y*(drawH/bh);
+
+  // Draw screen on right
+  stroke('#fafafa'); strokeWeight(3);
+  line(margin+drawW-2, 20, margin+drawW-2, 20+drawH);
+  noStroke(); fill('#fafafa'); textSize(9);
+  text('screen', margin+drawW+2, 20+drawH/2);
+
+  // Source markers
+  for(let [sx,sy,lbl] of [[s1px,s1py,'S₁'],[s2px,s2py,'S₂']]){{
+    noStroke();
+    for(let rr=14;rr>0;rr-=3) fill(44,160,44,map(rr,0,14,0,40));
+    for(let rr=14;rr>0;rr-=3) circle(sx,sy,rr*2);
+    fill('#2ca02c'); stroke('#ffffff'); strokeWeight(1); circle(sx,sy,10);
+    noStroke(); fill('#fafafa'); textSize(10); text(lbl,sx+8,sy-4);
+  }}
+
+  // Barrier with slits
+  let barX=margin+s1x*(drawW/bw)+10;
+  stroke('#888'); strokeWeight(4);
+  line(barX, 20, barX, s1py-8);
+  line(barX, s1py+8, barX, s2py-8);
+  line(barX, s2py+8, barX, 20+drawH);
+
+  // Labels: constructive/destructive lines
+  noStroke(); fill(255,255,255,100); textSize(9);
+  text('Constructive →', margin+drawW*0.55, 20+drawH*0.25);
+  text('Destructive', margin+drawW*0.55, 20+drawH*0.38);
+
+  // λ, d labels
+  fill('#fafafa'); textSize(9);
+  text('λ = '+D.lambda.toFixed(0)+' nm', 8, height-40);
+  text('d = '+D.slitSep.toFixed(2)+' mm', 8, height-26);
+  text('Δx = λD/d', 8, height-12);
+
+  // Controls
+  noStroke(); fill(15,15,25,220); rect(width-118,8,110,90,6);
+  fill('#fafafa'); textSize(11);
+  text(playing?'⏸ Pause':'▶ Play',width-112,28);
+  text('⚡ '+speed+'x',width-112,65);
+
+  if(playing) t+=0.1*speed;
+}}
+</script></body></html>"""
+
+
 # ── Streamlit page ────────────────────────────────────────────────────────────
 
 sim_header("Wave Interference", SPEC_REF)
@@ -1519,6 +1663,12 @@ with right_col:
             show_n_slit=show_n_slit_ys,
             N_slits=N_slits_ys,
         )
+
+        # ── Live p5.js wave animation ─────────────────────────────────────────
+        anim_html = build_interference_animation(lam_nm, a_mm)
+        components.html(anim_html, height=430)
+        st.caption("Live wave superposition · Bright = constructive · Dark = destructive")
+        st.divider()
 
         # ── Spectrum overlay ──────────────────────────────────────────────────
         if show_spectrum:

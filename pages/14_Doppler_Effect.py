@@ -12,10 +12,12 @@ Covers:
 
 from __future__ import annotations
 
+import json
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+import streamlit.components.v1 as components
 
 from utils.style import COLOURS, plotly_layout, make_fig
 from utils.physics import c_light
@@ -965,6 +967,168 @@ def _hex_to_rgba(hex_colour: str, alpha: float = 0.15) -> str:
     return f"rgba(128,128,128,{alpha})"
 
 
+# ── p5.js animation builder ───────────────────────────────────────────────────
+
+
+def build_doppler_animation(f_s, v_s, v_sound, source_approaching):
+    """Build p5.js Doppler wavefront animation."""
+    data = json.dumps({
+        "fSource": float(f_s),
+        "vSource": float(v_s),
+        "vSound": float(v_sound),
+        "approaching": bool(source_approaching),
+        "mach": float(v_s / v_sound)
+    })
+
+    return f"""<!DOCTYPE html>
+<html><head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<style>body{{margin:0;overflow:hidden;background:#0e1117;}}</style>
+</head><body>
+<script>
+const D = {data};
+let t=0, playing=true, speed=1;
+// Each wavefront: {{x: source_x_at_emission, t_emitted: time}}
+let wavefronts=[];
+let sourceX=0;
+let emitInterval=1.0/D.fSource;  // seconds between emissions
+let lastEmit=-emitInterval;
+const DT=0.016;  // time step per frame (seconds)
+const SCALE=40;  // pixels per metre
+
+function setup(){{
+  createCanvas(windowWidth||700,420);
+  textFont('monospace');
+  // Start source from left or right depending on direction
+  sourceX = D.approaching ? -width/(2*SCALE) : width/(2*SCALE);
+  wavefronts=[];
+}}
+function windowResized(){{ resizeCanvas(windowWidth,420); }}
+
+function mousePressed(){{
+  if(mouseX>width-120&&mouseX<width-10){{
+    if(mouseY>10&&mouseY<40) playing=!playing;
+    else if(mouseY>50&&mouseY<80){{ resetSim(); }}
+    else if(mouseY>90&&mouseY<120) speed=speed===1?2:speed===2?4:1;
+  }}
+}}
+
+function resetSim(){{
+  t=0; wavefronts=[];
+  sourceX=D.approaching ? -width/(2*SCALE) : width/(2*SCALE);
+  lastEmit=-emitInterval;
+  playing=true;
+}}
+
+function draw(){{
+  background(14,17,23,240);
+
+  let cx=width/2, cy=height/2;
+
+  // Observer (ear icon) at centre
+  fill('#fafafa'); noStroke(); textSize(20); textAlign(CENTER);
+  text('👂', cx, cy+8);
+  textAlign(LEFT);
+  noStroke(); fill('#777'); textSize(9);
+  text('observer', cx-22, cy+26);
+
+  // Ground line
+  stroke('#2a2a2a'); strokeWeight(1);
+  line(0, cy+30, width, cy+30);
+
+  // Update simulation
+  if(playing){{
+    for(let s=0;s<speed;s++){{
+      let dt=DT;
+      t+=dt;
+
+      // Move source
+      let dir=D.approaching ? 1 : -1;
+      sourceX+=dir*D.vSource*dt;
+
+      // Emit wavefront
+      if(t-lastEmit>=emitInterval){{
+        wavefronts.push({{x: sourceX, tEmit: t}});
+        lastEmit=t;
+      }}
+
+      // Remove old wavefronts (off screen)
+      wavefronts=wavefronts.filter(w=>{{
+        let r=(t-w.tEmit)*D.vSound*SCALE;
+        let sx=cx+w.x*SCALE;
+        return r<max(width,height) && sx+r>0 && sx-r<width;
+      }});
+    }}
+  }}
+
+  // Draw wavefronts
+  for(let i=0;i<wavefronts.length;i++){{
+    let w=wavefronts[i];
+    let r=(t-w.tEmit)*D.vSound*SCALE;
+    let sx=cx+w.x*SCALE;
+    let age=t-w.tEmit;
+    let alpha=map(age,0,3,200,20);
+
+    // Colour: ahead (toward observer) blue, behind red
+    let toObs=D.approaching; // approaching = wavefronts compressed toward right=observer
+    noFill();
+    // Use a gradient-like effect: compressed side = blue, stretched = red
+    stroke(31,119,180,alpha);
+    strokeWeight(1.5);
+    circle(sx,cy,r*2);
+  }}
+
+  // Source (vehicle/speaker)
+  let sxPx=cx+sourceX*SCALE;
+  if(sxPx>-30 && sxPx<width+30){{
+    noStroke();
+    for(let rr=18;rr>0;rr-=4) fill(255,127,14,map(rr,0,18,0,25));
+    for(let rr=18;rr>0;rr-=4) circle(sxPx,cy,rr*2);
+    fill('#ff7f0e'); stroke('#ffffff'); strokeWeight(1.5);
+    circle(sxPx,cy,18);
+    // Direction arrow
+    fill('#ff7f0e'); noStroke(); textSize(14); textAlign(CENTER);
+    text(D.approaching?'→':'←', sxPx, cy-22);
+    textAlign(LEFT);
+  }}
+
+  // Mach cone (if supersonic)
+  if(D.mach>=1.0 && D.mach<10){{
+    let halfAngle=asin(1.0/D.mach);
+    let coneLen=180;
+    stroke(231,76,60,160); strokeWeight(2); setLineDash([8,5]);
+    let dir=D.approaching?-1:1;
+    line(sxPx,cy, sxPx+dir*coneLen*cos(halfAngle), cy-coneLen*sin(halfAngle));
+    line(sxPx,cy, sxPx+dir*coneLen*cos(halfAngle), cy+coneLen*sin(halfAngle));
+    setLineDash([]);
+    noStroke(); fill('#e74c3c'); textSize(9);
+    text('Mach cone α='+degrees(halfAngle).toFixed(1)+'°', sxPx+8, cy-coneLen*sin(halfAngle)-8);
+  }}
+
+  // Info panel
+  let f_obs=D.vSound/(D.vSound - (D.approaching?D.vSource:-D.vSource))*D.fSource;
+  if(D.mach>=1 && D.approaching) f_obs=NaN;
+  noStroke(); fill(15,15,25,200); rect(8,8,210,70,6);
+  fill('#fafafa'); textSize(10);
+  text('f_source = '+D.fSource.toFixed(0)+' Hz', 14, 26);
+  text('f_obs = '+(isNaN(f_obs)||!isFinite(f_obs)?'N/A (Mach>1)':f_obs.toFixed(0)+' Hz'), 14, 44);
+  text('Mach = '+D.mach.toFixed(2), 14, 62);
+
+  // Controls
+  noStroke(); fill(15,15,25,220); rect(width-118,8,110,120,6);
+  fill('#fafafa'); textSize(11);
+  text(playing?'⏸ Pause':'▶ Play',width-112,28);
+  text('↺ Reset',width-112,68);
+  text('⚡ '+speed+'x',width-112,108);
+
+  // Reset when source goes off screen
+  if(sxPx < -50 || sxPx > width+50) resetSim();
+}}
+
+function setLineDash(list){{ drawingContext.setLineDash(list); }}
+</script></body></html>"""
+
+
 # ── Main page ─────────────────────────────────────────────────────────────────
 
 
@@ -1240,6 +1404,12 @@ def main() -> None:
                         "The observer is inside the Mach cone and has not yet heard the source."
                     )
 
+                st.divider()
+
+                # Animated p5.js wavefront simulation
+                anim_html = build_doppler_animation(f_s, v_s, V_SOUND, source_approaching)
+                components.html(anim_html, height=430)
+                st.caption("Real-time wavefront simulation · ▶ Play/Pause · ↺ Reset · ⚡ Speed")
                 st.divider()
 
                 # Determine n_circles for wavefront figure

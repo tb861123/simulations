@@ -12,10 +12,12 @@ Covers:
 
 from __future__ import annotations
 
+import json
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+import streamlit.components.v1 as components
 
 from utils.physics import g, G
 from utils.style import COLOURS, make_fig, plotly_layout
@@ -1784,6 +1786,136 @@ CP_ADVANCED_TEXT = (
     "version of the simple pendulum."
 )
 
+# ── Animation builder ─────────────────────────────────────────────────────────
+
+
+def build_circular_animation(r, omega, m):
+    """Build p5.js circular motion animation."""
+    import json
+    data = json.dumps({
+        "r": float(r),
+        "omega": float(omega),
+        "m": float(m),
+        "v": float(omega * r),
+        "a": float(omega**2 * r),
+        "F": float(m * omega**2 * r),
+        "T": float(2 * 3.14159 / omega)
+    })
+
+    return f"""<!DOCTYPE html>
+<html><head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<style>body{{margin:0;overflow:hidden;background:#0e1117;}}</style>
+</head><body>
+<script>
+const D = {data};
+let angle=0, playing=true, speed=1;
+let trail=[];
+const TRAIL_LEN=60;
+
+function setup(){{
+  createCanvas(windowWidth||700,420);
+  textFont('monospace');
+}}
+function windowResized(){{ resizeCanvas(windowWidth,420); }}
+
+function mousePressed(){{
+  if(mouseX>width-120&&mouseX<width-10){{
+    if(mouseY>10&&mouseY<40) playing=!playing;
+    else if(mouseY>50&&mouseY<80) speed=speed===1?2:speed===2?4:1;
+  }}
+}}
+
+function drawArrow(x1,y1,x2,y2,col,label){{
+  stroke(col); fill(col); strokeWeight(2.5);
+  line(x1,y1,x2,y2);
+  let a=atan2(y2-y1,x2-x1);
+  push(); translate(x2,y2); rotate(a); triangle(0,0,-12,-5,-12,5); pop();
+  if(label){{
+    noStroke(); textSize(11);
+    fill(col); text(label, x2+6, y2+4);
+  }}
+}}
+
+function draw(){{
+  background('#0e1117');
+
+  let cx=width/2, cy=height/2;
+  let displayR=min(width,height)*0.35;
+
+  // Orbit circle (dashed)
+  noFill(); stroke('#2a2a2a'); strokeWeight(1.5);
+  setLineDash([8,6]); circle(cx,cy,displayR*2); setLineDash([]);
+
+  // Centre cross
+  stroke('#555'); strokeWeight(1);
+  line(cx-10,cy,cx+10,cy); line(cx,cy-10,cx,cy+10);
+
+  // Stroboscope dots (last TRAIL_LEN positions)
+  trail.push(angle);
+  if(trail.length>TRAIL_LEN) trail.shift();
+  for(let i=0;i<trail.length;i++){{
+    let a=trail[i];
+    let bx=cx+displayR*cos(a), by=cy+displayR*sin(a);
+    let alpha=map(i,0,trail.length,20,120);
+    noStroke(); fill(31,119,180,alpha);
+    circle(bx,by,max(3,map(i,0,trail.length,2,8)));
+  }}
+
+  // Object position
+  let bx=cx+displayR*cos(angle);
+  let by=cy+displayR*sin(angle);
+
+  // Radius line
+  stroke(155,89,182,80); strokeWeight(1); setLineDash([5,4]);
+  line(cx,cy,bx,by); setLineDash([]);
+  noStroke(); fill('#9b59b6'); textSize(9);
+  text('r', cx+(bx-cx)*0.5+5, cy+(by-cy)*0.5-4);
+
+  // Centripetal vector (toward centre)
+  let len_a=min(80, D.a/20*50+15);
+  let toX=cx-bx, toY=cy-by;
+  let td=sqrt(toX*toX+toY*toY);
+  drawArrow(bx,by, bx+toX/td*len_a, by+toY/td*len_a, color(231,76,60), 'F_c');
+
+  // Velocity vector (tangential)
+  let len_v=min(90, D.v*5+10);
+  let vdirX=-sin(angle), vdirY=cos(angle);
+  drawArrow(bx,by, bx+vdirX*len_v, by+vdirY*len_v, color(255,127,14), 'v');
+
+  // Object glow + ball
+  noStroke();
+  for(let rr=22;rr>0;rr-=5) fill(31,119,180,map(rr,0,22,0,25));
+  for(let rr=22;rr>0;rr-=5) circle(bx,by,rr*2);
+  fill('#1f77b4'); stroke('#ffffff'); strokeWeight(1.5); circle(bx,by,20);
+
+  // Angle arc
+  noFill(); stroke('#9b59b6',120); strokeWeight(1);
+  arc(cx,cy,50,50,0,angle%(TWO_PI));
+  noStroke(); fill('#9b59b6'); textSize(9);
+  text((degrees(angle)%360).toFixed(0)+'°', cx+30, cy-4);
+
+  // Info panel (bottom left)
+  noStroke(); fill(15,15,25,200); rect(8,height-90,220,80,6);
+  fill('#fafafa'); textSize(10);
+  text('ω = '+D.omega.toFixed(2)+' rad/s', 16, height-68);
+  text('v = '+D.v.toFixed(2)+' m/s', 16, height-52);
+  text('a = '+D.a.toFixed(2)+' m/s²', 16, height-36);
+  text('T = '+D.T.toFixed(2)+' s', 16, height-20);
+
+  // Controls
+  noStroke(); fill(15,15,25,220); rect(width-118,8,110,90,6);
+  fill('#fafafa'); textSize(11);
+  text(playing?'⏸ Pause':'▶ Play',width-112,28);
+  text('⚡ '+speed+'x speed',width-112,65);
+
+  if(playing) angle+=D.omega*0.016*speed;
+}}
+
+function setLineDash(list){{ drawingContext.setLineDash(list); }}
+</script></body></html>"""
+
+
 # ── Main page ─────────────────────────────────────────────────────────────────
 
 
@@ -2145,6 +2277,12 @@ def main() -> None:
                 "inertia. Newton's 1st law says you'd travel in a straight line "
                 "without the centripetal force pulling you inward."
             )
+
+            # Live p5.js animation
+            anim_html = build_circular_animation(r_cm, omega_cm, m_cm)
+            components.html(anim_html, height=430)
+            st.caption("▶ Click Play/Pause · ⚡ Speed — Orange: velocity · Red: centripetal force")
+            st.divider()
 
             # Main plot
             fig_cm = build_circular_motion_fig(r_cm, omega_cm, m_cm, theta_cm_deg)

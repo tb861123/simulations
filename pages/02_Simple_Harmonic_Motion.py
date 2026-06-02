@@ -12,10 +12,12 @@ Covers:
   - Large-angle pendulum via RK4 numerical integration (Advanced)
 """
 
+import json
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+import streamlit.components.v1 as components
 
 from utils.style import COLOURS, plotly_layout, make_fig
 from utils.physics import g, rk4_integrate
@@ -653,6 +655,245 @@ def build_amplitude_response(
     return fig
 
 
+# ── Animation builder ─────────────────────────────────────────────────────────
+
+
+def build_shm_animation(t_arr, x_arr, v_arr, sim_type, params):
+    """
+    Build p5.js animated SHM HTML.
+
+    sim_type: 'spring' or 'pendulum'
+    params: dict with keys like 'omega0', 'amplitude', 'L' (pendulum length)
+    """
+    import json, numpy as np
+    step = max(1, len(t_arr)//300)
+    ts = t_arr[::step].tolist()
+    xs = x_arr[::step].tolist()  # displacement in metres (or radians for pendulum)
+    vs = v_arr[::step].tolist()
+
+    x_max = float(np.max(np.abs(x_arr))) or 1.0
+    v_max = float(np.max(np.abs(v_arr))) or 1.0
+
+    data = json.dumps({
+        "t": ts, "x": xs, "v": vs,
+        "xMax": x_max, "vMax": v_max,
+        "simType": sim_type,
+        "n": len(ts),
+        "params": params
+    })
+
+    return f"""<!DOCTYPE html>
+<html><head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<style>body{{margin:0;overflow:hidden;background:#0e1117;}}</style>
+</head><body>
+<script>
+const D = {data};
+let frame=0, playing=true, speed=1;
+let phaseTrail = [];
+
+function setup(){{
+  createCanvas(windowWidth||700, 420);
+  textFont('monospace');
+}}
+function windowResized(){{ resizeCanvas(windowWidth,420); }}
+
+function mousePressed(){{
+  if(mouseX>width-120&&mouseX<width-10){{
+    if(mouseY>10&&mouseY<40) playing=!playing;
+    else if(mouseY>50&&mouseY<80){{frame=0;playing=true;phaseTrail=[];}}
+    else if(mouseY>90&&mouseY<120) speed=speed===1?2:speed===2?4:1;
+  }}
+}}
+
+function drawSpring(x1,y1,x2,y2,coils,w){{
+  // Draw a coil spring between two points
+  let dx=x2-x1, dy=y2-y1;
+  let len=sqrt(dx*dx+dy*dy);
+  let nx=-dy/len, ny=dx/len;
+  let segs=coils*2+2;
+  beginShape();
+  vertex(x1,y1);
+  for(let i=1;i<segs;i++){{
+    let t=i/segs;
+    let mx=x1+dx*t, my=y1+dy*t;
+    let sign=(i%2===0)?1:-1;
+    vertex(mx+nx*sign*w, my+ny*sign*w);
+  }}
+  vertex(x2,y2);
+  endShape();
+}}
+
+function draw(){{
+  background('#0e1117');
+  let idx=min(frame, D.n-1);
+  let x=D.x[idx], v=D.v[idx];
+
+  // Energy
+  let ke=v*v/(D.vMax*D.vMax);
+  let pe=x*x/(D.xMax*D.xMax);
+
+  if(D.simType==='spring'){{
+    // ── SPRING-MASS ──
+    let wallX=50, ceilY=height/2;
+    let restLen=150, massW=40, massH=40;
+    let dispPx=x/D.xMax * 120;  // px displacement
+    let massX=wallX+restLen+dispPx;
+    let massY=ceilY-massH/2;
+
+    // Support rail
+    stroke('#555'); strokeWeight(3);
+    line(wallX, ceilY-60, wallX, ceilY+60);
+    // Hatch wall
+    stroke('#555'); strokeWeight(1);
+    for(let i=-3;i<=3;i++) line(wallX-12,ceilY+i*20,wallX,ceilY+i*20-12);
+
+    // Spring
+    stroke('#17becf'); strokeWeight(2); noFill();
+    drawSpring(wallX, ceilY, massX, ceilY, 8, 14);
+
+    // Mass glow
+    noStroke();
+    for(let r=30;r>0;r-=6) fill(31,119,180,map(r,0,30,0,25));
+    for(let r=30;r>0;r-=6) rect(massX-massW/2-r/4,massY-r/4,massW+r/2,massH+r/2,4);
+
+    // Mass block
+    fill('#1f77b4'); stroke('#ffffff'); strokeWeight(1.5);
+    rect(massX-massW/2, massY, massW, massH, 4);
+    noStroke(); fill('#ffffff'); textSize(10); textAlign(CENTER);
+    text('m', massX, massY+massH/2+4);
+    textAlign(LEFT);
+
+    // Equilibrium line
+    stroke('#2a2a2a'); strokeWeight(1); setLineDash([6,4]);
+    line(wallX+restLen, 60, wallX+restLen, height-60);
+    setLineDash([]);
+
+    // Velocity arrow
+    if(abs(v)>0.01){{
+      stroke('#ff7f0e'); fill('#ff7f0e'); strokeWeight(2);
+      let arrowLen=map(abs(v),0,D.vMax,0,60)*sign(v);
+      let ax=massX+massW/2, ay=ceilY;
+      line(ax,ay,ax+arrowLen,ay);
+      let dir=v>0?1:-1;
+      triangle(ax+arrowLen,ay, ax+arrowLen-dir*10,ay-5, ax+arrowLen-dir*10,ay+5);
+    }}
+
+  }} else {{
+    // ── PENDULUM ──
+    let pivX=width/2, pivY=80;
+    let L=min(width,height)*0.35;
+    let theta=x;  // x is angle in radians
+    let bobX=pivX+L*sin(theta);
+    let bobY=pivY+L*cos(theta);
+
+    // Support
+    stroke('#555'); strokeWeight(3); fill('#555');
+    rect(pivX-30, 60, 60, 20, 3);
+    // Hatch
+    stroke('#555'); strokeWeight(1);
+    for(let i=-3;i<=3;i++) line(pivX-30+i*10,60,pivX-20+i*10,42);
+
+    // Rod/string
+    stroke('#aaa'); strokeWeight(2);
+    line(pivX, pivY+8, bobX, bobY);
+
+    // Pivot
+    fill('#888'); noStroke(); circle(pivX, pivY+8, 10);
+
+    // Equilibrium dashed line
+    stroke('#2a2a2a'); strokeWeight(1); setLineDash([6,4]);
+    line(pivX, pivY+8, pivX, pivY+L+20);
+    setLineDash([]);
+
+    // Angle arc
+    if(abs(theta)>0.02){{
+      noFill(); stroke('#9b59b6'); strokeWeight(1.5);
+      arc(pivX, pivY+8, 60, 60, PI/2-abs(theta)/2, PI/2+abs(theta)/2);
+      noStroke(); fill('#9b59b6'); textSize(9);
+      text('θ='+degrees(abs(theta)).toFixed(1)+'°', pivX+8, pivY+40);
+    }}
+
+    // Bob glow
+    noStroke();
+    for(let r=24;r>0;r-=5) fill(31,119,180,map(r,0,24,0,30));
+    for(let r=24;r>0;r-=5) circle(bobX,bobY,r*2);
+
+    fill('#1f77b4'); stroke('#ffffff'); strokeWeight(1.5);
+    circle(bobX, bobY, 24);
+
+    // Velocity arrow (tangential)
+    if(abs(v)>0.01){{
+      let tx=-cos(theta)*sign(v), ty=sin(theta)*sign(v);  // tangential direction
+      let spd=map(abs(v),0,D.vMax,0,60);
+      stroke('#ff7f0e'); fill('#ff7f0e'); strokeWeight(2);
+      let ax=bobX+tx*spd, ay=bobY+ty*spd;
+      line(bobX,bobY,ax,ay);
+      let ang=atan2(ty,tx);
+      push(); translate(ax,ay); rotate(ang);
+      triangle(0,0,-10,-5,-10,5); pop();
+    }}
+
+    // Gravity arrow
+    stroke('#e74c3c'); fill('#e74c3c'); strokeWeight(2);
+    line(bobX,bobY,bobX,bobY+40);
+    triangle(bobX,bobY+40,bobX-4,bobY+30,bobX+4,bobY+30);
+  }}
+
+  // ── ENERGY BARS (bottom) ──
+  let barY=height-30, barH=18, barW=160, bx=PAD=20;
+  // KE
+  noStroke(); fill('#2a2a2a'); rect(bx,barY-barH,barW,barH,3);
+  fill('#ff7f0e'); rect(bx,barY-barH,barW*ke,barH,3);
+  fill('#fafafa'); textSize(9); text('KE',bx+barW+5,barY-4);
+  // PE
+  fill('#2a2a2a'); rect(bx,barY-barH*2-4,barW,barH,3);
+  fill('#1f77b4'); rect(bx,barY-barH*2-4,barW*pe,barH,3);
+  fill('#fafafa'); text('PE',bx+barW+5,barY-barH-8);
+  // TE line
+  stroke('#2ca02c'); strokeWeight(1); setLineDash([4,3]);
+  line(bx+barW,barY-barH*2-4,bx+barW,barY);
+  setLineDash([]);
+  fill('#2ca02c'); noStroke(); textSize(9); text('Total E',bx+barW-35,barY+12);
+
+  // Phase space trail (x vs v)
+  phaseTrail.push([x,v]);
+  if(phaseTrail.length>80) phaseTrail.shift();
+  let phX=width-120, phY=height/2, phR=70;
+  noStroke(); fill('#111',200); circle(phX,phY,phR*2+10);
+  stroke('#2a2a2a'); strokeWeight(1); noFill();
+  circle(phX,phY,phR*2);
+  // trail
+  for(let i=1;i<phaseTrail.length;i++){{
+    let alpha=map(i,0,phaseTrail.length,30,200);
+    let px1=phX+phaseTrail[i-1][0]/D.xMax*phR;
+    let py1=phY-phaseTrail[i-1][1]/D.vMax*phR;
+    let px2=phX+phaseTrail[i][0]/D.xMax*phR;
+    let py2=phY-phaseTrail[i][1]/D.vMax*phR;
+    stroke(155,89,182,alpha); strokeWeight(1.5);
+    line(px1,py1,px2,py2);
+  }}
+  noStroke(); fill('#9b59b6'); textSize(8);
+  text('phase', phX-18, phY+phR+14);
+
+  // Controls
+  noStroke(); fill(15,15,25,220); rect(width-118,8,110,120,6);
+  fill('#fafafa'); textSize(11);
+  text(playing?'⏸ Pause':'▶ Play', width-112, 28);
+  text('↺ Replay', width-112, 68);
+  text('⚡ '+speed+'x', width-112, 108);
+
+  if(playing) frame+=speed;
+  if(frame>=D.n){{ frame=0; phaseTrail=[]; }}
+}}
+
+function sign(x){{ return x>0?1:x<0?-1:0; }}
+function setLineDash(list){{
+  drawingContext.setLineDash(list);
+}}
+</script></body></html>"""
+
+
 # ── Streamlit page ────────────────────────────────────────────────────────────
 
 st.set_page_config(
@@ -882,6 +1123,22 @@ with right_col:
     )
 
     st.markdown("")  # spacing
+
+    # ── Live animation panel ──────────────────────────────────────────────────
+    shm_type = "pendulum" if system == "Simple Pendulum" else "spring"
+    if system == "Simple Pendulum":
+        # Pass angle in radians and angular velocity for the pendulum animation
+        anim_x = x_ideal / L   # convert linear displacement back to radians
+        anim_v = v_ideal / L   # angular velocity (rad/s)
+        anim_params = {"omega0": float(omega0), "amplitude": float(theta0_rad), "L": float(L)}
+    else:
+        anim_x = x_ideal
+        anim_v = v_ideal
+        anim_params = {"omega0": float(omega0), "amplitude": float(x0)}
+    anim_html = build_shm_animation(t, anim_x, anim_v, shm_type, anim_params)
+    components.html(anim_html, height=430)
+    st.caption("▶ Click Play/Pause · ↺ Replay · ⚡ Speed toggle")
+    st.divider()
 
     # ── Time-series subplots ──────────────────────────────────────────────────
     fig_ts = build_time_series_fig(
