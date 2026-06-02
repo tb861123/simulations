@@ -11,10 +11,12 @@ Covers:
 
 from __future__ import annotations
 
+import json
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+import streamlit.components.v1 as components
 
 from utils.physics import g  # noqa: F401  (imported as per project convention)
 from utils.style import COLOURS, make_fig, plotly_layout
