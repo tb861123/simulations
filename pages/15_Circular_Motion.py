@@ -1237,6 +1237,456 @@ def build_vert_tension_fig(
     return fig
 
 
+def build_conical_diagram_fig(
+    L: float,
+    theta_deg: float,
+    show_forces: bool,
+    cp_vals: dict[str, float],
+) -> go.Figure:
+    """
+    Build a 2D side-view diagram of the conical pendulum.
+
+    Parameters
+    ----------
+    L           : string length (m)
+    theta_deg   : angle from vertical (degrees)
+    show_forces : whether to draw force vectors
+    cp_vals     : pre-computed physics quantities dict
+
+    Returns
+    -------
+    Plotly Figure
+    """
+    theta_rad = np.radians(theta_deg)
+    sin_t = np.sin(theta_rad)
+    cos_t = np.cos(theta_rad)
+
+    # Key positions (x right, y down — so pivot at top)
+    pivot_x, pivot_y = 0.0, 0.0
+    mass_x = L * sin_t
+    mass_y = -L * cos_t   # negative = below pivot
+    r = cp_vals["r"]
+    h = L * cos_t         # vertical drop from pivot to mass level
+
+    fig = go.Figure()
+
+    # ── Circular orbit ellipse (perspective) at mass height ──────────────────
+    phi_arr = np.linspace(0, 2 * np.pi, 200)
+    ellipse_a = r                # semi-major axis (horizontal)
+    ellipse_b = r * 0.3          # semi-minor axis (foreshortened vertical)
+    ell_x = ellipse_a * np.cos(phi_arr)
+    ell_y = mass_y + ellipse_b * np.sin(phi_arr)
+    fig.add_trace(
+        go.Scatter(
+            x=ell_x, y=ell_y,
+            mode="lines",
+            name="Circular path",
+            line=dict(color=COLOURS["grid"], width=1.5, dash="dash"),
+        )
+    )
+
+    # ── Vertical axis (dashed) ────────────────────────────────────────────────
+    fig.add_trace(
+        go.Scatter(
+            x=[0.0, 0.0],
+            y=[0.0, mass_y - ellipse_b * 0.4],
+            mode="lines",
+            name="Vertical axis",
+            line=dict(color=COLOURS["grid"], width=1, dash="dot"),
+            showlegend=False,
+        )
+    )
+
+    # ── String ────────────────────────────────────────────────────────────────
+    fig.add_trace(
+        go.Scatter(
+            x=[pivot_x, mass_x],
+            y=[pivot_y, mass_y],
+            mode="lines",
+            name="String",
+            line=dict(color=COLOURS["text"], width=2.5),
+        )
+    )
+
+    # ── Radius dotted line (horizontal) ──────────────────────────────────────
+    fig.add_trace(
+        go.Scatter(
+            x=[0.0, mass_x],
+            y=[mass_y, mass_y],
+            mode="lines",
+            name=f"r = {r:.3f} m",
+            line=dict(color=COLOURS["secondary"], width=1.5, dash="dot"),
+        )
+    )
+    # r label
+    fig.add_annotation(
+        x=mass_x / 2, y=mass_y,
+        text=f"r={r:.2f}m",
+        showarrow=False,
+        yshift=10,
+        font=dict(color=COLOURS["secondary"], size=11),
+        xref="x", yref="y",
+    )
+
+    # ── Height h dotted line (vertical) ──────────────────────────────────────
+    fig.add_trace(
+        go.Scatter(
+            x=[-r * 0.15, -r * 0.15],
+            y=[0.0, mass_y],
+            mode="lines",
+            name=f"h = {h:.3f} m",
+            line=dict(color=COLOURS["advanced"], width=1.5, dash="dot"),
+        )
+    )
+    fig.add_annotation(
+        x=-r * 0.15, y=mass_y / 2,
+        text=f"h={h:.2f}m",
+        showarrow=False,
+        xshift=-32,
+        font=dict(color=COLOURS["advanced"], size=11),
+        xref="x", yref="y",
+    )
+
+    # ── Angle θ arc at pivot ──────────────────────────────────────────────────
+    arc_r = L * 0.18
+    arc_angles = np.linspace(-np.pi / 2, -np.pi / 2 + theta_rad, 40)
+    arc_x = arc_r * np.cos(arc_angles)
+    arc_y = arc_r * np.sin(arc_angles)
+    fig.add_trace(
+        go.Scatter(
+            x=arc_x, y=arc_y,
+            mode="lines",
+            name=f"θ = {theta_deg:.1f}°",
+            line=dict(color=COLOURS["highlight"], width=1.5),
+        )
+    )
+    # θ label
+    label_angle = -np.pi / 2 + theta_rad / 2
+    fig.add_annotation(
+        x=arc_r * 1.35 * np.cos(label_angle),
+        y=arc_r * 1.35 * np.sin(label_angle),
+        text=f"θ={theta_deg:.0f}°",
+        showarrow=False,
+        font=dict(color=COLOURS["highlight"], size=12),
+        xref="x", yref="y",
+    )
+
+    # ── Mass ─────────────────────────────────────────────────────────────────
+    fig.add_trace(
+        go.Scatter(
+            x=[mass_x], y=[mass_y],
+            mode="markers",
+            name="Mass m",
+            marker=dict(
+                color=COLOURS["primary"],
+                size=18,
+                symbol="circle",
+                line=dict(color=COLOURS["text"], width=1.5),
+            ),
+        )
+    )
+
+    # ── Pivot ─────────────────────────────────────────────────────────────────
+    fig.add_trace(
+        go.Scatter(
+            x=[pivot_x], y=[pivot_y],
+            mode="markers",
+            name="Pivot",
+            marker=dict(
+                color=COLOURS["text"],
+                size=10,
+                symbol="triangle-down",
+                line=dict(color=COLOURS["text"], width=1),
+            ),
+        )
+    )
+
+    # ── Force vectors ─────────────────────────────────────────────────────────
+    if show_forces:
+        T_str = cp_vals["T_string"]
+        m_kg = T_str * np.cos(theta_rad) / g   # back-calculate m from T_string
+
+        # Scale forces to be visually proportional but bounded
+        force_scale = L * 0.45 / max(T_str, 1e-9)
+
+        # Tension vector: along string toward pivot
+        T_dir_x = (pivot_x - mass_x) / L
+        T_dir_y = (pivot_y - mass_y) / L
+        T_disp = T_str * force_scale
+        T_end_x = mass_x + T_dir_x * T_disp
+        T_end_y = mass_y + T_dir_y * T_disp
+        fig.add_annotation(
+            x=T_end_x, y=T_end_y,
+            ax=mass_x, ay=mass_y,
+            xref="x", yref="y", axref="x", ayref="y",
+            showarrow=True, arrowhead=3, arrowsize=1.4, arrowwidth=2,
+            arrowcolor=COLOURS["primary"],
+            text="",
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=[mass_x, T_end_x], y=[mass_y, T_end_y],
+                mode="lines",
+                name=f"Tension T={T_str:.2f} N",
+                line=dict(color=COLOURS["primary"], width=2),
+            )
+        )
+        fig.add_annotation(
+            x=T_end_x, y=T_end_y,
+            text="T",
+            showarrow=False,
+            yshift=8,
+            font=dict(color=COLOURS["primary"], size=13, family="Arial Black"),
+            xref="x", yref="y",
+        )
+
+        # Weight vector: downward from mass  (y is up in plot, so weight → negative y)
+        mg_val = T_str * cos_t   # = m * g
+        W_disp = mg_val * force_scale
+        W_end_y = mass_y - W_disp
+        fig.add_annotation(
+            x=mass_x, y=W_end_y,
+            ax=mass_x, ay=mass_y,
+            xref="x", yref="y", axref="x", ayref="y",
+            showarrow=True, arrowhead=3, arrowsize=1.4, arrowwidth=2,
+            arrowcolor=COLOURS["highlight"],
+            text="",
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=[mass_x, mass_x], y=[mass_y, W_end_y],
+                mode="lines",
+                name=f"Weight mg={mg_val:.2f} N",
+                line=dict(color=COLOURS["highlight"], width=2),
+            )
+        )
+        fig.add_annotation(
+            x=mass_x, y=W_end_y,
+            text="mg",
+            showarrow=False,
+            yshift=-12,
+            font=dict(color=COLOURS["highlight"], size=13, family="Arial Black"),
+            xref="x", yref="y",
+        )
+
+        # Centripetal (horizontal) vector: toward axis
+        F_cent = cp_vals["a_cent"] * m_kg
+        C_disp = F_cent * force_scale
+        C_end_x = mass_x - C_disp   # toward axis (x=0)
+        fig.add_annotation(
+            x=C_end_x, y=mass_y,
+            ax=mass_x, ay=mass_y,
+            xref="x", yref="y", axref="x", ayref="y",
+            showarrow=True, arrowhead=3, arrowsize=1.4, arrowwidth=2,
+            arrowcolor=COLOURS["secondary"],
+            text="",
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=[mass_x, C_end_x], y=[mass_y, mass_y],
+                mode="lines",
+                name=f"F_cent={F_cent:.2f} N",
+                line=dict(color=COLOURS["secondary"], width=2),
+            )
+        )
+        fig.add_annotation(
+            x=C_end_x, y=mass_y,
+            text="F_c",
+            showarrow=False,
+            xshift=-18,
+            font=dict(color=COLOURS["secondary"], size=13, family="Arial Black"),
+            xref="x", yref="y",
+        )
+
+    # ── Layout ────────────────────────────────────────────────────────────────
+    pad_x = L * 1.6
+    pad_y_top = L * 0.35
+    pad_y_bot = L * 1.55
+
+    fig.update_layout(
+        **plotly_layout(
+            height=500,
+            title=dict(
+                text="Conical Pendulum — Side View",
+                font=dict(size=14),
+            ),
+            xaxis=dict(
+                title="x (m)",
+                range=[-pad_x, pad_x],
+                scaleanchor="y",
+                scaleratio=1,
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+            ),
+            yaxis=dict(
+                title="y (m, upward)",
+                range=[-pad_y_bot, pad_y_top],
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+            ),
+        )
+    )
+    return fig
+
+
+def build_conical_period_fig(L: float, theta_deg: float) -> go.Figure:
+    """
+    Build Period vs angle θ figure for the conical pendulum.
+
+    Parameters
+    ----------
+    L         : string length (m)
+    theta_deg : current angle (degrees), highlighted as a point
+
+    Returns
+    -------
+    Plotly Figure
+    """
+    theta_arr_deg = np.linspace(5.0, 85.0, 400)
+    theta_arr_rad = np.radians(theta_arr_deg)
+    T_arr = 2.0 * np.pi * np.sqrt(L * np.cos(theta_arr_rad) / g)
+
+    # Simple pendulum period (horizontal reference)
+    T_simple = 2.0 * np.pi * np.sqrt(L / g)
+
+    # Current point
+    theta_cur_rad = np.radians(theta_deg)
+    T_cur = 2.0 * np.pi * np.sqrt(L * np.cos(theta_cur_rad) / g)
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=theta_arr_deg,
+            y=T_arr,
+            mode="lines",
+            name=f"T_period (L={L:.2f}m)",
+            line=dict(color=COLOURS["primary"], width=2.5),
+        )
+    )
+
+    # Simple pendulum reference
+    fig.add_trace(
+        go.Scatter(
+            x=[5, 85],
+            y=[T_simple, T_simple],
+            mode="lines",
+            name=f"Simple pendulum T={T_simple:.2f}s",
+            line=dict(color=COLOURS["secondary"], width=1.5, dash="dash"),
+        )
+    )
+
+    # Current point
+    fig.add_trace(
+        go.Scatter(
+            x=[theta_deg],
+            y=[T_cur],
+            mode="markers",
+            name=f"Current θ={theta_deg:.0f}° → T={T_cur:.3f}s",
+            marker=dict(
+                color=COLOURS["highlight"],
+                size=12,
+                symbol="circle",
+                line=dict(color=COLOURS["text"], width=1.5),
+            ),
+        )
+    )
+
+    fig.update_layout(
+        **plotly_layout(
+            height=380,
+            title=dict(text="Period vs Angle θ", font=dict(size=13)),
+            xaxis=dict(
+                title="θ (degrees from vertical)",
+                range=[0, 90],
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+            ),
+            yaxis=dict(
+                title="Period T (s)",
+                rangemode="tozero",
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+            ),
+        )
+    )
+    return fig
+
+
+def build_conical_omega_fig(L: float, theta_deg: float) -> go.Figure:
+    """
+    Build ω vs angle θ figure for the conical pendulum (Advanced mode).
+
+    Parameters
+    ----------
+    L         : string length (m)
+    theta_deg : current angle (degrees), highlighted as a point
+
+    Returns
+    -------
+    Plotly Figure
+    """
+    theta_arr_deg = np.linspace(5.0, 85.0, 400)
+    theta_arr_rad = np.radians(theta_arr_deg)
+    omega_arr = np.sqrt(g / (L * np.cos(theta_arr_rad)))
+
+    theta_cur_rad = np.radians(theta_deg)
+    omega_cur = float(np.sqrt(g / (L * np.cos(theta_cur_rad))))
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=theta_arr_deg,
+            y=omega_arr,
+            mode="lines",
+            name="ω (rad/s)",
+            line=dict(color=COLOURS["advanced"], width=2.5),
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=[theta_deg],
+            y=[omega_cur],
+            mode="markers",
+            name=f"Current θ={theta_deg:.0f}° → ω={omega_cur:.3f} rad/s",
+            marker=dict(
+                color=COLOURS["highlight"],
+                size=12,
+                symbol="circle",
+                line=dict(color=COLOURS["text"], width=1.5),
+            ),
+        )
+    )
+
+    fig.update_layout(
+        **plotly_layout(
+            height=340,
+            title=dict(text="Angular Velocity ω vs Angle θ", font=dict(size=13)),
+            xaxis=dict(
+                title="θ (degrees from vertical)",
+                range=[0, 90],
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+            ),
+            yaxis=dict(
+                title="ω (rad/s)",
+                rangemode="tozero",
+                gridcolor=COLOURS["grid"],
+                linecolor=COLOURS["grid"],
+                zerolinecolor=COLOURS["grid"],
+            ),
+        )
+    )
+    return fig
+
+
 # ── Physics notes content ─────────────────────────────────────────────────────
 
 EQUATIONS = [
@@ -1291,6 +1741,49 @@ ADVANCED_TEXT = (
     "This is exactly the same derivation as Kepler's Third Law applied to Earth."
 )
 
+CP_SPEC_REF = "Component 1, Topic 3 (Circular Motion)"
+
+CP_EQUATIONS = [
+    r"\omega^2 = \frac{g}{L\cos\theta}",
+    r"T_{\text{period}} = 2\pi\sqrt{\frac{L\cos\theta}{g}}",
+    r"T_{\text{string}} = \frac{mg}{\cos\theta}",
+    r"r = L\sin\theta,\quad v = \omega L\sin\theta",
+]
+
+CP_EXPLANATION = (
+    "**Conical pendulum** — a mass on a string rotates in a horizontal circle "
+    "while the string makes angle θ from the vertical.\n\n"
+    "**Force balance (vertical):** $T\\cos\\theta = mg$, so tension "
+    "$T = mg/\\cos\\theta$.\n\n"
+    "**Force balance (horizontal):** $T\\sin\\theta = m\\omega^2 r = m\\omega^2 L\\sin\\theta$, "
+    "giving $T = m\\omega^2 L$.\n\n"
+    "**Combining:** $\\omega^2 = g/(L\\cos\\theta)$. Notice that ω (and hence period) "
+    "**does not depend on mass** — just as the simple pendulum period is independent "
+    "of mass. The period $T = 2\\pi\\sqrt{L\\cos\\theta/g}$ shortens as θ increases "
+    "(faster spin → smaller effective pendulum length $L\\cos\\theta$).\n\n"
+    "**Key insight:** The angle θ is determined entirely by ω (or equivalently the "
+    "speed v). You cannot set θ independently — it adjusts automatically to balance "
+    "the forces. This self-regulating property is what made it so useful as a "
+    "mechanical speed governor."
+)
+
+CP_ADVANCED_TEXT = (
+    "**Stability and the governor principle:**\n\n"
+    "If the engine speeds up, ω increases → θ increases → the throttle closes → "
+    "engine slows down. If the engine slows, θ decreases → throttle opens → engine "
+    "speeds up. The system naturally seeks an equilibrium angle for a given "
+    "target speed.\n\n"
+    "**Non-linear ω–θ relationship:**\n"
+    "$\\omega = \\sqrt{g/(L\\cos\\theta)}$ diverges as $\\theta \\to 90°$. "
+    "Real governors are limited by the maximum practical angle (typically 40–60°). "
+    "Beyond ~60°, the governor becomes very sensitive to small speed changes — "
+    "useful for fine regulation but mechanically unstable.\n\n"
+    "**Comparison with simple pendulum:**\n"
+    "At $\\theta = 0$: $T_{\\text{conical}} = 2\\pi\\sqrt{L/g}$ — identical to the "
+    "simple pendulum period. The conical pendulum is effectively a 'faster' "
+    "version of the simple pendulum."
+)
+
 # ── Main page ─────────────────────────────────────────────────────────────────
 
 
@@ -1306,8 +1799,8 @@ def main() -> None:
     with left_col:
         mode = mode_toggle()
 
-        tab_names = ["Circular Motion", "Banked Tracks", "Vertical Circles"]
-        ctrl_tab1, ctrl_tab2, ctrl_tab3 = st.tabs(tab_names)
+        tab_names = ["Circular Motion", "Banked Tracks", "Vertical Circles", "Conical Pendulum"]
+        ctrl_tab1, ctrl_tab2, ctrl_tab3, ctrl_tab4 = st.tabs(tab_names)
 
         # ── Tab 1 controls: Circular Motion Fundamentals ──────────────────────
         with ctrl_tab1:
@@ -1525,10 +2018,95 @@ def main() -> None:
                     f"$v_{{b,min}} = \\sqrt{{5gR}} = {v_min_bottom:.2f}$ m/s"
                 )
 
+        # ── Tab 4 controls: Conical Pendulum ──────────────────────────────────
+        with ctrl_tab4:
+            st.subheader("Conical Pendulum")
+
+            cp_preset_choice = st.selectbox(
+                "Real-world preset",
+                options=list(CONICAL_PRESETS.keys()),
+                index=0,
+                key="cp_preset",
+                help="Select a real-world conical pendulum example or choose Custom.",
+            )
+            cp_preset_data = CONICAL_PRESETS[cp_preset_choice]
+
+            _cp_L_default = float(cp_preset_data["L"]) if cp_preset_data else 1.0
+            _cp_theta_default = float(cp_preset_data["theta_deg"]) if cp_preset_data else 30.0
+            _cp_m_default = float(cp_preset_data["m"]) if cp_preset_data else 0.1
+
+            _cp_L_disp = float(np.clip(_cp_L_default, 0.1, 5.0))
+            _cp_theta_disp = float(np.clip(_cp_theta_default, 5.0, 80.0))
+            _cp_m_disp = float(np.clip(_cp_m_default, 0.01, 5.0))
+
+            cp_L = st.slider(
+                "String length L (m)",
+                min_value=0.1,
+                max_value=5.0,
+                value=_cp_L_disp,
+                step=0.05,
+                key="cp_L",
+                disabled=(cp_preset_data is not None),
+                help="Length of the string from pivot to mass.",
+            )
+            cp_L = _cp_L_default if cp_preset_data else cp_L
+
+            cp_theta_deg = st.slider(
+                "Angle θ from vertical (°)",
+                min_value=5.0,
+                max_value=80.0,
+                value=_cp_theta_disp,
+                step=1.0,
+                key="cp_theta",
+                disabled=(cp_preset_data is not None),
+                help="Half-angle of the cone formed by the string.",
+            )
+            cp_theta_deg = _cp_theta_default if cp_preset_data else cp_theta_deg
+
+            cp_m = st.slider(
+                "Mass m (kg)",
+                min_value=0.01,
+                max_value=5.0,
+                value=_cp_m_disp,
+                step=0.01,
+                key="cp_m",
+                disabled=(cp_preset_data is not None),
+                help="Mass of the bob. Note: period is independent of mass!",
+            )
+            cp_m = _cp_m_default if cp_preset_data else cp_m
+
+            st.divider()
+            cp_show_forces = st.checkbox(
+                "Show forces",
+                value=True,
+                key="cp_show_forces",
+                help="Display tension, weight, and centripetal force vectors.",
+            )
+
+            # Derived ω note
+            _cp_theta_rad_note = np.radians(cp_theta_deg)
+            _cp_omega_note = float(np.sqrt(g / (cp_L * np.cos(_cp_theta_rad_note))))
+            st.info(
+                f"ω is derived from L and θ:  \n"
+                f"ω = √(g / L·cos θ) = **{_cp_omega_note:.3f} rad/s**  \n"
+                f"You cannot set ω directly — changing θ (by spinning faster or "
+                f"slower) is what changes ω."
+            )
+
+            if mode == "Advanced":
+                advanced_divider()
+                _cp_T_simple = 2.0 * np.pi * np.sqrt(cp_L / g)
+                st.caption(
+                    f"**Simple pendulum limit (θ→0°):** T = {_cp_T_simple:.3f} s\n\n"
+                    f"At θ = {cp_theta_deg:.0f}°, effective length = "
+                    f"L·cos θ = {cp_L * np.cos(_cp_theta_rad_note):.3f} m\n\n"
+                    f"**Non-linear sensitivity:** dω/dθ grows rapidly near 90°."
+                )
+
     # ── Right column: plots ───────────────────────────────────────────────────
 
     with right_col:
-        plot_tab1, plot_tab2, plot_tab3 = st.tabs(tab_names)
+        plot_tab1, plot_tab2, plot_tab3, plot_tab4 = st.tabs(tab_names)
 
         # ── Tab 1: Circular Motion Fundamentals ───────────────────────────────
         with plot_tab1:
