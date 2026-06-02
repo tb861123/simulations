@@ -1221,17 +1221,23 @@ def main() -> None:
                     )
 
                 # Metrics row
-                if np.isfinite(f_obs):
+                if np.isfinite(f_obs) and f_obs > 0:
                     metric_row({
                         "f_obs (Hz)": f"{f_obs:.1f}",
                         "Δf (Hz)": f"{delta_f:+.1f}",
                         "λ_ahead (m)": f"{lambda_ahead:.4f}",
                         "λ_behind (m)": f"{lambda_behind:.4f}",
                     })
-                else:
+                elif not np.isfinite(f_obs):
                     st.error(
                         "f_obs is infinite — source exactly at Mach 1. "
                         "Reduce v_s slightly."
+                    )
+                else:
+                    # Supersonic approaching: formula returns negative — physically invalid
+                    st.error(
+                        "Formula invalid for supersonic source (Mach > 1) approaching observer. "
+                        "The observer is inside the Mach cone and has not yet heard the source."
                     )
 
                 st.divider()
