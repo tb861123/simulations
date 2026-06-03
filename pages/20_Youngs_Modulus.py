@@ -856,6 +856,10 @@ new p5(function(p) {{
     p.text('ε = ' + (strain * 100).toFixed(3) + ' %', W - 12, 42);
   }};
 
+  p.windowResized = function() {{
+    p.resizeCanvas(p.windowWidth || W, H);
+  }};
+
 }});
 </script>
 </body>
