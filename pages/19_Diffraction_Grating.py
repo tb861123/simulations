@@ -20,7 +20,7 @@ from plotly.subplots import make_subplots
 import streamlit as st
 import streamlit.components.v1 as components
 
-from utils.style import COLOURS, plotly_layout, make_fig
+from utils.style import COLOURS, plotly_layout
 from utils.ui_components import (
     mode_toggle,
     two_column_layout,
