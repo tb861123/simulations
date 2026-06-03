@@ -1072,7 +1072,6 @@ def build_gas_animation(P, V, T, n_moles, process_type):
     -------
     HTML string containing a self-contained p5.js animation
     """
-    import math
     R = 8.314
     data = json.dumps({
         "P": float(P), "V": float(V), "T": float(T),
@@ -1089,7 +1088,7 @@ def build_gas_animation(P, V, T, n_moles, process_type):
 </style>
 </head>
 <body>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
 <script>
 const GAS_DATA = {data};
 

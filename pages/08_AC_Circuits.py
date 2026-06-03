@@ -9,6 +9,7 @@ Spec reference: Component 3, Option A (Alternating Currents), sections (a)–(p)
 """
 
 import json
+import math
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -1060,8 +1061,6 @@ def build_ac_animation(freq, R, L, C, V0, circuit_type):
     V0           : peak voltage (V)
     circuit_type : one of 'Pure R', 'RC Series', 'RL Series', 'RLC Series'
     """
-    import math
-
     omega = 2 * math.pi * float(freq)
     L_val = float(L) if L else 0.0
     C_val = float(C) if C else 0.0
@@ -1118,7 +1117,7 @@ def build_ac_animation(freq, R, L, C, V0, circuit_type):
 </style>
 </head>
 <body>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
 <script>
 const SIM = {data};
 

@@ -14,6 +14,7 @@ Covers:
 """
 
 import json
+import math
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -945,7 +946,6 @@ def build_kinetic_animation(T, N, mass_amu):
     N        : number of particles (capped at 150)
     mass_amu : molecular mass in atomic mass units
     """
-    import math
     k_B = 1.380649e-23
     m = float(mass_amu) * 1.66054e-27
     v_rms = float((3 * k_B * float(T) / m) ** 0.5)

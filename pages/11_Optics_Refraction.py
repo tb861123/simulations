@@ -1170,7 +1170,7 @@ def build_snell_animation(n1: float, n2: float, angle_deg: float) -> str:
 <div id="controls">
   <button id="playBtn">&#9654; Auto-scan</button>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
 <script>
 const INIT = {data};
 
@@ -1855,7 +1855,6 @@ with tab3:
                 "Type": it,
                 "Orientation": ori,
             })
-        import pandas as pd
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     # Advanced: 1/v vs 1/u graph

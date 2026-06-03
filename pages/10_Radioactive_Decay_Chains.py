@@ -966,7 +966,7 @@ def build_chain_animation(chain_data: list[dict]) -> str:
   </select>
 </div>
 <div id="timeline"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
 <script>
 const RAW = {data_json};
 const CHAIN = RAW.chain;
