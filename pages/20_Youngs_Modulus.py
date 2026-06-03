@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
 
-from utils.style import COLOURS, make_fig, plotly_layout
+from utils.style import COLOURS, plotly_layout
 from utils.ui_components import (
     advanced_divider,
     metric_row,
@@ -595,6 +595,11 @@ new p5(function(p) {{
   let playing     = false;
   let btnPlay;
 
+  // Highlight colour components (declared early to avoid TDZ errors)
+  const COLOURS_HIGHLIGHT_R = 231;
+  const COLOURS_HIGHLIGHT_G = 76;
+  const COLOURS_HIGHLIGHT_B = 60;
+
   // Derived from data
   const strain   = D.strain;
   const eps_f    = D.eps_f;
@@ -851,10 +856,6 @@ new p5(function(p) {{
     p.text('ε = ' + (strain * 100).toFixed(3) + ' %', W - 12, 42);
   }};
 
-  // Resolve JS colour references from p5 (we use raw ints to avoid dependency)
-  const COLOURS_HIGHLIGHT_R = 231;
-  const COLOURS_HIGHLIGHT_G = 76;
-  const COLOURS_HIGHLIGHT_B = 60;
 }});
 </script>
 </body>

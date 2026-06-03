@@ -511,7 +511,7 @@ def build_blackbody_animation(
 </style>
 </head>
 <body>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
 <script>
 const SIM = {data};
 
@@ -589,7 +589,7 @@ new p5(function(p) {{
 
   // ── p5 setup ────────────────────────────────────────────────────────────────
   p.setup = function() {{
-    const cnv = p.createCanvas(W, H);
+    const cnv = p.createCanvas(p.windowWidth || W, H);
     cnv.parent(document.body);
     p.textFont('monospace');
 
@@ -847,6 +847,10 @@ new p5(function(p) {{
     if (p.mouseX >= 116 && p.mouseX <= 144 && p.mouseY >= barY + 4 && p.mouseY <= barY + 28) {{
       speed = Math.min(4.0, speed + 0.25);
     }}
+  }};
+
+  p.windowResized = function() {{
+    p.resizeCanvas(p.windowWidth || W, H);
   }};
 }});
 </script>

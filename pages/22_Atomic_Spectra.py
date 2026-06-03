@@ -16,7 +16,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from utils.physics import h_planck, c_light, e_charge
-from utils.style import COLOURS, make_fig, plotly_layout
+from utils.style import COLOURS, plotly_layout
 from utils.ui_components import (
     advanced_divider,
     metric_row,
@@ -572,7 +572,7 @@ def build_atomic_animation(
   <button id="btn-faster">🐇 Faster</button>
   <span id="speed-label">Speed: 1×</span>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
 <script>
 const TRANSITIONS = {transitions_json};
 const N_MAX = {n_max};
@@ -653,7 +653,7 @@ new p5(function(p) {{
 
   // ── Setup ──────────────────────────────────────────────────────────────────
   p.setup = function() {{
-    const cnv = p.createCanvas(W, H);
+    const cnv = p.createCanvas(p.windowWidth || W, H);
     cnv.parent(document.body);
     p.textFont('monospace');
 
@@ -954,6 +954,10 @@ new p5(function(p) {{
       H - 38,
     );
   }}
+
+  p.windowResized = function() {{
+    p.resizeCanvas(p.windowWidth || W, H);
+  }};
 }});
 </script>
 </body>

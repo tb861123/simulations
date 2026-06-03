@@ -677,7 +677,6 @@ def build_shm_animation(t_arr, x_arr, v_arr, sim_type, params):
       colour-coded (white, orange, cyan), beat frequency visible when lengths differ.
     - Damping visual: if zeta > 0, draws fading dashed amplitude-envelope curves.
     """
-    import json
     step = max(1, len(t_arr) // 300)
     ts = t_arr[::step].tolist()
     xs = x_arr[::step].tolist()

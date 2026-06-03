@@ -674,8 +674,6 @@ def build_projectile_animation(x_arr, y_arr, vx_arr, vy_arr, x_max, y_max, g=9.8
       - All original features retained: velocity vectors, landing flash,
         play/pause, speed controls, pre-computed trajectory overlay
     """
-    import json as _json
-
     # Subsample to 300 frames max
     n = len(x_arr)
     step = max(1, n // 300)
@@ -684,7 +682,7 @@ def build_projectile_animation(x_arr, y_arr, vx_arr, vy_arr, x_max, y_max, g=9.8
     vxs = vx_arr[::step].tolist()
     vys = vy_arr[::step].tolist()
 
-    data = _json.dumps({
+    data = json.dumps({
         "x": xs, "y": ys, "vx": vxs, "vy": vys,
         "xMax": float(x_max), "yMax": float(y_max),
         "n": len(xs),
