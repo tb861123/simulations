@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.physics import h_planck, c_light, e_charge
 from utils.style import COLOURS, make_fig, plotly_layout
 from utils.ui_components import (

@@ -13,6 +13,7 @@ Spec reference: Component 2, Topic 7 (Magnetic Fields), sections (a)–(n).
 import json
 
 import numpy as np
+from utils.exam_ui import show_exam_panel
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
@@ -1937,6 +1938,66 @@ def main() -> None:
 
     with tab4:
         render_dc_motor(mode)
+
+    # ── Exam practice questions ────────────────────────────────────────────────
+    # Use force-sim slider values (B, I, L) from render_magnetic_force context
+    # We re-read from session state keys set by the sliders
+    _B_exam = st.session_state.get("force_B", 0.5)
+    _I_exam = st.session_state.get("force_I", 5.0)
+    _L_exam = st.session_state.get("force_L", 1.0)
+    _F_exam = _B_exam * _I_exam * _L_exam  # at theta=90 (perpendicular)
+
+    _N_exam = st.session_state.get("ind_N", 100)
+    _coil_A_exam = st.session_state.get("ind_A", 0.01)
+    _B_ind_exam = st.session_state.get("ind_B", 0.5)
+    # Use a representative omega for the rotating coil question
+    _omega_exam = 2.0 * 3.14159  # 1 Hz = 2π rad/s
+
+    _exam_questions_12 = [
+        {
+            "q": (
+                f"A conductor of length L = {_L_exam:.2f} m carrying current "
+                f"I = {_I_exam:.1f} A is placed perpendicular to a magnetic field "
+                f"B = {_B_exam:.3f} T. Calculate the magnetic force on it."
+            ),
+            "marks": 2,
+            "answer": f"F = {_F_exam:.3f} N",
+            "working": [
+                f"F = BIL sin90° = BIL",
+                f"F = {_B_exam:.3f} × {_I_exam:.1f} × {_L_exam:.2f} = {_F_exam:.3f} N",
+            ],
+            "hint": "F = BIL sinθ; perpendicular means θ = 90°",
+        },
+        {
+            "q": (
+                "State Faraday's law of electromagnetic induction and explain what "
+                "factors affect the size of the induced EMF."
+            ),
+            "marks": 3,
+            "answer": (
+                "EMF = −NdΦ/dt. Factors: rate of change of flux (speed of magnet), "
+                "number of turns N, strength of B field."
+            ),
+            "working": [],
+            "hint": "Faraday's law relates EMF to the rate of change of flux linkage.",
+        },
+        {
+            "q": (
+                f"A coil of N = {_N_exam:.0f} turns and area A = {_coil_A_exam:.4f} m² "
+                f"rotates at ω = {_omega_exam:.2f} rad/s in a field B = {_B_ind_exam:.3f} T. "
+                "State the maximum (peak) EMF."
+            ),
+            "marks": 2,
+            "answer": f"EMF_max = NBAω = {_N_exam * _coil_A_exam * _B_ind_exam * _omega_exam:.3f} V",
+            "working": [
+                f"Peak EMF = NBAω (when coil plane is parallel to the field)",
+                f"EMF_max = {_N_exam:.0f} × {_B_ind_exam:.3f} × {_coil_A_exam:.4f} × {_omega_exam:.2f}",
+                f"EMF_max = {_N_exam * _coil_A_exam * _B_ind_exam * _omega_exam:.3f} V",
+            ],
+        },
+    ]
+
+    show_exam_panel(_exam_questions_12)
 
 
 # ── Run ───────────────────────────────────────────────────────────────────────

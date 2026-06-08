@@ -19,6 +19,7 @@ from plotly.subplots import make_subplots
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.style import COLOURS, plotly_layout, make_fig
 from utils.physics import k_B, N_A, R_gas
 from utils.ui_components import (
@@ -2236,6 +2237,53 @@ def main() -> None:
                 advanced_text=ADVANCED_TEXT,
                 mode=mode,
             )
+
+            # ── Exam practice questions ───────────────────────────────────────
+            _P_exam = float(P_start_pv)
+            _V_exam = float(V_start_pv)
+            _T_exam = float(T_start_pv)
+            _n_exam = float(n_pv)
+            _n_calc = _P_exam * _V_exam / (8.314 * _T_exam)
+            _exam_questions_17 = [
+                {
+                    "q": (
+                        f"An ideal gas has pressure P = {_P_exam:.3e} Pa, "
+                        f"volume V = {_V_exam:.4f} m³, and temperature T = {_T_exam:.1f} K. "
+                        f"How many moles of gas are present?"
+                    ),
+                    "marks": 3,
+                    "answer": f"n = {_n_calc:.4f} mol",
+                    "working": [
+                        "PV = nRT",
+                        f"n = PV/RT = {_P_exam:.2e}×{_V_exam:.4f}/({8.314}×{_T_exam:.1f}) = {_n_calc:.4f} mol",
+                    ],
+                },
+                {
+                    "q": (
+                        f"The gas is compressed isothermally until its volume halves. "
+                        f"Calculate the new pressure."
+                    ),
+                    "marks": 2,
+                    "answer": f"P₂ = {2 * _P_exam:.3e} Pa",
+                    "working": [
+                        "Isothermal: P₁V₁ = P₂V₂",
+                        f"P₂ = P₁V₁/V₂ = {_P_exam:.2e}×2 = {2 * _P_exam:.3e} Pa",
+                    ],
+                },
+                {
+                    "q": (
+                        f"The gas is heated at constant pressure from T = {_T_exam:.1f} K "
+                        f"to {_T_exam * 1.5:.1f} K. Calculate the new volume."
+                    ),
+                    "marks": 3,
+                    "answer": f"V₂ = {_V_exam * 1.5:.4f} m³",
+                    "working": [
+                        "Isobaric: V₁/T₁ = V₂/T₂",
+                        f"V₂ = V₁T₂/T₁ = {_V_exam:.4f}×{_T_exam * 1.5:.1f}/{_T_exam:.1f} = {_V_exam * 1.5:.4f} m³",
+                    ],
+                },
+            ]
+            show_exam_panel(_exam_questions_17)
 
         # ── Tab 3: Heat Engine ────────────────────────────────────────────────
         with plot_tab3:

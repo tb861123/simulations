@@ -14,6 +14,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.physics import h_planck, c_light, k_B
 from utils.style import COLOURS, plotly_layout
 from utils.ui_components import (
@@ -1065,6 +1066,51 @@ def main() -> None:
             ),
             mode=mode,
         )
+
+        # ── Exam practice questions ───────────────────────────────────────────
+        b = WIEN_B
+        lam_max_nm = b / T * 1e9
+        P = SIGMA * T ** 4
+        L_ratio = T ** 4 / 5778 ** 4
+
+        exam_questions = [
+            {
+                "q": (
+                    f"A star has surface temperature T = {T:.0f} K. "
+                    "Use Wien's law to calculate the peak wavelength of radiation emitted."
+                ),
+                "marks": 2,
+                "answer": f"λ_max = {lam_max_nm:.0f} nm",
+                "working": [
+                    f"λ_max = b/T = 2.898×10⁻³/{T:.0f} = {b/T:.3e} m = {lam_max_nm:.0f} nm",
+                ],
+            },
+            {
+                "q": (
+                    "Calculate the power radiated per unit surface area of this star "
+                    "using the Stefan-Boltzmann law."
+                ),
+                "marks": 3,
+                "answer": f"P = {P:.3e} W m⁻²",
+                "working": [
+                    f"P = σT⁴ = 5.67×10⁻⁸×{T:.0f}⁴ = {P:.3e} W m⁻²",
+                ],
+            },
+            {
+                "q": (
+                    "The classical Rayleigh-Jeans law predicts intensity rising without limit "
+                    "at short wavelengths. What is this problem called and how did Planck "
+                    "resolve it?"
+                ),
+                "marks": 2,
+                "answer": (
+                    "The 'ultraviolet catastrophe'. Planck resolved it by proposing that energy "
+                    "is quantised: E = nhf, so high-frequency modes have low probability of excitation."
+                ),
+                "working": [],
+            },
+        ]
+        show_exam_panel(exam_questions)
 
 
 main()
