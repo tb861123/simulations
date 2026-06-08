@@ -238,6 +238,36 @@ SIMS = [
         "component": "3",
         "topic": "Quantum",
     },
+    {
+        "num": "23",
+        "title": "Nuclear Fission",
+        "page": "pages/23_Nuclear_Fission.py",
+        "spec": "Component 3, Topic 6 (i)–(n)",
+        "desc": "Chain reactions, multiplication factor k, and the binding energy curve. Watch a fission chain reaction grow from subcritical to supercritical.",
+        "icon": "💥",
+        "component": "3",
+        "topic": "Nuclear",
+    },
+    {
+        "num": "24",
+        "title": "Stellar Evolution",
+        "page": "pages/24_Stellar_Evolution.py",
+        "spec": "Component 3, Topic 5 (a)–(j)",
+        "desc": "HR diagram with real stars, stellar life cycles from protostar to white dwarf or supernova. Stefan-Boltzmann and Wien's law applied to stars.",
+        "icon": "⭐",
+        "component": "3",
+        "topic": "Astrophysics",
+    },
+    {
+        "num": "25",
+        "title": "Particle Physics",
+        "page": "pages/25_Particle_Physics.py",
+        "spec": "Component 3, Topic 7 (a)–(l)",
+        "desc": "Quark model, conservation laws checker, and Feynman diagrams. Test whether particle reactions are allowed by the fundamental conservation laws.",
+        "icon": "⚛️",
+        "component": "3",
+        "topic": "Particles",
+    },
 ]
 
 # ── Hero animation ───────────────────────────────────────────────────────────
@@ -416,9 +446,9 @@ function windowResized() { resizeCanvas(windowWidth || 800, 320); }
 components.html(build_hero_animation(), height=340)
 
 st.title("⚛️ A Level Physics — Interactive Simulations")
-st.subheader("WJEC Eduqas Specification · 22 Simulations")
+st.subheader("WJEC Eduqas Specification · 25 Simulations")
 st.markdown(
-    "22 standalone simulations spanning the full A Level specification. "
+    "25 standalone simulations spanning the full A Level specification. "
     "Use the **sidebar** to navigate between simulations."
 )
 

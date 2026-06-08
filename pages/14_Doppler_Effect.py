@@ -19,6 +19,7 @@ from plotly.subplots import make_subplots
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.style import COLOURS, plotly_layout, make_fig
 from utils.physics import c_light
 from utils.ui_components import (
@@ -1864,6 +1865,72 @@ def main() -> None:
             advanced_text=ADVANCED_TEXT,
             mode=mode,
         )
+
+    # ── Exam practice questions ────────────────────────────────────────────────
+    # Read slider values from session state with sensible defaults
+    _fs_exam = float(st.session_state.get("force_B", None) or 700)
+    # f_s and v_s are only set if active_tab == "Sound Doppler"; fall back gracefully
+    _fs_exam = float(f_s) if "f_s" in dir() else 700.0  # noqa: F821
+    _vs_exam = float(v_s) if "v_s" in dir() else 30.0   # noqa: F821
+
+    # Safer: always compute from the preset/custom sliders read above in left_col
+    # We use the values available at function scope — they exist because the
+    # sliders are rendered unconditionally when active_tab == "Sound Doppler".
+    # For other tabs, use the custom defaults from PRESETS["Custom"].
+    try:
+        _fs_exam = float(f_s)   # type: ignore[name-defined]
+        _vs_exam = float(v_s)   # type: ignore[name-defined]
+    except NameError:
+        _fs_exam = 700.0
+        _vs_exam = 30.0
+
+    _v_sound_exam = V_SOUND  # 343.0 m/s
+    _f_obs_approach = _fs_exam * _v_sound_exam / (_v_sound_exam - _vs_exam) if _v_sound_exam > _vs_exam else float("inf")
+    _f_obs_recede = _fs_exam * _v_sound_exam / (_v_sound_exam + _vs_exam)
+    _mach_exam = _vs_exam / _v_sound_exam
+
+    _exam_questions_14 = [
+        {
+            "q": (
+                f"A source emitting {_fs_exam:.0f} Hz moves toward a stationary observer "
+                f"at {_vs_exam:.1f} m/s. Speed of sound = 343 m/s. "
+                "Calculate the observed frequency."
+            ),
+            "marks": 3,
+            "answer": f"f_obs = {_f_obs_approach:.1f} Hz" if _v_sound_exam > _vs_exam else "Source at/beyond Mach 1 — formula invalid.",
+            "working": [
+                f"f_obs = f_s × v / (v − v_s)",
+                f"f_obs = {_fs_exam:.0f} × 343 / (343 − {_vs_exam:.1f})",
+                f"f_obs = {_f_obs_approach:.1f} Hz" if _v_sound_exam > _vs_exam else "Mach 1 → f_obs → ∞",
+            ],
+            "hint": "Use f_obs = f_s × v / (v − v_s) for approaching source",
+        },
+        {
+            "q": (
+                f"The same source ({_fs_exam:.0f} Hz, {_vs_exam:.1f} m/s) moves away from "
+                "the observer. Calculate the observed frequency."
+            ),
+            "marks": 2,
+            "answer": f"f_obs = {_f_obs_recede:.1f} Hz",
+            "working": [
+                f"f_obs = f_s × v / (v + v_s)",
+                f"f_obs = {_fs_exam:.0f} × 343 / (343 + {_vs_exam:.1f})",
+                f"f_obs = {_f_obs_recede:.1f} Hz",
+            ],
+            "hint": "Use f_obs = f_s × v / (v + v_s) for receding source",
+        },
+        {
+            "q": f"Calculate the Mach number of the source moving at {_vs_exam:.1f} m/s.",
+            "marks": 2,
+            "answer": f"M = {_mach_exam:.3f}",
+            "working": [
+                f"M = v_s / v_sound = {_vs_exam:.1f} / 343 = {_mach_exam:.3f}",
+            ],
+            "hint": "Mach number M = v_source / v_sound",
+        },
+    ]
+
+    show_exam_panel(_exam_questions_14)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

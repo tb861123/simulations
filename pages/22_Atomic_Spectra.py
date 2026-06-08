@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.physics import h_planck, c_light, e_charge
 from utils.style import COLOURS, plotly_layout
 from utils.ui_components import (
@@ -1182,3 +1183,64 @@ with right_col:
             n_max=n_max,
         )
         st.plotly_chart(spec_fig, use_container_width=True)
+
+# ── Exam practice questions ───────────────────────────────────────────────────
+
+if rep is not None:
+    n_upper = rep["n_upper"]
+    n_lower = rep["n_lower"]
+    delta_E_ev = rep["delta_E_eV"]
+    delta_E_J = delta_E_ev * e_charge
+    lambda_nm = rep["lambda_nm"]
+    frequency_hz = delta_E_ev * e_charge / h_planck
+
+    # Series / region answer based on n_lower
+    _series_region_map = {
+        1: ("Lyman series", "ultraviolet (UV)"),
+        2: ("Balmer series", "visible light"),
+        3: ("Paschen series", "infrared (IR)"),
+    }
+    _series_name, _region = _series_region_map.get(
+        n_lower, (f"n={n_lower} series", "infrared (IR)")
+    )
+
+    exam_questions = [
+        {
+            "q": (
+                f"An electron in a hydrogen atom falls from energy level n={n_upper} "
+                f"to n={n_lower}. Calculate the energy of the photon emitted."
+            ),
+            "marks": 3,
+            "answer": f"ΔE = {delta_E_ev:.3f} eV = {delta_E_J:.3e} J",
+            "working": [
+                "E_n = -13.6/n² eV",
+                f"E_{n_upper} = -13.6/{n_upper}² = {-13.6/n_upper**2:.3f} eV",
+                f"E_{n_lower} = -13.6/{n_lower}² = {-13.6/n_lower**2:.3f} eV",
+                f"ΔE = {delta_E_ev:.3f} eV = {delta_E_J:.3e} J",
+            ],
+        },
+        {
+            "q": "Calculate the wavelength of the photon emitted in this transition.",
+            "marks": 2,
+            "answer": f"λ = {lambda_nm:.1f} nm",
+            "working": [
+                f"λ = hc/ΔE = 1240 eV·nm / {delta_E_ev:.3f} eV = {lambda_nm:.1f} nm",
+            ],
+        },
+        {
+            "q": (
+                "State which series this transition belongs to and in which region of "
+                "the electromagnetic spectrum it falls."
+            ),
+            "marks": 2,
+            "answer": (
+                f"This transition belongs to the {_series_name} "
+                f"and falls in the {_region}."
+            ),
+            "working": [
+                f"Lower level n={n_lower} → {_series_name}",
+                f"Region: {_region}",
+            ],
+        },
+    ]
+    show_exam_panel(exam_questions)

@@ -19,6 +19,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.style import COLOURS, plotly_layout
 from utils.ui_components import (
     advanced_divider,
@@ -1116,3 +1117,47 @@ with right_col:
             "travelling in opposite directions. Toggle **Show travelling waves** "
             "to see the component waves."
         )
+
+# ── Exam practice questions ───────────────────────────────────────────────────
+
+_wavelength_n = lambda_n
+_exam_questions_18 = [
+    {
+        "q": (
+            f"A string of length L = {L_val:.2f} m vibrates in its {n_val}th harmonic. "
+            f"Calculate the wavelength."
+        ),
+        "marks": 2,
+        "answer": f"λ = {_wavelength_n:.3f} m",
+        "working": [
+            f"λₙ = 2L/n = 2×{L_val:.2f}/{n_val} = {_wavelength_n:.3f} m",
+        ],
+    },
+    {
+        "q": (
+            f"The wave speed on the string is v = {v_wave:.1f} m/s. "
+            f"Calculate the frequency of the {n_val}th harmonic."
+        ),
+        "marks": 3,
+        "answer": f"f = {f_n:.2f} Hz",
+        "working": [
+            (
+                f"f = v/λ = {v_wave:.1f}/{_wavelength_n:.3f} = {f_n:.2f} Hz  "
+                f"OR  f = nv/(2L) = {n_val}×{v_wave:.1f}/(2×{L_val:.2f}) = {f_n:.2f} Hz"
+            ),
+        ],
+    },
+    {
+        "q": (
+            f"How many nodes and antinodes are present in the {n_val}th harmonic "
+            f"of a string fixed at both ends?"
+        ),
+        "marks": 2,
+        "answer": f"{n_val + 1} nodes, {n_val} antinodes",
+        "working": [
+            f"Nodes = n+1 = {n_val + 1}",
+            f"Antinodes = n = {n_val}",
+        ],
+    },
+]
+show_exam_panel(_exam_questions_18)

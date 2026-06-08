@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.style import COLOURS, plotly_layout
 from utils.ui_components import (
     advanced_divider,
@@ -1115,6 +1116,48 @@ def main() -> None:
                 use_container_width=True,
                 hide_index=True,
             )
+
+        # ── Exam practice questions ───────────────────────────────────────────
+        _E_GPa_exam = mat["E_GPa"]
+        _E_Pa_exam = _E_GPa_exam * 1e9
+        _sigma_exam = F_N / A_m2 if A_m2 > 0 else 0.0
+        _epsilon_exam = _sigma_exam / _E_Pa_exam
+        _delta_L_exam = _epsilon_exam * L0_m
+        _exam_questions_20 = [
+            {
+                "q": (
+                    f"A wire of cross-sectional area A = {A_m2:.2e} m² and length "
+                    f"L = {L0_m:.2f} m is made of {material_name}. "
+                    f"A force F = {F_N:.0f} N is applied. "
+                    f"Calculate the extension. (E = {_E_GPa_exam:.0f} GPa)"
+                ),
+                "marks": 3,
+                "answer": f"ΔL = {_delta_L_exam * 1000:.4f} mm",
+                "working": [
+                    f"σ = F/A = {F_N:.0f}/{A_m2:.2e} = {_sigma_exam:.3e} Pa",
+                    f"ε = σ/E = {_sigma_exam:.3e}/{_E_Pa_exam:.3e} = {_epsilon_exam:.4e}",
+                    f"ΔL = εL = {_epsilon_exam:.4e}×{L0_m:.2f} = {_delta_L_exam * 1000:.4f} mm",
+                ],
+            },
+            {
+                "q": f"Calculate the stress in the wire.",
+                "marks": 2,
+                "answer": f"σ = {_sigma_exam:.3e} Pa = {_sigma_exam / 1e6:.2f} MPa",
+                "working": [
+                    f"σ = F/A = {F_N:.0f}/{A_m2:.2e} = {_sigma_exam:.3e} Pa",
+                ],
+            },
+            {
+                "q": "Define Young's modulus and state its SI unit.",
+                "marks": 2,
+                "answer": (
+                    "Young's modulus E = stress/strain = (F/A)/(ΔL/L). "
+                    "SI unit: Pascal (Pa) or N m⁻²."
+                ),
+                "working": [],
+            },
+        ]
+        show_exam_panel(_exam_questions_20)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

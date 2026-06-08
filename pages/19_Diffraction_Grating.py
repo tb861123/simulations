@@ -20,6 +20,7 @@ from plotly.subplots import make_subplots
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.style import COLOURS, plotly_layout
 from utils.ui_components import (
     mode_toggle,
@@ -954,3 +955,55 @@ with right_col:
             "(e.g. n=2 red at same angle as n=3 violet). "
             "Spectrometers use order-sorting filters to avoid ambiguity."
         )
+
+# ── Exam practice questions ───────────────────────────────────────────────────
+
+_lam_m_exam = lam_nm * 1e-9
+_n_max_exam = int(d_m / _lam_m_exam)
+if _n_max_exam >= 1:
+    _theta1_exam = math.degrees(math.asin(_lam_m_exam / d_m))
+else:
+    _theta1_exam = 0.0
+_exam_questions_19 = [
+    {
+        "q": (
+            f"A diffraction grating has {lines_per_mm:.0f} lines per mm. "
+            f"Light of wavelength {lam_nm:.0f} nm is incident normally. "
+            f"Calculate the angle of the first-order maximum."
+        ),
+        "marks": 3,
+        "answer": f"θ₁ = {_theta1_exam:.2f}°",
+        "working": [
+            f"d = 1/{lines_per_mm:.0f}×10³ = {d_m:.3e} m",
+            (
+                f"d sinθ = nλ → sinθ = λ/d = {lam_nm:.0f}×10⁻⁹/{d_m:.3e} "
+                f"= {math.sin(math.radians(_theta1_exam)):.4f}"
+            ),
+            f"θ₁ = {_theta1_exam:.2f}°",
+        ],
+    },
+    {
+        "q": (
+            f"Calculate the maximum order of diffraction visible with this grating "
+            f"and wavelength."
+        ),
+        "marks": 2,
+        "answer": f"n_max = {_n_max_exam}",
+        "working": [
+            f"n_max = floor(d/λ) = floor({d_m:.3e}/{lam_nm:.0f}×10⁻⁹) = {_n_max_exam}",
+        ],
+    },
+    {
+        "q": (
+            "State one advantage of using a diffraction grating over a double slit "
+            "to measure wavelength."
+        ),
+        "marks": 2,
+        "answer": (
+            "Grating produces much sharper, brighter maxima (intensity ∝ N²), "
+            "allowing more precise angle measurement."
+        ),
+        "working": [],
+    },
+]
+show_exam_panel(_exam_questions_19)

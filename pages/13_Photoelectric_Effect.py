@@ -1868,6 +1868,77 @@ def main() -> None:
             mode=mode,
         )
 
+    # ── Exam practice questions ────────────────────────────────────────────────
+    _h = h_planck          # 6.626e-34 J·s
+    _c = c_light           # 3e8 m/s
+    _e = e_charge          # 1.602e-19 C
+    _wl_nm = float(wavelength_nm)
+    _phi_ev = float(phi_eV_1)
+    _freq_exam = _c / (_wl_nm * 1e-9)
+    _hf_ev = _freq_exam * _h / _e
+    _ke_ev = max(0.0, _hf_ev - _phi_ev)
+    _threshold_nm = _h * _c / (_phi_ev * _e) * 1e9
+    _f0_exam = _phi_ev * _e / _h
+    _above = _hf_ev >= _phi_ev
+
+    _q1_pe_answer = (
+        f"KE_max = {_ke_ev:.3f} eV"
+        if _above
+        else f"No emission — photon energy {_hf_ev:.3f} eV < work function {_phi_ev:.2f} eV."
+    )
+
+    _exam_questions_13 = [
+        {
+            "q": (
+                f"Light of wavelength {_wl_nm:.0f} nm is incident on a metal with "
+                f"work function φ = {_phi_ev:.2f} eV. Calculate the maximum kinetic "
+                "energy of emitted electrons (if any)."
+            ),
+            "marks": 3,
+            "answer": _q1_pe_answer,
+            "working": [
+                f"E = hf = hc/λ = ({_h:.3e} × {_c:.2e}) / ({_wl_nm:.0f}×10⁻⁹)",
+                f"E = {_hf_ev:.3f} eV",
+                f"KE_max = hf − φ = {_hf_ev:.3f} − {_phi_ev:.2f} = {_ke_ev:.3f} eV"
+                if _above else f"hf = {_hf_ev:.3f} eV < φ = {_phi_ev:.2f} eV → no emission",
+            ],
+            "hint": "E = hf = hc/λ, then KE_max = hf − φ (only if hf > φ)",
+        },
+        {
+            "q": f"Calculate the threshold frequency for this metal (φ = {_phi_ev:.2f} eV).",
+            "marks": 2,
+            "answer": f"f₀ = {_f0_exam:.3e} Hz",
+            "working": [
+                f"f₀ = φ/h = ({_phi_ev:.2f} × {_e:.3e}) / {_h:.3e}",
+                f"f₀ = {_f0_exam:.3e} Hz",
+            ],
+            "hint": "At threshold: hf₀ = φ → f₀ = φ/h",
+        },
+        {
+            "q": (
+                "Calculate the stopping potential needed to prevent the most energetic "
+                "emitted electrons from reaching the collector."
+            ),
+            "marks": 2,
+            "answer": (
+                f"V_s = {_ke_ev:.3f} V"
+                if _above
+                else "V_s = 0 V (no emission occurs at this wavelength)"
+            ),
+            "working": (
+                [
+                    f"eV_s = KE_max → V_s = KE_max / e",
+                    f"V_s = {_ke_ev:.3f} eV / e = {_ke_ev:.3f} V",
+                ]
+                if _above
+                else ["No electrons emitted → stopping potential not applicable."]
+            ),
+            "hint": "eV_s = KE_max, so V_s = KE_max (in eV converted to volts)",
+        },
+    ]
+
+    show_exam_panel(_exam_questions_13)
+
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 
