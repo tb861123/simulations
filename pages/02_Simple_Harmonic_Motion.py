@@ -19,6 +19,7 @@ from plotly.subplots import make_subplots
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.style import COLOURS, plotly_layout, make_fig
 from utils.physics import g, rk4_integrate
 from utils.ui_components import (
@@ -1750,3 +1751,45 @@ with right_col:
         advanced_text=ADVANCED_TEXT,
         mode=mode,
     )
+
+    # ── Exam practice questions ───────────────────────────────────────────────
+
+    _omega = float(omega0)
+    _A = float(x0)
+    _m = float(m_eff)
+    _T = 2 * np.pi / _omega
+    _v_max = _omega * _A
+    _a_max = _omega ** 2 * _A
+
+    _exam_questions = [
+        {
+            "q": (
+                f"An oscillating system has angular frequency ω = {_omega:.2f} rad/s "
+                f"and amplitude A = {_A:.3f} m. Calculate the period."
+            ),
+            "marks": 2,
+            "answer": f"{_T:.3f} s",
+            "working": [
+                f"T = 2π/ω = 2π/{_omega:.2f} = {_T:.3f} s",
+            ],
+        },
+        {
+            "q": "Calculate the maximum speed of the oscillating mass.",
+            "marks": 2,
+            "answer": f"{_v_max:.3f} m/s",
+            "working": [
+                f"v_max = Aω = {_A:.3f}×{_omega:.2f} = {_v_max:.3f} m/s",
+            ],
+        },
+        {
+            "q": "Calculate the maximum acceleration of the mass.",
+            "marks": 3,
+            "answer": f"{_a_max:.3f} m/s²",
+            "working": [
+                f"a_max = Aω² = {_A:.3f}×{_omega:.2f}² = {_a_max:.3f} m/s²",
+            ],
+            "hint": "a_max occurs at maximum displacement",
+        },
+    ]
+
+    show_exam_panel(_exam_questions)

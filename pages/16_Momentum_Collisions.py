@@ -18,6 +18,7 @@ from plotly.subplots import make_subplots
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.physics import g  # noqa: F401  (imported as per project convention)
 from utils.style import COLOURS, make_fig, plotly_layout
 from utils.ui_components import (
@@ -2148,6 +2149,52 @@ def main() -> None:
                 advanced_text=ADVANCED_TEXT,
                 mode=mode,
             )
+
+            # ── Exam practice questions ───────────────────────────────────────
+            _p_before = m1_1d * u1_1d + m2_1d * u2_1d
+            _p_after = m1_1d * v1_r + m2_1d * v2_r
+            _ke_before = 0.5 * m1_1d * u1_1d ** 2 + 0.5 * m2_1d * u2_1d ** 2
+            _ke_after = 0.5 * m1_1d * v1_r ** 2 + 0.5 * m2_1d * v2_r ** 2
+            _impulse = m1_1d * (v1_r - u1_1d)
+            _exam_questions_16 = [
+                {
+                    "q": (
+                        f"Object 1 (mass {m1_1d:.1f} kg, speed {u1_1d:.1f} m/s) collides with "
+                        f"Object 2 (mass {m2_1d:.1f} kg, speed {u2_1d:.1f} m/s). "
+                        f"Calculate the total momentum before the collision."
+                    ),
+                    "marks": 3,
+                    "answer": f"p = {_p_before:.2f} kg m/s",
+                    "working": [
+                        f"p = m₁u₁ + m₂u₂ = {m1_1d:.1f}×{u1_1d:.1f} + {m2_1d:.1f}×{u2_1d:.1f} = {_p_before:.2f} kg m/s",
+                    ],
+                },
+                {
+                    "q": (
+                        f"Calculate the total kinetic energy before and after the collision. "
+                        f"Is kinetic energy conserved?"
+                    ),
+                    "marks": 3,
+                    "answer": (
+                        f"KE_before = {_ke_before:.2f} J, KE_after = {_ke_after:.2f} J. "
+                        + ("Elastic (KE conserved)" if abs(_ke_before - _ke_after) < 0.01 * max(_ke_before, 1e-9)
+                           else "Inelastic (KE lost)")
+                    ),
+                    "working": [
+                        f"KE_before = ½m₁u₁² + ½m₂u₂² = {_ke_before:.2f} J",
+                        f"KE_after = ½m₁v₁² + ½m₂v₂² = {_ke_after:.2f} J",
+                    ],
+                },
+                {
+                    "q": f"Calculate the impulse experienced by Object 1 during the collision.",
+                    "marks": 2,
+                    "answer": f"J = {_impulse:.2f} N s",
+                    "working": [
+                        f"J = Δp = m₁(v₁-u₁) = {m1_1d:.1f}×({v1_r:.1f}-{u1_1d:.1f}) = {_impulse:.2f} N s",
+                    ],
+                },
+            ]
+            show_exam_panel(_exam_questions_16)
 
         # ── Tab 2: 2D Collisions ──────────────────────────────────────────────
         with plot_tab2:

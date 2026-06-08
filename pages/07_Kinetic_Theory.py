@@ -22,6 +22,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from scipy import stats as scipy_stats
 
+from utils.exam_ui import show_exam_panel
 from utils.style import COLOURS, plotly_layout, make_fig
 from utils.physics import k_B, R_gas, N_A, maxwell_boltzmann_pdf, rms_speed, mean_speed
 from utils.ui_components import (
@@ -1797,6 +1798,54 @@ def render_ideal_gas_law(mode: str) -> None:
             advanced_text=_PV_ADVANCED,
             mode=mode,
         )
+
+        # ── WJEC exam practice questions ──────────────────────────────────────
+        _gas_name_q  = gas_label_pv.split("(")[0].strip()
+        _M_gmol_q    = m_pv * N_A * 1e3            # g/mol
+        _m_mol_q     = m_pv                        # kg per molecule
+        _v_rms_q     = rms_speed(m_pv, T_pv)       # m/s
+        _mean_KE_q   = 1.5 * k_B * T_pv            # J
+        _exam_questions = [
+            {
+                "q": (
+                    f"Calculate the root-mean-square speed of {_gas_name_q} molecules "
+                    f"at T = {T_pv:.0f} K. (Molar mass = {_M_gmol_q:.1f} g/mol)"
+                ),
+                "marks": 3,
+                "answer": f"v_rms = {_v_rms_q:.0f} m/s",
+                "working": [
+                    f"m = {_M_gmol_q:.1f}×10⁻³ / {N_A:.2e} = {_m_mol_q:.3e} kg",
+                    f"v_rms = √(3kT/m) = √(3 × 1.381×10⁻²³ × {T_pv:.0f} / "
+                    f"{_m_mol_q:.3e}) = {_v_rms_q:.0f} m/s",
+                ],
+                "hint": "Use v_rms = √(3k_B T / m) where m is mass per molecule.",
+            },
+            {
+                "q": (
+                    f"Calculate the mean kinetic energy of one molecule at "
+                    f"T = {T_pv:.0f} K."
+                ),
+                "marks": 2,
+                "answer": f"KE = {_mean_KE_q:.3e} J",
+                "working": [
+                    f"KE = (3/2) k_B T = 1.5 × 1.381×10⁻²³ × {T_pv:.0f} "
+                    f"= {_mean_KE_q:.3e} J",
+                ],
+            },
+            {
+                "q": (
+                    "How does the rms speed change if the temperature is doubled? "
+                    "Justify your answer."
+                ),
+                "marks": 2,
+                "answer": "v_rms increases by a factor of √2 ≈ 1.41",
+                "working": [
+                    "v_rms ∝ √T",
+                    "v_new / v_old = √(2T / T) = √2 ≈ 1.41",
+                ],
+            },
+        ]
+        show_exam_panel(_exam_questions)
 
 
 # ── Streamlit page ────────────────────────────────────────────────────────────

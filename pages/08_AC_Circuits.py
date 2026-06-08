@@ -16,6 +16,7 @@ from plotly.subplots import make_subplots
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils import physics  # noqa: F401 — constants available if needed
 from utils.style import COLOURS, make_fig, plotly_layout
 from utils.ui_components import (
@@ -1866,6 +1867,82 @@ def main() -> None:
                         "The area enclosed by the ellipse is proportional to "
                         "the reactive (stored) power."
                     )
+
+        # ── WJEC exam practice questions ──────────────────────────────────────
+        _omega_q = _safe_omega(f)
+        _Z_q     = Z
+        _I0_q    = I0
+        _phi_deg_q = np.degrees(phi)
+        _q1_working = [f"ω = 2π × {f:.0f} = {_omega_q:.2f} rad/s"]
+        if circuit == "Pure R":
+            _q1_working.append(f"Z = R = {R:.2f} Ω  (no reactance)")
+        elif circuit == "RC Series":
+            _q1_working.append(f"X_C = 1/(ωC) = 1/({_omega_q:.2f} × {C_F:.3e}) = {X_C:.2f} Ω")
+            _q1_working.append(f"Z = √(R² + X_C²) = √({R:.0f}² + {X_C:.2f}²) = {_Z_q:.2f} Ω")
+        elif circuit == "RL Series":
+            _q1_working.append(f"X_L = ωL = {_omega_q:.2f} × {L_H:.4f} = {X_L:.2f} Ω")
+            _q1_working.append(f"Z = √(R² + X_L²) = √({R:.0f}² + {X_L:.2f}²) = {_Z_q:.2f} Ω")
+        else:
+            _q1_working.append(f"X_L = ωL = {X_L:.2f} Ω,  X_C = 1/(ωC) = {X_C:.2f} Ω")
+            _q1_working.append(f"Z = √(R² + (X_L − X_C)²) = √({R:.0f}² + ({X_L:.2f}−{X_C:.2f})²) = {_Z_q:.2f} Ω")
+
+        _q3_text = ""
+        _q3_answer = ""
+        _q3_working = []
+        if circuit == "RLC Series" and L_H > 0 and C_F > 0:
+            _f0_q = 1.0 / (2.0 * np.pi * np.sqrt(L_H * C_F))
+            _q3_text = (
+                f"Calculate the resonant frequency of this RLC circuit "
+                f"(L = {L_H * 1e3:.1f} mH, C = {C_F * 1e6:.1f} μF)."
+            )
+            _q3_answer = f"f₀ = {_f0_q:.2f} Hz"
+            _q3_working = [
+                f"f₀ = 1 / (2π√(LC))",
+                f"f₀ = 1 / (2π√({L_H:.4f} × {C_F:.3e})) = {_f0_q:.2f} Hz",
+                "At resonance X_L = X_C and impedance is minimum (= R).",
+            ]
+        else:
+            _q3_text = (
+                f"Calculate the phase angle φ between voltage and current "
+                f"for this {circuit} circuit at f = {f:.0f} Hz."
+            )
+            _q3_answer = f"φ = {_phi_deg_q:.1f}°"
+            _q3_working = [
+                f"φ = arctan(X_net / R) = arctan({X_net:.2f} / {R:.0f}) = {_phi_deg_q:.1f}°",
+                "Positive φ → current lags voltage (inductive); negative → leads (capacitive).",
+            ]
+
+        _ac_questions = [
+            {
+                "q": (
+                    f"A {circuit} circuit has R = {R:.0f} Ω at f = {f:.0f} Hz "
+                    f"and peak voltage V₀ = {V0:.0f} V. "
+                    f"Calculate the impedance Z."
+                ),
+                "marks": 3,
+                "answer": f"Z = {_Z_q:.2f} Ω",
+                "working": _q1_working,
+                "hint": "Use Z = √(R² + (X_L − X_C)²); set X_L or X_C to 0 if absent.",
+            },
+            {
+                "q": (
+                    f"Using Z = {_Z_q:.2f} Ω and V₀ = {V0:.0f} V, "
+                    f"calculate the peak current I₀."
+                ),
+                "marks": 2,
+                "answer": f"I₀ = {_I0_q:.4f} A",
+                "working": [
+                    f"I₀ = V₀ / Z = {V0:.0f} / {_Z_q:.2f} = {_I0_q:.4f} A",
+                ],
+            },
+            {
+                "q": _q3_text,
+                "marks": 2,
+                "answer": _q3_answer,
+                "working": _q3_working,
+            },
+        ]
+        show_exam_panel(_ac_questions)
 
         # ── Physics notes ──────────────────────────────────────────────────────
         physics_notes(

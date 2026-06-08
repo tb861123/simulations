@@ -19,6 +19,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.style import COLOURS, make_fig, plotly_layout
 from utils.ui_components import (
     advanced_divider,
@@ -2446,3 +2447,83 @@ with tab5:
         advanced_text=ADVANCED_TEXT,
         mode=mode,
     )
+
+# ── Exam practice questions ────────────────────────────────────────────────────
+
+import math as _math_exam
+
+_theta2_exam = (
+    _math_exam.degrees(_math_exam.asin(n1_val * _math_exam.sin(_math_exam.radians(theta1_val)) / n2_val))
+    if n1_val * _math_exam.sin(_math_exam.radians(theta1_val)) < n2_val
+    else None
+)
+_tir_exam = _theta2_exam is None
+_theta_c_exam = (
+    _math_exam.degrees(_math_exam.asin(n2_val / n1_val))
+    if n1_val > n2_val
+    else None
+)
+_speed_in_n2 = 3e8 / n2_val
+
+_q1_answer = (
+    f"θ₂ = {_theta2_exam:.2f}°" if not _tir_exam
+    else "Total Internal Reflection — no refracted ray."
+)
+_q1_working = (
+    [
+        f"Snell's Law: n₁ sinθ₁ = n₂ sinθ₂",
+        f"sinθ₂ = n₁/n₂ × sinθ₁ = {n1_val:.2f}/{n2_val:.2f} × sin({theta1_val:.1f}°)",
+        f"sinθ₂ = {n1_val * _math_exam.sin(_math_exam.radians(theta1_val)) / n2_val:.4f}",
+        f"θ₂ = {_theta2_exam:.2f}°",
+    ]
+    if not _tir_exam
+    else [
+        f"sinθ₂ = n₁/n₂ × sinθ₁ = {n1_val:.2f}/{n2_val:.2f} × sin({theta1_val:.1f}°) = "
+        f"{n1_val * _math_exam.sin(_math_exam.radians(theta1_val)) / n2_val:.4f} > 1 → TIR",
+    ]
+)
+
+_q2_answer = (
+    f"θ_c = {_theta_c_exam:.2f}°"
+    if _theta_c_exam is not None
+    else "No critical angle — light travels from less dense to more dense medium."
+)
+_q2_working = (
+    [
+        f"sin θ_c = n₂/n₁ = {n2_val:.2f}/{n1_val:.2f} = {n2_val / n1_val:.4f}",
+        f"θ_c = {_theta_c_exam:.2f}°",
+    ]
+    if _theta_c_exam is not None
+    else []
+)
+
+_exam_questions_11 = [
+    {
+        "q": (
+            f"Light travels from a medium with n₁ = {n1_val:.2f} to n₂ = {n2_val:.2f} "
+            f"at an angle of incidence of {theta1_val:.1f}°. Calculate the angle of refraction."
+        ),
+        "marks": 3,
+        "answer": _q1_answer,
+        "working": _q1_working,
+        "hint": "Apply Snell's law: n₁ sinθ₁ = n₂ sinθ₂",
+    },
+    {
+        "q": f"Calculate the critical angle for the boundary between n₁ = {n1_val:.2f} and n₂ = {n2_val:.2f}.",
+        "marks": 2,
+        "answer": _q2_answer,
+        "working": _q2_working,
+        "hint": "sin θ_c = n₂/n₁ (only when n₁ > n₂)",
+    },
+    {
+        "q": f"Calculate the speed of light in the medium with refractive index n₂ = {n2_val:.2f}.",
+        "marks": 2,
+        "answer": f"{_speed_in_n2:.3e} m/s",
+        "working": [
+            f"v = c/n = 3×10⁸/{n2_val:.2f} = {_speed_in_n2:.3e} m/s",
+        ],
+        "hint": "n = c/v → v = c/n",
+    },
+]
+
+show_exam_panel(_exam_questions_11)

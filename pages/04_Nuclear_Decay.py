@@ -16,6 +16,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from scipy import stats
 
+from utils.exam_ui import show_exam_panel
 from utils.style import COLOURS, plotly_layout, make_fig
 from utils.ui_components import (
     mode_toggle,
@@ -1296,3 +1297,44 @@ physics_notes(
     ),
     mode=mode,
 )
+
+# ── Exam practice questions ───────────────────────────────────────────────────
+
+_N0_val = float(N0)
+_lam_val = float(lam)
+_t_half_val = float(t_half_theory)
+_A0_val = _lam_val * _N0_val
+_t_quarter = 2 * _t_half_val
+
+_decay_questions = [
+    {
+        "q": (
+            f"A radioactive sample initially contains {_N0_val:.0e} nuclei with "
+            f"decay constant λ = {_lam_val:.3e} s⁻¹. Calculate the initial activity."
+        ),
+        "marks": 2,
+        "answer": f"A₀ = {_A0_val:.3e} Bq",
+        "working": [
+            f"A₀ = λN₀ = {_lam_val:.3e}×{_N0_val:.0e} = {_A0_val:.3e} Bq",
+        ],
+    },
+    {
+        "q": "Calculate the half-life of this isotope.",
+        "marks": 2,
+        "answer": f"t₁/₂ = {_t_half_val:.3f} s",
+        "working": [
+            f"t₁/₂ = ln2/λ = 0.693/{_lam_val:.3e} = {_t_half_val:.3f} s",
+        ],
+    },
+    {
+        "q": "After how many seconds will only one quarter of the original nuclei remain?",
+        "marks": 3,
+        "answer": f"t = {_t_quarter:.3f} s (2 half-lives)",
+        "working": [
+            "N = N₀/4 requires 2 half-lives",
+            f"t = 2 × t₁/₂ = 2 × {_t_half_val:.3f} = {_t_quarter:.3f} s",
+        ],
+    },
+]
+
+show_exam_panel(_decay_questions)

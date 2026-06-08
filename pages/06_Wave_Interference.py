@@ -20,6 +20,7 @@ from plotly.subplots import make_subplots
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.style import COLOURS, plotly_layout, make_fig
 from utils.ui_components import (
     mode_toggle,
@@ -2213,3 +2214,53 @@ with right_col:
         advanced_text=ADVANCED_TEXT,
         mode=mode,
     )
+
+    # ── WJEC exam practice questions ──────────────────────────────────────────
+    if sim_type == "Young's Double Slit":
+        _lam_nm_q = float(lam_nm)
+        _a_mm_q   = float(a_mm)
+        _D_m_q    = float(D_m)
+        _lam_m_q  = _lam_nm_q * 1e-9
+        _a_m_q    = _a_mm_q * 1e-3
+        _w_q      = _lam_m_q * _D_m_q / _a_m_q
+        _questions = [
+            {
+                "q": (
+                    f"In a double-slit experiment, the slit separation is {_a_mm_q:.2f} mm "
+                    f"and the screen is {_D_m_q:.2f} m away. The wavelength is "
+                    f"{_lam_nm_q:.0f} nm. Calculate the fringe spacing."
+                ),
+                "marks": 3,
+                "answer": f"w = {_w_q * 1000:.2f} mm",
+                "working": [
+                    f"w = λD/d = {_lam_nm_q:.0f}×10⁻⁹ × {_D_m_q:.2f} / "
+                    f"({_a_mm_q:.2f}×10⁻³) = {_w_q * 1000:.2f} mm",
+                ],
+                "hint": "Use w = λD/d with all values in SI units (metres).",
+            },
+            {
+                "q": (
+                    f"State the path difference for the second-order bright fringe "
+                    f"when λ = {_lam_nm_q:.0f} nm."
+                ),
+                "marks": 2,
+                "answer": f"ΔL = 2λ = {2 * _lam_nm_q:.0f} nm",
+                "working": [
+                    f"Constructive interference: ΔL = nλ, n = 2",
+                    f"ΔL = 2 × {_lam_nm_q:.0f} = {2 * _lam_nm_q:.0f} nm",
+                ],
+            },
+            {
+                "q": (
+                    f"What is the path difference at the first dark fringe from "
+                    f"the centre when λ = {_lam_nm_q:.0f} nm?"
+                ),
+                "marks": 2,
+                "answer": f"ΔL = λ/2 = {_lam_nm_q / 2:.0f} nm",
+                "working": [
+                    "Destructive interference: ΔL = (n + ½)λ, n = 0",
+                    f"ΔL = λ/2 = {_lam_nm_q / 2:.0f} nm",
+                ],
+            },
+        ]
+        show_exam_panel(_questions)

@@ -18,6 +18,7 @@ import streamlit.components.v1 as components
 from plotly.subplots import make_subplots
 
 from utils import physics  # noqa: F401 — constants available if needed
+from utils.exam_ui import show_exam_panel
 from utils.style import COLOURS, make_fig, plotly_layout
 from utils.ui_components import (
     advanced_divider,
@@ -1520,6 +1521,65 @@ def main() -> None:
             ),
             mode=mode,
         )
+
+        # ── Exam practice questions ───────────────────────────────────────────
+
+        _C_val = float(C_F)
+        _R_val = float(R_ohm)
+        _V0_val = float(V0)
+        _tau_val = float(tau)
+        _Q_max = _C_val * _V0_val
+        _E_stored = 0.5 * _C_val * _V0_val ** 2
+
+        # Format R and C for display
+        if _R_val >= 1e6:
+            _R_display = f"{_R_val/1e6:g} MΩ"
+        elif _R_val >= 1e3:
+            _R_display = f"{_R_val/1e3:g} kΩ"
+        else:
+            _R_display = f"{_R_val:.0f} Ω"
+
+        if _C_val >= 1e-3:
+            _C_display = f"{_C_val*1e3:g} mF"
+        elif _C_val >= 1e-6:
+            _C_display = f"{_C_val*1e6:g} μF"
+        elif _C_val >= 1e-9:
+            _C_display = f"{_C_val*1e9:g} nF"
+        else:
+            _C_display = f"{_C_val:.2e} F"
+
+        _rc_questions = [
+            {
+                "q": (
+                    f"A capacitor of capacitance {_C_display} is connected in series "
+                    f"with a {_R_display} resistor and a {_V0_val:.1f} V supply. "
+                    "Calculate the time constant."
+                ),
+                "marks": 2,
+                "answer": f"τ = {_tau_val:.4f} s",
+                "working": [
+                    f"τ = RC = {_R_val:.0f}×{_C_val:.2e} = {_tau_val:.4f} s",
+                ],
+            },
+            {
+                "q": "Calculate the maximum charge stored on the capacitor.",
+                "marks": 2,
+                "answer": f"Q = {_Q_max:.4f} C",
+                "working": [
+                    f"Q = CV₀ = {_C_val:.2e}×{_V0_val:.1f} = {_Q_max:.4f} C",
+                ],
+            },
+            {
+                "q": "Calculate the energy stored in the capacitor when fully charged.",
+                "marks": 3,
+                "answer": f"E = {_E_stored:.4f} J",
+                "working": [
+                    f"E = ½CV₀² = ½×{_C_val:.2e}×{_V0_val:.1f}² = {_E_stored:.4f} J",
+                ],
+            },
+        ]
+
+        show_exam_panel(_rc_questions)
 
 
 # ── Run ───────────────────────────────────────────────────────────────────────

@@ -23,6 +23,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.physics import G, rk4_integrate
 from utils.style import COLOURS, make_fig, plotly_layout
 from utils.ui_components import (
@@ -2064,6 +2065,53 @@ def render_orbital_mechanics_tab(mode: str) -> None:
                 "observations show $v \\approx$ const out to very large radii, implying "
                 "a diffuse dark-matter halo with $M(r) \\propto r$."
             )
+
+        # ── WJEC exam practice questions ──────────────────────────────────────
+
+        _v_orb_q  = v_circular(M, r0)           # m/s
+        _T_q      = 2.0 * np.pi * r0 / _v_orb_q # s
+        _F_grav_q = G * M * EARTH_MASS / r0 ** 2  # N (using Earth-mass test body)
+        _v_esc_q  = np.sqrt(2.0) * _v_orb_q     # m/s
+        _orbital_questions = [
+            {
+                "q": (
+                    f"A satellite orbits at radius r = {r0:.3e} m from a body of "
+                    f"mass M = {M:.3e} kg. Calculate the orbital speed."
+                ),
+                "marks": 3,
+                "answer": f"v = {_v_orb_q:.0f} m/s",
+                "working": [
+                    "v = √(GM/r)",
+                    f"v = √(6.67×10⁻¹¹ × {M:.2e} / {r0:.2e}) = {_v_orb_q:.0f} m/s",
+                ],
+                "hint": "Set gravitational force equal to centripetal force: GMm/r² = mv²/r.",
+            },
+            {
+                "q": (
+                    f"Calculate the orbital period for a circular orbit at "
+                    f"r = {r0:.3e} m around M = {M:.3e} kg."
+                ),
+                "marks": 2,
+                "answer": f"T = {_T_q:.3e} s",
+                "working": [
+                    f"T = 2πr / v = 2π × {r0:.2e} / {_v_orb_q:.0f} = {_T_q:.3e} s",
+                ],
+            },
+            {
+                "q": (
+                    f"Calculate the escape velocity from radius r = {r0:.3e} m "
+                    f"around M = {M:.3e} kg."
+                ),
+                "marks": 2,
+                "answer": f"v_esc = {_v_esc_q:.0f} m/s",
+                "working": [
+                    "v_esc = √(2GM/r) = √2 × v_circular",
+                    f"v_esc = √2 × {_v_orb_q:.0f} = {_v_esc_q:.0f} m/s",
+                ],
+                "hint": "Set total energy to zero: ½mv² − GMm/r = 0.",
+            },
+        ]
+        show_exam_panel(_orbital_questions)
 
         # ── Physics notes ─────────────────────────────────────────────────────
 

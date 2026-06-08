@@ -17,6 +17,7 @@ from scipy.integrate import solve_ivp
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.style import COLOURS, plotly_layout, make_fig
 from utils.physics import solve_decay_chain          # used for non-stiff chains
 from utils.ui_components import (
@@ -1921,6 +1922,50 @@ def main() -> None:
                 st.markdown(
                     "_Enable 'Show activity' in the sidebar to see A(t) = λN(t) plots._"
                 )
+
+        # ── WJEC exam practice questions ──────────────────────────────────────
+        _decay_questions = [
+            {
+                "q": (
+                    "Complete the nuclear equation for alpha decay of U-238: "
+                    "²³⁸₉₂U → ? + ⁴₂He"
+                ),
+                "marks": 2,
+                "answer": "²³⁴₉₀Th  (Thorium-234)",
+                "working": [
+                    "Alpha decay: A decreases by 4, Z decreases by 2.",
+                    "238 − 4 = 234,  92 − 2 = 90  →  Thorium-234  (²³⁴₉₀Th)",
+                ],
+                "hint": "An alpha particle is ⁴₂He; conserve both mass number A and atomic number Z.",
+            },
+            {
+                "q": (
+                    "In beta-minus decay, a neutron transforms into a proton. "
+                    "Write the particle equation for this change at the quark level."
+                ),
+                "marks": 2,
+                "answer": "d → u + e⁻ + ν̄ₑ  (a down quark becomes an up quark)",
+                "working": [
+                    "β⁻ decay is mediated by the W⁻ boson.",
+                    "d quark → u quark + W⁻  →  u quark + e⁻ + ν̄ₑ",
+                ],
+            },
+            {
+                "q": (
+                    "Th-234 undergoes beta-minus decay. Write the full nuclear equation "
+                    "and identify the daughter nucleus."
+                ),
+                "marks": 3,
+                "answer": "²³⁴₉₀Th → ²³⁴₉₁Pa + ⁰₋₁e + ν̄ₑ",
+                "working": [
+                    "β⁻ decay: Z increases by 1, A is unchanged.",
+                    "90 + 1 = 91  →  Protactinium (Pa)",
+                    "Full equation: ²³⁴₉₀Th → ²³⁴₉₁Pa + ⁰₋₁e + ν̄ₑ",
+                ],
+                "hint": "In β⁻ decay a neutron becomes a proton, so Z goes up by 1 and A stays the same.",
+            },
+        ]
+        show_exam_panel(_decay_questions)
 
         # ── Physics notes ─────────────────────────────────────────────────────
         physics_notes(

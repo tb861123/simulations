@@ -17,6 +17,7 @@ import streamlit.components.v1 as components
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from utils.exam_ui import show_exam_panel
 from utils.style import COLOURS, plotly_layout, make_fig
 from utils.physics import k_e, G, point_charge_field, point_mass_field, rk4_integrate
 from utils.ui_components import (
@@ -1948,6 +1949,98 @@ def main() -> None:
             advanced_text=ADVANCED_TEXT,
             mode=mode,
         )
+
+        # ── Exam practice questions ───────────────────────────────────────────
+
+        # Use probe distance from origin as the reference distance r
+        _r_probe = float(np.hypot(probe_x, probe_y))
+        if _r_probe < 0.1:
+            _r_probe = 0.1   # avoid singularity
+
+        if field_type == "Electric Field" and charges_list:
+            _Q_first = float(charges_list[0][0])       # C (may be negative)
+            _Q_abs = abs(_Q_first)
+            _E_field = float(k_e) * _Q_abs / _r_probe ** 2
+            _F_test = _E_field * 2e-6                  # force on +2 μC test charge
+            _q_test_label = "+2μC"
+
+            _field_questions = [
+                {
+                    "q": (
+                        f"A point charge Q = {_Q_first:.2e} C creates an electric field. "
+                        f"Calculate the field strength at a distance r = {_r_probe:.2f} m."
+                    ),
+                    "marks": 2,
+                    "answer": f"E = {_E_field:.3e} N/C",
+                    "working": [
+                        f"E = kQ/r² = 8.99×10⁹×{_Q_abs:.2e}/{_r_probe:.2f}² = {_E_field:.3e} N/C",
+                    ],
+                },
+                {
+                    "q": (
+                        "State the direction of the electric field around "
+                        "(a) a positive charge and (b) a negative charge."
+                    ),
+                    "marks": 2,
+                    "answer": "(a) Radially outward. (b) Radially inward.",
+                    "working": [],
+                },
+                {
+                    "q": (
+                        f"A {_q_test_label} test charge is placed at r = {_r_probe:.2f} m "
+                        "from the source charge. Calculate the electrostatic force on it."
+                    ),
+                    "marks": 3,
+                    "answer": f"F = {_F_test:.3e} N",
+                    "working": [
+                        f"F = qE = 2×10⁻⁶ × {_E_field:.3e} = {_F_test:.3e} N",
+                        "Direction: away from source (like charges repel) or toward (unlike charges attract)",
+                    ],
+                    "hint": "Use F = qE, where E is the field calculated in Q1",
+                },
+            ]
+
+        else:
+            # Gravitational field questions
+            _M_first = float(masses_list[0][0]) if masses_list else 1e12
+            _g_field = float(G) * _M_first / _r_probe ** 2
+            _m_test_grav = 1.0   # 1 kg test mass
+            _F_grav = _m_test_grav * _g_field
+
+            _field_questions = [
+                {
+                    "q": (
+                        f"A point mass M = {_M_first:.2e} kg creates a gravitational field. "
+                        f"Calculate the field strength at a distance r = {_r_probe:.2f} m."
+                    ),
+                    "marks": 2,
+                    "answer": f"g = {_g_field:.3e} N/kg",
+                    "working": [
+                        f"g = GM/r² = 6.67×10⁻¹¹×{_M_first:.2e}/{_r_probe:.2f}² = {_g_field:.3e} N/kg",
+                    ],
+                },
+                {
+                    "q": "State the direction of the gravitational field around a point mass.",
+                    "marks": 2,
+                    "answer": "Radially inward (always attractive — toward the mass).",
+                    "working": [],
+                },
+                {
+                    "q": (
+                        f"A 1 kg test mass is placed at r = {_r_probe:.2f} m from the source mass. "
+                        "Calculate the gravitational force on it."
+                    ),
+                    "marks": 3,
+                    "answer": f"F = {_F_grav:.3e} N",
+                    "working": [
+                        f"F = mg = 1.0 × {_g_field:.3e} = {_F_grav:.3e} N",
+                        "Direction: toward the source mass (gravitational force is always attractive)",
+                    ],
+                    "hint": "Use F = mg where g is the field strength calculated in Q1",
+                },
+            ]
+
+        show_exam_panel(_field_questions)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

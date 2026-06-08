@@ -13,6 +13,7 @@ import numpy as np
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.style import COLOURS, make_fig
 from utils.physics import g, rk4_integrate
 from utils.ui_components import (
@@ -1483,6 +1484,49 @@ def main() -> None:
             advanced_text=ADVANCED_TEXT,
             mode=mode,
         )
+
+        # ── Exam practice questions ───────────────────────────────────────────
+
+        _angle = float(theta_deg)
+        _v0 = float(v0)
+        _theta_rad = np.radians(_angle)
+        _vy = _v0 * np.sin(_theta_rad)
+        _max_height = _v0 ** 2 * np.sin(_theta_rad) ** 2 / (2 * float(g))
+        _range_val = _v0 ** 2 * np.sin(2 * _theta_rad) / float(g)
+        _t_flight = 2 * _v0 * np.sin(_theta_rad) / float(g)
+
+        questions = [
+            {
+                "q": (
+                    f"A projectile is launched at {_angle:.0f}° with initial speed "
+                    f"{_v0:.1f} m/s. Calculate the maximum height reached."
+                ),
+                "marks": 3,
+                "answer": f"{_max_height:.2f} m",
+                "working": [
+                    f"v_y = v sinθ = {_v0:.1f}×sin({_angle:.0f}°) = {_vy:.2f} m/s",
+                    f"H = v_y²/(2g) = {_vy:.2f}²/(2×9.81) = {_max_height:.2f} m",
+                ],
+            },
+            {
+                "q": "Calculate the horizontal range of the projectile.",
+                "marks": 2,
+                "answer": f"{_range_val:.2f} m",
+                "working": [
+                    f"R = v²sin(2θ)/g = {_v0:.1f}²×sin({2*_angle:.0f}°)/9.81 = {_range_val:.2f} m",
+                ],
+            },
+            {
+                "q": "Calculate the time of flight.",
+                "marks": 2,
+                "answer": f"{_t_flight:.2f} s",
+                "working": [
+                    f"t = 2v sinθ/g = 2×{_v0:.1f}×sin({_angle:.0f}°)/9.81 = {_t_flight:.2f} s",
+                ],
+            },
+        ]
+
+        show_exam_panel(questions)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
