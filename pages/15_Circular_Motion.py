@@ -19,6 +19,7 @@ from plotly.subplots import make_subplots
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.exam_ui import show_exam_panel
 from utils.physics import g, G
 from utils.style import COLOURS, make_fig, plotly_layout
 from utils.ui_components import (
@@ -2862,6 +2863,64 @@ def main() -> None:
                 advanced_text=CP_ADVANCED_TEXT,
                 mode=mode,
             )
+
+    # ── Exam practice questions ────────────────────────────────────────────────
+    import math as _math_exam_15
+
+    _r_exam = st.session_state.get("cm_r", 5.0)
+    _omega_exam = st.session_state.get("cm_omega", 2.0)
+    _m_exam = st.session_state.get("cm_m", 1.0)
+    _v_exam = _omega_exam * _r_exam
+    _F_c_exam = _m_exam * _omega_exam ** 2 * _r_exam
+    _T_exam = 2.0 * _math_exam_15.pi / _omega_exam
+    _bank_r_exam = st.session_state.get("bank_r", 200.0)
+    _bank_v_exam = st.session_state.get("bank_v", 30.0)
+    _bank_angle_exam = _math_exam_15.degrees(_math_exam_15.atan(_bank_v_exam ** 2 / (_bank_r_exam * 9.81)))
+
+    _exam_questions_15 = [
+        {
+            "q": (
+                f"An object of mass {_m_exam:.1f} kg moves in a horizontal circle of radius "
+                f"{_r_exam:.1f} m at angular velocity ω = {_omega_exam:.1f} rad/s. "
+                f"Calculate the centripetal force acting on the object."
+            ),
+            "marks": 3,
+            "answer": f"{_F_c_exam:.2f} N",
+            "working": [
+                f"Linear speed: v = ωr = {_omega_exam:.1f} × {_r_exam:.1f} = {_v_exam:.2f} m/s",
+                f"Centripetal acceleration: a = ω²r = {_omega_exam:.1f}² × {_r_exam:.1f} = {_omega_exam**2 * _r_exam:.2f} m/s²",
+                f"Centripetal force: F = ma = {_m_exam:.1f} × {_omega_exam**2 * _r_exam:.2f} = {_F_c_exam:.2f} N",
+            ],
+            "hint": "Use F = mω²r or F = mv²/r",
+        },
+        {
+            "q": (
+                f"The same object rotates at ω = {_omega_exam:.1f} rad/s. "
+                f"Calculate the period of rotation."
+            ),
+            "marks": 2,
+            "answer": f"{_T_exam:.3f} s",
+            "working": [
+                f"Period: T = 2π / ω = 2π / {_omega_exam:.1f} = {_T_exam:.3f} s",
+            ],
+            "hint": "T = 2π / ω",
+        },
+        {
+            "q": (
+                f"A car travels at {_bank_v_exam:.0f} m/s around a bend of radius {_bank_r_exam:.0f} m. "
+                f"Calculate the ideal banking angle so no friction is needed."
+            ),
+            "marks": 3,
+            "answer": f"{_bank_angle_exam:.1f}°",
+            "working": [
+                f"For ideal banking: tan θ = v² / (rg)",
+                f"tan θ = {_bank_v_exam:.0f}² / ({_bank_r_exam:.0f} × 9.81) = {_bank_v_exam**2:.0f} / {_bank_r_exam * 9.81:.1f} = {_bank_v_exam**2 / (_bank_r_exam * 9.81):.4f}",
+                f"θ = arctan({_bank_v_exam**2 / (_bank_r_exam * 9.81):.4f}) = {_bank_angle_exam:.1f}°",
+            ],
+            "hint": "At the ideal banking angle: tan θ = v² / rg",
+        },
+    ]
+    show_exam_panel(_exam_questions_15)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
