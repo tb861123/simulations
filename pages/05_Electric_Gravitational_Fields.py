@@ -655,7 +655,13 @@ def build_comparison_figure(
     )
 
     Ve_plot = np.clip(Ve, -5e10, 5e10)
-    Vg_plot = np.clip(Vg, -1e-7, 0.0)
+    # Clip the gravitational potential dynamically: a fixed −1e-7 floor would
+    # saturate the whole panel because Vg ~ −GM/r is many orders larger than
+    # that for the masses used here. Use the actual data range instead.
+    _vg_floor = float(np.nanmin(Vg)) * 1.05
+    if not np.isfinite(_vg_floor) or _vg_floor >= 0.0:
+        _vg_floor = -1e-7
+    Vg_plot = np.clip(Vg, _vg_floor, 0.0)
 
     # ── Electric contour ─────────────────────────────────────────────────────
 
