@@ -91,6 +91,24 @@ PARTICLES = {
 
 # Friendly display names for the dropdown
 PARTICLE_DISPLAY = {k: f"{v['symbol']}  ({k.replace('_', ' ')})" for k, v in PARTICLES.items()}
+# Reverse map (display string → key) so a selectbox value can always be
+# resolved back to a canonical particle key, even if it arrives as a label.
+DISPLAY_TO_KEY = {v: k for k, v in PARTICLE_DISPLAY.items()}
+
+
+def particle_label(key: str) -> str:
+    """Safely format a particle key for display (tolerates already-formatted values)."""
+    if key in PARTICLE_DISPLAY:
+        return PARTICLE_DISPLAY[key]
+    # Value may already be a display string (e.g. when restored from widget state).
+    return str(key)
+
+
+def resolve_particle_key(value: str) -> str:
+    """Resolve a selectbox value to a canonical particle key."""
+    if value in PARTICLES:
+        return value
+    return DISPLAY_TO_KEY.get(value, value)
 
 # ── Example reactions ─────────────────────────────────────────────────────────
 
@@ -1048,11 +1066,11 @@ with tab_checker:
             choice = st.selectbox(
                 f"Reactant {i + 1}",
                 options=list(PARTICLES.keys()),
-                format_func=lambda k: PARTICLE_DISPLAY[k],
+                format_func=particle_label,
                 index=default_idx,
                 key=f"react_{i}",
             )
-            reactant_keys.append(choice)
+            reactant_keys.append(resolve_particle_key(choice))
 
     with arrow_col:
         st.markdown("<div style='padding-top:3em;text-align:center;font-size:2em'>→</div>",
@@ -1071,11 +1089,11 @@ with tab_checker:
             choice = st.selectbox(
                 f"Product {i + 1}",
                 options=list(PARTICLES.keys()),
-                format_func=lambda k: PARTICLE_DISPLAY[k],
+                format_func=particle_label,
                 index=default_idx,
                 key=f"prod_{i}",
             )
-            product_keys.append(choice)
+            product_keys.append(resolve_particle_key(choice))
 
     # ── Compute totals ────────────────────────────────────────────────────────
 
