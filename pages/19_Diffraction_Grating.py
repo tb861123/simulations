@@ -960,10 +960,30 @@ with right_col:
 
 _lam_m_exam = lam_nm * 1e-9
 _n_max_exam = int(d_m / _lam_m_exam)
-if _n_max_exam >= 1:
-    _theta1_exam = math.degrees(math.asin(_lam_m_exam / d_m))
+_first_order_exists = _lam_m_exam <= d_m  # sinθ = λ/d ≤ 1 required
+if _first_order_exists:
+    _sin1_exam = _lam_m_exam / d_m
+    _theta1_exam = math.degrees(math.asin(_sin1_exam))
+    _q1_answer = f"θ₁ = {_theta1_exam:.2f}°"
+    _q1_working = [
+        f"d = 1/{lines_per_mm:.0f}×10³ = {d_m:.3e} m",
+        (
+            f"d sinθ = nλ → sinθ = λ/d = {lam_nm:.0f}×10⁻⁹/{d_m:.3e} "
+            f"= {_sin1_exam:.4f}"
+        ),
+        f"θ₁ = {_theta1_exam:.2f}°",
+    ]
 else:
-    _theta1_exam = 0.0
+    _theta1_exam = float("nan")
+    _q1_answer = "No first-order maximum — λ exceeds the grating spacing d."
+    _q1_working = [
+        f"d = 1/{lines_per_mm:.0f}×10³ = {d_m:.3e} m",
+        (
+            f"d sinθ = nλ → sinθ = λ/d = {lam_nm:.0f}×10⁻⁹/{d_m:.3e} "
+            f"= {_lam_m_exam / d_m:.4f} > 1 (impossible)"
+        ),
+        "Since sinθ would exceed 1, the first-order maximum does not exist.",
+    ]
 _exam_questions_19 = [
     {
         "q": (
@@ -972,15 +992,8 @@ _exam_questions_19 = [
             f"Calculate the angle of the first-order maximum."
         ),
         "marks": 3,
-        "answer": f"θ₁ = {_theta1_exam:.2f}°",
-        "working": [
-            f"d = 1/{lines_per_mm:.0f}×10³ = {d_m:.3e} m",
-            (
-                f"d sinθ = nλ → sinθ = λ/d = {lam_nm:.0f}×10⁻⁹/{d_m:.3e} "
-                f"= {math.sin(math.radians(_theta1_exam)):.4f}"
-            ),
-            f"θ₁ = {_theta1_exam:.2f}°",
-        ],
+        "answer": _q1_answer,
+        "working": _q1_working,
     },
     {
         "q": (

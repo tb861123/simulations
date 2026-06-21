@@ -181,7 +181,8 @@ def compute_2d_collision(
     b_clamped = float(np.clip(b, 0.0, r_sum * 0.9999))
 
     # Angle of line of centres with x-axis at contact
-    sin_th = b_clamped / r_sum
+    # Clip to the valid arcsin domain [-1, 1] to avoid NaN at extreme b.
+    sin_th = float(np.clip(b_clamped / r_sum, -1.0, 1.0))
     cos_th = float(np.sqrt(max(0.0, 1.0 - sin_th ** 2)))
     theta_deg = float(np.degrees(np.arcsin(sin_th)))
 

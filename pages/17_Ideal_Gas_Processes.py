@@ -1193,6 +1193,11 @@ new p5(function(p) {{
     initParticles();
   }};
 
+  // Keep the fixed-aspect canvas intact when the Streamlit iframe reflows.
+  p.windowResized = function() {{
+    p.resizeCanvas(W, H);
+  }};
+
   function initParticles() {{
     particles = [];
     const CYL_LEFT  = CYL_X + WALL;

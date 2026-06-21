@@ -1121,42 +1121,67 @@ with right_col:
 # ── Exam practice questions ───────────────────────────────────────────────────
 
 _wavelength_n = lambda_n
+# Mode-dependent formulas: string / open pipe use 2L; closed pipe uses 4L.
+if wave_mode == "Closed Pipe":
+    _system_desc = "a closed (stopped) pipe of length"
+    _lambda_formula = f"λₙ = 4L/n = 4×{L_val:.2f}/{n_val} = {_wavelength_n:.3f} m"
+    _freq_formula = (
+        f"f = v/λ = {v_wave:.1f}/{_wavelength_n:.3f} = {f_n:.2f} Hz  "
+        f"OR  f = nv/(4L) = {n_val}×{v_wave:.1f}/(4×{L_val:.2f}) = {f_n:.2f} Hz"
+    )
+    _count_q = (
+        f"How many nodes and antinodes are present in the harmonic n = {n_val} "
+        f"of a pipe closed at one end and open at the other?"
+    )
+elif wave_mode == "Open Pipe":
+    _system_desc = "an open pipe of length"
+    _lambda_formula = f"λₙ = 2L/n = 2×{L_val:.2f}/{n_val} = {_wavelength_n:.3f} m"
+    _freq_formula = (
+        f"f = v/λ = {v_wave:.1f}/{_wavelength_n:.3f} = {f_n:.2f} Hz  "
+        f"OR  f = nv/(2L) = {n_val}×{v_wave:.1f}/(2×{L_val:.2f}) = {f_n:.2f} Hz"
+    )
+    _count_q = (
+        f"How many nodes and antinodes are present in the {n_val}th harmonic "
+        f"of an open pipe (open at both ends)?"
+    )
+else:  # String (fixed–fixed)
+    _system_desc = "a string of length"
+    _lambda_formula = f"λₙ = 2L/n = 2×{L_val:.2f}/{n_val} = {_wavelength_n:.3f} m"
+    _freq_formula = (
+        f"f = v/λ = {v_wave:.1f}/{_wavelength_n:.3f} = {f_n:.2f} Hz  "
+        f"OR  f = nv/(2L) = {n_val}×{v_wave:.1f}/(2×{L_val:.2f}) = {f_n:.2f} Hz"
+    )
+    _count_q = (
+        f"How many nodes and antinodes are present in the {n_val}th harmonic "
+        f"of a string fixed at both ends?"
+    )
+
 _exam_questions_18 = [
     {
         "q": (
-            f"A string of length L = {L_val:.2f} m vibrates in its {n_val}th harmonic. "
-            f"Calculate the wavelength."
+            f"{_system_desc.capitalize()} L = {L_val:.2f} m vibrates in the harmonic "
+            f"n = {n_val}. Calculate the wavelength."
         ),
         "marks": 2,
         "answer": f"λ = {_wavelength_n:.3f} m",
-        "working": [
-            f"λₙ = 2L/n = 2×{L_val:.2f}/{n_val} = {_wavelength_n:.3f} m",
-        ],
+        "working": [_lambda_formula],
     },
     {
         "q": (
-            f"The wave speed on the string is v = {v_wave:.1f} m/s. "
-            f"Calculate the frequency of the {n_val}th harmonic."
+            f"The wave speed is v = {v_wave:.1f} m/s. "
+            f"Calculate the frequency of the harmonic n = {n_val}."
         ),
         "marks": 3,
         "answer": f"f = {f_n:.2f} Hz",
-        "working": [
-            (
-                f"f = v/λ = {v_wave:.1f}/{_wavelength_n:.3f} = {f_n:.2f} Hz  "
-                f"OR  f = nv/(2L) = {n_val}×{v_wave:.1f}/(2×{L_val:.2f}) = {f_n:.2f} Hz"
-            ),
-        ],
+        "working": [_freq_formula],
     },
     {
-        "q": (
-            f"How many nodes and antinodes are present in the {n_val}th harmonic "
-            f"of a string fixed at both ends?"
-        ),
+        "q": _count_q,
         "marks": 2,
-        "answer": f"{n_val + 1} nodes, {n_val} antinodes",
+        "answer": f"{len(nodes_list)} nodes, {len(antinodes_list)} antinodes",
         "working": [
-            f"Nodes = n+1 = {n_val + 1}",
-            f"Antinodes = n = {n_val}",
+            f"Counted from the standing-wave pattern: "
+            f"{len(nodes_list)} node(s), {len(antinodes_list)} antinode(s).",
         ],
     },
 ]
