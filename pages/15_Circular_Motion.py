@@ -152,8 +152,13 @@ def compute_circular_basics(
     v = omega * r
     a_cent = omega ** 2 * r
     F_cent = m * omega ** 2 * r
-    T_period = 2.0 * np.pi / omega
-    freq = 1.0 / T_period
+    if omega == 0:
+        # Stationary object: infinite period, zero frequency (no orbit).
+        T_period = float("inf")
+        freq = 0.0
+    else:
+        T_period = 2.0 * np.pi / omega
+        freq = 1.0 / T_period
     return {
         "v": v,
         "a_cent": a_cent,

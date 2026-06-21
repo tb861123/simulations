@@ -1072,6 +1072,12 @@ new p5(function(p) {{
     p.textFont('monospace');
   }};
 
+  // Fixed-size canvas; re-assert dimensions on resize so the sketch
+  // stays consistent if the host container reflows.
+  p.windowResized = function() {{
+    p.resizeCanvas(W, H);
+  }};
+
   // ── Draw packed nucleus (Fermi-style protons + neutrons) ───────────────────
   function drawNucleusParticles(cx, cy, Z, A, r, alphaVal) {{
     const totalN = Math.min(A, 80);   // cap for performance

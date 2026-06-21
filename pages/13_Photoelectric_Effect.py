@@ -237,6 +237,9 @@ def compute_hydrogen_transition(n_i: int, n_f: int) -> tuple[float, float, float
     E_f = HYDROGEN_LEVELS[n_f]
     delta_E_eV = abs(E_i - E_f)
     delta_E_J = delta_E_eV * e_charge
+    if delta_E_J <= 0:
+        # Degenerate transition (n_i == n_f): no photon emitted/absorbed.
+        return 0.0, float("inf")
     lam_m = h_planck * c_light / delta_E_J
     lam_nm = lam_m * 1e9
     return delta_E_eV, lam_nm
@@ -918,6 +921,12 @@ new p5(function(p) {{
     if (ratio > 0.96 && ratio < 1.04) {{
       thresholdGlow = 200;
     }}
+  }};
+
+  // ── window resize ──────────────────────────────────────────────────────────
+  p.windowResized = function() {{
+    // Fixed-size canvas: re-assert dimensions so layout stays stable on reflow.
+    p.resizeCanvas(W, H);
   }};
 
   // ── p5 draw ────────────────────────────────────────────────────────────────

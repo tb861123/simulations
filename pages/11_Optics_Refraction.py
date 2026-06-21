@@ -1217,6 +1217,12 @@ new p5(function(p) {{
     }});
   }};
 
+  // ── window resize ──────────────────────────────────────────────────────────
+  p.windowResized = function() {{
+    // Fixed-size canvas: re-assert dimensions so layout stays stable on reflow.
+    p.resizeCanvas(W, H);
+  }};
+
   // ── draw ─────────────────────────────────────────────────────────────────
   p.draw = function() {{
     // auto-scan
