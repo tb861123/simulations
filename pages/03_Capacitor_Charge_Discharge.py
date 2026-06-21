@@ -904,13 +904,9 @@ new p5(function(p) {{
 
     // ── Advance simulation time ──────────────────────────────────────────────
     if (!paused) {{
-      // dt in simulated seconds: 60fps assumed, each frame = (1/60)*speed * timeScale
-      // timeScale makes tau feel ~3 seconds at 1x for good visual pacing
-      let timeScale = 3.0 / tau;
-      tSim += (1 / 60) * speed * timeScale * tau / 3.0;  // simplifies to speed/60
-
-      // Actually: advance tSim so that one full charge takes ~3 real seconds at 1x
-      // => need to traverse from 0 to ~5*tau in 3s => dt per frame = 5*tau / (3*60)
+      // Advance tSim so that a full charge/discharge (≈5τ) takes ~3 real
+      // seconds at 1x (60 fps): dt per frame = 5*tau / (3*60). This keeps the
+      // visual pacing independent of the absolute value of tau.
       tSim += (5 * tau) / (3 * 60) * speed;
 
       // Move packets
