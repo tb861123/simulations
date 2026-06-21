@@ -13,6 +13,8 @@ Spec reference: Component 2, Topic 7 (Magnetic Fields), sections (a)–(n).
 import json
 
 import numpy as np
+# np.trapezoid (NumPy 2.0+) with fallback to np.trapz (NumPy 1.x)
+_np_trapz = getattr(np, "trapezoid", getattr(np, "trapz", None))
 from utils.exam_ui import show_exam_panel
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -1119,7 +1121,7 @@ def render_induction(mode: str) -> None:
                                        value=True, key="ind_show_I")
 
             I_peak_ind = peak_emf / R_coil
-            energy = float(np.trapz((emf / R_coil) ** 2 * R_coil, t_arr))
+            energy = float(_np_trapz((emf / R_coil) ** 2 * R_coil, t_arr))
 
             metric_row({
                 "Peak current": f"{I_peak_ind:.4f} A",
@@ -1167,7 +1169,7 @@ def render_induction(mode: str) -> None:
             )
 
         if mode == "Advanced" and show_current:
-            energy_val = float(np.trapz((emf / R_coil) ** 2 * R_coil, t_arr))
+            energy_val = float(_np_trapz((emf / R_coil) ** 2 * R_coil, t_arr))
             st.success(
                 f"Energy dissipated in coil resistance R = {R_coil} Ω: "
                 f"E = ∫I²R dt ≈ {energy_val:.5f} J. This energy comes from the "

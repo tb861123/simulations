@@ -1582,7 +1582,9 @@ def render_particle_sim(mode: str) -> None:
                 # MB CDF via numerical integration of the PDF
                 _v_esc_arr = np.linspace(V_ESCAPE, V_ESCAPE * 5, 2000)
                 _pdf_arr   = maxwell_boltzmann_pdf(_v_esc_arr, m, max(T, 10.0))
-                _frac_escape = float(np.trapz(_pdf_arr, _v_esc_arr))
+                # np.trapezoid (NumPy 2.0+) with fallback to np.trapz (NumPy 1.x)
+                _trap = getattr(np, "trapezoid", getattr(np, "trapz", None))
+                _frac_escape = float(_trap(_pdf_arr, _v_esc_arr))
                 # Extract clean species name for display
                 _species_name = mass_label.split("(")[0].strip()
                 st.caption(

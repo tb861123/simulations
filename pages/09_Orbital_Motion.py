@@ -1258,7 +1258,7 @@ let sectorIndices = [];   // length 9 (start + 8 endpoints)
 let launchMode = false;   // true when user is dragging
 let launchStart = null;   // {{wx, wy}} in world coords
 let launchEnd = null;     // {{wx, wy}} in world coords — updated during drag
-let customOrbits = [];    // last 3 custom orbit traces [{pts:[{wx,wy},...], col}]
+let customOrbits = [];    // last 3 custom orbit traces, each with a pts array and a col
 const ORBIT_PALETTE = ['#e74c3c','#2ecc71','#f39c12'];  // red, green, amber
 
 // Escape velocity ring + indicator
