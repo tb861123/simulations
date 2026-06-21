@@ -1427,13 +1427,6 @@ def render_particle_sim(mode: str) -> None:
                 help=f"Advance simulation by {n_steps_per_click} frames.",
             )
 
-        auto_run = st.checkbox(
-            "Auto-run",
-            value=False,
-            key="auto_run",
-            help="Continuously step the simulation. Uncheck to pause.",
-        )
-
         # Show step counter
         current_step = st.session_state.get(_ss_key("step"), 0)
         st.caption(f"Step: {current_step}  |  Time: {current_step * DT:.3f} a.u.")
@@ -1470,7 +1463,7 @@ def render_particle_sim(mode: str) -> None:
 
     # Step the simulation
     pressure_this_step = 0.0
-    if step_btn or auto_run:
+    if step_btn:
         if _ss_key("pos") in st.session_state:
             pressure_this_step = _step_simulation(L, n_steps_per_click)
             # Maintain a rolling pressure history (last 50 measurements)
@@ -1642,13 +1635,10 @@ def render_particle_sim(mode: str) -> None:
                 mode=mode,
             )
 
-    # ── Auto-run: trigger rerun after a short render delay ───────────────────
-    # We use a step counter in session_state so the rerun only fires when auto_run
-    # is active and the simulation has been displayed at least once.
-    if auto_run and pos is not None:
-        import time as _time
-        _time.sleep(0.05)   # small yield to allow Streamlit to render the frame
-        st.rerun()
+    # Note: continuous animation is handled client-side by the p5.js canvas
+    # (build_kinetic_animation). The manual "Step" button advances the
+    # server-side statistical sim for pressure/measurement readouts on demand —
+    # no server-side rerun loop, keeping the app responsive and low-load.
 
 
 def render_ideal_gas_law(mode: str) -> None:
