@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>07 Le Chatelier's Principle</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0e1117; color: #e8e8e8; font-family: system-ui, -apple-system, sans-serif; }
+  nav { background: #161b22; border-bottom: 1px solid #30363d; padding: 0.6rem 1.2rem; display: flex; align-items: center; gap: 1rem; }
+  nav a { color: #4da6ff; text-decoration: none; font-size: 0.9rem; }
+  nav a:hover { text-decoration: underline; }
+  nav span { color: #8b949e; font-size: 0.9rem; }
+  .wrapper { display: flex; flex-wrap: wrap; gap: 1.2rem; padding: 1.2rem; align-items: flex-start; }
+  #sim-canvas { border: 1px solid #30363d; border-radius: 8px; flex-shrink: 0; }
+  .controls { width: 280px; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.9rem; }
+  .panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.9rem; }
+  .panel h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: #8b949e; margin-bottom: 0.7rem; }
+  label { font-size: 0.85rem; display: block; margin-bottom: 0.2rem; color: #c9d1d9; }
+  select { width: 100%; background: #21262d; color: #e8e8e8; border: 1px solid #30363d; border-radius: 5px; padding: 0.4rem; font-size: 0.85rem; margin-bottom: 0.55rem; }
+  input[type=range] { width: 100%; margin-bottom: 0.5rem; accent-color: #69db7c; }
+  input[type=range]:disabled { opacity: 0.35; }
+  input[type=checkbox] { margin-right: 0.4rem; accent-color: #69db7c; }
+  .val { color: #69db7c; font-weight: 600; }
+  .conc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin: 0.5rem 0; }
+  .cbtn { padding: 0.4rem 0.3rem; border: 1px solid #30363d; border-radius: 5px; font-size: 0.8rem; cursor: pointer; background: #21262d; color: #e8e8e8; text-align: center; transition: background 0.1s; }
+  .cbtn:hover { background: #2d333b; }
+  .cbtn.add-r { border-color: #4da6ff; color: #4da6ff; }
+  .cbtn.add-p { border-color: #ff9f40; color: #ff9f40; }
+  .cbtn.rem-r { border-color: #4da6ff88; color: #4da6ff88; }
+  .cbtn.rem-p { border-color: #ff9f4088; color: #ff9f4088; }
+  .cbtn:disabled { opacity: 0.3; cursor: default; }
+  .readout { background: #0d1117; border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.8rem; line-height: 1.8; }
+  .readout .lbl { color: #8b949e; }
+  .readout .vl { color: #ffd43b; font-weight: 600; }
+  .readout .shift-r { color: #69db7c; font-weight: 700; }
+  .readout .shift-l { color: #ff6b6b; font-weight: 700; }
+  .readout .eq { color: #4da6ff; font-weight: 700; }
+  .eqbox { background: #0d1117; border-left: 3px solid #69db7c; border-radius: 0 6px 6px 0; padding: 0.6rem 0.8rem; font-size: 0.79rem; line-height: 1.7; }
+  .eqbox .eq { color: #ffd43b; font-family: monospace; font-size: 0.75rem; }
+  .questions { padding: 1.2rem; display: flex; flex-direction: column; gap: 1rem; }
+  .q { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 0.9rem; }
+  .q p { font-size: 0.88rem; line-height: 1.5; margin-bottom: 0.6rem; }
+  .q .marks { color: #ffd43b; font-size: 0.78rem; font-weight: 600; }
+  .toggle-ms { background: #21262d; border: 1px solid #30363d; color: #4da6ff; border-radius: 5px; padding: 0.3rem 0.7rem; font-size: 0.8rem; cursor: pointer; }
+  .toggle-ms:hover { background: #2d333b; }
+  .ms { display: none; margin-top: 0.6rem; background: #0d1117; border-left: 3px solid #69db7c; border-radius: 0 5px 5px 0; padding: 0.5rem 0.8rem; font-size: 0.82rem; line-height: 1.6; color: #c9d1d9; }
+  .ms.open { display: block; }
+  .note { font-size: 0.75rem; color: #8b949e; margin-top: 0.3rem; }
+</style>
+</head>
+<body>
+<nav>
+  <a href="index.html">&#8592; Back to Gallery</a>
+  <span>|</span>
+  <span>07 &mdash; Le Chatelier's Principle</span>
+</nav>
+
+<div class="wrapper">
+  <canvas id="sim-canvas"></canvas>
+
+  <div class="controls">
+    <div class="panel">
+      <h3>Reaction</h3>
+      <select id="rxn">
+        <option value="0">N₂ + 3H₂ ⇌ 2NH₃ (Haber)</option>
+        <option value="1">N₂O₄ ⇌ 2NO₂</option>
+        <option value="2">H₂ + I₂ ⇌ 2HI</option>
+        <option value="3">CoCl₄²⁻ + 6H₂O ⇌ Co(H₂O)₆²⁺ + 4Cl⁻</option>
+      </select>
+
+      <label for="temp">Temperature: <span id="tempV" class="val">25</span> °C</label>
+      <input type="range" id="temp" min="0" max="600" value="25" step="5">
+
+      <label for="pres" id="presLbl">Pressure: <span id="presV" class="val">1</span> atm</label>
+      <input type="range" id="pres" min="1" max="10" value="1" step="1">
+      <p class="note" id="presNote"></p>
+
+      <label style="margin-top:0.2rem;">Concentration stress</label>
+      <div class="conc-grid">
+        <button class="cbtn add-r" onclick="stressConc('addR')">&#43; Reactant</button>
+        <button class="cbtn add-p" onclick="stressConc('addP')">&#43; Product</button>
+        <button class="cbtn rem-r" onclick="stressConc('remR')">&#8722; Reactant</button>
+        <button class="cbtn rem-p" onclick="stressConc('remP')">&#8722; Product</button>
+      </div>
+
+      <label style="display:flex;align-items:center;margin-top:0.2rem;">
+        <input type="checkbox" id="cat"> Catalyst present
+      </label>
+      <p class="note" id="catNote"></p>
+    </div>
+
+    <div class="panel">
+      <h3>Equilibrium State</h3>
+      <div class="readout" id="readout">—</div>
+    </div>
+
+    <div class="panel">
+      <h3>Key Equations</h3>
+      <div class="eqbox">
+        <strong>Le Chatelier's Principle:</strong><br>
+        If a system at equilibrium is disturbed, it shifts to oppose the change.<br><br>
+        <div class="eq">↑ [Reactant] → shifts RIGHT</div>
+        <div class="eq">↑ Temperature (exothermic) → shifts LEFT</div>
+        <div class="eq">↑ Temperature (endothermic) → shifts RIGHT</div>
+        <div class="eq">↑ Pressure → shifts to fewer gas moles</div>
+        Catalyst: faster rate only — does NOT change position.<br>
+        <div class="eq">Kc = [products]^p / [reactants]^r</div>
+        K changes with T; not affected by P, conc or catalyst.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="questions">
+  <div class="q">
+    <p><span class="marks">[4 marks]</span> In the Haber process, N₂(g) + 3H₂(g) ⇌ 2NH₃(g) &nbsp;ΔH = −92 kJ/mol.
+    Explain why a temperature of about 450°C is used rather than a much higher or much lower temperature.</p>
+    <button class="toggle-ms" onclick="toggleMS(this)">Show mark scheme</button>
+    <div class="ms">
+      At low temperatures, the rate of reaction is too slow [1];<br>
+      the forward reaction is exothermic, so higher temperature shifts the equilibrium to the left [1];<br>
+      this decreases the yield of ammonia [1];<br>
+      450°C is a compromise between an acceptable rate and an acceptable yield [1].
+    </div>
+  </div>
+  <div class="q">
+    <p><span class="marks">[3 marks]</span> The equilibrium N₂O₄(g) ⇌ 2NO₂(g) is established in a sealed container.
+    State and explain the effect of increasing the pressure on this equilibrium.</p>
+    <button class="toggle-ms" onclick="toggleMS(this)">Show mark scheme</button>
+    <div class="ms">
+      The equilibrium shifts to the left / towards N₂O₄ [1];<br>
+      because increasing pressure shifts the equilibrium towards the side with fewer moles of gas [1];<br>
+      there is 1 mole of gas on the left and 2 moles on the right [1].
+    </div>
+  </div>
+  <div class="q">
+    <p><span class="marks">[3 marks]</span> A solution at equilibrium contains CoCl₄²⁻ (blue) and Co(H₂O)₆²⁺ (pink):
+    CoCl₄²⁻(aq) + 6H₂O(l) ⇌ Co(H₂O)₆²⁺(aq) + 4Cl⁻(aq) &nbsp;ΔH = +50 kJ/mol.
+    Concentrated hydrochloric acid is added. State the colour change and explain it using Le Chatelier's principle.</p>
+    <button class="toggle-ms" onclick="toggleMS(this)">Show mark scheme</button>
+    <div class="ms">
+      The solution turns blue [1];<br>
+      adding HCl increases the concentration of Cl⁻ ions [1];<br>
+      the equilibrium shifts to the left to reduce the Cl⁻ concentration, forming more CoCl₄²⁻ [1].
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleMS(btn) {
+  const ms = btn.nextElementSibling;
+  ms.classList.toggle('open');
+  btn.textContent = ms.classList.contains('open') ? 'Hide mark scheme' : 'Show mark scheme';
+}
+
+const REACTIONS = [
+  {
+    name: 'Haber Process',
+    eq: 'N₂(g) + 3H₂(g) ⇌ 2NH₃(g)',
+    endothermic: false,
+    deltaH: '−92 kJ/mol',
+    rMoles: 4, pMoles: 2,
+    gaseous: true,
+    pressDir: 1,   // +1: high P shifts right (products have fewer moles)
+    defaultEq: 0.45,
+    rSpecies: [{name:'N₂', color:'#4da6ff', mol:1}, {name:'H₂', color:'#ff9f40', mol:3}],
+    pSpecies: [{name:'NH₃', color:'#69db7c', mol:2}],
+    bgR: [13, 22, 45],  bgP: [13, 42, 26],
+    catNote: 'Iron catalyst — increases rate only; equilibrium position unchanged',
+  },
+  {
+    name: 'N₂O₄ / NO₂',
+    eq: 'N₂O₄(g) ⇌ 2NO₂(g)',
+    endothermic: true,
+    deltaH: '+58 kJ/mol',
+    rMoles: 1, pMoles: 2,
+    gaseous: true,
+    pressDir: -1,  // -1: high P shifts left (reactants have fewer moles)
+    defaultEq: 0.50,
+    rSpecies: [{name:'N₂O₄', color:'#8b949e', mol:1}],
+    pSpecies: [{name:'NO₂', color:'#ff9f40', mol:2}],
+    bgR: [20, 22, 24], bgP: [40, 26, 10],
+    catNote: 'Catalyst speeds up approach to equilibrium; position unchanged',
+  },
+  {
+    name: 'H₂ + I₂ ⇌ 2HI',
+    eq: 'H₂(g) + I₂(g) ⇌ 2HI(g)',
+    endothermic: true,
+    deltaH: '+9 kJ/mol',
+    rMoles: 2, pMoles: 2,
+    gaseous: true,
+    pressDir: 0,   // equal moles: pressure has no effect
+    defaultEq: 0.78,
+    rSpecies: [{name:'H₂', color:'#4da6ff', mol:1}, {name:'I₂', color:'#da77f2', mol:1}],
+    pSpecies: [{name:'HI', color:'#ffd43b', mol:2}],
+    bgR: [13, 18, 38], bgP: [35, 30, 10],
+    catNote: 'Catalyst increases rate to equilibrium; position unchanged',
+  },
+  {
+    name: 'Cobalt chloride',
+    eq: 'CoCl₄²⁻ + 6H₂O ⇌ Co(H₂O)₆²⁺ + 4Cl⁻',
+    endothermic: true,
+    deltaH: '+50 kJ/mol',
+    rMoles: 7, pMoles: 5,
+    gaseous: false,
+    pressDir: 0,
+    defaultEq: 0.50,
+    rSpecies: [{name:'CoCl₄²⁻', color:'#4da6ff', mol:1}],
+    pSpecies: [{name:'Co²⁺', color:'#ff6b6b', mol:1}],
+    bgR: [10, 20, 60], bgP: [60, 10, 22],
+    catNote: 'Not typically applicable (aqueous equilibrium)',
+  },
+];
+
+// Shared state accessed by HTML buttons and p5 sketch
+let concPert = 0;
+
+function stressConc(action) {
+  const step = 0.13;
+  if      (action === 'addR') concPert = Math.min(concPert + step, 0.35);
+  else if (action === 'addP') concPert = Math.max(concPert - step, -0.35);
+  else if (action === 'remR') concPert = Math.max(concPert - step, -0.35);
+  else if (action === 'remP') concPert = Math.min(concPert + step, 0.35);
+}
+
+// Controls
+const tempSlider = document.getElementById('temp');
+const presSlider = document.getElementById('pres');
+const tempVSpan  = document.getElementById('tempV');
+const presVSpan  = document.getElementById('presV');
+const catCb      = document.getElementById('cat');
+const rxnSel     = document.getElementById('rxn');
+const readoutDiv = document.getElementById('readout');
+const presNote   = document.getElementById('presNote');
+const catNoteDiv = document.getElementById('catNote');
+
+tempSlider.addEventListener('input', () => { tempVSpan.textContent = tempSlider.value; });
+presSlider.addEventListener('input', () => { presVSpan.textContent = presSlider.value; });
+
+function onRxnChange() {
+  const rxn = REACTIONS[+rxnSel.value];
+  concPert = 0;
+  presSlider.disabled = !rxn.gaseous || rxn.pressDir === 0;
+  if (!rxn.gaseous) {
+    presNote.textContent = 'Pressure: not applicable (aqueous solution)';
+  } else if (rxn.pressDir === 0) {
+    presNote.textContent = 'Equal moles of gas each side — pressure has no effect';
+  } else {
+    presNote.textContent = rxn.pressDir > 0
+      ? 'Fewer gas moles on right → high P shifts RIGHT'
+      : 'Fewer gas moles on left → high P shifts LEFT';
+  }
+  catNoteDiv.textContent = rxn.catNote;
+  // Reset pressure slider
+  presSlider.value = 1; presVSpan.textContent = '1';
+}
+rxnSel.addEventListener('change', onRxnChange);
+onRxnChange();
+
+// p5 sketch
+new p5(function(p) {
+  const W = 500, H = 460;
+  const VY1 = 36, VY2 = 316;
+  const DIV_X = 250;
+  const LX1 = 12, LX2 = 237, RX1 = 263, RX2 = 488;
+  const MAX_P = 52;
+  const R_PARTICLE = 9;
+
+  let eqPos  = 0.5;
+  let particles = [];
+
+  p.setup = function() {
+    p.createCanvas(W, H).parent('sim-canvas');
+    p.frameRate(60);
+    const rxn = REACTIONS[+rxnSel.value];
+    eqPos = rxn.defaultEq;
+    buildParticles(rxn, eqPos);
+  };
+
+  rxnSel.addEventListener('change', () => {
+    const rxn = REACTIONS[+rxnSel.value];
+    eqPos = rxn.defaultEq;
+    buildParticles(rxn, eqPos);
+  });
+
+  function makeParticle(x, y, side, name, color) {
+    const a = p.random(p.TWO_PI);
+    const spd = p.random(0.8, 1.4);
+    return { x, y, vx: p.cos(a)*spd, vy: p.sin(a)*spd,
+             side, name, color, alpha: 0, dying: false };
+  }
+
+  function buildParticles(rxn, eq) {
+    particles = [];
+    const nP = Math.round(MAX_P * eq);
+    const nR = MAX_P - nP;
+    spawnSpecies(rxn.rSpecies, nR, 'R');
+    spawnSpecies(rxn.pSpecies, nP, 'P');
+    particles.forEach(pt => { pt.alpha = 255; });
+  }
+
+  function spawnSpecies(species, total, side) {
+    const totalMol = species.reduce((a, s) => a + s.mol, 0);
+    let placed = 0;
+    species.forEach((sp, si) => {
+      const count = si < species.length - 1
+        ? Math.round(total * sp.mol / totalMol)
+        : total - placed;
+      for (let i = 0; i < count; i++) {
+        const x = side === 'R'
+          ? p.random(LX1 + R_PARTICLE + 2, LX2 - R_PARTICLE - 2)
+          : p.random(RX1 + R_PARTICLE + 2, RX2 - R_PARTICLE - 2);
+        const y = p.random(VY1 + R_PARTICLE + 18, VY2 - R_PARTICLE - 2);
+        particles.push(makeParticle(x, y, side, sp.name, sp.color));
+      }
+      placed += count;
+    });
+  }
+
+  function computeTarget(rxn, temp, pres) {
+    const tempShift = (rxn.endothermic ? 1 : -1) * (temp - 25) * 0.00028;
+    let presShift = 0;
+    if (rxn.gaseous && rxn.pressDir !== 0) {
+      presShift = rxn.pressDir * (pres - 1) * 0.022;
+    }
+    return Math.max(0.05, Math.min(0.95, rxn.defaultEq + tempShift + presShift + concPert));
+  }
+
+  function syncParticles(rxn, eq) {
+    const nP = Math.round(MAX_P * eq);
+    const nR = MAX_P - nP;
+
+    const targets = {};
+    const rTotal = rxn.rSpecies.reduce((a, s) => a + s.mol, 0);
+    let placed = 0;
+    rxn.rSpecies.forEach((sp, si) => {
+      const c = si < rxn.rSpecies.length - 1
+        ? Math.round(nR * sp.mol / rTotal) : nR - placed;
+      targets[sp.name] = c; placed += c;
+    });
+    const pTotal = rxn.pSpecies.reduce((a, s) => a + s.mol, 0);
+    placed = 0;
+    rxn.pSpecies.forEach((sp, si) => {
+      const c = si < rxn.pSpecies.length - 1
+        ? Math.round(nP * sp.mol / pTotal) : nP - placed;
+      targets[sp.name] = c; placed += c;
+    });
+
+    const allSp = [...rxn.rSpecies, ...rxn.pSpecies];
+    allSp.forEach(sp => {
+      const live = particles.filter(pt => pt.name === sp.name && !pt.dying);
+      const curr = live.length;
+      const tgt  = targets[sp.name] || 0;
+      if (curr > tgt) {
+        // Kill one
+        const victim = live[Math.floor(p.random(curr))];
+        victim.dying = true;
+      } else if (curr < tgt) {
+        // Spawn one
+        const isR = rxn.rSpecies.some(s => s.name === sp.name);
+        const x = isR ? p.random(LX1+R_PARTICLE+2, LX2-R_PARTICLE-2)
+                      : p.random(RX1+R_PARTICLE+2, RX2-R_PARTICLE-2);
+        const y = p.random(VY1+R_PARTICLE+18, VY2-R_PARTICLE-2);
+        particles.push(makeParticle(x, y, isR ? 'R' : 'P', sp.name, sp.color));
+      }
+    });
+
+    // Fade in/out
+    particles.forEach(pt => {
+      pt.alpha = pt.dying
+        ? Math.max(0, pt.alpha - 10)
+        : Math.min(255, pt.alpha + 18);
+    });
+    particles = particles.filter(pt => pt.alpha > 0);
+  }
+
+  function updateParticles() {
+    particles.forEach(pt => {
+      if (pt.dying) return;
+      pt.x += pt.vx; pt.y += pt.vy;
+      const x1 = pt.side === 'R' ? LX1 + R_PARTICLE : RX1 + R_PARTICLE;
+      const x2 = pt.side === 'R' ? LX2 - R_PARTICLE : RX2 - R_PARTICLE;
+      if (pt.x < x1) { pt.x = x1; pt.vx =  Math.abs(pt.vx); }
+      if (pt.x > x2) { pt.x = x2; pt.vx = -Math.abs(pt.vx); }
+      if (pt.y < VY1 + R_PARTICLE + 20) { pt.y = VY1 + R_PARTICLE + 20; pt.vy =  Math.abs(pt.vy); }
+      if (pt.y > VY2 - R_PARTICLE)      { pt.y = VY2 - R_PARTICLE;      pt.vy = -Math.abs(pt.vy); }
+    });
+  }
+
+  p.draw = function() {
+    p.background(14, 17, 23);
+    const rxn    = REACTIONS[+rxnSel.value];
+    const temp   = +tempSlider.value;
+    const pres   = +presSlider.value;
+    const hasCat = catCb.checked;
+
+    const targetEq = computeTarget(rxn, temp, pres);
+    const lerpRate = hasCat ? 0.035 : 0.018;
+    eqPos = p.lerp(eqPos, targetEq, lerpRate);
+    concPert *= 0.993;
+
+    const shiftDir = eqPos < targetEq - 0.008 ?  1
+                   : eqPos > targetEq + 0.008 ? -1 : 0;
+
+    // Sync particles every 4 frames to avoid too-rapid changes
+    if (p.frameCount % 4 === 0) syncParticles(rxn, eqPos);
+    updateParticles();
+
+    // --- Vessel background (blended between reactant colour and product colour) ---
+    const t = eqPos;
+    const bgr = p.lerp(rxn.bgR[0], rxn.bgP[0], t);
+    const bgg = p.lerp(rxn.bgR[1], rxn.bgP[1], t);
+    const bgb = p.lerp(rxn.bgR[2], rxn.bgP[2], t);
+    p.noStroke(); p.fill(bgr, bgg, bgb);
+    p.rect(LX1, VY1, LX2 - LX1, VY2 - VY1, 4);
+    p.rect(RX1, VY1, RX2 - RX1, VY2 - VY1, 4);
+
+    // Vessel borders
+    p.noFill(); p.stroke(48, 54, 61); p.strokeWeight(1.5);
+    p.rect(LX1, VY1, LX2 - LX1, VY2 - VY1, 4);
+    p.rect(RX1, VY1, RX2 - RX1, VY2 - VY1, 4);
+
+    // Zone labels
+    p.noStroke(); p.fill(180); p.textAlign(p.CENTER, p.TOP); p.textSize(11);
+    p.text('Reactants', (LX1 + LX2) / 2, VY1 + 5);
+    p.text('Products',  (RX1 + RX2) / 2, VY1 + 5);
+
+    // Draw particles
+    particles.forEach(pt => {
+      if (pt.alpha <= 0) return;
+      const c = p.color(pt.color);
+      p.noStroke();
+      c.setAlpha(pt.alpha * 0.35);
+      p.fill(c);
+      p.circle(pt.x, pt.y, (R_PARTICLE + 4) * 2);
+      c.setAlpha(pt.alpha);
+      p.fill(c);
+      p.circle(pt.x, pt.y, R_PARTICLE * 2);
+      p.fill(0, 0, 0, Math.min(pt.alpha, 220));
+      p.textSize(pt.name.length > 3 ? 7 : 8);
+      p.textAlign(p.CENTER, p.CENTER);
+      p.text(pt.name, pt.x, pt.y);
+    });
+
+    // Divider / shift arrows
+    const midY = (VY1 + VY2) / 2;
+    p.stroke(70, 80, 100); p.strokeWeight(1);
+    p.drawingContext.setLineDash([5, 5]);
+    p.line(DIV_X, VY1 + 20, DIV_X, VY2 - 5);
+    p.drawingContext.setLineDash([]);
+
+    if (shiftDir !== 0) {
+      const col = shiftDir > 0 ? '#69db7c' : '#ff6b6b';
+      const arrowY = midY;
+      // Animated arrow (pulses)
+      const pulse = 1 + 0.2 * Math.sin(p.frameCount * 0.12);
+      drawArrow(p, DIV_X - shiftDir * 18 * pulse, arrowY,
+                   DIV_X + shiftDir * 18 * pulse, arrowY, col, 3);
+    } else {
+      p.noStroke(); p.fill(120); p.textSize(20); p.textAlign(p.CENTER, p.CENTER);
+      p.text('⇌', DIV_X, midY);
+    }
+
+    // Equation bar at top
+    p.noStroke(); p.fill(14, 17, 23); p.rect(0, 0, W, VY1);
+    p.fill(220); p.textSize(11); p.textAlign(p.CENTER, p.CENTER);
+    p.text(rxn.eq, W / 2, VY1 / 2 + 2);
+
+    // --- Equilibrium Position Gauge ---
+    const GY = 325, GX1 = 28, GX2 = 472, GH = 14;
+    const GW = GX2 - GX1;
+
+    p.noStroke(); p.fill(25, 30, 38);
+    p.rect(GX1, GY, GW, GH, 7);
+
+    // Filled bar
+    const barCol = shiftDir > 0 ? '#69db7c' : shiftDir < 0 ? '#ff6b6b' : '#4da6ff';
+    p.fill(p.color(barCol + '55'));
+    p.rect(GX1, GY, eqPos * GW, GH, 7, 0, 0, 7);
+
+    // Marker
+    const markerX = GX1 + eqPos * GW;
+    p.fill(barCol); p.noStroke();
+    p.rect(markerX - 2.5, GY - 5, 5, GH + 10, 3);
+
+    // Gauge labels
+    p.fill(130); p.textSize(10);
+    p.textAlign(p.LEFT,  p.TOP); p.text('← All reactants', GX1, GY + GH + 4);
+    p.textAlign(p.RIGHT, p.TOP); p.text('All products →', GX2, GY + GH + 4);
+    p.fill(200); p.textSize(11); p.textAlign(p.CENTER, p.BOTTOM);
+    p.text('Equilibrium Position', W / 2, GY - 4);
+
+    // Shift message
+    const msgY = GY + GH + 30;
+    if (Math.abs(shiftDir) > 0) {
+      const msg = shiftDir > 0
+        ? '⇒ Equilibrium shifting RIGHT — more products forming'
+        : '⇐ Equilibrium shifting LEFT — more reactants forming';
+      p.noStroke(); p.fill(shiftDir > 0 ? '#69db7c' : '#ff6b6b');
+      p.textSize(11); p.textAlign(p.CENTER, p.CENTER);
+      p.text(msg, W / 2, msgY);
+    } else {
+      p.noStroke(); p.fill('#4da6ff');
+      p.textSize(11); p.textAlign(p.CENTER, p.CENTER);
+      p.text('✓ System at equilibrium', W / 2, msgY);
+    }
+
+    // Catalyst speed indicator
+    if (hasCat) {
+      p.fill('#ffd43b'); p.textSize(10); p.textAlign(p.RIGHT, p.CENTER);
+      p.text('Catalyst: faster rate, same position', W - 12, msgY + 18);
+    }
+
+    // Info line — ΔH and species
+    p.noStroke(); p.fill(100); p.textSize(10); p.textAlign(p.LEFT, p.CENTER);
+    p.text('ΔH = ' + rxn.deltaH + (rxn.endothermic ? '  (endothermic)' : '  (exothermic)'),
+           12, msgY + 18);
+
+    // Percent conversion
+    const pct = Math.round(eqPos * 100);
+    p.fill(170); p.textSize(11); p.textAlign(p.CENTER, p.BOTTOM);
+    p.text('Conversion to products: ' + pct + '%', W / 2, H - 6);
+
+    // Update HTML readout
+    updateReadout(rxn, eqPos, temp, pres, hasCat, shiftDir, targetEq);
+  };
+
+  function drawArrow(p, x1, y1, x2, y2, col, sw) {
+    p.stroke(col); p.strokeWeight(sw); p.fill(col);
+    p.line(x1, y1, x2, y2);
+    const a = Math.atan2(y2 - y1, x2 - x1);
+    const hs = 10;
+    p.noStroke();
+    p.triangle(
+      x2, y2,
+      x2 - hs * Math.cos(a - 0.45), y2 - hs * Math.sin(a - 0.45),
+      x2 - hs * Math.cos(a + 0.45), y2 - hs * Math.sin(a + 0.45)
+    );
+  }
+
+  function updateReadout(rxn, eq, temp, pres, hasCat, shiftDir, targetEq) {
+    const pct = Math.round(eq * 100);
+    const shifting = Math.abs(shiftDir) > 0;
+    const dirClass = shiftDir > 0 ? 'shift-r' : shiftDir < 0 ? 'shift-l' : 'eq';
+    const dirText = shiftDir > 0 ? '⇒ Shifting RIGHT' : shiftDir < 0 ? '⇐ Shifting LEFT' : '✓ At equilibrium';
+
+    readoutDiv.innerHTML =
+      `<span class="lbl">Reaction: </span><span class="vl">${rxn.name}</span><br>` +
+      `<span class="lbl">ΔH: </span><span class="vl">${rxn.deltaH} (${rxn.endothermic ? 'endo' : 'exo'}thermic)</span><br>` +
+      `<span class="lbl">Temperature: </span><span class="vl">${temp} °C</span><br>` +
+      (rxn.gaseous && rxn.pressDir !== 0 ? `<span class="lbl">Pressure: </span><span class="vl">${pres} atm</span><br>` : '') +
+      `<span class="lbl">Catalyst: </span><span class="vl">${hasCat ? 'Yes (rate only)' : 'No'}</span><br>` +
+      `<span class="lbl">Position: </span><span class="vl">${pct}% products</span><br>` +
+      `<span class="lbl">Status: </span><span class="${dirClass}">${dirText}</span>`;
+  }
+
+}, document.getElementById('sim-canvas'));
+</script>
+</body>
+</html>
