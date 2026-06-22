@@ -268,6 +268,36 @@ SIMS = [
         "component": "3",
         "topic": "Particles",
     },
+    {
+        "num": "26",
+        "title": "EMF & Internal Resistance",
+        "page": "pages/26_EMF_Internal_Resistance.py",
+        "spec": "Component 2, Topic 3 (d)–(f)",
+        "desc": "Battery circuit with EMF, internal resistance and load. V-I characteristics, power transfer and maximum power theorem with live circuit animation.",
+        "icon": "🔋",
+        "component": "2",
+        "topic": "Electricity",
+    },
+    {
+        "num": "27",
+        "title": "I-V Characteristics & Resistivity",
+        "page": "pages/27_IV_Characteristics.py",
+        "spec": "Component 2, Topic 3 (a)–(c)",
+        "desc": "I-V curves for ohmic resistors, filament lamps, diodes and thermistors. Resistivity calculator with material library and cross-section/length explorer.",
+        "icon": "📈",
+        "component": "2",
+        "topic": "Electricity",
+    },
+    {
+        "num": "28",
+        "title": "Specific & Latent Heat",
+        "page": "pages/28_Specific_Heat_Latent_Heat.py",
+        "spec": "Component 2, Topic 2 (e)–(g)",
+        "desc": "Heating-curve simulation with phase transitions. Interactive beaker shows particle motion changing state; full plateau-heating curve with mL annotation.",
+        "icon": "🌡️",
+        "component": "2",
+        "topic": "Thermal Physics",
+    },
 ]
 
 # ── Hero animation ───────────────────────────────────────────────────────────
@@ -446,9 +476,9 @@ function windowResized() { resizeCanvas(windowWidth || 800, 320); }
 components.html(build_hero_animation(), height=340)
 
 st.title("⚛️ A Level Physics — Interactive Simulations")
-st.subheader("WJEC Eduqas Specification · 25 Simulations")
+st.subheader("WJEC Eduqas Specification · 28 Simulations")
 st.markdown(
-    "25 standalone simulations spanning the full A Level specification. "
+    "28 standalone simulations spanning the full A Level specification. "
     "Use the **sidebar** to navigate between simulations."
 )
 
