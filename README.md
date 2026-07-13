@@ -34,6 +34,11 @@ Zero-install interactive simulations for the Edexcel International GCSE Chemistr
 | 13 | `13_Tests_Ions_Gases.html` | Topic 3 | Flame tests, precipitate (NaOH) tests, halide tests and gas tests |
 | 14 | `14_Alkenes_Cracking.html` | Topic 4 | Alkanes vs alkenes, the bromine-water test and catalytic cracking |
 | 15 | `15_Polymerisation.html` | Topic 4 | Addition polymerisation — monomers opening C=C bonds to form polymer chains |
+| 16 | `16_Group1_Alkali_Metals.html` | Topic 2 | Group 1 reactions with water and the reactivity trend down the group |
+| 17 | `17_Group7_Halogens.html` | Topic 2 | Halogen colours/states and displacement reactions (reactivity trend) |
+| 18 | `18_Extraction_Metals.html` | Topic 2 | Extraction method by reactivity and the iron blast furnace |
+| 19 | `19_Diffusion.html` | Topic 1 | Gas diffusion (NH₃/HCl white ring) and diffusion in liquids |
+| 20 | `20_Chromatography.html` | Topic 1 | Paper chromatography and calculating Rf values |
 
 Each simulation includes:
 - Interactive controls (sliders, dropdowns, toggles)
