@@ -25,9 +25,20 @@ Zero-install interactive simulations for the Edexcel International GCSE Chemistr
 | 04 | `04_Covalent_Bonding.html` | Topic 2 | Dot-and-cross diagrams and 3-D shapes for H₂ through N₂ |
 | 05 | `05_Electrolysis.html` | Topic 4 | Ion migration, electrode products and half-equations for five electrolytes |
 | 06 | `06_Rates_of_Reaction.html` | Topic 5 | Collision theory particle sim + Maxwell–Boltzmann distribution |
+| 07 | `07_Le_Chateliers.html` | Topic 5 | Equilibrium shifts for Haber, N₂O₄, HI and cobalt under temperature/pressure/concentration |
+| 08 | `08_Metallic_Bonding.html` | Topic 1 | Delocalised electron sea, sliding layers (malleability) and conductivity for Na/Mg/Al |
+| 09 | `09_Energy_Changes.html` | Topic 3 | Reaction energy profiles, activation energy, ΔH, catalysts and bond energetics |
+| 10 | `10_Acids_Bases_Salts.html` | Topic 3 | Live acid–alkali titration with indicator colour changes, pH scale and titration curve |
+| 11 | `11_Crude_Oil.html` | Topic 4 | Fractional distillation column separating crude oil by boiling point and chain length |
+| 12 | `12_Reactivity_Displacement.html` | Topic 3 | Metal displacement reactions and the reactivity series ladder |
+| 13 | `13_Tests_Ions_Gases.html` | Topic 3 | Flame tests, precipitate (NaOH) tests, halide tests and gas tests |
+| 14 | `14_Alkenes_Cracking.html` | Topic 4 | Alkanes vs alkenes, the bromine-water test and catalytic cracking |
+| 15 | `15_Polymerisation.html` | Topic 4 | Addition polymerisation — monomers opening C=C bonds to form polymer chains |
 
 Each simulation includes:
 - Interactive controls (sliders, dropdowns, toggles)
+- A guided walkthrough that drives the controls and narrates the concept
+- Direct manipulation (drag elements, hover-to-inspect tooltips)
 - Live readouts updated in real time
 - A *Key Equations* reference box
 - Three GCSE-style exam questions with togglable mark schemes
