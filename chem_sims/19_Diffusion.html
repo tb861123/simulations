@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>19 Diffusion</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<style>
+  :root{
+    --bg:#0e1117; --panel-a:#1a212b; --panel-b:#141a22; --border:#2a323d;
+    --text:#e8e8e8; --muted:#8b949e;
+    --blue:#4da6ff; --orange:#ff9f40; --green:#69db7c; --red:#ff6b6b;
+    --purple:#da77f2; --yellow:#ffd43b; --accent:#4da6ff;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(1200px 600px at 15% -5%, #1b2436 0%, #0e1117 55%);color:var(--text);
+       font-family:system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+  nav{position:sticky;top:0;z-index:20;background:rgba(18,23,31,.82);backdrop-filter:blur(12px);
+      border-bottom:1px solid var(--border);padding:.7rem 1.2rem;display:flex;align-items:center;gap:1rem}
+  nav a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+  nav a:hover{opacity:.7}nav .divider{color:#39424e}
+  nav .title{color:#c9d1d9;font-size:.92rem;font-weight:600}
+  nav .title b{background:linear-gradient(90deg,var(--accent),#a9d6ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .wrapper{display:flex;flex-wrap:wrap;gap:1.2rem;padding:1.2rem;align-items:flex-start;max-width:1100px;margin:0 auto}
+  .stage{position:relative;flex-shrink:0;border-radius:14px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.04);border:1px solid var(--border)}
+  #sim-canvas{display:block}
+  .stage-hint{position:absolute;left:12px;bottom:10px;font-size:.72rem;color:#7a8694;background:rgba(14,17,23,.7);padding:.25rem .55rem;border-radius:6px;pointer-events:none;backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.05)}
+  .controls{width:290px;flex-shrink:0;display:flex;flex-direction:column;gap:.9rem}
+  .panel{background:linear-gradient(158deg,var(--panel-a),var(--panel-b));border:1px solid var(--border);border-radius:12px;padding:.95rem;box-shadow:0 4px 22px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.03)}
+  .panel h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:.7rem;display:flex;align-items:center;gap:.4rem}
+  .panel h3::before{content:"";width:3px;height:12px;background:var(--accent);border-radius:2px;box-shadow:0 0 8px var(--accent)}
+  label{font-size:.85rem;display:block;margin-bottom:.3rem;color:#c9d1d9}
+  select{width:100%;background:#0f151d;color:var(--text);border:1px solid var(--border);border-radius:7px;padding:.5rem;font-size:.85rem;margin-bottom:.6rem;cursor:pointer}
+  select:hover,select:focus{border-color:var(--accent);outline:none}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:6px;background:#232c37;margin:.3rem 0 .55rem;cursor:pointer}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:17px;height:17px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,var(--accent));box-shadow:0 0 8px var(--accent),0 2px 4px rgba(0,0,0,.4);cursor:grab;border:2px solid #0e1117}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);cursor:grab;border:2px solid #0e1117}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:.4rem;width:15px;height:15px;vertical-align:-2px}
+  .btn{width:100%;padding:.6rem;background:linear-gradient(180deg,var(--accent),#2d7fd6);color:#06101c;border:none;border-radius:8px;font-size:.9rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(77,166,255,.3)}
+  .btn:hover{filter:brightness(1.1)}
+  .val{color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums}
+  .readout{background:#0d1117;border-radius:8px;padding:.65rem .85rem;font-size:.82rem;line-height:1.8}
+  .readout .lbl{color:var(--muted)}.readout .vl{color:var(--yellow);font-weight:600}
+  .eqbox{background:#0d1117;border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:.6rem .8rem;font-size:.78rem;line-height:1.7}
+  .eqbox .eq{color:var(--yellow);font-family:ui-monospace,monospace;font-size:.72rem}
+  .guide{background:linear-gradient(158deg,#1d2430,#161c25);border:1px solid var(--accent);border-radius:12px;padding:.95rem;box-shadow:0 0 0 1px rgba(77,166,255,.12),0 6px 26px rgba(0,0,0,.35)}
+  .guide h3{color:var(--accent)}.guide h3::before{background:var(--accent)}
+  .guide-body{font-size:.83rem;line-height:1.55;color:#d7dee6;min-height:3.6rem;margin-bottom:.6rem}
+  .guide-body b{color:var(--yellow)}
+  .guide-controls{display:flex;gap:.4rem;align-items:center}
+  .gbtn{flex:1;padding:.5rem;background:#1a2732;border:1px solid var(--border);color:var(--text);border-radius:7px;font-size:.83rem;cursor:pointer;transition:all .15s;font-weight:600}
+  .gbtn:hover:not(:disabled){background:#243444;border-color:var(--accent)}.gbtn:disabled{opacity:.35;cursor:default}
+  .gbtn.primary{background:linear-gradient(180deg,var(--accent),#2d7fd6);color:#06101c;border-color:transparent}
+  .gbtn.primary:hover{filter:brightness(1.12)}
+  .gstart{width:100%;padding:.6rem;background:linear-gradient(180deg,var(--accent),#2d7fd6);color:#06101c;border:none;border-radius:8px;font-size:.9rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(77,166,255,.3)}
+  .gstart:hover{filter:brightness(1.1)}
+  .gdots{display:flex;gap:5px;margin-bottom:.6rem}.gdots span{flex:1;height:4px;border-radius:2px;background:#2a333f;transition:background .3s}
+  .gdots span.done{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+  .questions{padding:0 1.2rem 2rem;max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:1rem}
+  .qhead{font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-top:.4rem}
+  .q{background:linear-gradient(158deg,var(--panel-a),var(--panel-b));border:1px solid var(--border);border-radius:12px;padding:1rem}
+  .q p{font-size:.9rem;line-height:1.55;margin-bottom:.6rem}.q .marks{color:var(--yellow);font-size:.78rem;font-weight:700}
+  .toggle-ms{background:#1a2732;border:1px solid var(--border);color:var(--accent);border-radius:7px;padding:.35rem .8rem;font-size:.82rem;cursor:pointer}
+  .toggle-ms:hover{background:#243444}
+  .ms{display:none;margin-top:.7rem;background:#0d1117;border-left:3px solid var(--green);border-radius:0 7px 7px 0;padding:.6rem .85rem;font-size:.84rem;line-height:1.65;color:#c9d1d9}
+  .ms.open{display:block;animation:slideDown .25s ease}
+  @keyframes slideDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  @media(max-width:840px){.stage,.controls{width:100%}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="index.html">&#8592; Gallery</a><span class="divider">/</span>
+  <span class="title"><b>19</b> &nbsp;Diffusion</span>
+</nav>
+
+<div class="wrapper">
+  <div class="stage">
+    <div id="sim-canvas"></div>
+    <div class="stage-hint">Press Start &middot; drag the temperature slider &middot; hover the ring</div>
+  </div>
+
+  <div class="controls">
+    <div class="guide">
+      <h3>Guided Tour</h3>
+      <div class="gdots" id="gdots"></div>
+      <div class="guide-body" id="guideBody">Watch particles diffuse — spreading from high to low concentration. In the ammonia/HCl tube the lighter gas travels further, so the white ring forms off-centre.</div>
+      <div id="guideStart"><button class="gstart" id="startBtn">&#9654; Start guided tour</button></div>
+      <div class="guide-controls" id="guideNav" style="display:none">
+        <button class="gbtn" id="prevBtn">&#8592; Back</button>
+        <button class="gbtn primary" id="nextBtn">Next &#8594;</button>
+        <button class="gbtn" id="exitBtn" style="flex:0 0 auto">&#10005;</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Experiment</h3>
+      <label for="mode">Mode</label>
+      <select id="mode">
+        <option value="gas">Gas diffusion (NH₃ + HCl tube)</option>
+        <option value="liquid">Diffusion in liquid (KMnO₄)</option>
+      </select>
+      <label for="temp">Temperature <span id="tempVal" class="val">25</span> °C</label>
+      <input type="range" id="temp" min="0" max="100" value="25" step="5">
+      <label style="display:flex;align-items:center;margin-bottom:.6rem"><input type="checkbox" id="showP" checked> Show particles</label>
+      <button class="btn" id="startExpBtn">▶ Start</button>
+    </div>
+
+    <div class="panel">
+      <h3>Observation</h3>
+      <div class="readout" id="readout">—</div>
+    </div>
+
+    <div class="panel">
+      <h3>Key Facts</h3>
+      <div class="eqbox">
+        <div class="eq">NH₃ + HCl → NH₄Cl (white ring)</div>
+        Particles move randomly, spreading from high → low concentration<br>
+        <div class="eq">Lighter particles (smaller Mr) diffuse faster</div>
+        NH₃ (Mr 17) &lt; HCl (Mr 36.5) → ring nearer HCl end<br>
+        Higher temperature → faster diffusion
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="questions">
+  <div class="qhead">Exam Practice</div>
+  <div class="q">
+    <p><span class="marks">[3 marks]</span> Cotton wool soaked in concentrated ammonia and concentrated hydrochloric acid are placed at opposite ends of a glass tube. Explain where the white ring forms and why.</p>
+    <button class="toggle-ms" onclick="toggleMS(this)">Show mark scheme</button>
+    <div class="ms">A white ring of ammonium chloride forms [1]; it forms nearer the hydrochloric acid end [1]; because ammonia has a smaller relative molecular mass (is lighter), so it diffuses faster and travels further before they meet [1].</div>
+  </div>
+  <div class="q">
+    <p><span class="marks">[2 marks]</span> What does the diffusion of gases tell us about the movement of particles?</p>
+    <button class="toggle-ms" onclick="toggleMS(this)">Show mark scheme</button>
+    <div class="ms">The particles are constantly moving [1]; they move randomly and spread out from a region of high concentration to low concentration [1].</div>
+  </div>
+  <div class="q">
+    <p><span class="marks">[2 marks]</span> Explain the effect of increasing the temperature on the rate of diffusion.</p>
+    <button class="toggle-ms" onclick="toggleMS(this)">Show mark scheme</button>
+    <div class="ms">The particles gain more kinetic energy and move faster [1]; so they diffuse (spread out) more quickly [1].</div>
+  </div>
+</div>
+
+<script>
+function toggleMS(btn){const ms=btn.nextElementSibling;ms.classList.toggle('open');
+  btn.textContent=ms.classList.contains('open')?'Hide mark scheme':'Show mark scheme';}
+
+const modeSel=document.getElementById('mode'),tempSlider=document.getElementById('temp'),tempVal=document.getElementById('tempVal'),
+  showPCb=document.getElementById('showP'),startExpBtn=document.getElementById('startExpBtn'),readout=document.getElementById('readout');
+let running=false,progress=0;
+function paint(sl){const min=+sl.min,max=+sl.max,v=+sl.value,pct=(v-min)/(max-min)*100;
+  sl.style.background=`linear-gradient(90deg,var(--accent) 0%,var(--accent) ${pct}%,#232c37 ${pct}%)`;}
+paint(tempSlider);
+tempSlider.addEventListener('input',()=>{tempVal.textContent=tempSlider.value;paint(tempSlider);});
+startExpBtn.onclick=()=>{running=true;progress=0;resetSim();};
+modeSel.addEventListener('change',()=>{running=false;progress=0;updateReadout();});
+function updateReadout(){
+  if(modeSel.value==='gas'){
+    readout.innerHTML='<span class="lbl">Ammonia:</span> <span class="vl">NH₃, Mr = 17 (lighter)</span><br>'+
+      '<span class="lbl">Hydrogen chloride:</span> <span class="vl">HCl, Mr = 36.5 (heavier)</span><br>'+
+      '<span class="lbl">White ring:</span> <span class="vl">NH₄Cl, forms nearer the HCl end</span><br>'+
+      '<span class="lbl">Reason:</span> <span class="vl">NH₃ is lighter → diffuses faster → travels further</span>';
+  }else{
+    readout.innerHTML='<span class="lbl">Crystal:</span> <span class="vl">potassium manganate(VII) — purple</span><br>'+
+      '<span class="lbl">Observation:</span> <span class="vl">purple colour spreads through the still water</span><br>'+
+      '<span class="lbl">Shows:</span> <span class="vl">particles move and spread from high → low concentration</span><br>'+
+      '<span class="lbl">Warmer water:</span> <span class="vl">diffuses faster</span>';
+  }
+}
+updateReadout();
+
+let resetSim=()=>{};
+
+/* Guided tour */
+const TOUR=[
+  {mode:'gas',temp:25,title:'Two gases, one tube',body:'Cotton wool soaked in concentrated <b>ammonia (NH₃)</b> sits at the left, <b>hydrochloric acid (HCl)</b> at the right. Both give off gas that diffuses along the tube.'},
+  {mode:'gas',temp:25,title:'Particles diffuse',body:'The gas particles <b>move randomly</b>, spreading from high concentration (each cotton wool) toward low concentration. Blue = NH₃, green = HCl.'},
+  {mode:'gas',temp:25,title:'A white ring forms',body:'Where the gases meet they react: <b>NH₃ + HCl → NH₄Cl</b>, a white solid ring. Crucially it forms <b>nearer the HCl end</b>, not in the middle.'},
+  {mode:'gas',temp:25,title:'Why off-centre?',body:'<b>NH₃ (Mr 17)</b> is lighter than <b>HCl (Mr 36.5)</b>. At the same temperature the lighter particles move <b>faster</b>, so ammonia travels further before they meet.'},
+  {mode:'liquid',temp:60,title:'Diffusion in liquids',body:'Diffusion happens in liquids too, just more slowly. A <b>purple KMnO₄</b> crystal spreads its colour through still water. Warming the water speeds it up — more kinetic energy.'},
+];
+let tourStep=-1;
+const gdots=document.getElementById('gdots');TOUR.forEach(()=>gdots.appendChild(document.createElement('span')));
+const guideBody=document.getElementById('guideBody'),startBtn=document.getElementById('startBtn'),
+  guideStart=document.getElementById('guideStart'),guideNav=document.getElementById('guideNav'),
+  prevBtn=document.getElementById('prevBtn'),nextBtnG=document.getElementById('nextBtn'),exitBtn=document.getElementById('exitBtn');
+function applyStep(i){const s=TOUR[i];modeSel.value=s.mode;tempSlider.value=s.temp;tempVal.textContent=s.temp;paint(tempSlider);
+  running=true;progress=0;resetSim();updateReadout();
+  guideBody.innerHTML=`<b>${s.title}.</b> ${s.body}`;
+  [...gdots.children].forEach((d,idx)=>d.classList.toggle('done',idx<=i));
+  prevBtn.disabled=i===0;nextBtnG.textContent=i===TOUR.length-1?'Finish':'Next →';}
+function startTour(){tourStep=0;guideStart.style.display='none';guideNav.style.display='flex';applyStep(0);}
+function exitTour(){tourStep=-1;guideStart.style.display='block';guideNav.style.display='none';
+  [...gdots.children].forEach(d=>d.classList.remove('done'));
+  guideBody.innerHTML='Watch particles diffuse — spreading from high to low concentration. In the ammonia/HCl tube the lighter gas travels further, so the white ring forms off-centre.';}
+startBtn.onclick=startTour;exitBtn.onclick=exitTour;
+prevBtn.onclick=()=>{if(tourStep>0){tourStep--;applyStep(tourStep);}};
+nextBtnG.onclick=()=>{if(tourStep<TOUR.length-1){tourStep++;applyStep(tourStep);}else exitTour();};
+
+new p5(function(p){
+  function glow(c,a){p.drawingContext.shadowBlur=a;p.drawingContext.shadowColor=c;}
+  function noGlow(){p.drawingContext.shadowBlur=0;}
+  const W=500,H=460;let hover=null,nh3=[],hcl=[],liq=[],ringGrow=0;
+  const RING_FRAC=0.6; // from ammonia (left) end — nearer HCl
+
+  resetSim=function(){nh3=[];hcl=[];liq=[];ringGrow=0;};
+
+  p.setup=function(){const cw=Math.min(500,p.windowWidth-40);
+    p.createCanvas(cw,H).parent('sim-canvas');p.frameRate(60);};
+  p.windowResized=function(){const cw=Math.min(500,p.windowWidth-40);p.resizeCanvas(cw,H);};
+
+  p.draw=function(){
+    const g=p.drawingContext.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#121722');g.addColorStop(1,'#0d1016');
+    p.drawingContext.fillStyle=g;p.noStroke();p.rect(0,0,p.width,H);
+    hover=null;
+    const tempF=p.map(+tempSlider.value,0,100,0.5,2.2);
+    if(modeSel.value==='gas')drawGas(tempF);else drawLiquid(tempF);
+    if(hover)tooltip(hover.x,hover.y,hover.lines);
+  };
+
+  function drawGas(tempF){
+    const tubeY=H/2-30,tubeH=70,tubeL=50,tubeR=W-50;
+    p.noStroke();p.fill('#ff9f40');p.textStyle(p.BOLD);p.textSize(14);p.textAlign(p.CENTER,p.TOP);p.text('Ammonia & Hydrogen Chloride Diffusion',W/2,16);p.textStyle(p.NORMAL);
+    // tube
+    p.fill(30,36,44,120);p.rect(tubeL,tubeY,tubeR-tubeL,tubeH,6);
+    // cotton wool ends
+    p.fill('#dfe3e8');p.circle(tubeL+14,tubeY+tubeH/2,26);p.circle(tubeR-14,tubeY+tubeH/2,26);
+    p.fill('#4da6ff');p.textSize(10);p.textAlign(p.CENTER,p.TOP);p.text('conc. NH₃',tubeL+14,tubeY+tubeH+6);
+    p.fill('#69db7c');p.text('conc. HCl',tubeR-14,tubeY+tubeH+6);
+    p.fill('#8b949e');p.textSize(9);p.text('(Mr 17, lighter)',tubeL+14,tubeY+tubeH+20);p.text('(Mr 36.5, heavier)',tubeR-14,tubeY+tubeH+20);
+
+    const innerL=tubeL+28,innerR=tubeR-28,ringX=innerL+(innerR-innerL)*RING_FRAC;
+    if(running){
+      progress=Math.min(1,progress+0.004*tempF);
+      // spawn particles
+      if(showPCb.checked&&p.frameCount%3===0){
+        nh3.push({x:innerL,y:tubeY+10+p.random(tubeH-20),phase:p.random(1000)});
+        hcl.push({x:innerR,y:tubeY+10+p.random(tubeH-20),phase:p.random(1000)});
+      }
+      ringGrow=Math.min(1,Math.max(0,(progress-0.55)/0.35));
+    }
+    // particles drift toward ring; NH3 faster
+    if(showPCb.checked){
+      nh3=nh3.filter(pt=>pt.x<ringX-2);
+      nh3.forEach(pt=>{pt.x+=1.4*tempF+p.random(-0.4,0.4);pt.y+=p.random(-1,1);pt.y=p.constrain(pt.y,tubeY+8,tubeY+tubeH-8);
+        p.noStroke();glow('#4da6ff',5);p.fill('#4da6ff');p.circle(pt.x,pt.y,6);noGlow();});
+      hcl=hcl.filter(pt=>pt.x>ringX+2);
+      hcl.forEach(pt=>{pt.x-=0.95*tempF+p.random(-0.4,0.4);pt.y+=p.random(-1,1);pt.y=p.constrain(pt.y,tubeY+8,tubeY+tubeH-8);
+        p.noStroke();glow('#69db7c',5);p.fill('#69db7c');p.circle(pt.x,pt.y,6);noGlow();});
+    }
+    // white ring
+    if(ringGrow>0){glow('#ffffff',14*ringGrow);p.noStroke();p.fill(255,255,255,200*ringGrow);
+      p.rect(ringX-8,tubeY+3,16,tubeH-6,3);noGlow();
+      p.fill('#fff');p.textSize(10);p.textAlign(p.CENTER,p.BOTTOM);p.textStyle(p.BOLD);p.text('NH₄Cl',ringX,tubeY-4);p.textStyle(p.NORMAL);
+      if(Math.abs(p.mouseX-ringX)<14&&p.mouseY>tubeY&&p.mouseY<tubeY+tubeH)hover={x:ringX,y:tubeY,lines:['White ring: NH₄Cl','Forms nearer HCl — NH₃ diffused further']};
+    }
+    // tube outline
+    p.noFill();p.stroke(120,140,160);p.strokeWeight(2);p.rect(tubeL,tubeY,tubeR-tubeL,tubeH,6);
+    // midpoint marker (to show off-centre)
+    const midX=(innerL+innerR)/2;
+    p.stroke(255,255,255,40);p.strokeWeight(1);p.drawingContext.setLineDash([3,4]);p.line(midX,tubeY-14,midX,tubeY+tubeH+14);p.drawingContext.setLineDash([]);
+    p.noStroke();p.fill('#8b949e');p.textSize(8);p.textAlign(p.CENTER,p.TOP);p.text('midpoint',midX,tubeY+tubeH+34);
+    if(ringGrow>0.3){p.fill('#ffd43b');p.textSize(10);p.textAlign(p.CENTER,p.TOP);p.text('ring is right of midpoint → NH₃ travelled further',W/2,tubeY+tubeH+50);}
+    if(!running){p.fill('#8b949e');p.textSize(11);p.textAlign(p.CENTER,p.CENTER);p.text('Press ▶ Start',W/2,tubeY+tubeH/2);}
+  }
+
+  function drawLiquid(tempF){
+    p.noStroke();p.fill('#4da6ff');p.textStyle(p.BOLD);p.textSize(14);p.textAlign(p.CENTER,p.TOP);p.text('Diffusion in a Liquid — KMnO₄',W/2,16);p.textStyle(p.NORMAL);
+    const bx=110,bw=280,btop=70,bbot=400;
+    // water
+    p.fill(120,170,210,40);p.rect(bx,btop,bw,bbot-btop,0,0,6,6);
+    if(running){progress=Math.min(1,progress+0.003*tempF);
+      if(p.frameCount%2===0)for(let i=0;i<2;i++)liq.push({x:bx+bw/2+p.random(-8,8),y:bbot-14,vx:p.random(-0.6,0.6),vy:p.random(-0.9,-0.2),age:0});}
+    // diffusing purple particles
+    liq=liq.filter(pt=>pt.age<400&&pt.y>btop+4&&pt.x>bx+4&&pt.x<bx+bw-4);
+    liq.forEach(pt=>{pt.x+=pt.vx*tempF;pt.y+=pt.vy*tempF;pt.vx+=p.random(-0.15,0.15);pt.vy+=p.random(-0.12,0.1);
+      pt.vx*=0.98;pt.vy*=0.98;pt.age++;
+      p.noStroke();glow('#da77f2',5);p.fill(200,90,220,180-pt.age*0.3);p.circle(pt.x,pt.y,7);noGlow();});
+    // crystal
+    p.noStroke();glow('#a040c0',10);p.fill(140,50,170);p.rect(bx+bw/2-8,bbot-16,16,10,2);noGlow();
+    p.fill('#8b949e');p.textSize(9);p.textAlign(p.CENTER,p.TOP);p.text('KMnO₄ crystal',bx+bw/2,bbot+6);
+    // beaker outline
+    p.noFill();p.stroke(120,140,160);p.strokeWeight(2.5);
+    p.beginShape();p.vertex(bx,btop-10);p.vertex(bx,bbot);p.vertex(bx+bw,bbot);p.vertex(bx+bw,btop-10);p.endShape();
+    if(!running){p.noStroke();p.fill('#8b949e');p.textSize(11);p.textAlign(p.CENTER,p.CENTER);p.text('Press ▶ Start',bx+bw/2,(btop+bbot)/2);}
+    if(p.mouseX>bx&&p.mouseX<bx+bw&&p.mouseY>btop&&p.mouseY<bbot)hover={x:p.mouseX,y:p.mouseY,lines:['KMnO₄ diffusing','Purple spreads high → low concentration']};
+  }
+
+  function tooltip(px,py,lines){p.textSize(11);let w=0;lines.forEach((l,i)=>{p.textStyle(i===0?p.BOLD:p.NORMAL);w=Math.max(w,p.textWidth(l));});
+    p.textStyle(p.NORMAL);const pad=8,lh=15,bw=w+pad*2,bh=lines.length*lh+pad;
+    let bx=px+16,by=py-bh-6;if(bx+bw>p.width)bx=px-bw-16;if(by<0)by=py+16;
+    p.noStroke();p.fill(8,11,16,238);p.rect(bx,by,bw,bh,7);p.stroke('#4da6ff');p.strokeWeight(1);p.noFill();p.rect(bx,by,bw,bh,7);
+    p.textAlign(p.LEFT,p.TOP);lines.forEach((l,i)=>{p.noStroke();p.fill(i===0?'#4da6ff':'#c9d1d9');
+      p.textStyle(i===0?p.BOLD:p.NORMAL);p.text(l,bx+pad,by+pad/2+i*lh);});p.textStyle(p.NORMAL);}
+}, document.getElementById('sim-canvas'));
+</script>
+</body>
+</html>
