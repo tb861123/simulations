@@ -35,8 +35,8 @@
   header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
   header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
-  main { display: grid; grid-template-columns: 270px minmax(0, 1fr) 350px; grid-template-rows: minmax(0, 1fr);
-         gap: 10px; padding: 10px; height: calc(100vh - 46px); min-height: 640px; }
+  main { display: grid; grid-template-columns: var(--lw, 270px) 10px minmax(0, 1fr) 10px var(--rw, 350px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 640px; }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
   #left, #right { overflow-y: auto; }
   #centre { display: grid; grid-template-rows: minmax(0, 1.15fr) auto minmax(0, 1fr); gap: 8px; padding: 8px; }
@@ -116,6 +116,25 @@
   details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
   details summary { color: var(--text); cursor: pointer; font-weight: 600; }
   details li { margin-bottom: 4px; }
+
+  /* ---------- Resizable, hideable side panels ----------
+     Drag the thin bars either side of the main view to resize the side
+     panels; the ‹ › buttons hide a panel to make the main view bigger.
+     Double-click a bar to reset. */
+  .splitter { position: relative; cursor: col-resize; border-radius: 4px; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px;
+                      background: var(--line); border-radius: 2px; transition: background .15s; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px;
+                     padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; cursor: pointer; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
+                              writing-mode: vertical-rl; border: 0; border-radius: 10px; background: none; color: var(--muted);
+                              font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
 </style>
 </head>
 <body>
@@ -126,7 +145,8 @@
 
 <main>
   <!-- ======================= LEFT: CHOOSE A STAR ======================= -->
-  <section class="panel" id="left">
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Choose a star ›</button>
     <h2>Presets</h2>
     <div class="presets" id="presets"></div>
 
@@ -168,6 +188,8 @@
     </details>
   </section>
 
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
   <!-- ======================= CENTRE: VIEWS, TIMELINE, CHARTS ======================= -->
   <section class="panel" id="centre">
     <div id="views">
@@ -208,8 +230,11 @@
     </div>
   </section>
 
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
   <!-- ======================= RIGHT: WHAT'S HAPPENING ======================= -->
-  <section class="panel" id="right">
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readouts</button>
     <h2>What's happening</h2>
     <div id="story"></div>
 
@@ -1613,6 +1638,53 @@ function frame(now) {
 
 setPreset(0);
 requestAnimationFrame(frame);
+
+/* =====================================================================
+   PANEL LAYOUT — resize or hide the side panels
+   ---------------------------------------------------------------------
+   The layout is remembered in this browser (if storage is allowed).
+   The canvases resize themselves every frame, so nothing else is needed.
+   ===================================================================== */
+(function () {
+  const main = document.querySelector("main");
+  const left = document.getElementById("left"), right = document.getElementById("right");
+  const KEY = "stellar-life-cycle-layout", STRIP = 30, MIN = 200;
+  const DEF = { lw: 270, rw: 350, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px");
+    main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+  }
+  function drag(splitter, side) {
+    splitter.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      splitter.setPointerCapture(e.pointerId); splitter.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => {
+        const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX;
+        if (w < 110) { st[side + "c"] = true; }                    // dragged nearly shut: hide it
+        else { st[side + "c"] = false; st[side + "w"] = w; }
+        apply();
+      };
+      const up = () => { splitter.classList.remove("drag"); splitter.removeEventListener("pointermove", move); splitter.removeEventListener("pointerup", up); };
+      splitter.addEventListener("pointermove", move); splitter.addEventListener("pointerup", up);
+    });
+    splitter.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    splitter.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(document.getElementById("splitL"), "l"); drag(document.getElementById("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+})();
 </script>
 </body>
 </html>

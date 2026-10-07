@@ -36,6 +36,13 @@ starting conditions, and press **Play**.
   core and average density, spectral type, what is fusing, lifespan, and
   surface and core composition.
 
+## Layout
+
+Drag the thin bars either side of the main view to resize the side panels,
+or click their ‹ › buttons to hide a panel and make the main view bigger.
+Click a hidden panel's strip to bring it back, and double-click a bar to
+reset. The layout is remembered in your browser.
+
 ## Presets
 
 The Sun, red dwarf (Proxima Centauri), brown dwarf, Sirius A, Cepheid, heavy

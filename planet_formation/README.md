@@ -54,6 +54,13 @@ Every simplification is listed inside the app under **"How the model works
 Use the **½× / 1× / 4× / 16× / Max** buttons above the disc to fast-forward
 at any stage. Speed changes only how fast you watch, never the result.
 
+## Layout
+
+Drag the thin bars either side of the main view to resize the side panels,
+or click their ‹ › buttons to hide a panel and make the main view bigger.
+Click a hidden panel's strip to bring it back, and double-click a bar to
+reset. The layout is remembered in your browser.
+
 ## Repeatable runs
 
 The same random seed with the same settings gives exactly the same run.

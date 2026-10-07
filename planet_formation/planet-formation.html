@@ -55,9 +55,9 @@
   /* Three columns: controls | disc view | plot + log */
   main {
     display: grid;
-    grid-template-columns: 280px minmax(0, 1fr) minmax(320px, 400px);
+    grid-template-columns: var(--lw, 280px) 10px minmax(0, 1fr) 10px var(--rw, 380px);
     grid-template-rows: minmax(0, 1fr);   /* fixed-height row: a long log scrolls instead of stretching the page */
-    gap: 12px; padding: 12px;
+    gap: 12px 2px; padding: 12px;
     height: calc(100vh - 48px); min-height: 600px;
   }
   .panel {
@@ -65,6 +65,7 @@
     padding: 12px; min-height: 0; min-width: 0;
   }
   #controls { overflow-y: auto; }
+  #right.collapsed { display: block; }
   #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
   #discWrap { position: relative; flex: 1; min-height: 0; }
   #disc { position: absolute; inset: 0; width: 100%; height: 100%; display: block; border-radius: 8px; cursor: crosshair; }
@@ -154,12 +155,32 @@
 
   /* Narrow screens: stack everything in one column */
   @media (max-width: 1100px) {
-    main { grid-template-columns: 1fr; grid-template-rows: none; height: auto; padding: 12px 16px; }
+    main { grid-template-columns: 1fr !important; grid-template-rows: none; height: auto; padding: 12px 16px; }
+    .splitter { display: none; }
     #discWrap { height: auto; flex: none; }
     #disc { position: relative; height: min(calc(100vw - 48px), 640px); }
     #pickHint { bottom: auto; top: calc(min(calc(100vw - 48px), 640px) - 34px); }
     #logPanel { flex: none; height: 360px; }
   }
+
+  /* ---------- Resizable, hideable side panels ----------
+     Drag the thin bars either side of the main view to resize the side
+     panels; the ‹ › buttons hide a panel to make the main view bigger.
+     Double-click a bar to reset. */
+  .splitter { position: relative; cursor: col-resize; border-radius: 4px; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px;
+                      background: var(--line); border-radius: 2px; transition: background .15s; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px;
+                     padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; cursor: pointer; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
+                              writing-mode: vertical-rl; border: 0; border-radius: 10px; background: none; color: var(--muted);
+                              font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
 </style>
 </head>
 <body>
@@ -171,7 +192,8 @@
 
 <main>
   <!-- ================= LEFT: CONTROLS ================= -->
-  <section class="panel" id="controls">
+  <section class="panel side" id="controls">
+    <button class="reopen" title="Show this panel">Controls ›</button>
     <div class="buttons">
       <button id="btnStart" class="primary">Start</button>
       <button id="btnPause">Pause</button>
@@ -297,6 +319,8 @@
     </details>
   </section>
 
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
   <!-- ================= CENTRE: TOP-DOWN DISC VIEW ================= -->
   <section class="panel" id="centre">
     <div id="topbar">
@@ -333,8 +357,11 @@
     </div>
   </section>
 
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
   <!-- ================= RIGHT: PLOT + EVENT LOG ================= -->
-  <section id="right">
+  <section class="side" id="right">
+    <button class="reopen" title="Show this panel">‹ Plot &amp; log</button>
     <div class="panel" id="plotPanel">
       <h2>Mass vs distance from the star</h2>
       <div id="plotWrap"><canvas id="plot" aria-label="Scatter plot of mass against distance"></canvas></div>
@@ -2088,6 +2115,53 @@ buildDisc();
 fitView();
 renderInspector();
 requestAnimationFrame(frame);
+
+/* =====================================================================
+   PANEL LAYOUT — resize or hide the side panels
+   ---------------------------------------------------------------------
+   The layout is remembered in this browser (if storage is allowed).
+   The canvases resize themselves every frame, so nothing else is needed.
+   ===================================================================== */
+(function () {
+  const main = document.querySelector("main");
+  const left = document.getElementById("controls"), right = document.getElementById("right");
+  const KEY = "planet-formation-layout", STRIP = 30, MIN = 200;
+  const DEF = { lw: 280, rw: 380, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px");
+    main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+  }
+  function drag(splitter, side) {
+    splitter.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      splitter.setPointerCapture(e.pointerId); splitter.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => {
+        const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX;
+        if (w < 110) { st[side + "c"] = true; }                    // dragged nearly shut: hide it
+        else { st[side + "c"] = false; st[side + "w"] = w; }
+        apply();
+      };
+      const up = () => { splitter.classList.remove("drag"); splitter.removeEventListener("pointermove", move); splitter.removeEventListener("pointerup", up); };
+      splitter.addEventListener("pointermove", move); splitter.addEventListener("pointerup", up);
+    });
+    splitter.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    splitter.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(document.getElementById("splitL"), "l"); drag(document.getElementById("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+})();
 </script>
 </body>
 </html>
