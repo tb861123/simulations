@@ -9,6 +9,7 @@ All simulation projects live here, one folder each:
 | Folder | Project | Run |
 |---|---|---|
 | `planet_formation/` | Planet formation simulator (single self-contained HTML file) | open `planet-formation.html` |
+| `stellar_life_cycle/` | Stellar life cycle simulator (single self-contained HTML file) | open `stellar-life-cycle.html` |
 | `fluid_dynamics/` | 2D CFD panel method (Python, Pygame, Numba) | `python main.py` |
 | `chem_sims/` | Edexcel iGCSE Chemistry sims (HTML) | `run.bat` / `index.html` |
 | `physics_sims/` | WJEC Physics sims (Streamlit) | `python setup_env.py`, then `streamlit run Home.py` |
