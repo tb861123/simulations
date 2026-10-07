@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planet Formation Simulator</title>
+<!--
+  PLANET FORMATION SIMULATOR — a teaching model
+  =============================================
+  One self-contained file: no libraries, no internet needed. Open it in any
+  modern web browser.
+
+  What it shows: a young star surrounded by a flat disc of "planetesimals"
+  (rocky or icy lumps a few km to hundreds of km across). Gravity makes them
+  orbit the star. When two of them meet they can stick together (merge),
+  bounce, or smash into fragments. Over time a few big planets grow while the
+  small bodies get used up. A disc of hydrogen and helium GAS surrounds the
+  star too: once a solid core is big enough it pulls that gas onto itself
+  and becomes a gas giant — but only if it gets big before the gas fades away.
+
+  Units used everywhere in the code:
+    distance  -> AU (astronomical units; 1 AU = Earth–Sun distance)
+    mass      -> Earth masses (written M⊕)
+    time      -> years
+    speed     -> AU per year (1 AU/yr ≈ 4.74 km/s)
+-->
+<style>
+  /* ---------- Colours (one place to change them) ---------- */
+  :root {
+    --bg: #070a14;        /* deep space */
+    --panel: #0f1424;
+    --panel-2: #161c31;
+    --line: #283052;
+    --text: #e8ebf4;
+    --muted: #9aa3bf;
+    --accent: #f1af28;    /* gold: buttons and highlights */
+    --rock: #b07a4a;      /* rocky bodies: brown */
+    --ice: #bfe6ff;       /* icy bodies: pale blue */
+    --frost: #7fd4ff;     /* frost line */
+    --gas: #a98bff;       /* the gas disc: soft violet glow */
+    --giant: #e8be82;     /* gas giants: Jupiter-like tan */
+    --danger: #ff7a6b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+  header {
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px;
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 13px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Three columns: controls | disc view | plot + log */
+  main {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr) minmax(320px, 400px);
+    grid-template-rows: minmax(0, 1fr);   /* fixed-height row: a long log scrolls instead of stretching the page */
+    gap: 12px; padding: 12px;
+    height: calc(100vh - 48px); min-height: 600px;
+  }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px; min-height: 0; min-width: 0;
+  }
+  #controls { overflow-y: auto; }
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  #discWrap { position: relative; flex: 1; min-height: 0; }
+  #disc { position: absolute; inset: 0; width: 100%; height: 100%; display: block; border-radius: 8px; cursor: crosshair; }
+  #right { display: flex; flex-direction: column; gap: 12px; padding: 0; background: none; border: 0; }
+  #plotPanel { flex: 0 0 auto; }
+  #plotWrap { position: relative; height: 300px; }
+  #plot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+  #logPanel { flex: 1; display: flex; flex-direction: column; min-height: 180px; }
+  #log { flex: 1; min-height: 0; overflow-y: auto; font-size: 13px; margin-top: 6px; }
+  #log div { padding: 3px 0; border-bottom: 1px solid #1c2340; }
+  #log .t { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 6px; }
+  #log .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 16px; }
+
+  /* Sliders */
+  .ctl { margin-bottom: 10px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range] { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  .ctl .hint { color: var(--muted); font-size: 11.5px; }
+  input[type=text] {
+    width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 8px; font: inherit;
+  }
+  .buttons { display: flex; gap: 8px; margin: 4px 0 10px; }
+  button {
+    flex: 1; font: inherit; font-weight: 600; padding: 8px 10px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+  }
+  button.primary { background: var(--accent); color: #14133b; border-color: var(--accent); }
+  button:hover { filter: brightness(1.12); }
+  #pending { display: none; background: #3a2a07; color: #ffd98a; border: 1px solid #6b4e10;
+             border-radius: 6px; padding: 6px 8px; font-size: 12.5px; margin-bottom: 10px; }
+
+  /* Clock and stats strip above the disc */
+  #topbar { display: flex; flex-wrap: wrap; gap: 2px 14px; align-items: baseline; padding: 2px 6px; }
+  #stage { font-size: 12.5px; color: #14133b; background: var(--accent); border-radius: 999px; padding: 1px 10px; font-weight: 600; }
+  #clock { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); }
+  .stat { color: var(--muted); font-size: 12px; }
+  .stat b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .zoom { position: absolute; right: 8px; top: 8px; display: flex; gap: 4px; }
+  .zoom button { flex: none; width: 34px; padding: 4px 0; background: rgba(15,20,36,.85); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  .legend .dash { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed var(--frost); vertical-align: 3px; }
+  .legend .ring { background: none; border: 1.5px solid #8892b0; }
+
+  #tip {
+    position: fixed; pointer-events: none; display: none; z-index: 10;
+    background: #0b1020; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+    font-size: 12.5px; line-height: 1.35; box-shadow: 0 4px 16px rgba(0,0,0,.5);
+  }
+
+  /* Body inspector: floats over the top-left corner of the disc view */
+  /* Body inspector: a tab beside the event log */
+  .tabs { display: flex; gap: 6px; }
+  .tabs button { flex: none; padding: 4px 10px; font-size: 12.5px; font-weight: 600; background: none;
+                 border: 1px solid transparent; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .tabs button.on { color: var(--text); border-color: var(--line); background: var(--panel-2); }
+  #inspector { flex: 1; min-height: 0; overflow-y: auto; font-size: 12.5px; margin-top: 6px; display: none; }
+  #inspector .empty { color: var(--muted); padding: 8px 0; }
+  #inspector h3 { margin: 0 0 2px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  #inspector h3 button { flex: none; width: 26px; padding: 0; line-height: 22px; }
+  #inspector .sub { color: var(--muted); margin-bottom: 6px; }
+  #inspector .sec { color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin: 8px 0 2px; }
+  #inspector table { width: 100%; border-collapse: collapse; }
+  #inspector td { padding: 1.5px 0; vertical-align: top; }
+  #inspector td:first-child { color: var(--muted); padding-right: 8px; }
+  #inspector td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  #inspector .note { color: var(--muted); font-size: 11.5px; margin-top: 6px; }
+  #pickHint { position: absolute; left: 8px; bottom: 8px; font-size: 12px; color: var(--muted);
+              background: rgba(11,16,32,.8); padding: 3px 8px; border-radius: 6px; pointer-events: none; }
+
+  details { margin-top: 14px; font-size: 13px; color: var(--muted); }
+  details summary { cursor: pointer; color: var(--text); font-weight: 600; }
+  details li { margin-bottom: 4px; }
+
+  /* Short laptop screens: a smaller plot leaves room for the inspector */
+  @media (max-height: 820px) { #plotWrap { height: 230px; } }
+
+  /* Narrow screens: stack everything in one column */
+  @media (max-width: 1100px) {
+    main { grid-template-columns: 1fr; grid-template-rows: none; height: auto; padding: 12px 16px; }
+    #discWrap { height: auto; flex: none; }
+    #disc { position: relative; height: min(calc(100vw - 48px), 640px); }
+    #pickHint { bottom: auto; top: calc(min(calc(100vw - 48px), 640px) - 34px); }
+    #logPanel { flex: none; height: 360px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Planet Formation Simulator</h1>
+  <span class="sub">A disc of planetesimals around a young star — gravity, a frost line and collisions build planets. A simplified teaching model: time is compressed and sizes exaggerated.</span>
+</header>
+
+<main>
+  <!-- ================= LEFT: CONTROLS ================= -->
+  <section class="panel" id="controls">
+    <div class="buttons">
+      <button id="btnStart" class="primary">Start</button>
+      <button id="btnPause">Pause</button>
+      <button id="btnReset">Reset</button>
+    </div>
+    <div id="pending">Settings changed — press <b>Reset</b> to build a new disc with them.</div>
+
+    <h2>The star</h2>
+    <div class="ctl">
+      <label>Star mass <output id="o_star"></output></label>
+      <input type="range" id="star" min="0.5" max="2" step="0.05" value="1">
+      <div class="hint" id="h_star"></div>
+    </div>
+    <label style="font-size:13px; display:block; margin-bottom:10px">
+      <input type="checkbox" id="cloudStart" checked> Start from a collapsing cloud of gas and dust
+    </label>
+
+    <h2 class="gap">The disc</h2>
+    <div class="ctl">
+      <label>Total disc mass (solids) <output id="o_mass"></output></label>
+      <input type="range" id="mass" min="10" max="400" step="5" value="150">
+    </div>
+    <div class="ctl">
+      <label>Number of planetesimals <output id="o_n"></output></label>
+      <input type="range" id="n" min="200" max="800" step="10" value="400">
+    </div>
+    <div class="ctl">
+      <label>Disc outer radius <output id="o_outer"></output></label>
+      <input type="range" id="outer" min="5" max="50" step="1" value="30">
+    </div>
+    <div class="ctl">
+      <label>Fall-off exponent <output id="o_exp"></output></label>
+      <input type="range" id="exp" min="0" max="2.5" step="0.1" value="1">
+      <div class="hint">Number per AU ∝ distance<sup>−p</sup>. Bigger p = more crowded inner disc.</div>
+    </div>
+    <div class="ctl">
+      <label>Disc stirring (typical eccentricity) <output id="o_ecc"></output></label>
+      <input type="range" id="ecc" min="0.005" max="0.3" step="0.005" value="0.04">
+      <div class="hint">How far from circular the starting orbits are. More stirring = faster impacts = more shattering.</div>
+    </div>
+
+    <h2 class="gap">The gas</h2>
+    <div class="ctl">
+      <label>Gas in the disc <output id="o_gas"></output></label>
+      <input type="range" id="gas" min="0" max="10" step="0.5" value="5">
+      <div class="hint">Hydrogen and helium. 1 Jupiter mass (M<sub>J</sub>) = 318 M⊕. Set to 0 for a rocks-only disc.</div>
+    </div>
+    <div class="ctl">
+      <label>Gas lifetime <output id="o_life"></output></label>
+      <input type="range" id="life" min="0.5" max="10" step="0.5" value="3">
+      <div class="hint">The young star's radiation blows the gas away. After each lifetime about ⅓ is left; once only 10% remains it is cleared ten times faster. Real discs last about 1–10 million years.</div>
+    </div>
+    <div class="ctl">
+      <label>Critical core mass <output id="o_crit"></output></label>
+      <input type="range" id="crit" min="3" max="20" step="0.5" value="10">
+      <div class="hint">A solid core must reach this mass before its gravity can hold on to gas and start pulling it in.</div>
+    </div>
+
+    <h2 class="gap">Model shortcuts</h2>
+    <div class="ctl">
+      <label>Mutual-gravity mass threshold <output id="o_thr"></output></label>
+      <input type="range" id="thr" min="-2" max="1" step="0.05" value="0">
+      <div class="hint">Only bodies heavier than this pull on other planetesimals (keeps it fast).</div>
+    </div>
+    <div class="ctl">
+      <label>Collision radius <output id="o_boost"></output></label>
+      <input type="range" id="boost" min="-0.6" max="0.6" step="0.05" value="0">
+      <div class="hint">Bodies "touch" within this many Hill radii — hugely inflated so collisions happen on screen.</div>
+    </div>
+    <div class="ctl">
+      <label>Random seed</label>
+      <input type="text" id="seed" value="2026">
+      <div class="hint">Same seed + same settings = exactly the same run.</div>
+    </div>
+
+    <h2 class="gap">Playback</h2>
+    <div class="ctl">
+      <label>Simulation speed <output id="o_speed"></output></label>
+      <input type="range" id="speed" min="0" max="100" step="1" value="90">
+      <div class="hint">Changes only how fast you watch, never the result.</div>
+    </div>
+    <label style="font-size:13px"><input type="checkbox" id="showSS" checked> Show our Solar System on the plot</label>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul id="assumptions">
+        <li>The star is fixed at the centre and never moves or grows once planetesimals exist; its luminosity is L = M<sup>4</sup> (solar units) for the whole run, even before fusion starts (a real young star is brighter at first, then dims while contracting).</li>
+        <li><b>Time:</b> the clock shows an <i>estimate</i> of real time. While gas is present each model year counts as 375 real years, chosen so the gas lifetime matches real discs (about 3 million years). After the gas has gone, collisions in real systems become far rarer, so each model year counts as 20,000 real years, putting the giant-impact phase at tens of millions of years as in our Solar System. A single conversion factor can't be right for every process, so treat the times as rough.</li>
+        <li>Hydrogen fusion starts ("ignition", joining the main sequence) at 40 million years × (star mass)<sup>−2.5</sup>, the approximate time a young star takes to contract until its core is hot enough. Earlier glow comes from gravitational energy.</li>
+        <li><b>Cloud prologue:</b> 2000 parcels of gas and dust in a slowly spinning ball 10,000 AU across, densest in the middle (density ∝ 1/r², a standard model of a cloud core), all turning together. Each feels gravity from all the mass closer to the centre (as if the cloud were spherical). Gas pressure, magnetic fields and outflows are left out. Inside 800 AU, material hitting the disc loses its up-down and outward motion (shocks) and slowly loses spin (friction in the disc) so it drifts onto the star. Anything within 40 AU joins the protostar. The cloud is taken to be 1/0.7 of the final star's mass, and at the end the model starts the planetesimal disc with the slider settings; the collapse does not set the disc's mass.</li>
+        <li>The model jumps over planetesimal formation (dust sticking into km-sized bodies), which is still an active research topic.</li>
+        <li>The system is called "settled" once the star has ignited and nothing bigger than 0.05 M⊕ has collided, been ejected or fallen into the star for 30 million (estimated) years. Big caveat: 30 million real years is tens of millions of orbits, but the model only runs a few thousand, so slow instabilities that take millions of orbits (thought to have caused late giant impacts such as the one that made our Moon) can't show up. Crowded inner systems in this model are probably less stable than they look.</li>
+        <li>Frost line = 2.7 × √L AU, fixed for the whole run (real discs cool, so it moves inward over time).</li>
+        <li>The gas disc is a set of 160 thin rings. It starts spread over the same distances as the solids with the same fall-off, fades away exponentially everywhere at the same rate (real discs clear from the inside out), and slowly flows sideways to smooth out gaps.</li>
+        <li>Gas only gathers onto cores above the critical mass. The rate is the slower of: the core's ability to squeeze its envelope (faster as it grows: time ∝ (critical mass ÷ mass)³, compressed to 1000 years at the critical mass), and a few orbits to sweep its feeding zone (3.5 Hill radii either side). Growth stops when the zone is emptied (a gap) or the gas is gone.</li>
+        <li>Gas drag gently pulls every body towards a circular, flat orbit, more strongly for small bodies and where there is more gas. The gas moves at exactly the circular-orbit speed, so it causes no inward drift.</li>
+        <li>No planet migration: planets don't push on the gas disc and get moved by it, so no "hot Jupiters" from migration.</li>
+        <li>Gas envelopes are given the density of Saturn (0.7 g/cm³) for working out radius.</li>
+        <li>Outside the frost line each planetesimal starts with 4× the solid mass (3 parts ice to 1 part rock); the change is a sharp step.</li>
+        <li>All planetesimals at the same distance start with the same mass.</li>
+        <li>Gravity between planetesimals is only included if at least one of the pair is above the mass threshold; gravity is slightly "softened" at very short range.</li>
+        <li>Collision radius = a multiple of the Hill radius, far bigger than the real body, so collisions are much more frequent than in nature — this is the main way time is compressed.</li>
+        <li>Impact speed is measured when the inflated spheres touch and compared with the escape speed from the real (physical) radii.</li>
+        <li>Merging, bouncing and shattering are decided by fixed thresholds (1 × and 1.5 × escape speed); real outcomes also depend on angle and material strength.</li>
+        <li>Bounces lose half their approach speed (coefficient of restitution 0.5).</li>
+        <li>Shattering makes 3–5 fragments with random shares of the mass, flying apart at the escape speed; the rest of the impact energy is assumed to become heat. If the pieces would be smaller than 0.005 M⊕, the pair is instead "ground to dust" and removed (as if blown away by starlight) — the only way mass leaves except falling into the star or ejection. Above 1500 bodies, would-be shatters bounce instead.</li>
+        <li>Physical radius assumes Earth-like density for rock and water-ice density for ice.</li>
+        <li>Bodies closer than 0.1 AU fall into the star; unbound bodies beyond 4× the disc radius are ejected.</li>
+        <li>A fixed time step (1/60 of an orbit at the inner edge) is used; bodies on very eccentric orbits near the star are less accurate.</li>
+        <li>Sizes on screen ∝ (mass)<sup>1/3</sup> and are hugely exaggerated.</li>
+        <li>Spin: planetesimals start with a random spin (4–24 h, random axis). In a merger the spins add up together with the "sideways" angular momentum of the impact, worked out as if the bodies met at their real radii. Spin can't exceed break-up speed (the excess is assumed lost with debris). Fragments get fresh random spins; bounces don't change spin; tides are ignored, so days never lengthen.</li>
+        <li>Gas giants are spun up by the gas they gather, which is given a set fraction (30%) of the break-up angular momentum at the surface, around the orbit's axis.</li>
+        <li>Moment of inertia: 0.4 m R² for a solid body, falling to 0.25 m R² for a gas giant (Jupiter's is about 0.25).</li>
+        <li>The inspector's orbit (eccentricity, perihelion, aphelion, year) is the ellipse the body would follow if only the star pulled on it, so it changes slightly as other bodies tug it. Temperature assumes a black body with no atmosphere.</li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- ================= CENTRE: TOP-DOWN DISC VIEW ================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">0 years</span>
+      <span class="stat" id="clockSub"></span>
+      <span id="stage"></span>
+      <span class="stat">Bodies <b id="s_n">0</b></span>
+      <span class="stat">Gravitating <b id="s_big">0</b></span>
+      <span class="stat">Largest <b id="s_max">–</b></span>
+      <span class="stat">Merges <b id="s_merge">0</b> · Bounces <b id="s_bounce">0</b> · Shatters <b id="s_shatter">0</b> · Lost <b id="s_lost">0</b> · Dust <b id="s_dust">0</b></span>
+      <span class="stat">Gas left <b id="s_gas">–</b></span>
+      <span class="stat">Speed <b id="s_rate">–</b></span>
+    </div>
+    <div id="discWrap">
+      <canvas id="disc" aria-label="Top-down view of the planet-forming disc"></canvas>
+      <div class="zoom">
+        <button id="zIn" title="Zoom in">+</button>
+        <button id="zOut" title="Zoom out">−</button>
+        <button id="zFit" title="Show whole disc" style="width:44px">Fit</button>
+      </div>
+      <div id="pickHint">Click any body to inspect it (pausing makes it easier)</div>
+    </div>
+    <div class="legend" style="padding:0 6px">
+      <span><i style="background:var(--rock)"></i>Rocky</span>
+      <span><i style="background:var(--ice)"></i>Icy</span>
+      <span><i style="background:var(--giant)"></i>Gas-rich</span>
+      <span><i style="background:var(--gas);opacity:.6"></i>Gas disc (dark rings = gaps)</span>
+      <span><i class="dash"></i>Frost line</span>
+      <span>Faint lines: orbit trails of bodies ≥ 5 M⊕ · Scroll or use +/− to zoom</span>
+    </div>
+  </section>
+
+  <!-- ================= RIGHT: PLOT + EVENT LOG ================= -->
+  <section id="right">
+    <div class="panel" id="plotPanel">
+      <h2>Mass vs distance from the star</h2>
+      <div id="plotWrap"><canvas id="plot" aria-label="Scatter plot of mass against distance"></canvas></div>
+      <div class="legend">
+        <span><i style="background:var(--rock)"></i>Rocky</span>
+        <span><i style="background:var(--ice)"></i>Icy</span>
+        <span><i style="background:var(--giant)"></i>Gas-rich</span>
+        <span><i class="dash"></i>Frost line</span>
+        <span><i class="ring"></i>Solar System planets</span>
+      </div>
+    </div>
+    <div class="panel" id="logPanel">
+      <div class="tabs">
+        <button id="tabLog" class="on">Event log</button>
+        <button id="tabInspect">Body inspector</button>
+      </div>
+      <div id="log"></div>
+      <div id="inspector" aria-live="polite"></div>
+    </div>
+  </section>
+</main>
+<div id="tip"></div>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   1. PHYSICAL CONSTANTS
+   ---------------------------------------------------------------------
+   Newton's law of gravity: F = G m1 m2 / r².
+   In our units (AU, years, Earth masses) G has a tidy value: for the Sun,
+   G × M_sun = 4π² AU³/yr². (That is Kepler's third law: T² = a³ for the
+   Sun, where T is in years and a in AU.) The Sun is 333,000 Earth masses.
+   ===================================================================== */
+const G_MSUN = 4 * Math.PI * Math.PI;          // G × (1 solar mass)
+const EARTHS_PER_SUN = 333000;                 // Earth masses in one Sun
+const G = G_MSUN / EARTHS_PER_SUN;             // G for masses in Earth masses
+const R_EARTH_AU = 4.26e-5;                    // Earth's radius in AU (6371 km)
+const KMS_PER_AU_YR = 4.74;                    // 1 AU/yr in km/s
+const INNER_EDGE = 0.3;                        // inner edge of the disc, AU
+const SOFTENING = 0.003;                       // AU: stops gravity blowing up at r → 0
+const RESTITUTION = 0.5;                       // bounces keep 50% of approach speed
+const MIN_FRAGMENT = 0.005;                    // smallest fragment we track, M⊕
+const MAX_BODIES = 1500;                       // safety cap so the browser stays fast
+const SWALLOW_R = 0.1;                         // closer than this → falls into the star
+const LEVELS = [0.5, 1, 2, 5, 10, 30, 100, 300]; // masses at which we log "growth" events
+const EARTHS_PER_JUPITER = 318;
+const TRAIL_MASS = 5;
+const HOURS_PER_YEAR = 8766;
+const R_EARTH_KM = 6371;
+const GAS_SPIN_FRACTION = 0.3;                  // accreted gas brings 30% of break-up spin
+
+// Converting model years to (estimated) real years
+const COMPRESSION_GAS = 375;      // real years per model year while there is gas
+const COMPRESSION_LATE = 20000;   // ...after the gas has gone (rare giant impacts)
+const ZAMS_MYR = 40;              // a 1 M☉ star starts hydrogen fusion at ~40 million years
+const SETTLED_YEARS = 30e6;       // quiet for this long (real years) = settled
+
+// The collapsing-cloud prologue (its own units: cloud radius = 1, cloud mass = 1, G = 1)
+const CLOUD_N = 2000;             // parcels of gas and dust
+const CLOUD_R_AU = 10000;         // starting radius of the cloud in AU
+const CLOUD_SPIN = 0.17;          // spin rate: the outer edge moves at 17% of orbital speed
+const CLOUD_STAR_SHARE = 0.7;     // fraction of the cloud assumed to end up in the star
+const CLOUD_RACC = 0.004;         // closer than this (40 AU) → joins the protostar
+const CLOUD_DISC_ZONE = 0.08;     // inside this (800 AU) the disc's gas slows things down
+const CLOUD_VISC_TIME = 15;       // the disc loses its spin over ~15 time units (feeds the star)
+const CLOUD_SOFT = 0.002;         // softening to stop gravity blowing up at the centre
+const CLOUD_DT = 2e-4;            // time step
+const CLOUD_END_TFF = 4;          // run for 4 "free-fall times"                           // draw orbit trails for bodies at least this big
+
+// Gas-disc settings (time-compressed like everything else)
+const GAS_RINGS = 160;          // the gas disc is stored as this many thin rings
+const KH_TIME = 1000;           // years for a core at the critical mass to double by gas alone
+const FEED_ORBITS = 3;          // fastest possible: sweep the feeding zone in ~3 orbits
+const FEED_HILL = 3.5;          // feeding zone = this many Hill radii either side of the orbit
+const DRAG_ORBITS = 500;        // gas drag calms a 0.01 M⊕ body in ~500 orbits (default gas)
+const SPREAD_ORBITS = 3;        // how quickly gas flows sideways to fill gaps
+const DEFAULT_GAS_MJ = 5;       // the default gas mass, used to scale drag
+
+/* =====================================================================
+   2. REPEATABLE RANDOM NUMBERS
+   ---------------------------------------------------------------------
+   Math.random() gives different numbers every time. For science we want
+   to repeat a run exactly, so we use a "seeded" generator: the same seed
+   always produces the same sequence of "random" numbers.
+   ===================================================================== */
+function hashSeed(str) {                       // turn any text into a 32-bit number
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return h >>> 0;
+}
+function mulberry32(a) {                       // a small, fast seeded generator
+  return function () {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;   // number from 0 to 1
+  };
+}
+
+/* =====================================================================
+   3. THE SIMULATION STATE
+   ---------------------------------------------------------------------
+   Every planetesimal is an object holding:
+     rock, ice   – how much of each solid it is made of (M⊕)
+     gas         – hydrogen/helium it has pulled in (M⊕); m = rock + ice + gas
+     x, y, z     – position (AU), star at (0,0,0); z is height above the disc
+     vx, vy, vz  – velocity (AU/yr)
+     ax, ay, az  – acceleration (AU/yr²) from gravity
+     Lx, Ly, Lz  – spin angular momentum (which way and how fast it rotates)
+     R           – real physical radius (AU), used for escape speed
+     Rc          – inflated "collision radius" (AU), used to decide if bodies touch
+   ===================================================================== */
+let sim = null;
+
+function physicalRadius(rock, ice, gas) {
+  // Volume = mass ÷ density. Rock is given Earth's density (5.5 g/cm³), ice
+  // the density of water ice (~1 g/cm³, so 5.5× more room) and a gas
+  // envelope Saturn's density (0.7 g/cm³, about 8× more room).
+  // Radius grows as the cube root of volume.
+  return R_EARTH_AU * Math.cbrt(rock + 5.5 * ice + 8 * gas);
+}
+function levelFor(m) { let k = 0; while (k < LEVELS.length && m >= LEVELS[k]) k++; return k; }
+
+function makeBody(rock, ice, gas, x, y, z, vx, vy, vz) {
+  const m = rock + ice + gas;
+  return {
+    id: sim.nextId++, rock, ice, gas, m,
+    x, y, z, vx, vy, vz, ax: 0, ay: 0, az: 0,
+    ox: x, oy: y, oz: z,               // position at the start of the step
+    r: Math.hypot(x, y, z),
+    R: physicalRadius(rock, ice, gas), Rc: 0, lo: 0, hi: 0,
+    alive: true, hit: false, big: false,
+    level: levelFor(m),                // growth milestones already reached
+    gasStarted: false, gapLogged: false,
+    Lx: 0, Ly: 0, Lz: 0,               // spin angular momentum, M⊕·AU²/yr
+    parts: 1,                          // how many original planetesimals it is built from
+    collisions: 0, bornReal: sim.realT,
+    trail: null
+  };
+}
+
+/* =====================================================================
+   3b. SPIN
+   ---------------------------------------------------------------------
+   A spinning body has ANGULAR MOMENTUM L = I ω, where ω is how fast it
+   turns (radians per year) and I, the "moment of inertia", measures how
+   spread out its mass is: I = k m R² (k = 0.4 for a solid ball). Angular
+   momentum is CONSERVED — in a collision it is added up, never lost —
+   which is why a glancing giant impact can set a planet spinning fast.
+   ===================================================================== */
+function inertiaFactor(b) { return 0.4 - 0.15 * Math.min(1, gasFraction(b) / 0.5); }
+// Fastest possible spin: any faster and the equator would fly off (ω² R = G M / R²)
+function breakupOmega(b) { return Math.sqrt(G * b.m / b.R ** 3); }
+// Spin rate vector ω = L / I, never above break-up speed
+function spinOmega(b) {
+  const I = inertiaFactor(b) * b.m * b.R * b.R;
+  let wx = b.Lx / I, wy = b.Ly / I, wz = b.Lz / I;
+  const w = Math.hypot(wx, wy, wz), wMax = breakupOmega(b);
+  if (w > wMax) {                       // spinning too fast: the excess is flung off
+    const f = wMax / w; wx *= f; wy *= f; wz *= f;
+    b.Lx *= f; b.Ly *= f; b.Lz *= f;
+  }
+  return [wx, wy, wz];
+}
+// A random starting spin: period 4–24 hours about a random axis
+function randomSpin(b, rng) {
+  const period = (4 + 20 * rng()) / HOURS_PER_YEAR;           // in years
+  const w = 2 * Math.PI / period;
+  const z = 2 * rng() - 1, ph = 2 * Math.PI * rng(), s = Math.sqrt(1 - z * z);
+  const I = inertiaFactor(b) * b.m * b.R * b.R;
+  b.Lx = I * w * s * Math.cos(ph); b.Ly = I * w * s * Math.sin(ph); b.Lz = I * w * z;
+}
+
+/* =====================================================================
+   4. BUILDING THE DISC
+   ===================================================================== */
+function readParams() {
+  return {
+    starMass: +el.star.value,
+    discMass: +el.mass.value,
+    N: +el.n.value,
+    outer: +el.outer.value,
+    p: +el.exp.value,
+    ecc: +el.ecc.value,
+    gravThreshold: Math.pow(10, +el.thr.value),
+    boost: Math.pow(10, +el.boost.value),
+    gasMJ: +el.gas.value,
+    gasLifeMyr: +el.life.value,
+    gasLife: +el.life.value * 1e6 / COMPRESSION_GAS,   // in model years
+    cloud: el.cloudStart.checked,
+    critCore: +el.crit.value,
+    seed: el.seed.value.trim() || "0"
+  };
+}
+
+// The star: luminosity rises steeply with mass (L ≈ M⁴), and the frost line
+// is where the disc is cold enough (~150 K) for water to freeze: 2.7 √L AU.
+function starProperties(M) {
+  const L = Math.pow(M, 4);
+  return { L, frost: 2.7 * Math.sqrt(L) };
+}
+
+function buildDisc() {
+  const P = readParams();
+  const rng = mulberry32(hashSeed(P.seed));
+  const { L, frost } = starProperties(P.starMass);
+  const mu = G_MSUN * P.starMass;              // G × M_star
+
+  // Fixed time step: 1/60 of an orbit at the inner edge. Kepler: T = 2π √(a³/GM).
+  const innerPeriod = 2 * Math.PI * Math.sqrt(INNER_EDGE ** 3 / mu);
+
+  sim = {
+    params: P, rng, spinRng: mulberry32(hashSeed(P.seed + ":frag")), mu, Mstar: P.starMass, L, frost,
+    selectedId: null, selectedFate: null,
+    realT: 0,                          // estimated real time, years
+    late: false, ignited: false, settled: false, lastBigEvent: 0,
+    tZams: ZAMS_MYR * 1e6 * Math.pow(P.starMass, -2.5),
+    phase: "planets", cloud: null, flashT: -1e9,
+    dt: innerPeriod / 60, t: 0, steps: 0,
+    bodies: [], sap: [], newborn: [], nextId: 1, nBig: 0,
+    count: { merge: 0, bounce: 0, shatter: 0, lost: 0, dust: 0 },
+    running: false
+  };
+
+  // --- 4a. Choose each planetesimal's orbit size (semi-major axis a) ---
+  // We want the number per AU to fall as a^(-p). "Inverse transform sampling"
+  // turns a uniform random number u (0–1) into a distance with that pattern.
+  const a0 = INNER_EDGE, a1 = P.outer, q = 1 - P.p;
+  function sampleA(u) {
+    if (Math.abs(q) < 1e-6) return a0 * Math.pow(a1 / a0, u);           // p = 1 case
+    return Math.pow(a0 ** q + u * (a1 ** q - a0 ** q), 1 / q);
+  }
+  // The reverse: what fraction of the disc lies inside distance r?
+  function fractionInside(r) {
+    if (Math.abs(q) < 1e-6) return Math.log(r / a0) / Math.log(a1 / a0);
+    return (r ** q - a0 ** q) / (a1 ** q - a0 ** q);
+  }
+  sim.gas = P.gasMJ > 0 ? buildGas(P, fractionInside) : null;
+  const orbits = [];
+  for (let i = 0; i < P.N; i++) {
+    const a = sampleA(rng());
+    // Small random eccentricity and inclination ("Rayleigh" spread, typical value set by slider)
+    const e = Math.min(0.5, P.ecc * Math.sqrt(-2 * Math.log(1 - rng())));
+    const inc = 0.5 * P.ecc * Math.sqrt(-2 * Math.log(1 - rng()));
+    orbits.push({ a, e, inc, node: 2 * Math.PI * rng(), peri: 2 * Math.PI * rng(), M: 2 * Math.PI * rng() });
+  }
+
+  // --- 4b. Share the disc mass out. Beyond the frost line ice condenses too,
+  // so each planetesimal there gets 4× the solid mass (1 part rock + 3 parts ice).
+  const weight = o => (o.a > frost ? 4 : 1);
+  const totalWeight = orbits.reduce((s, o) => s + weight(o), 0);
+  const unit = P.discMass / totalWeight;        // mass of one rocky planetesimal
+
+  // --- 4c. Turn each orbit into a position and velocity ---
+  const spinRng = mulberry32(hashSeed(P.seed + ":spin"));
+  for (const o of orbits) {
+    const s = orbitToState(o, mu);
+    const icy = o.a > frost;
+    const b = makeBody(unit, icy ? 3 * unit : 0, 0, s[0], s[1], s[2], s[3], s[4], s[5]);
+    randomSpin(b, spinRng);
+    sim.bodies.push(b);
+    sim.sap.push(b);
+  }
+  computeAccelerations();
+
+  clearLog();
+  sim.discMessage = `Planetesimal disc: ${P.N} planetesimals, ${P.discMass} M⊕ of solids` +
+    (sim.gas ? ` and ${P.gasMJ} Jupiter masses of gas` : ` and no gas`) +
+    `, star ${P.starMass.toFixed(2)} M☉ (L = ${fmtL(L)} L☉). Frost line at ${fmtAU(frost)} AU.`;
+  if (P.cloud) {
+    sim.phase = "cloud";
+    sim.cloud = buildCloud(P);
+    addLog("info", `A cold, slowly spinning cloud of gas and dust, ${CLOUD_R_AU.toLocaleString("en-GB")} AU across and ${(P.starMass / CLOUD_STAR_SHARE).toFixed(2)} solar masses, starts to collapse under its own gravity.`);
+  } else {
+    addLog("info", sim.discMessage);
+  }
+  sim.lastRateT = performance.now(); sim.lastRateYr = 0; sim.rate = 0;
+}
+
+// Orbital elements → position and velocity (standard textbook method).
+// Solve Kepler's equation M = E − e sin E for the "eccentric anomaly" E,
+// find the point on the ellipse, then tilt the ellipse into 3D.
+function orbitToState(o, mu) {
+  const { a, e, inc, node, peri, M } = o;
+  let E = M;
+  for (let k = 0; k < 12; k++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+  const cosE = Math.cos(E), sinE = Math.sin(E), f = Math.sqrt(1 - e * e);
+  const n = Math.sqrt(mu / (a * a * a));                // mean motion (radians per year)
+  const xo = a * (cosE - e), yo = a * f * sinE;         // position in the orbit's own plane
+  const k1 = a * n / (1 - e * cosE);
+  const vxo = -k1 * sinE, vyo = k1 * f * cosE;          // velocity in that plane
+  const cO = Math.cos(node), sO = Math.sin(node), cw = Math.cos(peri), sw = Math.sin(peri);
+  const ci = Math.cos(inc), si = Math.sin(inc);
+  const Px = cw * cO - sw * ci * sO, Py = cw * sO + sw * ci * cO, Pz = sw * si;
+  const Qx = -sw * cO - cw * ci * sO, Qy = -sw * sO + cw * ci * cO, Qz = cw * si;
+  return [xo * Px + yo * Qx, xo * Py + yo * Qy, xo * Pz + yo * Qz,
+          vxo * Px + vyo * Qx, vxo * Py + vyo * Qy, vxo * Pz + vyo * Qz];
+}
+
+/* =====================================================================
+   4d. THE GAS DISC
+   ---------------------------------------------------------------------
+   Real discs are about 99% gas (hydrogen and helium) and 1% solids. Gas
+   can't be shown as lumps, so we store it as GAS_RINGS thin rings, each
+   holding some gas mass. Three things happen to the gas:
+     • It FADES: ultraviolet light from the young star heats it and blows
+       it away. Every ring loses the same fraction each year.
+     • It SPREADS: gas flows sideways to smooth out any gap.
+     • It is EATEN: a core heavier than the critical mass has enough gravity
+       to hold gas, and pulls it in from a "feeding zone" around its orbit.
+   ===================================================================== */
+function buildGas(P, fractionInside) {
+  const n = GAS_RINGS, r0 = INNER_EDGE, r1 = P.outer;
+  const dln = Math.log(r1 / r0) / n;             // rings are evenly spaced in log(r)
+  const edge = [];
+  for (let k = 0; k <= n; k++) edge.push(r0 * Math.exp(k * dln));
+  const total = P.gasMJ * EARTHS_PER_JUPITER;    // total gas in Earth masses
+  const start = [], now = [], period = [], sigma0 = [];
+  for (let k = 0; k < n; k++) {
+    // Same pattern with distance as the planetesimals (but no frost-line jump)
+    start.push(total * (fractionInside(edge[k + 1]) - fractionInside(edge[k])));
+    now.push(start[k]);
+    const mid = Math.sqrt(edge[k] * edge[k + 1]);
+    period.push(2 * Math.PI * Math.sqrt(mid ** 3 / (G_MSUN * P.starMass)));
+    sigma0.push(start[k] / (Math.PI * (edge[k + 1] ** 2 - edge[k] ** 2)));  // mass per area
+  }
+  return { n, r0, dln, edge, start, now, period, sigma0, total0: total,
+           fill: 1, halfLogged: false, goneLogged: false };
+}
+
+function ringIndex(r) {
+  const g = sim.gas, k = Math.floor(Math.log(r / g.r0) / g.dln);
+  return k >= 0 && k < g.n ? k : -1;
+}
+// How much gas is at distance r compared with the start (1 = full, 0 = none)
+function gasFillAt(r) {
+  const k = ringIndex(r);
+  return k < 0 ? 0 : sim.gas.now[k] / sim.gas.start[k];
+}
+
+function gasStep() {
+  const g = sim.gas, P = sim.params, dt = sim.dt;
+
+  // (1) FADING: the same fraction disappears from every ring each step
+  // Once little gas is left, starlight can reach the disc directly and clears
+  // the rest much faster (astronomers call this "photoevaporation").
+  const keep = Math.exp(-dt / (P.gasLife * (g.fill < 0.1 ? 0.1 : 1)));
+  for (let k = 0; k < g.n; k++) g.now[k] *= keep;
+
+  // (2) SPREADING (every 10 steps to save time): gas flows from a ring that
+  // is "fuller" than its neighbour (compared with the start) into the emptier one.
+  if (sim.steps % 10 === 0) {
+    const dtg = 10 * dt;
+    for (let k = 0; k < g.n - 1; k++) {
+      const f1 = g.now[k] / g.start[k], f2 = g.now[k + 1] / g.start[k + 1];
+      const flow = 0.5 * (f1 - f2) * Math.min(g.start[k], g.start[k + 1]) *
+                   Math.min(0.25, dtg / (SPREAD_ORBITS * g.period[k]));
+      g.now[k] -= flow; g.now[k + 1] += flow;
+    }
+  }
+
+  // (3) EATING: cores above the critical mass pull in gas
+  const M3 = 3 * sim.Mstar * EARTHS_PER_SUN;
+  let ate = false;
+  for (const b of sim.bodies) {
+    if (b.m < P.critCore) continue;
+    const r = b.r, w = FEED_HILL * r * Math.cbrt(b.m / M3);   // feeding zone half-width
+    const lo = r - w, hi = r + w;
+    if (hi <= g.edge[0] || lo >= g.edge[g.n]) continue;
+    const kLo = Math.max(0, Math.floor(Math.log(Math.max(lo, g.r0) / g.r0) / g.dln));
+    const kHi = Math.min(g.n - 1, Math.floor(Math.log(Math.min(hi, g.edge[g.n]) / g.r0) / g.dln));
+
+    // Runaway: the bigger the core, the faster its envelope cools and shrinks,
+    // making room for more gas. Time to double ∝ (critical mass ÷ mass)³.
+    // But it can never gulp the zone faster than a few orbits.
+    const orbit = 2 * Math.PI * Math.sqrt(r ** 3 / sim.mu);
+    const tau = Math.max(KH_TIME * (P.critCore / b.m) ** 3, FEED_ORBITS * orbit);
+    const frac = Math.min(1, dt / tau);
+
+    let taken = 0, left = 0, full = 0;
+    for (let k = kLo; k <= kHi; k++) {
+      const overlap = (Math.min(hi, g.edge[k + 1]) - Math.max(lo, g.edge[k])) / (g.edge[k + 1] - g.edge[k]);
+      if (overlap <= 0) continue;
+      const d = g.now[k] * overlap * frac;
+      g.now[k] -= d; taken += d;
+      left += g.now[k] * overlap; full += g.start[k] * overlap;
+    }
+    if (taken > 0) {
+      // The gas was orbiting in a circle, so it brings that momentum with it
+      const rxy = Math.hypot(b.x, b.y), vc = Math.sqrt(sim.mu / r);
+      const M = b.m + taken;
+      b.vx = (b.m * b.vx + taken * (-vc * b.y / rxy)) / M;
+      b.vy = (b.m * b.vy + taken * (vc * b.x / rxy)) / M;
+      b.vz = b.m * b.vz / M;
+      b.gas += taken; b.m = M; ate = true;
+      b.R = physicalRadius(b.rock, b.ice, b.gas);
+      // The gas brings spin about the orbit's axis (h = r × v)
+      const hx = b.y * b.vz - b.z * b.vy, hy = b.z * b.vx - b.x * b.vz, hz = b.x * b.vy - b.y * b.vx;
+      const hl = Math.hypot(hx, hy, hz) || 1;
+      const j = GAS_SPIN_FRACTION * Math.sqrt(G * b.m * b.R) * taken;
+      b.Lx += j * hx / hl; b.Ly += j * hy / hl; b.Lz += j * hz / hl;
+      if (!b.gasStarted) {
+        b.gasStarted = true;
+        addLog("gas", `A ${fmtM(b.m)} M⊕ core at ${fmtAU(r)} AU has reached the critical mass and started pulling in gas!`);
+      }
+      checkMilestone(b);
+    }
+    // Gap: the feeding zone holds far less gas than the rest of the disc
+    if (!b.gapLogged && full > 0 && left / full < 0.25 * g.fill && b.gas > b.m * 0.3) {
+      b.gapLogged = true;
+      addLog("gas", `The ${kindName(b).toLowerCase()} at ${fmtAU(r)} AU has cleared a gap in the gas disc — it is running out of gas to eat.`);
+    }
+  }
+
+  // Bookkeeping and log messages
+  let total = 0;
+  for (let k = 0; k < g.n; k++) total += g.now[k];
+  g.fill = total / g.total0;
+  if (!g.halfLogged && g.fill < 0.5) {
+    g.halfLogged = true;
+    addLog("gas", "Half of the gas disc has gone (blown away or eaten by planets).");
+  }
+  if (!g.goneLogged && g.fill < 0.01) {
+    g.goneLogged = true;
+    addLog("gas", "The gas disc has gone. No more gas giants can form: cores that were too small in time stay rocky or icy planets.");
+  }
+  return ate;
+}
+
+/* =====================================================================
+   4e. THE PROLOGUE: A COLLAPSING CLOUD
+   ---------------------------------------------------------------------
+   Stars are born in cold clouds of gas and dust. When a clump becomes
+   dense enough, gravity wins and it falls inwards ("collapse").
+     • Each parcel is pulled towards the centre by all the mass closer in
+       than it is (for a ball, the mass further out cancels out).
+     • The cloud spins slowly. As it shrinks it spins faster, like an ice
+       skater pulling in their arms — ANGULAR MOMENTUM IS CONSERVED. Parcels
+       near the poles have little spin and fall straight to the centre;
+       those near the equator start to orbit instead, making a flat disc.
+     • Gas in the disc rubs against itself: up-and-down motion is calmed,
+       and the disc slowly loses spin, so gas drifts in to feed the star.
+     • The protostar at the centre glows because falling gas heats it —
+       there is no nuclear fusion yet.
+   Units here: cloud radius = 1, cloud mass = 1, G = 1.
+   ===================================================================== */
+const CLOUD_BINS = 300, BIN_LO = Math.log(1e-3), BIN_HI = Math.log(3);
+
+function buildCloud(P) {
+  const n = CLOUD_N, rng = mulberry32(hashSeed(P.seed + ":cloud"));
+  const F = () => new Float64Array(n);
+  const c = { n, x: F(), y: F(), z: F(), vx: F(), vy: F(), vz: F(), ax: F(), ay: F(), az: F(),
+              r: F(), menc: F(), bin: new Int16Array(n), alive: new Uint8Array(n).fill(1),
+              m: 1 / n, mStar: 0, t: 0, accRecent: 0, viewR: 1.25, done: false, stage: 0 };
+  // Solid-body spin: the whole cloud turns together, slowly
+  const w0 = CLOUD_SPIN;
+  for (let i = 0; i < n; i++) {
+    // Real cloud cores are densest in the middle: density ∝ 1/r² means equal
+    // mass in every shell, so r is simply uniform. Inner parts collapse first.
+    const r = rng(), cz = 2 * rng() - 1, ph = 2 * Math.PI * rng(), sn = Math.sqrt(1 - cz * cz);
+    c.x[i] = r * sn * Math.cos(ph); c.y[i] = r * sn * Math.sin(ph); c.z[i] = r * cz;
+    c.vx[i] = -w0 * c.y[i]; c.vy[i] = w0 * c.x[i];
+  }
+  // "Free-fall time": how long a still ball of gas takes to collapse.
+  c.tff = Math.PI / (2 * Math.SQRT2);
+  const Mcloud = P.starMass / CLOUD_STAR_SHARE;                   // solar masses
+  const tffReal = (Math.PI / 2) * Math.sqrt(CLOUD_R_AU ** 3 / (8 * Math.PI ** 2 * Mcloud));
+  c.yrPerUnit = tffReal / c.tff;                                   // real years per model time unit
+  cloudAcc(c);
+  return c;
+}
+
+// Gravity in the cloud: count mass in thin shells, add up from the middle out.
+function cloudAcc(c) {
+  const shells = new Float64Array(CLOUD_BINS), scale = CLOUD_BINS / (BIN_HI - BIN_LO);
+  for (let i = 0; i < c.n; i++) {
+    if (!c.alive[i]) continue;
+    const r = Math.hypot(c.x[i], c.y[i], c.z[i]) + 1e-12;
+    c.r[i] = r;
+    const k = Math.min(CLOUD_BINS - 1, Math.max(0, Math.floor((Math.log(r) - BIN_LO) * scale)));
+    c.bin[i] = k; shells[k] += c.m;
+  }
+  const inside = new Float64Array(CLOUD_BINS);
+  let sum = c.mStar;
+  for (let k = 0; k < CLOUD_BINS; k++) { inside[k] = sum + 0.5 * shells[k]; sum += shells[k]; }
+  const e2 = CLOUD_SOFT * CLOUD_SOFT;
+  for (let i = 0; i < c.n; i++) {
+    if (!c.alive[i]) continue;
+    const r = c.r[i], M = inside[c.bin[i]];
+    c.menc[i] = M;
+    const f = -M / (r * (r * r + e2));               // a = G M / r², pointing inwards
+    c.ax[i] = f * c.x[i]; c.ay[i] = f * c.y[i]; c.az[i] = f * c.z[i];
+  }
+}
+
+function cloudStep(c) {
+  const dt = CLOUD_DT, h = dt / 2, n = c.n;
+  for (let i = 0; i < n; i++) {                       // leapfrog, as for the planets
+    if (!c.alive[i]) continue;
+    c.vx[i] += c.ax[i] * h; c.vy[i] += c.ay[i] * h; c.vz[i] += c.az[i] * h;
+    c.x[i] += c.vx[i] * dt; c.y[i] += c.vy[i] * dt; c.z[i] += c.vz[i] * dt;
+  }
+  cloudAcc(c);
+  let accreted = 0;
+  for (let i = 0; i < n; i++) {
+    if (!c.alive[i]) continue;
+    c.vx[i] += c.ax[i] * h; c.vy[i] += c.ay[i] * h; c.vz[i] += c.az[i] * h;
+    const r = c.r[i];
+    if (r < CLOUD_RACC) { c.alive[i] = 0; accreted += c.m; continue; }   // joins the protostar
+    if (r < CLOUD_DISC_ZONE) {
+      const tdyn = Math.sqrt(r * r * r / c.menc[i]);      // time to go ~1/6 of an orbit
+      const keep = Math.exp(-dt / (2 * tdyn));
+      c.vz[i] *= keep;                                    // up-down motion calmed: disc flattens
+      const R = Math.hypot(c.x[i], c.y[i]) + 1e-12, ux = c.x[i] / R, uy = c.y[i] / R;
+      const vr = c.vx[i] * ux + c.vy[i] * uy;
+      if (vr > 0) {                                       // bouncing outwards: stopped by the disc
+        c.vx[i] -= vr * (1 - keep) * ux; c.vy[i] -= vr * (1 - keep) * uy;
+      }
+      const vphi = c.vx[i] * -uy + c.vy[i] * ux;          // spin around the star
+      const lose = vphi * dt / CLOUD_VISC_TIME;
+      c.vx[i] -= lose * -uy; c.vy[i] -= lose * ux;        // slowly loses spin → drifts inward
+    }
+  }
+  c.mStar += accreted;
+  c.accRecent = 0.995 * c.accRecent + 0.005 * accreted / dt;   // smoothed feeding rate
+  c.t += dt;
+  sim.realT += dt * c.yrPerUnit;
+  if (c.t >= CLOUD_END_TFF * c.tff) c.done = true;
+}
+
+function cloudFractions(c) {
+  let disc = 0, falling = 0;
+  for (let i = 0; i < c.n; i++) {
+    if (!c.alive[i]) continue;
+    if (c.r[i] < CLOUD_DISC_ZONE && Math.abs(c.z[i]) < 0.25 * c.r[i]) disc += c.m; else falling += c.m;
+  }
+  return { star: c.mStar, disc, falling };
+}
+
+// Story-telling messages as the collapse goes on
+function cloudStory(c) {
+  const f = cloudFractions(c);
+  const say = (k, msg) => { if (c.stage === k - 1) { c.stage = k; addLog("cloud", msg); } };   // one at a time, in order
+  if (f.star > 0.005) say(1, "A protostar has formed at the centre. It glows red-hot because infalling gas heats it as it is squeezed — there is no nuclear fusion yet.");
+  if (f.disc > 0.08) say(2, "The cloud spins faster as it shrinks (angular momentum is conserved). Gas near the equator now orbits instead of falling in, piling up into a flat, spinning disc.");
+  if (f.star > 0.5) say(3, "Most of the cloud is now in the protostar. The rest orbits in the disc, slowly spiralling inward and still feeding the star.");
+  return f;
+}
+
+function finishCloud() {
+  const c = sim.cloud;
+  addLog("cloud", `The disc has settled. Dust grains in it stick together, growing into kilometre-sized planetesimals. Zooming in on the inner ${sim.params.outer} AU, where the planets will form.`);
+  addLog("info", sim.discMessage);
+  sim.phase = "planets";
+  for (const b of sim.bodies) b.bornReal = sim.realT;
+  sim.cloud = null;
+  fitView();
+  renderInspector();
+}
+
+function drawCloud(ctx, W, H, dpr) {
+  const c = sim.cloud, cx = W / 2, cy = H / 2;
+  // Zoom smoothly to keep most of the remaining material in view
+  const rs = [];
+  for (let i = 0; i < c.n; i += 4) if (c.alive[i]) rs.push(c.r[i]);
+  rs.sort((p, q) => p - q);
+  const target = Math.max(0.03, 1.3 * (rs[Math.floor(rs.length * 0.85)] || 0.03));
+  c.viewR += (target - c.viewR) * 0.04;
+  const scale = Math.min(W, H) / 2 / c.viewR;
+  // Seen from 25° above the disc, so the flattening shows
+  const tilt = 65 * Math.PI / 180, ct = Math.cos(tilt), st = Math.sin(tilt);
+  ctx.fillStyle = "#050812"; ctx.fillRect(0, 0, W, H);
+
+  for (let i = 0; i < c.n; i++) {
+    if (!c.alive[i]) continue;
+    const X = cx + c.x[i] * scale, Y = cy - (c.y[i] * ct + c.z[i] * st) * scale;
+    // Colour: cold dusty grey-brown far out, glowing orange near the star
+    const hot = Math.max(0, Math.min(1, 1 - Math.log10(c.r[i] / CLOUD_RACC) / 2));
+    ctx.fillStyle = `rgba(${Math.round(170 + 85 * hot)},${Math.round(150 + 20 * hot)},${Math.round(140 - 60 * hot)},0.6)`;
+    ctx.fillRect(X - 0.8 * dpr, Y - 0.8 * dpr, 1.6 * dpr, 1.6 * dpr);
+  }
+  // Protostar: grows with mass, glows brighter while it is being fed
+  const glow = (4 + 10 * Math.sqrt(c.mStar) + Math.min(14, 2e3 * c.accRecent / CLOUD_N)) * dpr;
+  if (c.mStar > 0) {
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, glow * 2.5);
+    g.addColorStop(0, "rgba(255,200,140,1)"); g.addColorStop(0.3, "rgba(255,120,60,0.7)"); g.addColorStop(1, "rgba(255,80,40,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, glow * 2.5, 0, 2 * Math.PI); ctx.fill();
+  }
+  // Scale bar
+  const auPerPx = c.viewR * CLOUD_R_AU / (Math.min(W, H) / 2);
+  const nice = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000].find(v => v / auPerPx > 60 * dpr) || 10000;
+  const len = nice / auPerPx;
+  ctx.strokeStyle = "#9aa3bf"; ctx.lineWidth = 2 * dpr; ctx.fillStyle = "#9aa3bf";
+  ctx.font = `${12 * dpr}px system-ui, sans-serif`;
+  ctx.beginPath(); ctx.moveTo(16 * dpr, H - 20 * dpr); ctx.lineTo(16 * dpr + len, H - 20 * dpr); ctx.stroke();
+  ctx.fillText(`${nice.toLocaleString("en-GB")} AU`, 16 * dpr, H - 28 * dpr);
+  ctx.fillText("Seen from slightly above the disc", 16 * dpr, 22 * dpr);
+}
+
+/* =====================================================================
+   5. GRAVITY
+   ---------------------------------------------------------------------
+   Acceleration towards a mass M at distance r is a = G M / r².
+   (1) Every body is pulled towards the star.
+   (2) Bodies heavier than the threshold also pull on every other body, and
+       are pulled back equally (Newton's third law). Pairs of two light
+       bodies are skipped — their pull is tiny and skipping keeps it fast.
+   (3) GAS DRAG (not gravity, but it changes velocity too): the gas moves
+       in neat circles, so a body on a stretched or tilted orbit feels a
+       "wind" that nudges it back to a circular, flat orbit. Small bodies
+       feel it most, like dust compared with a football in a breeze.
+   ===================================================================== */
+function computeAccelerations() {
+  const B = sim.bodies, n = B.length, mu = sim.mu, thr = sim.params.gravThreshold;
+  const eps2 = SOFTENING * SOFTENING;
+
+  // (1) The star
+  for (let i = 0; i < n; i++) {
+    const b = B[i];
+    const r2 = b.x * b.x + b.y * b.y + b.z * b.z, r = Math.sqrt(r2);
+    const f = -mu / (r2 * r);              // minus sign: pull points towards the star
+    b.ax = f * b.x; b.ay = f * b.y; b.az = f * b.z;
+    b.big = b.m >= thr;
+    // (3) Gas drag
+    if (sim.gas) {
+      const fill = gasFillAt(r);
+      if (fill > 0) {
+        const rxy = Math.hypot(b.x, b.y), vc = Math.sqrt(mu / r);
+        const orbit = 2 * Math.PI * Math.sqrt(r * r2 / mu);
+        const tau = DRAG_ORBITS * orbit * Math.cbrt(b.m / 0.01) /
+                    (fill * sim.params.gasMJ / DEFAULT_GAS_MJ);   // time to calm the orbit
+        b.ax -= (b.vx - (-vc * b.y / rxy)) / tau;
+        b.ay -= (b.vy - (vc * b.x / rxy)) / tau;
+        b.az -= b.vz / tau;
+      }
+    }
+  }
+
+  // (2) Massive bodies pull on everything (each pair counted once)
+  let nBig = 0;
+  for (let j = 0; j < n; j++) {
+    const bj = B[j];
+    if (!bj.big) continue;
+    nBig++;
+    for (let i = 0; i < n; i++) {
+      if (i === j) continue;
+      const bi = B[i];
+      if (bi.big && i < j) continue;       // this big–big pair was already done
+      const dx = bj.x - bi.x, dy = bj.y - bi.y, dz = bj.z - bi.z;
+      const d2 = dx * dx + dy * dy + dz * dz + eps2;
+      const inv = 1 / (d2 * Math.sqrt(d2));
+      const fi = G * bj.m * inv, fj = G * bi.m * inv;
+      bi.ax += fi * dx; bi.ay += fi * dy; bi.az += fi * dz;   // i pulled towards j
+      bj.ax -= fj * dx; bj.ay -= fj * dy; bj.az -= fj * dz;   // j pulled towards i
+    }
+  }
+  sim.nBig = nBig;
+}
+
+/* =====================================================================
+   6. ONE TIME STEP — the "leapfrog" (kick–drift–kick) method
+   ---------------------------------------------------------------------
+   kick : change velocity by half a step's worth of acceleration
+   drift: move every body for a whole step at its new velocity
+   kick : recalculate gravity at the new positions, another half kick
+   Leapfrog is "time-symmetric", so energy errors don't build up and orbits
+   stay stable for thousands of turns (a simpler method makes planets
+   slowly spiral outwards).
+   ===================================================================== */
+function step() {
+  const B = sim.bodies, dt = sim.dt, h = dt / 2;
+  for (const b of B) {
+    b.vx += b.ax * h; b.vy += b.ay * h; b.vz += b.az * h;      // half kick
+    b.ox = b.x; b.oy = b.y; b.oz = b.z;                        // remember start position
+    b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt;      // drift
+  }
+  computeAccelerations();
+  for (const b of B) {
+    b.vx += b.ax * h; b.vy += b.ay * h; b.vz += b.az * h;      // half kick
+  }
+  const changed = handleCollisions();
+  const ate = sim.gas ? gasStep() : false;
+  if (changed || ate) computeAccelerations();       // bodies or masses changed → redo gravity
+  sim.t += dt;
+  sim.steps++;
+  sim.realT += dt * (sim.late ? COMPRESSION_LATE : COMPRESSION_GAS);
+  checkMilestonesInTime();
+}
+
+/* =====================================================================
+   6b. THE CALENDAR — real-time milestones
+   ===================================================================== */
+function checkMilestonesInTime() {
+  // Late stage: the gas has gone (or, with no gas, after the time it would have lasted)
+  if (!sim.late) {
+    const gasGone = sim.gas ? sim.gas.fill < 0.01 : sim.realT > 2.3 * sim.params.gasLifeMyr * 1e6;
+    if (gasGone) {
+      sim.late = true;
+      sim.lastBigEvent = sim.realT;
+      addLog("info", `Late stage: with the gas gone, the remaining bodies only meet occasionally in giant impacts. From now on each model year stands for about ${COMPRESSION_LATE.toLocaleString("en-GB")} real years.`);
+    }
+  }
+  // Ignition: the star's core finally gets hot enough for hydrogen fusion
+  if (!sim.ignited && sim.realT >= sim.tZams) {
+    sim.ignited = true;
+    sim.flashT = performance.now();
+    addLog("star", `Ignition! The star's core has reached about 10 million °C and hydrogen fusion has started. It is now a main-sequence star like the Sun, and will stay stable for billions of years. (The planets formed while it was still a protostar.)`);
+  }
+  // Settled: the star is shining by fusion and nothing important has happened for a long time
+  if (sim.late && sim.ignited && !sim.settled && sim.realT - sim.lastBigEvent > SETTLED_YEARS) {
+    sim.settled = true;
+    const planets = sim.bodies.filter(b => b.m >= 0.05).map(b => [b, orbitElements(b)])
+      .sort((p, q) => p[1].a - q[1].a);
+    const list = planets.map(([b, o]) => `${kindName(b).toLowerCase()} ${fmtM(b.m)} M⊕ at ${fmtAU(o.a)} AU`).join("; ");
+    addLog("star", `The system has settled into stable orbits: ${planets.length} planets — ${list}. Paused; press Start to keep watching.`);
+    sim.running = false;
+  }
+}
+function noteBigEvent() { sim.lastBigEvent = sim.realT; }
+
+/* =====================================================================
+   7. COLLISIONS
+   ---------------------------------------------------------------------
+   Real planetesimals are tiny compared with the gaps between them, so real
+   collisions are rare. We give each body an inflated "collision radius":
+   a multiple of its HILL RADIUS, r × (m / 3M_star)^(1/3) — the zone where
+   the body's own gravity beats the star's tidal pull. It grows with mass
+   and with distance, so the sparse outer disc can still evolve.
+
+   When two collision spheres touch (and the bodies are approaching) we
+   compare their impact speed v with their mutual ESCAPE SPEED,
+   v_esc = √(2 G (m1 + m2) / (R1 + R2)), using the real radii:
+     v < v_esc            → MERGE   (too slow to escape each other)
+     v > 1.5 v_esc        → SHATTER into 3–5 fragments
+     in between           → BOUNCE apart, losing some energy
+   Mass and momentum are conserved in all three.
+   ===================================================================== */
+function handleCollisions() {
+  const B = sim.bodies, P = sim.params;
+  const M3 = 3 * sim.Mstar * EARTHS_PER_SUN;
+  let changed = false;
+
+  // 7a. Update each body's radius band, and remove bodies lost from the disc
+  for (const b of B) {
+    b.hit = false;
+    const r0 = Math.hypot(b.ox, b.oy, b.oz), r1 = Math.hypot(b.x, b.y, b.z);
+    b.r = r1;
+    b.Rc = P.boost * r1 * Math.cbrt(b.m / M3);
+    b.lo = Math.min(r0, r1) - b.Rc;
+    b.hi = Math.max(r0, r1) + b.Rc;
+    if (r1 < SWALLOW_R) { loseBody(b, "fell into the star"); changed = true; }
+    else if (r1 > 4 * P.outer) {
+      const energy = 0.5 * (b.vx * b.vx + b.vy * b.vy + b.vz * b.vz) - sim.mu / r1;
+      if (energy > 0 || r1 > 20 * P.outer) { loseBody(b, "was flung out of the system"); changed = true; }
+    }
+  }
+
+  // 7b. "Sweep and prune": keep a list sorted by inner edge of each body's
+  // band of distance from the star. Two bodies can only touch if their bands
+  // overlap, so each body is only compared with a few neighbours instead of
+  // all ~800. (Insertion sort is very quick because the list barely changes.)
+  const S = sim.sap;
+  for (let i = 1; i < S.length; i++) {
+    const b = S[i]; let k = i - 1;
+    while (k >= 0 && S[k].lo > b.lo) { S[k + 1] = S[k]; k--; }
+    S[k + 1] = b;
+  }
+  for (let i = 0; i < S.length; i++) {
+    const a = S[i];
+    if (!a.alive || a.hit) continue;
+    for (let k = i + 1; k < S.length; k++) {
+      const b = S[k];
+      if (b.lo > a.hi) break;                 // no further overlaps possible
+      if (!b.alive || b.hit) continue;
+      if (testPair(a, b)) { changed = true; break; }
+    }
+  }
+
+  // 7c. Tidy up: drop destroyed bodies, add the newly made ones
+  if (changed) {
+    sim.bodies = B.filter(b => b.alive).concat(sim.newborn);
+    sim.sap = S.filter(b => b.alive).concat(sim.newborn);
+    sim.newborn = [];
+  }
+  return changed;
+}
+
+// Did a and b come within touching distance during this step?
+// We follow their separation along a straight line from the start to the
+// end of the step, so fast bodies can't jump through each other.
+function testPair(a, b) {
+  const d0x = b.ox - a.ox, d0y = b.oy - a.oy, d0z = b.oz - a.oz;     // separation at start
+  const Dx = (b.x - a.x) - d0x, Dy = (b.y - a.y) - d0y, Dz = (b.z - a.z) - d0z; // change in separation
+  const DD = Dx * Dx + Dy * Dy + Dz * Dz;
+  if (DD === 0) return false;
+  let t = -(d0x * Dx + d0y * Dy + d0z * Dz) / DD;    // fraction of the step at closest approach
+  if (t <= 0) return false;                           // already moving apart → no collision
+  if (t > 1) t = 1;
+  const cx = d0x + t * Dx, cy = d0y + t * Dy, cz = d0z + t * Dz;
+  const touch = a.Rc + b.Rc;
+  if (cx * cx + cy * cy + cz * cz > touch * touch) return false;
+
+  // They touch! Impact speed and mutual escape speed:
+  const vx = b.vx - a.vx, vy = b.vy - a.vy, vz = b.vz - a.vz;
+  const vImpact = Math.hypot(vx, vy, vz);
+  const vEsc = Math.sqrt(2 * G * (a.m + b.m) / (a.R + b.R));
+
+  if (vImpact < vEsc) merge(a, b, cx, cy, cz, vx, vy, vz, vEsc);
+  else if (vImpact > 1.5 * vEsc) shatter(a, b, vImpact, vEsc);
+  else bounce(a, b, cx, cy, cz);
+  return true;
+}
+
+// MERGE: one new body. Total mass is added; the new velocity keeps the
+// total momentum (m × v) the same; it sits at the centre of mass.
+// Spin: total angular momentum = both spins + the "swing" of the impact.
+function merge(a, b, cx, cy, cz, vx, vy, vz, vEsc) {
+  const M = a.m + b.m;
+  const avg = (p, q) => (p * a.m + q * b.m) / M;   // mass-weighted average
+  const nb = makeBody(a.rock + b.rock, a.ice + b.ice, a.gas + b.gas,
+    avg(a.x, b.x), avg(a.y, b.y), avg(a.z, b.z),
+    avg(a.vx, b.vx), avg(a.vy, b.vy), avg(a.vz, b.vz));
+  nb.level = Math.max(a.level, b.level);
+  nb.parts = a.parts + b.parts;
+  nb.collisions = a.collisions + b.collisions + 1;
+  // Impact angular momentum = reduced mass × (lever arm × speed). The lever
+  // arm keeps the impact's angle but uses the real radii, and the speed is
+  // the speed at real contact (approach speed sped up by their gravity).
+  const mu = a.m * b.m / M;
+  const crx = cy * vz - cz * vy, cry = cz * vx - cx * vz, crz = cx * vy - cy * vx;   // c × v
+  const cv = Math.hypot(cx, cy, cz) * Math.hypot(vx, vy, vz);
+  if (cv > 0) {
+    const k = mu * (a.R + b.R) * Math.sqrt(vx * vx + vy * vy + vz * vz + vEsc * vEsc) / cv;
+    nb.Lx = a.Lx + b.Lx + k * crx; nb.Ly = a.Ly + b.Ly + k * cry; nb.Lz = a.Lz + b.Lz + k * crz;
+  } else { nb.Lx = a.Lx + b.Lx; nb.Ly = a.Ly + b.Ly; nb.Lz = a.Lz + b.Lz; }
+  spinOmega(nb);                                    // applies the break-up limit
+  if (sim.selectedId === a.id || sim.selectedId === b.id) sim.selectedId = nb.id;
+  nb.gasStarted = a.gasStarted || b.gasStarted;
+  nb.gapLogged = a.gapLogged || b.gapLogged;
+  nb.trail = (a.m >= b.m ? a.trail : b.trail) || null;
+  nb.hit = true;
+  a.alive = b.alive = false;
+  sim.newborn.push(nb);
+  sim.count.merge++;
+  if (Math.min(a.m, b.m) >= 0.05) noteBigEvent();
+  if (Math.min(a.m, b.m) >= 0.1) {
+    addLog("impact", `Giant impact: ${fmtM(a.m)} + ${fmtM(b.m)} M⊕ merged at ${fmtAU(nb.r)} AU.`);
+  }
+  checkMilestone(nb);
+}
+
+// BOUNCE: push the two bodies apart along the line joining their centres.
+// Momentum is conserved; half of the approach speed is kept.
+function bounce(a, b, nx, ny, nz) {
+  const d = Math.hypot(nx, ny, nz) || 1;
+  nx /= d; ny /= d; nz /= d;
+  const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny + (b.vz - a.vz) * nz;  // closing speed
+  if (vn < 0) {
+    const J = -(1 + RESTITUTION) * vn / (1 / a.m + 1 / b.m);                // impulse
+    a.vx -= J / a.m * nx; a.vy -= J / a.m * ny; a.vz -= J / a.m * nz;
+    b.vx += J / b.m * nx; b.vy += J / b.m * ny; b.vz += J / b.m * nz;
+  }
+  a.hit = b.hit = true;
+  sim.count.bounce++;
+}
+
+// SHATTER: the pair breaks into 3–5 fragments that fly apart from the
+// centre of mass. Total mass and momentum are kept the same.
+function shatter(a, b, vImpact, vEsc) {
+  const rng = sim.rng;
+  const M = a.m + b.m, rockFrac = (a.rock + b.rock) / M, gasFrac = (a.gas + b.gas) / M;
+  let n = 3 + Math.floor(rng() * 3);
+  n = Math.min(n, Math.floor(M / MIN_FRAGMENT));
+  if (n < 2) {
+    // Too small to make fragments we can track: the pair is ground to dust,
+    // which starlight blows out of the system. This mass leaves the model.
+    if (sim.selectedId === a.id || sim.selectedId === b.id) { sim.selectedId = null; sim.selectedFate = "was ground to dust in a high-speed collision"; }
+    a.alive = b.alive = false;
+    sim.count.shatter++;
+    sim.count.dust += M;
+    return;
+  }
+  if (sim.bodies.length + sim.newborn.length + n > MAX_BODIES) { bounce(a, b, b.x - a.x, b.y - a.y, b.z - a.z); return; }
+
+  // Random shares of the mass (one usually ends up the biggest remnant)
+  const w = []; let ws = 0;
+  for (let k = 0; k < n; k++) { const v = 0.3 + rng(); w.push(v); ws += v; }
+  const masses = w.map(v => M * v / ws);
+
+  // Centre of mass and its velocity
+  const cm = k => (a[k] * a.m + b[k] * b.m) / M;
+  const X = cm("x"), Y = cm("y"), Z = cm("z"), VX = cm("vx"), VY = cm("vy"), VZ = cm("vz");
+
+  // Place fragments on a ring, far enough apart that they don't touch at once,
+  // and send them outwards at the pair's escape speed — just enough to fly
+  // apart. The rest of the impact energy is turned into heat (not tracked).
+  const r = Math.hypot(X, Y, Z), M3 = 3 * sim.Mstar * EARTHS_PER_SUN;
+  const maxRc = sim.params.boost * r * Math.cbrt(Math.max(...masses) / M3);
+  const ring = 1.1 * maxRc / Math.sin(Math.PI / n);
+  const kick = vEsc, phi0 = 2 * Math.PI * rng();
+  const dirs = [];
+  for (let k = 0; k < n; k++) {
+    const ph = phi0 + 2 * Math.PI * k / n;
+    const ux = Math.cos(ph), uy = Math.sin(ph), uz = (rng() - 0.5) * 0.2;
+    const L = Math.hypot(ux, uy, uz);
+    dirs.push([ux / L, uy / L, uz / L]);
+  }
+  // Remove any net offset/kick so the centre of mass and momentum are exactly unchanged
+  const mean = [0, 0, 0];
+  for (let k = 0; k < n; k++) for (let c = 0; c < 3; c++) mean[c] += masses[k] * dirs[k][c] / M;
+
+  for (let k = 0; k < n; k++) {
+    const u = dirs[k].map((v, c) => v - mean[c]);
+    const mk = masses[k];
+    const f = makeBody(mk * rockFrac, mk * (1 - rockFrac - gasFrac), mk * gasFrac,
+      X + ring * u[0], Y + ring * u[1], Z + ring * u[2],
+      VX + kick * u[0], VY + kick * u[1], VZ + kick * u[2]);
+    f.hit = true;
+    f.parts = (a.parts + b.parts) * mk / M;
+    f.collisions = a.collisions + b.collisions + 1;
+    randomSpin(f, sim.spinRng);
+    sim.newborn.push(f);
+  }
+  if (sim.selectedId === a.id || sim.selectedId === b.id) {
+    const big = sim.newborn.slice(-n).reduce((p, q) => (q.m > p.m ? q : p));
+    sim.selectedId = big.id;
+  }
+  a.alive = b.alive = false;
+  sim.count.shatter++;
+  if (M >= 0.05) {
+    noteBigEvent();
+    addLog("shatter", `Collision at ${(vImpact * KMS_PER_AU_YR).toFixed(1)} km/s shattered ${fmtM(M)} M⊕ into ${n} fragments at ${fmtAU(r)} AU.`);
+  }
+}
+
+function loseBody(b, how) {
+  b.alive = false;
+  if (sim.selectedId === b.id) { sim.selectedId = null; sim.selectedFate = how; }
+  sim.count.lost++;
+  if (b.m >= 0.05) noteBigEvent();
+  if (b.m >= 0.05) addLog("lost", `A ${kindName(b).toLowerCase()} of ${fmtM(b.m)} M⊕ ${how}.`);
+}
+
+/* =====================================================================
+   8. NAMING WHAT FORMED (for the event log)
+   ---------------------------------------------------------------------
+   Ice fraction of the solids tells us where a body's material came from:
+   mostly rock = formed inside the frost line, lots of ice = outside it.
+   Gas fraction tells us whether it became a giant.
+   ===================================================================== */
+function iceFraction(b) { return b.ice / (b.rock + b.ice); }
+function gasFraction(b) { return b.gas / b.m; }
+function kindName(b) {
+  const icy = iceFraction(b) >= 0.3, m = b.m, gf = gasFraction(b);
+  if (gf >= 0.5) return m >= 50 ? "Gas giant" : "Gas-rich planet";
+  if (gf >= 0.1) return icy ? "Ice giant" : "Mini-Neptune";
+  if (!icy) return m < 0.5 ? "Rocky planetesimal" : m < 2 ? "Rocky planet" : m < 10 ? "Super-Earth" : "Giant rocky core";
+  return m < 0.5 ? "Icy planetesimal" : m < 2 ? "Icy planet" : m < 10 ? "Ice-rich planet" : "Giant-planet core";
+}
+function checkMilestone(b) {
+  const lvl = levelFor(b.m);
+  if (lvl <= b.level) return;
+  const first = b.level === 0;
+  b.level = lvl;
+  let msg = first
+    ? `${kindName(b)} of ${fmtM(b.m)} Earth masses formed at ${fmtAU(b.r)} AU.`
+    : `${kindName(b)} grew to ${fmtM(b.m)} Earth masses at ${fmtAU(b.r)} AU.`;
+  if (!sim.gas && b.m >= 10 && LEVELS[lvl - 1] === 10)
+    msg += " In a disc with gas, a core this big could pull in hydrogen and become a gas giant.";
+  addLog(gasFraction(b) >= 0.1 ? "giant" : iceFraction(b) >= 0.3 ? "icy" : "rocky", msg);
+}
+
+/* =====================================================================
+   9. EVENT LOG
+   ===================================================================== */
+const LOG_COLOURS = { info: "#9aa3bf", rocky: "#b07a4a", icy: "#bfe6ff", giant: "#e8be82", gas: "#a98bff",
+                      impact: "#f1af28", shatter: "#ff7a6b", lost: "#6b7393", star: "#fff3c4", cloud: "#c9a98a" };
+function clearLog() { el.log.innerHTML = ""; }
+function addLog(type, text) {
+  const d = document.createElement("div");
+  d.innerHTML = `<span class="dot" style="background:${LOG_COLOURS[type]}"></span><span class="t">${fmtRealShort(sim.realT)}</span>`;
+  d.appendChild(document.createTextNode(text));
+  el.log.prepend(d);
+  while (el.log.childNodes.length > 300) el.log.lastChild.remove();
+}
+
+/* =====================================================================
+   10. NUMBER FORMATTING
+   ===================================================================== */
+function fmtM(m) { return m >= 100 ? m.toFixed(0) : m >= 10 ? m.toFixed(1) : m >= 0.01 ? m.toPrecision(2) : m.toExponential(1); }
+function fmtAU(r) { return r >= 10 ? r.toFixed(1) : r.toFixed(2); }
+function fmtL(L) { return L >= 10 ? L.toFixed(1) : L >= 1 ? L.toFixed(2) : L.toPrecision(2); }
+// Real-time formatting: "45,000 years", "2.35 million years", "1.2 billion years"
+function fmtReal(y) {
+  if (y < 1e6) return `${Math.round(y).toLocaleString("en-GB")} years`;
+  if (y < 1e9) return `${(y / 1e6).toFixed(y < 1e7 ? 2 : y < 1e8 ? 1 : 0)} million years`;
+  return `${(y / 1e9).toFixed(2)} billion years`;
+}
+function fmtRealShort(y) {
+  if (y < 1e6) return `${Math.round(y).toLocaleString("en-GB")} yr`;
+  return `${(y / 1e6).toFixed(y < 1e7 ? 2 : y < 1e8 ? 1 : 0)} Myr`;
+}
+function fmtYr(t) { return t < 10 ? t.toFixed(1) + " yr" : Math.round(t).toLocaleString("en-GB") + " yr"; }
+
+/* =====================================================================
+   11. DRAWING — top-down view of the disc
+   ===================================================================== */
+const view = { radius: 33 };   // half-width of the view in AU (zoom)
+let hoverId = null;
+
+function bodyColour(b) {
+  // Blend from brown (all rock) to pale blue (75% ice = a fresh icy planetesimal)...
+  const f = Math.min(1, iceFraction(b) / 0.75);
+  let r = 176 + (191 - 176) * f, g = 122 + (230 - 122) * f, bl = 74 + (255 - 74) * f;
+  // ...then towards Jupiter tan as gas is added
+  const k = Math.min(1, gasFraction(b) / 0.6);
+  r += (232 - r) * k; g += (190 - g) * k; bl += (130 - bl) * k;
+  return `rgb(${Math.round(r)},${Math.round(g)},${Math.round(bl)})`;
+}
+function sizeCanvas(c) {
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
+    c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+  }
+  return dpr;
+}
+
+function drawDisc() {
+  const c = el.disc, ctx = c.getContext("2d"), dpr = sizeCanvas(c);
+  const W = c.width, H = c.height, cx = W / 2, cy = H / 2;
+  if (sim.phase === "cloud") { drawCloud(ctx, W, H, dpr); return; }
+  const scale = Math.min(W, H) / 2 / view.radius;   // pixels per AU
+  ctx.fillStyle = "#050812"; ctx.fillRect(0, 0, W, H);
+
+  // The gas disc: each ring drawn as a soft violet band. Brighter = more gas
+  // per area. Dark bands are gaps cleared by giant planets.
+  if (sim.gas) {
+    const g = sim.gas, ref = g.sigma0[ringIndex(1)];   // brightness scaled to the gas at 1 AU
+    for (let k = 0; k < g.n; k++) {
+      const fill = g.now[k] / g.start[k];                     // 1 = as full as at the start
+      const alpha = Math.min(0.5, 0.4 * Math.pow(fill, 0.7) * Math.pow(g.sigma0[k] / ref, 0.25));
+      if (alpha < 0.005) continue;
+      const rIn = g.edge[k] * scale, rOut = g.edge[k + 1] * scale;
+      ctx.strokeStyle = `rgba(169,139,255,${alpha.toFixed(3)})`;
+      ctx.lineWidth = rOut - rIn + 0.6;
+      ctx.beginPath(); ctx.arc(cx, cy, (rIn + rOut) / 2, 0, 2 * Math.PI); ctx.stroke();
+    }
+  }
+
+  // Reference rings every so many AU, labelled
+  const ringStep = view.radius > 20 ? 10 : view.radius > 8 ? 5 : view.radius > 3 ? 1 : 0.5;
+  ctx.strokeStyle = "rgba(140,150,190,0.12)"; ctx.lineWidth = 1 * dpr;
+  ctx.fillStyle = "rgba(154,163,191,0.6)"; ctx.font = `${11 * dpr}px system-ui, sans-serif`;
+  for (let r = ringStep; r <= view.radius * 1.5; r += ringStep) {
+    ctx.beginPath(); ctx.arc(cx, cy, r * scale, 0, 2 * Math.PI); ctx.stroke();
+    ctx.fillText(`${r} AU`, cx + r * scale * 0.7071 + 3 * dpr, cy - r * scale * 0.7071 - 3 * dpr);
+  }
+
+  // Frost line: dashed circle
+  ctx.setLineDash([6 * dpr, 6 * dpr]); ctx.strokeStyle = "#7fd4ff"; ctx.lineWidth = 1.5 * dpr;
+  ctx.beginPath(); ctx.arc(cx, cy, sim.frost * scale, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = "#7fd4ff";
+  ctx.fillText(`Frost line ${fmtAU(sim.frost)} AU`, cx + 4 * dpr, cy - sim.frost * scale - 5 * dpr);
+
+  // Orbit trails of planets
+  ctx.lineWidth = 1 * dpr;
+  for (const b of sim.bodies) {
+    if (!b.trail || b.trail.length < 2) continue;
+    ctx.strokeStyle = b.ice / b.m >= 0.3 ? "rgba(191,230,255,0.25)" : "rgba(176,122,74,0.35)";
+    ctx.beginPath();
+    for (let k = 0; k < b.trail.length; k += 2) {
+      const p = b.trail[k];
+      k === 0 ? ctx.moveTo(cx + p[0] * scale, cy - p[1] * scale) : ctx.lineTo(cx + p[0] * scale, cy - p[1] * scale);
+    }
+    ctx.stroke();
+  }
+
+  // The star: colour and glow depend on its mass (hotter stars look whiter/bluer).
+  // Before fusion starts it is a cooler, redder protostar.
+  const sr = (5 + 4 * sim.Mstar) * dpr;
+  const starCol = !sim.ignited ? "255,150,90"
+    : sim.Mstar < 0.8 ? "255,190,120" : sim.Mstar < 1.3 ? "255,236,190" : "220,232,255";
+  const since = performance.now() - sim.flashT;
+  if (since < 3000) {                                  // ignition flash: an expanding ring
+    const k = since / 3000;
+    ctx.strokeStyle = `rgba(255,243,196,${(1 - k).toFixed(3)})`; ctx.lineWidth = 3 * dpr;
+    ctx.beginPath(); ctx.arc(cx, cy, sr * (3 + 25 * k), 0, 2 * Math.PI); ctx.stroke();
+  }
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, sr * 3);
+  grad.addColorStop(0, `rgba(${starCol},1)`); grad.addColorStop(0.3, `rgba(${starCol},0.6)`); grad.addColorStop(1, `rgba(${starCol},0)`);
+  ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(cx, cy, sr * 3, 0, 2 * Math.PI); ctx.fill();
+
+  // The selected body's orbit: dashed gold ellipse with perihelion/aphelion marked
+  const sel = sim.selectedId !== null ? sim.bodies.find(q => q.id === sim.selectedId) : null;
+  if (sel) {
+    const o = orbitElements(sel);
+    if (o.bound) {
+      const pts = orbitPath(o, 180);
+      ctx.setLineDash([4 * dpr, 4 * dpr]); ctx.strokeStyle = "rgba(241,175,40,0.8)"; ctx.lineWidth = 1.5 * dpr;
+      ctx.beginPath();
+      pts.forEach((p, k) => k ? ctx.lineTo(cx + p[0] * scale, cy - p[1] * scale) : ctx.moveTo(cx + p[0] * scale, cy - p[1] * scale));
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = "#f1af28";
+      for (const [p, label] of [[pts[0], "Perihelion"], [pts[90], "Aphelion"]]) {
+        const X = cx + p[0] * scale, Y = cy - p[1] * scale;
+        ctx.beginPath(); ctx.arc(X, Y, 3 * dpr, 0, 2 * Math.PI); ctx.fill();
+        ctx.fillText(label, X + 5 * dpr, Y - 5 * dpr);
+      }
+    }
+  }
+
+  // Planetesimals: radius ∝ cube root of mass (like real size for equal density)
+  const drawB = b => {
+    const px = cx + b.x * scale, py = cy - b.y * scale;
+    if (px < -20 || py < -20 || px > W + 20 || py > H + 20) return;
+    const rad = Math.max(0.9, 2.2 * Math.cbrt(b.m)) * dpr;
+    ctx.fillStyle = bodyColour(b);
+    ctx.beginPath(); ctx.arc(px, py, rad, 0, 2 * Math.PI); ctx.fill();
+    if (b.id === hoverId || b.id === sim.selectedId) {
+      ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 2 * dpr;
+      ctx.beginPath(); ctx.arc(px, py, rad + 4 * dpr, 0, 2 * Math.PI); ctx.stroke();
+    }
+  };
+  for (const b of sim.bodies) if (b.m < 0.5) drawB(b);    // small ones first...
+  for (const b of sim.bodies) if (b.m >= 0.5) drawB(b);   // ...planets on top
+}
+
+/* =====================================================================
+   12. DRAWING — scatter plot of mass (log) against distance (log)
+   ---------------------------------------------------------------------
+   Log scales: each grid line is 10× the previous one, so we can show a
+   0.001 M⊕ fragment and a 300 M⊕ giant on the same chart.
+   ===================================================================== */
+const SOLAR_SYSTEM = [
+  ["Mercury", 0.39, 0.055], ["Venus", 0.72, 0.815], ["Earth", 1.0, 1.0], ["Mars", 1.52, 0.107],
+  ["Jupiter", 5.2, 318], ["Saturn", 9.58, 95.2], ["Uranus", 19.2, 14.5], ["Neptune", 30.1, 17.1]
+];
+const plotBox = { l: 46, r: 10, t: 10, b: 36 };
+function plotScales() {
+  const c = el.plot, dpr = window.devicePixelRatio || 1;
+  const W = c.width / dpr, H = c.height / dpr;
+  const x0 = Math.log10(0.1), x1 = Math.log10(Math.max(60, sim.params.outer * 2));
+  const y0 = -3, y1 = 3;
+  const X = r => plotBox.l + (Math.log10(Math.max(r, 0.1)) - x0) / (x1 - x0) * (W - plotBox.l - plotBox.r);
+  const Y = m => H - plotBox.b - (Math.min(Math.max(Math.log10(m), y0), y1) - y0) / (y1 - y0) * (H - plotBox.t - plotBox.b);
+  return { W, H, X, Y, x0, x1, y0, y1 };
+}
+function drawPlot() {
+  const c = el.plot, ctx = c.getContext("2d"), dpr = sizeCanvas(c);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const { W, H, X, Y, x0, x1, y0, y1 } = plotScales();
+  ctx.fillStyle = "#0f1424"; ctx.fillRect(0, 0, W, H);
+  ctx.font = "11px system-ui, sans-serif";
+
+  // Gridlines (recessive) and tick labels
+  ctx.strokeStyle = "rgba(140,150,190,0.15)"; ctx.fillStyle = "#9aa3bf"; ctx.lineWidth = 1;
+  for (let e = Math.ceil(x0); e <= Math.floor(x1); e++) {
+    const x = X(10 ** e);
+    ctx.beginPath(); ctx.moveTo(x, plotBox.t); ctx.lineTo(x, H - plotBox.b); ctx.stroke();
+    ctx.textAlign = "center"; ctx.fillText(e < 0 ? (10 ** e).toFixed(-e) : String(10 ** e), x, H - plotBox.b + 14);
+  }
+  for (let e = y0; e <= y1; e++) {
+    const y = Y(10 ** e);
+    ctx.beginPath(); ctx.moveTo(plotBox.l, y); ctx.lineTo(W - plotBox.r, y); ctx.stroke();
+    ctx.textAlign = "right"; ctx.fillText(e < 0 ? (10 ** e).toFixed(-e) : String(10 ** e), plotBox.l - 5, y + 4);
+  }
+  ctx.textAlign = "center";
+  ctx.fillText("Distance from star (AU, log scale)", (plotBox.l + W - plotBox.r) / 2, H - 6);
+  ctx.save(); ctx.translate(11, (plotBox.t + H - plotBox.b) / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText("Mass (Earth masses, log scale)", 0, 0); ctx.restore();
+
+  // Frost line
+  const fx = X(sim.frost);
+  ctx.setLineDash([5, 5]); ctx.strokeStyle = "#7fd4ff"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(fx, plotBox.t); ctx.lineTo(fx, H - plotBox.b); ctx.stroke(); ctx.setLineDash([]);
+
+  if (sim.phase === "cloud") {
+    ctx.fillStyle = "#9aa3bf"; ctx.textAlign = "center"; ctx.font = "13px system-ui, sans-serif";
+    ctx.fillText("No planetesimals yet — the cloud is still collapsing", (plotBox.l + W) / 2, (plotBox.t + H - plotBox.b) / 2);
+    return;
+  }
+  // Solar System planets for comparison (hollow rings)
+  if (el.showSS.checked) {
+    ctx.strokeStyle = "#8892b0"; ctx.fillStyle = "#8892b0"; ctx.lineWidth = 1.5; ctx.textAlign = "left";
+    for (const [name, r, m] of SOLAR_SYSTEM) {
+      const x = X(r), y = Y(m);
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, 2 * Math.PI); ctx.stroke();
+      ctx.fillText(name, x + 7, y - 6);
+    }
+  }
+
+  // Every body: one dot, coloured by composition, with a thin dark ring so overlaps stay visible
+  ctx.lineWidth = 1; ctx.strokeStyle = "#0f1424";
+  for (const b of sim.bodies) {
+    const x = X(b.r), y = Y(b.m);
+    const rad = b.m >= 0.5 ? 4.5 : 3;
+    ctx.fillStyle = bodyColour(b);
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    if (b.id === hoverId || b.id === sim.selectedId) {
+      ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, rad + 4, 0, 2 * Math.PI); ctx.stroke();
+      ctx.lineWidth = 1; ctx.strokeStyle = "#0f1424";
+    }
+  }
+}
+
+/* =====================================================================
+   13. HOVER TOOLTIPS — point at a body in either view to inspect it
+   ===================================================================== */
+function showTip(b, ev) {
+  if (!b) { el.tip.style.display = "none"; hoverId = null; return; }
+  hoverId = b.id;
+  const v = Math.hypot(b.vx, b.vy, b.vz);
+  const a = 1 / (2 / b.r - v * v / sim.mu);            // orbit size from energy
+  el.tip.innerHTML = `<b>${kindName(b)}</b><br>Mass: ${fmtM(b.m)} M⊕<br>Distance: ${fmtAU(b.r)} AU` +
+    (a > 0 ? `<br>Orbit size (a): ${fmtAU(a)} AU` : "") +
+    `<br>Ice (of solids): ${Math.round(100 * iceFraction(b))}%` +
+    (b.gas > 0 ? `<br>Gas: ${Math.round(100 * gasFraction(b))}% (${fmtM(b.gas)} M⊕)` : "");
+  el.tip.style.display = "block";
+  const x = Math.min(ev.clientX + 14, window.innerWidth - el.tip.offsetWidth - 8);
+  el.tip.style.left = x + "px"; el.tip.style.top = (ev.clientY + 14) + "px";
+}
+function nearest(points, mx, my, maxD) {
+  let best = null, bd = maxD * maxD;
+  for (const [b, x, y] of points) { const d = (x - mx) ** 2 + (y - my) ** 2; if (d < bd) { bd = d; best = b; } }
+  return best;
+}
+
+/* =====================================================================
+   13b. THE BODY INSPECTOR — click a body to see its properties
+   ---------------------------------------------------------------------
+   Orbit: from the body's position r and velocity v we can work out the
+   ellipse it is following around the star (Kepler's laws):
+     • energy gives the orbit's size a (the "semi-major axis")
+     • the "eccentricity" e says how stretched it is (0 = circle)
+     • closest point to the star (perihelion)  = a (1 − e)
+       farthest point (aphelion)               = a (1 + e)
+     • a year (one orbit) lasts T = 2π √(a³ / G M_star)
+     • its tilt (inclination) is the angle between the orbit's axis and
+       the disc's axis.
+   ===================================================================== */
+function orbitElements(b) {
+  const mu = sim.mu, rx = b.x, ry = b.y, rz = b.z, vx = b.vx, vy = b.vy, vz = b.vz;
+  const r = Math.hypot(rx, ry, rz), v2 = vx * vx + vy * vy + vz * vz;
+  const hx = ry * vz - rz * vy, hy = rz * vx - rx * vz, hz = rx * vy - ry * vx;   // h = r × v
+  const h = Math.hypot(hx, hy, hz);
+  const a = 1 / (2 / r - v2 / mu);                                               // from energy
+  const ex = (vy * hz - vz * hy) / mu - rx / r, ey = (vz * hx - vx * hz) / mu - ry / r,
+        ez = (vx * hy - vy * hx) / mu - rz / r;                                  // eccentricity vector
+  const e = Math.hypot(ex, ey, ez);
+  const bound = a > 0 && e < 1;
+  return { r, v: Math.sqrt(v2), a, e, ex, ey, ez, hx, hy, hz, h, bound,
+           inc: Math.acos(Math.max(-1, Math.min(1, hz / h))) * 180 / Math.PI,
+           period: bound ? 2 * Math.PI * Math.sqrt(a ** 3 / mu) : Infinity,
+           peri: a * (1 - e), apo: a * (1 + e) };
+}
+
+// Points around the orbit ellipse (for drawing it)
+function orbitPath(o, n) {
+  let px = o.ex / o.e, py = o.ey / o.e, pz = o.ez / o.e;           // towards perihelion
+  if (!(o.e > 1e-9)) { px = 1; py = 0; pz = 0; }
+  const nx = o.hx / o.h, ny = o.hy / o.h, nz = o.hz / o.h;
+  const qx = ny * pz - nz * py, qy = nz * px - nx * pz;             // 90° further round
+  const pts = [], p = o.a * (1 - o.e * o.e);
+  for (let k = 0; k <= n; k++) {
+    const nu = 2 * Math.PI * k / n, rr = p / (1 + o.e * Math.cos(nu));
+    pts.push([rr * (Math.cos(nu) * px + Math.sin(nu) * qx), rr * (Math.cos(nu) * py + Math.sin(nu) * qy)]);
+  }
+  return pts;
+}
+
+function fmtHours(h) {
+  if (!isFinite(h)) return "–";
+  if (h < 48) return `${h.toFixed(1)} hours`;
+  if (h < 24 * 365) return `${(h / 24).toFixed(1)} Earth days`;
+  return `${(h / HOURS_PER_YEAR).toFixed(1)} Earth years`;
+}
+function fmtYears(y) {
+  if (!isFinite(y)) return "– (not in orbit)";
+  if (y < 1) return `${(y * 365.25).toFixed(0)} Earth days`;
+  return `${y.toFixed(y < 10 ? 2 : 1)} Earth years`;
+}
+const row = (k, v) => `<tr><td>${k}</td><td>${v}</td></tr>`;
+
+let activeTab = "log";
+function showTab(name) {
+  activeTab = name;
+  el.log.style.display = name === "log" ? "" : "none";
+  el.inspector.style.display = name === "inspect" ? "block" : "none";
+  el.tabLog.classList.toggle("on", name === "log");
+  el.tabInspect.classList.toggle("on", name === "inspect");
+  if (name === "inspect") renderInspector();
+}
+function renderInspector() {
+  const box = el.inspector;
+  el.pickHint.style.display = sim.phase === "cloud" || sim.selectedId !== null ? "none" : "";
+  if (activeTab !== "inspect") return;
+  if (sim.phase === "cloud") { box.innerHTML = `<div class="empty">Nothing to inspect yet — the cloud is still collapsing.</div>`; return; }
+  if (sim.selectedId === null && !sim.selectedFate) {
+    box.innerHTML = `<div class="empty">Click a body in the disc view or on the plot to see its orbit, day length, spin, size and history. Pausing first makes it easier to pick one.</div>`;
+    return;
+  }
+  const close = `<button onclick="selectBody(null)" title="Close">✕</button>`;
+  if (sim.selectedId === null) {
+    box.innerHTML = `<h3>Body lost ${close}</h3><div class="sub">The body you were following ${sim.selectedFate}.</div>`;
+    return;
+  }
+  const b = sim.bodies.find(q => q.id === sim.selectedId);
+  if (!b) { box.style.display = "none"; return; }
+  const o = orbitElements(b);
+
+  // Spin: ω = L / I. Day length = time for one turn.
+  const w = spinOmega(b), wl = Math.hypot(...w);
+  const rotHours = 2 * Math.PI / wl * HOURS_PER_YEAR;
+  const tilt = Math.acos(Math.max(-1, Math.min(1, (w[0] * o.hx + w[1] * o.hy + w[2] * o.hz) / (wl * o.h)))) * 180 / Math.PI;
+  const yearHours = o.period * HOURS_PER_YEAR;
+  // A "solar day" (sunrise to sunrise) is a bit longer than one spin for
+  // prograde spin, because the planet has moved along its orbit meanwhile.
+  const solarDay = !isFinite(yearHours) ? rotHours
+    : 1 / Math.abs(1 / rotHours + (tilt > 90 ? 1 : -1) / yearHours);
+  const eqSpeed = wl * b.R * KMS_PER_AU_YR * 3600;                       // km/h
+  const breakupFrac = wl / breakupOmega(b);
+
+  // Physical properties, compared with Earth
+  const rE = b.R / R_EARTH_AU;                                             // radius in Earth radii
+  const density = 5.51 * b.m / rE ** 3, grav = b.m / rE ** 2, vesc = 11.19 * Math.sqrt(b.m / rE);
+  const Teq = 278.6 * Math.pow(sim.L, 0.25) / Math.sqrt(o.bound ? o.a : o.r);   // K, black body
+
+  box.innerHTML =
+    `<h3>${kindName(b)} ${close}</h3>` +
+    `<div class="sub">Gold ring = this body · dashed gold line = its orbit</div>` +
+    `<div class="sec">Orbit around the star</div><table>` +
+    row("Distance now", `${fmtAU(o.r)} AU`) +
+    row("Orbit size (semi-major axis)", o.bound ? `${fmtAU(o.a)} AU` : "–") +
+    row("Year length", fmtYears(o.period)) +
+    row("Eccentricity", `${o.e.toFixed(3)} ${o.e < 0.02 ? "(almost circular)" : o.e < 0.1 ? "(slightly oval)" : "(oval)"}`) +
+    row("Perihelion (closest)", o.bound ? `${fmtAU(o.peri)} AU` : "–") +
+    row("Aphelion (farthest)", o.bound ? `${fmtAU(o.apo)} AU` : "–") +
+    row("Orbit tilt to disc plane", `${o.inc.toFixed(2)}°`) +
+    row("Orbital speed", `${(o.v * KMS_PER_AU_YR).toFixed(1)} km/s`) +
+    `</table><div class="sec">Spin</div><table>` +
+    row("Rotation period (one spin)", fmtHours(rotHours)) +
+    row("Solar day (sunrise to sunrise)", fmtHours(solarDay)) +
+    row("Speed at the equator", `${Math.round(eqSpeed).toLocaleString("en-GB")} km/h`) +
+    row("Axial tilt", `${tilt.toFixed(1)}°${tilt > 90 ? " (spins backwards)" : ""}`) +
+    row("Spin vs break-up speed", `${Math.round(100 * breakupFrac)}%`) +
+    `</table><div class="sec">The body</div><table>` +
+    row("Mass", `${fmtM(b.m)} M⊕`) +
+    row("Radius", `${Math.round(rE * R_EARTH_KM).toLocaleString("en-GB")} km (${rE.toFixed(2)} × Earth)`) +
+    row("Average density", `${density.toFixed(2)} g/cm³`) +
+    row("Surface gravity", `${grav.toFixed(2)} × Earth`) +
+    row("Escape speed", `${vesc.toFixed(1)} km/s`) +
+    row("Temperature (no air)", `${Math.round(Teq)} K (${Math.round(Teq - 273)} °C)`) +
+    row("Made of", `${Math.round(100 * b.rock / b.m)}% rock, ${Math.round(100 * b.ice / b.m)}% ice, ${Math.round(100 * b.gas / b.m)}% gas`) +
+    `</table><div class="sec">History</div><table>` +
+    row("Built from", `≈ ${Math.max(1, Math.round(b.parts))} original planetesimals`) +
+    row("Collisions survived", b.collisions) +
+    row("Had this form since", fmtReal(b.bornReal)) +
+    `</table><div class="note">Perihelion/aphelion are the star-orbit versions of perigee/apogee (which are for orbits around Earth).</div>`;
+}
+
+function selectBody(b) {
+  sim.selectedId = b ? b.id : null;
+  sim.selectedFate = null;
+  showTab(b ? "inspect" : "log");
+}
+
+/* =====================================================================
+   14. CONTROLS, STATS AND THE ANIMATION LOOP
+   ===================================================================== */
+const el = {};
+["star", "mass", "n", "outer", "exp", "ecc", "thr", "boost", "seed", "speed", "showSS", "gas", "life", "crit",
+ "o_gas", "o_life", "o_crit", "s_gas", "inspector", "pickHint", "tabLog", "tabInspect", "cloudStart", "clockSub", "stage",
+ "o_star", "h_star", "o_mass", "o_n", "o_outer", "o_exp", "o_ecc", "o_thr", "o_boost", "o_speed",
+ "btnStart", "btnPause", "btnReset", "pending", "disc", "plot", "log", "tip", "clock",
+ "s_n", "s_big", "s_max", "s_merge", "s_bounce", "s_shatter", "s_lost", "s_dust", "s_rate", "zIn", "zOut", "zFit"]
+  .forEach(id => el[id] = document.getElementById(id));
+
+function stepsPerFrame() { return Math.max(1, Math.round(Math.pow(10, el.speed.value / 100 * Math.log10(1000)))); }
+
+function updateLabels() {
+  const M = +el.star.value, { L, frost } = starProperties(M);
+  el.o_star.textContent = `${M.toFixed(2)} M☉`;
+  el.h_star.textContent = `Luminosity ≈ M⁴ = ${fmtL(L)} L☉ → frost line at ${fmtAU(frost)} AU`;
+  el.o_mass.textContent = `${el.mass.value} M⊕`;
+  el.o_n.textContent = el.n.value;
+  el.o_outer.textContent = `${el.outer.value} AU`;
+  el.o_exp.textContent = `p = ${(+el.exp.value).toFixed(1)}`;
+  el.o_ecc.textContent = `e ≈ ${(+el.ecc.value).toFixed(3)}`;
+  el.o_thr.textContent = `${fmtM(Math.pow(10, +el.thr.value))} M⊕`;
+  el.o_boost.textContent = `${Math.pow(10, +el.boost.value).toFixed(2)} × Hill`;
+  el.o_gas.textContent = +el.gas.value === 0 ? "none" : `${(+el.gas.value).toFixed(1)} M_J (${Math.round(el.gas.value * EARTHS_PER_JUPITER).toLocaleString("en-GB")} M⊕)`;
+  el.o_life.textContent = `${(+el.life.value).toFixed(1)} million yr`;
+  el.o_crit.textContent = `${(+el.crit.value).toFixed(1)} M⊕`;
+  const spf = stepsPerFrame();
+  el.o_speed.textContent = `${spf} steps/frame`;
+}
+
+// Setup sliders only take effect on Reset, so a run stays exactly repeatable.
+function markPending() {
+  const P = readParams(), Q = sim.params;
+  const differs = ["starMass", "discMass", "N", "outer", "p", "ecc", "gravThreshold", "boost", "gasMJ", "gasLife", "critCore", "cloud", "seed"].some(k => P[k] !== Q[k]);
+  el.pending.style.display = differs ? "block" : "none";
+}
+for (const id of ["star", "mass", "n", "outer", "exp", "ecc", "thr", "boost", "gas", "life", "crit"]) {
+  el[id].addEventListener("input", () => { updateLabels(); markPending(); });
+}
+el.seed.addEventListener("input", markPending);
+el.cloudStart.addEventListener("change", markPending);
+el.speed.addEventListener("input", updateLabels);
+
+el.tabLog.onclick = () => showTab("log");
+el.tabInspect.onclick = () => showTab("inspect");
+el.btnStart.onclick = () => { sim.running = true; sim.lastRateT = performance.now(); sim.lastRateYr = sim.t; };
+el.btnPause.onclick = () => { sim.running = false; };
+el.btnReset.onclick = () => { buildDisc(); el.pending.style.display = "none"; fitView(); renderInspector(); };
+
+function fitView() { view.radius = sim.params.outer * 1.1; }
+el.zIn.onclick = () => { view.radius = Math.max(0.5, view.radius / 1.5); };
+el.zOut.onclick = () => { view.radius = Math.min(200, view.radius * 1.5); };
+el.zFit.onclick = fitView;
+el.disc.addEventListener("wheel", e => {
+  e.preventDefault();
+  view.radius = Math.min(200, Math.max(0.5, view.radius * Math.exp(e.deltaY * 0.0015)));
+}, { passive: false });
+
+// Which body is under the mouse/finger? (within a few pixels)
+function pickDisc(e, maxD) {
+  if (sim.phase === "cloud") return null;
+  const rect = el.disc.getBoundingClientRect(), W = rect.width, H = rect.height;
+  const scale = Math.min(W, H) / 2 / view.radius;
+  const pts = sim.bodies.map(b => [b, W / 2 + b.x * scale, H / 2 - b.y * scale]);
+  return nearest(pts, e.clientX - rect.left, e.clientY - rect.top, maxD);
+}
+function pickPlot(e, maxD) {
+  if (sim.phase === "cloud") return null;
+  const rect = el.plot.getBoundingClientRect(), { X, Y } = plotScales();
+  const pts = sim.bodies.map(b => [b, X(b.r), Y(b.m)]);
+  return nearest(pts, e.clientX - rect.left, e.clientY - rect.top, maxD);
+}
+el.disc.addEventListener("mousemove", e => showTip(pickDisc(e, 10), e));
+el.plot.addEventListener("mousemove", e => showTip(pickPlot(e, 10), e));
+el.disc.addEventListener("click", e => selectBody(pickDisc(e, 14)));
+el.plot.addEventListener("click", e => selectBody(pickPlot(e, 14)));
+for (const c of [el.disc, el.plot]) c.addEventListener("mouseleave", () => showTip(null));
+
+function stageName() {
+  if (sim.phase === "cloud") {
+    const st = sim.cloud.stage;
+    return st === 0 ? "Cloud collapsing" : st === 1 ? "Protostar forming" : "Disc forming and settling";
+  }
+  if (sim.settled) return "Settled";
+  if (sim.late) return "Giant impacts (gas gone)";
+  if (!sim.gas) return "Planets building (no gas)";
+  return sim.gas.fill > 0.1 ? "Planets building in a gas disc" : "Gas clearing";
+}
+function updateStats() {
+  el.clock.textContent = fmtReal(sim.realT);
+  el.stage.textContent = stageName() + (sim.phase !== "cloud" ? (sim.ignited ? " · star: fusion on" : " · star: protostar") : "");
+  if (sim.phase === "cloud") {
+    const f = cloudFractions(sim.cloud);
+    el.clockSub.textContent = `estimated · ${Math.round(100 * sim.cloud.t / (CLOUD_END_TFF * sim.cloud.tff))}% through the collapse`;
+    el.s_n.textContent = "–"; el.s_big.textContent = "–";
+    el.s_max.textContent = `protostar ${Math.round(100 * f.star)}% of cloud · disc ${Math.round(100 * f.disc)}% · still falling ${Math.round(100 * f.falling)}%`;
+    el.s_gas.textContent = "–";
+    el.s_rate.textContent = sim.running ? "" : "paused";
+    return;
+  }
+  el.clockSub.textContent = `estimated · model ${fmtYr(sim.t)} · 1 model yr ≈ ${(sim.late ? COMPRESSION_LATE : COMPRESSION_GAS).toLocaleString("en-GB")} real yr`;
+  el.s_n.textContent = sim.bodies.length;
+  el.s_big.textContent = sim.nBig;
+  let big = sim.bodies[0];
+  for (const b of sim.bodies) if (b.m > big.m) big = b;
+  el.s_max.textContent = big ? `${fmtM(big.m)} M⊕ at ${fmtAU(big.r)} AU` : "–";
+  el.s_merge.textContent = sim.count.merge;
+  el.s_bounce.textContent = sim.count.bounce;
+  el.s_shatter.textContent = sim.count.shatter;
+  el.s_lost.textContent = sim.count.lost;
+  el.s_dust.textContent = sim.count.dust > 0 ? `${fmtM(sim.count.dust)} M⊕` : "0";
+  el.s_gas.textContent = sim.gas ? `${Math.round(100 * sim.gas.fill)}%` : "none";
+  el.s_rate.textContent = sim.running ? `${sim.rate < 10 ? sim.rate.toFixed(1) : Math.round(sim.rate)} model yr/s` : "paused";
+}
+
+// The main loop: run some physics steps, then redraw. The physics never
+// depends on how many steps fit in a frame, so speed doesn't change results.
+let frameCount = 0;
+function frame() {
+  if (sim.running && sim.phase === "cloud") {
+    const c = sim.cloud, n = Math.max(1, Math.round(stepsPerFrame() / 16)), t0 = performance.now();
+    for (let k = 0; k < n && !c.done; k++) {
+      cloudStep(c);
+      if (performance.now() - t0 > 30) break;
+    }
+    cloudStory(c);
+    if (c.done) finishCloud();
+  } else if (sim.running) {
+    const target = stepsPerFrame(), t0 = performance.now();
+    for (let k = 0; k < target; k++) {
+      step();
+      if (performance.now() - t0 > 30) break;   // keep the page responsive
+    }
+    // Record orbit trails for big planets (once per frame)
+    for (const b of sim.bodies) {
+      if (b.m < TRAIL_MASS) continue;
+      if (!b.trail) b.trail = [];
+      b.trail.push([b.x, b.y]);
+      if (b.trail.length > 240) b.trail.shift();
+    }
+    const now = performance.now();
+    if (now - sim.lastRateT > 500) {
+      sim.rate = (sim.t - sim.lastRateYr) / ((now - sim.lastRateT) / 1000);
+      sim.lastRateT = now; sim.lastRateYr = sim.t;
+    }
+  }
+  drawDisc();
+  drawPlot();
+  updateStats();
+  if (++frameCount % 6 === 0 && (sim.selectedId !== null || sim.selectedFate) && activeTab === "inspect") renderInspector();
+  requestAnimationFrame(frame);
+}
+
+// Go!
+updateLabels();
+buildDisc();
+fitView();
+renderInspector();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
