@@ -106,6 +106,10 @@
   #stage { font-size: 12.5px; color: #14133b; background: var(--accent); border-radius: 999px; padding: 1px 10px; font-weight: 600; }
   #clock { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); }
   .stat { color: var(--muted); font-size: 12px; }
+  .speed { color: var(--muted); font-size: 12px; display: inline-flex; align-items: center; gap: 3px; }
+  .speed button { flex: none; padding: 1px 7px; font-size: 12px; border-radius: 5px; }
+  .speed button.on { background: var(--accent); color: #14133b; border-color: var(--accent); }
+  .speed b { color: var(--text); font-weight: 600; margin-left: 4px; font-variant-numeric: tabular-nums; }
   .stat b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 
   .zoom { position: absolute; right: 8px; top: 8px; display: flex; gap: 4px; }
@@ -209,6 +213,10 @@
       <div class="hint">How far from circular the starting orbits are. More stirring = faster impacts = more shattering.</div>
     </div>
 
+    <label style="font-size:13px; display:block; margin:-2px 0 10px">
+      <input type="checkbox" id="tracersOn" checked> Add asteroids &amp; comets (to see belts form)
+    </label>
+
     <h2 class="gap">The gas</h2>
     <div class="ctl">
       <label>Gas in the disc <output id="o_gas"></output></label>
@@ -238,17 +246,18 @@
       <div class="hint">Bodies "touch" within this many Hill radii — hugely inflated so collisions happen on screen.</div>
     </div>
     <div class="ctl">
+      <label>Late-stage collision boost <output id="o_late"></output></label>
+      <input type="range" id="late" min="1" max="8" step="0.5" value="4">
+      <div class="hint">After the gas has gone, each model year stands for 20,000 real years — too few orbits for planets to drift into each other. Enlarging the collision radius stands in for that missing time. Higher = more giant impacts, fewer but bigger planets.</div>
+    </div>
+    <div class="ctl">
       <label>Random seed</label>
       <input type="text" id="seed" value="2026">
       <div class="hint">Same seed + same settings = exactly the same run.</div>
     </div>
 
     <h2 class="gap">Playback</h2>
-    <div class="ctl">
-      <label>Simulation speed <output id="o_speed"></output></label>
-      <input type="range" id="speed" min="0" max="100" step="1" value="90">
-      <div class="hint">Changes only how fast you watch, never the result.</div>
-    </div>
+    <div class="hint" style="margin-bottom:8px">Use the speed buttons above the disc to fast-forward. Speed only changes how fast you watch, never the result.</div>
     <label style="font-size:13px"><input type="checkbox" id="showSS" checked> Show our Solar System on the plot</label>
 
     <details>
@@ -259,7 +268,7 @@
         <li>Hydrogen fusion starts ("ignition", joining the main sequence) at 40 million years × (star mass)<sup>−2.5</sup>, the approximate time a young star takes to contract until its core is hot enough. Earlier glow comes from gravitational energy.</li>
         <li><b>Cloud prologue:</b> 2000 parcels of gas and dust in a slowly spinning ball 10,000 AU across, densest in the middle (density ∝ 1/r², a standard model of a cloud core), all turning together. Each feels gravity from all the mass closer to the centre (as if the cloud were spherical). Gas pressure, magnetic fields and outflows are left out. Inside 800 AU, material hitting the disc loses its up-down and outward motion (shocks) and slowly loses spin (friction in the disc) so it drifts onto the star. Anything within 40 AU joins the protostar. The cloud is taken to be 1/0.7 of the final star's mass, and at the end the model starts the planetesimal disc with the slider settings; the collapse does not set the disc's mass.</li>
         <li>The model jumps over planetesimal formation (dust sticking into km-sized bodies), which is still an active research topic.</li>
-        <li>The system is called "settled" once the star has ignited and nothing bigger than 0.05 M⊕ has collided, been ejected or fallen into the star for 30 million (estimated) years. Big caveat: 30 million real years is tens of millions of orbits, but the model only runs a few thousand, so slow instabilities that take millions of orbits (thought to have caused late giant impacts such as the one that made our Moon) can't show up. Crowded inner systems in this model are probably less stable than they look.</li>
+        <li>The system is called "settled" once the star has ignited and nothing bigger than 0.05 M⊕ has collided, been ejected or fallen into the star for 30 million (estimated) years. Big caveat: 30 million real years is tens of millions of orbits, but the model only runs a few thousand, so slow instabilities that take millions of orbits (thought to have caused late giant impacts such as the one that made our Moon) can't happen on their own. The late-stage collision boost (default ×4 the Hill-radius collision size) stands in for that missing time; it works well for the widely spaced outer planets but less well close to the star, where Hill radii are small, so inner systems often stay more crowded than real ones.</li>
         <li>Frost line = 2.7 × √L AU, fixed for the whole run (real discs cool, so it moves inward over time).</li>
         <li>The gas disc is a set of 160 thin rings. It starts spread over the same distances as the solids with the same fall-off, fades away exponentially everywhere at the same rate (real discs clear from the inside out), and slowly flows sideways to smooth out gaps.</li>
         <li>Gas only gathers onto cores above the critical mass. The rate is the slower of: the core's ability to squeeze its envelope (faster as it grows: time ∝ (critical mass ÷ mass)³, compressed to 1000 years at the critical mass), and a few orbits to sweep its feeding zone (3.5 Hill radii either side). Growth stops when the zone is emptied (a gap) or the gas is gone.</li>
@@ -276,7 +285,9 @@
         <li>Shattering makes 3–5 fragments with random shares of the mass, flying apart at the escape speed; the rest of the impact energy is assumed to become heat. If the pieces would be smaller than 0.005 M⊕, the pair is instead "ground to dust" and removed (as if blown away by starlight) — the only way mass leaves except falling into the star or ejection. Above 1500 bodies, would-be shatters bounce instead.</li>
         <li>Physical radius assumes Earth-like density for rock and water-ice density for ice.</li>
         <li>Bodies closer than 0.1 AU fall into the star; unbound bodies beyond 4× the disc radius are ejected.</li>
-        <li>A fixed time step (1/60 of an orbit at the inner edge) is used; bodies on very eccentric orbits near the star are less accurate.</li>
+        <li>Each body follows its exact Kepler ellipse around the star between steps; pulls from other bodies and the gas are added in fixed steps of 1/20 of an orbit at the inner edge (the "Wisdom–Holman" method used by professional planetary codes). Collisions are checked assuming bodies move in straight lines relative to each other during a step, so a few very fast encounters near the star may be missed.</li>
+        <li><b>Asteroids &amp; comets</b> are 400 "test particles": too small to pull on anything, they feel the star, the gas and every body above 1 M⊕, and vanish if they hit one. They start spread like the planetesimals but out to 1.6× the disc radius (real discs have a thin outer fringe). They are moved every 5 steps to save time. A belt is a range of distances where at least a quarter of the starting asteroids are still there once the gas has gone; these leftovers are what we see today as the asteroid belt and Kuiper belt.</li>
+        <li>Once fewer than 120 bodies remain, every body pulls on every other one, whatever the mass threshold.</li>
         <li>Sizes on screen ∝ (mass)<sup>1/3</sup> and are hugely exaggerated.</li>
         <li>Spin: planetesimals start with a random spin (4–24 h, random axis). In a merger the spins add up together with the "sideways" angular momentum of the impact, worked out as if the bodies met at their real radii. Spin can't exceed break-up speed (the excess is assumed lost with debris). Fragments get fresh random spins; bounces don't change spin; tides are ignored, so days never lengthen.</li>
         <li>Gas giants are spun up by the gas they gather, which is given a set fraction (30%) of the break-up angular momentum at the surface, around the orbit's axis.</li>
@@ -297,7 +308,9 @@
       <span class="stat">Largest <b id="s_max">–</b></span>
       <span class="stat">Merges <b id="s_merge">0</b> · Bounces <b id="s_bounce">0</b> · Shatters <b id="s_shatter">0</b> · Lost <b id="s_lost">0</b> · Dust <b id="s_dust">0</b></span>
       <span class="stat">Gas left <b id="s_gas">–</b></span>
-      <span class="stat">Speed <b id="s_rate">–</b></span>
+      <span class="speed" role="group" aria-label="Simulation speed">Speed
+        <button data-speed="0">½×</button><button data-speed="1">1×</button><button data-speed="2">4×</button><button data-speed="3">16×</button><button data-speed="4">Max</button>
+        <b id="s_rate">–</b></span>
     </div>
     <div id="discWrap">
       <canvas id="disc" aria-label="Top-down view of the planet-forming disc"></canvas>
@@ -314,7 +327,9 @@
       <span><i style="background:var(--giant)"></i>Gas-rich</span>
       <span><i style="background:var(--gas);opacity:.6"></i>Gas disc (dark rings = gaps)</span>
       <span><i class="dash"></i>Frost line</span>
-      <span>Faint lines: orbit trails of bodies ≥ 5 M⊕ · Scroll or use +/− to zoom</span>
+      <span><i style="background:rgb(205,195,180);width:4px;height:4px;border-radius:0"></i>Asteroids &amp; comets</span>
+      <span><i style="background:rgba(241,175,40,.35)"></i>Belts</span>
+      <span>Faint ellipses: orbits of bodies ≥ 5 M⊕ · Scroll or use +/− to zoom</span>
     </div>
   </section>
 
@@ -367,7 +382,14 @@ const MAX_BODIES = 1500;                       // safety cap so the browser stay
 const SWALLOW_R = 0.1;                         // closer than this → falls into the star
 const LEVELS = [0.5, 1, 2, 5, 10, 30, 100, 300]; // masses at which we log "growth" events
 const EARTHS_PER_JUPITER = 318;
-const TRAIL_MASS = 5;
+const ORBIT_LINE_MASS = 5;                      // draw the orbits of bodies at least this big
+const STEPS_PER_INNER_ORBIT = 20;               // time step = this fraction of an orbit at 0.3 AU
+const FULL_GRAVITY_N = 120;                     // with this few bodies left, all of them pull on each other
+const TRACER_N = 400;                           // asteroids & comets (massless tracers)
+const TRACER_EVERY = 5;                         // tracers are moved once every 5 steps (saves time)
+const TRACER_PULL_MASS = 1;                     // tracers feel the pull of bodies at least this big
+const TRACER_MASS = 1e-4;                       // size used for gas drag (about Ceres)
+const BELT_BINS = 48;                           // resolution of the belt finder
 const HOURS_PER_YEAR = 8766;
 const R_EARTH_KM = 6371;
 const GAS_SPIN_FRACTION = 0.3;                  // accreted gas brings 30% of break-up spin
@@ -388,7 +410,7 @@ const CLOUD_DISC_ZONE = 0.08;     // inside this (800 AU) the disc's gas slows t
 const CLOUD_VISC_TIME = 15;       // the disc loses its spin over ~15 time units (feeds the star)
 const CLOUD_SOFT = 0.002;         // softening to stop gravity blowing up at the centre
 const CLOUD_DT = 2e-4;            // time step
-const CLOUD_END_TFF = 4;          // run for 4 "free-fall times"                           // draw orbit trails for bodies at least this big
+const CLOUD_END_TFF = 4;          // run for 4 "free-fall times"
 
 // Gas-disc settings (time-compressed like everything else)
 const GAS_RINGS = 160;          // the gas disc is stored as this many thin rings
@@ -461,7 +483,7 @@ function makeBody(rock, ice, gas, x, y, z, vx, vy, vz) {
     Lx: 0, Ly: 0, Lz: 0,               // spin angular momentum, M⊕·AU²/yr
     parts: 1,                          // how many original planetesimals it is built from
     collisions: 0, bornReal: sim.realT,
-    trail: null
+    chi: 0                             // remembered by the orbit solver (section 6)
   };
 }
 
@@ -514,6 +536,8 @@ function readParams() {
     gasLifeMyr: +el.life.value,
     gasLife: +el.life.value * 1e6 / COMPRESSION_GAS,   // in model years
     cloud: el.cloudStart.checked,
+    tracers: el.tracersOn.checked,
+    lateBoost: +el.late.value,
     critCore: +el.crit.value,
     seed: el.seed.value.trim() || "0"
   };
@@ -532,7 +556,8 @@ function buildDisc() {
   const { L, frost } = starProperties(P.starMass);
   const mu = G_MSUN * P.starMass;              // G × M_star
 
-  // Fixed time step: 1/60 of an orbit at the inner edge. Kepler: T = 2π √(a³/GM).
+  // Fixed time step: 1/20 of an orbit at the inner edge. Kepler: T = 2π √(a³/GM).
+  // (This can be fairly long because the star's pull is followed exactly — see section 6.)
   const innerPeriod = 2 * Math.PI * Math.sqrt(INNER_EDGE ** 3 / mu);
 
   sim = {
@@ -542,7 +567,7 @@ function buildDisc() {
     late: false, ignited: false, settled: false, lastBigEvent: 0,
     tZams: ZAMS_MYR * 1e6 * Math.pow(P.starMass, -2.5),
     phase: "planets", cloud: null, flashT: -1e9,
-    dt: innerPeriod / 60, t: 0, steps: 0,
+    dt: innerPeriod / STEPS_PER_INNER_ORBIT, t: 0, steps: 0,
     bodies: [], sap: [], newborn: [], nextId: 1, nBig: 0,
     count: { merge: 0, bounce: 0, shatter: 0, lost: 0, dust: 0 },
     running: false
@@ -588,6 +613,7 @@ function buildDisc() {
     sim.sap.push(b);
   }
   computeAccelerations();
+  sim.tracers = P.tracers ? buildTracers(P, sampleA, frost) : null;
 
   clearLog();
   sim.discMessage = `Planetesimal disc: ${P.N} planetesimals, ${P.discMass} M⊕ of solids` +
@@ -751,6 +777,127 @@ function gasStep() {
     addLog("gas", "The gas disc has gone. No more gas giants can form: cores that were too small in time stay rocky or icy planets.");
   }
   return ate;
+}
+
+/* =====================================================================
+   4f. ASTEROIDS AND COMETS (massless "test particles")
+   ---------------------------------------------------------------------
+   Real discs contain trillions of small bodies. We follow a few hundred
+   tiny ones that are pulled by the star, slowed by gas, and tugged by the
+   planets — but are too small to pull back. Wherever planets sweep them
+   up or fling them away, they disappear. Where they survive, we see a
+   BELT: like our asteroid belt (between Mars and Jupiter) and the Kuiper
+   belt (beyond Neptune).
+   ===================================================================== */
+function buildTracers(P, sampleA, frost) {
+  const n = TRACER_N, rng = mulberry32(hashSeed(P.seed + ":tracers"));
+  const F = () => new Float64Array(n);
+  const t = { n, x: F(), y: F(), z: F(), vx: F(), vy: F(), vz: F(), ax: F(), ay: F(), az: F(), chi: F(),
+              a0: F(), alive: new Uint8Array(n).fill(1), left: n, belts: [], beltsLogged: false };
+  const outer = 1.6 * P.outer;
+  for (let i = 0; i < n; i++) {
+    // Same spread as the planetesimals, but reaching 1.6× further out
+    const u = rng();
+    const a = INNER_EDGE * Math.pow(outer / INNER_EDGE, Math.log(sampleA(u) / INNER_EDGE) / Math.log(P.outer / INNER_EDGE));
+    const e = Math.min(0.5, P.ecc * Math.sqrt(-2 * Math.log(1 - rng())));
+    const inc = 0.5 * P.ecc * Math.sqrt(-2 * Math.log(1 - rng()));
+    const st = orbitToState({ a, e, inc, node: 2 * Math.PI * rng(), peri: 2 * Math.PI * rng(), M: 2 * Math.PI * rng() }, sim.mu);
+    t.x[i] = st[0]; t.y[i] = st[1]; t.z[i] = st[2]; t.vx[i] = st[3]; t.vy[i] = st[4]; t.vz[i] = st[5];
+    t.a0[i] = a;
+  }
+  tracerAcc(t);
+  return t;
+}
+
+// Pulls from the planets (and gas drag) on every tracer. A tracer that
+// comes within a planet's collision radius is swept up.
+function tracerAcc(t) {
+  const big = sim.bodies.filter(b => b.m >= TRACER_PULL_MASS);
+  const M3 = 3 * sim.Mstar * EARTHS_PER_SUN, mu = sim.mu, eps2 = SOFTENING * SOFTENING;
+  const boost = sim.params.boost * (sim.late ? sim.params.lateBoost : 1);
+  const Rc = big.map(b => boost * Math.hypot(b.x, b.y, b.z) * Math.cbrt(b.m / M3));
+  for (let i = 0; i < t.n; i++) {
+    if (!t.alive[i]) continue;
+    const x = t.x[i], y = t.y[i], z = t.z[i];
+    let ax = 0, ay = 0, az = 0;
+    for (let j = 0; j < big.length; j++) {
+      const b = big[j], dx = b.x - x, dy = b.y - y, dz = b.z - z;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 < Rc[j] * Rc[j]) { t.alive[i] = 0; t.left--; break; }      // swept up by a planet
+      const s2 = d2 + eps2, f = G * b.m / (s2 * Math.sqrt(s2));
+      ax += f * dx; ay += f * dy; az += f * dz;
+    }
+    if (!t.alive[i]) continue;
+    const r = Math.sqrt(x * x + y * y + z * z);
+    if (r < SWALLOW_R || r > 20 * sim.params.outer) { t.alive[i] = 0; t.left--; continue; }
+    if (sim.gas) {                                       // gas drag, as for the bodies
+      const fill = gasFillAt(r);
+      if (fill > 0) {
+        const rxy = Math.hypot(x, y), vc = Math.sqrt(mu / r);
+        const tau = DRAG_ORBITS * 2 * Math.PI * Math.sqrt(r * r * r / mu) * Math.cbrt(TRACER_MASS / 0.01) /
+                    (fill * sim.params.gasMJ / DEFAULT_GAS_MJ);
+        ax -= (t.vx[i] + vc * y / rxy) / tau; ay -= (t.vy[i] - vc * x / rxy) / tau; az -= t.vz[i] / tau;
+      }
+    }
+    t.ax[i] = ax; t.ay[i] = ay; t.az[i] = az;
+  }
+}
+
+const tracerScratch = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, chi: 0 };
+function tracerStep(t, dt) {
+  const h = dt / 2, s = tracerScratch;
+  for (let i = 0; i < t.n; i++) {
+    if (!t.alive[i]) continue;
+    t.vx[i] += t.ax[i] * h; t.vy[i] += t.ay[i] * h; t.vz[i] += t.az[i] * h;
+    s.x = t.x[i]; s.y = t.y[i]; s.z = t.z[i]; s.vx = t.vx[i]; s.vy = t.vy[i]; s.vz = t.vz[i]; s.chi = t.chi[i];
+    keplerDrift(s, sim.mu, dt);
+    t.x[i] = s.x; t.y[i] = s.y; t.z[i] = s.z; t.vx[i] = s.vx; t.vy[i] = s.vy; t.vz[i] = s.vz; t.chi[i] = s.chi;
+  }
+  tracerAcc(t);
+  for (let i = 0; i < t.n; i++) {
+    if (!t.alive[i]) continue;
+    t.vx[i] += t.ax[i] * h; t.vy[i] += t.ay[i] * h; t.vz[i] += t.az[i] * h;
+  }
+}
+
+// Find belts: ranges of distance where many of the starting tracers survive
+function findBelts(t) {
+  const lo = Math.log(INNER_EDGE), hi = Math.log(1.6 * sim.params.outer), k = BELT_BINS / (hi - lo);
+  const start = new Float64Array(BELT_BINS), now = new Float64Array(BELT_BINS);
+  for (let i = 0; i < t.n; i++) {
+    const b0 = Math.min(BELT_BINS - 1, Math.max(0, Math.floor((Math.log(t.a0[i]) - lo) * k)));
+    start[b0]++;
+    if (!t.alive[i]) continue;
+    const r = Math.hypot(t.x[i], t.y[i]);
+    const b1 = Math.min(BELT_BINS - 1, Math.max(0, Math.floor((Math.log(r) - lo) * k)));
+    now[b1]++;
+  }
+  // A belt can't overlap the path of a planet (from its closest to farthest point, plus a margin)
+  const blocked = new Uint8Array(BELT_BINS);
+  for (const b of sim.bodies) {
+    if (b.m < 1) continue;
+    const o = orbitElements(b);
+    if (!o.bound) continue;
+    const j0 = Math.floor((Math.log(o.peri * 0.9) - lo) * k), j1 = Math.floor((Math.log(o.apo * 1.1) - lo) * k);
+    for (let j = Math.max(0, j0); j <= Math.min(BELT_BINS - 1, j1); j++) blocked[j] = 1;
+  }
+  const belts = [];
+  let cur = null;
+  for (let j = 0; j < BELT_BINS; j++) {
+    const ok = !blocked[j] && start[j] > 0 && now[j] >= 0.25 * start[j] && now[j] >= 2;
+    if (ok) { if (!cur) cur = { j0: j, j1: j, count: 0 }; cur.j1 = j; cur.count += now[j]; }
+    else if (cur) { belts.push(cur); cur = null; }
+  }
+  if (cur) belts.push(cur);
+  const giants = sim.bodies.filter(b => b.m >= 10).map(b => orbitElements(b).a).filter(a => a > 0);
+  const outerGiant = giants.length ? Math.max(...giants) : 0;
+  return belts.map(b => ({ ...b, rIn: Math.exp(lo + b.j0 / k), rOut: Math.exp(lo + (b.j1 + 1) / k) }))
+    .filter(b => b.count >= 8 && b.rOut / b.rIn >= 1.15).map(b => {
+    const rIn = b.rIn, rOut = b.rOut;
+    const name = outerGiant && rIn > outerGiant ? "Kuiper-type belt (icy comets)"
+      : rOut < sim.frost * 1.3 ? "Asteroid belt (rocky)" : "Icy asteroid belt";
+    return { rIn, rOut, count: b.count, name };
+  });
 }
 
 /* =====================================================================
@@ -927,7 +1074,9 @@ function drawCloud(ctx, W, H, dpr) {
    5. GRAVITY
    ---------------------------------------------------------------------
    Acceleration towards a mass M at distance r is a = G M / r².
-   (1) Every body is pulled towards the star.
+   (1) The star's pull is NOT added here: it is followed exactly by moving
+       each body along its Kepler ellipse (section 6). Here we only add the
+       small extra pulls.
    (2) Bodies heavier than the threshold also pull on every other body, and
        are pulled back equally (Newton's third law). Pairs of two light
        bodies are skipped — their pull is tiny and skipping keeps it fast.
@@ -937,15 +1086,15 @@ function drawCloud(ctx, W, H, dpr) {
        feel it most, like dust compared with a football in a breeze.
    ===================================================================== */
 function computeAccelerations() {
-  const B = sim.bodies, n = B.length, mu = sim.mu, thr = sim.params.gravThreshold;
+  const B = sim.bodies, n = B.length, mu = sim.mu;
+  // With few bodies left it is cheap to let every body pull on every other
+  const thr = n <= FULL_GRAVITY_N ? 0 : sim.params.gravThreshold;
   const eps2 = SOFTENING * SOFTENING;
 
-  // (1) The star
   for (let i = 0; i < n; i++) {
     const b = B[i];
     const r2 = b.x * b.x + b.y * b.y + b.z * b.z, r = Math.sqrt(r2);
-    const f = -mu / (r2 * r);              // minus sign: pull points towards the star
-    b.ax = f * b.x; b.ay = f * b.y; b.az = f * b.z;
+    b.ax = 0; b.ay = 0; b.az = 0;
     b.big = b.m >= thr;
     // (3) Gas drag
     if (sim.gas) {
@@ -962,55 +1111,106 @@ function computeAccelerations() {
     }
   }
 
-  // (2) Massive bodies pull on everything (each pair counted once)
+  // (2) Massive bodies pull on everything (each pair counted once).
+  // For speed, copy positions and masses into plain number arrays first.
+  if (!sim.buf || sim.buf.x.length < n) {
+    const F = () => new Float64Array(Math.max(n, 64));
+    sim.buf = { x: F(), y: F(), z: F(), m: F(), ax: F(), ay: F(), az: F(), big: new Uint8Array(Math.max(n, 64)) };
+  }
+  const { x: X, y: Y, z: Z, m: Mm, ax: AX, ay: AY, az: AZ, big: BIG } = sim.buf;
+  for (let i = 0; i < n; i++) {
+    const b = B[i];
+    X[i] = b.x; Y[i] = b.y; Z[i] = b.z; Mm[i] = b.m;
+    AX[i] = 0; AY[i] = 0; AZ[i] = 0; BIG[i] = b.big ? 1 : 0;
+  }
   let nBig = 0;
   for (let j = 0; j < n; j++) {
-    const bj = B[j];
-    if (!bj.big) continue;
+    if (!BIG[j]) continue;
     nBig++;
+    const xj = X[j], yj = Y[j], zj = Z[j], Gmj = G * Mm[j];
+    let axj = 0, ayj = 0, azj = 0;
     for (let i = 0; i < n; i++) {
-      if (i === j) continue;
-      const bi = B[i];
-      if (bi.big && i < j) continue;       // this big–big pair was already done
-      const dx = bj.x - bi.x, dy = bj.y - bi.y, dz = bj.z - bi.z;
+      if (i === j || (BIG[i] && i < j)) continue;   // skip itself, and big–big pairs already done
+      const dx = xj - X[i], dy = yj - Y[i], dz = zj - Z[i];
       const d2 = dx * dx + dy * dy + dz * dz + eps2;
       const inv = 1 / (d2 * Math.sqrt(d2));
-      const fi = G * bj.m * inv, fj = G * bi.m * inv;
-      bi.ax += fi * dx; bi.ay += fi * dy; bi.az += fi * dz;   // i pulled towards j
-      bj.ax -= fj * dx; bj.ay -= fj * dy; bj.az -= fj * dz;   // j pulled towards i
+      const fi = Gmj * inv, fj = G * Mm[i] * inv;
+      AX[i] += fi * dx; AY[i] += fi * dy; AZ[i] += fi * dz;   // i pulled towards j
+      axj -= fj * dx; ayj -= fj * dy; azj -= fj * dz;         // j pulled towards i
     }
+    AX[j] += axj; AY[j] += ayj; AZ[j] += azj;
   }
+  for (let i = 0; i < n; i++) { const b = B[i]; b.ax += AX[i]; b.ay += AY[i]; b.az += AZ[i]; }
   sim.nBig = nBig;
 }
 
 /* =====================================================================
-   6. ONE TIME STEP — the "leapfrog" (kick–drift–kick) method
+   6. ONE TIME STEP — "kick–drift–kick" with exact Kepler orbits
    ---------------------------------------------------------------------
-   kick : change velocity by half a step's worth of acceleration
-   drift: move every body for a whole step at its new velocity
-   kick : recalculate gravity at the new positions, another half kick
-   Leapfrog is "time-symmetric", so energy errors don't build up and orbits
-   stay stable for thousands of turns (a simpler method makes planets
-   slowly spiral outwards).
+   The star's pull is by far the biggest force, and on its own it gives a
+   perfect ellipse (Kepler's laws) that we can calculate exactly. So:
+     kick : nudge each velocity by half a step of the SMALL pulls
+            (other bodies and gas drag)
+     drift: move each body along its exact Kepler ellipse for a whole step
+     kick : work out the small pulls at the new positions, another half nudge
+   This is the Wisdom–Holman method used by real planetary simulations. It
+   is "time-symmetric", so errors don't build up, and because the star's
+   pull is exact the time step can be much longer than a simple method
+   would allow — so the simulation runs faster.
    ===================================================================== */
 function step() {
-  const B = sim.bodies, dt = sim.dt, h = dt / 2;
+  const B = sim.bodies, dt = sim.dt, h = dt / 2, mu = sim.mu;
   for (const b of B) {
     b.vx += b.ax * h; b.vy += b.ay * h; b.vz += b.az * h;      // half kick
     b.ox = b.x; b.oy = b.y; b.oz = b.z;                        // remember start position
-    b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt;      // drift
+    keplerDrift(b, mu, dt);                                    // exact orbit around the star
   }
   computeAccelerations();
   for (const b of B) {
     b.vx += b.ax * h; b.vy += b.ay * h; b.vz += b.az * h;      // half kick
   }
   const changed = handleCollisions();
-  const ate = sim.gas ? gasStep() : false;
-  if (changed || ate) computeAccelerations();       // bodies or masses changed → redo gravity
+  if (sim.gas) gasStep();                           // mass gained from gas is tiny per step
+  if (changed) computeAccelerations();              // bodies changed → redo the pulls
+  if (sim.tracers && sim.steps % TRACER_EVERY === 0) tracerStep(sim.tracers, TRACER_EVERY * dt);
   sim.t += dt;
   sim.steps++;
   sim.realT += dt * (sim.late ? COMPRESSION_LATE : COMPRESSION_GAS);
   checkMilestonesInTime();
+}
+
+// Move a body along its Kepler orbit for time dt. Uses the "universal
+// variable" form of Kepler's equation, which works for ellipses and for
+// the (rare) body moving fast enough to escape. Solved by Newton's method.
+function stumpff(z) {
+  if (z > 1e-6) { const q = Math.sqrt(z); return [(1 - Math.cos(q)) / z, (q - Math.sin(q)) / (q * z)]; }
+  if (z < -1e-6) { const q = Math.sqrt(-z); return [(1 - Math.cosh(q)) / z, (Math.sinh(q) - q) / (-q * z)]; }
+  return [0.5 - z / 24, 1 / 6 - z / 120];
+}
+function keplerDrift(b, mu, dt) {
+  const x = b.x, y = b.y, z = b.z, vx = b.vx, vy = b.vy, vz = b.vz;
+  const r0 = Math.sqrt(x * x + y * y + z * z), v2 = vx * vx + vy * vy + vz * vz;
+  const sqmu = Math.sqrt(mu), rv = (x * vx + y * vy + z * vz) / sqmu;
+  const alpha = 2 / r0 - v2 / mu;                         // 1 / (orbit size)
+  let chi = b.chi || (alpha > 0 ? sqmu * dt * alpha : sqmu * dt / r0);   // starting guess
+  let C = 0.5, S = 1 / 6;
+  for (let k = 0; k < 30; k++) {
+    const zz = alpha * chi * chi;
+    [C, S] = stumpff(zz);
+    const F = rv * chi * chi * C + (1 - alpha * r0) * chi * chi * chi * S + r0 * chi - sqmu * dt;
+    const dF = rv * chi * (1 - zz * S) + (1 - alpha * r0) * chi * chi * C + r0;
+    const d = F / dF;
+    chi -= d;
+    if (Math.abs(d) < 1e-13 * (1 + Math.abs(chi))) break;
+  }
+  [C, S] = stumpff(alpha * chi * chi);
+  b.chi = chi;                                             // good guess for next step
+  const f = 1 - chi * chi / r0 * C, g = dt - chi * chi * chi / sqmu * S;
+  const nx = f * x + g * vx, ny = f * y + g * vy, nz = f * z + g * vz;
+  const r = Math.sqrt(nx * nx + ny * ny + nz * nz);
+  const fd = sqmu / (r * r0) * (alpha * chi * chi * chi * S - chi), gd = 1 - chi * chi / r * C;
+  b.x = nx; b.y = ny; b.z = nz;
+  b.vx = fd * x + gd * vx; b.vy = fd * y + gd * vy; b.vz = fd * z + gd * vz;
 }
 
 /* =====================================================================
@@ -1038,7 +1238,9 @@ function checkMilestonesInTime() {
     const planets = sim.bodies.filter(b => b.m >= 0.05).map(b => [b, orbitElements(b)])
       .sort((p, q) => p[1].a - q[1].a);
     const list = planets.map(([b, o]) => `${kindName(b).toLowerCase()} ${fmtM(b.m)} M⊕ at ${fmtAU(o.a)} AU`).join("; ");
-    addLog("star", `The system has settled into stable orbits: ${planets.length} planets — ${list}. Paused; press Start to keep watching.`);
+    const belts = sim.tracers ? findBelts(sim.tracers) : [];
+    const beltText = belts.length ? ` Belts: ${belts.map(b => `${b.name.toLowerCase()} ${fmtAU(b.rIn)}–${fmtAU(b.rOut)} AU`).join("; ")}.` : "";
+    addLog("star", `The system has settled into stable orbits: ${planets.length} planets — ${list}.${beltText} Paused; press Start to keep watching.`);
     sim.running = false;
   }
 }
@@ -1071,7 +1273,7 @@ function handleCollisions() {
     b.hit = false;
     const r0 = Math.hypot(b.ox, b.oy, b.oz), r1 = Math.hypot(b.x, b.y, b.z);
     b.r = r1;
-    b.Rc = P.boost * r1 * Math.cbrt(b.m / M3);
+    b.Rc = P.boost * (sim.late ? P.lateBoost : 1) * r1 * Math.cbrt(b.m / M3);
     b.lo = Math.min(r0, r1) - b.Rc;
     b.hi = Math.max(r0, r1) + b.Rc;
     if (r1 < SWALLOW_R) { loseBody(b, "fell into the star"); changed = true; }
@@ -1163,7 +1365,6 @@ function merge(a, b, cx, cy, cz, vx, vy, vz, vEsc) {
   if (sim.selectedId === a.id || sim.selectedId === b.id) sim.selectedId = nb.id;
   nb.gasStarted = a.gasStarted || b.gasStarted;
   nb.gapLogged = a.gapLogged || b.gapLogged;
-  nb.trail = (a.m >= b.m ? a.trail : b.trail) || null;
   nb.hit = true;
   a.alive = b.alive = false;
   sim.newborn.push(nb);
@@ -1300,7 +1501,7 @@ function checkMilestone(b) {
    9. EVENT LOG
    ===================================================================== */
 const LOG_COLOURS = { info: "#9aa3bf", rocky: "#b07a4a", icy: "#bfe6ff", giant: "#e8be82", gas: "#a98bff",
-                      impact: "#f1af28", shatter: "#ff7a6b", lost: "#6b7393", star: "#fff3c4", cloud: "#c9a98a" };
+                      impact: "#f1af28", shatter: "#ff7a6b", lost: "#6b7393", star: "#fff3c4", cloud: "#c9a98a", belt: "#a0a6be" };
 function clearLog() { el.log.innerHTML = ""; }
 function addLog(type, text) {
   const d = document.createElement("div");
@@ -1388,16 +1589,48 @@ function drawDisc() {
   ctx.fillStyle = "#7fd4ff";
   ctx.fillText(`Frost line ${fmtAU(sim.frost)} AU`, cx + 4 * dpr, cy - sim.frost * scale - 5 * dpr);
 
-  // Orbit trails of planets
+  // Belts (only once the gas has gone and the planets have cleared their paths)
+  if (sim.tracers && sim.late) {
+    if (frameCount % 30 === 0 || !sim.tracers.belts.length) sim.tracers.belts = findBelts(sim.tracers);
+    for (const b of sim.tracers.belts) {
+      // Faint band with dotted edges, labelled at the top
+      const rIn = b.rIn * scale, rOut = b.rOut * scale;
+      ctx.fillStyle = "rgba(241,175,40,0.06)";
+      ctx.beginPath(); ctx.arc(cx, cy, rOut, 0, 2 * Math.PI); ctx.arc(cx, cy, rIn, 0, 2 * Math.PI, true); ctx.fill();
+      ctx.setLineDash([2 * dpr, 4 * dpr]); ctx.strokeStyle = "rgba(241,175,40,0.5)"; ctx.lineWidth = 1 * dpr;
+      for (const rr of [rIn, rOut]) { ctx.beginPath(); ctx.arc(cx, cy, rr, 0, 2 * Math.PI); ctx.stroke(); }
+      ctx.setLineDash([]);
+      if (rOut > 60 * dpr) {                      // label only if big enough on screen
+        ctx.fillStyle = "rgba(241,175,40,0.95)"; ctx.textAlign = "center";
+        const yLab = Math.max(14 * dpr, cy - (rIn + rOut) / 2);
+        ctx.fillText(`${b.name}, ${fmtAU(b.rIn)}–${fmtAU(b.rOut)} AU`, cx, yLab + 4 * dpr);
+        ctx.textAlign = "left";
+      }
+    }
+    if (!sim.tracers.beltsLogged && sim.tracers.belts.length) {
+      sim.tracers.beltsLogged = true;
+      addLog("belt", `With the gas gone, belts of leftover small bodies stand out: ${sim.tracers.belts.map(b => `${b.name.toLowerCase()} at ${fmtAU(b.rIn)}–${fmtAU(b.rOut)} AU`).join("; ")}. Planets have swept up or flung away the rest.`);
+    }
+  }
+  // Asteroids and comets: tiny grey dots
+  if (sim.tracers) {
+    const t = sim.tracers;
+    ctx.fillStyle = "rgba(205,195,180,0.85)";
+    for (let i = 0; i < t.n; i++) {
+      if (!t.alive[i]) continue;
+      ctx.fillRect(cx + t.x[i] * scale - 0.8 * dpr, cy - t.y[i] * scale - 0.8 * dpr, 1.6 * dpr, 1.6 * dpr);
+    }
+  }
+
+  // Orbits of the big planets (the ellipse each would follow around the star)
   ctx.lineWidth = 1 * dpr;
   for (const b of sim.bodies) {
-    if (!b.trail || b.trail.length < 2) continue;
-    ctx.strokeStyle = b.ice / b.m >= 0.3 ? "rgba(191,230,255,0.25)" : "rgba(176,122,74,0.35)";
+    if (b.m < ORBIT_LINE_MASS) continue;
+    const o = orbitElements(b);
+    if (!o.bound) continue;
+    ctx.strokeStyle = gasFraction(b) >= 0.1 ? "rgba(232,190,130,0.35)" : iceFraction(b) >= 0.3 ? "rgba(191,230,255,0.25)" : "rgba(176,122,74,0.4)";
     ctx.beginPath();
-    for (let k = 0; k < b.trail.length; k += 2) {
-      const p = b.trail[k];
-      k === 0 ? ctx.moveTo(cx + p[0] * scale, cy - p[1] * scale) : ctx.lineTo(cx + p[0] * scale, cy - p[1] * scale);
-    }
+    orbitPath(o, 96).forEach((p, k) => k ? ctx.lineTo(cx + p[0] * scale, cy - p[1] * scale) : ctx.moveTo(cx + p[0] * scale, cy - p[1] * scale));
     ctx.stroke();
   }
 
@@ -1695,14 +1928,26 @@ function selectBody(b) {
    14. CONTROLS, STATS AND THE ANIMATION LOOP
    ===================================================================== */
 const el = {};
-["star", "mass", "n", "outer", "exp", "ecc", "thr", "boost", "seed", "speed", "showSS", "gas", "life", "crit",
- "o_gas", "o_life", "o_crit", "s_gas", "inspector", "pickHint", "tabLog", "tabInspect", "cloudStart", "clockSub", "stage",
- "o_star", "h_star", "o_mass", "o_n", "o_outer", "o_exp", "o_ecc", "o_thr", "o_boost", "o_speed",
+["star", "mass", "n", "outer", "exp", "ecc", "thr", "boost", "seed", "showSS", "gas", "life", "crit",
+ "o_gas", "o_life", "o_crit", "s_gas", "tracersOn", "late", "o_late", "inspector", "pickHint", "tabLog", "tabInspect", "cloudStart", "clockSub", "stage",
+ "o_star", "h_star", "o_mass", "o_n", "o_outer", "o_exp", "o_ecc", "o_thr", "o_boost",
  "btnStart", "btnPause", "btnReset", "pending", "disc", "plot", "log", "tip", "clock",
  "s_n", "s_big", "s_max", "s_merge", "s_bounce", "s_shatter", "s_lost", "s_dust", "s_rate", "zIn", "zOut", "zFit"]
   .forEach(id => el[id] = document.getElementById(id));
 
-function stepsPerFrame() { return Math.max(1, Math.round(Math.pow(10, el.speed.value / 100 * Math.log10(1000)))); }
+// Speed settings: physics steps per frame, and how long (ms) a frame may
+// spend on physics. Faster settings accept a lower frame rate.
+const SPEEDS = [{ steps: 15, ms: 25 }, { steps: 60, ms: 25 }, { steps: 240, ms: 40 },
+                { steps: 960, ms: 60 }, { steps: 1e6, ms: 90 }];
+let speedLevel = 2;
+function stepsPerFrame() { return SPEEDS[speedLevel].steps; }
+function frameBudget() { return SPEEDS[speedLevel].ms; }
+function setSpeed(k) {
+  speedLevel = k;
+  document.querySelectorAll(".speed button").forEach(b => b.classList.toggle("on", +b.dataset.speed === k));
+}
+document.querySelectorAll(".speed button").forEach(b => b.onclick = () => setSpeed(+b.dataset.speed));
+setSpeed(speedLevel);
 
 function updateLabels() {
   const M = +el.star.value, { L, frost } = starProperties(M);
@@ -1718,26 +1963,25 @@ function updateLabels() {
   el.o_gas.textContent = +el.gas.value === 0 ? "none" : `${(+el.gas.value).toFixed(1)} M_J (${Math.round(el.gas.value * EARTHS_PER_JUPITER).toLocaleString("en-GB")} M⊕)`;
   el.o_life.textContent = `${(+el.life.value).toFixed(1)} million yr`;
   el.o_crit.textContent = `${(+el.crit.value).toFixed(1)} M⊕`;
-  const spf = stepsPerFrame();
-  el.o_speed.textContent = `${spf} steps/frame`;
+  el.o_late.textContent = `× ${(+el.late.value).toFixed(1)}`;
 }
 
 // Setup sliders only take effect on Reset, so a run stays exactly repeatable.
 function markPending() {
   const P = readParams(), Q = sim.params;
-  const differs = ["starMass", "discMass", "N", "outer", "p", "ecc", "gravThreshold", "boost", "gasMJ", "gasLife", "critCore", "cloud", "seed"].some(k => P[k] !== Q[k]);
+  const differs = ["starMass", "discMass", "N", "outer", "p", "ecc", "gravThreshold", "boost", "gasMJ", "gasLife", "critCore", "cloud", "tracers", "lateBoost", "seed"].some(k => P[k] !== Q[k]);
   el.pending.style.display = differs ? "block" : "none";
 }
-for (const id of ["star", "mass", "n", "outer", "exp", "ecc", "thr", "boost", "gas", "life", "crit"]) {
+for (const id of ["star", "mass", "n", "outer", "exp", "ecc", "thr", "boost", "gas", "life", "crit", "late"]) {
   el[id].addEventListener("input", () => { updateLabels(); markPending(); });
 }
 el.seed.addEventListener("input", markPending);
 el.cloudStart.addEventListener("change", markPending);
-el.speed.addEventListener("input", updateLabels);
+el.tracersOn.addEventListener("change", markPending);
 
 el.tabLog.onclick = () => showTab("log");
 el.tabInspect.onclick = () => showTab("inspect");
-el.btnStart.onclick = () => { sim.running = true; sim.lastRateT = performance.now(); sim.lastRateYr = sim.t; };
+el.btnStart.onclick = () => { sim.running = true; sim.lastRateT = performance.now(); sim.lastRateYr = sim.realT; };
 el.btnPause.onclick = () => { sim.running = false; };
 el.btnReset.onclick = () => { buildDisc(); el.pending.style.display = "none"; fitView(); renderInspector(); };
 
@@ -1804,7 +2048,7 @@ function updateStats() {
   el.s_lost.textContent = sim.count.lost;
   el.s_dust.textContent = sim.count.dust > 0 ? `${fmtM(sim.count.dust)} M⊕` : "0";
   el.s_gas.textContent = sim.gas ? `${Math.round(100 * sim.gas.fill)}%` : "none";
-  el.s_rate.textContent = sim.running ? `${sim.rate < 10 ? sim.rate.toFixed(1) : Math.round(sim.rate)} model yr/s` : "paused";
+  el.s_rate.textContent = sim.running ? `${fmtRealShort(sim.rate)} per second` : "paused";
 }
 
 // The main loop: run some physics steps, then redraw. The physics never
@@ -1812,30 +2056,23 @@ function updateStats() {
 let frameCount = 0;
 function frame() {
   if (sim.running && sim.phase === "cloud") {
-    const c = sim.cloud, n = Math.max(1, Math.round(stepsPerFrame() / 16)), t0 = performance.now();
+    const c = sim.cloud, n = Math.max(1, Math.round(stepsPerFrame() / 4)), t0 = performance.now();
     for (let k = 0; k < n && !c.done; k++) {
       cloudStep(c);
-      if (performance.now() - t0 > 30) break;
+      if (performance.now() - t0 > frameBudget()) break;
     }
     cloudStory(c);
     if (c.done) finishCloud();
   } else if (sim.running) {
-    const target = stepsPerFrame(), t0 = performance.now();
+    const target = stepsPerFrame(), t0 = performance.now(), budget = frameBudget();
     for (let k = 0; k < target; k++) {
       step();
-      if (performance.now() - t0 > 30) break;   // keep the page responsive
-    }
-    // Record orbit trails for big planets (once per frame)
-    for (const b of sim.bodies) {
-      if (b.m < TRAIL_MASS) continue;
-      if (!b.trail) b.trail = [];
-      b.trail.push([b.x, b.y]);
-      if (b.trail.length > 240) b.trail.shift();
+      if ((k & 7) === 7 && performance.now() - t0 > budget) break;   // keep the page responsive
     }
     const now = performance.now();
     if (now - sim.lastRateT > 500) {
-      sim.rate = (sim.t - sim.lastRateYr) / ((now - sim.lastRateT) / 1000);
-      sim.lastRateT = now; sim.lastRateYr = sim.t;
+      sim.rate = (sim.realT - sim.lastRateYr) / ((now - sim.lastRateT) / 1000);
+      sim.lastRateT = now; sim.lastRateYr = sim.realT;
     }
   }
   drawDisc();

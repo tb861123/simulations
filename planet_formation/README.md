@@ -18,7 +18,10 @@ Firefox and press **Start**.
 3. **Gas giants.** A gas disc fades over a few million years. Any core that
    reaches the critical mass (about 10 Earth masses) in time pulls in gas in
    a runaway, clears a gap, and becomes a gas giant.
-4. **Ignition and settling.** The star starts hydrogen fusion at about 40 Myr
+4. **Asteroids, comets and belts.** A few hundred tiny bodies are swept up or
+   flung away by the planets. Where they survive once the gas has gone, a belt
+   is marked, for example a Kuiper-type belt beyond the outermost giant.
+5. **Ignition and settling.** The star starts hydrogen fusion at about 40 Myr
    × M⁻²·⁵. The run stops when the system has been quiet for 30 Myr.
 
 Click any body to open the **inspector**. It shows the orbit (year length,
@@ -27,10 +30,15 @@ speed, axial tilt), physical properties and collision history.
 
 ## Physics in brief
 
-- Leapfrog (kick–drift–kick) integrator with a fixed time step. Units are AU,
-  Earth masses and years, with G·M☉ = 4π².
-- Mutual gravity is computed only for bodies above a mass threshold, plus a
-  swept collision test with an inflated (Hill-radius) collision radius.
+- Wisdom–Holman integrator: each body follows its exact Kepler orbit around
+  the star, and pulls from other bodies and the gas are added in kick–drift–kick
+  steps of 1/20 of an orbit at 0.3 AU. Units are AU, Earth masses and years,
+  with G·M☉ = 4π².
+- Mutual gravity is computed only for bodies above a mass threshold (all
+  bodies once fewer than 120 remain), plus a swept collision test with an
+  inflated (Hill-radius) collision radius. After the gas has gone, the
+  late-stage collision boost (default ×4) stands in for the millions of orbits
+  the model can't run, allowing giant impacts.
 - Mass and momentum are conserved in every collision. Spin angular momentum
   is conserved too, including the angular momentum of the impact itself.
 - The gas disc is stored as 160 rings that fade, diffuse and are accreted.
@@ -40,6 +48,11 @@ speed, axial tilt), physical properties and collision history.
 
 Every simplification is listed inside the app under **"How the model works
 (and what it leaves out)"**, and the source is commented section by section.
+
+## Speed
+
+Use the **½× / 1× / 4× / 16× / Max** buttons above the disc to fast-forward
+at any stage. Speed changes only how fast you watch, never the result.
 
 ## Repeatable runs
 
