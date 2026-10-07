@@ -17,9 +17,15 @@ starting conditions, and press **Play**.
 
 ## What you see
 
-- **Size and appearance**: the star at true relative size, coloured by its
-  surface temperature, with a comparison circle (Earth, the Sun, planetary
-  orbits, Greater London for neutron stars and black holes). Special visuals
+- **Size and appearance**, coloured by surface temperature, in two modes:
+  - *Fixed scale* (default): one logarithmic scale for the whole life, with
+    permanent rings for Greater London, Earth, Jupiter, the Sun, Earth's orbit,
+    Neptune's orbit and 1,000 AU. You can watch the star grow past the rings
+    as a giant and shrink inside them as a white dwarf.
+  - *True scale*: real proportions, zooming by ×10 only when the star no
+    longer fits (each jump is announced), with the Sun drawn to scale.
+  A dashed gold circle shows the star's size at the start of the current
+  stage, and the view says how many times bigger or smaller it now is. Special visuals
   for the collapsing cloud, protostar disc and jets, planetary nebula,
   supernova, pulsar beams and black hole.
 - **Inside the star**: a cutaway showing each layer by mass, coloured by

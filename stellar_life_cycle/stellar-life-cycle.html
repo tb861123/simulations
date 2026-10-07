@@ -72,6 +72,9 @@
   .view { position: relative; min-height: 0; background: #04060d; border-radius: 8px; overflow: hidden; }
   .view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .view .cap { position: absolute; left: 10px; top: 8px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; pointer-events: none; }
+  .vbtns { position: absolute; right: 8px; top: 6px; display: flex; gap: 3px; }
+  .vbtns button { padding: 2px 8px; font-size: 11.5px; }
+  .vbtns button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
   #toast { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); width: min(720px, 92%); background: rgba(241,175,40,.94);
            color: var(--ink-dark); padding: 5px 12px; border-radius: 8px; font-weight: 600; font-size: 12.5px; display: none; text-align: center; pointer-events: none; }
 
@@ -180,6 +183,7 @@
         <li>White dwarf masses follow the measured initial–final mass relation (0.109 M + 0.394). White dwarfs cool following Mestel's law (L ∝ t<sup>−1.4</sup>).</li>
         <li>Massive stars: helium-core mass ≈ 0.11 M<sup>1.33</sup> (reduced by winds). The fate depends on it: under 8 M☉ → neutron star; 8–15 M☉ → black hole after a weak supernova; over 15 M☉ → direct collapse to a black hole; 64–133 M☉ in a metal-poor star → pair-instability supernova with no remnant. Real boundaries are uncertain and "patchy".</li>
         <li>Core temperatures, densities and durations of carbon, neon, oxygen and silicon burning are scaled from published models of 15 and 25 M☉ stars (Woosley, Heger &amp; Weaver 2002).</li>
+        <li>The size view has two modes. <b>Fixed scale</b> uses one logarithmic scale for the whole life (each ring is many times bigger than the one inside), so growing and shrinking are easy to see, but sizes are not in true proportion. <b>True scale</b> shows real proportions and zooms by ×10 only when it has to. The dashed gold circle is the star's size at the start of the current stage.</li>
         <li>The cutaway is drawn by <b>mass</b> (how much of the star is in each layer), not to scale in size: in a giant the core holds a lot of the mass but is thousands of times smaller than the star. The "size" view shows the true size.</li>
         <li>Brown dwarfs (under 0.08 M☉) never fuse ordinary hydrogen; above 0.013 M☉ they briefly fuse deuterium.</li>
         <li>Rotation, magnetic fields, and most binary-star effects are ignored (except the optional companion that can turn a white dwarf into a Type Ia supernova).</li>
@@ -193,7 +197,10 @@
   <!-- ======================= CENTRE: VIEWS, TIMELINE, CHARTS ======================= -->
   <section class="panel" id="centre">
     <div id="views">
-      <div class="view"><canvas id="starView"></canvas><span class="cap">Size and appearance</span></div>
+      <div class="view"><canvas id="starView"></canvas><span class="cap">Size and appearance</span>
+        <div class="vbtns" role="group" aria-label="Size scale">
+          <button data-size="log" title="One fixed scale for every stage, with reference rings: you can see the star grow and shrink">Fixed scale</button><button data-size="true" title="True proportions; zooms in or out by ×10 only when it has to">True scale</button>
+        </div></div>
       <div class="view"><canvas id="cutView"></canvas><span class="cap">Inside the star (layers by mass)</span></div>
       <div id="toast"></div>
     </div>
@@ -1044,6 +1051,7 @@ function params() {
   return { M: Math.pow(10, +el("mass").value), Z: Math.pow(10, +el("z").value), wind: +el("wind").value, companion: el("companion").checked };
 }
 function rebuild(keepU = false) {
+  zoomKm = 0;
   track = buildTrack(params());
   setWeights(track, mode);
   if (!keepU) u = 0;
@@ -1102,6 +1110,14 @@ const REFS = [
   { km: 0.5 * 9.461e12, name: "1 light-year across" },
 ];
 let viewKm = 3 * RSUN_KM;
+// Size view: "log" = one fixed logarithmic scale; "true" = true proportions with stepped zoom
+let sizeMode = "log", zoomKm = 0, zoomNote = null;
+try { sizeMode = localStorage.getItem("stellar-size-mode") || "log"; } catch (e) {}
+const LOG_MIN_KM = 3, LOG_MAX_KM = 2e12;          // 3 km (inside a neutron star) to ~13,000 AU (a star-forming cloud)
+const LOG_RINGS = [
+  { km: 25, name: "Greater London" }, { km: 6371, name: "Earth" }, { km: 69911, name: "Jupiter" },
+  { km: RSUN_KM, name: "the Sun" }, { km: AU_KM, name: "Earth's orbit" }, { km: 30 * AU_KM, name: "Neptune's orbit" },
+  { km: 1000 * AU_KM, name: "1,000 AU" }];
 const stars = Array.from({ length: 160 }, (_, i) => [(Math.sin(i * 12.9898) * 43758.5453) % 1, (Math.sin(i * 78.233) * 12543.123) % 1, ((Math.sin(i * 3.7) * 999) % 1)]).map(a => a.map(Math.abs));
 
 function sizeCanvas(c) {
@@ -1122,28 +1138,74 @@ function drawStarView(s, now) {
   let nebulaKm = 0;
   if (kind === "pn") nebulaKm = ph.extra.nebulaSpeed * (s.age - ph.t0) * SEC_PER_YEAR;
   const showKm = Math.max(Rkm, nebulaKm);
-  const target = showKm * 2.6;
-  viewKm = Math.exp(lerp(Math.log(viewKm), Math.log(target), 0.12));
-  const pxPerKm = half / viewKm;
-  const r = Math.max(kind === "ns" || kind === "bh" || kind === "wd" ? 2 * dpr : 1.5 * dpr, Rkm * pxPerKm);
+  let toPx, pxPerKm = 0;
+  if (sizeMode === "log") {
+    // FIXED LOG SCALE: the same scale for every stage. Each step outwards
+    // is a multiplication, so a 12 km neutron star and a 10,000 AU cloud fit
+    // in one picture and you can SEE the star grow and shrink.
+    toPx = km => (km <= LOG_MIN_KM ? 0 : Math.log(km / LOG_MIN_KM) / Math.log(LOG_MAX_KM / LOG_MIN_KM)) * half * 0.94;
+  } else {
+    // TRUE SCALE with stepped zoom: the zoom stays put while the star grows
+    // or shrinks, and only jumps by ×10 when the star no longer fits (or
+    // becomes tiny). Each jump is announced.
+    if (!zoomKm) zoomKm = Math.pow(10, Math.ceil(Math.log10(showKm * 1.6)));
+    let jumped = 0;
+    while (showKm > 0.8 * zoomKm) { zoomKm *= 10; jumped++; }
+    while (showKm < 0.05 * zoomKm && zoomKm > 10) { zoomKm /= 10; jumped--; }
+    if (jumped) zoomNote = { text: jumped > 0 ? `Zoomed OUT ×${Math.pow(10, jumped).toLocaleString("en-GB")}: the star outgrew the view` : `Zoomed IN ×${Math.pow(10, -jumped).toLocaleString("en-GB")}: the star got much smaller`, t: now };
+    viewKm = Math.exp(lerp(Math.log(viewKm), Math.log(zoomKm), 0.15));
+    pxPerKm = half / viewKm;
+    toPx = km => km * pxPerKm;
+  }
+  const r = Math.max(kind === "ns" || kind === "bh" || kind === "wd" ? 2 * dpr : 1.5 * dpr, toPx(Rkm));
 
-  // Comparison circle: the reference closest in size to the star
-  let best = null;
-  for (const ref of REFS) {
-    const rp = ref.km * pxPerKm;
-    if (rp < 6 * dpr || rp > half * 0.98) continue;
-    const d = Math.abs(Math.log(ref.km / Math.max(1, showKm)));
-    if (!best || d < best.d) best = { ...ref, d, rp };
+  ctx.font = `${10.5 * dpr}px system-ui`;
+  // Permanent reference rings (fixed scale) — drawn ON TOP of the star at the end,
+  // so you can see which rings the star has grown past
+  const drawLogRings = () => {
+    ctx.font = `${10.5 * dpr}px system-ui`;
+    LOG_RINGS.forEach((ref, k) => {
+      const rp = toPx(ref.km);
+      ctx.setLineDash([3 * dpr, 5 * dpr]); ctx.strokeStyle = rp < r ? "rgba(20,19,59,0.45)" : "rgba(160,170,200,0.5)"; ctx.lineWidth = 1 * dpr;
+      ctx.beginPath(); ctx.arc(cx, cy, rp, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
+      // labels alternate between upper-left and upper-right so neighbours don't collide
+      const right = k % 2 === 0, a = right ? -Math.PI / 4 : -3 * Math.PI / 4;
+      const x = cx + rp * Math.cos(a), y = cy + rp * Math.sin(a);
+      ctx.textAlign = right ? "left" : "right";
+      ctx.lineWidth = 3 * dpr; ctx.strokeStyle = "rgba(4,6,13,0.8)";
+      ctx.strokeText(ref.name, x + (right ? 3 : -3) * dpr, y);
+      ctx.fillStyle = "rgba(205,212,232,0.95)";
+      ctx.fillText(ref.name, x + (right ? 3 : -3) * dpr, y);
+    });
+  };
+  if (sizeMode !== "log") {
+    // Comparison circle: the reference closest in size to the star
+    let best = null;
+    for (const ref of REFS) {
+      const rp = toPx(ref.km);
+      if (rp < 6 * dpr || rp > half * 0.98) continue;
+      const d = Math.abs(Math.log(ref.km / Math.max(1, showKm)));
+      if (!best || d < best.d) best = { ...ref, d, rp };
+    }
+    if (best) {
+      ctx.setLineDash([5 * dpr, 5 * dpr]); ctx.strokeStyle = "rgba(160,170,200,0.7)"; ctx.lineWidth = 1.2 * dpr;
+      ctx.beginPath(); ctx.arc(cx, cy, best.rp, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = "rgba(190,198,220,0.9)"; ctx.textAlign = "center";
+      ctx.fillText(`dashed circle: ${best.name}`, cx, cy - best.rp - 5 * dpr);
+    }
   }
-  if (best) {
-    ctx.setLineDash([5 * dpr, 5 * dpr]); ctx.strokeStyle = "rgba(160,170,200,0.7)"; ctx.lineWidth = 1.2 * dpr;
-    ctx.beginPath(); ctx.arc(cx, cy, best.rp, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = "rgba(190,198,220,0.9)"; ctx.font = `${11 * dpr}px system-ui`; ctx.textAlign = "center";
-    ctx.fillText(`dashed circle: ${best.name}`, cx, cy - best.rp - 5 * dpr);
-  }
-  // The Sun to scale (when the star is much bigger)
+  // Ghost outline: the star's size at the start of this stage (drawn at the end, on top)
+  const startR = stateAt(track, s.i, 0).R * RSUN_KM;
+  const ghost = toPx(startR);
+  const drawGhost = () => {
+    if (startR > 0 && Math.abs(Math.log(Rkm / startR)) > 0.05 && ghost > 3 * dpr && ghost < half * 1.2) {
+      ctx.setLineDash([2 * dpr, 3 * dpr]); ctx.strokeStyle = "rgba(241,175,40,0.85)"; ctx.lineWidth = 1.8 * dpr;
+      ctx.beginPath(); ctx.arc(cx, cy, ghost, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
+    }
+  };
+  // The Sun to scale (when the star is much bigger) — true-scale view only
   const sunPx = RSUN_KM * pxPerKm;
-  if (sunPx >= 1 * dpr && sunPx < r * 0.4 && kind !== "cloud") {
+  if (sizeMode !== "log" && sunPx >= 1 * dpr && sunPx < r * 0.4 && kind !== "cloud") {
     const sx = cx + r + 30 * dpr, sy = cy;
     if (sx < W - 10 * dpr) {
       ctx.fillStyle = "#fff3c4"; ctx.beginPath(); ctx.arc(sx, sy, Math.max(1.5 * dpr, sunPx), 0, 2 * Math.PI); ctx.fill();
@@ -1170,20 +1232,22 @@ function drawStarView(s, now) {
   } else if (kind === "proto") {
     // spinning disc + polar jets + glowing protostar
     ctx.save(); ctx.translate(cx, cy);
-    const dg = ctx.createRadialGradient(0, 0, r, 0, 0, r * 9);
+    const dr = Math.min(r * 9, half * 1.3);
+    const dg = ctx.createRadialGradient(0, 0, r, 0, 0, dr);
     dg.addColorStop(0, "rgba(240,160,100,0.8)"); dg.addColorStop(1, "rgba(120,70,60,0)");
-    ctx.scale(1, 0.25); ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(0, 0, r * 9, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
+    ctx.scale(1, 0.25); ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(0, 0, dr, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
     for (const dir of [-1, 1]) {
       const jg = ctx.createLinearGradient(cx, cy, cx, cy + dir * r * 10);
       jg.addColorStop(0, "rgba(170,200,255,0.35)"); jg.addColorStop(1, "rgba(170,200,255,0)");
       ctx.fillStyle = jg; ctx.beginPath(); ctx.moveTo(cx - r * 0.12, cy); ctx.lineTo(cx + r * 0.12, cy);
-      ctx.lineTo(cx + r * 0.35, cy + dir * r * 8); ctx.lineTo(cx - r * 0.35, cy + dir * r * 8); ctx.fill();
+      const jl = Math.min(r * 8, half * 1.2);
+      ctx.lineTo(cx + r * 0.35, cy + dir * jl); ctx.lineTo(cx - r * 0.35, cy + dir * jl); ctx.fill();
     }
     drawDisc(ctx, cx, cy, r, [R0, G0, B0], s.T, t, true);
   } else if (kind === "star") {
     drawDisc(ctx, cx, cy, r, [R0, G0, B0], s.T, t, s.R > 5 || s.T < 4500, ph.key === "wr");
   } else if (kind === "pn") {
-    const nr = Math.max(r * 2, nebulaKm * pxPerKm);
+    const nr = Math.max(r * 1.3, toPx(nebulaKm));
     if (nebulaKm > 0) {
       const g = ctx.createRadialGradient(cx, cy, nr * 0.55, cx, cy, nr);
       g.addColorStop(0, "rgba(80,220,200,0.05)"); g.addColorStop(0.6, "rgba(90,230,190,0.35)"); g.addColorStop(0.85, "rgba(255,90,110,0.45)"); g.addColorStop(1, "rgba(255,90,110,0)");
@@ -1241,16 +1305,37 @@ function drawStarView(s, now) {
     if (ph.key === "sn_fail") { ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(cx, cy, Math.max(3 * dpr, r * (1 - s.f)), 0, 2 * Math.PI); ctx.fill(); }
   }
 
-  // Scale bar and size label
-  const nice = niceLength(viewKm * 0.5);
-  const len = nice * pxPerKm;
-  ctx.strokeStyle = "rgba(200,205,225,0.8)"; ctx.lineWidth = 2 * dpr;
-  ctx.beginPath(); ctx.moveTo(12 * dpr, H - 14 * dpr); ctx.lineTo(12 * dpr + len, H - 14 * dpr); ctx.stroke();
-  ctx.fillStyle = "rgba(200,205,225,0.9)"; ctx.font = `${11 * dpr}px system-ui`; ctx.textAlign = "left";
-  ctx.fillText(fmtKm(nice), 12 * dpr, H - 20 * dpr);
+  if (sizeMode === "log" && kind !== "sn" && kind !== "debris") drawLogRings();
+  drawGhost();
+  // Scale bar (true scale) or a note about the log scale
+  ctx.font = `${11 * dpr}px system-ui`; ctx.fillStyle = "rgba(200,205,225,0.9)"; ctx.textAlign = "left";
+  if (sizeMode === "log") {
+    ctx.fillStyle = "rgba(160,168,195,0.9)";
+    ctx.fillText("log scale: each ring is many times wider than the last", 10 * dpr, 34 * dpr, W * 0.55);
+  } else {
+    const nice = niceLength(viewKm * 0.5), len = nice * pxPerKm;
+    ctx.strokeStyle = "rgba(200,205,225,0.8)"; ctx.lineWidth = 2 * dpr;
+    ctx.beginPath(); ctx.moveTo(12 * dpr, H - 14 * dpr); ctx.lineTo(12 * dpr + len, H - 14 * dpr); ctx.stroke();
+    ctx.fillText(fmtKm(nice), 12 * dpr, H - 20 * dpr);
+  }
   ctx.textAlign = "right";
   const sizeLabel = kind === "sn" || kind === "debris" ? `debris cloud radius ${fmtKm(Rkm)}` : kind === "cloud" ? `cloud radius ${fmtKm(Rkm)}` : `radius ${fmtKm(Rkm)}`;
-  ctx.fillText(sizeLabel, W - 10 * dpr, H - 12 * dpr);
+  ctx.fillText(sizeLabel, W - 10 * dpr, H - 28 * dpr);
+  // How much bigger or smaller than at the start of this stage
+  const ratio = Rkm / startR;
+  if (isFinite(ratio) && Math.abs(Math.log(ratio)) > 0.05) {
+    ctx.fillStyle = "rgba(241,175,40,0.95)";
+    ctx.fillText(ratio > 1 ? `${fmtNum(ratio)}× bigger than at the start of this stage` : `${fmtNum(1 / ratio)}× smaller than at the start of this stage`, W - 10 * dpr, H - 14 * dpr);
+  }
+  // Zoom announcement (true-scale view)
+  if (sizeMode !== "log" && zoomNote && now - zoomNote.t < 2500) {
+    ctx.globalAlpha = Math.min(1, (2500 - (now - zoomNote.t)) / 600);
+    ctx.font = `600 ${12 * dpr}px system-ui`; ctx.textAlign = "center";
+    const tw = ctx.measureText(zoomNote.text).width + 16 * dpr;
+    ctx.fillStyle = "rgba(241,175,40,0.95)"; ctx.fillRect(cx - tw / 2, 30 * dpr, tw, 22 * dpr);
+    ctx.fillStyle = "#14133b"; ctx.fillText(zoomNote.text, cx, 45 * dpr);
+    ctx.globalAlpha = 1;
+  }
 }
 function niceLength(x) {
   const e = Math.pow(10, Math.floor(Math.log10(x))), m = x / e;
@@ -1259,9 +1344,10 @@ function niceLength(x) {
 // A glowing star: limb darkening, granulation for convective surfaces, wind streaks for Wolf–Rayet stars
 function drawDisc(ctx, cx, cy, r, rgb, T, t, blotchy, winds) {
   const [R, G, B] = rgb;
-  const halo = ctx.createRadialGradient(cx, cy, r * 0.8, cx, cy, r * 2.4);
+  const hr = sizeMode === "log" ? r * 1.25 : r * 2.4;          // smaller glow on the fixed scale so the rings stay readable
+  const halo = ctx.createRadialGradient(cx, cy, r * 0.8, cx, cy, hr);
   halo.addColorStop(0, `rgba(${R},${G},${B},0.45)`); halo.addColorStop(1, `rgba(${R},${G},${B},0)`);
-  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, r * 2.4, 0, 2 * Math.PI); ctx.fill();
+  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, hr, 0, 2 * Math.PI); ctx.fill();
   if (winds) {
     ctx.strokeStyle = `rgba(${R},${G},${B},0.25)`; ctx.lineWidth = Math.max(1, r * 0.04);
     for (let k = 0; k < 40; k++) { const a = k * 0.157 + t * 0.2; ctx.beginPath(); ctx.moveTo(cx + r * Math.cos(a), cy + r * Math.sin(a)); ctx.lineTo(cx + r * 3 * Math.cos(a + 0.1), cy + r * 3 * Math.sin(a + 0.1)); ctx.stroke(); }
@@ -1609,6 +1695,13 @@ document.querySelectorAll("[data-mode]").forEach(b => (b.onclick = () => {
   const [i, f] = locate(track, u); mode = b.dataset.mode; setWeights(track, mode); u = uOf(track, i, f); samples = null; buildMilestones();
   document.querySelectorAll("[data-mode]").forEach(x => x.classList.toggle("on", x === b));
 }));
+function setSizeMode(m) {
+  sizeMode = m; zoomKm = 0;
+  try { localStorage.setItem("stellar-size-mode", m); } catch (e) {}
+  document.querySelectorAll("[data-size]").forEach(b => b.classList.toggle("on", b.dataset.size === m));
+}
+document.querySelectorAll("[data-size]").forEach(b => (b.onclick = () => setSizeMode(b.dataset.size)));
+setSizeMode(sizeMode);
 document.querySelectorAll("#tabs button").forEach(b => (b.onclick = () => { quantity = b.dataset.q; document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b)); }));
 let dragging = false;
 const seek = e => { const r = el("timeline").getBoundingClientRect(); u = Math.min(0.99999, Math.max(0, (e.clientX - r.left) / r.width)); lastToastU = u; };
