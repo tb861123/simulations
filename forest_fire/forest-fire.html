@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forest Fire Spread</title>
+<!--
+  FOREST FIRE SPREAD SIMULATOR — a teaching model
+  ================================================
+  One self-contained file: no libraries, no internet needed.
+
+  The woodland is a grid of 10 m × 10 m squares ("cells"), 2.4 km × 1.6 km
+  in total. Each cell holds ground fuel (grass, heather, bracken or leaf
+  litter) and may hold a tree. Burning cells try to set fire to their
+  eight neighbours. How quickly depends on a RATE OF SPREAD worked out the
+  way fire scientists do it:
+
+      rate = (base rate for that fuel) × (dryness factor) × (wind factor)
+             × (slope factor) × (crown-fire factor)
+
+  plus flying embers ("spotting") that can jump firebreaks and rivers.
+  Every simplification is listed in the app under "How the model works".
+
+  Units: distance in metres, time in minutes, wind in metres per second
+  (shown in km/h too), fire intensity in kilowatts per metre of fire edge.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 330px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; }
+  #pending { display: none; background: #3a2a07; color: #ffd98a; border: 1px solid #6b4e10; border-radius: 6px; padding: 6px 8px; font-size: 12.5px; margin: 6px 0; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #mapWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #tools { position: absolute; left: 8px; top: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
+  #tools button { padding: 4px 9px; font-size: 12.5px; background: rgba(20,24,17,.88); }
+  #tools button.on { background: var(--accent); }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  #chartBox { position: relative; height: 170px; }
+  #chart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  .gauge { height: 12px; border-radius: 6px; background: linear-gradient(90deg, #3a7d44, #b5c33a 25%, #f1af28 45%, #e4572e 70%, #8b1e1e); position: relative; margin: 6px 0 2px; }
+  .gauge span { position: absolute; top: -4px; width: 4px; height: 20px; background: #fff; border-radius: 2px; transform: translateX(-2px); }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Forest Fire Spread</h1>
+  <span class="sub">How wind, dryness, slope, the type and density of trees, undergrowth and firebreaks decide how a woodland fire spreads.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: SET UP THE FOREST AND WEATHER ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">Weather <span class="live">changes take effect at once</span></h2>
+    <div class="ctl">
+      <label>Wind speed <output id="o_wind"></output></label>
+      <input type="range" id="wind" min="0" max="25" step="0.5" value="5">
+    </div>
+    <div class="ctl">
+      <label>Wind blowing from <output id="o_dir"></output></label>
+      <input type="range" id="dir" min="0" max="355" step="5" value="270">
+    </div>
+    <div class="ctl">
+      <label>Fuel moisture (dryness) <output id="o_moist"></output></label>
+      <input type="range" id="moist" min="3" max="35" step="1" value="10">
+      <div class="hint">Water in dead leaves, twigs and grass. Hot, dry, sunny weather after weeks without rain brings it down to 3–6%. Above about 30% fires can't spread.</div>
+    </div>
+
+    <h2 class="gap">The woodland <span class="hint" style="text-transform:none;letter-spacing:0">(builds a new map)</span></h2>
+    <div class="ctl">
+      <label>Tree type</label>
+      <select id="species">
+        <option value="pine">Pine (conifer)</option>
+        <option value="broadleaf">Oak &amp; beech (broadleaf)</option>
+        <option value="birch">Birch</option>
+        <option value="eucalyptus">Eucalyptus (gum trees)</option>
+        <option value="mixed">Mixed woodland</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <label>Tree density <output id="o_density"></output></label>
+      <input type="range" id="density" min="0" max="100" step="1" value="70">
+    </div>
+    <div class="ctl">
+      <label>Undergrowth type</label>
+      <select id="ground">
+        <option value="grass">Dry grass</option>
+        <option value="heath">Heather &amp; gorse</option>
+        <option value="bracken">Bracken &amp; shrubs</option>
+        <option value="litter">Leaf litter &amp; dead wood</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <label>Amount of undergrowth <output id="o_under"></output></label>
+      <input type="range" id="under" min="0" max="100" step="1" value="50">
+      <div class="hint">Ground plants and dead material between and under the trees. It carries fire from tree to tree and acts as a "ladder" up into the treetops.</div>
+    </div>
+    <div class="ctl">
+      <label>Landscape</label>
+      <select id="terrain">
+        <option value="flat">Flat</option>
+        <option value="hill">A hill</option>
+        <option value="valley">A valley</option>
+        <option value="ridges">Rolling ridges</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <label>Fire tracks (firebreaks) <output id="o_tracks"></output></label>
+      <input type="range" id="tracks" min="0" max="3" step="1" value="0">
+    </div>
+    <div class="ctl">
+      <label>Track width <output id="o_twidth"></output></label>
+      <input type="range" id="twidth" min="1" max="4" step="1" value="1">
+    </div>
+    <label class="hint" style="display:block;margin-bottom:8px;font-size:13px;color:var(--text)"><input type="checkbox" id="river"> A river runs through the wood</label>
+    <div class="ctl">
+      <label>Random seed</label>
+      <input id="seed" value="7" style="width:100%;font:inherit;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px">
+    </div>
+    <div id="pending">Woodland settings changed — press <b>New map</b> to rebuild the forest.</div>
+    <div class="row" style="display:flex;gap:6px"><button id="btnNew" style="flex:1">New map</button></div>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Grid:</b> 240 × 160 cells, each 10 m × 10 m (2.4 km × 1.6 km). A cell is unburnt, burning, smouldering or burnt out.</li>
+        <li><b>Spreading:</b> each burning cell can ignite its 8 neighbours. For each neighbour the model works out a rate of spread R (metres per minute) in that direction; in a short time step Δt the chance of ignition is 1 − e<sup>−RΔt/d</sup>, where d is the distance between cell centres. So on average the fire covers distance d in time d/R, with some randomness, like a real flickering fire front.</li>
+        <li><b>Base rate</b> (no wind, flat, bone dry): grass 2 m/min, heather 1.5, bracken 1.0, leaf litter 0.5, scaled by how much undergrowth there is (30% of the rate with very little, 100% with lots). Trees add needle/leaf litter (1.0 m/min) and multiply the rate: pine ×1.3, eucalyptus ×1.5, birch ×0.8, broadleaf ×0.6.</li>
+        <li><b>Dryness:</b> Rothermel's moisture-damping formula 1 − 2.59r + 5.11r² − 3.52r³ (r = moisture ÷ moisture of extinction, 25–30%), combined with the extra heat needed to boil off the water (250 + 1116 × moisture). Above the extinction moisture the factor is zero.</li>
+        <li><b>Wind:</b> the head of the fire speeds up by 1 + 0.6V<sup>1.5</sup> (V in m/s): ×8 at 5 m/s, ×20 at 10 m/s. Sideways spread is unaffected; spread into the wind is slowed. Under a closed canopy the wind near the ground is only about 40% as strong (60% for open woods).</li>
+        <li><b>Slope:</b> fire runs uphill because flames lean over the fuel ahead: the rate is multiplied by e<sup>3.9 tan(slope)</sup> — about double for a 10° slope uphill — and reduced going downhill.</li>
+        <li><b>Intensity</b> (Byram): I = 300 × fuel load (kg/m²) × rate (m/min), in kW per metre of fire edge.</li>
+        <li><b>Crown fire</b> (Van Wagner): if I exceeds (0.010 × crown base height × 1,500)<sup>1.5</sup>, the fire climbs into the treetops. Undergrowth acts as ladder fuel, lowering the effective crown base height. Crown fires spread 3.3× faster, kill the trees and throw embers. Broadleaf canopies are too green to carry a crown fire in this model.</li>
+        <li><b>Embers (spotting):</b> crown fires and very intense fires launch embers downwind, typically 12 m for every 1 m/s of wind (with a long random tail). An ember landing on dry fuel can start a new fire — this is how fires jump tracks and rivers. Eucalyptus bark throws the most embers.</li>
+        <li><b>Burn times:</b> fine fuels flame only briefly — grass about 1.5 minutes, heather and litter 3, bracken 2, the fuel under trees 3–4 (crown flames about 2). Then the cell smoulders (logs and stumps for 40 minutes, litter 10, other fuels 3). Smouldering fuel can still set light to unburnt fuel next to it, at 20% of the flaming rate.</li>
+        <li><b>Trees:</b> crown fires kill trees; after a surface fire, broadleaf and eucalyptus trees often survive (scorched), pines and birches less often.</li>
+        <li><b>Not modelled:</b> fire making its own wind and weather, wind gusts and eddies around hills, day/night changes in humidity, fuel drying ahead of the fire, oxygen limits, firefighting other than the water-drop tool, and different moisture in living plants.</li>
+      </ul>
+    </details>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE: THE MAP ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">0 min</span>
+      <span class="stat">Burnt <b id="s_burnt">0 ha</b></span>
+      <span class="stat">Burning now <b id="s_burning">0 ha</b></span>
+      <span class="stat">Head of fire <b id="s_speed">–</b></span>
+      <span class="stat">Spot fires <b id="s_spots">0</b></span>
+    </div>
+    <div id="mapWrap">
+      <canvas id="map" aria-label="Map of the forest and the fire"></canvas>
+      <div id="tools" role="group" aria-label="Tools">
+        <button data-tool="ignite" class="on" title="Click the map to start a fire">🔥 Start fire</button>
+        <button data-tool="break" title="Drag across the map to clear a firebreak">Firebreak</button>
+        <button data-tool="water" title="Drag across the map to drop water from a helicopter">💧 Water drop</button>
+        <button data-tool="plant" title="Drag to plant trees back">Plant trees</button>
+      </div>
+    </div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">▶ Start</button>
+      <button id="btnReset" title="Put the forest back as it was and remove the fire">Reset fire</button>
+      <span class="speed">Speed <button data-s="0.5">½×</button><button data-s="1">1×</button><button data-s="4" class="on">4×</button><button data-s="15">15×</button></span>
+      <span class="hint" id="speedNote"></span>
+    </div>
+    <div class="legend">
+      <span><i style="background:#2c5a33"></i>Trees</span><span><i style="background:#9db35a"></i>Grass</span><span><i style="background:#7a5577"></i>Heather</span>
+      <span><i style="background:#c9b58c"></i>Fire track</span><span><i style="background:#3a6ea5"></i>Water</span>
+      <span><i style="background:#ff8c1e"></i>Burning</span><span><i style="background:#fff0a8"></i>Crown fire</span><span><i style="background:#7a1e0c"></i>Smouldering</span>
+      <span><i style="background:#2b2522"></i>Burnt</span><span><i style="background:#6b5a2e"></i>Scorched (survived)</span><span><i style="background:#5f86b8"></i>Water-bombed</span>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT: WHAT IS HAPPENING ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Fire report</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">Fire intensity</h2>
+    <div class="gauge"><span id="gaugeMark" style="left:0%"></span></div>
+    <div class="hint" style="display:flex;justify-content:space-between"><span>low</span><span>moderate</span><span>high</span><span>extreme</span></div>
+    <div id="intensityText" style="font-size:12.5px;margin-top:4px"></div>
+    <h2 class="gap">Fire report</h2>
+    <div class="tiles" id="tiles"></div>
+    <h2 class="gap">Area over time</h2>
+    <div id="chartBox"><canvas id="chart"></canvas></div>
+    <div class="legend" style="margin-top:4px"><span><i style="background:#c0392b"></i>Total burnt (ha)</span><span><i style="background:#ffb347"></i>Burning now (ha)</span></div>
+    <h2 class="gap">The fire triangle</h2>
+    <div class="hint" style="font-size:12.5px">A fire needs <b>heat</b>, <b>fuel</b> and <b>oxygen</b>. Firefighters win by removing one: firebreaks remove fuel, water removes heat. Wind brings oxygen and pushes the flames onto new fuel; slopes put the fuel above the flames.</div>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   1. THE GRID AND CONSTANTS
+   ===================================================================== */
+const GW = 240, GH = 160;            // grid size in cells
+const CELL = 10;                     // metres per cell
+const N = GW * GH;
+const ROS_CAP = 150;                 // fastest spread allowed (m/min, ~9 km/h) — real fires rarely exceed this
+// States of a cell
+const UNBURNT = 0, BURNING = 1, SMOULDER = 2, BURNT = 3;
+// The 8 neighbours: dx, dy, distance
+const NB = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]].map(([dx, dy]) => ({ dx, dy, d: CELL * Math.hypot(dx, dy), ux: dx / Math.hypot(dx, dy), uy: dy / Math.hypot(dx, dy) }));
+
+/* =====================================================================
+   2. FUELS
+   ---------------------------------------------------------------------
+   ros0  : rate of spread with no wind, on flat ground, bone dry (m/min)
+   load  : how much fuel there is to burn (kg per m²)
+   burn  : how long it flames (minutes) — afterwards it smoulders
+   mx    : "moisture of extinction" — wetter than this, it won't burn
+   ===================================================================== */
+const GROUND = {
+  grass:   { name: "Dry grass",                 ros0: 2.0, load: 0.4, burn: 1.5, mx: 0.25, receptive: 1.0, colour: [157, 179, 90] },
+  heath:   { name: "Heather & gorse",           ros0: 1.5, load: 1.8, burn: 3,   mx: 0.30, receptive: 0.8, colour: [122, 85, 119] },
+  bracken: { name: "Bracken & shrubs",          ros0: 1.0, load: 1.2, burn: 2,   mx: 0.30, receptive: 0.7, colour: [138, 143, 60] },
+  litter:  { name: "Leaf litter & dead wood",   ros0: 0.5, load: 1.2, burn: 3,   mx: 0.30, receptive: 0.7, colour: [107, 85, 54] },
+};
+// Trees: rate multiplier, crown base height (m), can the canopy burn?, embers, flaming time, chance of surviving a surface fire
+const TREES = [
+  null,
+  { key: "pine",       name: "Pine",        mult: 1.3, cbh: 5, crown: true,  ember: 1.0, burn: 3, survive: 0.25, canopyWind: 0.4, colour: [31, 77, 43] },
+  { key: "broadleaf",  name: "Oak & beech", mult: 0.6, cbh: 8, crown: false, ember: 0.3, burn: 4, survive: 0.85, canopyWind: 0.4, colour: [63, 122, 53] },
+  { key: "birch",      name: "Birch",       mult: 0.8, cbh: 6, crown: true,  ember: 0.5, burn: 3, survive: 0.3,  canopyWind: 0.6, colour: [128, 168, 92] },
+  { key: "eucalyptus", name: "Eucalyptus",  mult: 1.5, cbh: 4, crown: true,  ember: 2.5, burn: 3, survive: 0.7,  canopyWind: 0.6, colour: [101, 135, 108] },
+];
+const TREE_CODE = { pine: 1, broadleaf: 2, birch: 3, eucalyptus: 4 };
+const LITTER_UNDER_TREES = 1.0;      // needles/leaves under every tree carry a slow fire (m/min)
+
+/* =====================================================================
+   3. REPEATABLE RANDOM NUMBERS AND SMOOTH NOISE (for natural-looking maps)
+   ===================================================================== */
+function hashSeed(str) { let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } return h >>> 0; }
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function makeNoise(rng, scale) {
+  // value noise on a coarse lattice, smoothly interpolated
+  const LW = Math.ceil(GW / scale) + 2, LH = Math.ceil(GH / scale) + 2, v = new Float32Array(LW * LH).map(() => rng());
+  const sm = t => t * t * (3 - 2 * t);
+  return (x, y) => {
+    const gx = x / scale, gy = y / scale, x0 = Math.floor(gx), y0 = Math.floor(gy), fx = sm(gx - x0), fy = sm(gy - y0);
+    // wrap around the lattice so any x, y (even off the map) gives a valid value
+    const X0 = ((x0 % LW) + LW) % LW, X1 = (X0 + 1) % LW, Y0 = ((y0 % LH) + LH) % LH, Y1 = (Y0 + 1) % LH;
+    const a = v[Y0 * LW + X0], b = v[Y0 * LW + X1], c = v[Y1 * LW + X0], d = v[Y1 * LW + X1];
+    return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+  };
+}
+
+/* =====================================================================
+   4. THE FOREST MAP
+   ===================================================================== */
+const tree = new Uint8Array(N);       // 0 = no tree, else TREES index
+const under = new Float32Array(N);    // amount of undergrowth 0–1
+const barrier = new Uint8Array(N);    // 0 none, 1 track/firebreak, 2 water
+const elev = new Float32Array(N);     // height (m)
+const wet = new Float32Array(N);      // extra moisture from water drops
+const state = new Uint8Array(N);
+const timer = new Float32Array(N);    // minutes left burning / smouldering
+const crown = new Uint8Array(N);      // 1 if this cell is burning as a crown fire
+const fate = new Uint8Array(N);       // trees: 0 unburnt, 1 scorched but alive, 2 killed
+const intensity = new Float32Array(N);
+const crownTimer = new Float32Array(N); // minutes of flaming left in the treetops
+const glows = new Uint8Array(N);        // smouldering cell that may still have unburnt neighbours
+const SMOULDER_SPREAD = 0.2;            // smouldering logs ignite neighbours at 20% of the flaming rate
+const shade = new Float32Array(N);    // hillshade for drawing
+const tint = new Float32Array(N);     // per-cell colour variation
+let orig = null;                      // copy of the map before the fire (for Reset)
+let groundKey = "grass";
+let ignitionPoint = null;
+
+function params() {
+  const g = id => document.getElementById(id);
+  return { wind: +g("wind").value, dir: +g("dir").value, moist: +g("moist").value / 100,
+           species: g("species").value, density: +g("density").value / 100, ground: g("ground").value, under: +g("under").value / 100,
+           terrain: g("terrain").value, tracks: +g("tracks").value, twidth: +g("twidth").value, river: g("river").checked, seed: g("seed").value || "1" };
+}
+
+function buildMap(p) {
+  const rng = mulberry32(hashSeed(p.seed + "|" + p.terrain + p.species));
+  const n1 = makeNoise(rng, 18), n2 = makeNoise(rng, 6), n3 = makeNoise(rng, 40);
+  groundKey = p.ground;
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+    const i = y * GW + x;
+    // --- terrain height (m)
+    let h = 0;
+    const nx = x / GW, ny = y / GH;
+    if (p.terrain === "hill") h = 160 * Math.exp(-(((nx - 0.62) / 0.22) ** 2 + ((ny - 0.5) / 0.3) ** 2));
+    else if (p.terrain === "valley") h = 140 * Math.abs(ny - 0.5) * 2;
+    else if (p.terrain === "ridges") h = 45 * (1 + Math.sin(nx * Math.PI * 4 + 1.3 * Math.sin(ny * 5)));
+    h += 12 * n3(x, y);
+    elev[i] = h;
+    // --- trees: clumped, so woods have natural glades
+    const clump = 0.55 * n1(x, y) + 0.45 * n2(x, y);
+    const want = p.density;
+    const hasTree = want > 0 && rng() < Math.min(1, want * (0.55 + 0.9 * clump) * (want > 0.95 ? 1.2 : 1));
+    let sp = 0;
+    if (hasTree) sp = p.species === "mixed" ? [1, 2, 2, 3][Math.floor(n3(x * 3, y * 3) * 3.99 + rng() * 0.6) % 4] : TREE_CODE[p.species];
+    tree[i] = sp;
+    // --- undergrowth: patchy around the chosen amount
+    under[i] = Math.max(0, Math.min(1, p.under * (0.55 + 0.9 * n2(x + 50, y + 20)) ));
+    barrier[i] = 0; wet[i] = 0;
+    tint[i] = rng();
+  }
+  // --- river: a meandering band of water across the map
+  if (p.river) {
+    for (let x = 0; x < GW; x++) {
+      const cy = GH * (0.55 + 0.12 * Math.sin(x / 23) + 0.05 * Math.sin(x / 7.3));
+      for (let y = Math.floor(cy - 2); y <= Math.ceil(cy + 2); y++) if (y >= 0 && y < GH) { const i = y * GW + x; barrier[i] = 2; tree[i] = 0; under[i] = 0; }
+    }
+  }
+  // --- fire tracks: a grid of cleared strips
+  const spacing = [0, 60, 35, 22][p.tracks];       // cells (600 m, 350 m, 220 m)
+  if (spacing) {
+    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+      const onX = (x % spacing) < p.twidth && x > 3, onY = (y % spacing) < p.twidth && y > 3;
+      if ((onX || onY) && barrier[y * GW + x] !== 2) { const i = y * GW + x; barrier[i] = 1; tree[i] = 0; under[i] = 0; }
+    }
+  }
+  // --- hillshade (light from the north-west) for drawing
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+    const i = y * GW + x;
+    const dzdx = (elev[y * GW + Math.min(GW - 1, x + 1)] - elev[y * GW + Math.max(0, x - 1)]) / (2 * CELL);
+    const dzdy = (elev[Math.min(GH - 1, y + 1) * GW + x] - elev[Math.max(0, y - 1) * GW + x]) / (2 * CELL);
+    shade[i] = Math.max(0.55, Math.min(1.3, 1 - 1.8 * (dzdx + dzdy) * 0.7));
+  }
+  orig = { tree: tree.slice(), under: under.slice(), barrier: barrier.slice() };
+  resetFire();
+}
+
+/* =====================================================================
+   5. HOW FAST THE FIRE SPREADS — the heart of the model
+   ===================================================================== */
+// Can this cell burn at all?
+const burnable = i => barrier[i] === 0 && (tree[i] > 0 || under[i] > 0.02);
+
+// Base rate of spread (m/min): no wind, flat ground, bone dry
+function baseROS(i) {
+  const G = GROUND[groundKey];
+  const surface = under[i] > 0.02 ? G.ros0 * (0.3 + 0.7 * under[i]) : 0;
+  const t = tree[i];
+  if (!t) return surface;
+  return Math.max(surface, LITTER_UNDER_TREES) * TREES[t].mult;
+}
+// Fuel load (kg/m²) — used for intensity
+function fuelLoad(i) {
+  const G = GROUND[groundKey];
+  return G.load * under[i] + (tree[i] ? 0.8 : 0);
+}
+// DRYNESS: Rothermel's moisture damping × the heat needed to dry the fuel first.
+// Equal to 1 for bone-dry fuel (5% moisture), 0 at the moisture of extinction.
+function moistureFactor(M, mx) {
+  if (M >= mx) return 0;
+  const r = M / mx, damp = 1 - 2.59 * r + 5.11 * r * r - 3.52 * r * r * r;
+  const r5 = 0.05 / mx, damp5 = 1 - 2.59 * r5 + 5.11 * r5 * r5 - 3.52 * r5 * r5 * r5;
+  return Math.max(0, damp * (250 + 1116 * 0.05) / (damp5 * (250 + 1116 * M)));
+}
+// WIND: speeds up the head of the fire, barely changes the flanks, slows the back.
+function windFactor(V, cosT) {
+  if (V <= 0) return 1;
+  if (cosT >= 0) return 1 + 0.6 * Math.pow(V, 1.5) * cosT * cosT;
+  return 1 / (1 + 0.3 * V * -cosT);
+}
+// SLOPE: about ×2 for a 10° slope uphill
+const slopeFactor = tanSlope => Math.min(6, Math.max(0.3, Math.exp(3.9 * tanSlope)));
+
+let W = { V: 0, wx: 0, wy: 0 };       // wind speed and the direction it blows TOWARDS (grid coords)
+function updateWind(p) {
+  const towards = (p.dir + 180) * Math.PI / 180;      // compass bearing the wind blows towards
+  W = { V: p.wind, wx: Math.sin(towards), wy: -Math.cos(towards) };   // north = up = −y
+}
+
+// Rate of spread from burning cell i into neighbour j along direction k
+function rosInto(i, j, k) {
+  const nb = NB[k];
+  const G = GROUND[groundKey];
+  const t = tree[j];
+  const mx = t && under[j] < 0.1 ? 0.30 : G.mx;
+  const M = sim.moist + wet[j];
+  const fm = moistureFactor(M, mx);
+  if (fm <= 0) return 0;
+  // wind near the ground is weaker under trees (unless the fire is in the treetops)
+  const canopy = t ? TREES[t].canopyWind : 0.9;
+  const V = W.V * (crown[i] ? 1 : canopy);
+  const cosT = nb.ux * W.wx + nb.uy * W.wy;
+  const tanS = (elev[j] - elev[i]) / nb.d;
+  let R = baseROS(j) * fm * windFactor(V, cosT) * slopeFactor(tanS);
+  if (crown[i] && t && TREES[t].crown) R *= 3.34;          // active crown fire
+  return Math.min(ROS_CAP, R);
+}
+
+// Set cell j on fire, having been reached at rate R (m/min)
+function ignite(j, R, spot = false) {
+  if (state[j] !== UNBURNT || !burnable(j)) return false;
+  state[j] = BURNING;
+  const t = tree[j], G = GROUND[groundKey];
+  const I = 300 * fuelLoad(j) * Math.max(R, 0.2);           // Byram's intensity (kW/m)
+  intensity[j] = I;
+  crown[j] = 0;
+  if (t && TREES[t].crown) {
+    // Van Wagner: a crown fire starts if the surface fire is hot enough to reach the canopy.
+    // Undergrowth acts as a ladder, lowering the effective crown base height.
+    const cbh = TREES[t].cbh * (1 - 0.6 * under[j]);
+    const fmc = 100;                                          // moisture of living needles (%)
+    const I0 = Math.pow(0.010 * cbh * (460 + 25.9 * fmc), 1.5);
+    if (I > I0) { crown[j] = 1; intensity[j] = 300 * (fuelLoad(j) + 1.0) * Math.max(R, 0.2); crownTimer[j] = 2; }  // the canopy adds ~1 kg/m² of needles
+  }
+  timer[j] = t ? TREES[t].burn * (0.8 + 0.2 * under[j]) : G.burn * (0.7 + 0.6 * under[j]);
+  if (spot) sim.spots++;
+  return true;
+}
+
+/* =====================================================================
+   6. ONE TIME STEP
+   ===================================================================== */
+const sim = { t: 0, running: false, moist: 0.1, burningList: [], smoulderList: [], spots: 0, history: [], headTrack: [], embers: [], smoke: [], rng: mulberry32(1) };
+
+function resetFire() {
+  state.fill(UNBURNT); timer.fill(0); crown.fill(0); crownTimer.fill(0); glows.fill(0); fate.fill(0); intensity.fill(0); wet.fill(0);
+  if (orig) { tree.set(orig.tree); under.set(orig.under); barrier.set(orig.barrier); }
+  sim.t = 0; sim.fastest = 2; sim.burningList = []; sim.smoulderList = []; sim.spots = 0; sim.history = []; sim.headTrack = []; sim.embers = []; sim.smoke = [];
+  sim.rng = mulberry32(hashSeed(params().seed + "fire"));
+  ignitionPoint = null;
+  setRunning(false);
+  sim.messages = new Set();
+}
+
+function startFireAt(x, y) {
+  let lit = 0;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const X = x + dx, Y = y + dy;
+    if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue;
+    const i = Y * GW + X;
+    if (ignite(i, 1)) { sim.burningList.push(i); lit++; }
+  }
+  if (lit && !ignitionPoint) ignitionPoint = { x, y, t: sim.t };
+  return lit;
+}
+
+function step(dt) {
+  const rng = sim.rng;
+  const next = [];
+  let fastest = 0;
+  for (const i of sim.burningList) {
+    if (state[i] !== BURNING) continue;
+    const x = i % GW, y = (i / GW) | 0;
+    // try to ignite each neighbour
+    for (let k = 0; k < 8; k++) {
+      const X = x + NB[k].dx, Y = y + NB[k].dy;
+      if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue;
+      const j = Y * GW + X;
+      if (state[j] !== UNBURNT || !burnable(j)) continue;
+      const R = rosInto(i, j, k);
+      if (R <= 0) continue;
+      if (R > fastest) fastest = R;
+      if (rng() < 1 - Math.exp(-R * dt / NB[k].d) && ignite(j, R)) next.push(j);
+    }
+    // intense fires radiate heat across a narrow gap (e.g. a 10 m track)
+    if (crown[i] || intensity[i] > 8000) {
+      for (let k = 0; k < 8; k++) {
+        const X = x + 2 * NB[k].dx, Y = y + 2 * NB[k].dy;
+        if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue;
+        const j = Y * GW + X;
+        if (state[j] === UNBURNT && burnable(j) && rng() < 0.02 * dt * (1 + Math.max(0, NB[k].ux * W.wx + NB[k].uy * W.wy) * W.V / 3) && ignite(j, 1)) next.push(j);
+      }
+    }
+    // EMBERS: crown fires and very intense fires throw burning bark and twigs downwind
+    if (crown[i] || intensity[i] > 4000) {
+      const t = tree[i];
+      const rate = 0.25 * (t ? TREES[t].ember : 0.3) * (0.3 + W.V / 6);   // embers per minute
+      if (rng() < rate * dt) launchEmber(x, y, rng, next);
+    }
+    if (crown[i]) { crownTimer[i] -= dt; if (crownTimer[i] <= 0) { crown[i] = 0; intensity[i] *= 0.3; fate[i] = 2; } }
+    timer[i] -= dt;
+    if (timer[i] <= 0) {
+      state[i] = SMOULDER;
+      timer[i] = tree[i] ? 40 : groundKey === "litter" ? 10 : 3;      // logs and branches smoulder for a long time
+      glows[i] = 1;
+      if (tree[i]) {
+        const t = TREES[tree[i]];
+        fate[i] = crown[i] || fate[i] === 2 ? 2 : (rng() < t.survive * Math.max(0.1, 1 - intensity[i] / 6000) ? 1 : 2);
+      }
+      sim.smoulderList.push(i);
+    } else next.push(i);
+  }
+  // Smouldering cells cool down. Smouldering logs and stumps can still (slowly)
+  // set fire to unburnt fuel next to them — a common cause of fires "rekindling".
+  const sm = [];
+  for (const i of sim.smoulderList) {
+    timer[i] -= dt;
+    if (timer[i] <= 0) { state[i] = BURNT; glows[i] = 0; continue; }
+    sm.push(i);
+    if (!glows[i]) continue;
+    const x = i % GW, y = (i / GW) | 0;
+    let open = false;
+    for (let k = 0; k < 8; k++) {
+      const X = x + NB[k].dx, Y = y + NB[k].dy;
+      if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue;
+      const j = Y * GW + X;
+      if (state[j] !== UNBURNT || !burnable(j)) continue;
+      open = true;
+      const Rs = rosInto(i, j, k) * SMOULDER_SPREAD;
+      if (Rs > 0 && rng() < 1 - Math.exp(-Rs * dt / NB[k].d) && ignite(j, Rs)) next.push(j);
+    }
+    if (!open) glows[i] = 0;                       // nothing left to ignite: stop checking this cell
+  }
+  sim.smoulderList = sm;
+  sim.burningList = next;
+  // water from the water-drop tool slowly evaporates
+  if (sim.wetCount) { let c = 0; for (let i = 0; i < N; i++) if (wet[i] > 0) { wet[i] = Math.max(0, wet[i] - 0.004 * dt); if (wet[i] > 0) c++; } sim.wetCount = c; }
+  sim.t += dt;
+  sim.fastest = fastest;
+}
+// A safe time step: the fastest spread happening now (with a margin) moves less than half a cell
+function safeDt() { return Math.min(0.5, 0.45 * CELL / Math.max(1, 1.5 * (sim.fastest || 2))); }
+
+function launchEmber(x, y, rng, next) {
+  // distance: about 12 m per m/s of wind, with a long random tail (log-normal)
+  const g = Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng());
+  const dist = (25 + 12 * W.V) * Math.exp(0.7 * g);
+  const spread = W.V < 1 ? Math.PI : 0.35;
+  const ang = Math.atan2(W.wy, W.wx) + spread * (rng() * 2 - 1);
+  const tx = Math.round(x + Math.cos(ang) * dist / CELL), ty = Math.round(y + Math.sin(ang) * dist / CELL);
+  sim.embers.push({ x0: x, y0: y, x1: tx, y1: ty, age: 0 });
+  if (tx < 0 || ty < 0 || tx >= GW || ty >= GH) return;
+  const j = ty * GW + tx;
+  if (state[j] !== UNBURNT || !burnable(j)) return;
+  const fm = moistureFactor(sim.moist + wet[j], GROUND[groundKey].mx);
+  const receptive = under[j] > 0.05 ? GROUND[groundKey].receptive : 0.4;
+  if (rng() < 0.5 * receptive * fm && ignite(j, 0.5, true)) next.push(j);
+}
+
+/* =====================================================================
+   7. STATISTICS
+   ===================================================================== */
+function stats() {
+  let burnt = 0, burning = 0, crownCells = 0, killed = 0, scorched = 0, maxI = 0, trees = 0;
+  for (let i = 0; i < N; i++) {
+    const s = state[i];
+    if (tree[i]) trees++;
+    if (s !== UNBURNT) burnt++;
+    if (s === BURNING) { burning++; if (crown[i]) crownCells++; if (intensity[i] > maxI) maxI = intensity[i]; }
+    if (fate[i] === 2) killed++; else if (fate[i] === 1) scorched++;
+  }
+  return { burnt, burning, crownCells, killed, scorched, maxI, trees };
+}
+// How fast is the head of the fire moving? Furthest burnt distance from the ignition
+// point in the downwind direction (or in any direction if calm), over the last 10 minutes.
+function headDistance() {
+  if (!ignitionPoint) return 0;
+  let best = 0;
+  const calm = W.V < 0.5;
+  for (const list of [sim.burningList]) for (const i of list) {
+    const x = i % GW, y = (i / GW) | 0, dx = (x - ignitionPoint.x) * CELL, dy = (y - ignitionPoint.y) * CELL;
+    const d = calm ? Math.hypot(dx, dy) : dx * W.wx + dy * W.wy;
+    if (d > best) best = d;
+  }
+  return best;
+}
+
+// Has the head of the fire run off the downwind edge of the map?
+function atEdge() {
+  for (const i of sim.burningList) {
+    const x = i % GW, y = (i / GW) | 0;
+    if ((W.wx > 0.3 && x >= GW - 2) || (W.wx < -0.3 && x <= 1) || (W.wy > 0.3 && y >= GH - 2) || (W.wy < -0.3 && y <= 1)) return true;
+  }
+  return false;
+}
+
+/* =====================================================================
+   8. DRAWING
+   ===================================================================== */
+const off = document.createElement("canvas"); off.width = GW; off.height = GH;
+const offCtx = off.getContext("2d");
+const img = offCtx.createImageData(GW, GH);
+function cellColour(i, flick) {
+  const s = state[i], sh = shade[i], v = 0.88 + 0.24 * tint[i];
+  let r, g, b;
+  if (barrier[i] === 2) return [58 * sh, 110 * sh, 165 * sh];
+  if (s === BURNING) {
+    if (crown[i]) return [255, 225 + 30 * flick, 140 + 80 * flick];
+    return [255, 110 + 70 * flick, 20 + 20 * flick];
+  }
+  if (s === SMOULDER) { const k = timer[i] / 40; return [80 + 90 * k * (0.7 + 0.3 * flick), 20 + 15 * k, 10]; }
+  if (s === BURNT) {
+    if (fate[i] === 1) return [107 * v, 90 * v, 46 * v];
+    return [43 * v * sh, 37 * v * sh, 34 * v * sh];
+  }
+  if (barrier[i] === 1) { r = 201; g = 181; b = 140; }
+  else {
+    const G = GROUND[groundKey].colour, u = under[i];
+    // bare earth mixed with undergrowth colour
+    r = 120 + (G[0] - 120) * u; g = 105 + (G[1] - 105) * u; b = 75 + (G[2] - 75) * u;
+    if (tree[i]) { const T = TREES[tree[i]].colour; r = T[0]; g = T[1]; b = T[2]; }
+  }
+  r *= v * sh; g *= v * sh; b *= v * sh;
+  if (wet[i] > 0.02) { const k = Math.min(1, wet[i] * 2); r += (95 - r) * k; g += (134 - g) * k; b += (184 - b) * k; }
+  return [r, g, b];
+}
+
+let view = { s: 1, ox: 0, oy: 0 };
+function drawMap(now) {
+  const c = document.getElementById("map"), dpr = window.devicePixelRatio || 1;
+  const Wc = Math.round(c.clientWidth * dpr), Hc = Math.round(c.clientHeight * dpr);
+  if (c.width !== Wc || c.height !== Hc) { c.width = Wc; c.height = Hc; }
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, Wc, Hc);
+  // fit the grid in the canvas
+  const s = Math.min(Wc / GW, Hc / GH);
+  view = { s, ox: (Wc - GW * s) / 2, oy: (Hc - GH * s) / 2, dpr };
+  const d = img.data;
+  for (let i = 0; i < N; i++) {
+    const flick = state[i] === BURNING || state[i] === SMOULDER ? Math.random() : 0;
+    const [r, g, b] = cellColour(i, flick);
+    d[4 * i] = r; d[4 * i + 1] = g; d[4 * i + 2] = b; d[4 * i + 3] = 255;
+  }
+  offCtx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(off, view.ox, view.oy, GW * s, GH * s);
+
+  // tree crowns as little dots for texture (only when zoomed in enough)
+  if (s > 3) {
+    for (let i = 0; i < N; i += 1) {
+      if (!tree[i] || state[i] !== UNBURNT) continue;
+      const x = i % GW, y = (i / GW) | 0;
+      if ((x + y * 3) % 2) continue;
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.fillRect(view.ox + (x + 0.55) * s, view.oy + (y + 0.55) * s, s * 0.45, s * 0.45);
+    }
+  }
+  // contour lines on hills
+  if (document.getElementById("terrain").value !== "flat") {
+    ctx.fillStyle = "rgba(255,255,255,0.10)";
+    for (let y = 1; y < GH; y++) for (let x = 1; x < GW; x++) {
+      const a = Math.floor(elev[y * GW + x] / 20), b = Math.floor(elev[y * GW + x - 1] / 20), c2 = Math.floor(elev[(y - 1) * GW + x] / 20);
+      if (a !== b || a !== c2) ctx.fillRect(view.ox + x * s, view.oy + y * s, Math.max(1, s * 0.5), Math.max(1, s * 0.5));
+    }
+  }
+  // glow over burning cells
+  ctx.globalCompositeOperation = "lighter";
+  const bl = sim.burningList, stepG = Math.max(1, Math.ceil(bl.length / 600));
+  for (let q = 0; q < bl.length; q += stepG) {
+    const i = bl[q];
+    if (state[i] !== BURNING) continue;
+    const x = (i % GW + 0.5) * s + view.ox, y = (((i / GW) | 0) + 0.5) * s + view.oy;
+    const rad = s * (crown[i] ? 2.6 : 1.6);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    g.addColorStop(0, crown[i] ? "rgba(255,220,140,0.22)" : "rgba(255,120,40,0.16)"); g.addColorStop(1, "rgba(255,80,0,0)");
+    ctx.fillStyle = g; ctx.fillRect(x - rad, y - rad, 2 * rad, 2 * rad);
+  }
+  ctx.globalCompositeOperation = "source-over";
+
+  // smoke drifts downwind
+  const maxSmoke = 500;
+  for (let k = 0; k < Math.min(12, sim.burningList.length / 6); k++) {
+    if (sim.smoke.length > maxSmoke) break;
+    const i = sim.burningList[(Math.random() * sim.burningList.length) | 0];
+    if (i === undefined) break;
+    sim.smoke.push({ x: i % GW, y: (i / GW) | 0, age: 0, r: 1.2 + Math.random() * 1.5, dark: crown[i] ? 0.5 : 0.75 });
+  }
+  const sp = 0.03 + W.V * 0.02;
+  sim.smoke = sim.smoke.filter(p => p.age < 220);
+  for (const p of sim.smoke) {
+    if (sim.running) { p.x += W.wx * sp + (Math.random() - 0.5) * 0.15; p.y += W.wy * sp + (Math.random() - 0.5) * 0.15; p.age++; p.r += 0.03; }
+    const a = 0.09 * (1 - p.age / 220);
+    const g0 = Math.round(150 * p.dark + 60);
+    ctx.fillStyle = `rgba(${g0},${g0},${g0 - 5},${a})`;
+    ctx.beginPath(); ctx.arc(view.ox + p.x * s, view.oy + p.y * s, p.r * s, 0, 2 * Math.PI); ctx.fill();
+  }
+  // embers in flight
+  sim.embers = sim.embers.filter(e => e.age < 40);
+  if (sim.embers.length > 150) sim.embers = sim.embers.slice(-150);   // draw only the newest embers (all of them still count)
+  for (const e of sim.embers) {
+    if (sim.running || e.age === 0) e.age++;
+    const f = Math.min(1, e.age / 30);
+    const x = e.x0 + (e.x1 - e.x0) * f, y = e.y0 + (e.y1 - e.y0) * f - Math.sin(f * Math.PI) * 6;
+    ctx.fillStyle = `rgba(255,${180 + Math.random() * 60},80,${1 - f * 0.5})`;
+    ctx.beginPath(); ctx.arc(view.ox + (x + 0.5) * s, view.oy + (y + 0.5) * s, Math.max(1.5, s * 0.5), 0, 2 * Math.PI); ctx.fill();
+  }
+
+  // ignition marker
+  if (ignitionPoint) {
+    ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 1.5 * dpr;
+    const x = view.ox + (ignitionPoint.x + 0.5) * s, y = view.oy + (ignitionPoint.y + 0.5) * s;
+    ctx.beginPath(); ctx.moveTo(x - 6 * dpr, y); ctx.lineTo(x + 6 * dpr, y); ctx.moveTo(x, y - 6 * dpr); ctx.lineTo(x, y + 6 * dpr); ctx.stroke();
+  }
+  // wind arrow, north arrow and scale bar
+  const R = 34 * dpr, cx = view.ox + GW * s - R - 12 * dpr, cy = view.oy + R + 12 * dpr;
+  ctx.fillStyle = "rgba(10,12,9,0.75)"; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 2 * Math.PI); ctx.fill();
+  ctx.fillStyle = "rgba(230,232,220,0.9)"; ctx.font = `${10 * dpr}px system-ui`; ctx.textAlign = "center";
+  ctx.fillText("N", cx, cy - R + 11 * dpr);
+  if (W.V > 0) {
+    const L = R * 0.75;
+    ctx.strokeStyle = "#f1af28"; ctx.fillStyle = "#f1af28"; ctx.lineWidth = 3 * dpr;
+    const x0 = cx - W.wx * L, y0 = cy - W.wy * L, x1 = cx + W.wx * L, y1 = cy + W.wy * L;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    const a = Math.atan2(W.wy, W.wx);
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - 10 * dpr * Math.cos(a - 0.5), y1 - 10 * dpr * Math.sin(a - 0.5)); ctx.lineTo(x1 - 10 * dpr * Math.cos(a + 0.5), y1 - 10 * dpr * Math.sin(a + 0.5)); ctx.fill();
+  } else { ctx.fillText("calm", cx, cy + 4 * dpr); }
+  ctx.fillStyle = "rgba(230,232,220,0.9)"; ctx.fillText(`wind ${Math.round(W.V * 3.6)} km/h`, cx, cy + R + 13 * dpr);
+  const bar = 50 * s;                         // 500 m
+  ctx.fillStyle = "rgba(10,12,9,0.7)"; ctx.fillRect(view.ox + 8 * dpr, view.oy + GH * s - 26 * dpr, bar + 16 * dpr, 20 * dpr);
+  ctx.fillStyle = "#eee"; ctx.fillRect(view.ox + 16 * dpr, view.oy + GH * s - 12 * dpr, bar, 3 * dpr);
+  ctx.textAlign = "left"; ctx.fillText("500 m", view.ox + 16 * dpr, view.oy + GH * s - 15 * dpr);
+}
+
+function drawChart() {
+  const c = document.getElementById("chart"), dpr = window.devicePixelRatio || 1;
+  const Wc = Math.round(c.clientWidth * dpr), Hc = Math.round(c.clientHeight * dpr);
+  if (c.width !== Wc || c.height !== Hc) { c.width = Wc; c.height = Hc; }
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, Wc, Hc);
+  const L = 40 * dpr, Rr = 8 * dpr, T = 8 * dpr, B = 22 * dpr;
+  const h = sim.history;
+  const tMax = Math.max(30, sim.t), aMax = Math.max(1, ...h.map(p => p.burnt)) * 1.1;
+  const X = t => L + t / tMax * (Wc - L - Rr), Y = a => Hc - B - a / aMax * (Hc - T - B);
+  ctx.strokeStyle = "rgba(160,170,150,0.15)"; ctx.fillStyle = "#a3ab96"; ctx.font = `${10 * dpr}px system-ui`;
+  for (let k = 0; k <= 4; k++) { const a = aMax * k / 4, y = Y(a); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(Wc - Rr, y); ctx.stroke(); ctx.textAlign = "right"; ctx.fillText(a < 10 ? a.toFixed(1) : Math.round(a), L - 4 * dpr, y + 3 * dpr); }
+  ctx.textAlign = "center"; ctx.fillText(`time (minutes) — 0 to ${Math.round(tMax)}`, (L + Wc) / 2, Hc - 5 * dpr);
+  for (const [key, col] of [["burnt", "#c0392b"], ["burning", "#ffb347"]]) {
+    ctx.strokeStyle = col; ctx.lineWidth = 2 * dpr; ctx.beginPath();
+    h.forEach((p, k) => (k ? ctx.lineTo(X(p.t), Y(p[key])) : ctx.moveTo(X(p.t), Y(p[key]))));
+    ctx.stroke();
+  }
+}
+
+/* =====================================================================
+   9. READOUTS
+   ===================================================================== */
+const el = id => document.getElementById(id);
+const fmtTime = m => (m < 60 ? `${Math.floor(m)} min` : `${Math.floor(m / 60)} h ${String(Math.floor(m % 60)).padStart(2, "0")} min`);
+const ha = cells => cells * CELL * CELL / 10000;
+const fmtHa = v => (v < 10 ? v.toFixed(1) : Math.round(v).toLocaleString("en-GB")) + " ha";
+function intensityClass(I) {
+  if (I <= 0) return ["No flames", "—"];
+  if (I < 500) return ["Low", "Firefighters can put it out with beaters and hand tools."];
+  if (I < 2000) return ["Moderate", "Too hot for hand tools: needs fire engines and hoses."];
+  if (I < 4000) return ["High", "Needs water-bombing aircraft and bulldozed breaks."];
+  if (I < 10000) return ["Very high", "Too intense to attack the head of the fire directly — firefighters work on the flanks."];
+  return ["Extreme", "Unstoppable until the weather or fuel changes. Evacuate."];
+}
+function storyText(st, p) {
+  if (!sim.burningList.length && !st.burnt) return "Click <b>Start</b> to light a fire (or choose 🔥 Start fire and click anywhere on the map).";
+  if (!sim.burningList.length) return st.burnt < 30 ? "The fire has gone out almost at once — the fuel was too wet, too sparse or too slow-burning to keep it going." : "The fire has burnt itself out.";
+  const msgs = [];
+  if (p.moist >= 0.25) msgs.push("The fuel is damp, so most of the heat goes into boiling off water and the fire struggles.");
+  if (W.V >= 8) msgs.push("Strong wind tilts the flames over the unburnt fuel ahead and feeds oxygen, so the head races downwind in a long, narrow shape.");
+  else if (W.V >= 2) msgs.push("The wind pushes the fire into an egg shape: the head runs downwind while the back creeps upwind.");
+  else msgs.push("With no wind the fire spreads out in a rough circle.");
+  if (st.crownCells > 0) msgs.push(`<b>Crown fire!</b> Flames have climbed into the treetops in ${Math.round(100 * st.crownCells / Math.max(1, st.burning))}% of the burning area — it spreads about three times faster and kills the trees.`);
+  if (sim.spots > 0) msgs.push(`Embers have started <b>${sim.spots}</b> spot fire${sim.spots > 1 ? "s" : ""} ahead of the main fire.`);
+  if (p.terrain !== "flat") msgs.push("Watch the slopes: fire runs fast uphill and slowly downhill.");
+  return msgs.join(" ");
+}
+let lastUI = 0, lastHead = [];
+function updateUI(now) {
+  el("clock").textContent = fmtTime(sim.t);
+  if (now - lastUI < 200) return;
+  lastUI = now;
+  const st = stats(), p = params();
+  el("s_burnt").textContent = fmtHa(ha(st.burnt));
+  el("s_burning").textContent = fmtHa(ha(st.burning));
+  el("s_spots").textContent = sim.spots;
+  // head speed: change in furthest downwind distance over ~10 minutes of fire
+  const tr = sim.headTrack;
+  let speed = null;
+  if (tr.length > 1) { const a = tr[0], b = tr[tr.length - 1]; if (b.t - a.t > 1) speed = Math.max(0, (b.d - a.d) / (b.t - a.t)); }
+  el("s_speed").textContent = !sim.burningList.length || speed == null ? "–" : atEdge() ? "reached the map edge" : `${speed.toFixed(1)} m/min (${(speed * 0.06).toFixed(2)} km/h)`;
+  const [cls, advice] = intensityClass(st.maxI);
+  el("gaugeMark").style.left = `${Math.min(100, 100 * Math.log10(1 + st.maxI) / Math.log10(30000))}%`;
+  el("intensityText").innerHTML = `<b>${cls}</b>${st.maxI ? ` — up to ${Math.round(st.maxI).toLocaleString("en-GB")} kW per metre of fire edge` : ""}<br><span class="hint">${advice}</span>`;
+  el("story").innerHTML = storyText(st, p);
+  const treesBurnt = st.killed + st.scorched;
+  el("tiles").innerHTML =
+    tile("Area burnt", fmtHa(ha(st.burnt)), `${(100 * st.burnt / N).toFixed(1)}% of the map`) +
+    tile("Burning now", fmtHa(ha(st.burning)), st.crownCells ? `${fmtHa(ha(st.crownCells))} as crown fire` : "surface fire") +
+    tile("Trees killed", st.killed.toLocaleString("en-GB"), `of ${st.trees.toLocaleString("en-GB")} trees`) +
+    tile("Trees survived", st.scorched.toLocaleString("en-GB"), treesBurnt ? `${Math.round(100 * st.scorched / treesBurnt)}% of burnt trees (scorched)` : "") +
+    tile("Spot fires", sim.spots, "started by embers") +
+    tile("Fuel moisture", `${Math.round(p.moist * 100)}%`, moistLabel(p.moist));
+}
+const tile = (k, v, s = "") => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ""}</div>`;
+const moistLabel = m => (m <= 0.05 ? "tinder dry" : m <= 0.09 ? "very dry" : m <= 0.15 ? "dry" : m <= 0.22 ? "damp" : m <= 0.29 ? "wet" : "too wet to burn");
+
+/* =====================================================================
+   10. PRESETS
+   ===================================================================== */
+const PRESETS = [
+  { name: "Damp broadleaf wood", note: "fire struggles", s: { species: "broadleaf", density: 75, ground: "litter", under: 30, terrain: "flat", tracks: 0, twidth: 1, river: false, wind: 3, dir: 270, moist: 20 } },
+  { name: "Heathland fire", note: "like Saddleworth Moor 2018", s: { species: "birch", density: 4, ground: "heath", under: 90, terrain: "ridges", tracks: 0, twidth: 1, river: false, wind: 6, dir: 90, moist: 8 } },
+  { name: "Pine plantation", note: "hot, dry, windy: crown fire", s: { species: "pine", density: 85, ground: "bracken", under: 55, terrain: "flat", tracks: 0, twidth: 1, river: false, wind: 10, dir: 270, moist: 6 } },
+  { name: "Firebreaks hold", note: "light wind, dry", s: { species: "pine", density: 75, ground: "litter", under: 40, terrain: "flat", tracks: 2, twidth: 2, river: false, wind: 4, dir: 270, moist: 11 } },
+  { name: "Firebreaks fail", note: "strong wind: embers jump", s: { species: "pine", density: 75, ground: "bracken", under: 40, terrain: "flat", tracks: 2, twidth: 2, river: false, wind: 14, dir: 270, moist: 6 } },
+  { name: "Eucalyptus bushfire", note: "Australian 'Black Summer'", s: { species: "eucalyptus", density: 70, ground: "grass", under: 80, terrain: "hill", tracks: 1, twidth: 2, river: false, wind: 17, dir: 300, moist: 4 } },
+  { name: "Grass fire, strong wind", note: "fast and narrow", s: { species: "birch", density: 2, ground: "grass", under: 100, terrain: "flat", tracks: 0, twidth: 1, river: false, wind: 12, dir: 270, moist: 6 } },
+  { name: "Fire runs uphill", note: "no wind, steep hill", s: { species: "pine", density: 55, ground: "grass", under: 50, terrain: "hill", tracks: 0, twidth: 1, river: false, wind: 0, dir: 270, moist: 9 }, ignite: [0.3, 0.5] },
+  { name: "Sparse trees (40%)", note: "no undergrowth: fizzles", s: { species: "pine", density: 40, ground: "litter", under: 0, terrain: "flat", tracks: 0, twidth: 1, river: false, wind: 0, dir: 270, moist: 6 }, ignite: [0.5, 0.5] },
+  { name: "Dense trees (85%)", note: "no undergrowth: spreads", s: { species: "pine", density: 85, ground: "litter", under: 0, terrain: "flat", tracks: 0, twidth: 1, river: false, wind: 0, dir: 270, moist: 6 }, ignite: [0.5, 0.5] },
+  { name: "River barrier", note: "does it jump the river?", s: { species: "mixed", density: 70, ground: "grass", under: 65, terrain: "valley", tracks: 0, twidth: 1, river: true, wind: 9, dir: 0, moist: 7 }, ignite: [0.5, 0.15] },
+  { name: "After the rain", note: "wet fuel", s: { species: "pine", density: 80, ground: "grass", under: 60, terrain: "flat", tracks: 0, twidth: 1, river: false, wind: 8, dir: 270, moist: 30 } },
+];
+
+function applySettings(s) {
+  for (const [k, v] of Object.entries(s)) {
+    const e = el(k); if (!e) continue;
+    if (e.type === "checkbox") e.checked = v; else e.value = v;
+  }
+  updateLabels();
+}
+let pendingIgnite = null;
+function setPreset(k) {
+  const pr = PRESETS[k];
+  applySettings(pr.s);
+  document.querySelectorAll("#presets button").forEach((b, j) => b.classList.toggle("on", j === k));
+  pendingIgnite = pr.ignite || null;
+  rebuild();
+}
+function defaultIgnition() {
+  if (pendingIgnite) return [Math.round(pendingIgnite[0] * GW), Math.round(pendingIgnite[1] * GH)];
+  // start upwind of the centre, so the fire has room to run
+  const off = W.V > 0 ? 0.3 : 0;
+  return [Math.round(GW * (0.5 - W.wx * off * 0.9)), Math.round(GH * (0.5 - W.wy * off))];
+}
+
+/* =====================================================================
+   11. CONTROLS
+   ===================================================================== */
+const SETUP = ["species", "density", "ground", "under", "terrain", "tracks", "twidth", "river", "seed"];
+let builtWith = null;
+function rebuild() {
+  const p = params();
+  updateWind(p); sim.moist = p.moist;
+  buildMap(p);
+  builtWith = JSON.stringify(SETUP.map(k => p[k]));
+  el("pending").style.display = "none";
+}
+function updateLabels() {
+  const p = params();
+  el("o_wind").textContent = `${p.wind} m/s (${Math.round(p.wind * 3.6)} km/h)` + (p.wind < 1 ? " calm" : p.wind < 5 ? " light" : p.wind < 10 ? " breezy" : p.wind < 17 ? " strong" : " gale");
+  const pts = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+  el("o_dir").textContent = `${pts[Math.round(p.dir / 22.5) % 16]} (${p.dir}°)`;
+  el("o_moist").textContent = `${Math.round(p.moist * 100)}% — ${moistLabel(p.moist)}`;
+  el("o_density").textContent = `${Math.round(p.density * 100)}% of the ground`;
+  el("o_under").textContent = p.under < 0.05 ? "none" : p.under < 0.35 ? "a little" : p.under < 0.7 ? "medium" : "thick";
+  el("o_tracks").textContent = ["none", "every 600 m", "every 350 m", "every 220 m"][p.tracks];
+  el("o_twidth").textContent = `${p.twidth * CELL} m`;
+  updateWind(p); sim.moist = p.moist;
+  const changed = builtWith && builtWith !== JSON.stringify(SETUP.map(k => p[k]));
+  el("pending").style.display = changed ? "block" : "none";
+}
+el("presets").innerHTML = PRESETS.map((p, k) => `<button data-k="${k}">${p.name}<small>${p.note}</small></button>`).join("");
+document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.k)));
+["wind", "dir", "moist", "density", "under", "tracks", "twidth", "seed"].forEach(id => el(id).addEventListener("input", () => { document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); updateLabels(); }));
+["species", "ground", "terrain", "river"].forEach(id => el(id).addEventListener("change", () => { document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); updateLabels(); }));
+el("btnNew").onclick = () => { pendingIgnite = null; rebuild(); };
+
+function setRunning(r) { sim.running = r; el("btnPlay").textContent = r ? "⏸ Pause" : "▶ Start"; }
+el("btnPlay").onclick = () => {
+  if (!sim.burningList.length && !ignitionPoint) { const [x, y] = defaultIgnition(); startFireAt(x, y); }
+  setRunning(!sim.running);
+};
+el("btnReset").onclick = () => resetFire();
+let speed = 4;
+document.querySelectorAll("[data-s]").forEach(b => (b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", x === b)); }));
+
+// Map tools
+let tool = "ignite", painting = false;
+document.querySelectorAll("[data-tool]").forEach(b => (b.onclick = () => { tool = b.dataset.tool; document.querySelectorAll("[data-tool]").forEach(x => x.classList.toggle("on", x === b)); }));
+function cellAt(e) {
+  const c = el("map"), r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const x = Math.floor(((e.clientX - r.left) * dpr - view.ox) / view.s), y = Math.floor(((e.clientY - r.top) * dpr - view.oy) / view.s);
+  return x >= 0 && y >= 0 && x < GW && y < GH ? [x, y] : null;
+}
+function paint(e) {
+  const c = cellAt(e); if (!c) return;
+  const [x, y] = c;
+  if (tool === "ignite") { startFireAt(x, y); if (!sim.running) setRunning(true); return; }
+  const rad = tool === "water" ? 4 : 1;
+  for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
+    const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= GW || Y >= GH || dx * dx + dy * dy > rad * rad + 1) continue;
+    const i = Y * GW + X;
+    if (tool === "break" && barrier[i] !== 2) { barrier[i] = 1; tree[i] = 0; under[i] = 0; if (state[i] === BURNING) state[i] = BURNT; }
+    if (tool === "water") { wet[i] = Math.min(0.6, wet[i] + 0.35); if (state[i] === BURNING) { state[i] = SMOULDER; timer[i] = 2; sim.smoulderList.push(i); } sim.wetCount = 1; }
+    if (tool === "plant" && barrier[i] !== 2 && state[i] !== BURNING) { barrier[i] = 0; tree[i] = TREE_CODE[params().species === "mixed" ? "pine" : params().species]; under[i] = Math.max(under[i], params().under); state[i] = UNBURNT; fate[i] = 0; }
+  }
+}
+el("map").addEventListener("pointerdown", e => { painting = tool !== "ignite"; paint(e); });
+el("map").addEventListener("pointermove", e => { if (painting) paint(e); });
+window.addEventListener("pointerup", () => (painting = false));
+
+/* =====================================================================
+   12. THE MAIN LOOP
+   ---------------------------------------------------------------------
+   The time step is chosen so the fastest part of the fire moves less
+   than half a cell per step; faster playback just runs more steps.
+   ===================================================================== */
+let lastT = performance.now();
+function frame(now) {
+  const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (sim.running) {
+    const simMinutes = real * speed;                       // 1× = 1 minute of fire per second
+    // step in small, safe time steps until this frame's share of time is done
+    let left = simMinutes;
+    const t0 = performance.now();
+    while (left > 1e-9 && performance.now() - t0 < 40) { const dt = Math.min(left, safeDt()); step(dt); left -= dt; }
+    // record history
+    const last = sim.history[sim.history.length - 1];
+    if (!last || sim.t - last.t >= 0.5) {
+      let burnt = 0, burning = 0;
+      for (let i = 0; i < N; i++) { if (state[i] !== UNBURNT) burnt++; if (state[i] === BURNING) burning++; }
+      sim.history.push({ t: sim.t, burnt: ha(burnt), burning: ha(burning) });
+      sim.headTrack.push({ t: sim.t, d: headDistance() });
+      while (sim.headTrack.length > 2 && sim.headTrack[sim.headTrack.length - 1].t - sim.headTrack[0].t > 10) sim.headTrack.shift();
+    }
+    if (!sim.burningList.length) setRunning(false);
+  }
+  drawMap(now);
+  drawChart();
+  updateUI(now);
+  requestAnimationFrame(frame);
+}
+
+/* =====================================================================
+   13. PANEL LAYOUT — resize or hide the side panels
+   ===================================================================== */
+(function () {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const KEY = "forest-fire-layout", STRIP = 30, MIN = 200, DEF = { lw: 290, rw: 330, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+})();
+
+setPreset(2);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
