@@ -20,8 +20,19 @@ internet are needed: open the file in Chrome or Edge, pick a preset and press
 - A river through the wood
 - Random seed (the same seed gives exactly the same fire)
 
-**Tools on the map:** start a fire, bulldoze a firebreak, drop water from a
-helicopter, or plant trees back.
+**Tools on the map:** start a fire; draw firebreaks, rivers and lakes, or plant
+trees, either **freehand** (drag to paint, with a small, medium or large
+brush) or as an **area** (click and drag a rectangle); or drop water from a
+helicopter. Things you draw stay when you press *Reset fire*; a new map clears
+them.
+
+**When the fire goes out** a banner says so. It gives how long the fire burned
+and how much it destroyed, and explains *why* it stopped by looking along the
+edge of the burnt area: firebreaks or water, bare gaps, fuel too damp or
+sparse, or running off the edge of the map. A status label above the map
+always shows *Burning*, *Smouldering — could rekindle* or *Fire out*.
+
+The simulation runs at 1× by default (one minute of fire every second).
 
 ## Presets
 
