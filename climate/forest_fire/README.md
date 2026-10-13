@@ -68,6 +68,36 @@ whether firefighters could attack it), crown fire, spot fires, and how many
 trees were killed or survived. Every simplification is listed inside the app
 under **"How the model works"**.
 
+## Batch run (many fires, compared with theory)
+
+Press **📊 Batch run** (below the map) to run the model many times with no
+drawing. It uses the map on screen, including anything you have drawn, and
+the weather in the left panel. The interactive fire is saved first and put
+back afterwards.
+
+- **Repeat:** the same map and weather 10–200 times; only the fire's random
+  numbers change (tick *New random map for every repeat* to vary the woodland
+  too). Shows a histogram, or a bar chart for yes/no outcomes.
+- **Sweep:** step wind speed, fuel moisture, tree density, undergrowth or
+  fire-track width, with several runs per step. Shows mean ± 1 SD (or % of
+  runs ± 1 standard error), the theory line where there is one, and a fit.
+- **Outcomes recorded:** area burnt (ha), head-of-fire speed (m/min), whether
+  it crossed a firebreak or water, whether it reached the map edge, trees
+  killed (%), time until out, spot fires and actual tree cover.
+- Each run stops when the fire is out, at a time limit (1–24 h of fire), or
+  optionally when it reaches the map edge. Results download as CSV.
+
+One-click batch experiments (timings from a test machine):
+
+| Experiment | What it shows |
+|---|---|
+| How often do firebreaks hold? | Sweep wind 3.5–5.5 m/s over 20 m tracks, 6 runs per step on new maps. Crossing jumps from 0% (≤ 3.75 m/s) to 100% (≥ 5 m/s), with the 50% point near 4.4 m/s: tracks stop surface fires but not crown fires, whose embers fly 100 m or more. Track width 10–40 m makes little difference. (~20 s) |
+| Percolation: how dense must a forest be to burn through? | Sweep tree density 40–80%, no undergrowth, no wind. Fire reaches the edge in 0% of runs up to 50% density and 100% from 60%, with the 50% point near 54%. The site-percolation thresholds for a random square grid are 40.7% (8 neighbours) and 59.3% (4 neighbours); the model sits above 40.7% because a burning tree has only minutes to light its neighbour, its trees are clumped, and the map is finite. (~6 s) |
+| Wind and the speed of spread | Sweep wind 0–10 m/s on open grass. Measured head speed rises from about 7 to 120 m/min; the model's own rate-of-spread formula (averaged over the map's fuel) gives 1.7–29 m/min. The measured head is about 2.7× the formula, because the head follows the fastest of many random paths (first-passage percolation); at 10 m/s embers add more. (~2 s) |
+| Dryness: how wet must fuel be to stop a fire? | Sweep fuel moisture 4–28%. Speed falls from about 31 to 9 m/min and is zero from 24%, where the formula is just above zero: each square flames too briefly to light the next. (~2 s) |
+| Same forest, different luck | 50 fires by a river with identical settings: area burnt 39–155 ha (mean 75, SD 24), depending on whether an ember jumps the river. (~8 s) |
+| Does a river stop it? | 40 fires with a 4 m/s breeze across a 50 m river: about 70% jump it (±7 points). (~8 s) |
+
 ## Layout
 
 Drag the bars beside the map to resize the side panels, or use their ‹ ›

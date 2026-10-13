@@ -49,6 +49,41 @@ speed, axial tilt), physical properties and collision history.
 Every simplification is listed inside the app under **"How the model works
 (and what it leaves out)"**, and the source is commented section by section.
 
+## Batch run (many discs, at reduced settings)
+
+A full run takes about a minute even at top speed, so the **📊 Batch run (many
+discs)** button (left panel) runs discs headlessly at **reduced settings**,
+listed at the top of the batch panel: 100 planetesimals (not the slider
+value), a gas lifetime of 1 million years, a time step twice as long (1/10 of
+an orbit at 0.3 AU), no cloud prologue, no asteroids or comets, and each run
+stops 20 million years after the gas has gone instead of waiting until it has
+settled. Other settings come from the left panel. **One run takes about 8–20
+seconds**, so a 10-run batch takes about two minutes. The interactive
+simulation pauses during a batch and is not changed (each batch run has its own
+simulation object).
+
+- **Repeat:** 5, 10 or 20 discs with different random seeds.
+- **Sweep:** disc mass, gas in the disc, star mass (which moves the frost
+  line) or critical core mass, with 1+ runs per step.
+- **Outcomes:** number of planets (bound bodies ≥ 0.05 M⊕), number of gas
+  giants, whether any gas giant formed, mass of the largest planet, and rocky
+  planets inside the frost line. These are compared with our Solar System
+  (8 planets, 2 gas giants, Jupiter 318 M⊕, 4 rocky planets) or, for "any gas
+  giant", with surveys of real Sun-like stars (about 1 in 10). Results download
+  as CSV.
+
+One-click batch experiments (results from a test run with the default panel settings):
+
+| Experiment | Result |
+|---|---|
+| How many planets form? (10 runs, ~1.5 min) | 15–22 planets, mean 17.7 ± 0.8 (SD 2.5), far more than the Solar System's 8, mostly small rocky bodies crowded near the star. The model can't run the hundreds of millions of orbits that make close neighbours collide, and the reduced settings make this worse. |
+| Bigger disc, bigger planets? (8 runs, ~1.5 min) | Largest planet: about 9 M⊕ for a 50 M⊕ disc, 140 M⊕ for 133 M⊕, 390 M⊕ for 217 M⊕ and 460 M⊕ for 300 M⊕. A jump, not a smooth line: a core that reaches the critical mass in time runs away into a giant. |
+| How much gas makes a gas giant? (8 runs, ~1.5 min) | Gas giants: 0 with no gas, 1.5 with 2 Jupiter masses, 2.5 with 4, 3 with 6 (2 runs per step, so rough). |
+| Does the frost line matter? (6 runs, ~1 min) | Rocky planets inside the frost line: 7 for a 0.7 M☉ star (frost line 1.3 AU), 11.5 for 1 M☉ (2.7 AU), 17.5 for 1.3 M☉ (4.6 AU). |
+
+These are the smallest batches that finish in about two minutes; for firmer
+answers, run more repeats and leave it working.
+
 ## Speed
 
 Use the **½× / 1× / 4× / 16× / Max** buttons above the disc to fast-forward

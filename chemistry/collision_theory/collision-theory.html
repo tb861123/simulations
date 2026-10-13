@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Collision Theory and Rates</title>
+<!--
+  COLLISION THEORY AND RATES OF REACTION — a teaching model
+  =========================================================
+  One self-contained file: no libraries, no internet needed.
+
+  Particles A and B fly around a 2D box (40 nm × 25 nm) and bounce off each
+  other like snooker balls. Their speeds follow the Maxwell–Boltzmann spread
+  for the set temperature. When an A hits a B, the energy of the impact
+  along the line joining their centres is
+
+      E = ½ μ v²        (μ = reduced mass, v = closing speed along that line)
+
+  The pair reacts (A + B → C + D) only if E ≥ Ea, the activation energy, and
+  (if switched on) only if A hits with its reactive end. Collision theory
+  predicts that the fraction of collisions with enough energy is
+
+      fraction = e^(−Ea / RT)
+
+  and that the rate = collision frequency × that fraction × orientation factor.
+
+  Units: length nm, time ps (1 ps = 10⁻¹² s), mass g/mol, energy kJ/mol,
+  temperature K. 1 g/mol × (nm/ps)² is exactly 1 kJ/mol.
+  Energies are smaller than in most real reactions (real Ea: 40–200 kJ/mol) so
+  that reactions happen within a few hundred picoseconds and you can watch them.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 330px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: var(--ink-dark); }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  .chk { display: block; font-size: 13px; margin: 0 0 8px; }
+  .chk input { accent-color: var(--accent); }
+  select, input[type=number], input[type=text] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #viewWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .legend i.ln { height: 3px; vertical-align: 3px; border-radius: 0; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .chartBox { position: relative; height: 170px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+  .tabs { display: flex; gap: 3px; margin-bottom: 4px; }
+  .tabs button { padding: 2px 8px; font-size: 11.5px; }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+
+  /* Batch run overlay */
+  #batch { display: none; position: fixed; left: 10px; right: 10px; top: 52px; bottom: 10px; z-index: 50; background: var(--panel); border: 1px solid var(--accent);
+           border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.75); padding: 12px; gap: 12px; grid-template-columns: 330px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  #batch.open { display: grid; }
+  #bLeft { overflow-y: auto; min-height: 0; padding-right: 4px; }
+  #bRight { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
+  #bHead { display: flex; gap: 10px; align-items: baseline; }
+  #bHead h2 { margin: 0; font-size: 15px; color: var(--accent); text-transform: none; letter-spacing: 0; }
+  #bHead .sp { flex: 1; }
+  #bExps { display: flex; flex-direction: column; gap: 4px; }
+  #bExps button { text-align: left; font-size: 12.5px; padding: 5px 8px; font-weight: 600; }
+  #bExps button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  #bExps button.on small { color: var(--ink-dark); }
+  .bform { display: grid; grid-template-columns: auto 1fr; gap: 5px 8px; align-items: center; font-size: 12.5px; margin-top: 6px; }
+  .bform select, .bform input { width: 100%; font-size: 12.5px; padding: 3px 5px; }
+  .bform .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+  .seg { display: inline-flex; gap: 3px; }
+  .seg button { padding: 3px 9px; font-size: 12.5px; }
+  #bProg { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  #bProg span { display: block; height: 100%; width: 0; background: var(--accent); }
+  #bChartBox { position: relative; flex: 1; min-height: 220px; background: #10130e; border-radius: 8px; }
+  #bChart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bBottom { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 10px; max-height: 38%; min-height: 120px; }
+  #bSummary, #bNote { overflow: auto; font-size: 12.5px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; }
+  #bSummary table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #bSummary td, #bSummary th { padding: 1px 6px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  #bSummary th { color: var(--muted); font-weight: 600; }
+  #bSummary td:first-child, #bSummary th:first-child { text-align: left; }
+  #bNote b { color: var(--text); }
+  #bNote p { margin: 4px 0; }
+  .fitline { color: var(--accent); font-weight: 700; }
+  a.dl { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Collision Theory and Rates</h1>
+  <span class="sub">Particles must collide, with enough energy and the right way round, to react. See how temperature, concentration, pressure, surface area and catalysts change the rate.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: PRESETS AND CONTROLS ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">Conditions <span class="live">change at once</span></h2>
+    <div class="ctl"><label>Temperature <output id="o_T"></output></label><input type="range" id="T" min="250" max="1000" step="10" value="400"></div>
+    <div class="ctl"><label>Volume of the box <output id="o_vol"></output></label><input type="range" id="vol" min="30" max="100" step="1" value="100">
+      <div class="hint">Push the piston in to squeeze the gas: the same particles in a smaller space means a higher concentration and pressure.</div></div>
+    <div class="ctl"><label>Activation energy, Ea <output id="o_Ea"></output></label><input type="range" id="Ea" min="0" max="30" step="0.5" value="10"></div>
+    <label class="chk"><input type="checkbox" id="cat"> Add a catalyst (halves Ea)</label>
+    <label class="chk"><input type="checkbox" id="orient"> Particles must hit the right way round</label>
+
+    <h2 class="gap">Reactants <span class="hint" style="text-transform:none;letter-spacing:0">(restarts the reaction)</span></h2>
+    <div class="ctl"><label>Reaction</label>
+      <select id="mode"><option value="CD">A + B → C + D (two gases)</option><option value="C">A + B → C (they join up)</option><option value="surface">A + solid → C (solid lumps)</option></select></div>
+    <div class="ctl"><label>Particles of A <output id="o_nA"></output></label><input type="range" id="nA" min="5" max="200" step="1" value="60"></div>
+    <div class="ctl" id="ctlB"><label>Particles of B <output id="o_nB"></output></label><input type="range" id="nB" min="5" max="200" step="1" value="60"></div>
+    <div class="ctl" id="ctlPieces"><label>Solid broken into <output id="o_pieces"></output></label><input type="range" id="pieces" min="0" max="3" step="1" value="0">
+      <div class="hint">Always 64 solid particles. Breaking the lump up exposes more of them to the A particles.</div></div>
+    <div class="ctl"><label>Random seed</label><input type="text" id="seed" value="1" style="width:100%"></div>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Particles</b> are hard discs in a flat (2D) box 40 nm × 25 nm. A, B, C and D all have mass 30 g/mol and radius 0.3 nm (C is 60 g/mol and 0.4 nm when A + B join up). They move in straight lines and bounce elastically, like snooker balls.</li>
+        <li><b>Speeds</b> start from the Maxwell–Boltzmann spread for the temperature: each velocity component is random with standard deviation √(RT/m). The average kinetic energy in 2D is RT per mole.</li>
+        <li><b>Water bath:</b> particles of an unreactive solvent (not drawn) bump into each particle about once every 3 ps and give it a fresh random velocity for the set temperature. This keeps the temperature steady and keeps the Maxwell–Boltzmann spread even though reactions use up the fastest particles. Heat given out by the reaction is taken away at once.</li>
+        <li><b>Collision energy:</b> E = ½μv², where v is the closing speed along the line joining the centres and μ = m₁m₂/(m₁+m₂). Only this part of the motion squashes the particles together; a glancing blow has little of it.</li>
+        <li><b>Reaction rule:</b> if E ≥ Ea the pair reacts; if not, they just bounce. With "right way round" on, A only reacts when the other particle hits within 60° of A's marked end, so 1 in 3 energetic collisions work (the steric factor P = ⅓).</li>
+        <li><b>Theory:</b> for hard discs, the fraction of collisions with E ≥ Ea is exactly e<sup>−Ea/RT</sup>. Collisions per second between A and B = 2d × v̄<sub>rel</sub> × g × N<sub>A</sub>N<sub>B</sub>/area, with d = 0.6 nm, v̄<sub>rel</sub> = √(πRT/2μ) and g a small crowding correction. Rate = collisions × P × e<sup>−Ea/RT</sup>.</li>
+        <li><b>Arrhenius:</b> rate = A e<sup>−Ea/RT</sup>, so ln(rate) against 1/T is a straight line with gradient −Ea/R. In this model collisions also get a little more frequent as particles speed up (v̄ ∝ √T), so the gradient gives Ea + ½RT, slightly more than Ea.</li>
+        <li><b>Catalyst:</b> gives a different route with half the activation energy. It is not used up and does not change the energy of the products.</li>
+        <li><b>Solid:</b> 64 fixed particles in square lumps. Only particles on the surface can be hit. A reacts with a solid particle if the energy of the hit (½ m v² along the line of centres) is at least Ea; the solid particle is removed and A becomes C.</li>
+        <li><b>Initial rate</b> is measured from the time taken for the first 20% of the limiting reactant to react. The theory value allows for the reactants used up during that time.</li>
+        <li><b>Scaled energies:</b> real activation energies are 40–200 kJ/mol and only about 1 collision in a billion succeeds. Here Ea is up to 30 kJ/mol, so you can watch. The ideas are the same.</li>
+        <li><b>Not modelled:</b> 3D motion, molecular shapes and spinning, attractions between particles, heat from the reaction warming the gas, reverse reactions, and the many steps of real catalysed reactions.</li>
+      </ul>
+    </details>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE: THE BOX OF PARTICLES ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">0 ps</span>
+      <span class="stat"><span id="s_zl">Collisions (A with B)</span> <b id="s_z">–</b></span>
+      <span class="stat">Successful <b id="s_succ">–</b></span>
+      <span class="stat">Rate <b id="s_rate">–</b></span>
+      <span class="stat">Reacted <b id="s_done">0%</b></span>
+    </div>
+    <div id="viewWrap"><canvas id="view" aria-label="Particles moving and colliding in a box"></canvas></div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">▶ Play</button>
+      <button id="btnReset" title="Start the reaction again with fresh reactants">↺ Reset</button>
+      <span class="speed">Speed <button data-s="0.25">¼×</button><button data-s="1" class="on">1×</button><button data-s="4">4×</button><button data-s="15">15×</button></span>
+      <span class="hint" id="speedNote"></span>
+      <span style="flex:1"></span>
+      <button id="btnBatch" title="Run the model many times and compare with theory">📊 Batch run</button>
+    </div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT: WHAT IS HAPPENING ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readings</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">Readings</h2>
+    <div class="tiles" id="tiles"></div>
+    <h2 class="gap">Amount of product</h2>
+    <div class="chartBox"><canvas id="chartP"></canvas></div>
+    <div class="legend" style="margin-top:3px"><span><i class="ln" style="background:#f1af28"></i>product C</span><span><i class="ln" style="background:#fff"></i>initial-rate tangent</span><span><i class="ln" style="background:#4fc3f7"></i>theory initial rate</span></div>
+    <h2 class="gap">Energy of collisions</h2>
+    <div class="tabs"><button id="tabE" class="on">Collision energies</button><button id="tabV">Particle speeds</button></div>
+    <div class="chartBox"><canvas id="chartE"></canvas></div>
+    <div class="hint" id="eNote" style="margin-top:3px"></div>
+    <h2 class="gap">Energy profile</h2>
+    <div class="chartBox" style="height:150px"><canvas id="chartProfile"></canvas></div>
+    <div class="hint">The reactants must climb the energy hill (Ea) before they can turn into products. A catalyst gives a route with a lower hill.</div>
+  </section>
+</main>
+<!-- ======================= BATCH RUN OVERLAY ======================= -->
+<section id="batch" role="dialog" aria-label="Batch run">
+  <div id="bLeft">
+    <h2>Batch experiments</h2>
+    <div id="bExps"></div>
+    <h2 class="gap">Set up your own</h2>
+    <div class="bform">
+      <span>Mode</span>
+      <span class="seg"><button id="bModeRepeat" class="on">Repeat</button><button id="bModeSweep">Sweep</button></span>
+      <span class="repOnly">Runs</span>
+      <select class="repOnly" id="bN"></select>
+      <span class="swOnly">Vary</span>
+      <select class="swOnly" id="bVar"></select>
+      <span class="swOnly">From · to · steps</span>
+      <span class="swOnly three"><input type="number" id="bFrom" step="any"><input type="number" id="bTo" step="any"><input type="number" id="bSteps" min="2" max="25" step="1"></span>
+      <span class="swOnly">Repeats per step</span>
+      <input class="swOnly" type="number" id="bReps" min="1" max="200" step="1">
+      <span>Record</span>
+      <select id="bOut"></select>
+      <span class="swOnly">x axis</span>
+      <select class="swOnly" id="bX"><option value="lin">linear</option><option value="log">log scale</option><option value="inv">1 / x</option></select>
+      <span class="swOnly">y axis</span>
+      <select class="swOnly" id="bY"><option value="lin">linear</option><option value="log">log scale</option><option value="ln">ln(y)</option></select>
+      <span class="swOnly">Plot</span>
+      <select class="swOnly" id="bStat"><option value="mean">mean ± 1 SD of repeats</option><option value="sd">SD (spread) of repeats</option></select>
+      <span>First seed</span>
+      <input type="number" id="bSeed" value="1" step="1">
+    </div>
+    <div class="hint" id="bFixed" style="margin-top:6px"></div>
+    <div class="row" style="margin-top:8px">
+      <button id="bRun" class="primary">▶ Run batch</button>
+      <button id="bStop" disabled>■ Stop</button>
+      <a id="bCsv" class="dl" href="#" style="display:none">Download CSV</a>
+    </div>
+    <div id="bProg" style="margin-top:8px"><span></span></div>
+    <div class="hint" id="bStatus" style="margin-top:4px">Pick an experiment, or set up your own, then press Run.</div>
+  </div>
+  <div id="bRight">
+    <div id="bHead"><h2 id="bTitle">Batch run</h2><span class="hint" id="bSub"></span><span class="sp"></span><button id="bClose">✕ Close</button></div>
+    <div id="bChartBox"><canvas id="bChart"></canvas></div>
+    <div id="bBottom"><div id="bSummary"><span class="hint">Results will appear here.</span></div><div id="bNote"></div></div>
+  </div>
+</section>
+<script>
+"use strict";
+/* =====================================================================
+   SHARED HELPERS: random numbers, statistics, charts
+   ===================================================================== */
+const el = id => document.getElementById(id);
+// Repeatable random numbers: the same seed always gives the same run.
+function hashSeed(str) { str = String(str); let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } return h >>> 0; }
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+// A normally distributed random number (mean 0, SD 1): the Box–Muller method
+function gauss(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+// A Poisson-distributed count with mean lam (how many random events happen in a time step)
+function poisson(rng, lam) {
+  if (lam <= 0) return 0;
+  if (lam > 40) return Math.max(0, Math.round(lam + Math.sqrt(lam) * gauss(rng)));
+  const L = Math.exp(-lam); let k = 0, p = 1;
+  do { k++; p *= rng(); } while (p > L);
+  return k - 1;
+}
+const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : NaN;
+function sd(a) { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); }
+// Least-squares straight line y = m x + c, with the standard error of the gradient
+function fitLine(xs, ys) {
+  const n = xs.length; if (n < 2) return null;
+  const mx = mean(xs), my = mean(ys);
+  let sxx = 0, sxy = 0, syy = 0;
+  for (let i = 0; i < n; i++) { sxx += (xs[i] - mx) ** 2; sxy += (xs[i] - mx) * (ys[i] - my); syy += (ys[i] - my) ** 2; }
+  if (sxx === 0) return null;
+  const m = sxy / sxx, c = my - m * mx;
+  let ss = 0; for (let i = 0; i < n; i++) ss += (ys[i] - m * xs[i] - c) ** 2;
+  return { m, c, r2: syy > 0 ? 1 - ss / syy : 1, se: n > 2 ? Math.sqrt(ss / (n - 2) / sxx) : 0, n };
+}
+// Format a number to about 3 significant figures, in a student-friendly way
+function fmt(v, sig = 3) {
+  if (v === null || v === undefined || Number.isNaN(v)) return "–";
+  if (!Number.isFinite(v)) return v > 0 ? "∞" : "−∞";
+  if (v === 0) return "0";
+  const a = Math.abs(v);
+  if (a >= 1e5 || a < 1e-3) { const e = Math.floor(Math.log10(a)); const m = v / 10 ** e; return `${(+m.toPrecision(sig)).toString()}×10${sup(e)}`; }
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return (+v.toFixed(Math.min(6, d))).toLocaleString("en-GB", { maximumFractionDigits: Math.min(6, d) }).replace("-", "−");
+}
+function sup(n) { const m = { "-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹" }; return String(n).split("").map(c => m[c] || c).join(""); }
+function niceStep(range, n) { const raw = range / n, p = 10 ** Math.floor(Math.log10(raw)), f = raw / p; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+function linTicks(a, b, n) { const s = niceStep(b - a || 1, n); const out = []; for (let v = Math.ceil(a / s - 1e-9) * s; v <= b + s * 1e-9; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v); return out; }
+function logTicks(a, b) {
+  const out = [], e0 = Math.floor(Math.log10(a)), e1 = Math.ceil(Math.log10(b)), dec = e1 - e0;
+  const mult = dec <= 1 ? [1, 2, 3, 5] : dec <= 3 ? [1, 2, 5] : [1];
+  const step = dec > 8 ? 2 : 1;
+  for (let e = e0; e <= e1; e += step) for (const m of mult) { const v = m * 10 ** e; if (v >= a * 0.999 && v <= b * 1.001) out.push(v); }
+  return out;
+}
+function prepCanvas(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(2, Math.round(c.clientWidth * dpr)), H = Math.max(2, Math.round(c.clientHeight * dpr));
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  const ctx = c.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: W / dpr, h: H / dpr, dpr };
+}
+/* A general-purpose x–y chart.
+   o.series: [{ pts: [[x, y], …], color, width, dash, type: "line" | "dots" | "bars" (pts [x0, x1, y]) , fill }]
+   o.err: [{ x, lo, hi, color }]   o.vLines / o.hLines: [{ v, color, label, dash }]   o.bands: [{ x0, x1, color }]
+   o.xLog, o.yLog: logarithmic axes.  o.legend: [{ color, label, dash, dot }] */
+function plot(c, o) {
+  const { ctx, w, h } = prepCanvas(c);
+  ctx.fillStyle = o.bg || "#10130e"; ctx.fillRect(0, 0, w, h);
+  const L = o.padL || 50, R = o.padR || 12, T = o.padT || 10, B = o.padB || 32;
+  // data ranges
+  let xs = [], ys = [];
+  for (const s of o.series || []) for (const p of s.pts) {
+    if (s.type === "bars") { xs.push(p[0], p[1]); ys.push(p[2]); } else { xs.push(p[0]); ys.push(p[1]); }
+  }
+  for (const e of o.err || []) { xs.push(e.x); ys.push(e.lo, e.hi); }
+  const ok = (v, lg) => Number.isFinite(v) && (!lg || v > 0);
+  xs = xs.filter(v => ok(v, o.xLog)); ys = ys.filter(v => ok(v, o.yLog));
+  for (const l of o.hLines || []) if (ok(l.v, o.yLog) && l.fit !== false) ys.push(l.v);
+  let x0 = o.xMin ?? Math.min(...xs), x1 = o.xMax ?? Math.max(...xs), y0 = o.yMin ?? Math.min(...ys), y1 = o.yMax ?? Math.max(...ys);
+  if (!Number.isFinite(x0) || !Number.isFinite(x1)) { x0 = o.xLog ? 1 : 0; x1 = o.xLog ? 10 : 1; }
+  if (!Number.isFinite(y0) || !Number.isFinite(y1)) { y0 = o.yLog ? 1 : 0; y1 = o.yLog ? 10 : 1; }
+  if (x1 <= x0) { if (o.xLog) { x0 /= 2; x1 *= 2; } else { x0 -= 0.5; x1 += 0.5; } }
+  if (y1 <= y0) { if (o.yLog) { y0 /= 2; y1 *= 2; } else { y0 -= Math.abs(y0) * 0.1 + 0.5; y1 += Math.abs(y1) * 0.1 + 0.5; } }
+  if (!o.yLog && o.yMin === undefined && o.yMax === undefined) { const p = (y1 - y0) * 0.06; y0 -= p; y1 += p; }
+  else if (!o.yLog && o.yMax === undefined) y1 += (y1 - y0) * 0.06;
+  if (o.yLog && o.yMin === undefined) { y0 /= 1.25; y1 *= 1.25; }
+  if (o.xPad && !o.xLog) { const p = (x1 - x0) * o.xPad; x0 -= p; x1 += p; }
+  if (o.xPad && o.xLog) { x0 /= 1.15; x1 *= 1.15; }
+  const tx = v => o.xLog ? Math.log10(v) : v, ty = v => o.yLog ? Math.log10(v) : v;
+  const X = v => L + (tx(v) - tx(x0)) / (tx(x1) - tx(x0)) * (w - L - R);
+  const Y = v => h - B - (ty(v) - ty(y0)) / (ty(y1) - ty(y0)) * (h - T - B);
+  ctx.font = "10.5px system-ui"; ctx.lineWidth = 1;
+  // shaded bands
+  for (const b of o.bands || []) { ctx.fillStyle = b.color; const a = Math.max(L, X(Math.max(b.x0, x0))), z = Math.min(w - R, X(Math.min(b.x1, x1))); if (z > a) ctx.fillRect(a, T, z - a, h - T - B); }
+  // grid and tick labels
+  const yt = o.yLog ? logTicks(y0, y1) : linTicks(y0, y1, Math.max(2, Math.floor((h - T - B) / 32)));
+  const xt = o.xLog ? logTicks(x0, x1) : linTicks(x0, x1, Math.max(2, Math.floor((w - L - R) / 70)));
+  ctx.strokeStyle = "rgba(160,170,150,0.14)"; ctx.fillStyle = "#a3ab96";
+  ctx.textAlign = "right";
+  for (const v of yt) { const y = Y(v); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke(); ctx.fillText(fmt(v, 3), L - 4, y + 3.5); }
+  ctx.textAlign = "center";
+  let lastX = -1e9;
+  for (const v of xt) { const x = X(v); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, h - B); ctx.stroke(); const s = (o.xFmt || fmt)(v, 3); const tw = ctx.measureText(s).width; if (x - tw / 2 > lastX + 4) { ctx.fillText(s, x, h - B + 13); lastX = x + tw / 2; } }
+  ctx.strokeStyle = "rgba(200,205,190,0.5)"; ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, h - B); ctx.lineTo(w - R, h - B); ctx.stroke();
+  // axis titles
+  ctx.fillStyle = "#c9cfbd"; ctx.font = "11px system-ui";
+  if (o.xLabel) { ctx.textAlign = "center"; ctx.fillText(o.xLabel, (L + w - R) / 2, h - 5); }
+  if (o.yLabel) { ctx.save(); ctx.translate(11, (T + h - B) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText(o.yLabel, 0, 0); ctx.restore(); }
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T - 2, w - L - R, h - T - B + 4); ctx.clip();
+  // series
+  for (const s of o.series || []) {
+    ctx.strokeStyle = s.color; ctx.fillStyle = s.color; ctx.lineWidth = s.width || 2; ctx.setLineDash(s.dash || []);
+    if (s.type === "bars") {
+      for (const [a, b, v] of s.pts) { if (!ok(v, o.yLog)) continue; const yb = o.yLog ? h - B : Y(Math.max(y0, 0)); ctx.fillStyle = s.colorFn ? s.colorFn(a, b, v) : s.color; ctx.fillRect(X(a) + 0.5, Y(v), Math.max(1, X(b) - X(a) - 1), yb - Y(v)); }
+    } else if (s.type === "dots") {
+      const r = s.r || 3;
+      for (const [x, y] of s.pts) if (ok(x, o.xLog) && ok(y, o.yLog)) { ctx.beginPath(); ctx.arc(X(x), Y(y), r, 0, 7); ctx.fill(); }
+    } else {
+      ctx.beginPath(); let on = false;
+      for (const [x, y] of s.pts) { if (!ok(x, o.xLog) || !ok(y, o.yLog)) { on = false; continue; } if (on) ctx.lineTo(X(x), Y(y)); else ctx.moveTo(X(x), Y(y)); on = true; }
+      if (s.fill && s.pts.length) { ctx.save(); ctx.lineTo(X(s.pts[s.pts.length - 1][0]), h - B); ctx.lineTo(X(s.pts[0][0]), h - B); ctx.closePath(); ctx.fillStyle = s.fill; ctx.fill(); ctx.restore(); ctx.beginPath(); on = false; for (const [x, y] of s.pts) { if (!ok(y, o.yLog)) { on = false; continue; } if (on) ctx.lineTo(X(x), Y(y)); else ctx.moveTo(X(x), Y(y)); on = true; } }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+  for (const e of o.err || []) {
+    if (!ok(e.x, o.xLog)) continue; const lo = o.yLog ? Math.max(e.lo, y0) : e.lo;
+    ctx.strokeStyle = e.color || "#eee"; ctx.lineWidth = 1.5; const x = X(e.x);
+    ctx.beginPath(); ctx.moveTo(x, Y(lo)); ctx.lineTo(x, Y(e.hi)); ctx.moveTo(x - 4, Y(lo)); ctx.lineTo(x + 4, Y(lo)); ctx.moveTo(x - 4, Y(e.hi)); ctx.lineTo(x + 4, Y(e.hi)); ctx.stroke();
+  }
+  ctx.restore();
+  ctx.font = "10.5px system-ui";
+  for (const l of o.vLines || []) { if (!ok(l.v, o.xLog) || l.v < x0 || l.v > x1) continue; const x = X(l.v); ctx.strokeStyle = l.color; ctx.lineWidth = l.width || 1.5; ctx.setLineDash(l.dash || []); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, h - B); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color; ctx.textAlign = x > (L + w) / 2 ? "right" : "left"; ctx.fillText(l.label, x + (x > (L + w) / 2 ? -4 : 4), T + 11 + (l.row || 0) * 12); } }
+  for (const l of o.hLines || []) { if (!ok(l.v, o.yLog) || l.v < y0 || l.v > y1) continue; const y = Y(l.v); ctx.strokeStyle = l.color; ctx.lineWidth = l.width || 1.5; ctx.setLineDash(l.dash || []); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color; ctx.textAlign = "right"; ctx.fillText(l.label, w - R - 4, y - 4); } }
+  // legend (top-left inside the plot, or top-right if asked)
+  if (o.legend && o.legend.length && o.legendRow) {
+    // one row of legend items above the plot area
+    ctx.font = "11px system-ui"; ctx.textAlign = "left"; let lx = L;
+    for (const g of o.legend) {
+      const y = 9; ctx.strokeStyle = g.color; ctx.fillStyle = g.color; ctx.lineWidth = 2;
+      if (g.dot) { ctx.beginPath(); ctx.arc(lx + 10, y, 3.5, 0, 7); ctx.fill(); }
+      else if (g.box) ctx.fillRect(lx + 3, y - 5, 14, 10);
+      else { ctx.setLineDash(g.dash || []); ctx.beginPath(); ctx.moveTo(lx, y); ctx.lineTo(lx + 20, y); ctx.stroke(); ctx.setLineDash([]); }
+      ctx.fillStyle = "#dfe3d6"; ctx.fillText(g.label, lx + 26, y + 4); lx += 26 + ctx.measureText(g.label).width + 18;
+    }
+  } else if (o.legend && o.legend.length) {
+    ctx.font = "11px system-ui"; ctx.textAlign = "left";
+    const lw = Math.max(...o.legend.map(g => ctx.measureText(g.label).width)) + 30, lh = 15;
+    const lx = o.legendRight ? w - R - lw - 6 : L + 6, ly = T + 4;
+    ctx.fillStyle = "rgba(16,19,14,0.85)"; ctx.fillRect(lx - 3, ly - 2, lw + 6, o.legend.length * lh + 4);
+    o.legend.forEach((g, k) => {
+      const y = ly + k * lh + 8; ctx.strokeStyle = g.color; ctx.fillStyle = g.color; ctx.lineWidth = 2;
+      if (g.dot) { ctx.beginPath(); ctx.arc(lx + 10, y, 3.5, 0, 7); ctx.fill(); }
+      else if (g.box) ctx.fillRect(lx + 3, y - 5, 14, 10);
+      else { ctx.setLineDash(g.dash || []); ctx.beginPath(); ctx.moveTo(lx, y); ctx.lineTo(lx + 20, y); ctx.stroke(); ctx.setLineDash([]); }
+      ctx.fillStyle = "#dfe3d6"; ctx.fillText(g.label, lx + 26, y + 4);
+    });
+  }
+  return { X, Y, L, R, T, B, w, h, ctx, x0, x1, y0, y1 };
+}
+
+/* =====================================================================
+   BATCH RUNS — run the model many times with no drawing and compare
+   the results with theory.  Each simulation supplies a config object:
+     vars       – things that can be swept  {key, label, unit, min, max, log, int}
+     outcomes   – things that can be recorded {key, label, unit, multi}
+     baseParams() – the current settings;  runOnce(params, seed) – one run, returns {outcomeKey: value}
+     theory(key, params, stat) – theory value or null;  interpret(spec, fit) – extra text for a fit
+     experiments – one-click questions;  describe(params) – text listing the settings used
+   ===================================================================== */
+const Batch = (function () {
+  let cfg = null, overrides = {}, expIdx = -1, mode = "repeat", running = false, stopFlag = false, last = null;
+  const varOf = k => cfg.vars.find(v => v.key === k), outOf = k => cfg.outcomes.find(o => o.key === k);
+  function init(c) {
+    cfg = c;
+    el("bExps").innerHTML = "";
+    cfg.experiments.forEach((ex, i) => { const b = document.createElement("button"); b.innerHTML = `${ex.q}<small>${ex.sub || ""}</small>`; b.onclick = () => applyExp(i); el("bExps").appendChild(b); });
+    el("bN").innerHTML = cfg.repeatSizes.map(n => `<option value="${n}">${n}</option>`).join("");
+    el("bVar").innerHTML = cfg.vars.map(v => `<option value="${v.key}">${v.label}${v.unit ? " (" + v.unit + ")" : ""}</option>`).join("");
+    el("bOut").innerHTML = cfg.outcomes.map(o => `<option value="${o.key}">${o.label}${o.unit ? " (" + o.unit + ")" : ""}</option>`).join("");
+    el("bModeRepeat").onclick = () => setMode("repeat"); el("bModeSweep").onclick = () => setMode("sweep");
+    el("bVar").onchange = () => { const v = varOf(el("bVar").value); el("bFrom").value = v.from ?? v.min; el("bTo").value = v.to ?? v.max; el("bX").value = v.log ? "log" : "lin"; showFixed(); };
+    for (const id of ["bOut", "bX", "bY", "bStat"]) el(id).onchange = () => { if (last) render(); };
+    el("bRun").onclick = run; el("bStop").onclick = () => { stopFlag = true; };
+    el("bClose").onclick = close;
+    el("bCsv").onclick = e => { e.preventDefault(); csv(); };
+    window.addEventListener("resize", () => { if (last && el("batch").classList.contains("open")) render(); });
+    setMode("repeat"); el("bVar").onchange(); el("bReps").value = 3; el("bSteps").value = 6;
+    applyExp(0, true);
+  }
+  function setMode(m) {
+    mode = m; el("bModeRepeat").classList.toggle("on", m === "repeat"); el("bModeSweep").classList.toggle("on", m === "sweep");
+    document.querySelectorAll("#batch .repOnly").forEach(e => e.style.display = m === "repeat" ? "" : "none");
+    document.querySelectorAll("#batch .swOnly").forEach(e => e.style.display = m === "sweep" ? "" : "none");
+    if (last) render();
+  }
+  function applyExp(i, quiet) {
+    const ex = cfg.experiments[i]; expIdx = i;
+    [...el("bExps").children].forEach((b, k) => b.classList.toggle("on", k === i));
+    overrides = { ...(ex.params || {}) };
+    setMode(ex.mode);
+    if (ex.mode === "repeat") { if (![...el("bN").options].some(o => +o.value === ex.n)) el("bN").insertAdjacentHTML("beforeend", `<option value="${ex.n}">${ex.n}</option>`); el("bN").value = ex.n; }
+    else { el("bVar").value = ex.var; el("bFrom").value = ex.from; el("bTo").value = ex.to; el("bSteps").value = ex.steps; el("bReps").value = ex.reps; el("bX").value = ex.x || "lin"; el("bY").value = ex.y || "lin"; el("bStat").value = ex.stat || "mean"; }
+    el("bOut").value = ex.out;
+    el("bNote").innerHTML = `<p><b>${ex.q}</b></p>${ex.note || ""}`;
+    showFixed();
+    if (!quiet) { el("bStatus").textContent = "Ready: press Run."; }
+  }
+  function params() { return { ...cfg.baseParams(), ...overrides }; }
+  function showFixed() {
+    const ov = Object.keys(overrides).length;
+    el("bFixed").innerHTML = `Settings for every run${ov ? " (set by this experiment)" : " (from the left panel)"}: ${cfg.describe(params())}${ov ? ` · <a href="#" id="bUseMine" class="dl">use my own settings instead</a>` : ""}${cfg.headlessNote ? "<br>" + cfg.headlessNote : ""}`;
+    const u = el("bUseMine"); if (u) u.onclick = e => { e.preventDefault(); overrides = {}; showFixed(); };
+  }
+  function readSpec() {
+    const s = { mode, out: el("bOut").value, x: el("bX").value, y: el("bY").value, stat: el("bStat").value, seed: Math.round(+el("bSeed").value || 1), params: params() };
+    if (mode === "repeat") s.n = +el("bN").value;
+    else {
+      s.var = el("bVar").value; const v = varOf(s.var);
+      let a = +el("bFrom").value, b = +el("bTo").value; const n = Math.max(2, Math.min(25, Math.round(+el("bSteps").value || 5)));
+      a = Math.max(v.min, Math.min(v.max, a)); b = Math.max(v.min, Math.min(v.max, b));
+      const geo = (v.log || s.x === "log") && a > 0 && b > 0;
+      let xs = []; for (let k = 0; k < n; k++) { const f = k / (n - 1); xs.push(geo ? a * (b / a) ** f : a + (b - a) * f); }
+      if (v.int) xs = [...new Set(xs.map(Math.round))]; else xs = xs.map(x => +x.toPrecision(6));
+      s.xs = xs; s.reps = Math.max(1, Math.min(200, Math.round(+el("bReps").value || 1)));
+    }
+    return s;
+  }
+  function run() {
+    if (running) return;
+    const spec = readSpec(); const jobs = [];
+    if (spec.mode === "repeat") for (let k = 0; k < spec.n; k++) jobs.push({ x: null, seed: spec.seed + k });
+    else { let k = 0; for (const x of spec.xs) for (let r = 0; r < spec.reps; r++) jobs.push({ x, seed: spec.seed + k++ }); }
+    last = { spec, rows: [], total: jobs.length, done: false };
+    running = true; stopFlag = false; el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").style.display = "none";
+    const t0 = performance.now(); let j = 0, lastDraw = 0;
+    function chunk() {
+      const tc = performance.now();
+      while (j < jobs.length && !stopFlag && performance.now() - tc < 45) {
+        const job = jobs[j++], p = { ...spec.params };
+        if (job.x !== null) p[spec.var] = job.x;
+        let out; try { out = cfg.runOnce(p, job.seed); } catch (e) { console.error(e); out = {}; }
+        last.rows.push({ x: job.x, seed: job.seed, out });
+      }
+      el("bProg").firstElementChild.style.width = (100 * j / jobs.length).toFixed(1) + "%";
+      const secs = (performance.now() - t0) / 1000, eta = j ? secs / j * (jobs.length - j) : 0;
+      el("bStatus").textContent = `Run ${j} of ${jobs.length} · ${secs.toFixed(1)} s` + (j < jobs.length ? ` · about ${Math.ceil(eta)} s to go` : "");
+      if (performance.now() - lastDraw > 400) { render(); lastDraw = performance.now(); }
+      if (j < jobs.length && !stopFlag) setTimeout(chunk, 0);
+      else {
+        running = false; last.done = true; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").style.display = "";
+        el("bStatus").textContent = `${stopFlag ? "Stopped after" : "Finished"} ${j} runs in ${secs.toFixed(1)} s.`; render();
+      }
+    }
+    setTimeout(chunk, 10);
+  }
+  const outVals = (row, key, multi) => { const v = row.out[key]; return multi ? (Array.isArray(v) ? v : []) : [v]; };
+  function render() {
+    if (!last) return;
+    const spec = last.spec, key = el("bOut").value, O = outOf(key), unit = O.unit ? ` (${O.unit})` : "";
+    el("bTitle").textContent = spec.mode === "repeat" ? `Repeat: ${O.label}` : `Sweep: ${O.label} against ${varOf(spec.var).label}`;
+    el("bSub").textContent = `${last.rows.length} of ${last.total} runs`;
+    const theoryCol = "#4fc3f7", dataCol = "#f1af28";
+    if (spec.mode === "repeat") {
+      const vals = last.rows.flatMap(r => outVals(r, key, O.multi)).filter(Number.isFinite);
+      const th = cfg.theory(key, spec.params, "mean");
+      const n = vals.length, m = mean(vals), s = sd(vals), se = n > 1 ? s / Math.sqrt(n) : NaN;
+      let lo = Math.min(...vals), hi = Math.max(...vals);
+      const series = [], legend = [];
+      if (n) {
+        if (hi === lo) { lo -= 0.5; hi += 0.5; }
+        const nb = Math.max(5, Math.min(30, Math.round(Math.sqrt(n) * 1.3))), bw = (hi - lo) / nb, cnt = new Array(nb).fill(0);
+        for (const v of vals) cnt[Math.min(nb - 1, Math.floor((v - lo) / bw))]++;
+        series.push({ type: "bars", color: "rgba(241,175,40,0.75)", pts: cnt.map((c, k) => [lo + k * bw, lo + (k + 1) * bw, c]) });
+        legend.push({ box: true, color: "rgba(241,175,40,0.75)", label: `results (${n})` });
+      }
+      const vLines = [];
+      if (n) { vLines.push({ v: m, color: "#fff", label: `mean ${fmt(m)}`, row: 0 }); legend.push({ color: "#fff", label: "mean of runs" }); }
+      if (th !== null && th !== undefined && Number.isFinite(th)) { vLines.push({ v: th, color: theoryCol, dash: [6, 4], label: `theory ${fmt(th)}`, row: 1, width: 2.5 }); legend.push({ color: theoryCol, dash: [6, 4], label: "theory" }); }
+      const xMin = Math.min(lo, th ?? lo), xMax = Math.max(hi, th ?? hi), padx = (xMax - xMin) * 0.05 || 0.5;
+      plot(el("bChart"), { series, vLines, legend, legendRight: true, xMin: xMin - padx, xMax: xMax + padx, yMin: 0, xLabel: `${O.label}${unit}`, yLabel: O.multi ? "number of crystals" : "number of runs", padT: 34 });
+      const diff = th !== null && Number.isFinite(th) && n ? `${fmt(100 * (m - th) / th, 2)}% · ${fmt((m - th) / se, 2)} SE` : "–";
+      el("bSummary").innerHTML = `<table><tr><th>Measure</th><th>Value</th></tr>
+        <tr><td>n (${O.multi ? "values" : "runs"})</td><td>${n}</td></tr><tr><td>Mean</td><td>${fmt(m, 4)}</td></tr><tr><td>Standard deviation (SD)</td><td>${fmt(s, 3)}</td></tr>
+        <tr><td>Standard error (SD/√n)</td><td>${fmt(se, 3)}</td></tr><tr><td>Min · max</td><td>${fmt(lo, 3)} · ${fmt(hi, 3)}</td></tr>
+        <tr><td>Theory</td><td>${th !== null && th !== undefined && Number.isFinite(th) ? fmt(th, 4) : "none"}</td></tr><tr><td>Mean − theory</td><td>${diff}</td></tr></table>
+        ${cfg.interpret ? cfg.interpret(spec, null, { vals, m, s, key }) || "" : ""}`;
+      return;
+    }
+    // ---- sweep ----
+    const V = varOf(spec.var), xt = spec.x, yt = spec.y, stat = spec.stat;
+    const groups = spec.xs.map(x => { const v = last.rows.filter(r => r.x === x).flatMap(r => outVals(r, key, O.multi)).filter(Number.isFinite); return { x, vals: v, n: v.length, m: mean(v), s: sd(v) }; }).filter(g => g.n);
+    const TX = x => xt === "inv" ? 1 / x : x, TY = y => yt === "ln" ? (y > 0 ? Math.log(y) : NaN) : y;
+    const yOf = g => stat === "sd" ? g.s : g.m;
+    const series = [], err = [], legend = [];
+    if (stat === "mean") {
+      series.push({ type: "dots", color: "rgba(241,175,40,0.35)", r: 2, pts: last.rows.flatMap(r => outVals(r, key, O.multi).map(v => [TX(r.x), TY(v)])) });
+      for (const g of groups) if (g.n > 1) err.push({ x: TX(g.x), lo: TY(Math.max(g.m - g.s, yt === "lin" ? -Infinity : g.m * 0.02)), hi: TY(g.m + g.s), color: "#f6d48a" });
+    }
+    series.push({ type: "dots", color: dataCol, r: 4.5, pts: groups.map(g => [TX(g.x), TY(yOf(g))]) });
+    legend.push({ dot: true, color: dataCol, label: stat === "sd" ? "SD of the repeats" : "mean of repeats (bars: ±1 SD)" });
+    // theory curve
+    const thPts = [], a = spec.xs[0], b = spec.xs[spec.xs.length - 1], geo = (V.log || xt === "log") && a > 0;
+    for (let k = 0; k <= 80; k++) { const f = k / 80, x = geo ? a * (b / a) ** f : a + (b - a) * f; const v = cfg.theory(key, { ...spec.params, [spec.var]: x }, stat); if (v !== null && v !== undefined && Number.isFinite(v)) thPts.push([TX(x), TY(v)]); }
+    if (thPts.length) { series.unshift({ type: "line", color: theoryCol, width: 2.5, dash: [7, 4], pts: thPts }); legend.push({ color: theoryCol, dash: [7, 4], label: cfg.theoryLabel ? cfg.theoryLabel(key, stat) : "theory" }); }
+    // straight-line fit on the axes as drawn
+    const fx = [], fy = [];
+    for (const g of groups) { let X = TX(g.x), Y = TY(yOf(g)); if (xt === "log") X = X > 0 ? Math.log10(X) : NaN; if (yt === "log") Y = Y > 0 ? Math.log10(Y) : NaN; if (Number.isFinite(X) && Number.isFinite(Y)) { fx.push(X); fy.push(Y); } }
+    const fit = fx.length >= 3 && !(cfg.noFit || []).includes(key) ? fitLine(fx, fy) : null;   // no straight line for yes/no outcomes
+    if (fit) {
+      const pts = []; const xa = Math.min(...fx), xb = Math.max(...fx);
+      for (let k = 0; k <= 20; k++) { const X = xa + (xb - xa) * k / 20; let px = xt === "log" ? 10 ** X : X, py = fit.m * X + fit.c; if (yt === "log") py = 10 ** py; pts.push([px, py]); }
+      series.push({ type: "line", color: "#e83181", width: 1.6, pts }); legend.push({ color: "#e83181", label: "best-fit straight line" });
+    }
+    const vl = V.label + (V.unit ? ` (${V.unit})` : "");
+    const xLabel = xt === "inv" ? `1 / ${V.label}  (${V.unit ? V.unit + "⁻¹" : "1/units"})` : vl;
+    const yBase = stat === "sd" ? `SD of ${O.label}` : O.label;
+    const yLabel = yt === "ln" ? `ln(${yBase}${O.unit ? " / " + O.unit : ""})` : yBase + unit;
+    plot(el("bChart"), { series, err, legend, xLog: xt === "log", yLog: yt === "log", xLabel, yLabel, xPad: 0.04, padT: 26, legendRow: true });
+    let rowsHtml = groups.map(g => { const th = cfg.theory(key, { ...spec.params, [spec.var]: g.x }, stat); const se = g.n > 1 ? g.s / Math.sqrt(g.n) : NaN; const y = yOf(g);
+      const d = th !== null && Number.isFinite(th) ? (th !== 0 ? `${fmt(100 * (y - th) / Math.abs(th), 2)}%` : (y === 0 ? "0" : "–")) + (stat === "mean" && g.n > 1 && se > 0 ? ` · ${fmt((g.m - th) / se, 2)} SE` : "") : "–";
+      return `<tr><td>${fmt(g.x, 4)}</td><td>${g.n}</td><td>${fmt(g.m, 4)}</td><td>${fmt(g.s, 3)}</td><td>${fmt(se, 3)}</td><td>${th !== null && Number.isFinite(th) ? fmt(th, 4) : "–"}</td><td>${d}</td></tr>`; }).join("");
+    const fitTxt = fit ? `<p class="fitline">Best-fit line on these axes: gradient = ${fmt(fit.m, 4)} ± ${fmt(fit.se, 2)}, intercept ${fmt(fit.c, 4)}, R² = ${fit.r2.toFixed(3)}</p>` : "";
+    el("bSummary").innerHTML = `${fitTxt}${cfg.interpret ? cfg.interpret(spec, fit, { groups, key }) || "" : ""}<table><tr><th>${V.label}</th><th>n</th><th>mean</th><th>SD</th><th>SE</th><th>theory</th><th>difference</th></tr>${rowsHtml}</table>`;
+  }
+  function csv() {
+    if (!last) return;
+    const spec = last.spec, scal = cfg.outcomes.filter(o => !o.multi), multi = cfg.outcomes.filter(o => o.multi);
+    const head = ["run", "seed"].concat(spec.mode === "sweep" ? [spec.var] : []).concat(scal.map(o => o.key + (o.unit ? ` (${o.unit})` : ""))).concat(multi.map(o => o.key + " (all values, space separated)"));
+    const lines = [head.map(h => `"${h}"`).join(",")];
+    last.rows.forEach((r, i) => lines.push([i + 1, r.seed].concat(spec.mode === "sweep" ? [r.x] : []).concat(scal.map(o => r.out[o.key] ?? "")).concat(multi.map(o => `"${(r.out[o.key] || []).map(v => +(+v).toPrecision(5)).join(" ")}"`)).join(",")));
+    const blob = new Blob([lines.join("\r\n")], { type: "text/csv" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${cfg.file || "batch"}-${spec.mode}.csv`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function open() { el("batch").classList.add("open"); showFixed(); if (last) render(); else plot(el("bChart"), { series: [], xLabel: "", yLabel: "" }); }
+  function close() { el("batch").classList.remove("open"); }
+  return { init, open, close, applyExp, run, get last() { return last; }, get running() { return running; } };
+})();
+
+/* =====================================================================
+   PANEL LAYOUT — resize or hide the side panels (remembered in this browser)
+   ===================================================================== */
+function initPanels(KEY, onChange) {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const STRIP = 30, MIN = 200, DEF = { lw: 290, rw: 330, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+    if (onChange) onChange();
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+}
+// Slider helper: link a range input to its <output>, with a formatter
+function bindSlider(id, f, onInput) {
+  const i = el(id), o = el("o_" + id);
+  const upd = () => { if (o) o.textContent = f(+i.value); if (onInput) onInput(+i.value); };
+  i.addEventListener("input", upd); upd(); return upd;
+}
+/* =====================================================================
+   1. CONSTANTS AND UNITS
+   ---------------------------------------------------------------------
+   Lengths in nanometres (nm), time in picoseconds (ps), masses in g/mol,
+   energies in kJ/mol, temperature in kelvin (K).
+   A handy fact: 1 g/mol × (1 nm/ps)² = 1 kJ/mol, so ½mv² comes out
+   directly in kJ/mol.
+   ===================================================================== */
+const R_GAS = 0.008314;          // gas constant, kJ per mol per K
+const BOX_W = 40, BOX_H = 25;    // the full container, nm
+const BATH_RATE = 0.3;          // bumps from the solvent, per particle per ps
+const CAT_FACTOR = 0.5;          // a catalyst halves the activation energy in this model
+const DH = -30;                  // enthalpy change of the reaction (kJ/mol), for the energy diagram only
+// Species: mass (g/mol), radius (nm), colour
+const SP = [
+  { key: "A", name: "A", m: 30, r: 0.3, col: "#00aec3" },
+  { key: "B", name: "B", m: 30, r: 0.3, col: "#e83181" },
+  { key: "C", name: "C", m: 30, r: 0.3, col: "#f1af28" },
+  { key: "D", name: "D", m: 30, r: 0.3, col: "#76b82a" },
+  { key: "S", name: "solid", m: Infinity, r: 0.3, col: "#abb5b5" },
+];
+const A = 0, B = 1, C = 2, D = 3, S = 4;
+const C2 = { m: 60, r: 0.4 };    // the bigger product when A + B → C (one particle)
+
+// Mean relative speed of two particles in 2D, nm/ps: √(πRT / 2μ)
+const vRel = (T, mu) => Math.sqrt(Math.PI * R_GAS * T / (2 * mu));
+// Henderson's contact value for hard discs: collisions are a little more
+// frequent in a crowded gas than the simple formula says
+const gContact = phi => (1 - 7 * phi / 16) / ((1 - phi) * (1 - phi));
+// Solid lumps: n pieces made from 64 solid particles
+const PIECES = { 1: 8, 4: 4, 16: 2, 64: 1 };   // pieces → particles along each side
+// Only 1, 4, 16 or 64 pieces are possible: round any other number to the nearest of these
+const validPieces = n => [1, 4, 16, 64].reduce((b, v) => Math.abs(Math.log(v / Math.max(1, n))) < Math.abs(Math.log(b / Math.max(1, n))) ? v : b, 1);
+
+/* =====================================================================
+   2. THE WORLD: particles in a box
+   ===================================================================== */
+class World {
+  constructor(p, seed) {
+    this.p = { ...p };
+    this.rng = mulberry32(hashSeed("ct" + seed));
+    const cap = 700;
+    this.x = new Float64Array(cap); this.y = new Float64Array(cap); this.vx = new Float64Array(cap); this.vy = new Float64Array(cap);
+    this.ang = new Float64Array(cap); this.angv = new Float64Array(cap);
+    this.type = new Uint8Array(cap); this.m = new Float64Array(cap); this.r = new Float64Array(cap); this.alive = new Uint8Array(cap);
+    this.tag = new Uint8Array(cap);
+    this.n = 0; this.t = 0;
+    this.W = BOX_W * p.vol / 100;
+    this.coll = 0; this.collHigh = 0; this.success = 0; this.reactions = 0; this.rxTimes = [];
+    this.energies = []; this.events = []; this.flashes = [];
+    this.n0 = { A: 0, B: 0, S: 0 };
+    this.build();
+  }
+  add(type, x, y) {
+    const i = this.n++, s = SP[type], T = this.p.T, rng = this.rng;
+    this.x[i] = x; this.y[i] = y; this.type[i] = type; this.alive[i] = 1;
+    this.m[i] = s.m; this.r[i] = s.r;
+    if (type === S) { this.vx[i] = this.vy[i] = 0; }
+    else { const sig = Math.sqrt(R_GAS * T / s.m); this.vx[i] = sig * gauss(rng); this.vy[i] = sig * gauss(rng); }
+    this.ang[i] = rng() * 2 * Math.PI; this.angv[i] = 1.5 * gauss(rng);
+    return i;
+  }
+  free(x, y, r) {
+    if (x < r || y < r || x > this.W - r || y > BOX_H - r) return false;
+    for (let j = 0; j < this.n; j++) if (this.alive[j]) { const dx = this.x[j] - x, dy = this.y[j] - y, rr = this.r[j] + r + 0.05; if (dx * dx + dy * dy < rr * rr) return false; }
+    return true;
+  }
+  build() {
+    const p = this.p, rng = this.rng;
+    if (p.surface) {
+      // Solid lumps: 64 particles in a square lattice, split into 1, 4, 16 or 64 pieces spread over the box
+      const k = PIECES[validPieces(p.pieces)], np = 64 / (k * k), d = 2 * SP[S].r;
+      const cols = Math.ceil(Math.sqrt(np * this.W / BOX_H)), rows = Math.ceil(np / cols);
+      for (let q = 0; q < np; q++) {
+        const cx = this.W * ((q % cols) + 0.5) / cols, cy = BOX_H * (Math.floor(q / cols) + 0.5) / rows;
+        for (let a = 0; a < k; a++) for (let b = 0; b < k; b++) this.add(S, cx + (a - (k - 1) / 2) * d, cy + (b - (k - 1) / 2) * d);
+      }
+      this.n0.S = 64;
+    }
+    const want = [[A, p.nA]].concat(p.surface ? [] : [[B, p.nB]]);
+    for (const [type, num] of want) for (let q = 0; q < num; q++) {
+      for (let tries = 0; tries < 400; tries++) { const x = 0.4 + rng() * (this.W - 0.8), y = 0.4 + rng() * (BOX_H - 0.8); if (this.free(x, y, SP[type].r)) { this.add(type, x, y); this.n0[SP[type].key]++; break; } }
+    }
+    this.cellSize = 1.0; this.gw = Math.ceil(BOX_W / this.cellSize) + 1; this.gh = Math.ceil(BOX_H / this.cellSize) + 1;
+    this.head = new Int32Array(this.gw * this.gh); this.next = new Int32Array(this.x.length);
+  }
+  EaEff() { return this.p.Ea * (this.p.cat ? CAT_FACTOR : 1); }
+  count(type) { let c = 0; for (let i = 0; i < this.n; i++) if (this.alive[i] && this.type[i] === type) c++; return c; }
+  // Time step small enough that the fastest particles move only a fraction of a radius
+  safeDt() { return Math.min(0.05, 0.05 / Math.sqrt(R_GAS * this.p.T / 30)); }
+  setVolume(vol) {
+    // Move the piston: particles beyond it are squeezed back inside
+    this.p.vol = vol; this.W = BOX_W * vol / 100;
+    for (let i = 0; i < this.n; i++) if (this.alive[i] && this.x[i] > this.W - this.r[i]) { this.x[i] = this.W - this.r[i] - this.rng() * 0.5; if (this.vx[i] > 0) this.vx[i] = -this.vx[i]; }
+  }
+  setTemperature(T) { this.p.T = T; }
+  /* ---------- one time step ---------- */
+  step(dt) {
+    const { x, y, vx, vy, r, alive, type, n } = this;
+    const W = this.W, H = BOX_H;
+    // (1) move every gas particle in a straight line; bounce off the walls
+    for (let i = 0; i < n; i++) {
+      if (!alive[i] || type[i] === S) continue;
+      x[i] += vx[i] * dt; y[i] += vy[i] * dt; this.ang[i] += this.angv[i] * dt;
+      if (x[i] < r[i]) { x[i] = 2 * r[i] - x[i]; vx[i] = Math.abs(vx[i]); }
+      if (x[i] > W - r[i]) { x[i] = 2 * (W - r[i]) - x[i]; vx[i] = -Math.abs(vx[i]); }
+      if (y[i] < r[i]) { y[i] = 2 * r[i] - y[i]; vy[i] = Math.abs(vy[i]); }
+      if (y[i] > H - r[i]) { y[i] = 2 * (H - r[i]) - y[i]; vy[i] = -Math.abs(vy[i]); }
+    }
+    // (2) find pairs that are touching, using a grid so we only check neighbours
+    const cs = this.cellSize, gw = this.gw, gh = this.gh, head = this.head, next = this.next;
+    head.fill(-1);
+    for (let i = 0; i < n; i++) if (alive[i]) { const cx = Math.min(gw - 1, Math.max(0, (x[i] / cs) | 0)), cy = Math.min(gh - 1, Math.max(0, (y[i] / cs) | 0)), c = cy * gw + cx; next[i] = head[c]; head[c] = i; }
+    for (let cy = 0; cy < gh; cy++) for (let cx = 0; cx < gw; cx++) {
+      for (let i = head[cy * gw + cx]; i >= 0; i = next[i]) {
+        for (let oy = 0; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+          if (oy === 0 && ox < 0) continue;
+          const nx = cx + ox, ny = cy + oy; if (nx < 0 || nx >= gw || ny >= gh) continue;
+          for (let j = (ox === 0 && oy === 0) ? next[i] : head[ny * gw + nx]; j >= 0; j = next[j]) this.pair(i, j);
+        }
+      }
+    }
+    // (3) the water bath: particles of an unreactive solvent (not drawn) bump into every particle now and
+    //     then, giving it a fresh random velocity for the set temperature (an "Andersen thermostat").
+    //     This keeps the Maxwell–Boltzmann spread of speeds even though reactions use up the fastest particles.
+    const pBath = 1 - Math.exp(-(this.p.bath ?? BATH_RATE) * dt);
+    for (let i = 0; i < n; i++) {
+      if (!alive[i] || type[i] === S || this.rng() >= pBath) continue;
+      const sig = Math.sqrt(R_GAS * this.p.T / this.m[i]);
+      vx[i] = sig * gauss(this.rng); vy[i] = sig * gauss(this.rng);
+    }
+    this.t += dt;
+  }
+  /* ---------- what happens when two particles touch ---------- */
+  pair(i, j) {
+    if (!this.alive[i] || !this.alive[j]) return;
+    const { x, y, vx, vy, type } = this;
+    const dx = x[j] - x[i], dy = y[j] - y[i], rr = this.r[i] + this.r[j], d2 = dx * dx + dy * dy;
+    if (d2 >= rr * rr || d2 === 0) return;
+    const dvx = vx[j] - vx[i], dvy = vy[j] - vy[i], app = dvx * dx + dvy * dy;
+    if (app >= 0) return;                                  // already moving apart
+    const ti = type[i], tj = type[j], mi = this.m[i], mj = this.m[j];
+    if (ti === S && tj === S) return;
+    // The discs are found slightly overlapping at the end of a time step. Wind the clock back to the
+    // exact moment they touched (solve |d + Δv·s| = r1 + r2 for s < 0), so the line of centres, and so
+    // the collision energy, is measured where it really was.
+    const a2 = dvx * dvx + dvy * dvy, disc = app * app - a2 * (d2 - rr * rr);
+    const s = a2 > 0 ? (-app - Math.sqrt(Math.max(0, disc))) / a2 : 0;   // s ≤ 0 (ps)
+    const fixI = ti === S, fixJ = tj === S;
+    if (!fixI) { x[i] += vx[i] * s; y[i] += vy[i] * s; }
+    if (!fixJ) { x[j] += vx[j] * s; y[j] += vy[j] * s; }
+    const cx = x[j] - x[i], cy = y[j] - y[i], cd = Math.hypot(cx, cy) || rr;
+    const nx = cx / cd, ny = cy / cd, vn = dvx * nx + dvy * ny;          // vn < 0: closing speed along the line of centres
+    // Reduced mass: for a collision with the fixed solid it is just the gas particle's mass
+    const mu = fixI ? mj : fixJ ? mi : mi * mj / (mi + mj);
+    // Elastic bounce: swap momentum along the line of centres
+    if (fixI) { vx[j] -= 2 * vn * nx; vy[j] -= 2 * vn * ny; }
+    else if (fixJ) { vx[i] += 2 * vn * nx; vy[i] += 2 * vn * ny; }
+    else { const fi = 2 * mj / (mi + mj), fj = 2 * mi / (mi + mj); vx[i] += fi * vn * nx; vy[i] += fi * vn * ny; vx[j] -= fj * vn * nx; vy[j] -= fj * vn * ny; }
+    // ...then run the clock forward again with the new velocities
+    if (!fixI) { x[i] -= vx[i] * s; y[i] -= vy[i] * s; }
+    if (!fixJ) { x[j] -= vx[j] * s; y[j] -= vy[j] * s; }
+    // Is this a collision between the two reactants?
+    let a = -1, other = -1;
+    if (this.p.surface) { if (ti === A && tj === S) { a = i; other = j; } else if (tj === A && ti === S) { a = j; other = i; } }
+    else { if (ti === A && tj === B) { a = i; other = j; } else if (tj === A && ti === B) { a = j; other = i; } }
+    if (a < 0) return;
+    // COLLISION ENERGY: the kinetic energy of the approach along the line of centres, ½ μ vn²
+    const E = 0.5 * mu * vn * vn;
+    this.coll++;
+    if (this.energies.length < 6000) this.energies.push(E); else this.energies[this.coll % 6000] = E;
+    const Ea = this.EaEff();
+    if (E < Ea) return;                                    // not enough energy: they just bounce
+    this.collHigh++;
+    if (this.p.orient) {
+      // A only reacts if its reactive end (the marked side) faces the other particle: ±60°, so 1 in 3 orientations work
+      const ux = Math.cos(this.ang[a]), uy = Math.sin(this.ang[a]);
+      const sx = a === i ? nx : -nx, sy = a === i ? ny : -ny;   // direction from A towards the other particle
+      if (ux * sx + uy * sy < 0.5) return;
+    }
+    this.react(a, other);
+  }
+  react(a, b) {
+    this.success++; this.reactions++; this.rxTimes.push(this.t);
+    this.flashes.push({ x: (this.x[a] + this.x[b]) / 2, y: (this.y[a] + this.y[b]) / 2, t: this.t });
+    if (this.p.noConsume) return;     // batch "fraction" experiment: count the reaction but keep the mixture unchanged
+    if (this.p.surface) { this.alive[b] = 0; this.type[a] = C; return; }
+    if (this.p.rxn === "C") {
+      // A + B → C: one bigger particle; momentum is conserved
+      const mA = this.m[a], mB = this.m[b], M = mA + mB;
+      this.vx[a] = (mA * this.vx[a] + mB * this.vx[b]) / M; this.vy[a] = (mA * this.vy[a] + mB * this.vy[b]) / M;
+      this.x[a] = (this.x[a] + this.x[b]) / 2; this.y[a] = (this.y[a] + this.y[b]) / 2;
+      this.m[a] = C2.m; this.r[a] = C2.r; this.type[a] = C; this.alive[b] = 0;
+    } else { this.type[a] = C; this.type[b] = D; }
+  }
+  limiting() { return this.p.surface ? Math.min(this.n0.A, this.n0.S) : Math.min(this.n0.A, this.n0.B); }
+}
+
+/* =====================================================================
+   3. COLLISION THEORY PREDICTIONS
+   ===================================================================== */
+function solidPerimeter(p) {
+  // Effective length of solid surface a gas particle can hit: a rounded square around each lump
+  const k = PIECES[validPieces(p.pieces)], np = 64 / (k * k), rs = SP[S].r, ra = SP[A].r;
+  return np * (4 * 2 * rs * (k - 1) + 2 * Math.PI * (rs + ra));
+}
+const orientP = p => p.orient ? 1 / 3 : 1;
+const EaOf = p => p.Ea * (p.cat ? CAT_FACTOR : 1);
+// Fraction of collisions with enough energy (line-of-centres energy ≥ Ea): exactly e^(−Ea/RT) for hard discs
+const fracTheory = p => orientP(p) * Math.exp(-EaOf(p) / (R_GAS * p.T));
+// Rate constant k (nm² per ps) for A + B in the gas: k = 2d × mean relative speed × crowding factor × P × e^(−Ea/RT)
+function kTheory(p) {
+  const area = BOX_W * p.vol / 100 * BOX_H;
+  const phi = ((p.nA + p.nB) * Math.PI * 0.09) / area;
+  return 2 * (SP[A].r + SP[B].r) * vRel(p.T, SP[A].m * SP[B].m / (SP[A].m + SP[B].m)) * gContact(phi) * fracTheory(p);
+}
+// Collision frequency of A with B (collisions per ps) at the start
+function zTheory(p) {
+  const area = BOX_W * p.vol / 100 * BOX_H;
+  if (p.surface) return (p.nA - (measureK(p) - 1) / 2) / area * solidPerimeter(p) * Math.sqrt(R_GAS * p.T / (2 * Math.PI * SP[A].m));
+  const K = measureK(p) - 1;
+  return kTheory({ ...p, Ea: 0, orient: 0 }) * (p.nA - K / 2) * (p.nB - K / 2) / area;
+}
+// Initial rate (reactions per ns), allowing for reactant used up while it is measured
+function rateTheory(p) {
+  const area = BOX_W * p.vol / 100 * BOX_H;
+  const K = measureK(p) - 1;
+  if (p.surface) { const nA = p.nA - K / 2; return 1000 * nA / area * solidPerimeter(p) * Math.sqrt(R_GAS * p.T / (2 * Math.PI * SP[A].m)) * fracTheory(p); }
+  return 1000 * kTheory(p) * (p.nA - K / 2) * (p.nB - K / 2) / area;
+}
+// Time for half the limiting reactant to react (second order; equal amounts give t½ = 1 / (k[A]₀))
+function t50Theory(p) {
+  if (p.surface) return null;
+  const area = BOX_W * p.vol / 100 * BOX_H, k = kTheory(p) / area;   // per particle-pair per ps
+  const a = p.nA, b = p.nB;
+  if (Math.abs(a - b) < 1e-9) return 1 / (k * a);
+  const lo = Math.min(a, b), hi = Math.max(a, b);   // integrated rate law for unequal amounts
+  return Math.log((hi - lo / 2) / hi * lo / (lo / 2)) / (k * (hi - lo));
+}
+// How many reactions to wait for when measuring the initial rate: about 20% of the limiting reactant
+const measureK = p => Math.max(8, Math.round(0.2 * (p.surface ? Math.min(p.nA, 64) : Math.min(p.nA, p.nB))));
+
+/* =====================================================================
+   4. ONE HEADLESS RUN (for batch experiments): no drawing at all
+   ===================================================================== */
+function runOnce(p, seed) {
+  const w = new World(p, seed);
+  const K = measureK(p), half = Math.ceil(w.limiting() / 2), dt = w.safeDt();
+  const tMax = p.tMax || 6000, minColl = p.minColl || 0;
+  let tK = NaN, t50 = NaN, collK = 0;
+  while (w.t < tMax) {
+    w.step(dt);
+    if (Number.isNaN(tK) && w.reactions >= K) { tK = w.t; collK = w.coll; }
+    if (Number.isNaN(t50) && w.reactions >= half) t50 = w.t;
+    if (w.reactions >= w.limiting()) break;                       // everything has reacted
+    if (minColl) { if (w.coll >= minColl) break; continue; }     // measuring the fraction: stop after enough collisions
+    if (!Number.isNaN(t50)) break;
+    if (p.quick && !Number.isNaN(tK)) break;
+  }
+  const rate = !Number.isNaN(tK) ? 1000 * (K - 1) / tK : (w.reactions > 1 ? 1000 * (w.reactions - 0.5) / w.t : 1000 * 0.5 / w.t);
+  return { rate, t50, frac: 100 * w.success / Math.max(1, w.coll), fracE: 100 * w.collHigh / Math.max(1, w.coll), z: 1000 * (collK || w.coll) / (Number.isNaN(tK) ? w.t : tK) };
+}
+
+/* =====================================================================
+   5. SETTINGS FROM THE LEFT PANEL
+   ===================================================================== */
+const PIECE_STEPS = [1, 4, 16, 64];
+function params() {
+  const m = el("mode").value;
+  return { T: +el("T").value, vol: +el("vol").value, Ea: +el("Ea").value, cat: el("cat").checked ? 1 : 0, orient: el("orient").checked ? 1 : 0,
+           nA: +el("nA").value, nB: +el("nB").value, surface: m === "surface" ? 1 : 0, rxn: m === "C" ? "C" : "CD",
+           pieces: PIECE_STEPS[+el("pieces").value], seed: el("seed").value || "1" };
+}
+
+/* =====================================================================
+   6. PRESETS — each shows one idea
+   ===================================================================== */
+const BASE = { T: 400, vol: 100, Ea: 10, cat: false, orient: false, nA: 60, nB: 60, mode: "CD", pieces: 0 };
+const PRESETS = [
+  { name: "Standard", d: "400 K, 60 A + 60 B", s: {} },
+  { name: "Cold", d: "300 K: slower, fewer big hits", s: { T: 300 } },
+  { name: "Hot", d: "700 K: faster and harder hits", s: { T: 700 } },
+  { name: "Dilute", d: "25 A + 25 B", s: { nA: 25, nB: 25 } },
+  { name: "Concentrated", d: "130 A + 130 B", s: { nA: 130, nB: 130 } },
+  { name: "High pressure", d: "same gas, squeezed to 45%", s: { vol: 45 } },
+  { name: "High Ea", d: "Ea = 18 kJ/mol: few succeed", s: { Ea: 18, T: 500 } },
+  { name: "With catalyst", d: "Ea 18 → 9 kJ/mol", s: { Ea: 18, T: 500, cat: true } },
+  { name: "Right way round", d: "only 1 in 3 angles work", s: { orient: true } },
+  { name: "A + B → C", d: "particles join together", s: { mode: "C" } },
+  { name: "Solid lump", d: "one big lump of 64", s: { mode: "surface", pieces: 0, nA: 100 } },
+  { name: "Powder", d: "64 separate grains", s: { mode: "surface", pieces: 3, nA: 100 } },
+];
+let presetIdx = 0;
+function setPreset(k) {
+  presetIdx = k;
+  const s = { ...BASE, ...PRESETS[k].s };
+  for (const key of ["T", "vol", "Ea", "nA", "nB", "pieces"]) el(key).value = s[key];
+  el("cat").checked = s.cat; el("orient").checked = s.orient; el("mode").value = s.mode;
+  [...el("presets").children].forEach((b, i) => b.classList.toggle("on", i === k));
+  refreshOutputs(); resetWorld(); setRunning(true);
+}
+PRESETS.forEach((p, k) => { const b = document.createElement("button"); b.innerHTML = `${p.name}<small>${p.d}</small>`; b.onclick = () => setPreset(k); el("presets").appendChild(b); });
+
+/* =====================================================================
+   7. LIVE STATE
+   ===================================================================== */
+let world = null, running = false, speed = 1;
+let hist = [], tangent = null;                 // product vs time, and the initial-rate tangent
+const PS_PER_SECOND = 25;                      // at 1× speed, 25 ps of reaction pass every real second
+function resetWorld() {
+  world = new World(params(), params().seed);
+  hist = [{ t: 0, prod: 0, coll: 0, succ: 0 }]; tangent = null;
+}
+function setRunning(on) { running = on; el("btnPlay").textContent = on ? "❚❚ Pause" : "▶ Play"; }
+function refreshOutputs() {
+  el("o_T").textContent = `${el("T").value} K (${Math.round(+el("T").value - 273)} °C)`;
+  el("o_vol").textContent = `${el("vol").value}%`;
+  const Ea = +el("Ea").value;
+  el("o_Ea").textContent = el("cat").checked ? `${Ea} → ${(Ea * CAT_FACTOR).toFixed(1)} kJ/mol` : `${Ea} kJ/mol`;
+  el("o_nA").textContent = el("nA").value; el("o_nB").textContent = el("nB").value;
+  const pc = PIECE_STEPS[+el("pieces").value];
+  el("o_pieces").textContent = pc === 1 ? "1 lump" : pc === 64 ? "64 grains (powder)" : `${pc} pieces`;
+  const surf = el("mode").value === "surface";
+  el("ctlB").style.display = surf ? "none" : ""; el("ctlPieces").style.display = surf ? "" : "none";
+  legend();
+}
+// Live changes: apply to the running world without restarting
+for (const id of ["T", "vol", "Ea"]) el(id).addEventListener("input", () => { refreshOutputs(); if (!world) return; world.p.T = +el("T").value; world.p.Ea = +el("Ea").value; world.setVolume(+el("vol").value); });
+for (const id of ["cat", "orient"]) el(id).addEventListener("change", () => { refreshOutputs(); world.p.cat = el("cat").checked ? 1 : 0; world.p.orient = el("orient").checked ? 1 : 0; });
+// Structural changes: start again
+for (const id of ["nA", "nB", "pieces"]) el(id).addEventListener("input", () => { refreshOutputs(); resetWorld(); });
+for (const id of ["mode", "seed"]) el(id).addEventListener("change", () => { refreshOutputs(); resetWorld(); });
+el("btnPlay").onclick = () => setRunning(!running);
+el("btnReset").onclick = () => { resetWorld(); setRunning(true); };
+document.querySelectorAll(".speed button").forEach(b => b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll(".speed button").forEach(x => x.classList.toggle("on", x === b)); el("speedNote").textContent = `${(PS_PER_SECOND * speed).toFixed(speed < 1 ? 2 : 0)} ps per second`; });
+el("speedNote").textContent = `${PS_PER_SECOND} ps per second`;
+el("btnBatch").onclick = () => { setRunning(false); Batch.open(); };
+let eTab = "E";
+el("tabE").onclick = () => { eTab = "E"; el("tabE").classList.add("on"); el("tabV").classList.remove("on"); };
+el("tabV").onclick = () => { eTab = "V"; el("tabV").classList.add("on"); el("tabE").classList.remove("on"); };
+
+function legend() {
+  const m = el("mode").value, items = [["A", SP[A].col]];
+  if (m === "surface") items.push(["solid", SP[S].col], ["C (product gas)", SP[C].col]);
+  else { items.push(["B", SP[B].col], ["C", SP[C].col]); if (m === "CD") items.push(["D", SP[D].col]); }
+  el("legend").innerHTML = items.map(([n, c]) => `<span><i style="background:${c};border-radius:50%"></i>${n}</span>`).join("") +
+    `<span><i style="background:none;border:2px solid #fff;border-radius:50%"></i>flash = a reaction</span>` + (el("orient").checked ? `<span><i style="background:#fff;width:5px"></i>white mark = A's reactive end</span>` : "");
+}
+
+/* =====================================================================
+   8. DRAWING THE BOX
+   ===================================================================== */
+function drawView() {
+  const { ctx, w, h } = prepCanvas(el("view"));
+  ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, w, h);
+  const s = Math.min((w - 20) / BOX_W, (h - 20) / BOX_H), ox = (w - BOX_W * s) / 2, oy = (h - BOX_H * s) / 2;
+  const W = world.W;
+  // the container and the piston
+  ctx.fillStyle = "#0d1410"; ctx.fillRect(ox, oy, W * s, BOX_H * s);
+  ctx.strokeStyle = "#5d6a55"; ctx.lineWidth = 2; ctx.strokeRect(ox, oy, BOX_W * s, BOX_H * s);
+  if (W < BOX_W - 0.01) {
+    ctx.fillStyle = "#2a3024"; ctx.fillRect(ox + W * s, oy, (BOX_W - W) * s, BOX_H * s);
+    ctx.fillStyle = "#6b7562"; ctx.fillRect(ox + W * s, oy, 5, BOX_H * s);
+    ctx.fillStyle = "#a3ab96"; ctx.font = "12px system-ui"; ctx.textAlign = "center"; ctx.fillText("piston", ox + (W + (BOX_W - W) / 2) * s, oy + BOX_H * s / 2);
+  }
+  const orient = world.p.orient;
+  for (let i = 0; i < world.n; i++) {
+    if (!world.alive[i]) continue;
+    const X = ox + world.x[i] * s, Y = oy + world.y[i] * s, r = world.r[i] * s, t = world.type[i];
+    ctx.fillStyle = SP[t].col;
+    if (t === S) { ctx.fillRect(X - r, Y - r, 2 * r, 2 * r); ctx.strokeStyle = "#7b8585"; ctx.lineWidth = 1; ctx.strokeRect(X - r + 0.5, Y - r + 0.5, 2 * r - 1, 2 * r - 1); continue; }
+    ctx.beginPath(); ctx.arc(X, Y, r, 0, 7); ctx.fill();
+    if (orient && t === A) { // the reactive end: a white wedge ±60°
+      const a = world.ang[i]; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(X, Y); ctx.arc(X, Y, r, a - Math.PI / 3, a + Math.PI / 3); ctx.closePath(); ctx.fill();
+    }
+  }
+  // flashes where reactions happened (they fade over 4 ps)
+  world.flashes = world.flashes.filter(f => world.t - f.t < 4);
+  for (const f of world.flashes) { const age = (world.t - f.t) / 4; ctx.strokeStyle = `rgba(255,255,255,${1 - age})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ox + f.x * s, oy + f.y * s, (0.4 + 0.8 * age) * s, 0, 7); ctx.stroke(); }
+  // scale bar
+  ctx.fillStyle = "#cfd5c4"; ctx.fillRect(ox + 10, oy + BOX_H * s - 12, 5 * s, 3); ctx.font = "11px system-ui"; ctx.textAlign = "left"; ctx.fillText("5 nm", ox + 10, oy + BOX_H * s - 16);
+}
+
+/* =====================================================================
+   9. GRAPHS
+   ===================================================================== */
+function drawProductChart() {
+  const p = world.p, lim = world.limiting();
+  const series = [{ pts: hist.map(q => [q.t, q.prod]), color: "#f1af28", width: 2.2 }];
+  const tEnd = Math.max(50, world.t);
+  const K = measureK(p);
+  if (!tangent && world.reactions >= K) tangent = (K - 1) / world.rxTimes[K - 1];
+  if (tangent) series.push({ pts: [[0, 0], [Math.min(tEnd, lim / tangent), Math.min(lim, tEnd * tangent)]], color: "#fff", width: 1.3, dash: [5, 4] });
+  const th = rateTheory(p) / 1000;
+  series.push({ pts: [[0, 0], [Math.min(tEnd, lim / th), Math.min(lim, tEnd * th)]], color: "#4fc3f7", width: 1.3, dash: [2, 3] });
+  plot(el("chartP"), { series, xMin: 0, xMax: tEnd, yMin: 0, yMax: lim * 1.05, xLabel: "time (ps)", yLabel: "particles of C", padL: 40, hLines: [{ v: lim, color: "rgba(255,255,255,.35)", dash: [3, 3], label: "all used up", fit: false }] });
+}
+function drawEnergyChart() {
+  const T = world.p.T, RT = R_GAS * T, Ea = world.EaEff();
+  if (eTab === "E") {
+    const es = world.energies, xMax = Math.max(6 * RT, Ea * 1.4, 5), nb = 30, bw = xMax / nb, cnt = new Array(nb).fill(0);
+    let above = 0; for (const e of es) { if (e >= Ea) above++; const k = Math.floor(e / bw); if (k < nb) cnt[k]++; }
+    const tot = Math.max(1, es.length);
+    const bars = cnt.map((c, k) => [k * bw, (k + 1) * bw, c / tot / bw]);
+    const th = []; for (let k = 0; k <= 80; k++) { const E = xMax * k / 80; th.push([E, Math.exp(-E / RT) / RT]); }
+    plot(el("chartE"), { series: [{ type: "bars", pts: bars, color: "#5d6a55", colorFn: (a, b) => (a + b) / 2 >= Ea ? "#f1af28" : "#5d6a55" }, { pts: th, color: "#4fc3f7", width: 2, dash: [5, 3] }],
+      xMin: 0, xMax, yMin: 0, xLabel: "collision energy along line of centres (kJ/mol)", yLabel: "fraction per kJ/mol", padL: 44,
+      vLines: [{ v: Ea, color: "#fff", label: `Ea = ${fmt(Ea, 3)}`, width: 2 }], legend: [{ box: true, color: "#f1af28", label: "enough energy" }, { color: "#4fc3f7", dash: [5, 3], label: "theory e^(−E/RT)/RT" }], legendRight: true });
+    el("eNote").innerHTML = es.length ? `Of the last ${es.length.toLocaleString("en-GB")} collisions between reactants, <b>${fmt(100 * above / tot, 3)}%</b> had at least Ea (theory e<sup>−Ea/RT</sup> = ${fmt(100 * Math.exp(-Ea / RT), 3)}%).` : "No collisions between reactants yet.";
+  } else {
+    // Speeds of the 30 g/mol particles, with the 2D Maxwell–Boltzmann curve f(v) = (m v / RT) e^(−mv²/2RT)
+    const vs = []; for (let i = 0; i < world.n; i++) if (world.alive[i] && world.type[i] !== S && world.m[i] === 30) vs.push(1000 * Math.hypot(world.vx[i], world.vy[i]));
+    const m = 30, sig = Math.sqrt(RT / m) * 1000, xMax = 4 * sig, nb = 24, bw = xMax / nb, cnt = new Array(nb).fill(0);
+    for (const v of vs) { const k = Math.floor(v / bw); if (k < nb) cnt[k]++; }
+    const th = []; for (let k = 0; k <= 80; k++) { const v = xMax * k / 80; th.push([v, v / (sig * sig) * Math.exp(-v * v / (2 * sig * sig))]); }
+    const vEa = Math.sqrt(2 * Ea / m) * 1000;   // speed at which ½mv² = Ea
+    plot(el("chartE"), { series: [{ type: "bars", pts: cnt.map((c, k) => [k * bw, (k + 1) * bw, c / Math.max(1, vs.length) / bw]), color: "#5d6a55", colorFn: (a, b) => (a + b) / 2 >= vEa ? "#f1af28" : "#5d6a55" }, { pts: th, color: "#4fc3f7", width: 2, dash: [5, 3] }],
+      xMin: 0, xMax, yMin: 0, xLabel: "speed of a particle (m/s)", yLabel: "fraction per m/s", padL: 52,
+      vLines: [{ v: vEa, color: "#fff", label: "½mv² = Ea", width: 2 }], legend: [{ box: true, color: "#5d6a55", label: `particles now (${vs.length})` }, { color: "#4fc3f7", dash: [5, 3], label: "Maxwell–Boltzmann" }], legendRight: true });
+    el("eNote").innerHTML = `Mean speed now ${fmt(mean(vs), 3)} m/s. Hotter → the hump moves right and flattens, so many more particles are past the line.`;
+  }
+}
+function drawProfile() {
+  const { ctx, w, h } = prepCanvas(el("chartProfile"));
+  ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, w, h);
+  const Ea = Math.max(0.5, world.p.Ea), EaC = Ea * CAT_FACTOR, top = Math.max(Ea, 5) * 1.25, bot = DH * 1.15;
+  const L = 44, Rr = 10, T = 14, B = 22, Y = E => T + (top - E) / (top - bot) * (h - T - B), X = f => L + f * (w - L - Rr);
+  // smooth path: reactants flat, hump of height Eh, products at DH
+  const path = Eh => { ctx.beginPath(); for (let k = 0; k <= 100; k++) { const f = k / 100; let E; if (f < 0.2) E = 0; else if (f > 0.8) E = DH; else { const u = (f - 0.2) / 0.6; const base = DH * (0.5 - 0.5 * Math.cos(Math.PI * u)); E = base + (Eh - DH / 2) * Math.sin(Math.PI * u) ** 2 * 1; } k ? ctx.lineTo(X(f), Y(E)) : ctx.moveTo(X(f), Y(E)); } ctx.stroke(); };
+  ctx.lineWidth = 2.5; ctx.strokeStyle = world.p.cat ? "rgba(241,175,40,.45)" : "#f1af28"; path(Ea);
+  ctx.setLineDash([6, 4]); ctx.strokeStyle = world.p.cat ? "#8fd694" : "rgba(143,214,148,.45)"; path(EaC); ctx.setLineDash([]);
+  ctx.strokeStyle = "rgba(200,205,190,.5)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, h - B); ctx.lineTo(w - Rr, h - B); ctx.stroke();
+  ctx.fillStyle = "#c9cfbd"; ctx.font = "11px system-ui"; ctx.textAlign = "center"; ctx.fillText("progress of reaction →", (L + w) / 2, h - 6);
+  ctx.save(); ctx.translate(12, (T + h - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("energy (kJ/mol)", 0, 0); ctx.restore();
+  ctx.font = "10.5px system-ui"; ctx.textAlign = "left"; ctx.fillStyle = "#dfe3d6";
+  ctx.fillText(el("mode").value === "surface" ? "A + solid" : "A + B", X(0.01), Y(0) - 5);
+  ctx.textAlign = "right"; ctx.fillText("products", X(0.99), Y(DH) - 5);
+  // arrows for Ea
+  const arrow = (f, E, col, label) => { ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(f), Y(0)); ctx.lineTo(X(f), Y(E) + 2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(X(f), Y(E)); ctx.lineTo(X(f) - 4, Y(E) + 7); ctx.lineTo(X(f) + 4, Y(E) + 7); ctx.fill(); ctx.textAlign = "left"; ctx.fillText(label, X(f) + 6, Y(E / 2)); };
+  arrow(0.33, Ea, "#f1af28", `Ea ${fmt(Ea, 3)}`); arrow(0.62, EaC, "#8fd694", `with catalyst ${fmt(EaC, 3)}`);
+  ctx.fillStyle = "#a3ab96"; ctx.textAlign = "right"; ctx.fillText(`ΔH = ${DH} kJ/mol`, X(0.99), Y(DH) + 14);
+}
+
+/* =====================================================================
+   10. READOUTS AND THE STORY
+   ===================================================================== */
+const fmtPs = t => t < 1000 ? `${Math.floor(t)} ps` : `${(t / 1000).toFixed(2)} ns`;
+function windowRates(span) {
+  // rates over the last `span` ps from the history
+  const now = hist[hist.length - 1]; let k = hist.length - 1;
+  while (k > 0 && now.t - hist[k - 1].t <= span) k--;
+  const old = hist[Math.max(0, k - 1)] || hist[0], dt = now.t - old.t;
+  return dt > 0 ? { z: 1000 * (now.coll - old.coll) / dt, r: 1000 * (now.succ - old.succ) / dt, f: now.coll > old.coll ? 100 * (now.succ - old.succ) / (now.coll - old.coll) : NaN } : null;
+}
+let lastUI = 0;
+function updateUI(now) {
+  el("clock").textContent = fmtPs(world.t);
+  if (now - lastUI < 250) return; lastUI = now;
+  const p = world.p, lim = world.limiting(), wr = windowRates(60);
+  const fTh = 100 * fracTheory(p), fAll = world.coll ? 100 * world.success / world.coll : NaN;
+  el("s_zl").textContent = p.surface ? "Collisions (A with solid)" : "Collisions (A with B)";
+  el("s_z").textContent = wr ? `${fmt(wr.z, 3)} per ns` : "–";
+  el("s_succ").textContent = world.coll ? `${fmt(fAll, 3)}%` : "–";
+  el("s_rate").textContent = wr ? `${fmt(wr.r, 3)} per ns` : "–";
+  el("s_done").textContent = `${Math.round(100 * world.reactions / Math.max(1, lim))}%`;
+  const t50 = world.reactions >= Math.ceil(lim / 2) ? world.rxTimes[Math.ceil(lim / 2) - 1] : null;
+  const RT = R_GAS * p.T, area = world.W * BOX_H;
+  const conc = n => `${fmt(100 * n / area, 3)} per 100 nm²`;
+  const tiles = [
+    ["Temperature", `${p.T} K`, `RT = ${fmt(RT, 3)} kJ/mol`],
+    ["Activation energy", `${fmt(world.EaEff(), 3)} kJ/mol`, p.cat ? "lowered by the catalyst" : "no catalyst"],
+    ["Collision frequency", wr ? `${fmt(wr.z, 3)} /ns` : "–", `A with ${p.surface ? "solid" : "B"}, last 60 ps`],
+    ["Successful", world.coll ? `${fmt(fAll, 3)}%` : "–", `theory ${fmt(fTh, 3)}%`],
+    ["Rate now", wr ? `${fmt(wr.r, 3)} /ns` : "–", "reactions, last 60 ps"],
+    ["Initial rate", tangent ? `${fmt(1000 * tangent, 3)} /ns` : "measuring…", `theory ${fmt(rateTheory(p), 3)} /ns`],
+    ["Concentration of A", conc(world.count(A)), p.surface ? `${world.count(S)} solid left` : `B: ${conc(world.count(B))}`],
+    ["Half-life t½", t50 ? fmtPs(t50) : "not yet", p.surface ? "time for half to react" : `theory ${fmtPs(t50Theory(p) || 0)}`],
+  ];
+  el("tiles").innerHTML = tiles.map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+  el("story").innerHTML = story(p, fAll, fTh, lim);
+}
+function story(p, fAll, fTh, lim) {
+  const m = [];
+  if (world.reactions >= lim) return "The reaction has finished: the limiting reactant is all used up. The curve on the product graph has gone flat. Press <b>Reset</b> to run it again, or try another preset.";
+  if (world.reactions === 0 && world.t < 30) m.push("Particles are flying about and bumping into each other. Only some collisions lead to a reaction.");
+  const RT = R_GAS * p.T, Ea = world.EaEff();
+  m.push(`At ${p.T} K, about <b>${fmt(fTh / orientP(p), 2)}%</b> of collisions have energy above Ea (${fmt(Ea, 3)} kJ/mol)${p.orient ? ", and only a third of those hit the right way round" : ""}. The rest just bounce off.`);
+  if (p.cat) m.push("The catalyst halves the energy hill, so many more collisions get over it. The catalyst is not used up.");
+  if (p.T >= 600) m.push("Hot particles move faster: they collide more often <i>and</i> harder. The harder hits matter far more.");
+  if (p.T <= 320) m.push("Cold particles are slow: few collisions have enough energy, so the reaction is slow.");
+  if (p.surface) m.push(`Only the solid particles on the surface can be hit. ${validPieces(p.pieces) === 64 ? "As a powder, every grain is exposed." : "Breaking the lump into smaller pieces exposes more particles."}`);
+  else if (p.vol < 70) m.push("The piston has squeezed the gas: particles are closer together, so they collide more often.");
+  if (world.reactions > lim * 0.5) m.push("As reactants are used up there are fewer A–B collisions, so the rate slows down: the product curve bends over.");
+  return m.join(" ");
+}
+
+/* =====================================================================
+   11. THE MAIN LOOP
+   ===================================================================== */
+let lastT = performance.now();
+function frame(now) {
+  const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (running && world.reactions < world.limiting() + 1) {
+    let left = real * speed * PS_PER_SECOND; const t0 = performance.now(), dt = world.safeDt();
+    while (left > 1e-9 && performance.now() - t0 < 30) { const d = Math.min(left, dt); world.step(d); left -= d; }
+    const lastH = hist[hist.length - 1];
+    if (world.t - lastH.t >= 2) hist.push({ t: world.t, prod: world.reactions, coll: world.coll, succ: world.success });
+    if (world.reactions >= world.limiting() && world.t - (world.rxTimes[world.rxTimes.length - 1] || 0) > 60) setRunning(false);
+  }
+  drawView(); drawProductChart(); drawEnergyChart(); drawProfile(); updateUI(now);
+  requestAnimationFrame(frame);
+}
+
+/* =====================================================================
+   12. BATCH EXPERIMENTS
+   ===================================================================== */
+Batch.init({
+  file: "collision-theory",
+  repeatSizes: [20, 50, 100, 200],
+  headlessNote: "Batch runs use exactly the same particle model as the animation, with no drawing. Rates are timed until 20% of the limiting reactant has reacted.",
+  vars: [
+    { key: "T", label: "Temperature", unit: "K", min: 250, max: 1000 },
+    { key: "nA", label: "Particles of A", unit: "", min: 5, max: 200, int: true, log: true },
+    { key: "nB", label: "Particles of B", unit: "", min: 5, max: 200, int: true, log: true },
+    { key: "vol", label: "Volume", unit: "%", min: 30, max: 100 },
+    { key: "Ea", label: "Activation energy", unit: "kJ/mol", min: 0, max: 30 },
+    { key: "pieces", label: "Number of pieces of solid", unit: "", min: 1, max: 64, int: true, log: true },
+  ],
+  outcomes: [
+    { key: "rate", label: "Initial rate", unit: "reactions per ns" },
+    { key: "t50", label: "Time for half to react", unit: "ps" },
+    { key: "frac", label: "Collisions that succeed", unit: "%" },
+    { key: "z", label: "Collision frequency", unit: "per ns" },
+  ],
+  baseParams: () => { const p = params(); delete p.seed; return p; },
+  describe: p => `${p.surface ? `A + solid (${validPieces(p.pieces)} piece${p.pieces > 1 ? "s" : ""}), ${p.nA} A` : `${p.rxn === "C" ? "A + B → C" : "A + B → C + D"}, ${p.nA} A + ${p.nB} B`}, ${Math.round(p.T)} K, volume ${Math.round(p.vol)}%, Ea ${p.Ea} kJ/mol${p.cat ? " (catalyst: halved)" : ""}${p.orient ? ", must hit the right way round" : ""}.`,
+  runOnce: (p, seed) => runOnce({ ...p, pieces: validPieces(p.pieces), nA: Math.round(p.nA), nB: Math.round(p.nB) }, seed),
+  theory(key, p0) {
+    const p = { ...p0, pieces: validPieces(p0.pieces) };
+    if (key === "rate") return rateTheory(p);
+    if (key === "t50") return t50Theory(p);
+    if (key === "frac") return 100 * fracTheory(p);
+    if (key === "z") return 1000 * zTheory(p);
+    return null;
+  },
+  theoryLabel: key => key === "rate" ? "collision theory" : key === "frac" ? "theory P·e^(−Ea/RT)" : "theory",
+  interpret(spec, fit, d) {
+    if (spec.mode !== "sweep" || !fit) return "";
+    const p = spec.params;
+    if (spec.var === "T" && spec.x === "inv" && spec.y === "ln" && (d.key === "rate" || d.key === "frac")) {
+      const EaFit = -fit.m * R_GAS, Eset = EaOf(p), Tbar = 1 / mean(spec.xs.map(x => 1 / x));
+      const extra = d.key === "rate" ? Eset + 0.5 * R_GAS * Tbar : Eset;
+      return `<p>Ea from the gradient = −gradient × R = <b>${fmt(EaFit, 3)} ± ${fmt(fit.se * R_GAS, 2)} kJ/mol</b>. Ea set in the model: <b>${fmt(Eset, 3)} kJ/mol</b>.` +
+        (d.key === "rate" ? ` Collision theory expects the gradient to give Ea + ½RT̄ = <b>${fmt(extra, 3)} kJ/mol</b>, because collisions also get a little more frequent when it is hotter.` : "") + "</p>";
+    }
+    if ((spec.var === "nA" || spec.var === "nB") && spec.x === "log" && spec.y === "log" && d.key === "rate")
+      return `<p>Order of reaction with respect to ${spec.var === "nA" ? "A" : "B"} = gradient = <b>${fmt(fit.m, 3)} ± ${fmt(fit.se, 2)}</b>. Collision theory predicts <b>1</b>: double the particles, double the collisions.</p>`;
+    if (spec.var === "Ea" && spec.y === "ln" && d.key === "frac")
+      return `<p>For ln(fraction) against Ea the gradient should be −1/RT = <b>${fmt(-1 / (R_GAS * p.T), 3)}</b> per kJ/mol. Temperature worked out from your gradient: T = −1/(R × gradient) = <b>${fmt(-1 / (R_GAS * fit.m), 3)} K</b> (set: ${p.T} K).</p>`;
+    if (spec.var === "pieces" && spec.x === "log" && spec.y === "log" && d.key === "rate") {
+      const s1 = solidPerimeter({ ...p, pieces: 1 }), s64 = solidPerimeter({ ...p, pieces: 64 });
+      return `<p>Gradient ${fmt(fit.m, 3)}. The exposed surface grows ${fmt(s64 / s1, 3)} times from 1 lump to 64 grains, which predicts a gradient of about <b>${fmt(Math.log10(s64 / s1) / Math.log10(64), 3)}</b>. Rate goes up in step with surface area.</p>`;
+    }
+    return "";
+  },
+  experiments: [
+    { q: "Arrhenius plot: can we measure Ea?", sub: "temperature 300–900 K → ln(rate) against 1/T", mode: "sweep", var: "T", from: 300, to: 900, steps: 7, reps: 4, out: "rate", x: "inv", y: "ln",
+      params: { nA: 60, nB: 60, vol: 100, Ea: 10, cat: 0, orient: 0, surface: 0, rxn: "CD", quick: 1 },
+      note: "<p>Each point is the initial rate at one temperature. Plotting ln(rate) against 1/T gives a straight line whose gradient is −Ea/R, so you can work out Ea without ever seeing a particle. That is how chemists measure activation energies.</p><p>The points scatter because each run has only a dozen or so reactions, which happen at random moments. The fitted Ea is a little above the set value: hotter particles also collide more often, adding ½RT.</p>" },
+    { q: "What is the order with respect to A?", sub: "A from 15 to 160 particles, B fixed at 60 → log–log plot", mode: "sweep", var: "nA", from: 15, to: 160, steps: 6, reps: 4, out: "rate", x: "log", y: "log",
+      params: { nB: 60, T: 500, vol: 100, Ea: 10, cat: 0, orient: 0, surface: 0, rxn: "CD", quick: 1 },
+      note: "<p>On a log–log graph, rate ∝ [A]ⁿ becomes a straight line with gradient n, the order of reaction. Collision theory says the collisions between A and B are proportional to the number of A, so n = 1.</p><p>Small numbers of particles give few reactions, so those points scatter most.</p>" },
+    { q: "…and with respect to B?", sub: "B from 15 to 160, A fixed at 60", mode: "sweep", var: "nB", from: 15, to: 160, steps: 6, reps: 4, out: "rate", x: "log", y: "log",
+      params: { nA: 60, T: 500, vol: 100, Ea: 10, cat: 0, orient: 0, surface: 0, rxn: "CD", quick: 1 },
+      note: "<p>The same test for B. Together the two orders give the rate equation: rate = k[A][B], an overall second-order reaction.</p>" },
+    { q: "Does the fraction that succeed follow e^(−Ea/RT)?", sub: "Ea from 2 to 20 kJ/mol at 600 K", mode: "sweep", var: "Ea", from: 2, to: 20, steps: 7, reps: 5, out: "frac", x: "lin", y: "ln",
+      params: { nA: 60, nB: 60, T: 600, vol: 100, cat: 0, orient: 0, surface: 0, rxn: "CD", minColl: 3000, noConsume: 1 },
+      note: "<p>Every collision between A and B is recorded, and we count the fraction that react. Maxwell–Boltzmann theory says the fraction with enough energy is e<sup>−Ea/RT</sup>, so ln(fraction) against Ea is a straight line with gradient −1/RT.</p><p>To keep the mixture the same throughout, these runs count each successful collision but leave the particles unchanged. At high Ea only a handful of collisions succeed, so those points scatter more.</p>" },
+    { q: "How much do repeat runs vary?", sub: "100 runs: time for half to react", mode: "repeat", n: 100, out: "t50",
+      params: { nA: 50, nB: 50, T: 500, vol: 100, Ea: 10, cat: 0, orient: 0, surface: 0, rxn: "CD" },
+      note: "<p>Every run starts with the same numbers of particles at the same temperature, but the particles start in different random places. The time for half of them to react changes from run to run.</p><p>The spread (SD) is what you would see between class experiments. The mean of many runs gets close to the collision-theory value: the standard error shrinks as 1/√n.</p>" },
+    { q: "Lumps or powder?", sub: "1, 4, 16 or 64 pieces of the same solid", mode: "sweep", var: "pieces", from: 1, to: 64, steps: 4, reps: 4, out: "rate", x: "log", y: "log",
+      params: { nA: 100, T: 500, vol: 100, Ea: 10, cat: 0, orient: 0, surface: 1, rxn: "CD", quick: 1 },
+      note: "<p>The same 64 solid particles are kept as one lump or broken into smaller pieces. Only surface particles can be hit, so more pieces means more collisions and a faster reaction. This is why powders react faster than lumps, and why flour dust can explode.</p><p>The theory line uses the length of exposed surface around the lumps.</p>" },
+  ],
+});
+
+/* =====================================================================
+   13. START
+   ===================================================================== */
+initPanels("collision-theory-layout");
+refreshOutputs();
+setPreset(0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Earthquakes and Tall Buildings</title>
+<!--
+  EARTHQUAKES AND TALL BUILDINGS — a teaching model
+  ==================================================
+  One self-contained file: no libraries, no internet needed.
+
+  The building is a "shear building": each floor is a heavy slab (a lumped
+  MASS, m) and the columns between floors act as a sideways SPRING (storey
+  stiffness, k) with a little friction-like DAMPING (c). The ground moves
+  sideways, and we follow how far each floor moves RELATIVE to the ground, u.
+  For floor i, Newton's second law (F = ma) gives
+
+      m ü_i = − k (u_i − u_(i−1)) − c (u̇_i − u̇_(i−1))       (columns below)
+              + k (u_(i+1) − u_i) + c (u̇_(i+1) − u̇_i)       (columns above)
+              − m a_g(t)                                     (shaking ground)
+
+  a_g is the ground acceleration (m/s²). We step these equations forward in
+  time with the 4th-order Runge–Kutta method using small time steps (a few
+  milliseconds), which is accurate for every mode of the building.
+
+  Units: metres, seconds, kilograms, newtons. Accelerations are also shown in
+  g (1 g = 9.81 m/s²). Inter-storey DRIFT = (sideways movement of a floor
+  relative to the floor below) ÷ storey height (3.5 m), shown in %.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; flex: 1; }
+  header button { flex: none; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 330px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  main > #left { grid-column: 1; grid-row: 1; } main > #splitL { grid-column: 2; grid-row: 1; } main > #centre { grid-column: 3; grid-row: 1; }
+  main > #splitR { grid-column: 4; grid-row: 1; } main > #right { grid-column: 5; grid-row: 1; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: #3a3550; }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  .chk { display: flex; gap: 6px; align-items: center; font-size: 13px; margin: 0 0 8px; cursor: pointer; }
+  .chk input { accent-color: var(--accent); }
+  select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  input[type=number] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 5px; width: 74px; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+  .sub2 { border-left: 2px solid var(--line); padding-left: 8px; margin: 0 0 8px 4px; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; position: relative; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .viewWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  .viewWrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .legend i.ln { height: 3px; width: 16px; border-radius: 1px; vertical-align: 3px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; min-width: 0; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .chartBox { position: relative; height: 170px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .tabs { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 4px; }
+  .tabs button { padding: 2px 8px; font-size: 12px; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+  .eq { font-family: Consolas, "Cambria Math", monospace; color: var(--text); }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+
+  /* Batch run overlay: covers the centre and right-hand panels */
+  #batch { grid-column: 3 / 6; grid-row: 1; z-index: 20; display: none; flex-direction: column; gap: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.7); border-color: #4a5540; }
+  #batch.open { display: flex; }
+  #batch .bhead { display: flex; gap: 10px; align-items: center; }
+  #batch .bhead h2 { margin: 0; font-size: 15px; color: var(--accent); }
+  #batch .bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 12px; }
+  #batch .bside { overflow-y: auto; padding-right: 4px; }
+  #batch .bmain { display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow-y: auto; }
+  #batch .bexp { display: grid; gap: 4px; }
+  #batch .bexp button { text-align: left; font-size: 12px; padding: 5px 7px; line-height: 1.25; font-weight: 600; }
+  #batch .bexp button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  #batch .bexp button.on small { color: #3a3550; }
+  #batch .brow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12.5px; margin-bottom: 6px; }
+  #batch .brow label { color: var(--muted); }
+  #batch .bchart { position: relative; flex: 0 0 auto; height: clamp(260px, 44vh, 480px); background: #0d100b; border-radius: 8px; }
+  #batch .bchart canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #batch .prog { flex: 1; min-width: 120px; height: 10px; border-radius: 5px; background: var(--panel-2); border: 1px solid var(--line); overflow: hidden; }
+  #batch .prog span { display: block; height: 100%; width: 0; background: var(--accent); }
+  #batch table { border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #batch td, #batch th { padding: 2px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  #batch th { color: var(--muted); font-weight: 600; }
+  #batch td:first-child, #batch th:first-child { text-align: left; }
+  #batch .note { font-size: 12.5px; color: #dfe3d6; background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; }
+  #batch .note b { color: var(--accent); }
+  #batch .tablewrap { overflow-x: auto; }
+  #batch .bnow { font-size: 12px; color: var(--muted); }
+  #batch select { max-width: 100%; min-width: 0; }
+
+  #gBox { position: relative; height: 92px; flex: none; }
+  #gBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #status { font-weight: 700; font-size: 13px; border-radius: 999px; padding: 1px 10px; background: #2a3024; color: var(--muted); }
+  #status.ok { background: #3a7d44; color: #fff; } #status.warn { background: #f1af28; color: #14133b; } #status.bad { background: #de252a; color: #fff; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Earthquakes and Tall Buildings</h1>
+  <span class="sub">Why buildings sway, why some heights suffer most in a quake, and how engineers protect them with dampers, bracing and base isolation.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: SET UP ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">The building <span class="live">restarts the shaking</span></h2>
+    <div class="ctl"><label>Number of storeys <output id="o_storeys"></output></label><input type="range" id="storeys" min="1" max="40" step="1" value="10"></div>
+    <div class="ctl"><label>Frame material</label>
+      <select id="material"><option value="steel">Steel frame</option><option value="concrete">Reinforced concrete</option><option value="timber">Timber (cross-laminated)</option></select>
+      <div class="hint" id="matHint"></div></div>
+    <div class="ctl"><label>Bracing (extra stiffness) <output id="o_brace"></output></label><input type="range" id="brace" min="1" max="4" step="0.25" value="1">
+      <div class="hint">Diagonal braces or concrete walls make each storey stiffer, so the building sways less and vibrates faster.</div></div>
+    <div class="ctl"><label>Added dampers <output id="o_addDamp"></output></label><input type="range" id="addDamp" min="0" max="15" step="1" value="0">
+      <div class="hint">Viscous dampers (like giant shock absorbers) in the frame. Shown as extra damping ratio on top of the frame's own.</div></div>
+
+    <label class="chk"><input type="checkbox" id="tmd"> <b>Tuned mass damper</b> on the roof</label>
+    <div class="sub2" id="tmdOpts">
+      <div class="ctl"><label>Mass (as % of building) <output id="o_tmdMu"></output></label><input type="range" id="tmdMu" min="0.5" max="10" step="0.5" value="3"></div>
+      <div class="ctl"><label>Tuned to (× building's frequency) <output id="o_tmdTune"></output></label><input type="range" id="tmdTune" min="0.7" max="1.3" step="0.01" value="0.97"></div>
+      <div class="ctl"><label>Damper damping <output id="o_tmdZeta"></output></label><input type="range" id="tmdZeta" min="1" max="30" step="1" value="10"></div>
+      <button id="btnDenHartog" style="font-size:12px;padding:3px 8px">Best tuning (Den Hartog rule)</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="iso"> <b>Base isolation</b> (rubber bearings)</label>
+    <div class="sub2" id="isoOpts">
+      <div class="ctl"><label>Isolated period <output id="o_isoT"></output></label><input type="range" id="isoT" min="1.5" max="4" step="0.1" value="2.5"></div>
+      <div class="ctl"><label>Bearing damping <output id="o_isoZeta"></output></label><input type="range" id="isoZeta" min="5" max="30" step="1" value="15"></div>
+    </div>
+
+    <div class="ctl"><label>Second building beside it</label>
+      <select id="twin"><option value="none">None</option><option value="plain">Same building without the protection</option><option value="height">A different height…</option></select></div>
+    <div class="ctl" id="h2ctl"><label>Its number of storeys <output id="o_storeys2"></output></label><input type="range" id="storeys2" min="1" max="40" step="1" value="3"></div>
+
+    <h2 class="gap">The shaking</h2>
+    <div class="ctl"><label>Type of ground motion</label>
+      <select id="motion"><option value="sine">Steady shaking (sine wave)</option><option value="chirp">Slow sweep up through frequencies</option><option value="quake">Earthquake (random)</option><option value="pluck">Push the top and let go</option></select></div>
+    <div id="sineOpts">
+      <div class="ctl" id="freqCtl"><label>Shaking frequency <span class="live">live</span> <output id="o_freq"></output></label><input type="range" id="freq" min="0.1" max="10" step="0.01" value="1"></div>
+      <button id="btnMatch" style="font-size:12px;padding:3px 8px;margin-bottom:8px">Match the building's natural frequency</button>
+      <div class="ctl"><label>Ground acceleration (peak) <span class="live">live</span> <output id="o_amp"></output></label><input type="range" id="amp" min="0.005" max="0.4" step="0.005" value="0.05"></div>
+    </div>
+    <div id="quakeOpts">
+      <div class="ctl"><label>Magnitude <output id="o_mag"></output></label><input type="range" id="mag" min="5" max="8.5" step="0.1" value="7"></div>
+      <div class="ctl"><label>Peak acceleration on rock <output id="o_pga"></output></label><input type="range" id="pga" min="0.02" max="0.8" step="0.01" value="0.3">
+        <div class="hint">Typical: 0.05–0.15 g far from a big quake, 0.3–0.6 g close to one.</div></div>
+      <div class="ctl"><label>Ground under the building</label>
+        <select id="soil"><option value="rock">Rock</option><option value="stiff">Stiff soil (gravel, firm clay)</option><option value="soft">Soft soil (silt, sand)</option><option value="clay">Old lake-bed clay (like Mexico City)</option></select>
+        <div class="hint" id="soilHint"></div></div>
+      <div class="ctl"><label>Earthquake number (random seed)</label><div style="display:flex;gap:6px"><input type="number" id="seed" value="1" min="1" style="flex:1;width:auto"><button id="btnNewQuake" style="font-size:12px;padding:3px 8px">New earthquake</button></div></div>
+    </div>
+    <div class="ctl"><label>Exaggerate the sway <span class="live">live</span> <output id="o_exag"></output></label><input type="range" id="exag" min="1" max="100" step="1" value="10">
+      <div class="hint">Real sways are small compared with the building, so they are drawn bigger. The readouts are always real sizes.</div></div>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Shear building:</b> each floor is a lumped mass (all of a floor's weight at slab level). The columns of each storey act as a sideways spring of stiffness k, so the building is a chain of masses and springs on moving ground. Each storey is 3.5 m tall and every storey is identical.</li>
+        <li><b>Equation of motion</b> for floor i (relative to the ground): <span class="eq">m ü<sub>i</sub> = −k(u<sub>i</sub>−u<sub>i−1</sub>) + k(u<sub>i+1</sub>−u<sub>i</sub>) − damping − m a<sub>g</sub></span>. Solved with 4th-order Runge–Kutta, time step 5 ms or less.</li>
+        <li><b>Materials:</b> steel frame 600 t per floor, 2% damping; concrete 900 t per floor, 5% damping; timber 250 t per floor, 4% damping. Storey stiffness is chosen so the natural period is close to the real-world rule of thumb T ≈ 0.1 × storeys (steel), 0.09 × storeys (concrete) or 0.11 × storeys (timber).</li>
+        <li><b>Natural frequencies</b> are found exactly from the masses and springs (an eigenvalue calculation). For identical storeys the theory gives <span class="eq">ω<sub>n</sub> = 2√(k/m) sin((2n−1)π / (2(2N+1)))</span>, so T<sub>1</sub> grows in proportion to the number of storeys N.</li>
+        <li><b>Damping:</b> "Rayleigh" damping, set so the first two modes have the material's damping ratio ζ (plus any added dampers).</li>
+        <li><b>Damage:</b> inter-storey drift = relative sideways movement of a storey ÷ its height. Cracking starts at about 0.5% (concrete) or 1% (steel, timber); 2–3% means severe damage or collapse. The model stays <i>linear</i>: a cracked storey is shown, but it does not get softer, so it cannot collapse or change its period as a real damaged building would.</li>
+        <li><b>Tuned mass damper:</b> an extra mass on the roof on its own spring and damper, tuned close to the building's first natural frequency (Den Hartog's best tuning: f<sub>d</sub>/f<sub>1</sub> = 1/(1+μ), damping √(3μ/(8(1+μ)³)), μ = mass ratio). Taipei 101's 660-tonne pendulum is the famous example.</li>
+        <li><b>Base isolation:</b> the building sits on a base slab on rubber bearings. Their stiffness is set so the whole building rocks gently with the chosen isolated period (2–3 s), and lead cores give 10–20% damping. Very soft bearings need a wide gap ("moat") round the building — see the bearing movement readout.</li>
+        <li><b>Earthquakes:</b> random "white noise" shaped by a Kanai–Tajimi filter (the soil layer acts like a damped spring that amplifies its own frequency), a high-pass filter (no slow drift), and an envelope that rises, holds and dies away. Strong shaking lasts longer for bigger magnitudes (about 2 s at M5, 8 s at M7, 20 s at M8). The record is scaled so its peak equals the rock acceleration × the soil amplification (rock ×1, stiff soil ×1.25, soft soil ×1.6, lake-bed clay ×4).</li>
+        <li><b>Not modelled:</b> twisting, up-and-down shaking, the building rocking or the soil giving way, foundations, non-uniform storeys, cracking softening the frame, collapse, and pounding between neighbouring buildings. Real records also have pulses and long-period surface waves that this random model does not.</li>
+      </ul>
+    </details>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">0.0 s</span>
+      <span id="status">Still</span>
+      <span class="stat">Natural period <b id="s_T">–</b></span>
+      <span class="stat">Shaking <b id="s_shake">–</b></span>
+      <span class="stat">Ground now <b id="s_ag">–</b></span>
+    </div>
+    <div class="viewWrap"><canvas id="view" aria-label="The building swaying on shaking ground"></canvas></div>
+    <div id="gBox"><canvas id="gchart" aria-label="Ground acceleration against time"></canvas></div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">▶ Start</button>
+      <button id="btnReset">Reset</button>
+      <span class="speed">Speed <button data-s="0.25">¼×</button><button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="3">3×</button><button data-s="10">10×</button></span>
+      <span class="hint">1× = real time</span>
+      <span style="flex:1"></span>
+      <button id="btnBatch">📊 Batch run</button>
+    </div>
+    <div class="legend">
+      <span>Storey colour = drift now:</span><span><i style="background:#3a9d4a"></i>small</span><span><i style="background:#f1af28"></i>cracking starts</span><span><i style="background:#de252a"></i>severe / collapse risk</span>
+      <span>✕ cracked · ✖ failed (peak so far)</span>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readouts</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">Readouts <span class="hint" style="text-transform:none;letter-spacing:0">(peaks since start)</span></h2>
+    <div class="tiles" id="tiles"></div>
+    <h2 class="gap">Graphs</h2>
+    <div class="tabs"><button data-g="roof" class="on">Roof sway vs time</button><button data-g="freq">Frequency response</button></div>
+    <div class="chartBox" style="height:190px"><canvas id="chart"></canvas></div>
+    <div class="legend" id="chartLegend" style="margin-top:4px"></div>
+    <div class="hint" id="chartNote" style="margin-top:4px"></div>
+  </section>
+
+  <section class="panel" id="batch"></section>
+</main>
+
+<script>
+"use strict";
+/* =====================================================================
+   SHARED HELPERS: repeatable random numbers, statistics and graph drawing
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+// A seeded random number generator: the same seed always gives the same sequence,
+// so every run (and every batch) can be repeated exactly.
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function hashSeed(str) { str = String(str); let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } return h >>> 0; }
+// A normally distributed random number (mean 0, SD 1) from two uniform ones (Box–Muller)
+function gauss(rng) { return Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng()); }
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const fmt = (v, d = 2) => (v == null || !isFinite(v) ? "–" : Math.abs(v) >= 1e4 ? Math.round(v).toLocaleString("en-GB") : v.toFixed(d));
+function meanSD(a) {
+  const n = a.length; if (!n) return { n: 0, mean: NaN, sd: NaN, se: NaN, min: NaN, max: NaN };
+  let s = 0, mn = Infinity, mx = -Infinity; for (const v of a) { s += v; if (v < mn) mn = v; if (v > mx) mx = v; }
+  const m = s / n; let q = 0; for (const v of a) q += (v - m) * (v - m);
+  const sd = n > 1 ? Math.sqrt(q / (n - 1)) : 0;
+  return { n, mean: m, sd, se: sd / Math.sqrt(n), min: mn, max: mx };
+}
+// Least-squares straight line y = a + b x
+function linFit(xs, ys) {
+  const n = xs.length; if (n < 2) return null;
+  let sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0;
+  for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; sxx += xs[i] * xs[i]; sxy += xs[i] * ys[i]; syy += ys[i] * ys[i]; }
+  const d = n * sxx - sx * sx; if (Math.abs(d) < 1e-300) return null;
+  const b = (n * sxy - sx * sy) / d, a = (sy - b * sx) / n;
+  const r = (n * sxy - sx * sy) / Math.sqrt(d * Math.max(1e-300, n * syy - sy * sy));
+  return { a, b, r2: r * r };
+}
+// Make a canvas match its on-screen size (sharp on high-DPI screens). Returns [ctx, width, height, dpr].
+function fitCanvas(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(1, Math.round(c.clientWidth * dpr)), H = Math.max(1, Math.round(c.clientHeight * dpr));
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  const ctx = c.getContext("2d"); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  return [ctx, W, H, dpr];
+}
+function niceStep(range, n) { const raw = range / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+function tickLabel(v, step) { const d = Math.max(0, -Math.floor(Math.log10(step) + 1e-9)); return Math.abs(v) >= 1e4 ? Math.round(v).toLocaleString("en-GB") : v.toFixed(Math.min(4, d)); }
+/* Draw a line/scatter graph on a canvas.
+   opt: { xMin,xMax,yMin,yMax, xLabel,yLabel, logX, logY, series:[{pts:[[x,y]..], colour, width, dash, dots, r, err:[[x,lo,hi]]}],
+          vlines:[{x, colour, label, dash}], hlines:[{y, colour, label}], bg, fill:[{pts, colour}] } */
+function plotXY(c, opt) {
+  const [ctx, W, H, dpr] = fitCanvas(c);
+  ctx.fillStyle = opt.bg || "#10130e"; ctx.fillRect(0, 0, W, H);
+  const fs = (opt.font || 10.5) * dpr;
+  const L = (opt.left || 46) * dpr, R = (opt.right || 10) * dpr, T = (opt.top || 10) * dpr, B = (opt.bottom || 30) * dpr;
+  const tx = v => (opt.logX ? Math.log10(Math.max(1e-12, v)) : v), ty = v => (opt.logY ? Math.log10(Math.max(1e-12, v)) : v);
+  let x0 = tx(opt.xMin), x1 = tx(opt.xMax), y0 = ty(opt.yMin), y1 = ty(opt.yMax);
+  if (!(x1 > x0)) x1 = x0 + 1; if (!(y1 > y0)) y1 = y0 + 1;
+  const X = v => L + (tx(v) - x0) / (x1 - x0) * (W - L - R), Y = v => H - B - (ty(v) - y0) / (y1 - y0) * (H - T - B);
+  ctx.font = `${fs}px system-ui`; ctx.lineWidth = 1;
+  // grid and tick labels
+  const ticks = (a, b, log, n) => {
+    if (log) { const out = []; for (let e = Math.floor(a); e <= Math.ceil(b); e++) for (const m of [1, 2, 5]) { const v = Math.log10(m) + e; if (v >= a - 1e-9 && v <= b + 1e-9) out.push([Math.pow(10, v), v]); } return out; }
+    const s = niceStep(b - a, n), out = []; for (let v = Math.ceil(a / s - 1e-9) * s; v <= b + 1e-9 * s; v += s) out.push([v, v, s]); return out;
+  };
+  ctx.strokeStyle = "rgba(160,170,150,0.14)"; ctx.fillStyle = "#a3ab96";
+  for (const [v, tv, s] of ticks(y0, y1, opt.logY, Math.max(3, Math.round((H - T - B) / (34 * dpr))))) {
+    const y = H - B - (tv - y0) / (y1 - y0) * (H - T - B);
+    ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke();
+    ctx.textAlign = "right"; ctx.fillText(opt.logY ? (v >= 1 ? String(+v.toPrecision(2)) : v.toPrecision(1)) : tickLabel(v, s), L - 4 * dpr, y + 3.5 * dpr);
+  }
+  for (const [v, tv, s] of ticks(x0, x1, opt.logX, Math.max(2, Math.round((W - L - R) / (70 * dpr))))) {
+    const x = L + (tv - x0) / (x1 - x0) * (W - L - R);
+    ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - B); ctx.stroke();
+    ctx.textAlign = "center"; ctx.fillText(opt.logX ? String(+v.toPrecision(2)) : tickLabel(v, s), x, H - B + 12 * dpr);
+  }
+  if (opt.zeroLine && y0 < 0 && y1 > 0) { ctx.strokeStyle = "rgba(200,210,190,0.35)"; ctx.beginPath(); ctx.moveTo(L, Y(0)); ctx.lineTo(W - R, Y(0)); ctx.stroke(); }
+  ctx.fillStyle = "#c8cfbb"; ctx.textAlign = "center";
+  if (opt.xLabel) ctx.fillText(opt.xLabel, (L + W - R) / 2, H - 4 * dpr);
+  if (opt.yLabel) { ctx.save(); ctx.translate(11 * dpr, (T + H - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(opt.yLabel, 0, 0); ctx.restore(); }
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T, W - L - R, H - T - B); ctx.clip();
+  for (const f of opt.fill || []) {
+    if (f.pts.length < 2) continue;
+    ctx.fillStyle = f.colour; ctx.beginPath(); ctx.moveTo(X(f.pts[0][0]), Y(f.base || 0));
+    for (const p of f.pts) ctx.lineTo(X(p[0]), Y(p[1]));
+    ctx.lineTo(X(f.pts[f.pts.length - 1][0]), Y(f.base || 0)); ctx.closePath(); ctx.fill();
+  }
+  for (const h of opt.hlines || []) { ctx.strokeStyle = h.colour; ctx.setLineDash((h.dash || [5, 4]).map(v => v * dpr)); ctx.lineWidth = 1.3 * dpr; ctx.beginPath(); ctx.moveTo(L, Y(h.y)); ctx.lineTo(W - R, Y(h.y)); ctx.stroke(); }
+  for (const v of opt.vlines || []) { if (v.x < opt.xMin || v.x > opt.xMax) continue; ctx.strokeStyle = v.colour; ctx.setLineDash((v.dash || [5, 4]).map(q => q * dpr)); ctx.lineWidth = 1.3 * dpr; ctx.beginPath(); ctx.moveTo(X(v.x), T); ctx.lineTo(X(v.x), H - B); ctx.stroke(); }
+  ctx.setLineDash([]);
+  for (const s of opt.series || []) {
+    ctx.strokeStyle = s.colour; ctx.fillStyle = s.colour; ctx.lineWidth = (s.width || 1.8) * dpr;
+    if (s.err) for (const [x, lo, hi] of s.err) { const xx = X(x); ctx.beginPath(); ctx.moveTo(xx, Y(lo)); ctx.lineTo(xx, Y(hi)); ctx.moveTo(xx - 4 * dpr, Y(lo)); ctx.lineTo(xx + 4 * dpr, Y(lo)); ctx.moveTo(xx - 4 * dpr, Y(hi)); ctx.lineTo(xx + 4 * dpr, Y(hi)); ctx.stroke(); }
+    if (s.dots) { const r = (s.r || 2.2) * dpr; for (const p of s.pts) { if (!isFinite(p[1])) continue; ctx.beginPath(); ctx.arc(X(p[0]), Y(p[1]), r, 0, 2 * Math.PI); ctx.fill(); } }
+    if (!s.dots || s.line) {
+      ctx.setLineDash((s.dash || []).map(v => v * dpr)); ctx.beginPath(); let pen = false;
+      for (const p of s.pts) { if (!isFinite(p[1]) || !isFinite(p[0])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); if (pen) ctx.lineTo(x, y); else ctx.moveTo(x, y); pen = true; }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  ctx.restore();
+  // labels for vertical lines (staggered so they do not overlap)
+  let lab = 0;
+  for (const v of opt.vlines || []) {
+    if (!v.label || v.x < opt.xMin || v.x > opt.xMax) continue;
+    ctx.fillStyle = v.colour; ctx.textAlign = X(v.x) > W - 90 * dpr ? "right" : "left";
+    ctx.fillText(v.label, X(v.x) + (ctx.textAlign === "left" ? 3 : -3) * dpr, T + (10 + 12 * (lab++ % 3)) * dpr);
+  }
+  return { X, Y, L, R, T, B, W, H, dpr, ctx };
+}
+// Auto range helper: [min, max] of values with a margin, optionally forced to include zero
+function autoRange(vals, incZero = true, pad = 0.08) {
+  let a = Infinity, b = -Infinity; for (const v of vals) if (isFinite(v)) { if (v < a) a = v; if (v > b) b = v; }
+  if (!isFinite(a)) return [0, 1];
+  if (incZero) { a = Math.min(a, 0); b = Math.max(b, 0); }
+  if (b - a < 1e-12) { b = a + 1; }
+  const p = (b - a) * pad; return [a < 0 || !incZero ? a - p : a, b + p];
+}
+
+/* =====================================================================
+   PANEL LAYOUT — resize or hide the side panels (sizes remembered)
+   ===================================================================== */
+function setupPanels(KEY, DEF) {
+  const main = document.querySelector("main"), left = $("left"), right = $("right");
+  const STRIP = 30, MIN = 200; DEF = Object.assign({ lw: 290, rw: 330, lc: false, rc: false }, DEF || {});
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag($("splitL"), "l"); drag($("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+}
+
+/* =====================================================================
+   BATCH RUN — run the model many times with no drawing and compare with theory
+   ---------------------------------------------------------------------
+   The simulation supplies cfg:
+     outcomes   [{key,label,unit,dec,threshold:{v,label}}]  what each run measures
+     sweepVars  [{key,label,unit,min,max,from,to,steps,int}] what a sweep can change
+     compares   [{key,label,a:{..},b:{..},la,lb}]           optional "with vs without"
+     baseParams()           -> the current settings of the simulation
+     runOnce(params, seed)  -> {outcomeKey: number, ...}   one headless run
+     theory(ctx)            -> {curves:[{label,f}], vlines:[{x,label}], value, label}
+     experiments [{name,q,note,set:{mode,n,sweep,from,to,steps,reps,outcome,compare,vary,params}}]
+   Runs are done in small chunks with setTimeout so the page never freezes.
+   ===================================================================== */
+const GROUP_COL = ["#00aec3", "#f1af28"], THEORY_COL = ["#e83181", "#ff9ccc"], THRESH_COL = "#de252a";
+function setupBatch(cfg) {
+  const box = $("batch");
+  const S = { mode: "repeat", n: cfg.defaultN || 100, sweep: cfg.sweepVars[0].key, from: cfg.sweepVars[0].from, to: cfg.sweepVars[0].to,
+    steps: cfg.sweepVars[0].steps || 10, reps: cfg.defaultReps || 3, outcome: cfg.outcomes[0].key, compare: "none", vary: true, logX: false, logY: false,
+    over: {}, exp: -1, rows: [], running: false, stopFlag: false, total: 0, meta: null };
+  const optHTML = (arr, sel) => arr.map(o => `<option value="${o.key}"${o.key === sel ? " selected" : ""}>${o.label}${o.unit ? ` (${o.unit})` : ""}</option>`).join("");
+  box.innerHTML = `
+  <div class="bhead"><h2>Batch run</h2><span class="hint" style="flex:1">Run the model many times with no animation, then compare the results with theory.</span><button id="bClose">✕ Close</button></div>
+  <div class="bbody">
+    <div class="bside">
+      <h2>Batch experiments</h2>
+      <div class="bexp" id="bExp">${cfg.experiments.map((e, k) => `<button data-k="${k}">${e.name}<small>${e.q}</small></button>`).join("")}</div>
+      <h2 class="gap">Set up your own</h2>
+      <div class="brow"><button id="bmRepeat">Repeat</button><button id="bmSweep">Sweep</button></div>
+      <div id="bRepeatOpts">
+        <div class="brow"><label>Number of runs</label><select id="bN">${cfg.repeatN.map(v => `<option${v === S.n ? " selected" : ""}>${v}</option>`).join("")}</select></div>
+        ${cfg.varyLabel ? `<label class="chk"><input type="checkbox" id="bVary" checked> ${cfg.varyLabel}</label>` : ""}
+      </div>
+      <div id="bSweepOpts">
+        <div class="brow"><label>Change</label><select id="bVar" style="flex:1">${optHTML(cfg.sweepVars, S.sweep)}</select></div>
+        <div class="brow"><label>from</label><input type="number" id="bFrom" step="any"><label>to</label><input type="number" id="bTo" step="any"></div>
+        <div class="brow"><label>steps</label><input type="number" id="bSteps" min="2" max="60" style="width:56px"><label>repeats per step</label><input type="number" id="bReps" min="1" max="200" style="width:56px"></div>
+        <div class="brow"><label class="chk" style="margin:0"><input type="checkbox" id="bLogX"> log x</label><label class="chk" style="margin:0"><input type="checkbox" id="bLogY"> log y</label></div>
+      </div>
+      ${cfg.compares ? `<div class="brow"><label>Compare</label><select id="bCmp" style="flex:1">${[{ key: "none", label: "No comparison" }].concat(cfg.compares).map(o => `<option value="${o.key}">${o.label}</option>`).join("")}</select></div>` : ""}
+      <div class="brow"><label>Record</label><select id="bOut" style="flex:1">${optHTML(cfg.outcomes, S.outcome)}</select></div>
+      <div class="bnow" id="bNow"></div>
+      <div class="hint" style="margin-top:6px">${cfg.timeNote || ""}</div>
+    </div>
+    <div class="bmain">
+      <div class="brow" style="margin:0"><button class="primary" id="bRun">▶ Run batch</button><button id="bStop" disabled>■ Stop</button>
+        <div class="prog"><span id="bBar"></span></div><span class="hint" id="bProg">ready</span><button id="bCSV" disabled>⬇ Download CSV</button></div>
+      <div class="bchart"><canvas id="bChart"></canvas></div>
+      <div class="legend" id="bLegend"></div>
+      <div class="note" id="bNote">Choose a batch experiment on the left, or set up your own, then press <b>Run batch</b>.</div>
+      <div class="tablewrap" id="bSummary"></div>
+      <a id="bDl" style="display:none"></a>
+    </div>
+  </div>`;
+  const sv = () => cfg.sweepVars.find(v => v.key === S.sweep), oc = () => cfg.outcomes.find(o => o.key === S.outcome);
+  const cmp = () => (cfg.compares || []).find(c => c.key === S.compare);
+  function syncUI() {
+    $("bmRepeat").classList.toggle("on", S.mode === "repeat"); $("bmSweep").classList.toggle("on", S.mode === "sweep");
+    $("bRepeatOpts").style.display = S.mode === "repeat" ? "" : "none"; $("bSweepOpts").style.display = S.mode === "sweep" ? "" : "none";
+    $("bN").value = S.n; if ($("bVary")) $("bVary").checked = S.vary;
+    $("bVar").value = S.sweep; $("bFrom").value = S.from; $("bTo").value = S.to; $("bSteps").value = S.steps; $("bReps").value = S.reps;
+    $("bLogX").checked = S.logX; $("bLogY").checked = S.logY;
+    if ($("bCmp")) $("bCmp").value = S.compare; $("bOut").value = S.outcome;
+    document.querySelectorAll("#bExp button").forEach(b => b.classList.toggle("on", +b.dataset.k === S.exp));
+    const p = params();
+    $("bNow").innerHTML = `<b>Settings used:</b> ${cfg.describe ? cfg.describe(p) : ""}${Object.keys(S.over).length ? ' <span class="hint">(set by the experiment; the main controls are not changed)</span>' : ' <span class="hint">(your current settings)</span>'}`;
+  }
+  const custom = () => { S.exp = -1; syncUI(); };
+  $("bmRepeat").onclick = () => { S.mode = "repeat"; custom(); }; $("bmSweep").onclick = () => { S.mode = "sweep"; custom(); };
+  $("bN").onchange = e => { S.n = +e.target.value; custom(); };
+  if ($("bVary")) $("bVary").onchange = e => { S.vary = e.target.checked; custom(); };
+  $("bVar").onchange = e => { S.sweep = e.target.value; const v = sv(); S.from = v.from; S.to = v.to; S.steps = v.steps || 10; custom(); };
+  $("bFrom").onchange = e => { S.from = +e.target.value; custom(); }; $("bTo").onchange = e => { S.to = +e.target.value; custom(); };
+  $("bSteps").onchange = e => { S.steps = clamp(Math.round(+e.target.value), 2, 60); custom(); };
+  $("bReps").onchange = e => { S.reps = clamp(Math.round(+e.target.value), 1, 200); custom(); };
+  $("bLogX").onchange = e => { S.logX = e.target.checked; render(); }; $("bLogY").onchange = e => { S.logY = e.target.checked; render(); };
+  if ($("bCmp")) $("bCmp").onchange = e => { S.compare = e.target.value; custom(); };
+  $("bOut").onchange = e => { S.outcome = e.target.value; render(); };
+  document.querySelectorAll("#bExp button").forEach(b => (b.onclick = () => {
+    const e = cfg.experiments[+b.dataset.k], s = e.set;
+    Object.assign(S, { mode: s.mode, n: s.n || S.n, outcome: s.outcome || S.outcome, compare: s.compare || "none", vary: s.vary !== false, logX: !!s.logX, logY: !!s.logY, over: s.params || {}, exp: +b.dataset.k });
+    if (s.mode === "sweep") { S.sweep = s.sweep; const v = sv(); S.from = s.from ?? v.from; S.to = s.to ?? v.to; S.steps = s.steps || v.steps || 10; S.reps = s.reps || 1; }
+    S.rows = []; S.meta = null; syncUI(); render();
+    $("bNote").innerHTML = `<b>${e.q}</b> ${e.note}`;
+  }));
+  $("bClose").onclick = () => close();
+  function open() { box.classList.add("open"); if (cfg.onOpen) cfg.onOpen(); syncUI(); render(); }
+  function close() { S.stopFlag = true; box.classList.remove("open"); }
+  const params = () => Object.assign({}, cfg.baseParams(), S.over);
+
+  // ---- running ----
+  function run() {
+    if (S.running) return;
+    const base = params(), c = cmp();
+    const groups = c ? [{ label: c.la, p: c.a }, { label: c.lb, p: c.b }] : [{ label: "", p: {} }];
+    const jobs = [], v = sv();
+    groups.forEach((g, gi) => {
+      if (S.mode === "repeat") for (let r = 0; r < S.n; r++) jobs.push({ g: gi, x: r + 1, seed: 1000 + r });
+      else for (let i = 0; i < S.steps; i++) {
+        let x = S.from + (S.to - S.from) * i / (S.steps - 1);
+        if (S.logX && S.from > 0 && S.to > 0) x = S.from * Math.pow(S.to / S.from, i / (S.steps - 1));
+        if (v.int) x = Math.round(x);
+        for (let r = 0; r < S.reps; r++) jobs.push({ g: gi, x, seed: 1 + i * 997 + r });
+      }
+    });
+    S.rows = []; S.meta = { noFit: S.exp >= 0 && !!cfg.experiments[S.exp].set.noFit, mode: S.mode, sweep: S.sweep, groups, base, vary: S.vary }; S.running = true; S.stopFlag = false; S.total = jobs.length;
+    $("bRun").disabled = true; $("bStop").disabled = false; $("bCSV").disabled = true;
+    let k = 0, lastDraw = 0;
+    const t0 = performance.now();
+    function chunk() {
+      const tc = performance.now();
+      while (k < jobs.length && performance.now() - tc < 30 && !S.stopFlag) {
+        const j = jobs[k++], g = groups[j.g];
+        const p = Object.assign({}, base, g.p, { _batch: true, _vary: S.mode === "repeat" && S.vary });
+        if (S.mode === "sweep") p[S.sweep] = j.x;
+        if (cfg.fixParams) cfg.fixParams(p);
+        let out; try { out = cfg.runOnce(p, j.seed); } catch (err) { console.error(err); out = {}; }
+        S.rows.push(Object.assign({ group: j.g, x: j.x, seed: j.seed }, out));
+      }
+      $("bBar").style.width = `${100 * k / jobs.length}%`;
+      $("bProg").textContent = `${k} / ${jobs.length} runs · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+      if (performance.now() - lastDraw > 400 || k >= jobs.length || S.stopFlag) { render(); lastDraw = performance.now(); }
+      if (k < jobs.length && !S.stopFlag) setTimeout(chunk, 0);
+      else { S.running = false; $("bRun").disabled = false; $("bStop").disabled = true; $("bCSV").disabled = !S.rows.length; if (S.stopFlag) $("bProg").textContent += " (stopped)"; render(); }
+    }
+    setTimeout(chunk, 0);
+  }
+  $("bRun").onclick = run; $("bStop").onclick = () => { S.stopFlag = true; };
+  $("bCSV").onclick = () => {
+    const keys = cfg.outcomes.map(o => o.key), v = S.meta && S.meta.mode === "sweep" ? cfg.sweepVars.find(q => q.key === S.meta.sweep) : null;
+    const lines = [["group", v ? `${v.label}${v.unit ? ` (${v.unit})` : ""}` : "run", "seed", ...cfg.outcomes.map(o => `${o.label}${o.unit ? ` (${o.unit})` : ""}`)].map(s => `"${s}"`).join(",")];
+    for (const r of S.rows) lines.push([`"${S.meta.groups[r.group].label || "all"}"`, r.x, r.seed, ...keys.map(k => (r[k] == null ? "" : r[k]))].join(","));
+    const blob = new Blob([lines.join("\r\n")], { type: "text/csv" }), a = $("bDl");
+    a.href = URL.createObjectURL(blob); a.download = `${cfg.file || "batch"}-${S.meta.mode}.csv`; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  };
+
+  // ---- results ----
+  function theoryFor(gi) {
+    if (!S.meta) return null;
+    const p = Object.assign({}, S.meta.base, S.meta.groups[gi].p); if (cfg.fixParams) cfg.fixParams(p);
+    return cfg.theory({ mode: S.meta.mode, outcome: S.outcome, sweep: S.meta.sweep, params: p, group: gi }) || null;
+  }
+  function render() {
+    if (!box.classList.contains("open")) return;
+    const c = $("bChart"), o = oc(), M = S.meta;
+    if (!M || !S.rows.length) { const [ctx, W, H, dpr] = fitCanvas(c); ctx.fillStyle = "#0d100b"; ctx.fillRect(0, 0, W, H); ctx.fillStyle = "#a3ab96"; ctx.font = `${13 * dpr}px system-ui`; ctx.textAlign = "center"; ctx.fillText(S.running ? "Running…" : "No results yet — press Run batch", W / 2, H / 2); $("bLegend").innerHTML = ""; $("bSummary").innerHTML = ""; return; }
+    const G = M.groups, thr = typeof o.threshold === "function" ? o.threshold(M.base) : o.threshold, unit = o.unit ? ` (${o.unit})` : "", leg = [];
+    const val = r => r[o.key];
+    const th = G.map((g, gi) => theoryFor(gi));
+    let sumHTML = "";
+    if (M.mode === "repeat") {
+      const sets = G.map((g, gi) => S.rows.filter(r => r.group === gi).map(val).filter(v => v != null && isFinite(v)));
+      const all = sets.flat(); let [a, b] = autoRange(all, false, 0.02);
+      th.forEach(t => { if (t && isFinite(t.value)) { a = Math.min(a, t.value); b = Math.max(b, t.value); } });
+      if (thr) { a = Math.min(a, thr.v); b = Math.max(b, thr.v); }
+      if (b - a < 1e-9) { a -= 0.5; b += 0.5; }
+      const nb = clamp(Math.round(Math.sqrt(Math.max(...sets.map(s => s.length)) * 1.5)), 6, 40), w = (b - a) / nb;
+      a -= w * 0.5; b += w * 0.5; const nb2 = nb + 1;
+      const hists = sets.map(s => { const h = new Array(nb2).fill(0); for (const v of s) h[clamp(Math.floor((v - a) / w), 0, nb2 - 1)]++; return h; });
+      const ymax = Math.max(1, ...hists.flat()) * 1.12;
+      const series = [], vlines = [];
+      hists.forEach((h, gi) => {
+        const pts = []; for (let i = 0; i < nb2; i++) { pts.push([a + i * w, h[i]], [a + (i + 1) * w, h[i]]); }
+        series.push({ pts, colour: GROUP_COL[gi], width: 2 });
+        const ms = meanSD(sets[gi]); if (ms.n) vlines.push({ x: ms.mean, colour: GROUP_COL[gi], label: `mean ${fmt(ms.mean, o.dec ?? 2)}`, dash: [2, 2] });
+        leg.push(`<span><i style="background:${GROUP_COL[gi]}"></i>${G[gi].label ? G[gi].label + ": " : ""}results (${sets[gi].length} runs)</span>`);
+      });
+      th.forEach((t, gi) => { if (t && isFinite(t.value)) { vlines.push({ x: t.value, colour: THEORY_COL[gi], label: `theory ${fmt(t.value, o.dec ?? 2)}`, dash: [7, 4] }); leg.push(`<span><i class="ln" style="background:${THEORY_COL[gi]}"></i>${t.label || "Theory"}${G.length > 1 ? ` (${G[gi].label})` : ""}</span>`); } });
+      if (thr) { vlines.push({ x: thr.v, colour: THRESH_COL, label: thr.label, dash: [3, 3] }); leg.push(`<span><i class="ln" style="background:${THRESH_COL}"></i>${thr.label}</span>`); }
+      plotXY(c, { xMin: a, xMax: b, yMin: 0, yMax: ymax, xLabel: o.label + unit, yLabel: "number of runs", series, vlines, bg: "#0d100b", left: 50 });
+      // fill the bars lightly
+      const ctx = c.getContext("2d");
+      sumHTML = `<table><tr><th></th><th>n</th><th>mean</th><th>SD</th><th>std. error</th><th>min</th><th>max</th><th>theory</th><th>diff.</th><th>diff. ÷ SE</th>${thr ? `<th>${thr.label}</th>` : ""}</tr>` +
+        G.map((g, gi) => {
+          const s = meanSD(sets[gi]), t = th[gi] && isFinite(th[gi].value) ? th[gi].value : null, d = o.dec ?? 2;
+          const above = thr ? sets[gi].filter(v => v > thr.v).length : 0;
+          return `<tr><td style="color:${GROUP_COL[gi]}">${g.label || "Results"}</td><td>${s.n}</td><td>${fmt(s.mean, d)}</td><td>${fmt(s.sd, d)}</td><td>${fmt(s.se, d + 1)}</td><td>${fmt(s.min, d)}</td><td>${fmt(s.max, d)}</td>
+            <td>${t == null ? "–" : fmt(t, d)}</td><td>${t == null ? "–" : `${fmt(100 * (s.mean - t) / (Math.abs(t) || 1), 1)}%`}</td><td>${t == null || !s.se ? "–" : fmt((s.mean - t) / s.se, 1)}</td>
+            ${thr ? `<td>${s.n ? fmt(100 * above / s.n, 1) : "–"}%</td>` : ""}</tr>`;
+        }).join("") + `</table>`;
+    } else {
+      const v = cfg.sweepVars.find(q => q.key === M.sweep);
+      const xs = [...new Set(S.rows.map(r => r.x))].sort((p, q) => p - q);
+      const series = [], vlines = [], allY = [], tPts = [];
+      const stats = G.map((g, gi) => xs.map(x => ({ x, ...meanSD(S.rows.filter(r => r.group === gi && r.x === x).map(val).filter(q => q != null && isFinite(q))) })).filter(s => s.n));
+      let x0 = Math.min(...xs), x1 = Math.max(...xs); if (x1 - x0 < 1e-9) { x0 -= 1; x1 += 1; }
+      if (!S.logX) { const pad = (x1 - x0) * 0.03; x0 -= pad; x1 += pad; } else { x0 *= 0.95; x1 *= 1.05; }
+      th.forEach((t, gi) => {
+        if (!t) return;
+        for (const cv of t.curves || []) {
+          const pts = []; for (let i = 0; i <= 240; i++) { const x = S.logX ? x0 * Math.pow(x1 / x0, i / 240) : x0 + (x1 - x0) * i / 240; const y = cv.f(x); pts.push([x, y]); if (isFinite(y)) tPts.push(y); }
+          series.push({ pts, colour: cv.colour || THEORY_COL[gi], width: 2, dash: cv.dash || [7, 4] });
+          leg.push(`<span><i class="ln" style="background:${cv.colour || THEORY_COL[gi]}"></i>${cv.label}${G.length > 1 ? ` (${G[gi].label})` : ""}</span>`);
+        }
+        for (const vl of t.vlines || []) vlines.push({ x: vl.x, colour: vl.colour || "#a4cbe6", label: vl.label, dash: [3, 3] });
+      });
+      stats.forEach((st, gi) => {
+        const raw = S.rows.filter(r => r.group === gi).map(r => [r.x, val(r)]);
+        if (raw.length > st.length) series.push({ pts: raw, colour: GROUP_COL[gi] + "66", dots: true, r: 1.6 });
+        series.push({ pts: st.map(s => [s.x, s.mean]), colour: GROUP_COL[gi], dots: true, line: true, r: 3, width: 1.4, err: st.map(s => [s.x, s.mean - s.sd, s.mean + s.sd]) });
+        st.forEach(s => allY.push(s.mean - s.sd, s.mean + s.sd));
+        leg.push(`<span><i style="background:${GROUP_COL[gi]}"></i>${G[gi].label ? G[gi].label + ": " : ""}mean ± 1 SD${raw.length > st.length ? " (faint dots = single runs)" : ""}</span>`);
+      });
+      let [ya, yb] = autoRange(allY.concat(tPts.filter(y => y < Math.max(...allY, 0) * 3 + 1e-9)), !S.logY);
+      if (S.logY) { ya = Math.max(1e-6, Math.min(...allY.filter(y => y > 0)) * 0.7); yb = Math.max(...allY) * 1.4; }
+      plotXY(c, { xMin: x0, xMax: x1, yMin: ya, yMax: yb, logX: S.logX, logY: S.logY, xLabel: v.label + (v.unit ? ` (${v.unit})` : ""), yLabel: o.label + unit, series, vlines, bg: "#0d100b", left: 54, zeroLine: true });
+      const d = o.dec ?? 2;
+      sumHTML = G.map((g, gi) => {
+        const st = stats[gi], t = th[gi], f = t && t.curves && t.curves[0];
+        let fit = "";
+        const lf = linFit(st.map(s => s.x), st.map(s => s.mean));
+        if (lf && !M.noFit) fit += `Straight-line fit: ${o.label.toLowerCase()} = ${fmt(lf.a, 3)} + ${fmt(lf.b, 4)} × ${v.label.toLowerCase()} (R² = ${lf.r2.toFixed(3)}). `;
+        const pos = st.filter(s => s.x > 0 && s.mean > 0);
+        if (pos.length >= 3 && !M.noFit) { const ll = linFit(pos.map(s => Math.log10(s.x)), pos.map(s => Math.log10(s.mean))); if (ll) fit += `Log–log gradient: ${ll.b.toFixed(2)} (so roughly ∝ ${v.label.toLowerCase()}<sup>${ll.b.toFixed(2)}</sup>).`; }
+        let errs = [];
+        const rows = st.map(s => { const tv = f ? f.f(s.x) : null; if (tv != null && isFinite(tv) && Math.abs(tv) > 1e-12) errs.push(Math.abs(s.mean - tv) / Math.abs(tv)); return `<tr><td>${fmt(s.x, v.int ? 0 : 3)}</td><td>${s.n}</td><td>${fmt(s.mean, d)}</td><td>${fmt(s.sd, d)}</td><td>${fmt(s.se, d + 1)}</td><td>${tv == null || !isFinite(tv) ? "–" : fmt(tv, d)}</td><td>${tv == null || !isFinite(tv) ? "–" : fmt(100 * (s.mean - tv) / (Math.abs(tv) || 1), 1) + "%"}</td><td>${tv == null || !isFinite(tv) || !s.se ? "–" : fmt((s.mean - tv) / s.se, 1)}</td></tr>`; });
+        const avgErr = errs.length ? `Mean difference from ${f.label.toLowerCase()}: <b>${(100 * errs.reduce((p, q) => p + q, 0) / errs.length).toFixed(1)}%</b>. ` : "";
+        return `${G.length > 1 ? `<div style="color:${GROUP_COL[gi]};font-weight:600;margin-top:6px">${g.label}</div>` : ""}<div class="hint" style="font-size:12px;margin:4px 0">${avgErr}${fit}</div>
+          <table><tr><th>${v.label}${v.unit ? ` (${v.unit})` : ""}</th><th>n</th><th>mean</th><th>SD</th><th>std. error</th><th>theory</th><th>diff.</th><th>diff. ÷ SE</th></tr>${rows.join("")}</table>`;
+      }).join("");
+    }
+    $("bLegend").innerHTML = leg.join("");
+    $("bSummary").innerHTML = sumHTML;
+  }
+  window.addEventListener("resize", () => render());
+  syncUI();
+  return { open, close, render, state: S };
+}
+
+
+/* =====================================================================
+   1. MATERIALS AND CONSTANTS
+   ---------------------------------------------------------------------
+   floorMass : mass of one floor (kg) for a 30 m × 30 m floor plate
+   wk        : √(k/m) for one storey (rad/s) — sets how stiff each storey is.
+               With identical storeys, T1 ≈ 2(2N+1)/wk, i.e. about 4N/wk.
+   zeta      : the frame's own damping ratio
+   dmg, fail : inter-storey drift (%) where cracking starts / severe damage
+   ===================================================================== */
+const G = 9.81, STOREY_H = 3.5, WIDTH = 30;
+const MAT = {
+  steel:    { name: "steel",    floorMass: 600e3, wk: 40, zeta: 0.02, dmg: 1.0, fail: 2.5, rule: 0.1,  hint: "Light and bendy: 2% damping. Ductile — bends a long way before breaking." },
+  concrete: { name: "concrete", floorMass: 900e3, wk: 44, zeta: 0.05, dmg: 0.5, fail: 2.0, rule: 0.09, hint: "Heavy and a little stiffer: 5% damping. Cracks early (0.5% drift)." },
+  timber:   { name: "timber",   floorMass: 250e3, wk: 36, zeta: 0.04, dmg: 1.0, fail: 3.0, rule: 0.11, hint: "Very light: less mass means smaller earthquake forces. 4% damping." },
+};
+const SOIL = {
+  rock:  { name: "rock",            fg: 3.0, zg: 0.60, amp: 1.0,  hint: "Rock passes on quick, jerky shaking (about 3 Hz) without amplifying it." },
+  stiff: { name: "stiff soil",      fg: 2.0, zg: 0.50, amp: 1.25, hint: "Firm ground slightly amplifies shaking around 2 Hz." },
+  soft:  { name: "soft soil",       fg: 1.0, zg: 0.35, amp: 1.6,  hint: "Soft ground amplifies slower shaking (about 1 Hz) — bad news for 8–12 storey buildings." },
+  clay:  { name: "lake-bed clay",   fg: 0.5, zg: 0.12, amp: 4.0,  hint: "A deep, soft clay layer rings like a bell at about 0.5 Hz (a 2 s period), amplifying shaking about 4 times." },
+};
+
+/* =====================================================================
+   2. NATURAL FREQUENCIES OF A CHAIN OF MASSES AND SPRINGS
+   ---------------------------------------------------------------------
+   For a chain, the problem K φ = ω² M φ becomes a "tridiagonal" matrix
+   problem. We find each eigenvalue (ω²) by bisection with a Sturm
+   sequence, which counts how many eigenvalues lie below a trial value.
+   m[i] = mass i, k[i] = spring between mass i and the one below it.
+   ===================================================================== */
+function chainFreqs(m, k, count) {
+  const n = m.length, d = new Float64Array(n), e = new Float64Array(n);
+  for (let i = 0; i < n; i++) { d[i] = (k[i] + (i < n - 1 ? k[i + 1] : 0)) / m[i]; if (i < n - 1) e[i] = -k[i + 1] / Math.sqrt(m[i] * m[i + 1]); }
+  let hi = 0; for (let i = 0; i < n; i++) hi = Math.max(hi, d[i] + Math.abs(i ? e[i - 1] : 0) + Math.abs(i < n - 1 ? e[i] : 0));
+  const below = x => { let c = 0, q = 1; for (let i = 0; i < n; i++) { q = d[i] - x - (i ? e[i - 1] * e[i - 1] / q : 0); if (q === 0) q = 1e-300; if (q < 0) c++; } return c; };
+  const out = [];
+  for (let j = 0; j < Math.min(n, count || n); j++) {
+    let a = 0, b = hi * 1.01 + 1;
+    for (let it = 0; it < 90; it++) { const mid = (a + b) / 2; if (below(mid) > j) b = mid; else a = mid; }
+    out.push(Math.sqrt((a + b) / 2));
+  }
+  return out;  // ω in rad/s, lowest first
+}
+
+/* =====================================================================
+   3. BUILD ONE BUILDING AS A CHAIN
+   ---------------------------------------------------------------------
+   Degrees of freedom from the bottom up:
+     [base slab on rubber bearings]  floors 1..N  [tuned mass damper]
+   Each has a mass m, a spring k and dashpot c connecting it to the one
+   below, and cg = damping "to the ground" (the mass-proportional part of
+   Rayleigh damping).
+   ===================================================================== */
+function buildSystem(p, opt = {}) {
+  const N = opt.storeys || p.storeys, mat = MAT[p.material];
+  const brace = opt.plain ? 1 : p.brace, added = opt.plain ? 0 : p.addDamp / 100;
+  const tmd = !opt.plain && p.tmd, iso = !opt.plain && p.iso;
+  const ms = mat.floorMass, ks = ms * mat.wk * mat.wk * brace;
+  // the fixed-base building on its own: its natural frequencies
+  const wB = chainFreqs(new Array(N).fill(ms), new Array(N).fill(ks), 3);
+  const zeta = mat.zeta + added;
+  // Rayleigh damping C = αM + βK, giving damping ratio ζ in modes 1 and 2
+  let alpha = 0, beta = 2 * zeta / wB[0];
+  if (N > 1) { alpha = 2 * zeta * wB[0] * wB[1] / (wB[0] + wB[1]); beta = 2 * zeta / (wB[0] + wB[1]); }
+  const m = [], k = [], c = [], cg = [], role = [];
+  const add = (mi, ki, ci, cgi, r) => { m.push(mi); k.push(ki); c.push(ci); cg.push(cgi); role.push(r); };
+  if (iso) {
+    const Mtot = ms * (N + 1), kb = Mtot * Math.pow(2 * Math.PI / p.isoT, 2);
+    add(ms, kb, 2 * (p.isoZeta / 100) * Math.sqrt(kb * Mtot), 0, "base");
+  }
+  for (let i = 0; i < N; i++) add(ms, ks, beta * ks, alpha * ms, "floor");
+  let td = null;
+  if (tmd) {
+    const mu = p.tmdMu / 100, md = mu * ms * N, wd = p.tmdTune * wB[0];
+    add(md, md * wd * wd, 2 * (p.tmdZeta / 100) * md * wd, 0, "tmd");
+    td = { md, fd: wd / 2 / Math.PI };
+  }
+  const n = m.length, first = iso ? 1 : 0, top = first + N - 1;
+  const wAll = chainFreqs(m, k, Math.min(n, 4));
+  return { N, n, m, k, c, cg, role, first, top, iso, tmd, td, mat, zeta, wB, wAll, brace, label: opt.label || "",
+    u: new Float64Array(n), v: new Float64Array(n), f: new Float64Array(n + 1),
+    k1u: new Float64Array(n), k1v: new Float64Array(n), k2u: new Float64Array(n), k2v: new Float64Array(n), k3u: new Float64Array(n), k3v: new Float64Array(n), k4u: new Float64Array(n), k4v: new Float64Array(n),
+    tu: new Float64Array(n), tv: new Float64Array(n), acc: new Float64Array(n),
+    peakDrift: new Float64Array(N), peakRoof: 0, peakAcc: 0, peakBear: 0, maxDriftNow: 0 };
+}
+// accelerations (relative to the ground) for displacements u and velocities v
+function accel(S, u, v, ag, a) {
+  const n = S.n, f = S.f;
+  for (let i = 0; i < n; i++) f[i] = S.k[i] * (u[i] - (i ? u[i - 1] : 0)) + S.c[i] * (v[i] - (i ? v[i - 1] : 0));   // force in the columns/spring below mass i
+  f[n] = 0;                                                                                                        // nothing above the top
+  for (let i = 0; i < n; i++) a[i] = (-f[i] + f[i + 1] - S.cg[i] * v[i]) / S.m[i] - ag;
+}
+// One Runge–Kutta step of length h. agFn(t) gives the ground acceleration at time t.
+function rk4(S, t, h, agFn) {
+  const n = S.n, u = S.u, v = S.v, tu = S.tu, tv = S.tv;
+  const a0 = agFn(t), a1 = agFn(t + h / 2), a2 = agFn(t + h);
+  accel(S, u, v, a0, S.k1v); for (let i = 0; i < n; i++) { S.k1u[i] = v[i]; tu[i] = u[i] + h / 2 * v[i]; tv[i] = v[i] + h / 2 * S.k1v[i]; }
+  accel(S, tu, tv, a1, S.k2v); for (let i = 0; i < n; i++) { S.k2u[i] = tv[i]; }
+  for (let i = 0; i < n; i++) { tu[i] = u[i] + h / 2 * S.k2u[i]; tv[i] = v[i] + h / 2 * S.k2v[i]; }
+  accel(S, tu, tv, a1, S.k3v); for (let i = 0; i < n; i++) { S.k3u[i] = tv[i]; }
+  for (let i = 0; i < n; i++) { tu[i] = u[i] + h * S.k3u[i]; tv[i] = v[i] + h * S.k3v[i]; }
+  accel(S, tu, tv, a2, S.k4v); for (let i = 0; i < n; i++) { S.k4u[i] = tv[i]; }
+  for (let i = 0; i < n; i++) {
+    u[i] += h / 6 * (S.k1u[i] + 2 * S.k2u[i] + 2 * S.k3u[i] + S.k4u[i]);
+    v[i] += h / 6 * (S.k1v[i] + 2 * S.k2v[i] + 2 * S.k3v[i] + S.k4v[i]);
+  }
+  // record peaks
+  accel(S, u, v, a2, S.acc);
+  let md = 0;
+  for (let j = 0; j < S.N; j++) {
+    const i = S.first + j, d = Math.abs(u[i] - (i ? u[i - 1] : 0)) / STOREY_H * 100;
+    if (d > S.peakDrift[j]) S.peakDrift[j] = d; if (d > md) md = d;
+  }
+  S.maxDriftNow = md;
+  const r = Math.abs(u[S.top]); if (r > S.peakRoof) S.peakRoof = r;
+  const aa = Math.abs(S.acc[S.top] + a2); if (aa > S.peakAcc) S.peakAcc = aa;      // absolute acceleration = relative + ground
+  if (S.iso) { const b = Math.abs(u[0]); if (b > S.peakBear) S.peakBear = b; }
+}
+const safeDt = S => Math.min(0.005, 0.3 / Math.max(...chainFreqs(S.m, S.k).slice(-1)));
+const fullFreqMax = S => chainFreqs(S.m, S.k).slice(-1)[0];
+
+/* =====================================================================
+   4. STEADY SHAKING: THE FREQUENCY RESPONSE (theory)
+   ---------------------------------------------------------------------
+   For steady sine shaking a_g = A sin(ωt), every floor ends up moving at
+   the same frequency. Writing u = U e^(iωt) turns the equations into
+   (K − ω²M + iωC) U = −M A, a tridiagonal set of complex equations, solved
+   here with the Thomas algorithm. Returns the roof amplitude per 1 m/s².
+   ===================================================================== */
+function freqResp(S, f, dof) {
+  const w = 2 * Math.PI * f, n = S.n;
+  const dr = new Float64Array(n), di = new Float64Array(n), orr = new Float64Array(n), oi = new Float64Array(n), br = new Float64Array(n), bi = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const kup = i < n - 1 ? S.k[i + 1] : 0, cup = i < n - 1 ? S.c[i + 1] : 0;
+    dr[i] = S.k[i] + kup - w * w * S.m[i]; di[i] = w * (S.c[i] + cup + S.cg[i]);
+    if (i < n - 1) { orr[i] = -kup; oi[i] = -w * cup; }
+    br[i] = -S.m[i]; bi[i] = 0;
+  }
+  // forward elimination (complex arithmetic written out)
+  for (let i = 1; i < n; i++) {
+    // factor = off[i-1] / diag[i-1]
+    const den = dr[i - 1] * dr[i - 1] + di[i - 1] * di[i - 1];
+    const fr = (orr[i - 1] * dr[i - 1] + oi[i - 1] * di[i - 1]) / den, fi = (oi[i - 1] * dr[i - 1] - orr[i - 1] * di[i - 1]) / den;
+    dr[i] -= fr * orr[i - 1] - fi * oi[i - 1]; di[i] -= fr * oi[i - 1] + fi * orr[i - 1];
+    br[i] -= fr * br[i - 1] - fi * bi[i - 1]; bi[i] -= fr * bi[i - 1] + fi * br[i - 1];
+  }
+  const xr = new Float64Array(n), xi = new Float64Array(n);
+  for (let i = n - 1; i >= 0; i--) {
+    let rr = br[i], ri = bi[i];
+    if (i < n - 1) { rr -= orr[i] * xr[i + 1] - oi[i] * xi[i + 1]; ri -= orr[i] * xi[i + 1] + oi[i] * xr[i + 1]; }
+    const den = dr[i] * dr[i] + di[i] * di[i];
+    xr[i] = (rr * dr[i] + ri * di[i]) / den; xi[i] = (ri * dr[i] - rr * di[i]) / den;
+  }
+  const j = dof == null ? S.top : dof;
+  return Math.hypot(xr[j], xi[j]);
+}
+
+/* =====================================================================
+   5. GROUND MOTION
+   ===================================================================== */
+// Random earthquake record (ground acceleration in m/s², every 0.01 s)
+function genQuake(p, seed) {
+  const rng = mulberry32(hashSeed("quake" + seed));
+  const soil = SOIL[p.soil], dt = 0.01;
+  const Ds = clamp(1.5 * Math.pow(10, 0.35 * (p.mag - 5)), 1.5, 40);        // strong shaking duration (s)
+  const rise = 2, decay = 0.8 * Ds + 4, total = rise + Ds + decay + 1;
+  const n = Math.ceil(total / dt), a = new Float64Array(n);
+  // Kanai–Tajimi soil filter: x'' + 2ζω x' + ω² x = −w(t);  output = 2ζω x' + ω² x
+  const wg = 2 * Math.PI * soil.fg * (p.soil === "clay" ? 1 : Math.pow(10, -0.08 * (p.mag - 6.5))), zg = soil.zg;
+  let x = 0, xv = 0;
+  // 2-pole high-pass filter at 0.15 Hz removes slow drift (a real record's baseline correction)
+  const w0 = 2 * Math.PI * 0.15 * dt, al = Math.sin(w0) / (2 * 0.7071), cw = Math.cos(w0);
+  const b0 = (1 + cw) / 2 / (1 + al), b1 = -(1 + cw) / (1 + al), b2 = b0, a1 = -2 * cw / (1 + al), a2 = (1 - al) / (1 + al);
+  let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  for (let i = 0; i < n; i++) {
+    const w = gauss(rng) / Math.sqrt(dt);
+    for (let s = 0; s < 4; s++) { const h = dt / 4; xv += h * (-w - 2 * zg * wg * xv - wg * wg * x); x += h * xv; }
+    const raw = 2 * zg * wg * xv + wg * wg * x;
+    const y = b0 * raw + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = raw; y2 = y1; y1 = y;
+    const t = i * dt;
+    const env = t < rise ? (t / rise) ** 2 : t < rise + Ds ? 1 : Math.exp(-Math.log(20) * (t - rise - Ds) / decay);
+    a[i] = y * env;
+  }
+  let pk = 0; for (const v of a) pk = Math.max(pk, Math.abs(v));
+  const target = p.pga * soil.amp * G;
+  for (let i = 0; i < n; i++) a[i] *= target / pk;
+  return { dt, a, dur: total, pga: target };
+}
+// A ground-motion "driver": acc(t) for any time t (m/s²)
+const CHIRP = { f0: 0.2, T: 120 };
+function makeGround(p, seed) {
+  const amp = p.amp * G;
+  if (p.motion === "quake") {
+    const q = genQuake(p, seed);
+    return { type: "quake", q, dur: q.dur, acc: t => { const x = t / q.dt, i = Math.floor(x); if (i < 0 || i >= q.a.length - 1) return 0; const fr = x - i; return q.a[i] * (1 - fr) + q.a[i + 1] * fr; } };
+  }
+  if (p.motion === "chirp") {
+    // frequency rises steadily from f0 to fMax over CHIRP.T seconds
+    const f1 = p.chirpMax || 4, k = (f1 - CHIRP.f0) / CHIRP.T;
+    return { type: "chirp", dur: CHIRP.T, freqAt: t => CHIRP.f0 + k * Math.min(t, CHIRP.T),
+      acc: t => (t > CHIRP.T ? 0 : amp * Math.min(1, t / 3) * Math.sin(2 * Math.PI * (CHIRP.f0 * t + k * t * t / 2))) };
+  }
+  if (p.motion === "pluck") return { type: "pluck", dur: 0, acc: () => 0 };
+  // steady sine: the phase is built up step by step so the frequency can change live
+  const g = { type: "sine", dur: Infinity, f: p.freq, amp, phase: 0, tPh: 0 };
+  g.acc = t => g.amp * Math.min(1, t / 2) * Math.sin(g.phase + 2 * Math.PI * g.f * (t - g.tPh));
+  g.retune = (t, f, A) => { g.phase += 2 * Math.PI * g.f * (t - g.tPh); g.tPh = t; g.f = f; g.amp = A; };
+  return g;
+}
+// "Push and let go": start with the building bent into the shape of its first mode (roof moved 0.2% of its height)
+function pluck(S) { const H = S.N * STOREY_H, top = Math.sin(Math.PI * S.N / (2 * S.N + 1)); for (let j = 0; j < S.N; j++) S.u[S.first + j] = 0.002 * H * Math.sin(Math.PI * (j + 1) / (2 * S.N + 1)) / top; if (S.tmd) S.u[S.n - 1] = S.u[S.top]; }
+
+/* =====================================================================
+   6. ONE HEADLESS RUN (used by the batch runner)
+   ===================================================================== */
+function runOnce(p, seed) {
+  const rng = mulberry32(hashSeed("vary" + seed));
+  if (p._vary && p.motion === "quake") p = Object.assign({}, p, { pga: p.pga * Math.exp(0.3 * gauss(rng)) });   // quake size varies (log-normal, about ±30%)
+  const S = buildSystem(p), g = makeGround(p, p.motion === "quake" ? seed : 1);
+  if (p.motion === "pluck") pluck(S);
+  const dt = Math.min(0.01, 0.4 / fullFreqMax(S));
+  let tEnd, tMeasure = 0;
+  if (p.motion === "sine") {
+    // run until the start-up wobble has died away (several damping time constants), then measure the steady swing
+    let zmin = Infinity; for (const w of S.wAll.slice(0, 2)) zmin = Math.min(zmin, S.zeta * w);
+    tEnd = clamp(6 / zmin + 10, 15, 150); tMeasure = tEnd - Math.max(5, 3 / p.freq);
+  } else if (p.motion === "pluck") tEnd = 8 * 2 * Math.PI / S.wAll[0];
+  else tEnd = g.dur + 5;
+  let t = 0, peakSteady = 0, lastU = S.u[S.top], cross = [];
+  while (t < tEnd - 1e-9) {
+    rk4(S, t, dt, g.acc); t += dt;
+    const ur = S.u[S.top];
+    if (t >= tMeasure) peakSteady = Math.max(peakSteady, Math.abs(ur));
+    if (lastU < 0 && ur >= 0) cross.push(t - dt * ur / (ur - lastU));       // upward zero crossing (interpolated)
+    lastU = ur;
+  }
+  let period = 2 * Math.PI / S.wAll[0];
+  if (p.motion === "pluck" && cross.length >= 2) period = (cross[cross.length - 1] - cross[0]) / (cross.length - 1);
+  const drift = Math.max(...S.peakDrift);
+  return { roof: 100 * (p.motion === "sine" ? peakSteady : S.peakRoof), drift, acc: S.peakAcc / G, damage: drift > S.mat.dmg ? 1 : 0, period, bear: 100 * S.peakBear };
+}
+
+/* =====================================================================
+   7. THE LIVE SIMULATION
+   ===================================================================== */
+const el = $;
+function params() {
+  const v = id => +el(id).value;
+  return { storeys: v("storeys"), material: el("material").value, brace: v("brace"), addDamp: v("addDamp"),
+    tmd: el("tmd").checked, tmdMu: v("tmdMu"), tmdTune: v("tmdTune"), tmdZeta: v("tmdZeta"),
+    iso: el("iso").checked, isoT: v("isoT"), isoZeta: v("isoZeta"), twin: el("twin").value, storeys2: v("storeys2"),
+    motion: el("motion").value, freq: v("freq"), amp: v("amp"), mag: v("mag"), pga: v("pga"), soil: el("soil").value, seed: Math.max(1, Math.round(v("seed")) || 1),
+    exag: v("exag"), chirpMax: 4 };
+}
+const sim = { t: 0, running: false, sys: [], g: null, dt: 0.005, hist: [], ended: false, gdisp: 0, gvel: 0 };
+function describeSys(S, p) { return `${S.N}-storey ${S.mat.name}${S.tmd ? " + damper" : ""}${S.iso ? " + isolated" : ""}${S.brace > 1 ? ` + bracing ×${S.brace}` : ""}`; }
+function reset() {
+  const p = params();
+  const A = buildSystem(p, { label: "A" });
+  sim.sys = [A];
+  if (p.twin === "plain" && (p.tmd || p.iso || p.brace > 1 || p.addDamp > 0)) sim.sys.push(buildSystem(p, { plain: true, label: "B" }));
+  else if (p.twin === "height") sim.sys.push(buildSystem(p, { storeys: p.storeys2, label: "B" }));
+  sim.g = makeGround(p, p.seed);
+  if (p.motion === "pluck") sim.sys.forEach(pluck);
+  sim.dt = Math.min(...sim.sys.map(safeDt));
+  sim.t = 0; sim.hist = []; sim.ended = false; sim.gdisp = 0; sim.gvel = 0;
+  setRunning(false);
+  lastUI = 0;
+}
+function step(dt) {
+  for (const S of sim.sys) rk4(S, sim.t, dt, sim.g.acc);
+  // ground movement for drawing only: integrate acceleration twice, with a gentle pull back to the centre
+  const a = sim.g.acc(sim.t + dt);
+  sim.gvel += dt * (a - 0.6 * sim.gvel - 0.09 * sim.gdisp); sim.gdisp += dt * sim.gvel;
+  sim.t += dt;
+}
+
+/* =====================================================================
+   8. DRAWING
+   ===================================================================== */
+// colour for a drift (%): green → gold at the cracking limit → red at the failure limit
+function driftColour(d, mat, alpha = 1) {
+  const c0 = [58, 157, 74], c1 = [241, 175, 40], c2 = [222, 37, 42];
+  let r;
+  if (d <= mat.dmg) { const f = d / mat.dmg; r = c0.map((v, i) => v + (c1[i] - v) * f); }
+  else { const f = Math.min(1, (d - mat.dmg) / (mat.fail - mat.dmg)); r = c1.map((v, i) => v + (c2[i] - v) * f); }
+  return `rgba(${r.map(Math.round).join(",")},${alpha})`;
+}
+function drawView() {
+  const c = el("view"), [ctx, W, H, dpr] = fitCanvas(c), p = params();
+  // sky and ground
+  const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, "#0e1a26"); sky.addColorStop(1, "#1a2430");
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  const groundY = H - 46 * dpr;
+  const maxN = Math.max(...sim.sys.map(S => S.N + (S.iso ? 0.3 : 0) + (S.tmd ? 0.6 : 0)));
+  const sceneH = Math.max(maxN * STOREY_H + 14, 34);
+  const nB = sim.sys.length;
+  const s = Math.min((groundY - 30 * dpr) / sceneH, W / (nB * (WIDTH + 14) + 10));      // pixels per metre
+  const ex = p.exag;
+  const gx = clamp(sim.gdisp * ex * s, -W * 0.08, W * 0.08);
+  // ground block (moves with the shaking)
+  ctx.fillStyle = "#3b3226"; ctx.fillRect(0, groundY, W, H - groundY);
+  ctx.fillStyle = "#4e4332"; for (let x = -40; x < W + 40; x += 26 * dpr) ctx.fillRect(x + (gx % (26 * dpr)), groundY + 8 * dpr, 12 * dpr, 4 * dpr);
+  ctx.fillStyle = "#5c7a3a"; ctx.fillRect(0, groundY, W, 3 * dpr);
+  // ground arrow showing acceleration
+  const agNow = sim.g ? sim.g.acc(sim.t) : 0;
+  if (Math.abs(agNow) > 0.002 * G) {
+    const L = clamp(agNow / G * 300, -90, 90) * dpr, y = H - 16 * dpr, x0 = W / 2;
+    ctx.strokeStyle = ctx.fillStyle = "#f1af28"; ctx.lineWidth = 3 * dpr; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + L, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0 + L, y); ctx.lineTo(x0 + L - Math.sign(L) * 8 * dpr, y - 5 * dpr); ctx.lineTo(x0 + L - Math.sign(L) * 8 * dpr, y + 5 * dpr); ctx.fill();
+    ctx.font = `${11 * dpr}px system-ui`; ctx.textAlign = "left"; ctx.fillText(`ground acceleration ${(agNow / G).toFixed(2)} g`, x0 + 100 * dpr, y + 4 * dpr);
+  }
+  sim.sys.forEach((S, bi) => {
+    const cx = W * (bi + 0.5) / nB + gx, bw = WIDTH * s, hs = STOREY_H * s;
+    let base = groundY;
+    const X = i => cx + (i >= 0 ? sim.dispOf(S, i) : 0) * ex * s;      // drawn x of a degree of freedom
+    if (S.iso) {
+      // rubber bearings and base slab
+      const bh = 10 * dpr, xb = X(0);
+      ctx.fillStyle = "#222"; for (let q = 0; q < 4; q++) { const fx = -bw / 2 + bw * (q + 0.5) / 4; ctx.beginPath(); ctx.moveTo(cx + fx - 5 * dpr, groundY); ctx.lineTo(cx + fx + 5 * dpr, groundY); ctx.lineTo(xb + fx + 5 * dpr, groundY - bh); ctx.lineTo(xb + fx - 5 * dpr, groundY - bh); ctx.fill(); }
+      ctx.fillStyle = "#8a8f96"; ctx.fillRect(xb - bw / 2 - 4 * dpr, groundY - bh - 5 * dpr, bw + 8 * dpr, 5 * dpr);
+      base = groundY - bh - 5 * dpr;
+    } else { ctx.fillStyle = "#6b6f75"; ctx.fillRect(cx - bw / 2 - 4 * dpr, groundY - 3 * dpr, bw + 8 * dpr, 4 * dpr); }
+    let xPrev = S.iso ? X(0) : cx;
+    for (let j = 0; j < S.N; j++) {
+      const i = S.first + j, xTop = X(i), y0 = base - j * hs, y1 = base - (j + 1) * hs;
+      const d = Math.abs(sim.dispOf(S, i) - (i ? sim.dispOf(S, i - 1) : 0)) / STOREY_H * 100;
+      ctx.fillStyle = driftColour(d, S.mat, 0.85);
+      ctx.beginPath(); ctx.moveTo(xPrev - bw / 2, y0); ctx.lineTo(xPrev + bw / 2, y0); ctx.lineTo(xTop + bw / 2, y1); ctx.lineTo(xTop - bw / 2, y1); ctx.fill();
+      // windows
+      if (hs > 7 * dpr) { ctx.fillStyle = "rgba(20,30,40,0.55)"; for (let q = 0; q < 5; q++) { const f = (q + 0.5) / 5, xm = xPrev + (xTop - xPrev) * 0.5; ctx.fillRect(xm - bw / 2 + f * bw - bw * 0.06, y0 - hs * 0.72, bw * 0.12, hs * 0.42); } }
+      // columns
+      ctx.strokeStyle = "rgba(20,19,59,0.9)"; ctx.lineWidth = Math.max(1, 1.5 * dpr);
+      for (const f of [-0.5, 0, 0.5]) { ctx.beginPath(); ctx.moveTo(xPrev + f * bw, y0); ctx.lineTo(xTop + f * bw, y1); ctx.stroke(); }
+      // floor slab
+      ctx.strokeStyle = "#dfe3e8"; ctx.lineWidth = Math.max(1, Math.min(3, hs * 0.18)); ctx.beginPath(); ctx.moveTo(xTop - bw / 2 - 2 * dpr, y1); ctx.lineTo(xTop + bw / 2 + 2 * dpr, y1); ctx.stroke();
+      // damage marks (peak so far)
+      const pk = S.peakDrift[j];
+      if (pk > S.mat.dmg) {
+        const failed = pk > S.mat.fail, xm = (xPrev + xTop) / 2, ym = (y0 + y1) / 2, r = Math.min(hs * 0.38, 9 * dpr);
+        ctx.strokeStyle = failed ? "#ff3b3b" : "#2a1a0a"; ctx.lineWidth = (failed ? 2.4 : 1.4) * dpr;
+        for (const off of failed ? [-0.3, 0, 0.3] : [-0.22, 0.22]) { const x = xm + off * bw; ctx.beginPath(); ctx.moveTo(x - r, ym - r); ctx.lineTo(x + r, ym + r); ctx.moveTo(x + r, ym - r); ctx.lineTo(x - r, ym + r); ctx.stroke(); }
+      }
+      xPrev = xTop;
+    }
+    const roofY = base - S.N * hs;
+    if (S.tmd) {
+      const xd = X(S.n - 1), sz = Math.max(8 * dpr, Math.min(bw * 0.35, 3 * STOREY_H * s * 0.6));
+      ctx.strokeStyle = "#a4cbe6"; ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.moveTo(xPrev, roofY); ctx.lineTo(xd, roofY - sz * 0.6); ctx.stroke();
+      ctx.fillStyle = "#00aec3"; ctx.fillRect(xd - sz / 2, roofY - sz * 0.6 - sz * 0.8, sz, sz * 0.8);
+      ctx.fillStyle = "#14133b"; ctx.font = `bold ${Math.max(8, sz * 0.35)}px system-ui`; ctx.textAlign = "center"; ctx.fillText("TMD", xd, roofY - sz * 0.6 - sz * 0.25);
+    }
+    // label
+    ctx.fillStyle = "#eef0e8"; ctx.font = `${12 * dpr}px system-ui`; ctx.textAlign = "center";
+    const lbl = `${nB > 1 ? S.label + ": " : ""}${describeSys(S)}`, T1 = 2 * Math.PI / S.wAll[0];
+    const ly = Math.max(16 * dpr, roofY - (S.tmd ? 3.2 * STOREY_H * s + 8 * dpr : 10 * dpr) - 14 * dpr);
+    ctx.fillText(lbl, W * (bi + 0.5) / nB, ly);
+    ctx.fillStyle = "#a3ab96"; ctx.font = `${11 * dpr}px system-ui`;
+    ctx.fillText(`period ${T1.toFixed(2)} s · drift now ${S.maxDriftNow.toFixed(2)}%`, W * (bi + 0.5) / nB, ly + 14 * dpr);
+  });
+  // scale bar
+  ctx.fillStyle = "#cfd5c4"; ctx.font = `${10.5 * dpr}px system-ui`; ctx.textAlign = "left";
+  const bar = 10 * s; ctx.fillRect(10 * dpr, groundY - 20 * dpr, 2 * dpr, -bar); ctx.fillText("10 m", 15 * dpr, groundY - 22 * dpr - bar / 2);
+  ctx.fillText(`sway drawn ×${ex}`, 10 * dpr, 16 * dpr);
+}
+sim.dispOf = (S, i) => S.u[i];
+
+function drawGround() {
+  const c = el("gchart"), p = params(), g = sim.g;
+  let pts = [], x0, x1;
+  if (g && g.type === "quake") {
+    const q = g.q, stepN = Math.max(1, Math.floor(q.a.length / 800)); for (let i = 0; i < q.a.length; i += stepN) pts.push([i * q.dt, q.a[i] / G]);
+    x0 = 0; x1 = Math.max(q.dur, sim.t + 1);
+  } else { x1 = Math.max(20, sim.t); x0 = x1 - 20; pts = sim.hist.filter(h => h.t >= x0).map(h => [h.t, h.ag]); }
+  const ym = Math.max(0.02, ...pts.map(q => Math.abs(q[1]))) * 1.15;
+  plotXY(c, { xMin: x0, xMax: x1, yMin: -ym, yMax: ym, series: [{ pts, colour: "#c9a46a", width: 1.2 }], vlines: [{ x: sim.t, colour: "#f1af28", dash: [1, 0] }], yLabel: "ground (g)", xLabel: "time (s)", bottom: 24, top: 6, left: 50, font: 10 });
+}
+
+let chartMode = "roof";
+function drawChart() {
+  const c = el("chart"), p = params();
+  const cols = ["#00aec3", "#f1af28"];
+  if (chartMode === "roof") {
+    const x1 = Math.max(30, sim.t), x0 = x1 - 30, H = sim.hist.filter(h => h.t >= x0);
+    const series = sim.sys.map((S, k) => ({ pts: H.map(h => [h.t, h.r[k] * 100]), colour: cols[k], width: 1.6, dash: k ? [5, 3] : [] }));
+    const ym = Math.max(1, ...H.flatMap(h => h.r.map(v => Math.abs(v) * 100))) * 1.1;
+    plotXY(c, { xMin: x0, xMax: x1, yMin: -ym, yMax: ym, series, xLabel: "time (s)", yLabel: "roof sway (cm)", zeroLine: true });
+    el("chartLegend").innerHTML = sim.sys.map((S, k) => `<span><i class="ln" style="background:${cols[k]}"></i>${sim.sys.length > 1 ? S.label + ": " : ""}${describeSys(S)}</span>`).join("");
+    el("chartNote").textContent = "Roof movement relative to the ground (real size, not exaggerated).";
+  } else {
+    // steady-state roof amplitude for sine shaking of the chosen size (or 0.1 g if not in sine mode)
+    const A = (p.motion === "sine" || p.motion === "chirp" ? p.amp : 0.1) * G;
+    const fs = []; for (let i = 0; i <= 260; i++) fs.push(0.1 * Math.pow(150, i / 260));
+    const series = sim.sys.map((S, k) => ({ pts: fs.map(f => [f, 100 * A * freqResp(S, f)]), colour: cols[k], width: 1.8, dash: k ? [5, 3] : [] }));
+    const ym = Math.max(...series.flatMap(s => s.pts.map(q => q[1]))) * 1.1;
+    const vlines = sim.sys[0].wAll.slice(0, 3).map((w, i) => ({ x: w / 2 / Math.PI, colour: "#a4cbe6", label: `mode ${i + 1}: ${(w / 2 / Math.PI).toFixed(2)} Hz`, dash: [3, 3] }));
+    const fNow = p.motion === "sine" ? p.freq : p.motion === "chirp" && sim.g.freqAt ? sim.g.freqAt(sim.t) : null;
+    if (fNow) vlines.push({ x: fNow, colour: "#e83181", label: `shaking ${fNow.toFixed(2)} Hz`, dash: [1, 0] });
+    plotXY(c, { xMin: 0.1, xMax: 15, yMin: 0, yMax: ym, logX: true, series, vlines, xLabel: "shaking frequency (Hz, log scale)", yLabel: "roof amplitude (cm)" });
+    el("chartLegend").innerHTML = sim.sys.map((S, k) => `<span><i class="ln" style="background:${cols[k]}"></i>${sim.sys.length > 1 ? S.label : "Building"}</span>`).join("") + `<span><i class="ln" style="background:#a4cbe6"></i>natural frequencies (A)</span>`;
+    el("chartNote").textContent = `Theory: how far the roof would swing in steady shaking of ${(A / G).toFixed(3)} g at each frequency. Peaks = resonance.`;
+  }
+}
+
+/* =====================================================================
+   9. READOUTS AND STORY
+   ===================================================================== */
+const tile = (k, v, s = "") => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ""}</div>`;
+let lastUI = 0;
+function updateUI(now) {
+  el("clock").textContent = `${sim.t.toFixed(1)} s`;
+  if (now - lastUI < 200) return; lastUI = now;
+  const p = params(), A = sim.sys[0], T1 = 2 * Math.PI / A.wAll[0], Tb = 2 * Math.PI / A.wB[0];
+  el("s_T").textContent = `${T1.toFixed(2)} s (${(1 / T1).toFixed(2)} Hz)`;
+  const g = sim.g;
+  el("s_shake").textContent = g.type === "sine" ? `${p.freq.toFixed(2)} Hz, ${p.amp.toFixed(3)} g` : g.type === "chirp" ? `${g.freqAt(sim.t).toFixed(2)} Hz, ${p.amp.toFixed(3)} g` : g.type === "quake" ? `M${p.mag.toFixed(1)}, peak ${(g.q.pga / G).toFixed(2)} g on ${SOIL[p.soil].name}` : "free swaying";
+  el("s_ag").textContent = `${(g.acc(sim.t) / G).toFixed(3)} g`;
+  const pd = Math.max(...A.peakDrift), st = el("status");
+  const [cls, txt] = pd > A.mat.fail ? ["bad", "Severe damage"] : pd > A.mat.dmg ? ["warn", "Cracking"] : sim.t > 0 ? ["ok", "No damage"] : ["", "Still"];
+  st.className = cls; st.textContent = txt;
+  const tiles = [];
+  tiles.push(tile("Natural period (mode 1)", `${T1.toFixed(2)} s`, `${(1 / T1).toFixed(2)} Hz${A.tmd || A.iso ? ` · frame alone ${Tb.toFixed(2)} s` : ""}`));
+  tiles.push(tile("Rule of thumb", `${(0.1 * A.N).toFixed(2)} s`, `T ≈ 0.1 × ${A.N} storeys`));
+  sim.sys.forEach((S, k) => {
+    const pre = sim.sys.length > 1 ? `${S.label}: ` : "", pdS = Math.max(...S.peakDrift), worst = S.peakDrift.indexOf(pdS) + 1;
+    tiles.push(tile(pre + "Peak roof sway", `${(100 * S.peakRoof).toFixed(1)} cm`, `now ${(100 * S.u[S.top]).toFixed(1)} cm`));
+    tiles.push(tile(pre + "Peak drift", `${pdS.toFixed(2)}%`, pdS > 0 ? `storey ${worst} · ${pdS > S.mat.fail ? "severe" : pdS > S.mat.dmg ? "cracking" : "no damage"}` : ""));
+    tiles.push(tile(pre + "Peak roof acceleration", `${(S.peakAcc / G).toFixed(2)} g`, S.peakAcc / G > 0.5 ? "contents thrown about" : S.peakAcc / G > 0.15 ? "hard to stand" : "felt"));
+    if (S.iso) tiles.push(tile(pre + "Bearing movement", `${(100 * S.peakBear).toFixed(1)} cm`, "gap needed round the building"));
+    if (S.tmd) tiles.push(tile(pre + "Damper swing", `${(100 * Math.abs(S.u[S.n - 1] - S.u[S.top])).toFixed(1)} cm`, `mass ${(S.td.md / 1000).toFixed(0)} t, tuned to ${S.td.fd.toFixed(2)} Hz`));
+  });
+  el("tiles").innerHTML = tiles.join("");
+  el("story").innerHTML = story(p);
+}
+function story(p) {
+  const A = sim.sys[0], f1 = A.wAll[0] / 2 / Math.PI, g = sim.g, msgs = [];
+  if (sim.t === 0 && !sim.running) return "Press <b>Start</b> to shake the ground. Each floor is a heavy mass; the columns between floors are springs.";
+  if (g.type === "sine" || g.type === "chirp") {
+    const f = g.type === "sine" ? p.freq : g.freqAt(sim.t), r = f / f1;
+    if (Math.abs(r - 1) < 0.08) msgs.push(`<b>Resonance!</b> The ground is pushing at ${f.toFixed(2)} Hz, almost exactly the building's natural frequency (${f1.toFixed(2)} Hz). Each push arrives just in time to add to the swing, so it grows until damping takes away as much energy as each push adds.`);
+    else if (r < 0.7) msgs.push(`The shaking (${f.toFixed(2)} Hz) is much slower than the building's natural frequency (${f1.toFixed(2)} Hz), so the building just moves along with the ground with little bending.`);
+    else if (r > 1.4) msgs.push(`The shaking (${f.toFixed(2)} Hz) is faster than the building can follow (natural frequency ${f1.toFixed(2)} Hz). The upper floors hardly move — unless the shaking matches a higher mode.`);
+    else msgs.push(`The shaking (${f.toFixed(2)} Hz) is near the building's natural frequency (${f1.toFixed(2)} Hz), so the sway is amplified.`);
+  } else if (g.type === "quake") {
+    const soil = SOIL[p.soil];
+    msgs.push(sim.t < g.dur ? `An earthquake is shaking the ground. On ${soil.name} the strongest shaking is at about ${soil.fg} Hz (a ${(1 / soil.fg).toFixed(1)} s period); this building's natural period is ${(1 / f1).toFixed(2)} s.` : "The earthquake is over; the building keeps swaying at its natural period until damping stops it.");
+    if (Math.abs(Math.log(soil.fg / f1)) < 0.35) msgs.push("<b>The building's period matches the ground's</b> — it resonates, which is what happened to mid-rise buildings in Mexico City in 1985.");
+  } else msgs.push(`The top was pushed and let go. It swings back and forth at its natural period, ${(1 / f1).toFixed(2)} s, and damping makes the swing die away.`);
+  if (A.tmd) msgs.push("The tuned mass damper on the roof swings the opposite way to the building, pulling it back and soaking up energy.");
+  if (A.iso) msgs.push("The rubber bearings let the ground move under the building. The building above rocks slowly, so its floors feel much less acceleration.");
+  const pd = Math.max(...A.peakDrift);
+  if (pd > A.mat.fail) msgs.push(`<b>Some storeys have been pushed beyond ${A.mat.fail}% drift</b> — in a real building that would mean severe damage or collapse.`);
+  else if (pd > A.mat.dmg) msgs.push(`Drift has passed ${A.mat.dmg}% in some storeys: cracks in walls and frames.`);
+  if (sim.sys.length > 1) { const B = sim.sys[1]; const pa = Math.max(...A.peakDrift), pb = Math.max(...B.peakDrift); if (pa + pb > 0.05) msgs.push(`Peak drift so far: A ${pa.toFixed(2)}%, B ${pb.toFixed(2)}%.`); }
+  return msgs.join(" ");
+}
+
+/* =====================================================================
+   10. PRESETS
+   ===================================================================== */
+const base = { storeys: 10, material: "steel", brace: 1, addDamp: 0, tmd: false, tmdMu: 3, tmdTune: 0.97, tmdZeta: 10, iso: false, isoT: 2.5, isoZeta: 15, twin: "none", storeys2: 3, motion: "quake", freq: 1, amp: 0.05, mag: 7, pga: 0.3, soil: "rock", seed: 1, exag: 10 };
+const PRESETS = [
+  { name: "Resonance sweep", note: "shaking gets faster: watch for the peak", s: { storeys: 8, motion: "chirp", amp: 0.03, exag: 20 } },
+  { name: "Shake at resonance", note: "small pushes, huge sway", s: { storeys: 6, motion: "sine", amp: 0.02, exag: 20 }, match: true },
+  { name: "Push and let go", note: "count the natural period", s: { storeys: 20, motion: "pluck", exag: 15 } },
+  { name: "Short stiff vs tall bendy", note: "same quake, 3 vs 30 storeys", s: { storeys: 30, twin: "height", storeys2: 3, material: "concrete", motion: "quake", mag: 6.8, pga: 0.3, soil: "rock", seed: 3, exag: 10 } },
+  { name: "Mexico City 1985", note: "soft lake-bed clay, M8.1 far away", s: { storeys: 18, twin: "height", storeys2: 4, material: "concrete", motion: "quake", mag: 8.1, pga: 0.04, soil: "clay", seed: 5, exag: 10 } },
+  { name: "Tuned mass damper", note: "with vs without, at resonance", s: { storeys: 30, material: "steel", tmd: true, tmdMu: 3, twin: "plain", motion: "sine", amp: 0.01, exag: 8 }, match: true, denHartog: true },
+  { name: "Base-isolated hospital", note: "rubber bearings vs fixed base", s: { storeys: 4, material: "concrete", iso: true, isoT: 2.5, twin: "plain", motion: "quake", mag: 7, pga: 0.45, soil: "rock", seed: 2, exag: 15 } },
+  { name: "Bracing", note: "×3 stiffer vs unbraced", s: { storeys: 12, material: "steel", brace: 3, twin: "plain", motion: "quake", mag: 7, pga: 0.35, soil: "soft", seed: 4, exag: 10 } },
+  { name: "Added dampers", note: "10% extra damping vs none", s: { storeys: 15, material: "steel", addDamp: 10, twin: "plain", motion: "quake", mag: 7.2, pga: 0.3, soil: "soft", seed: 6, exag: 10 } },
+  { name: "Timber vs concrete", note: "light buildings, smaller forces", s: { storeys: 8, material: "timber", twin: "none", motion: "quake", mag: 6.8, pga: 0.4, soil: "stiff", seed: 7, exag: 10 } },
+];
+function applySettings(s) {
+  for (const [k, v] of Object.entries(s)) { const e = el(k); if (!e) continue; if (e.type === "checkbox") e.checked = v; else e.value = v; }
+}
+function denHartog() { const mu = +el("tmdMu").value / 100; el("tmdTune").value = (1 / (1 + mu)).toFixed(2); el("tmdZeta").value = Math.round(100 * Math.sqrt(3 * mu / (8 * Math.pow(1 + mu, 3)))); }
+// match the natural frequency of the frame itself (without the damper or bearings)
+function matchFreq() { const S = buildSystem(params()); el("freq").value = (S.wB[0] / 2 / Math.PI).toFixed(2); }
+function setPreset(k) {
+  const pr = PRESETS[k];
+  applySettings(Object.assign({}, base, pr.s));
+  if (pr.denHartog) denHartog();
+  if (pr.match) matchFreq();
+  document.querySelectorAll("#presets button").forEach((b, j) => b.classList.toggle("on", j === k));
+  updateLabels(); reset();
+}
+
+/* =====================================================================
+   11. CONTROLS
+   ===================================================================== */
+function updateLabels() {
+  const p = params(), mat = MAT[p.material];
+  el("o_storeys").textContent = `${p.storeys} (${(p.storeys * STOREY_H).toFixed(0)} m tall)`;
+  el("o_storeys2").textContent = `${p.storeys2} (${(p.storeys2 * STOREY_H).toFixed(0)} m)`;
+  el("matHint").textContent = mat.hint;
+  el("o_brace").textContent = p.brace === 1 ? "none" : `×${p.brace} stiffer`;
+  el("o_addDamp").textContent = p.addDamp ? `+${p.addDamp}% (total ${(mat.zeta * 100 + p.addDamp).toFixed(0)}%)` : `none (frame ${(mat.zeta * 100).toFixed(0)}%)`;
+  el("o_tmdMu").textContent = `${p.tmdMu}%`; el("o_tmdTune").textContent = `×${p.tmdTune.toFixed(2)}`; el("o_tmdZeta").textContent = `${p.tmdZeta}%`;
+  el("o_isoT").textContent = `${p.isoT.toFixed(1)} s`; el("o_isoZeta").textContent = `${p.isoZeta}%`;
+  el("o_freq").textContent = `${p.freq.toFixed(2)} Hz (period ${(1 / p.freq).toFixed(2)} s)`;
+  el("o_amp").textContent = `${p.amp.toFixed(3)} g`;
+  el("o_mag").textContent = `M ${p.mag.toFixed(1)}`;
+  el("o_pga").textContent = `${p.pga.toFixed(2)} g → ${(p.pga * SOIL[p.soil].amp).toFixed(2)} g at surface`;
+  el("soilHint").textContent = SOIL[p.soil].hint;
+  el("o_exag").textContent = `×${p.exag}`;
+  el("tmdOpts").style.display = p.tmd ? "" : "none"; el("isoOpts").style.display = p.iso ? "" : "none";
+  el("h2ctl").style.display = p.twin === "height" ? "" : "none";
+  el("sineOpts").style.display = p.motion === "sine" || p.motion === "chirp" ? "" : "none";
+  el("freqCtl").style.display = el("btnMatch").style.display = p.motion === "sine" ? "" : "none";
+  el("quakeOpts").style.display = p.motion === "quake" ? "" : "none";
+}
+el("presets").innerHTML = PRESETS.map((p, k) => `<button data-k="${k}">${p.name}<small>${p.note}</small></button>`).join("");
+document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.k)));
+const LIVE = ["freq", "amp", "exag"];
+document.querySelectorAll("#left input, #left select").forEach(e => {
+  e.addEventListener(e.type === "range" ? "input" : "change", () => {
+    document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on"));
+    updateLabels();
+    if (LIVE.includes(e.id)) { if (sim.g && sim.g.retune) sim.g.retune(sim.t, +el("freq").value, +el("amp").value * G); }
+    else reset();
+  });
+});
+el("btnDenHartog").onclick = () => { denHartog(); updateLabels(); reset(); };
+el("btnMatch").onclick = () => { matchFreq(); updateLabels(); if (sim.g.retune) sim.g.retune(sim.t, +el("freq").value, +el("amp").value * G); };
+el("btnNewQuake").onclick = () => { el("seed").value = 1 + Math.floor(Math.random() * 9999); reset(); };
+function setRunning(r) { sim.running = r; el("btnPlay").textContent = r ? "⏸ Pause" : sim.t > 0 ? "▶ Resume" : "▶ Start"; }
+el("btnPlay").onclick = () => setRunning(!sim.running);
+el("btnReset").onclick = () => reset();
+let speed = 1;
+document.querySelectorAll("[data-s]").forEach(b => (b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", x === b)); }));
+document.querySelectorAll("[data-g]").forEach(b => (b.onclick = () => { chartMode = b.dataset.g; document.querySelectorAll("[data-g]").forEach(x => x.classList.toggle("on", x === b)); }));
+
+/* =====================================================================
+   12. BATCH RUN SET-UP
+   ===================================================================== */
+function theory(ctx) {
+  const p = ctx.params;
+  if (ctx.mode === "sweep" && ctx.sweep === "freq" && ctx.outcome === "roof" && p.motion === "sine") {
+    const S = buildSystem(p), A = p.amp * G;
+    const vlines = S.wAll.slice(0, 3).map((w, i) => ({ x: w / 2 / Math.PI, label: `mode ${i + 1} ${(w / 2 / Math.PI).toFixed(2)} Hz` }));
+    if (S.n === 1) {
+      // single storey: the textbook damped oscillator X = A / √((ωn² − ω²)² + (2ζωnω)²)
+      const wn = S.wAll[0], z = S.c[0] / (2 * S.m[0] * wn);
+      return { curves: [{ label: "Theory: damped oscillator", f: f => { const w = 2 * Math.PI * f; return 100 * A / Math.sqrt((wn * wn - w * w) ** 2 + (2 * z * wn * w) ** 2); } }], vlines };
+    }
+    return { curves: [{ label: "Theory: steady-state response", f: f => 100 * A * freqResp(S, f) }], vlines };
+  }
+  if (ctx.mode === "sweep" && ctx.outcome === "roof" && p.motion === "sine" && ["tmdTune", "tmdMu", "tmdZeta", "addDamp", "storeys", "brace", "amp"].includes(ctx.sweep)) {
+    // steady-state theory with the swept setting changed (shaking frequency matched to the bare frame if the experiment asks)
+    return { curves: [{ label: "Theory: steady-state response", f: x => { const q = Object.assign({}, p, { [ctx.sweep]: ctx.sweep === "storeys" ? Math.round(x) : x }); if (q.matchFreq) q.freq = buildSystem(q, { plain: true }).wB[0] / 2 / Math.PI; return 100 * q.amp * G * freqResp(buildSystem(q), q.freq); } }] };
+  }
+  if (ctx.mode === "sweep" && ctx.sweep === "storeys" && ctx.outcome === "period") {
+    const mat = MAT[p.material], wk = mat.wk * Math.sqrt(p.brace);
+    return { curves: [
+      { label: "Theory: T = 2π / (2√(k/m) sin(π/(2(2N+1))))", f: N => 2 * Math.PI / (2 * wk * Math.sin(Math.PI / (2 * (2 * N + 1)))) },
+      { label: "Rule of thumb T ≈ 0.1 N", f: N => 0.1 * N, colour: "#a2c617", dash: [3, 3] }] };
+  }
+  if (ctx.mode === "repeat" && ctx.outcome === "period") { const S = buildSystem(p); return { value: 2 * Math.PI / S.wAll[0], label: "Theory (eigenvalue)" }; }
+  return null;
+}
+const BATCH = setupBatch({
+  file: "earthquake-buildings",
+  outcomes: [
+    { key: "drift", label: "Peak inter-storey drift", unit: "%", dec: 2, threshold: p => ({ v: MAT[p.material].dmg, label: `cracking starts (${MAT[p.material].dmg}%)` }) },
+    { key: "roof", label: "Peak roof displacement", unit: "cm", dec: 2 },
+    { key: "acc", label: "Peak roof acceleration", unit: "g", dec: 3 },
+    { key: "period", label: "Natural period", unit: "s", dec: 3 },
+    { key: "bear", label: "Bearing movement", unit: "cm", dec: 2 },
+  ],
+  sweepVars: [
+    { key: "freq", label: "Shaking frequency", unit: "Hz", from: 0.2, to: 5, steps: 30 },
+    { key: "storeys", label: "Number of storeys", unit: "", from: 1, to: 40, steps: 14, int: true },
+    { key: "pga", label: "Peak acceleration on rock", unit: "g", from: 0.05, to: 0.6, steps: 12 },
+    { key: "tmdTune", label: "Damper tuning ratio", unit: "", from: 0.8, to: 1.2, steps: 17 },
+    { key: "addDamp", label: "Added damping", unit: "%", from: 0, to: 15, steps: 8 },
+  ],
+  repeatN: [20, 50, 100, 200, 500], defaultN: 100,
+  varyLabel: "Also vary the quake size at random (±30%)",
+  compares: [
+    { key: "tmd", label: "Without vs with tuned mass damper", a: { tmd: false }, b: { tmd: true }, la: "No damper", lb: "With damper" },
+    { key: "iso", label: "Fixed base vs base isolation", a: { iso: false }, b: { iso: true }, la: "Fixed base", lb: "Isolated" },
+    { key: "brace", label: "Unbraced vs braced (×3)", a: { brace: 1 }, b: { brace: 3 }, la: "Unbraced", lb: "Braced ×3" },
+    { key: "damp", label: "No added dampers vs +10%", a: { addDamp: 0 }, b: { addDamp: 10 }, la: "Frame only", lb: "+10% damping" },
+  ],
+  baseParams: () => params(),
+  fixParams: p => { if (p.matchFreq) p.freq = buildSystem(p, { plain: true }).wB[0] / 2 / Math.PI; if (p.tmd && p._dh) { const mu = p.tmdMu / 100; p.tmdTune = 1 / (1 + mu); p.tmdZeta = 100 * Math.sqrt(3 * mu / (8 * Math.pow(1 + mu, 3))); } },
+  runOnce, theory,
+  describe: p => `${p.storeys}-storey ${p.material}${p.brace > 1 ? `, bracing ×${p.brace}` : ""}${p.addDamp ? `, +${p.addDamp}% damping` : ""}${p.tmd ? `, damper ${p.tmdMu}%` : ""}${p.iso ? `, isolated ${p.isoT} s` : ""}; ` +
+    (p.motion === "quake" ? `earthquakes M${p.mag}, ${p.pga} g on rock, ${SOIL[p.soil].name}` : p.motion === "sine" ? `sine shaking ${p.amp} g at ${(+p.freq).toFixed(2)} Hz` : p.motion === "pluck" ? "push and let go" : "frequency sweep"),
+  timeNote: "Each run uses exactly the same equations as the animation, with a time step of up to 10 ms and no drawing. Sweeps of shaking frequency run each frequency until the swing is steady (up to 150 s of simulated time).",
+  experiments: [
+    { name: "Resonance of a one-storey building", q: "Does a one-storey frame follow the damped-oscillator resonance curve?",
+      note: "The model's steady swing should sit right on the theory curve, peaking at the natural frequency. It is deterministic (no randomness), so any difference comes only from the time step and from measuring after a finite time.",
+      set: { noFit: true, mode: "sweep", sweep: "freq", from: 2, to: 12, steps: 61, reps: 1, outcome: "roof", params: { storeys: 1, material: "steel", motion: "sine", amp: 0.05, tmd: false, iso: false, brace: 1, addDamp: 0 } } },
+    { name: "Resonances of a 10-storey building", q: "Where are the resonant frequencies of a 10-storey building?",
+      note: "Peaks appear at the natural frequencies found by the eigenvalue calculation (dashed lines): mode 1 is by far the biggest at the roof. Higher modes are smaller because the floors move in opposite directions and more damping acts on them.",
+      set: { noFit: true, mode: "sweep", sweep: "freq", from: 0.3, to: 6, steps: 80, reps: 1, outcome: "roof", logX: true, params: { storeys: 10, material: "steel", motion: "sine", amp: 0.02, tmd: false, iso: false, brace: 1, addDamp: 0 } } },
+    { name: "Is T ≈ 0.1 × storeys?", q: "Does the natural period follow the rule of thumb T ≈ 0.1 N?",
+      note: "Each run pushes the top and lets go, then times the swings. The measured period follows the exact theory for identical storeys, which is close to 0.1 N (plus a small offset). Real buildings scatter around the rule because they are not all alike.",
+      set: { mode: "sweep", sweep: "storeys", from: 1, to: 40, steps: 14, reps: 1, outcome: "period", params: { material: "steel", motion: "pluck", tmd: false, iso: false, brace: 1, addDamp: 0 } } },
+    { name: "Tuned mass damper in earthquakes", q: "How much does a tuned mass damper reduce drift in 200 random earthquakes?",
+      note: "Each pair of runs uses the same earthquake with and without a 5% damper (Den Hartog tuning). A damper is best at steady resonant shaking; in short, random earthquakes it helps less, because it needs a few cycles to start swinging. Results scatter widely because every earthquake is different; compare the % of runs past the cracking limit.",
+      set: { mode: "repeat", n: 200, outcome: "drift", compare: "tmd", params: { storeys: 10, material: "steel", motion: "quake", mag: 7, pga: 0.12, soil: "soft", tmdMu: 5, tmdTune: 0.95, tmdZeta: 13, iso: false, brace: 1, addDamp: 0 } } },
+    { name: "Base isolation for a hospital", q: "Does base isolation protect a 4-storey hospital in strong quakes?",
+      note: "Isolation stretches the period to 2.5 s, well away from the quick shaking on rock, so floor accelerations and drifts fall dramatically. The price is a big movement at the bearings (see Bearing movement). On soft soil with slow shaking isolation helps much less.",
+      set: { mode: "repeat", n: 200, outcome: "acc", compare: "iso", params: { storeys: 4, material: "concrete", motion: "quake", mag: 7, pga: 0.4, soil: "rock", iso: false, isoT: 2.5, isoZeta: 15, tmd: false, brace: 1, addDamp: 0 } } },
+    { name: "Damper tuning", q: "What tuning makes the damper work best at resonance?",
+      note: "A 30-storey steel tower is shaken steadily at its own natural frequency. The swing is smallest near the Den Hartog tuning 1/(1+μ) ≈ 0.97, not exactly 1.",
+      set: { noFit: true, mode: "sweep", sweep: "tmdTune", from: 0.8, to: 1.2, steps: 21, reps: 1, outcome: "roof", params: { storeys: 30, material: "steel", motion: "sine", amp: 0.01, matchFreq: true, tmd: true, tmdMu: 3, tmdZeta: 10, iso: false, brace: 1, addDamp: 0 } } },
+  ],
+});
+el("btnBatch").onclick = () => BATCH.open();
+
+/* =====================================================================
+   13. THE MAIN LOOP
+   ===================================================================== */
+let lastT = performance.now();
+function frame(now) {
+  const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (sim.running) {
+    let left = real * speed; const t0 = performance.now();
+    while (left > 1e-9 && performance.now() - t0 < 35) { const h = Math.min(left, sim.dt); step(h); left -= h; }
+    const last = sim.hist[sim.hist.length - 1];
+    if (!last || sim.t - last.t >= 0.04) { sim.hist.push({ t: sim.t, ag: sim.g.acc(sim.t) / G, r: sim.sys.map(S => S.u[S.top]) }); if (sim.hist.length > 4000) sim.hist.splice(0, 1000); }
+    if (sim.g.type === "chirp" && sim.t >= CHIRP.T + 10) setRunning(false);
+    if (sim.g.type === "quake" && sim.t >= sim.g.dur + 25) setRunning(false);
+  }
+  drawView(); drawGround(); drawChart(); updateUI(now);
+  requestAnimationFrame(frame);
+}
+setupPanels("earthquake-buildings-layout");
+setPreset(3);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gas in a Box</title>
+<!--
+  GAS IN A BOX — kinetic theory of gases, a teaching model
+  ========================================================
+  One self-contained file: no libraries, no internet needed.
+
+  A gas is lots of tiny molecules flying about and bouncing off each other
+  and off the walls. This file follows every molecule. Nothing else is put
+  in: pressure, temperature, the spread of speeds, the mean free path and
+  diffusion all come out of the bouncing.
+
+  IMPORTANT: the box is TWO-DIMENSIONAL (flat). Molecules move in x and y
+  only. So the 2D versions of the usual formulas apply:
+    * Each molecule has 2 ways to move, so its average kinetic energy is
+      kT (in 3D it is 3/2 kT).
+    * "Pressure" is force per unit LENGTH of wall (N/m), not per area.
+      Ideal gas law in 2D:  p × A = N k T  (A = area of the box).
+    * The spread of speeds is the 2D Maxwell–Boltzmann distribution, also
+      called the Rayleigh distribution:  f(v) = (m v / kT) exp(−m v² / 2kT).
+    * Squeezing with no heat flow (adiabatic) in 2D: T × A = constant.
+  We also convert the pressure into a "3D-equivalent" value (see below).
+
+  Units used inside the code (chosen so the numbers are near 1):
+    length nm (10⁻⁹ m), time ps (10⁻¹² s), mass u (atomic mass units),
+    so speed is nm/ps (1 nm/ps = 1000 m/s) and
+    Boltzmann's constant k = 0.0083145 u·nm²/ps² per kelvin.
+    2D pressure 1 u/ps² = 1.6605 mN/m.
+  Molecule sizes are real "kinetic diameters" (e.g. N₂ 0.364 nm) and are
+  drawn to scale.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 340px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: var(--ink-dark); }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select, input[type=number] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .chk { display: flex; gap: 6px; align-items: center; font-size: 13px; margin-bottom: 7px; }
+  .chk input { accent-color: var(--accent); }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+  #pending { display: none; background: #3a2a07; color: #ffd98a; border: 1px solid #6b4e10; border-radius: 6px; padding: 6px 8px; font-size: 12.5px; margin: 6px 0; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #mapWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #tools { position: absolute; left: 8px; top: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
+  #tools button { padding: 4px 9px; font-size: 12.5px; background: rgba(20,24,17,.88); }
+  #tools button.on { background: var(--accent); }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 6px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .chartBox { position: relative; height: 175px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+
+  /* Batch run overlay (covers the centre and right panels) */
+  #batch { display: none; position: fixed; z-index: 30; background: var(--panel); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px;
+           flex-direction: column; gap: 7px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+  #batch.open { display: flex; }
+  #batch .bhead { display: flex; align-items: center; gap: 10px; }
+  #batch .bhead h3 { margin: 0; white-space: nowrap; font-size: 17px; color: var(--accent); }
+  #batch .brow { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; }
+  #batch .brow label { display: inline-flex; gap: 5px; align-items: center; }
+  #batch input[type=number] { width: 82px; }
+  #bexp { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 5px; }
+  #bexp button { text-align: left; font-size: 12px; padding: 5px 7px; line-height: 1.25; }
+  #bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, 31%); gap: 10px; }
+  #bchartBox { position: relative; min-height: 0; background: #050604; border-radius: 8px; }
+  #bchart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bside { overflow-y: auto; font-size: 12.5px; min-height: 0; }
+  #bsum table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #bsum td, #bsum th { padding: 1px 4px; border-bottom: 1px solid var(--line); text-align: right; font-size: 12px; }
+  #bsum td:first-child, #bsum th:first-child { text-align: left; }
+  #bnote { margin-top: 8px; padding: 7px 9px; background: var(--panel-2); border-left: 3px solid var(--accent); border-radius: 5px; color: #dfe3d6; }
+  .prog { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; flex: 1; min-width: 120px; }
+  .prog span { display: block; height: 100%; width: 0; background: var(--accent); }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Gas in a Box</h1>
+  <span class="sub">Kinetic theory: pressure, temperature and the spread of molecular speeds, worked out from molecules bouncing in a flat (2D) box.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: PRESETS AND CONTROLS ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">The gas <span class="hint" style="text-transform:none;letter-spacing:0">(press Reset to apply)</span></h2>
+    <div class="ctl">
+      <label>Gas</label>
+      <select id="gasA"></select>
+    </div>
+    <div class="ctl">
+      <label>Second gas</label>
+      <select id="gasB"></select>
+    </div>
+    <div class="ctl">
+      <label>Share that is the second gas <output id="o_fracB"></output></label>
+      <input type="range" id="fracB" min="10" max="90" step="5" value="50">
+    </div>
+    <div class="ctl">
+      <label>Number of molecules <output id="o_N"></output></label>
+      <input type="range" id="N" min="20" max="1200" step="10" value="400">
+    </div>
+    <div class="ctl">
+      <label>Starting speeds</label>
+      <select id="start">
+        <option value="same">All exactly the same speed</option>
+        <option value="mb">Already spread out (Maxwell–Boltzmann)</option>
+      </select>
+    </div>
+    <label class="chk"><input type="checkbox" id="partition"> Partition down the middle (gas 1 left, gas 2 right)</label>
+    <label class="chk"><input type="checkbox" id="big"> Add one big, heavy particle (Brownian motion)</label>
+    <div class="ctl">
+      <label>Random seed</label>
+      <input id="seed" value="1" style="width:100%;font:inherit;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px">
+    </div>
+    <div id="pending">Gas settings changed: press <b>Reset</b> to refill the box.</div>
+
+    <h2 class="gap">Heating <span class="live">acts at once</span></h2>
+    <div class="ctl">
+      <label>Temperature <output id="o_T"></output></label>
+      <input type="range" id="T" min="50" max="1000" step="10" value="300">
+      <div class="hint" id="Thint">Walls not heated: moving the slider speeds up or slows down every molecule at once.</div>
+    </div>
+    <label class="chk"><input type="checkbox" id="heat"> Heated walls (keep the walls at this temperature)</label>
+
+    <h2 class="gap">The piston (right-hand wall) <span class="live">acts at once</span></h2>
+    <div class="ctl">
+      <label>Piston</label>
+      <select id="piston">
+        <option value="hold">Held still</option>
+        <option value="move">Pushed or pulled to a width</option>
+        <option value="free">Free: outside pressure pushes on it</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <label>Target box width <output id="o_W"></output></label>
+      <input type="range" id="W" min="15" max="110" step="1" value="50">
+      <div class="hint">You can also drag the piston on the picture.</div>
+    </div>
+    <div class="ctl">
+      <label>Piston speed</label>
+      <select id="pspeed">
+        <option value="20">Slow (20 m/s)</option>
+        <option value="100" selected>Medium (100 m/s)</option>
+        <option value="400">Fast (400 m/s, like the molecules)</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <label>Outside pressure (free piston) <output id="o_pext"></output></label>
+      <input type="range" id="pext" min="0.1" max="3" step="0.05" value="0.65">
+    </div>
+    <div class="ctl">
+      <label>Colour molecules by</label>
+      <select id="colour">
+        <option value="speed">Speed (blue slow, red fast)</option>
+        <option value="gas">Which gas</option>
+      </select>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE: THE BOX ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">0 ps</span>
+      <span class="stat">Temperature <b id="s_T">–</b></span>
+      <span class="stat">Pressure <b id="s_p">–</b></span>
+      <span class="stat">pA ÷ NkT <b id="s_Z">–</b></span>
+      <span class="stat">Collisions per molecule <b id="s_c">0</b></span>
+    </div>
+    <div id="mapWrap">
+      <canvas id="map" aria-label="The box of gas molecules"></canvas>
+      <div id="tools">
+        <button id="btnPart" title="Take the partition out so the two gases can mix">Remove partition</button>
+        <button id="btnTrail" title="Clear the big particle's trail and restart its displacement graph">Restart trail</button>
+      </div>
+    </div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">⏸ Pause</button>
+      <button id="btnReset" title="Refill the box using the settings on the left">Reset</button>
+      <span class="speed">Speed <button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="4">4×</button><button data-s="15">15×</button></span>
+      <span class="hint">1× = 25 ps per second</span>
+      <button id="btnBatch" style="margin-left:auto">📊 Batch run</button>
+    </div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT: WHAT IS HAPPENING ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readings</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">Spread of speeds</h2>
+    <div class="chartBox"><canvas id="hist"></canvas></div>
+    <div class="legend" id="histLegend" style="margin-top:4px"></div>
+    <h2 class="gap" style="display:flex;justify-content:space-between;align-items:center">Graph
+      <select id="chartSel" style="font-size:12px;text-transform:none;letter-spacing:0">
+        <option value="time">pA ÷ NkT over time</option>
+        <option value="pv">Pressure against area (p–V)</option>
+        <option value="pt">Pressure against temperature</option>
+        <option value="vt">Width against temperature</option>
+        <option value="msd">Big particle: mean square displacement</option>
+        <option value="mix">Mixing of the two gases</option>
+      </select></h2>
+    <div class="chartBox"><canvas id="chart2"></canvas></div>
+    <div class="legend" id="chart2Legend" style="margin-top:4px"></div>
+
+    <h2 class="gap">Readings</h2>
+    <div class="tiles" id="tiles"></div>
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>It is flat (2D).</b> Real gases are 3D. In 2D a molecule has two ways to move (x and y), so its average kinetic energy is <b>kT</b>, not 3/2 kT. We define temperature from the molecules' energy: T = (average ½mv²) ÷ k.</li>
+        <li><b>Pressure</b> is measured, not calculated: every time a molecule bounces off a wall it gives the wall a push of 2mv (its change of momentum). Adding up the pushes over time gives force; dividing by the length of wall gives 2D pressure in N/m (we show mN/m). It is averaged over the last 100 ps because single bounces are random.</li>
+        <li><b>Ideal gas law in 2D:</b> pA = NkT, where A is the area. Real molecules take up a little space, so the measured pA ÷ NkT comes out a few per cent above 1. The "molecule size" prediction uses the hard-disc formula Z = 1 + 2φ(1 − 7φ/16)/(1 − φ)², where φ is the fraction of the area covered by molecules.</li>
+        <li><b>3D-equivalent pressure:</b> a real (3D) gas whose molecules are the same distance apart as in the box would have pressure p = n<sup>3/2</sup>kT, where n is the number per square metre in the box. This is shown for comparison with everyday pressures (1 atm = 101 kPa).</li>
+        <li><b>Speeds</b> in 2D follow the Rayleigh (2D Maxwell–Boltzmann) distribution f(v) = (mv/kT)·e<sup>−mv²/2kT</sup>. Most likely speed √(kT/m), mean √(πkT/2m), r.m.s. √(2kT/m). In 3D the curve has v² instead of v at the start, so it is a little more lopsided.</li>
+        <li><b>Collisions</b> are perfectly elastic (no energy lost), between smooth hard discs with the real "kinetic diameter" of each molecule. Momentum is swapped along the line joining the centres. Time moves in small steps (a molecule moves at most about ¼ of its diameter per step); a cell grid means each molecule only checks its close neighbours.</li>
+        <li><b>Mean free path</b> (2D) λ = 1 ÷ (2√2 n d), where n is molecules per unit area and d the diameter (a moving disc hits any molecule whose centre is within d of its path, a strip 2d wide). The collision rate is (mean speed) ÷ λ. Both are measured by counting collisions and the distance travelled.</li>
+        <li><b>Heated walls</b> act like a hot plate: a molecule that hits one leaves with a new random speed typical of the wall's temperature. Without them, walls are perfect mirrors and no heat gets in or out.</li>
+        <li><b>The piston</b> is the right-hand wall. A molecule bouncing off a piston that is moving in gains speed (the gas heats up); off a piston moving out it loses speed (the gas cools). Without heated walls this is adiabatic: in 2D, T × A stays constant if you move slowly. Fast pistons heat the gas even more. A "free" piston has a mass of 2000 u and a little friction; the outside pressure pushes it in until the gas pushes back equally hard.</li>
+        <li><b>Brownian motion:</b> the big particle is 6 nm across and 2000 u. Real particles that size are much heavier; a lighter one settles into a random walk sooner, which lets us see it in a short run. Its spreading rate D does not depend on its mass. Theory (hard disc in a 2D gas): D = √(kT/2πm) ÷ (2nR), where R is the distance between centres when touching and m the gas molecule mass. Mean square displacement ⟨r²⟩ = 4D(t − τ(1 − e<sup>−t/τ</sup>)) with τ = MD/kT; for long times this is 4Dt.</li>
+        <li><b>Diffusion:</b> the theory line uses the 2D self-diffusion coefficient of hard discs D = (1 ÷ 2nd)·√(kT/πm), slowed slightly by crowding, and the diffusion equation across the box. It assumes the mean free path is much less than the box, which is only roughly true here.</li>
+        <li><b>Left out:</b> molecules attracting each other (so no condensation into liquid), spinning and vibrating molecules (in a real 3D gas, N₂ and CO₂ store extra energy in rotation), quantum effects, gravity. The box is tiny (tens of nanometres), so readings jump about more than in a real gas with 10²³ molecules.</li>
+      </ul>
+    </details>
+  </section>
+</main>
+
+<!-- ======================= BATCH RUN OVERLAY ======================= -->
+<div id="batch" role="dialog" aria-label="Batch run">
+  <div class="bhead">
+    <h3>📊 Batch run</h3>
+    <span class="hint">Run the model many times with no drawing, then compare with theory. Uses the gas, number of molecules, temperature and width on the left (one gas, walls not heated, piston still) unless an experiment sets them.</span>
+    <button id="bClose" style="margin-left:auto">✕ Close</button>
+  </div>
+  <div id="bexp"></div>
+  <div class="brow">
+    <label>Mode <select id="bMode"><option value="repeat">Repeat (same settings, different random starts)</option><option value="sweep">Sweep (change one setting in steps)</option></select></label>
+    <label>Record <select id="bOut"></select></label>
+    <span id="bRepeatOpts"><label>Runs <select id="bRuns"><option>10</option><option selected>20</option><option>50</option><option>100</option></select></label></span>
+    <span id="bSweepOpts" class="brow">
+      <label>Change <select id="bVar"></select></label>
+      <label>from <input type="number" id="bFrom"></label>
+      <label>to <input type="number" id="bTo"></label>
+      <label>steps <input type="number" id="bSteps" min="2" max="15" value="5" style="width:56px"></label>
+      <label>repeats <input type="number" id="bReps" min="1" max="20" value="3" style="width:56px"></label>
+    </span>
+  </div>
+  <div class="brow">
+    <button id="bRun" class="primary">▶ Run batch</button>
+    <button id="bStop" disabled>■ Stop</button>
+    <div class="prog"><span id="bProg"></span></div>
+    <span id="bStatus" class="hint">Ready</span>
+    <label><input type="checkbox" id="bLogX"> log x</label>
+    <label><input type="checkbox" id="bLogY"> log y</label>
+    <button id="bCsv" disabled>⬇ Download CSV</button>
+  </div>
+  <div id="bbody">
+    <div id="bchartBox"><canvas id="bchart"></canvas></div>
+    <div id="bside"><div id="bsum" class="hint">Pick an experiment above, or set up your own, then press <b>Run batch</b>.</div><div id="bnote" style="display:none"></div></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const el = id => document.getElementById(id);
+
+/* =====================================================================
+   1. UNITS, CONSTANTS AND GASES
+   ===================================================================== */
+const KB = 0.0083144626;      // Boltzmann constant k in u·nm²/ps² per kelvin
+const KB_SI = 1.380649e-23;   // k in J/K
+const P_mNm = 1.66053907;     // 1 u/ps² of 2D pressure = 1.66 mN/m
+const BOX_H = 50;             // height of the box (nm)
+const W_MIN = 15, W_MAX = 110;// limits on the piston position (nm)
+const PS_PER_SEC = 25;        // at 1×, 25 ps of gas time pass each real second
+const BIG_R = 3.0, BIG_M = 2000; // the Brownian particle: radius 3 nm, mass 2000 u
+const PISTON_M = 2000;        // mass of a free piston (u)
+
+// Real molecular masses (u) and "kinetic diameters" (nm) — the size molecules seem to have when they bounce
+const GASES = {
+  He:  { name: "Helium (He)",          m: 4.003, d: 0.260, col: "#a4cbe6" },
+  Ne:  { name: "Neon (Ne)",            m: 20.18, d: 0.275, col: "#f18700" },
+  N2:  { name: "Nitrogen (N₂)",        m: 28.01, d: 0.364, col: "#00aec3" },
+  O2:  { name: "Oxygen (O₂)",          m: 32.00, d: 0.346, col: "#de252a" },
+  Ar:  { name: "Argon (Ar)",           m: 39.95, d: 0.340, col: "#a86dab" },
+  CO2: { name: "Carbon dioxide (CO₂)", m: 44.01, d: 0.330, col: "#abb5b5" },
+  Xe:  { name: "Xenon (Xe)",           m: 131.3, d: 0.396, col: "#e83181" },
+};
+const COL_B_SAME = "#f18700";   // colour for "same gas, second colour"
+
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function hashSeed(str) { let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } return h >>> 0; }
+// A normally distributed random number (Box–Muller)
+function gauss(rng) { return Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng()); }
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// The gas used for a run. p.mass (used by batch sweeps) gives a made-up gas with gas 1's size but a chosen mass.
+function gasA(p) { const g = GASES[p.gasA]; return p.mass ? { name: p.mass.toFixed(0) + " u molecules", m: p.mass, d: g.d, col: g.col } : g; }
+function gasB(p) { if (p.gasB === "none") return null; if (p.gasB === "same") { const a = gasA(p); return { ...a, col: COL_B_SAME }; } return GASES[p.gasB]; }
+
+/* =====================================================================
+   2. THEORY — what kinetic theory predicts (2D formulas)
+   ===================================================================== */
+// Hard-disc "contact value": how much more often discs touch because they take up space
+const contactG = phi => (1 - 7 * phi / 16) / Math.pow(1 - phi, 2);
+function theory(p) {
+  const g = gasA(p), gb = gasB(p);
+  const nB = gb ? Math.round(p.N * p.fracB) : 0, nA = p.N - nB;
+  const W = p.W, d = g.d;
+  const Aacc = (W - d) * (BOX_H - d);                      // area the molecule centres can reach (nm²)
+  const covered = nA * Math.PI * d * d / 4 + (gb ? nB * Math.PI * gb.d * gb.d / 4 : 0);
+  const Abig = p.big ? Math.PI * (BIG_R + d / 2) ** 2 : 0;
+  const phi = covered / (W * BOX_H);                         // area fraction covered by molecules
+  const n = p.N / (Aacc - Abig);                             // molecules per nm²
+  const kT = KB * p.T, m = g.m;
+  const chi = contactG(phi);
+  const Z = (1 + 2 * phi * chi) * (W * BOX_H) / Aacc;        // pA/NkT expected, using the full box area A
+  const Ntot = p.N + (p.big ? 1 : 0);
+  const pIdeal = Ntot * kT / (W * BOX_H);                    // u/ps²
+  const vbar = Math.sqrt(Math.PI * kT / (2 * m));            // mean speed (nm/ps)
+  const lambda = 1 / (2 * Math.SQRT2 * n * d * chi);         // mean free path (nm): a disc sweeps a strip 2d wide
+  const z = vbar / lambda;                                    // collisions per molecule per ps
+  const Dself = Math.sqrt(kT / (Math.PI * m)) / (2 * n * d * chi);    // self-diffusion (nm²/ps)
+  const Rc = BIG_R + d / 2;
+  const Dbig = Math.sqrt(kT / (2 * Math.PI * m)) / (2 * n * Rc);      // Brownian particle (nm²/ps)
+  const tauBig = BIG_M * Dbig / kT;
+  // Mixing: the fraction of gas 1 in the left half starts at 1 and decays towards ½.
+  // From the diffusion equation: excess = Σ(odd k) 4/(π²k²)·exp(−k²π²Dt/L²). Mixed = excess falls to 0.1.
+  const L = W - d;
+  const excess = t => { let s = 0; for (let k = 1; k < 40; k += 2) s += 4 / (Math.PI * Math.PI * k * k) * Math.exp(-k * k * Math.PI * Math.PI * Dself * t / (L * L)); return s; };
+  let lo = 0, hi = 1e6; for (let it = 0; it < 80; it++) { const mid = (lo + hi) / 2; if (excess(mid) > 0.1) lo = mid; else hi = mid; }
+  return { m, d, kT, phi, n, Z, pIdeal, pHD: pIdeal * Z, vbar, vmp: Math.sqrt(kT / m), vrms: Math.sqrt(2 * kT / m), lambda, z, Dself, Dbig, tauBig, tMix: lo, excess, Aacc, L };
+}
+// Rayleigh (2D Maxwell–Boltzmann) probability density for speed v (nm/ps)
+const rayleigh = (v, m, kT) => (m * v / kT) * Math.exp(-m * v * v / (2 * kT));
+
+/* =====================================================================
+   3. THE GAS: create a box of molecules
+   ===================================================================== */
+function makeSystem(p, rng) {
+  const ga = gasA(p), gb = gasB(p);
+  const nB = gb ? Math.round(p.N * p.fracB) : 0, nA = p.N - nB;
+  const nSmall = p.N, n = nSmall + (p.big ? 1 : 0);
+  const S = {
+    n, nSmall, big: p.big ? nSmall : -1, H: BOX_H, W: p.W, t: 0, u: 0,
+    x: new Float64Array(n), y: new Float64Array(n), vx: new Float64Array(n), vy: new Float64Array(n),
+    m: new Float64Array(n), r: new Float64Array(n), sp: new Uint8Array(n), side: new Uint8Array(n),
+    heat: !!p.heat, Twall: p.T, piston: p.piston || "hold", targetW: p.W, pistonSpeed: p.pistonSpeed || 100, pext: p.pext || 0.4,
+    partition: !!p.partition, xPart: p.W / 2,
+    imp: 0, perimT: 0, keT: 0, coll: 0, path: 0,   // running totals used for measurements
+    gases: [ga, gb], nA, nB,
+  };
+  for (let i = 0; i < nSmall; i++) { const g = i < nA ? ga : gb; S.m[i] = g.m; S.r[i] = g.d / 2; S.sp[i] = i < nA ? 0 : 1; }
+  if (p.big) { S.m[S.big] = BIG_M; S.r[S.big] = BIG_R; S.sp[S.big] = 2; }
+  // cell grid for finding neighbours quickly (cells at least one molecule across)
+  let rmax = 0; for (let i = 0; i < nSmall; i++) rmax = Math.max(rmax, S.r[i]);
+  S.cs = Math.max(1.0, 2 * rmax); S.cols = Math.ceil(W_MAX / S.cs) + 1; S.rows = Math.ceil(BOX_H / S.cs) + 1;
+  S.head = new Int32Array(S.cols * S.rows); S.next = new Int32Array(n); S.cell = new Int32Array(n);
+  S.dmin = 2 * Math.min(...Array.from(S.r.subarray(0, nSmall)));
+
+  // --- place the molecules at random without overlaps ---
+  if (p.big) { S.x[S.big] = p.W / 2; S.y[S.big] = BOX_H / 2; }
+  const placed = [];
+  for (let i = 0; i < nSmall; i++) {
+    const ri = S.r[i];
+    let xlo = ri, xhi = p.W - ri;
+    if (S.partition) { if (S.sp[i] === 0) xhi = S.xPart - ri; else xlo = S.xPart + ri; }
+    let ok = false, x = 0, y = 0;
+    for (let tries = 0; tries < 60 && !ok; tries++) {
+      x = xlo + rng() * (xhi - xlo); y = ri + rng() * (BOX_H - 2 * ri); ok = true;
+      if (p.big) { const dx = x - S.x[S.big], dy = y - S.y[S.big]; if (dx * dx + dy * dy < (ri + BIG_R + 0.05) ** 2) { ok = false; continue; } }
+      for (let k = Math.max(0, placed.length - 400); k < placed.length && ok; k++) { const j = placed[k]; const dx = x - S.x[j], dy = y - S.y[j]; if (dx * dx + dy * dy < (ri + S.r[j] + 0.02) ** 2) ok = false; }
+    }
+    S.x[i] = x; S.y[i] = y; S.side[i] = x < S.xPart ? 0 : 1; placed.push(i);
+  }
+  if (p.big) S.side[S.big] = 0;
+  // shuffle the order of checking against older molecules is not needed: overlaps that slip through just bounce apart.
+
+  // --- give them speeds ---
+  const kT = KB * p.T;
+  if (p.start === "same") {
+    // every small molecule gets the SAME speed, in a random direction, chosen so the average KE is exactly kT
+    let mbar = 0; for (let i = 0; i < nSmall; i++) mbar += S.m[i]; mbar /= nSmall;
+    const v0 = Math.sqrt(2 * kT / mbar);
+    for (let i = 0; i < nSmall; i++) { const a = 2 * Math.PI * rng(); S.vx[i] = v0 * Math.cos(a); S.vy[i] = v0 * Math.sin(a); }
+  } else {
+    // Maxwell–Boltzmann: each velocity component is normally distributed with spread √(kT/m)
+    for (let i = 0; i < nSmall; i++) { const s = Math.sqrt(kT / S.m[i]); S.vx[i] = s * gauss(rng); S.vy[i] = s * gauss(rng); }
+  }
+  if (p.big) { const s = Math.sqrt(kT / BIG_M); S.vx[S.big] = s * gauss(rng); S.vy[S.big] = s * gauss(rng); }
+  return S;
+}
+
+/* =====================================================================
+   4. ONE TIME STEP — move, bounce off walls, bounce off each other
+   ===================================================================== */
+// Safe time step: the fastest molecule moves at most ¼ of the smallest diameter
+function chooseDt(S) {
+  let v2 = 0; for (let i = 0; i < S.nSmall; i++) { const s = S.vx[i] * S.vx[i] + S.vy[i] * S.vy[i]; if (s > v2) v2 = s; }
+  return Math.min(0.5, 0.25 * S.dmin / Math.max(0.05, Math.sqrt(v2)));
+}
+// A molecule leaving a heated wall: speed away from the wall from a Rayleigh-shaped spread, sideways speed normal.
+function thermalNormal(m, T, rng) { return Math.sqrt(-2 * KB * T / m * Math.log(1 - rng())); }
+function thermalTang(m, T, rng) { return Math.sqrt(KB * T / m) * gauss(rng); }
+
+function stepSys(S, dt, rng) {
+  const n = S.n, x = S.x, y = S.y, vx = S.vx, vy = S.vy, m = S.m, r = S.r, H = S.H;
+  // --- the piston (right-hand wall) moves first ---
+  let u = 0;
+  if (S.partition) u = 0;
+  else if (S.piston === "move") { const dW = S.targetW - S.W, vmax = S.pistonSpeed * 1e-3; u = Math.abs(dW) <= vmax * dt ? dW / dt : Math.sign(dW) * vmax; }
+  else if (S.piston === "free") u = S.u;
+  let Wn = S.W + u * dt;
+  if (Wn < W_MIN) { Wn = W_MIN; u = (Wn - S.W) / dt; } if (Wn > W_MAX) { Wn = W_MAX; u = (Wn - S.W) / dt; }
+  S.W = Wn; S.u = u;
+  const W = S.W, heat = S.heat, Tw = S.Twall;
+  let J = 0, Jp = 0, ke = 0, path = 0;
+
+  for (let i = 0; i < n; i++) {
+    let xi = x[i] + vx[i] * dt, yi = y[i] + vy[i] * dt;
+    const ri = r[i], mi = m[i];
+    // left wall
+    if (xi < ri) { const v0 = vx[i]; xi = 2 * ri - xi; if (heat) { vx[i] = thermalNormal(mi, Tw, rng); vy[i] = thermalTang(mi, Tw, rng); } else vx[i] = Math.abs(v0); J += mi * (vx[i] - v0); }
+    // right wall = piston, moving at speed u. Bouncing off a moving wall: v' = 2u − v
+    const xr = W - ri;
+    if (xi > xr) {
+      const v0 = vx[i];
+      if (v0 > u) { if (heat) { vx[i] = u - thermalNormal(mi, Tw, rng); vy[i] = thermalTang(mi, Tw, rng); } else vx[i] = 2 * u - v0; }
+      xi = Math.min(xr, 2 * xr - xi);
+      const Jw = mi * (v0 - vx[i]); J += Jw; Jp += Jw;
+    }
+    // bottom (y = 0) and top (y = H) walls
+    if (yi < ri) { const v0 = vy[i]; yi = 2 * ri - yi; if (heat) { vy[i] = thermalNormal(mi, Tw, rng); vx[i] = thermalTang(mi, Tw, rng); } else vy[i] = Math.abs(v0); J += mi * (vy[i] - v0); }
+    else if (yi > H - ri) { const v0 = vy[i]; yi = 2 * (H - ri) - yi; if (heat) { vy[i] = -thermalNormal(mi, Tw, rng); vx[i] = thermalTang(mi, Tw, rng); } else vy[i] = -Math.abs(v0); J += mi * (v0 - vy[i]); }
+    // the partition (a mirror wall down the middle; not counted in the pressure)
+    if (S.partition) {
+      const xp = S.xPart;
+      if (S.side[i] === 0) { if (xi > xp - ri) { xi = 2 * (xp - ri) - xi; vx[i] = -Math.abs(vx[i]); } }
+      else if (xi < xp + ri) { xi = 2 * (xp + ri) - xi; vx[i] = Math.abs(vx[i]); }
+    }
+    x[i] = clamp(xi, ri, W - ri); y[i] = clamp(yi, ri, H - ri);
+    const v2 = vx[i] * vx[i] + vy[i] * vy[i];
+    ke += 0.5 * mi * v2;
+    if (i < S.nSmall) path += Math.sqrt(v2) * dt;
+  }
+
+  // --- collisions between molecules: elastic bounce of two hard discs ---
+  const cs = S.cs, cols = S.cols, rows = S.rows, head = S.head, next = S.next, cell = S.cell, ns = S.nSmall;
+  head.fill(-1);
+  for (let i = 0; i < ns; i++) {
+    const cx = Math.min(cols - 1, (x[i] / cs) | 0), cy = Math.min(rows - 1, (y[i] / cs) | 0), c = cy * cols + cx;
+    cell[i] = c; next[i] = head[c]; head[c] = i;
+  }
+  let coll = 0;
+  const collide = (i, j) => {
+    const dx = x[i] - x[j], dy = y[i] - y[j], rs = r[i] + r[j], d2 = dx * dx + dy * dy;
+    if (d2 >= rs * rs || d2 < 1e-12) return 0;
+    const dvx = vx[i] - vx[j], dvy = vy[i] - vy[j], dot = dx * dvx + dy * dvy;
+    if (dot >= 0) return 0;                       // already moving apart
+    // Swap momentum along the line of centres. Kinetic energy and momentum are both conserved.
+    const k = 2 * dot / ((m[i] + m[j]) * d2);
+    vx[i] -= k * m[j] * dx; vy[i] -= k * m[j] * dy;
+    vx[j] += k * m[i] * dx; vy[j] += k * m[i] * dy;
+    return 1;
+  };
+  for (let i = 0; i < ns; i++) {
+    const c = cell[i], cx = c % cols, cy = (c / cols) | 0;
+    for (let oy = -1; oy <= 1; oy++) {
+      const yy = cy + oy; if (yy < 0 || yy >= rows) continue;
+      for (let ox = -1; ox <= 1; ox++) {
+        const xx = cx + ox; if (xx < 0 || xx >= cols) continue;
+        for (let j = head[yy * cols + xx]; j !== -1; j = next[j]) if (j > i) coll += collide(i, j);
+      }
+    }
+  }
+  if (S.big >= 0) for (let j = 0; j < ns; j++) collide(S.big, j);   // the big particle checks everyone
+
+  // --- running totals for the measurements ---
+  S.imp += J; S.perimT += 2 * (W + H) * dt; S.keT += ke * dt; S.coll += coll; S.path += path; S.t += dt;
+  // a free piston is pushed out by the molecules and in by the outside pressure (with a little friction)
+  if (S.piston === "free" && !S.partition) { S.u += (Jp - S.pext * H * dt) / PISTON_M; S.u *= Math.exp(-dt / 300); }
+}
+
+function speedsOf(S, sp) { const out = []; for (let i = 0; i < S.nSmall; i++) if (sp === undefined || S.sp[i] === sp) out.push(Math.hypot(S.vx[i], S.vy[i])); return out; }
+function kineticT(S) { let ke = 0; for (let i = 0; i < S.n; i++) ke += 0.5 * S.m[i] * (S.vx[i] ** 2 + S.vy[i] ** 2); return ke / (S.n * KB); }
+function fracLeft(S) { let a = 0, nA = 0; const h = S.W / 2; for (let i = 0; i < S.nSmall; i++) if (S.sp[i] === 0) { nA++; if (S.x[i] < h) a++; } return nA ? a / nA : 0.5; }
+
+/* =====================================================================
+   5. HEADLESS RUNS for the batch mode: runOnce(params, seed) → outcomes
+   ===================================================================== */
+// Mean square displacement, averaged over every starting time in the track (pts sampled every dtS ps)
+function msdCurve(track, dtS, maxLag) {
+  const out = [];
+  for (let lag = 1; lag <= maxLag && lag < track.length; lag++) {
+    let s = 0, c = 0; const stride = Math.max(1, Math.floor((track.length - lag) / 300));
+    for (let i = 0; i + lag < track.length; i += stride) { const dx = track[i + lag][0] - track[i][0], dy = track[i + lag][1] - track[i][1]; s += dx * dx + dy * dy; c++; }
+    out.push([lag * dtS, s / c]);
+  }
+  return out;
+}
+function fitMSD(curve, tFrom, tTo) {   // least-squares gradient of ⟨r²⟩ against t, between tFrom and tTo
+  let n = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (const [t, v] of curve) if (t >= tFrom && t <= tTo) { n++; sx += t; sy += v; sxx += t * t; sxy += t * v; }
+  return n > 2 ? (n * sxy - sx * sy) / (n * sxx - sx * sx) : NaN;
+}
+
+function runOnce(p, seed, out) {
+  const rng = mulberry32(seed);
+  const q = { ...p, heat: false, piston: "hold", gasB: "none", big: false, partition: false, start: "mb" };
+  if (out === "speeds") q.start = "same";
+  if (out === "D") q.big = true;
+  if (out === "mix") { q.gasB = "same"; q.fracB = 0.5; q.partition = true; }
+  const S = makeSystem(q, rng);
+  const run = until => { while (S.t < until) stepSys(S, Math.min(chooseDt(S), until - S.t + 1e-9), rng); };
+  const res = { seed };
+  if (out === "speeds") {                       // start all at one speed, let collisions spread them out
+    run(150);
+    res.dist = speedsOf(S).map(v => v * 1000);  // m/s
+    res.value = res.dist.reduce((a, b) => a + b, 0) / res.dist.length;
+    return res;
+  }
+  if (out === "D") {                             // follow the big particle and measure how fast it spreads
+    run(40);
+    const track = [], dtS = 2, T0 = S.t;
+    for (let k = 0; k <= 400; k++) { run(T0 + k * dtS); track.push([S.x[S.big], S.y[S.big]]); }
+    const th = theory(q), curve = msdCurve(track, dtS, 150);
+    res.value = fitMSD(curve, Math.max(3 * th.tauBig, 60), 300) / 4;   // D = gradient ÷ 4 (2D)
+    return res;
+  }
+  if (out === "mix") {                           // remove the partition and time how long until 80% mixed
+    run(10); S.partition = false; const t0 = S.t; let tm = NaN;
+    while (S.t - t0 < 8000) { run(S.t + 2); if (Math.abs(fracLeft(S) - 0.5) <= 0.1) { tm = S.t - t0; break; } }
+    res.value = tm;
+    return res;
+  }
+  // equilibrium measurements: settle, then average for 300 ps
+  run(20);
+  const a = { imp: S.imp, perimT: S.perimT, keT: S.keT, coll: S.coll, path: S.path, t: S.t };
+  run(320);
+  const dt = S.t - a.t, pr = (S.imp - a.imp) / (S.perimT - a.perimT), T = (S.keT - a.keT) / dt / (S.n * KB);
+  res.pressure = pr * P_mNm;
+  res.Z = pr * S.W * S.H / (S.n * KB * T);
+  res.meanSpeed = speedsOf(S).reduce((s, v) => s + v, 0) / S.nSmall * 1000;
+  res.coll = 2 * (S.coll - a.coll) / (S.nSmall * dt) * 1000;   // per molecule per ns
+  res.mfp = (S.path - a.path) / (2 * (S.coll - a.coll));
+  res.value = res[out];
+  return res;
+}
+
+/* =====================================================================
+   6. LIVE STATE AND CONTROLS
+   ===================================================================== */
+let sys = null, rngLive = mulberry32(1), running = true, speed = 1;
+let samples = [];          // running totals each frame (for time-averaged readings)
+let history = [];          // points for the second graph
+let hist = null;           // smoothed speed histogram
+let track = [], trailPts = [], trackT0 = 0; // big particle
+let mixT0 = null, mixHist = []; // mixing
+let script = null, activePreset = -1, adiabatRef = null;
+let collAt = { c: 0, t: 0 };
+
+function readParams() {
+  return {
+    gasA: el("gasA").value, gasB: el("gasB").value, fracB: +el("fracB").value / 100, N: +el("N").value,
+    T: +el("T").value, start: el("start").value, partition: el("partition").checked, big: el("big").checked,
+    heat: el("heat").checked, piston: el("piston").value, W: +el("W").value, pistonSpeed: +el("pspeed").value,
+    pext: +el("pext").value / P_mNm, seed: el("seed").value || "1",
+  };
+}
+let builtParams = null;
+function rebuild() {
+  const p = readParams();
+  rngLive = mulberry32(hashSeed(p.seed));
+  sys = makeSystem(p, rngLive);
+  builtParams = p;
+  samples = []; history = []; hist = null; track = []; trailPts = []; trackT0 = 0; mixT0 = p.partition ? null : null; mixHist = [];
+  adiabatRef = null; collAt = { c: 0, t: 0 };
+  el("pending").style.display = "none";
+  updateButtons(); updateLegend();
+}
+function updateButtons() {
+  el("btnPart").style.display = sys.partition ? "" : "none";
+  el("btnTrail").style.display = sys.big >= 0 ? "" : "none";
+}
+
+// Live controls: apply to the running gas
+function applyLive() {
+  if (!sys) return;
+  const p = readParams();
+  sys.heat = p.heat; sys.piston = p.piston; sys.pistonSpeed = p.pistonSpeed; sys.pext = p.pext; sys.targetW = p.W;
+  if (sys.heat) sys.Twall = p.T;
+  else if (Math.abs(p.T - sys.Twall) > 1e-9) {
+    // Walls not heated: rescale every velocity so the gas is instantly at the new temperature
+    const f = Math.sqrt(p.T / kineticT(sys));
+    for (let i = 0; i < sys.n; i++) { sys.vx[i] *= f; sys.vy[i] *= f; }
+    sys.Twall = p.T; samples = [];
+  }
+  el("Thint").textContent = sys.heat ? "Heated walls: molecules that hit a wall leave at this temperature, so the gas warms or cools over time." :
+    "Walls not heated: moving the slider speeds up or slows down every molecule at once.";
+}
+function setT(T) { el("T").value = T; updateLabels(); applyLive(); }
+
+/* =====================================================================
+   7. PRESETS — each shows one idea
+   ===================================================================== */
+const PRESETS = [
+  { name: "Speeds settle", desc: "All start at one speed; watch the spread appear", chart: "time", speed: 1,
+    s: { gasA: "N2", gasB: "none", N: 500, T: 300, start: "same", partition: false, big: false, heat: false, piston: "hold", W: 50, colour: "speed" },
+    story: "Every molecule starts with exactly the same speed (a single spike on the speed graph). Each collision shares energy unevenly: one molecule speeds up, the other slows down. After a few collisions each, the speeds spread into the Maxwell–Boltzmann shape (yellow curve) and stay that way. Total energy never changes." },
+  { name: "Boyle's law", desc: "Squeeze slowly at constant temperature", chart: "pv", speed: 15,
+    s: { gasA: "N2", gasB: "none", N: 400, T: 300, start: "mb", partition: false, big: false, heat: true, piston: "move", W: 100, pspeed: 20, colour: "speed" },
+    script: S => { if (S.t > 60 && Math.abs(S.W - S.targetW) < 0.01) { el("W").value = S.targetW > 50 ? 25 : 100; updateLabels(); applyLive(); } },
+    story: "The piston moves slowly in and out. The heated walls keep the temperature steady, so this is isothermal. Halve the area and the molecules hit each wall twice as often: the pressure doubles. The points follow the curve pA = constant (Boyle's law)." },
+  { name: "Charles's law", desc: "Heat it; a free piston keeps pressure fixed", chart: "vt", speed: 15,
+    s: { gasA: "N2", gasB: "none", N: 400, T: 150, start: "mb", partition: false, big: false, heat: true, piston: "free", W: 25, pext: 0.66, colour: "speed" },
+    script: S => { if (S.t > 150) { const T = Math.min(600, 150 + (S.t - 150) * 0.15); if (Math.abs(T - +el("T").value) >= 10) setT(Math.round(T / 10) * 10); } },
+    story: "The walls are heated slowly from 150 K to 600 K. The piston is free: the outside pressure pushes it in, the gas pushes it out. Hotter molecules hit harder, so the piston moves out until the pressure balances again. The width grows in proportion to the kelvin temperature (V ∝ T)." },
+  { name: "Pressure law", desc: "Heat it in a fixed box: p rises with T", chart: "pt", speed: 15,
+    s: { gasA: "N2", gasB: "none", N: 400, T: 100, start: "mb", partition: false, big: false, heat: true, piston: "hold", W: 50, colour: "speed" },
+    script: S => { if (S.t > 100) { const T = Math.min(700, 100 + (S.t - 100) * 0.2); if (Math.abs(T - +el("T").value) >= 10) setT(Math.round(T / 10) * 10); } },
+    story: "The box cannot change size and the walls are slowly heated. Faster molecules hit the walls harder AND more often, so pressure is proportional to the kelvin temperature. The line points back to zero pressure at absolute zero (0 K = −273 °C)." },
+  { name: "Brownian motion", desc: "A big particle jiggled by unseen molecules", chart: "msd", speed: 4,
+    s: { gasA: "N2", gasB: "none", N: 1100, T: 300, start: "mb", partition: false, big: true, heat: false, piston: "hold", W: 100, colour: "speed" },
+    story: "The big particle is hit from all sides at random. The hits do not quite cancel, so it wanders in a random walk, like pollen grains or smoke particles under a microscope. Its distance from the start does not grow steadily: the mean SQUARE distance grows in proportion to time, ⟨r²⟩ = 4Dt." },
+  { name: "Light vs heavy", desc: "Helium and xenon at the same temperature", chart: "time", speed: 4,
+    s: { gasA: "He", gasB: "Xe", fracB: 50, N: 400, T: 300, start: "same", partition: false, big: false, heat: false, piston: "hold", W: 50, colour: "gas" },
+    story: "Everything starts at the same speed, so each xenon atom (131 u) has 33 times the energy of a helium atom (4 u). Collisions share out the energy until both gases have the SAME average kinetic energy, kT. Then helium atoms move about 5.7 times faster (√(131/4))." },
+  { name: "Adiabatic squeeze", desc: "No heat escapes: squeezing heats the gas", chart: "pv", speed: 4,
+    s: { gasA: "N2", gasB: "none", N: 400, T: 300, start: "mb", partition: false, big: false, heat: false, piston: "move", W: 100, pspeed: 100, colour: "speed" },
+    script: S => { if (S.t > 40 && Math.abs(S.W - S.targetW) < 0.01) { el("W").value = S.targetW > 50 ? 25 : 100; updateLabels(); applyLive(); } },
+    story: "No heat can get in or out. Molecules bounce off the incoming piston faster than they arrived, so the gas heats up; when the piston moves out it cools again. In 2D, T × A stays constant, so pressure rises faster than Boyle's law (pA² = constant). Try the fast piston for extra heating." },
+  { name: "Mixing gases", desc: "Lift a partition and watch diffusion", chart: "mix", speed: 4,
+    s: { gasA: "N2", gasB: "same", fracB: 50, N: 600, T: 300, start: "mb", partition: true, big: false, heat: false, piston: "hold", W: 50, colour: "gas" },
+    script: S => { if (S.partition && S.t > 30) removePartition(); },
+    story: "Two halves of the same gas, coloured differently. When the partition lifts, molecules wander across. Each one keeps being knocked off course, so mixing takes many collisions: diffusion is much slower than the molecules' speed (about 400 m/s) suggests." },
+  { name: "Very thin gas", desc: "Few molecules: they mostly hit the walls", chart: "time", speed: 1,
+    s: { gasA: "N2", gasB: "none", N: 40, T: 300, start: "mb", partition: false, big: false, heat: false, piston: "hold", W: 50, colour: "speed" },
+    story: "With only 40 molecules the mean free path is longer than the box, so molecules bounce from wall to wall and rarely meet. The ideal gas law still holds on average, but every reading jumps about much more because there are so few hits." },
+];
+
+function setPreset(k) {
+  const P = PRESETS[k], s = P.s;
+  activePreset = k;
+  el("gasA").value = s.gasA; el("gasB").value = s.gasB; el("fracB").value = s.fracB || 50; el("N").value = s.N; el("T").value = s.T;
+  el("start").value = s.start; el("partition").checked = s.partition; el("big").checked = s.big; el("heat").checked = s.heat;
+  el("piston").value = s.piston; el("W").value = s.W; if (s.pspeed) el("pspeed").value = s.pspeed; if (s.pext) el("pext").value = s.pext;
+  el("colour").value = s.colour; el("chartSel").value = P.chart;
+  updateLabels(); rebuild(); applyLive();
+  script = P.script || null;
+  setSpeed(P.speed); setRunning(true);
+  document.querySelectorAll("#presets button").forEach((b, i) => b.classList.toggle("on", i === k));
+}
+function removePartition() {
+  if (!sys.partition) return;
+  sys.partition = false; mixT0 = sys.t; mixHist = []; el("partition").checked = false; updateButtons();
+}
+
+/* =====================================================================
+   8. MEASUREMENTS FROM THE LIVE RUN (time-averaged)
+   ===================================================================== */
+function windowStats(win) {
+  const now = samples[samples.length - 1]; if (!now) return null;
+  let old = samples[0];
+  for (let i = samples.length - 1; i >= 0; i--) if (now.t - samples[i].t >= win) { old = samples[i]; break; }
+  const dt = now.t - old.t; if (dt < 5) return null;
+  const pr = (now.imp - old.imp) / (now.perimT - old.perimT);
+  const T = (now.keT - old.keT) / dt / (sys.n * KB);
+  const coll = now.coll - old.coll;
+  return { dt, p: pr, T, Z: pr * sys.W * sys.H / (sys.n * KB * T), mfp: coll > 0 ? (now.path - old.path) / (2 * coll) : NaN, rate: 2 * coll / (sys.nSmall * dt) };
+}
+function record() {
+  samples.push({ t: sys.t, imp: sys.imp, perimT: sys.perimT, keT: sys.keT, coll: sys.coll, path: sys.path });
+  while (samples.length > 2 && samples[samples.length - 1].t - samples[1].t > 400) samples.shift();
+  const last = history[history.length - 1];
+  if (!last || sys.t - last.t >= 4) {
+    const w = windowStats(40);
+    if (w) {
+      history.push({ t: sys.t, p: w.p, T: w.T, Z: w.Z, A: sys.W * sys.H, W: sys.W });
+      if (history.length > 1500) history.shift();
+      if (!adiabatRef && sys.t > 45) adiabatRef = { A: sys.W * sys.H, p: w.p, T: w.T };
+    }
+  }
+  if (sys.big >= 0) {
+    if (!track.length || sys.t - trackT0 - (track.length - 1) * 2 >= 2) { track.push([sys.x[sys.big], sys.y[sys.big]]); if (track.length > 3000) track.shift(), trackT0 += 2; }
+    const lp = trailPts[trailPts.length - 1];
+    if (!lp || Math.hypot(lp[0] - sys.x[sys.big], lp[1] - sys.y[sys.big]) > 0.2) { trailPts.push([sys.x[sys.big], sys.y[sys.big]]); if (trailPts.length > 4000) trailPts.shift(); }
+  }
+  if (mixT0 !== null) { const lm = mixHist[mixHist.length - 1]; if (!lm || sys.t - mixT0 - lm[0] >= 2) mixHist.push([sys.t - mixT0, fracLeft(sys)]); }
+}
+
+/* =====================================================================
+   9. DRAWING
+   ===================================================================== */
+function fitCanvas(cv) {
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const w = Math.max(10, Math.round(r.width * dpr)), h = Math.max(10, Math.round(r.height * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: r.width, h: r.height };
+}
+// Speed colour ramp: blue (slow) → yellow → red (fast), relative to the r.m.s. speed of that gas
+function speedColour(f) {
+  f = clamp(f / 2, 0, 1);
+  const stops = [[60, 110, 220], [164, 203, 230], [241, 175, 40], [222, 37, 42]];
+  const s = f * 3, i = Math.min(2, Math.floor(s)), t = s - i, a = stops[i], b = stops[i + 1];
+  return `rgb(${a[0] + (b[0] - a[0]) * t | 0},${a[1] + (b[1] - a[1]) * t | 0},${a[2] + (b[2] - a[2]) * t | 0})`;
+}
+let view = { s: 1, ox: 0, oy: 0 };
+function drawBox() {
+  const { ctx, w, h } = fitCanvas(el("map"));
+  ctx.clearRect(0, 0, w, h);
+  const mT = 44, mB = 30, mL = 16, mR = 30;
+  const s = Math.min((w - mL - mR) / W_MAX, (h - mT - mB) / BOX_H);
+  const ox = mL, oy = mT + ((h - mT - mB) - BOX_H * s) / 2;
+  view = { s, ox, oy };
+  const X = v => ox + v * s, Y = v => oy + (BOX_H - v) * s;
+  // inside of the box
+  ctx.fillStyle = sys.heat ? "#1a120a" : "#0d1013"; ctx.fillRect(X(0), Y(BOX_H), sys.W * s, BOX_H * s);
+  // space behind the piston
+  ctx.fillStyle = "#16181a"; ctx.fillRect(X(sys.W), Y(BOX_H), (W_MAX - sys.W) * s + 10, BOX_H * s);
+  // walls (orange glow if heated)
+  ctx.strokeStyle = sys.heat ? "#f18700" : "#8a929c"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(X(sys.W), Y(0)); ctx.lineTo(X(0), Y(0)); ctx.lineTo(X(0), Y(BOX_H)); ctx.lineTo(X(sys.W), Y(BOX_H)); ctx.stroke();
+  // big particle's trail
+  if (sys.big >= 0 && trailPts.length > 1) {
+    ctx.strokeStyle = "rgba(241,175,40,.75)"; ctx.lineWidth = 1.4; ctx.beginPath();
+    trailPts.forEach((q, i) => i ? ctx.lineTo(X(q[0]), Y(q[1])) : ctx.moveTo(X(q[0]), Y(q[1]))); ctx.stroke();
+  }
+  // molecules
+  const byGas = el("colour").value === "gas";
+  const vr = [0, 1].map(k => sys.gases[k] ? Math.sqrt(2 * KB * sys.Twall / sys.gases[k].m) : 1);
+  for (let i = 0; i < sys.nSmall; i++) {
+    const sp = sys.sp[i], rad = Math.max(1.6, sys.r[i] * s);
+    ctx.fillStyle = byGas ? sys.gases[sp].col : speedColour(Math.hypot(sys.vx[i], sys.vy[i]) / vr[sp]);
+    ctx.beginPath(); ctx.arc(X(sys.x[i]), Y(sys.y[i]), rad, 0, 6.2832); ctx.fill();
+  }
+  if (sys.big >= 0) {
+    const b = sys.big; ctx.fillStyle = "#f1af28"; ctx.strokeStyle = "#14133b"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(X(sys.x[b]), Y(sys.y[b]), BIG_R * s, 0, 6.2832); ctx.fill(); ctx.stroke();
+  }
+  // partition
+  if (sys.partition) { ctx.strokeStyle = "#eef0e8"; ctx.lineWidth = 3; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(X(sys.xPart), Y(0)); ctx.lineTo(X(sys.xPart), Y(BOX_H)); ctx.stroke(); ctx.setLineDash([]); }
+  // piston with handle
+  const px = X(sys.W);
+  ctx.fillStyle = "#5d6670"; ctx.fillRect(px, Y(BOX_H) - 6, 10, BOX_H * s + 12);
+  ctx.fillStyle = dragging ? "#f1af28" : "#abb5b5"; ctx.fillRect(px + 10, Y(BOX_H / 2) - 4, 18, 8);
+  ctx.beginPath(); ctx.arc(px + 26, Y(BOX_H / 2), 7, 0, 6.2832); ctx.fill();
+  // labels: width, scale bar
+  ctx.fillStyle = "#a3ab96"; ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "center";
+  ctx.fillText(`width ${sys.W.toFixed(1)} nm × height ${BOX_H} nm`, X(sys.W / 2), Y(0) + 18);
+  ctx.textAlign = "left";
+  const sbx = X(W_MAX) - 10 * s - 6, sby = Y(BOX_H) - 12;
+  if (sys.W < W_MAX - 14) { ctx.strokeStyle = "#a3ab96"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sbx, sby); ctx.lineTo(sbx + 10 * s, sby); ctx.stroke(); ctx.fillText("10 nm", sbx, sby - 4); }
+  if (sys.heat) { ctx.fillStyle = "#f18700"; ctx.fillText(`Walls heated to ${sys.Twall.toFixed(0)} K`, X(0) + 4, Y(BOX_H) - 6); }
+}
+
+/* --- generic chart helpers (used by the live graphs and the batch results) --- */
+function niceStep(range, n) { const raw = range / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+function fmt(v, sig = 3) {
+  if (!isFinite(v)) return "–"; if (v === 0) return "0";
+  const a = Math.abs(v); if (a >= 1e5 || a < 1e-3) return v.toExponential(sig - 1).replace("e+", "e");
+  return (+v.toPrecision(sig)).toLocaleString("en-GB", { maximumFractionDigits: 6 });
+}
+function ticksFor(a, b, log) {
+  if (log) {
+    const out = [], lo = Math.floor(Math.log10(a)), hi = Math.ceil(Math.log10(b)), few = hi - lo <= 2;
+    for (let e = lo; e <= hi; e++) for (const m of few ? [1, 2, 5] : [1]) { const v = m * Math.pow(10, e); if (v >= a * 0.999 && v <= b * 1.001) out.push(v); }
+    return out;
+  }
+  const st = niceStep(b - a || 1, 5), out = []; for (let v = Math.ceil(a / st) * st; v <= b + st * 1e-6; v += st) out.push(Math.abs(v) < st * 1e-9 ? 0 : v); return out;
+}
+function axes(ctx, w, h, o) {
+  const L = o.L || 54, R = o.R || 10, T = o.T || 8, B = o.B || 34;
+  const fx = o.xlog ? Math.log10 : v => v, fy = o.ylog ? Math.log10 : v => v;
+  const X = v => L + (fx(v) - fx(o.x0)) / (fx(o.x1) - fx(o.x0)) * (w - L - R);
+  const Y = v => h - B - (fy(v) - fy(o.y0)) / (fy(o.y1) - fy(o.y0)) * (h - T - B);
+  ctx.font = "11px system-ui, sans-serif"; ctx.lineWidth = 1;
+  for (const v of ticksFor(o.x0, o.x1, o.xlog)) { const x = X(v); ctx.strokeStyle = "#232920"; ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, h - B); ctx.stroke(); ctx.fillStyle = "#a3ab96"; ctx.textAlign = "center"; ctx.fillText(fmt(v), x, h - B + 13); }
+  for (const v of ticksFor(o.y0, o.y1, o.ylog)) { const y = Y(v); ctx.strokeStyle = "#232920"; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke(); ctx.fillStyle = "#a3ab96"; ctx.textAlign = "right"; ctx.fillText(fmt(v), L - 4, y + 3.5); }
+  ctx.strokeStyle = "#5a6352"; ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, h - B); ctx.lineTo(w - R, h - B); ctx.stroke();
+  ctx.fillStyle = "#cfd5c4"; ctx.textAlign = "center"; ctx.fillText(o.xlabel || "", L + (w - L - R) / 2, h - 6);
+  ctx.save(); ctx.translate(11, T + (h - T - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(o.ylabel || "", 0, 0); ctx.restore();
+  return { X, Y, L, R, T, B, inside: (x, y) => x >= L - 1 && x <= w - R + 1 && y >= T - 1 && y <= h - B + 1 };
+}
+function line(ctx, pts, col, width = 2, dash) {
+  ctx.strokeStyle = col; ctx.lineWidth = width; ctx.setLineDash(dash || []); ctx.beginPath();
+  let started = false; for (const [x, y] of pts) { if (!isFinite(x) || !isFinite(y)) { started = false; continue; } if (started) ctx.lineTo(x, y); else { ctx.moveTo(x, y); started = true; } }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+function clip(ctx, ax, w, h) { ctx.save(); ctx.beginPath(); ctx.rect(ax.L, ax.T, w - ax.L - ax.R, h - ax.T - ax.B); ctx.clip(); }
+
+// Live speed histogram (smoothed over recent frames) with the 2D Maxwell–Boltzmann curve on top
+function drawHist() {
+  const { ctx, w, h } = fitCanvas(el("hist"));
+  ctx.clearRect(0, 0, w, h);
+  const gs = sys.gases.filter(Boolean), two = sys.nB > 0;
+  const T = kineticT(sys);
+  const vtop = 3.3 * Math.max(...gs.map(g => Math.sqrt(2 * KB * Math.max(T, 20) / g.m))) * 1000;  // m/s
+  const NB = 40, bw = vtop / NB;
+  if (!hist || hist.vtop !== vtop && Math.abs(hist.vtop - vtop) / vtop > 0.15 || hist.two !== two) hist = { vtop, two, c: [new Float64Array(NB), new Float64Array(NB)], first: true };
+  const bwh = hist.vtop / NB;
+  for (let k = 0; k < (two ? 2 : 1); k++) {
+    const now = new Float64Array(NB);
+    for (let i = 0; i < sys.nSmall; i++) if (sys.sp[i] === k) { const b = Math.floor(Math.hypot(sys.vx[i], sys.vy[i]) * 1000 / bwh); if (b < NB) now[b]++; }
+    const a = hist.first ? 1 : (running ? 0.12 : 0);
+    for (let b = 0; b < NB; b++) hist.c[k][b] += a * (now[b] - hist.c[k][b]);
+  }
+  hist.first = false;
+  const nk = [sys.nA, sys.nB];
+  let ymax = 0; for (let k = 0; k < (two ? 2 : 1); k++) for (let b = 0; b < NB; b++) ymax = Math.max(ymax, hist.c[k][b] / (nk[k] * bwh));
+  // theory peak
+  for (let k = 0; k < (two ? 2 : 1); k++) { const g = sys.gases[k], kT = KB * T; ymax = Math.max(ymax, rayleigh(Math.sqrt(kT / g.m), g.m, kT) / 1000); }
+  const ax = axes(ctx, w, h, { x0: 0, x1: hist.vtop, y0: 0, y1: ymax * 1.1, xlabel: "speed (m/s)", ylabel: "fraction per m/s", L: 50 });
+  clip(ctx, ax, w, h);
+  for (let k = 0; k < (two ? 2 : 1); k++) {
+    const g = sys.gases[k];
+    ctx.fillStyle = two ? g.col + "aa" : "#00aec3aa";
+    for (let b = 0; b < NB; b++) { const v = hist.c[k][b] / (nk[k] * bwh); const x0 = ax.X(b * bwh), x1 = ax.X((b + 1) * bwh); ctx.fillRect(x0 + 0.5, ax.Y(v), x1 - x0 - 1, ax.Y(0) - ax.Y(v)); }
+  }
+  for (let k = 0; k < (two ? 2 : 1); k++) {
+    const g = sys.gases[k], kT = KB * T, pts = [];
+    for (let i = 0; i <= 120; i++) { const v = hist.vtop * i / 120; pts.push([ax.X(v), ax.Y(rayleigh(v / 1000, g.m, kT) / 1000)]); }
+    line(ctx, pts, "#f1af28", 2);
+  }
+  ctx.restore();
+  el("histLegend").innerHTML = (two ? gs.map((g, k) => `<span><i style="background:${g.col}"></i>${g.name}</span>`).join("") : `<span><i style="background:#00aec3"></i>Molecules now</span>`) +
+    `<span><i style="background:#f1af28;border-radius:1px;height:3px;vertical-align:3px"></i>2D Maxwell–Boltzmann at ${T.toFixed(0)} K</span>`;
+}
+
+function drawChart2() {
+  const { ctx, w, h } = fitCanvas(el("chart2"));
+  ctx.clearRect(0, 0, w, h);
+  const kind = el("chartSel").value, th = theory({ ...builtParams, W: sys.W, T: sys.Twall, big: sys.big >= 0 });
+  const leg = el("chart2Legend"), dot = c => `<i style="background:${c}"></i>`;
+  const msg = t => { ctx.fillStyle = "#a3ab96"; ctx.font = "12.5px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText(t, w / 2, h / 2); };
+  if (kind === "time") {
+    const pts = history.filter(q => isFinite(q.Z));
+    if (pts.length < 2) { msg("Collecting data…"); leg.innerHTML = ""; return; }
+    const t0 = pts[0].t, t1 = Math.max(pts[pts.length - 1].t, t0 + 50);
+    const ys = pts.map(q => q.Z); const y0 = Math.min(0.8, ...ys), y1 = Math.max(1.2, ...ys);
+    const ax = axes(ctx, w, h, { x0: t0, x1: t1, y0, y1, xlabel: "time (ps)", ylabel: "pA ÷ NkT" });
+    clip(ctx, ax, w, h);
+    line(ctx, [[ax.X(t0), ax.Y(1)], [ax.X(t1), ax.Y(1)]], "#a3ab96", 1.5, [5, 4]);
+    line(ctx, [[ax.X(t0), ax.Y(th.Z)], [ax.X(t1), ax.Y(th.Z)]], "#f1af28", 1.5);
+    line(ctx, pts.map(q => [ax.X(q.t), ax.Y(q.Z)]), "#00aec3", 2);
+    ctx.restore();
+    leg.innerHTML = `<span>${dot("#00aec3")}Measured (40 ps average)</span><span>${dot("#a3ab96")}Ideal gas = 1</span><span>${dot("#f1af28")}With molecule size ${th.Z.toFixed(3)}</span>`;
+  } else if (kind === "pv" || kind === "pt" || kind === "vt") {
+    const pts = history.filter(q => isFinite(q.p));
+    if (pts.length < 2) { msg("Collecting data…"); leg.innerHTML = ""; return; }
+    const N = sys.n;
+    let xs, ys, xl, yl, theoryFn, x0, x1;
+    if (kind === "pv") { xs = pts.map(q => q.A); ys = pts.map(q => q.p * P_mNm); xl = "area A (nm²)"; yl = "pressure (mN/m)"; x0 = 0; x1 = W_MAX * BOX_H; }
+    else if (kind === "pt") { xs = pts.map(q => q.T); ys = pts.map(q => q.p * P_mNm); xl = "temperature from KE (K)"; yl = "pressure (mN/m)"; x0 = 0; x1 = Math.max(800, ...xs); }
+    else { xs = pts.map(q => q.T); ys = pts.map(q => q.W); xl = "temperature from KE (K)"; yl = "box width (nm)"; x0 = 0; x1 = Math.max(700, ...xs); }
+    const y1 = Math.max(...ys) * 1.15 || 1;
+    const ax = axes(ctx, w, h, { x0, x1, y0: 0, y1, xlabel: xl, ylabel: yl });
+    clip(ctx, ax, w, h);
+    const curve = (f, col, dash) => { const c = []; for (let i = 1; i <= 160; i++) { const xv = x0 + (x1 - x0) * i / 160; c.push([ax.X(xv), ax.Y(f(xv))]); } line(ctx, c, col, 1.8, dash); };
+    if (kind === "pv") {
+      curve(A => N * KB * sys.Twall / A * th.Z * P_mNm, "#f1af28");                                  // isotherm
+      if (adiabatRef) curve(A => adiabatRef.p * P_mNm * (adiabatRef.A / A) ** 2, "#e83181", [5, 4]); // adiabat, pA² = const in 2D
+      leg.innerHTML = `<span>${dot("#00aec3")}Measured</span><span>${dot("#f1af28")}Isotherm pA = NkT at ${sys.Twall.toFixed(0)} K</span><span>${dot("#e83181")}Adiabat pA² = const (2D)</span>`;
+    } else if (kind === "pt") {
+      curve(T => N * KB * T / (sys.W * BOX_H) * th.Z * P_mNm, "#f1af28");
+      leg.innerHTML = `<span>${dot("#00aec3")}Measured</span><span>${dot("#f1af28")}Theory p = NkT/A (through 0 K)</span>`;
+    } else {
+      curve(T => N * KB * T / (sys.pext * BOX_H) * th.Z, "#f1af28");
+      leg.innerHTML = `<span>${dot("#00aec3")}Measured</span><span>${dot("#f1af28")}Theory W = NkT/(p·H) (through 0 K)</span>`;
+    }
+    ctx.fillStyle = "#00aec3"; for (let i = 0; i < xs.length; i++) { ctx.globalAlpha = 0.25 + 0.75 * i / xs.length; ctx.beginPath(); ctx.arc(ax.X(xs[i]), ax.Y(ys[i]), 2.2, 0, 6.2832); ctx.fill(); }
+    ctx.globalAlpha = 1; ctx.restore();
+  } else if (kind === "msd") {
+    if (sys.big < 0) { msg("Add the big particle (or pick the Brownian preset)."); leg.innerHTML = ""; return; }
+    if (track.length < 20) { msg("Following the big particle…"); leg.innerHTML = ""; return; }
+    if (!drawChart2.cache || drawChart2.cacheN !== track.length && performance.now() - drawChart2.cacheAt > 400) { drawChart2.cache = msdCurve(track, 2, Math.floor(track.length / 2)); drawChart2.cacheN = track.length; drawChart2.cacheAt = performance.now(); }
+    const c = drawChart2.cache, tmax = c.length ? c[c.length - 1][0] : 10;
+    const D = th.Dbig, tau = th.tauBig, f = t => 4 * D * (t - tau * (1 - Math.exp(-t / tau)));
+    const y1 = Math.max(f(tmax), ...c.map(q => q[1])) * 1.1;
+    const ax = axes(ctx, w, h, { x0: 0, x1: tmax, y0: 0, y1, xlabel: "time interval (ps)", ylabel: "⟨r²⟩ (nm²)" });
+    clip(ctx, ax, w, h);
+    const tp = []; for (let i = 0; i <= 100; i++) { const t = tmax * i / 100; tp.push([ax.X(t), ax.Y(f(t))]); } line(ctx, tp, "#f1af28", 2);
+    line(ctx, c.map(q => [ax.X(q[0]), ax.Y(q[1])]), "#00aec3", 2);
+    ctx.restore();
+    const g = fitMSD(c, Math.max(3 * tau, 60), tmax);
+    leg.innerHTML = `<span>${dot("#00aec3")}Measured (one particle, ${(track.length * 2).toFixed(0)} ps)</span><span>${dot("#f1af28")}Theory 4D(t − τ(1−e<sup>−t/τ</sup>)), D = ${fmt(D * 1e-6 * 1e6, 2)} nm²/ps</span>` +
+      (isFinite(g) ? `<span>Measured gradient ÷ 4 = ${fmt(g / 4, 2)} nm²/ps</span>` : "");
+  } else if (kind === "mix") {
+    if (mixT0 === null) { msg(sys.partition ? "Remove the partition to start mixing." : "Pick the Mixing gases preset."); leg.innerHTML = ""; return; }
+    const tmax = Math.max(100, mixHist.length ? mixHist[mixHist.length - 1][0] : 0, th.tMix * 1.5);
+    const thM = theory({ ...builtParams, W: sys.W, T: sys.Twall, partition: false });
+    const ax = axes(ctx, w, h, { x0: 0, x1: tmax, y0: 0.4, y1: 1.02, xlabel: "time since partition lifted (ps)", ylabel: "gas 1 in left half" });
+    clip(ctx, ax, w, h);
+    line(ctx, [[ax.X(0), ax.Y(0.5)], [ax.X(tmax), ax.Y(0.5)]], "#a3ab96", 1, [4, 4]);
+    line(ctx, [[ax.X(0), ax.Y(0.6)], [ax.X(tmax), ax.Y(0.6)]], "#5a6352", 1, [2, 4]);
+    const tp = []; for (let i = 0; i <= 150; i++) { const t = tmax * i / 150; tp.push([ax.X(t), ax.Y(0.5 + thM.excess(t))]); } line(ctx, tp, "#f1af28", 2);
+    line(ctx, mixHist.map(q => [ax.X(q[0]), ax.Y(q[1])]), "#00aec3", 2);
+    ctx.restore();
+    leg.innerHTML = `<span>${dot("#00aec3")}Measured</span><span>${dot("#f1af28")}Diffusion theory (D = ${fmt(thM.Dself, 2)} nm²/ps)</span><span>${dot("#5a6352")}"80% mixed" line (0.6)</span>`;
+  }
+}
+
+/* =====================================================================
+   10. READOUTS AND STORY
+   ===================================================================== */
+function tile(k, v, s) { return `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s || ""}</div></div>`; }
+function updateUI() {
+  el("clock").textContent = sys.t.toFixed(0) + " ps";
+  const ws = windowStats(100);
+  const th = theory({ ...builtParams, W: sys.W, T: ws ? ws.T : sys.Twall, big: sys.big >= 0 });
+  const Tnow = kineticT(sys);
+  el("s_T").textContent = Tnow.toFixed(0) + " K";
+  el("s_p").textContent = ws ? fmt(ws.p * P_mNm) + " mN/m" : "–";
+  el("s_Z").textContent = ws ? ws.Z.toFixed(3) : "–";
+  el("s_c").textContent = fmt(2 * sys.coll / sys.nSmall, 3);
+  const A = sys.W * BOX_H, n2 = sys.n / A;                              // molecules per nm²
+  const p3 = Math.pow(n2 * 1e18, 1.5) * KB_SI * (ws ? ws.T : Tnow);      // Pa, 3D gas with same spacing
+  const sp = speedsOf(sys, 0), mean = sp.reduce((a, b) => a + b, 0) / sp.length;
+  let html = "";
+  html += tile("Temperature (from KE)", Tnow.toFixed(0) + " K", sys.heat ? `walls ${sys.Twall.toFixed(0)} K` : "average ½mv² = kT (2D)");
+  html += tile("Pressure (2D)", ws ? fmt(ws.p * P_mNm) + " mN/m" : "–", "force per length of wall");
+  html += tile("pA ÷ NkT", ws ? ws.Z.toFixed(3) : "–", `ideal 1 · with size ${th.Z.toFixed(3)}`);
+  html += tile("3D-equivalent", fmt(p3 / 1000) + " kPa", `${fmt(p3 / 101325, 2)} atm, same spacing`);
+  html += tile("Mean speed (" + (sys.nB ? "gas 1" : "gas") + ")", (mean * 1000).toFixed(0) + " m/s", `theory ${(Math.sqrt(Math.PI * KB * Tnow / (2 * sys.gases[0].m)) * 1000).toFixed(0)} m/s`);
+  html += tile("Mean free path", ws && isFinite(ws.mfp) ? fmt(ws.mfp) + " nm" : "–", `theory ${fmt(th.lambda)} nm`);
+  html += tile("Collision rate", ws ? fmt(ws.rate * 1000) + " /ns" : "–", `per molecule; theory ${fmt(th.z * 1000)}`);
+  html += tile("Molecules", sys.nSmall + (sys.big >= 0 ? " + 1 big" : ""), `area ${A.toFixed(0)} nm²; ${fmt(th.phi * 100, 2)}% covered`);
+  if (sys.nB && sys.gases[1]) {
+    const ke = k => { let s = 0, c = 0; for (let i = 0; i < sys.nSmall; i++) if (sys.sp[i] === k) { s += 0.5 * sys.m[i] * (sys.vx[i] ** 2 + sys.vy[i] ** 2); c++; } return s / c; };
+    const kT = KB * Tnow;
+    html += tile("Mean KE gas 1 ÷ kT", (ke(0) / kT).toFixed(2), sys.gases[0].name);
+    html += tile("Mean KE gas 2 ÷ kT", (ke(1) / kT).toFixed(2), sys.gases[1].name);
+  }
+  if (sys.big >= 0) {
+    const g = track.length > 60 ? fitMSD(drawChart2.cache || [], Math.max(3 * th.tauBig, 60), 1e9) / 4 : NaN;
+    html += tile("Big particle D", isFinite(g) ? fmt(g, 2) + " nm²/ps" : "–", `theory ${fmt(th.Dbig, 2)} nm²/ps`);
+    html += tile("Big particle moved", fmt(Math.hypot(sys.x[sys.big] - (track[0] || [0, 0])[0], sys.y[sys.big] - (track[0] || [0, 0])[1]), 2) + " nm", "straight-line distance from start");
+  }
+  if (adiabatRef && !sys.heat && el("chartSel").value === "pv") {
+    html += tile("Adiabatic prediction", (adiabatRef.T * adiabatRef.A / A).toFixed(0) + " K", "T × A = constant (2D)");
+  }
+  el("tiles").innerHTML = html;
+
+  // the story: the preset's idea plus a live sentence
+  let st = activePreset >= 0 ? PRESETS[activePreset].story : "Your own set-up. Pick a preset to see one idea at a time.";
+  const sd = Math.sqrt(sp.reduce((a, v) => a + (v - mean) ** 2, 0) / sp.length), sdTh = Math.sqrt((4 - Math.PI) / 2 * KB * Tnow / sys.gases[0].m);
+  let live = "";
+  if (sd / sdTh < 0.85) live = `The speeds are still bunched up: their spread is ${(100 * sd / sdTh).toFixed(0)}% of the Maxwell–Boltzmann spread.`;
+  else if (sys.partition) live = "The partition is still in. Press Remove partition (or wait).";
+  else if (ws && Math.abs(ws.Z - th.Z) / th.Z < 0.06) live = `Right now pA ÷ NkT = ${ws.Z.toFixed(3)}: the gas obeys the ideal gas law to within a few per cent.`;
+  else if (ws) live = `pA ÷ NkT = ${ws.Z.toFixed(3)} at the moment. It wobbles because the box is tiny; it settles near ${th.Z.toFixed(2)} on average.`;
+  el("story").innerHTML = `<p style="margin:0 0 6px">${st}</p><p style="margin:0;color:var(--accent)">${live}</p>`;
+}
+function updateLegend() {
+  const byGas = el("colour").value === "gas";
+  let h = "";
+  if (byGas) h += sys.gases.filter(Boolean).map((g, k) => (k === 1 && !sys.nB) ? "" : `<span><i style="background:${g.col}"></i>${g.name}${sys.gases[1] && sys.gases[1].name === g.name ? (k ? " (gas 2)" : " (gas 1)") : ""}</span>`).join("");
+  else h += `<span><i style="background:rgb(60,110,220)"></i>Slow</span><span><i style="background:#a4cbe6"></i>Typical</span><span><i style="background:#f1af28"></i>Fast</span><span><i style="background:#de252a"></i>Very fast</span>`;
+  if (sys.big >= 0) h += `<span><i style="background:#f1af28;border:2px solid #14133b"></i>Big particle (6 nm, 2000 u) and its trail</span>`;
+  h += `<span>Drag the grey handle to move the piston</span>`;
+  el("legend").innerHTML = h;
+}
+
+/* =====================================================================
+   11. CONTROLS
+   ===================================================================== */
+function updateLabels() {
+  el("o_N").textContent = el("N").value;
+  el("o_T").textContent = el("T").value + " K (" + (+el("T").value - 273) + " °C)";
+  el("o_W").textContent = el("W").value + " nm";
+  el("o_fracB").textContent = el("fracB").value + "%";
+  el("o_pext").textContent = (+el("pext").value).toFixed(2) + " mN/m";
+}
+function setSpeed(s) { speed = s; document.querySelectorAll(".speed button").forEach(b => b.classList.toggle("on", +b.dataset.s === s)); }
+function setRunning(r) { running = r; el("btnPlay").textContent = r ? "⏸ Pause" : "▶ Play"; }
+
+(function initControls() {
+  const opts = Object.entries(GASES).map(([k, g]) => `<option value="${k}">${g.name}, ${g.m} u</option>`).join("");
+  el("gasA").innerHTML = opts; el("gasA").value = "N2";
+  el("gasB").innerHTML = `<option value="none">None (one gas)</option><option value="same">Same gas, other colour</option>` + opts;
+  el("presets").innerHTML = PRESETS.map((p, i) => `<button data-i="${i}">${p.name}<small>${p.desc}</small></button>`).join("");
+  document.querySelectorAll("#presets button").forEach(b => b.addEventListener("click", () => setPreset(+b.dataset.i)));
+  ["gasA", "gasB", "fracB", "N", "start", "partition", "big", "seed"].forEach(id => el(id).addEventListener("input", () => { updateLabels(); el("pending").style.display = "block"; activePreset = -1; script = null; }));
+  ["T", "heat", "piston", "W", "pspeed", "pext"].forEach(id => el(id).addEventListener("input", () => {
+    updateLabels(); applyLive();
+    if (id !== "T" || !script) { script = null; activePreset = -1; document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); }
+    if (id === "W" && el("piston").value === "hold") { el("piston").value = "move"; applyLive(); }
+  }));
+  el("colour").addEventListener("input", updateLegend);
+  el("btnPlay").addEventListener("click", () => setRunning(!running));
+  el("btnReset").addEventListener("click", () => { rebuild(); applyLive(); });
+  el("btnPart").addEventListener("click", removePartition);
+  el("btnTrail").addEventListener("click", () => { track = []; trailPts = []; trackT0 = sys.t; drawChart2.cache = null; });
+  document.querySelectorAll(".speed button").forEach(b => b.addEventListener("click", () => setSpeed(+b.dataset.s)));
+  updateLabels();
+})();
+
+// Drag the piston handle
+let dragging = false;
+(function pistonDrag() {
+  const cv = el("map");
+  const toW = e => { const r = cv.getBoundingClientRect(); return (e.clientX - r.left - view.ox) / view.s; };
+  cv.addEventListener("pointerdown", e => {
+    if (!sys || sys.partition) return;
+    if (Math.abs(toW(e) - sys.W) * view.s < 36) { dragging = true; cv.setPointerCapture(e.pointerId); if (el("piston").value !== "move") el("piston").value = "move"; script = null; }
+  });
+  cv.addEventListener("pointermove", e => {
+    if (dragging) { el("W").value = Math.round(clamp(toW(e), W_MIN, W_MAX)); updateLabels(); applyLive(); }
+    else if (sys) cv.style.cursor = Math.abs(toW(e) - sys.W) * view.s < 36 && !sys.partition ? "ew-resize" : "default";
+  });
+  const up = () => { dragging = false; };
+  cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+})();
+
+/* =====================================================================
+   12. MAIN LOOP — 1× = 25 ps of gas time per real second
+   ===================================================================== */
+let lastT = performance.now();
+function frame(now) {
+  const real = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  if (running && sys && !batchBusy) {
+    let left = real * speed * PS_PER_SEC; const t0 = performance.now();
+    while (left > 1e-9 && performance.now() - t0 < 30) { const dt = Math.min(left, chooseDt(sys)); stepSys(sys, dt, rngLive); left -= dt; }
+    if (script) script(sys);
+    record();
+  }
+  if (sys) { drawBox(); drawHist(); drawChart2(); if (!frame.k || now - frame.k > 250) { updateUI(); frame.k = now; } }
+  requestAnimationFrame(frame);
+}
+
+/* =====================================================================
+   13. BATCH RUN — many headless runs compared with theory
+   ===================================================================== */
+const OUTCOMES = {
+  Z:        { label: "pA ÷ NkT", unit: "", theory: p => theory(p).Z, theory2: () => 1, theory2Label: "ideal gas = 1" },
+  pressure: { label: "Pressure (2D)", unit: "mN/m", theory: p => theory(p).pHD * P_mNm, theory2: p => theory(p).pIdeal * P_mNm, theory2Label: "ideal NkT/A" },
+  meanSpeed:{ label: "Mean speed", unit: "m/s", theory: p => theory(p).vbar * 1000 },
+  coll:     { label: "Collision rate per molecule", unit: "per ns", theory: p => theory(p).z * 1000 },
+  mfp:      { label: "Mean free path", unit: "nm", theory: p => theory(p).lambda },
+  speeds:   { label: "Speeds of all molecules (pooled)", unit: "m/s", dist: true, theory: p => theory(p).vbar * 1000 },
+  D:        { label: "Big particle diffusion D", unit: "nm²/ps", theory: p => theory({ ...p, big: true }).Dbig },
+  mix:      { label: "Mixing time (80% mixed)", unit: "ps", theory: p => theory(p).tMix },
+};
+const VARS = {
+  W:    { label: "Box width", unit: "nm", set: (p, v) => { p.W = v; }, get: p => p.W, min: 15, max: 110 },
+  T:    { label: "Temperature", unit: "K", set: (p, v) => { p.T = v; }, get: p => p.T, min: 20, max: 2000 },
+  N:    { label: "Number of molecules", unit: "", set: (p, v) => { p.N = Math.round(v); }, get: p => p.N, min: 20, max: 1500, int: true },
+  mass: { label: "Molecule mass", unit: "u", set: (p, v) => { p.mass = v; }, get: p => p.mass || GASES[p.gasA].m, min: 2, max: 300 },
+};
+const EXPERIMENTS = [
+  { q: "Does pV = NkT hold?", mode: "repeat", out: "Z", runs: 50, set: { gasA: "N2", N: 400, T: 300, W: 50 },
+    note: "Each run measures pressure from wall hits for 300 ps. The average is close to 1 but a few per cent higher, because molecules take up a little room and get in each other's way (the yellow line includes this). Single runs scatter by about 1% because only a few thousand wall hits are counted. The model lands about 1% below the yellow line: collisions are found one small time step late, after the discs have overlapped slightly, so they act a little smaller than their real size." },
+  { q: "Boyle's law: does p ∝ 1/V?", mode: "sweep", out: "pressure", v: "W", from: 20, to: 100, steps: 5, reps: 4, logx: true, logy: true, set: { gasA: "N2", N: 400, T: 300 },
+    note: "On log–log axes p ∝ 1/V is a straight line of gradient −1. Small boxes are a little above the ideal line: the molecules fill more of the space, so they collide with the walls slightly more often." },
+  { q: "Pressure law: does p ∝ T?", mode: "sweep", out: "pressure", v: "T", from: 100, to: 700, steps: 4, reps: 4, set: { gasA: "N2", N: 400, W: 50 },
+    note: "Pressure rises in a straight line with kelvin temperature and would reach zero at 0 K. Faster molecules hit the walls harder and more often, so p ∝ ⟨½mv²⟩ ∝ T." },
+  { q: "Do speeds settle into Maxwell–Boltzmann?", mode: "repeat", out: "speeds", runs: 20, set: { gasA: "N2", N: 400, T: 300, W: 50 },
+    note: "Every run starts with every molecule at the same speed. After 150 ps (about 30 collisions each) the pooled speeds match the 2D Maxwell–Boltzmann (Rayleigh) curve. Random collisions alone produce this shape." },
+  { q: "Brownian motion: does ⟨r²⟩ = 4Dt?", mode: "repeat", out: "D", runs: 20, set: { gasA: "N2", N: 1100, T: 300, W: 100 },
+    note: "Each run follows the big particle for 800 ps and finds D from the gradient of mean square displacement against time (÷ 4 in 2D). One run gives a rough value, because the walk is random; the average of many runs is close to theory. The theory ignores the gas swirling along with the particle, which in 2D changes D by around 10%." },
+  { q: "Mixing: do more molecules mix slower?", mode: "sweep", out: "mix", v: "N", from: 200, to: 1000, steps: 5, reps: 3, set: { gasA: "N2", T: 300, W: 50 },
+    note: "More molecules means a shorter mean free path, so each molecule is knocked back more often and diffuses more slowly: D ∝ 1/n, so mixing time ∝ N. Expect agreement only to within about 20%: the box is just a few mean free paths wide (the theory assumes many), and \"80% mixed\" is judged from a noisy count, so with few molecules random fluctuations can make it early or late." },
+  { q: "Light vs heavy: is v ∝ 1/√m?", mode: "sweep", out: "meanSpeed", v: "mass", from: 4, to: 131, steps: 5, reps: 2, logx: true, logy: true, set: { gasA: "N2", N: 300, T: 300, W: 50 },
+    note: "At the same temperature every molecule has the same average kinetic energy, so ½mv² is fixed and v ∝ 1/√m: a straight line of gradient −0.5 on log–log axes. Helium molecules move about 2.6 times faster than nitrogen." },
+];
+
+let batchBusy = false, batchStop = false, batchRes = null;
+function batchCfg() {
+  return { mode: el("bMode").value, out: el("bOut").value, runs: +el("bRuns").value, v: el("bVar").value,
+           from: +el("bFrom").value, to: +el("bTo").value, steps: clamp(Math.round(+el("bSteps").value), 2, 15), reps: clamp(Math.round(+el("bReps").value), 1, 20) };
+}
+let expSet = null, expNote = null;
+function loadExperiment(i) {
+  const E = EXPERIMENTS[i];
+  el("bMode").value = E.mode; el("bOut").value = E.out;
+  if (E.runs) el("bRuns").value = E.runs;
+  if (E.v) { el("bVar").value = E.v; el("bFrom").value = E.from; el("bTo").value = E.to; el("bSteps").value = E.steps; el("bReps").value = E.reps; }
+  el("bLogX").checked = !!E.logx; el("bLogY").checked = !!E.logy;
+  expSet = E.set; expNote = E.note;
+  document.querySelectorAll("#bexp button").forEach((b, k) => b.classList.toggle("on", k === i));
+  syncBatchUI();
+}
+function syncBatchUI() {
+  const sweep = el("bMode").value === "sweep";
+  el("bRepeatOpts").style.display = sweep ? "none" : ""; el("bSweepOpts").style.display = sweep ? "" : "none";
+}
+function baseParams() { const p = readParams(); return { ...p, ...(expSet || {}), fracB: 0.5 }; }
+function runBatch() {
+  const c = batchCfg(), base = baseParams();
+  const jobs = [];
+  if (c.mode === "repeat") for (let k = 0; k < c.runs; k++) jobs.push({ p: base, x: null, seed: 1000 + k * 7919 });
+  else {
+    const V = VARS[c.v], lg = el("bLogX").checked && c.from > 0 && c.to > 0;
+    for (let s = 0; s < c.steps; s++) {
+      let v = lg ? c.from * Math.pow(c.to / c.from, s / (c.steps - 1)) : c.from + (c.to - c.from) * s / (c.steps - 1);
+      v = clamp(v, V.min, V.max); if (V.int) v = Math.round(v);
+      const p = { ...base }; V.set(p, v);
+      for (let r = 0; r < c.reps; r++) jobs.push({ p, x: v, seed: 2000 + s * 104729 + r * 7919 });
+    }
+  }
+  batchRes = { cfg: c, base, rows: [], dist: [] };
+  batchBusy = true; batchStop = false;
+  el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").disabled = true;
+  let k = 0; const t0 = performance.now();
+  const chunk = () => {
+    const tc = performance.now();
+    while (k < jobs.length && performance.now() - tc < 60 && !batchStop) {
+      const j = jobs[k++], r = runOnce(j.p, j.seed, c.out);
+      batchRes.rows.push({ x: j.x, seed: j.seed, value: r.value, theory: OUTCOMES[c.out].theory(j.p) });
+      if (r.dist) batchRes.dist.push(...r.dist);
+    }
+    el("bProg").style.width = (100 * k / jobs.length) + "%";
+    el("bStatus").textContent = `${k} of ${jobs.length} runs · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+    drawBatch();
+    if (k < jobs.length && !batchStop) setTimeout(chunk, 0);
+    else { batchBusy = false; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").disabled = !batchRes.rows.length; el("bStatus").textContent += batchStop ? " · stopped" : " · done"; }
+  };
+  setTimeout(chunk, 20);
+}
+const stats = a => { const v = a.filter(isFinite), n = v.length; if (!n) return { n: 0 }; const mean = v.reduce((s, x) => s + x, 0) / n; const sd = n > 1 ? Math.sqrt(v.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1)) : 0; return { n, mean, sd, se: sd / Math.sqrt(n), min: Math.min(...v), max: Math.max(...v) }; };
+function linfit(xs, ys) { const n = xs.length; let sx = 0, sy = 0, sxx = 0, sxy = 0; for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; sxx += xs[i] ** 2; sxy += xs[i] * ys[i]; } const b = (n * sxy - sx * sy) / (n * sxx - sx * sx); return { b, a: (sy - b * sx) / n }; }
+
+function drawBatch() {
+  const { ctx, w, h } = fitCanvas(el("bchart"));
+  ctx.clearRect(0, 0, w, h);
+  if (!batchRes || !batchRes.rows.length) return;
+  const c = batchRes.cfg, O = OUTCOMES[c.out], unit = O.unit ? ` (${O.unit})` : "";
+  const sum = el("bsum"); let html = "";
+  const leg = (col, t, dash) => `<span style="margin-right:10px"><i style="display:inline-block;width:14px;height:${dash ? 2 : 10}px;background:${col};margin-right:4px;vertical-align:${dash ? 3 : -1}px"></i>${t}</span>`;
+  const logX = el("bLogX").checked, logY = el("bLogY").checked;
+  if (c.mode === "repeat") {
+    const isDist = O.dist, vals = isDist ? batchRes.dist : batchRes.rows.map(r => r.value).filter(isFinite);
+    if (vals.length < 1) return;
+    const st = stats(vals), thv = O.theory(batchRes.base);
+    let lo = Math.min(st.min, thv), hi = Math.max(st.max, thv);
+    if (isDist) { lo = 0; hi = Math.max(st.max, 3 * thv); }
+    if (hi - lo < 1e-9 * Math.abs(hi || 1)) { lo -= 0.5 * Math.abs(lo || 1) * 0.05; hi += 0.5 * Math.abs(hi || 1) * 0.05; }
+    const pad = (hi - lo) * 0.08; if (!isDist) { lo -= pad; hi += pad; }
+    const nb = isDist ? 40 : clamp(Math.round(Math.sqrt(vals.length) * 1.6), 6, 30), bw = (hi - lo) / nb, cnt = new Array(nb).fill(0);
+    for (const v of vals) { const b = Math.min(nb - 1, Math.max(0, Math.floor((v - lo) / bw))); cnt[b]++; }
+    // as a density (fraction per unit) so the theory curve can be drawn on the same scale
+    const dens = cnt.map(q => q / (vals.length * bw));
+    let ymax = Math.max(...dens);
+    let curve = null;
+    if (isDist) { const p = batchRes.base, g = gasA(p), kT = KB * p.T; curve = v => rayleigh(v / 1000, g.m, kT) / 1000; ymax = Math.max(ymax, curve(Math.sqrt(kT / g.m) * 1000)); }
+    const ax = axes(ctx, w, h, { x0: lo, x1: hi, y0: 0, y1: ymax * 1.12, xlabel: O.label + unit, ylabel: isDist ? "fraction per m/s" : "fraction of runs per unit", L: 62 });
+    ctx.fillStyle = "#00aec3cc";
+    for (let b = 0; b < nb; b++) { const x0 = ax.X(lo + b * bw), x1 = ax.X(lo + (b + 1) * bw); ctx.fillRect(x0 + 0.5, ax.Y(dens[b]), Math.max(1, x1 - x0 - 1), ax.Y(0) - ax.Y(dens[b])); }
+    if (curve) { const pts = []; for (let i = 0; i <= 200; i++) { const v = lo + (hi - lo) * i / 200; pts.push([ax.X(v), ax.Y(curve(v))]); } line(ctx, pts, "#f1af28", 2.5); }
+    else {
+      line(ctx, [[ax.X(thv), ax.T], [ax.X(thv), ax.Y(0)]], "#f1af28", 2.5);
+      if (O.theory2) { const t2 = O.theory2(batchRes.base); if (t2 >= lo && t2 <= hi) line(ctx, [[ax.X(t2), ax.T], [ax.X(t2), ax.Y(0)]], "#a3ab96", 1.5, [5, 4]); }
+    }
+    line(ctx, [[ax.X(st.mean), ax.T], [ax.X(st.mean), ax.Y(0)]], "#e83181", 2, [3, 3]);
+    const diffPct = 100 * (st.mean - thv) / thv, diffSE = st.se > 0 ? (st.mean - thv) / st.se : NaN;
+    html += `<div style="margin-bottom:6px">${leg("#00aec3cc", isDist ? "pooled speeds" : "runs")}${leg("#e83181", "mean", 1)}${leg("#f1af28", isDist ? "2D Maxwell–Boltzmann" : "theory", 1)}${O.theory2 && !isDist ? leg("#a3ab96", O.theory2Label, 1) : ""}</div>`;
+    html += `<table><tr><th>${isDist ? "Speeds" : "Runs"} (n)</th><td>${st.n}</td></tr><tr><th>Mean</th><td>${fmt(st.mean, 4)}</td></tr><tr><th>SD</th><td>${fmt(st.sd, 3)}</td></tr><tr><th>Standard error</th><td>${fmt(st.se, 2)}</td></tr>` +
+      `<tr><th>Min / max</th><td>${fmt(st.min, 3)} / ${fmt(st.max, 3)}</td></tr><tr><th>Theory${isDist ? " (mean speed)" : ""}</th><td>${fmt(thv, 4)}</td></tr>` +
+      (O.theory2 ? `<tr><th>${O.theory2Label}</th><td>${fmt(O.theory2(batchRes.base), 4)}</td></tr>` : "") +
+      `<tr><th>Difference</th><td>${diffPct >= 0 ? "+" : ""}${diffPct.toFixed(2)}%</td></tr><tr><th>…in standard errors</th><td>${isFinite(diffSE) ? diffSE.toFixed(1) : "–"}</td></tr></table>`;
+    const failed = batchRes.rows.filter(r => !isFinite(r.value)).length;
+    if (failed) html += `<p class="hint">${failed} run(s) gave no result (did not finish within the time limit).</p>`;
+  } else {
+    const V = VARS[c.v];
+    const groups = new Map(); for (const r of batchRes.rows) { if (!groups.has(r.x)) groups.set(r.x, { x: r.x, v: [], th: r.theory }); groups.get(r.x).v.push(r.value); }
+    const G = [...groups.values()].map(g => ({ ...g, ...stats(g.v) })).filter(g => g.n);
+    if (!G.length) return;
+    const allY = batchRes.rows.map(r => r.value).filter(isFinite).concat(G.map(g => g.th));
+    let x0 = Math.min(c.from, c.to), x1 = Math.max(c.from, c.to); if (x0 === x1) x1 = x0 + 1;
+    let y0 = Math.min(...allY), y1 = Math.max(...allY);
+    if (logY) { y0 = Math.max(y0 / 1.4, 1e-12); y1 *= 1.4; } else { const pd = (y1 - y0) * 0.12 || Math.abs(y1) * 0.1 || 1; y0 = Math.min(0, y0 - pd); y1 += pd; }
+    if (logX) { x0 /= 1.15; x1 *= 1.15; } else { const pd = (x1 - x0) * 0.05; x0 -= pd; x1 += pd; if (x0 < 0 && c.from >= 0) x0 = 0; }
+    const ax = axes(ctx, w, h, { x0, x1, y0, y1, xlog: logX, ylog: logY, xlabel: V.label + (V.unit ? ` (${V.unit})` : ""), ylabel: O.label + unit, L: 62 });
+    clip(ctx, ax, w, h);
+    // theory curve
+    const tp = []; for (let i = 0; i <= 80; i++) { const xv = logX ? x0 * Math.pow(x1 / x0, i / 80) : x0 + (x1 - x0) * i / 80; if (xv <= 0 || xv < V.min || xv > V.max) continue; const p = { ...batchRes.base }; V.set(p, xv); tp.push([ax.X(xv), ax.Y(O.theory(p))]); }
+    line(ctx, tp, "#f1af28", 2.2);
+    if (O.theory2) { const t2 = []; for (let i = 0; i <= 80; i++) { const xv = logX ? x0 * Math.pow(x1 / x0, i / 80) : x0 + (x1 - x0) * i / 80; if (xv <= 0 || xv < V.min || xv > V.max) continue; const p = { ...batchRes.base }; V.set(p, xv); t2.push([ax.X(xv), ax.Y(O.theory2(p))]); } line(ctx, t2, "#a3ab96", 1.4, [5, 4]); }
+    // raw points (faint) and mean ± 1 SD
+    ctx.fillStyle = "rgba(0,174,195,.35)"; for (const r of batchRes.rows) if (isFinite(r.value)) { ctx.beginPath(); ctx.arc(ax.X(r.x), ax.Y(r.value), 2.5, 0, 6.2832); ctx.fill(); }
+    ctx.strokeStyle = "#ffffff"; ctx.fillStyle = "#e83181"; ctx.lineWidth = 1.5;
+    for (const g of G) { const X = ax.X(g.x); ctx.beginPath(); ctx.moveTo(X, ax.Y(g.mean - g.sd > 0 || !logY ? g.mean - g.sd : g.mean * 0.5)); ctx.lineTo(X, ax.Y(g.mean + g.sd)); ctx.stroke(); ctx.beginPath(); ctx.arc(X, ax.Y(g.mean), 4, 0, 6.2832); ctx.fill(); }
+    ctx.restore();
+    html += `<div style="margin-bottom:6px">${leg("rgba(0,174,195,.6)", "each run")}${leg("#e83181", "mean ± 1 SD")}${leg("#f1af28", "theory", 1)}${O.theory2 ? leg("#a3ab96", O.theory2Label, 1) : ""}</div>`;
+    html += `<table><tr><th>${V.label}</th><th>n</th><th>mean</th><th>SD</th><th>theory</th><th>diff</th></tr>` +
+      G.map(g => `<tr><td>${fmt(g.x, 3)}</td><td>${g.n}</td><td>${fmt(g.mean, 4)}</td><td>${fmt(g.sd, 2)}</td><td>${fmt(g.th, 4)}</td><td>${(100 * (g.mean - g.th) / g.th).toFixed(1)}%</td></tr>`).join("") + "</table>";
+    const ok = G.filter(g => g.mean > 0 && g.x > 0 && g.th > 0);
+    if (ok.length >= 2) {
+      if (logX && logY) {
+        const f = linfit(ok.map(g => Math.log10(g.x)), ok.map(g => Math.log10(g.mean))), ft = linfit(ok.map(g => Math.log10(g.x)), ok.map(g => Math.log10(g.th)));
+        html += `<p><b>Gradient of log–log graph:</b> measured ${f.b.toFixed(3)}, theory ${ft.b.toFixed(3)}.</p>`;
+      } else {
+        const f = linfit(ok.map(g => g.x), ok.map(g => g.mean)), ft = linfit(ok.map(g => g.x), ok.map(g => g.th));
+        html += `<p><b>Straight-line fit:</b> measured gradient ${fmt(f.b, 3)}, intercept ${fmt(f.a, 3)}; theory gradient ${fmt(ft.b, 3)}, intercept ${fmt(ft.a, 3)}.</p>`;
+      }
+    }
+  }
+  sum.innerHTML = html;
+  const note = el("bnote"); note.style.display = expNote ? "" : "none"; note.innerHTML = expNote ? `<b>What this shows.</b> ${expNote}` : "";
+}
+function downloadCSV() {
+  if (!batchRes) return;
+  const c = batchRes.cfg, O = OUTCOMES[c.out];
+  let csv = "";
+  if (c.mode === "repeat" && O.dist) csv = "speed_m_per_s\n" + batchRes.dist.map(v => v.toFixed(2)).join("\n");
+  else csv = `${c.mode === "sweep" ? VARS[c.v].label.replace(/\s/g, "_") + "," : ""}seed,${O.label.replace(/[\s,÷]+/g, "_")},theory\n` +
+    batchRes.rows.map(r => `${c.mode === "sweep" ? r.x + "," : ""}${r.seed},${r.value},${r.theory}`).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = `gas-in-a-box-batch-${c.out}.csv`;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function placeBatch() {
+  const c = el("centre").getBoundingClientRect(), r = el("right").getBoundingClientRect(), b = el("batch");
+  b.style.left = c.left + "px"; b.style.top = c.top + "px"; b.style.width = (r.right - c.left) + "px"; b.style.height = c.height + "px";
+}
+(function initBatch() {
+  el("bOut").innerHTML = Object.entries(OUTCOMES).map(([k, o]) => `<option value="${k}">${o.label}${o.unit ? " (" + o.unit + ")" : ""}</option>`).join("");
+  el("bVar").innerHTML = Object.entries(VARS).map(([k, v]) => `<option value="${k}">${v.label}${v.unit ? " (" + v.unit + ")" : ""}</option>`).join("");
+  el("bexp").innerHTML = EXPERIMENTS.map((e, i) => `<button data-i="${i}">${e.q}</button>`).join("");
+  document.querySelectorAll("#bexp button").forEach(b => b.addEventListener("click", () => loadExperiment(+b.dataset.i)));
+  el("bMode").addEventListener("input", () => { expNote = null; expSet = null; syncBatchUI(); });
+  ["bOut", "bVar"].forEach(id => el(id).addEventListener("input", () => { expNote = null; expSet = null; document.querySelectorAll("#bexp button").forEach(b => b.classList.remove("on")); if (id === "bVar") { const V = VARS[el("bVar").value]; el("bFrom").value = V.min; el("bTo").value = Math.min(V.max, V.min * 5); } }));
+  ["bLogX", "bLogY"].forEach(id => el(id).addEventListener("input", drawBatch));
+  el("btnBatch").addEventListener("click", () => { placeBatch(); el("batch").classList.add("open"); if (!batchRes) loadExperiment(0); drawBatch(); });
+  el("bClose").addEventListener("click", () => { el("batch").classList.remove("open"); });
+  el("bRun").addEventListener("click", runBatch);
+  el("bStop").addEventListener("click", () => { batchStop = true; });
+  el("bCsv").addEventListener("click", downloadCSV);
+  window.addEventListener("resize", () => { if (el("batch").classList.contains("open")) { placeBatch(); drawBatch(); } });
+  syncBatchUI();
+})();
+
+/* =====================================================================
+   14. PANEL LAYOUT — resize or hide the side panels
+   ===================================================================== */
+(function () {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const KEY = "gas-in-a-box-layout", STRIP = 30, MIN = 200, DEF = { lw: 290, rw: 340, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+    if (el("batch").classList.contains("open")) { placeBatch(); drawBatch(); }
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+})();
+
+setPreset(0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

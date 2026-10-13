@@ -62,3 +62,32 @@ This is a teaching model built from standard scaling laws and published
 stellar models, not a full stellar-structure code. Every simplification is
 listed inside the app under **"How this model works (and what it leaves
 out)"**, and the source is commented section by section.
+
+## Batch run (many stars, compared with theory)
+
+Press **📊 Batch run** (next to the speed buttons) to work out the lives of
+many stars without drawing. The model has no randomness, so:
+
+- **Repeat** makes a *star cluster*: 100–5,000 masses drawn at random from
+  the Salpeter initial mass function (dN/dM ∝ M⁻²·³⁵) between masses you
+  choose, at a cluster age you choose.
+- **Sweep** steps starting mass (log scale), metallicity or wind strength.
+  Each step gives one exact answer, unless you tick the optional random
+  scatter in metallicity (×/÷ 1.6) and wind (±30%).
+- **Outcomes:** what it ends as, whether it is still shining at the cluster's
+  age, main-sequence lifetime, main-sequence luminosity, remnant mass,
+  largest radius, total life and starting mass.
+- By default batches use a Sun-like composition, normal winds and no
+  companion; a tick box uses the left panel's settings instead. The star on
+  screen is not changed. Results download as CSV.
+
+One-click batch experiments (each takes under a second):
+
+| Experiment | Result from a test run |
+|---|---|
+| Do heavy stars die young? | Mass 0.8–25 M☉ → main-sequence lifetime. Log–log gradient −2.44 (theory t = 10 Gyr × M⁻²·⁵, gradient −2.5); exact match up to 18 M☉, then the model levels off at a few million years. |
+| Is L ∝ M³·⁵? | Mass 0.5–50 M☉ → luminosity. Gradient 3.62 (theory 3.5), because the model uses L ∝ M⁴ between 0.43 and 2 M☉. |
+| What is left behind? | Mass 0.8–40 M☉ → remnant mass. White dwarfs follow the initial–final mass relation 0.109 M + 0.394 exactly (0.48 M☉ from 0.8 M☉ up to 1.1 M☉ from 6.4 M☉); neutron stars of 1.2–1.4 M☉ from 8–24 M☉ (textbook 1.4); black holes of 7–10 M☉ above 25 M☉. |
+| How big do stars get? | Mass 0.3–100 M☉ → largest radius: 0.6 R☉ for a red dwarf, ~240 R☉ for the Sun, up to ~1,600 R☉ for a 26 M☉ red supergiant; the heaviest stay hot and smaller. No single formula. |
+| A cluster of 5,000 stars: how do they end? | 99.7% white dwarfs, 0.24% neutron stars, 0.02% black holes; the IMF integrated between the model's fate boundaries (7.5 and 25 M☉) predicts 99.7%, 0.24%, 0.05%. Differences are within about 1 standard error. |
+| After 1 billion years, how many still shine? | 99.4% of 1,000 stars; theory (turn-off mass 2.5 M☉ from t = 10 Gyr × M⁻²·⁵) gives 98.7%. The model's stars live slightly longer than the main-sequence formula (giant stages add 10–20%), so the measured value is 1.9 standard errors higher. |

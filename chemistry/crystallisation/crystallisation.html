@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crystallisation</title>
+<!--
+  CRYSTALLISATION: COOLING RATE AND CRYSTAL SIZE — a teaching model
+  =================================================================
+  One self-contained file: no libraries, no internet needed.
+
+  The picture is a slice 20 mm × 13 mm made of cells 0.1 mm across.
+
+  MOLTEN ROCK (magma): below the freezing point Tm = 1100 °C, new crystals
+  start at random (nucleation) and grow. Both need atoms to move, which gets
+  very hard as the melt cools towards the glass temperature Tg = 650 °C:
+      growth speed     G = G0 × M(T) × ΔT/100            (mm/s)
+      nucleation rate  I = I0 × M(T) × (ΔT/100)^2.5       (per mm² per s)
+      mobility         M(T) = Vogel–Fulcher law, falls steeply towards Tg
+  where ΔT = Tm − T is the undercooling. Crystallising gives out latent heat,
+  so the cooling curve has a flat "plateau" at the freezing point.
+  Slow cooling → few crystals start before the rest has grown → big crystals.
+  Fast cooling → many small crystals. Very fast → no time at all → glass.
+  The JMAK (Avrami) equations give the theory the batch runs compare against.
+
+  SOLUTIONS: dissolved particles wander at random and stick to crystals they
+  touch; crystal-surface particles can dissolve again, so the solution settles
+  at the real solubility (copper sulfate, salt, alum).
+
+  Units: mm, °C, seconds (shown in minutes, hours, days or years).
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 330px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: var(--ink-dark); }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  .chk { display: block; font-size: 13px; margin: 0 0 8px; }
+  .chk input { accent-color: var(--accent); }
+  select, input[type=number], input[type=text] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #viewWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .legend i.ln { height: 3px; vertical-align: 3px; border-radius: 0; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .chartBox { position: relative; height: 170px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+  .tabs { display: flex; gap: 3px; margin-bottom: 4px; }
+  .tabs button { padding: 2px 8px; font-size: 11.5px; }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+
+  /* Batch run overlay */
+  #batch { display: none; position: fixed; left: 10px; right: 10px; top: 52px; bottom: 10px; z-index: 50; background: var(--panel); border: 1px solid var(--accent);
+           border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.75); padding: 12px; gap: 12px; grid-template-columns: 330px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  #batch.open { display: grid; }
+  #bLeft { overflow-y: auto; min-height: 0; padding-right: 4px; }
+  #bRight { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
+  #bHead { display: flex; gap: 10px; align-items: baseline; }
+  #bHead h2 { margin: 0; font-size: 15px; color: var(--accent); text-transform: none; letter-spacing: 0; }
+  #bHead .sp { flex: 1; }
+  #bExps { display: flex; flex-direction: column; gap: 4px; }
+  #bExps button { text-align: left; font-size: 12.5px; padding: 5px 8px; font-weight: 600; }
+  #bExps button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  #bExps button.on small { color: var(--ink-dark); }
+  .bform { display: grid; grid-template-columns: auto 1fr; gap: 5px 8px; align-items: center; font-size: 12.5px; margin-top: 6px; }
+  .bform select, .bform input { width: 100%; font-size: 12.5px; padding: 3px 5px; }
+  .bform .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+  .seg { display: inline-flex; gap: 3px; }
+  .seg button { padding: 3px 9px; font-size: 12.5px; }
+  #bProg { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  #bProg span { display: block; height: 100%; width: 0; background: var(--accent); }
+  #bChartBox { position: relative; flex: 1; min-height: 220px; background: #10130e; border-radius: 8px; }
+  #bChart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bBottom { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 10px; max-height: 38%; min-height: 120px; }
+  #bSummary, #bNote { overflow: auto; font-size: 12.5px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; }
+  #bSummary table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #bSummary td, #bSummary th { padding: 1px 6px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  #bSummary th { color: var(--muted); font-weight: 600; }
+  #bSummary td:first-child, #bSummary th:first-child { text-align: left; }
+  #bNote b { color: var(--text); }
+  #bNote p { margin: 4px 0; }
+  .fitline { color: var(--accent); font-weight: 700; }
+  a.dl { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Crystallisation</h1>
+  <span class="sub">Why slowly cooled granite has big crystals, quickly cooled basalt has small ones and obsidian is glass, and how crystals grow from a solution.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">What is crystallising? <span class="hint" style="text-transform:none;letter-spacing:0">(restarts)</span></h2>
+    <div class="ctl"><select id="mode"><option value="melt">Molten rock (magma)</option><option value="solution">A solution of a salt in water</option></select></div>
+    <div class="ctl solOnly"><label>Salt</label><select id="salt"><option value="cuso4">copper(II) sulfate</option><option value="nacl">sodium chloride (salt)</option><option value="alum">potash alum</option></select></div>
+
+    <h2 class="gap">Conditions <span class="live">change at once</span></h2>
+    <div class="ctl"><label>Cooling rate <output id="o_rate"></output></label><input type="range" id="rate" min="-6" max="4" step="0.1" value="0"></div>
+    <label class="chk solOnly"><input type="checkbox" id="hold"> Keep it at the starting temperature</label>
+    <div class="ctl solOnly"><label>Evaporation <output id="o_evap"></output></label><input type="range" id="evap" min="0" max="60" step="1" value="0">
+      <div class="hint">Water evaporating from the top makes the solution more concentrated.</div></div>
+    <div class="ctl solOnly"><label>How readily particles stick <output id="o_stick"></output></label><input type="range" id="stick" min="0.05" max="1" step="0.05" value="0.5">
+      <div class="hint">1 = every touch sticks: crystals grow branches (dendrites), like snowflakes.</div></div>
+
+    <h2 class="gap">Starting conditions <span class="hint" style="text-transform:none;letter-spacing:0">(restarts)</span></h2>
+    <div class="ctl"><label>Starting temperature <output id="o_T0"></output></label><input type="range" id="T0" min="1100" max="1300" step="5" value="1150"></div>
+    <div class="ctl solOnly"><label>Concentration <output id="o_conc"></output></label><input type="range" id="conc" min="5" max="110" step="1" value="55"></div>
+    <div class="ctl"><label>Impurities (dust specks) <output id="o_imp"></output></label><input type="range" id="imp" min="0" max="5" step="0.1" value="0">
+      <div class="hint">Specks give crystals somewhere easy to start (heterogeneous nucleation).</div></div>
+    <div class="ctl"><label>Random seed</label><input type="text" id="seed" value="1" style="width:100%"></div>
+    <div class="hint" style="margin-top:4px"><b style="color:var(--text)">Seed crystal:</b> click the picture to drop in a small seed crystal.</div>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Grid:</b> 200 × 130 square cells, each 0.1 mm across: a slice 20 mm × 13 mm, like a rock thin section.</li>
+        <li><b>Magma</b> freezes at Tm = 1100 °C (one freezing point; real magmas freeze over a range of temperatures as different minerals form). It becomes a glass below Tg = 650 °C, where atoms can no longer move.</li>
+        <li><b>Mobility</b> M(T) = e<sup>−A/(T−T₀)</sup> (Vogel–Fulcher), with T₀ = 577 °C. It is 1 at Tm and about 10<sup>−6</sup> at Tg: the melt gets far stickier as it cools.</li>
+        <li><b>Growth:</b> each crystal grows outwards as a circle at G = 2×10<sup>−5</sup> mm/s × M × ΔT/100, until it meets its neighbours. Where crystals meet, straight grain boundaries form.</li>
+        <li><b>Nucleation:</b> new crystals start at random at I = 0.01 per mm² per s × M × (ΔT/100)<sup>2.5</sup>. A melt can be "supercooled" below Tm for a while before any crystals start.</li>
+        <li><b>Impurities</b> are specks where a crystal can start more easily: each speck starts a crystal at 0.003 per s × M × ΔT/100.</li>
+        <li><b>Latent heat:</b> freezing all the melt gives out enough heat to warm it by 350 °C, so while crystals grow the temperature stays close to Tm (the plateau on the cooling curve). Above Tm crystal edges melt again.</li>
+        <li><b>Cooling:</b> heat is lost at a steady rate (°C per hour). Real magma bodies cool fastest at first and slower later.</li>
+        <li><b>Theory (JMAK / Avrami):</b> extended area X<sub>ext</sub> = Σ π r² over all crystals born, fraction crystallised X = 1 − e<sup>−X<sub>ext</sub></sup>, and new crystals only start in melt: dN = I(1 − X)dt. For slow cooling this predicts crystal size ∝ (cooling rate)<sup>−0.2</sup>.</li>
+        <li><b>Solutions:</b> each dissolved particle takes one random step every 2.5 s (diffusion over 0.1 mm). Touching a crystal, it sticks with the chance you set. Surface particles break off at a rate set so that the solution settles at the real solubility (copper sulfate 21 g per 100 g water at 20 °C, 55 g at 80 °C; salt about 36 g at any temperature). New crystals start more easily the more supersaturated the solution is.</li>
+        <li><b>Not modelled:</b> different minerals with different freezing points (granite has quartz, feldspar and mica), crystal faces and shapes, convection in the magma or the solution, heat flowing through the slice (it is the same temperature everywhere), and water of crystallisation.</li>
+      </ul>
+    </details>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">0 s</span>
+      <span class="stat">Temperature <b id="s_T">–</b></span>
+      <span id="status" class="stat"></span>
+      <span class="stat">Crystals <b id="s_n">0</b></span>
+      <span class="stat">Mean size <b id="s_size">–</b></span>
+    </div>
+    <div id="viewWrap"><canvas id="view" aria-label="A slice of cooling rock or solution, with crystals growing" style="cursor:crosshair"></canvas></div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">▶ Play</button>
+      <button id="btnReset" title="Start again">↺ Reset</button>
+      <span class="speed">Speed <button data-s="0.25">¼×</button><button data-s="1" class="on">1×</button><button data-s="4">4×</button><button data-s="15">15×</button></span>
+      <span class="hint" id="speedNote"></span>
+      <span style="flex:1"></span>
+      <button id="btnBatch" title="Run the model many times and compare with theory">📊 Batch run</button>
+    </div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readings</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">Readings</h2>
+    <div class="tiles" id="tiles"></div>
+    <h2 class="gap">Cooling curve</h2>
+    <div class="chartBox"><canvas id="chartT"></canvas></div>
+    <h2 class="gap" id="chart2Title">Crystallised and number of crystals</h2>
+    <div class="chartBox" style="height:150px"><canvas id="chart2"></canvas></div>
+    <h2 class="gap">Crystal sizes now</h2>
+    <div class="chartBox" style="height:140px"><canvas id="chartH"></canvas></div>
+  </section>
+</main>
+<!-- ======================= BATCH RUN OVERLAY ======================= -->
+<section id="batch" role="dialog" aria-label="Batch run">
+  <div id="bLeft">
+    <h2>Batch experiments</h2>
+    <div id="bExps"></div>
+    <h2 class="gap">Set up your own</h2>
+    <div class="bform">
+      <span>Mode</span>
+      <span class="seg"><button id="bModeRepeat" class="on">Repeat</button><button id="bModeSweep">Sweep</button></span>
+      <span class="repOnly">Runs</span>
+      <select class="repOnly" id="bN"></select>
+      <span class="swOnly">Vary</span>
+      <select class="swOnly" id="bVar"></select>
+      <span class="swOnly">From · to · steps</span>
+      <span class="swOnly three"><input type="number" id="bFrom" step="any"><input type="number" id="bTo" step="any"><input type="number" id="bSteps" min="2" max="25" step="1"></span>
+      <span class="swOnly">Repeats per step</span>
+      <input class="swOnly" type="number" id="bReps" min="1" max="200" step="1">
+      <span>Record</span>
+      <select id="bOut"></select>
+      <span class="swOnly">x axis</span>
+      <select class="swOnly" id="bX"><option value="lin">linear</option><option value="log">log scale</option><option value="inv">1 / x</option></select>
+      <span class="swOnly">y axis</span>
+      <select class="swOnly" id="bY"><option value="lin">linear</option><option value="log">log scale</option><option value="ln">ln(y)</option></select>
+      <span class="swOnly">Plot</span>
+      <select class="swOnly" id="bStat"><option value="mean">mean ± 1 SD of repeats</option><option value="sd">SD (spread) of repeats</option></select>
+      <span>First seed</span>
+      <input type="number" id="bSeed" value="1" step="1">
+    </div>
+    <div class="hint" id="bFixed" style="margin-top:6px"></div>
+    <div class="row" style="margin-top:8px">
+      <button id="bRun" class="primary">▶ Run batch</button>
+      <button id="bStop" disabled>■ Stop</button>
+      <a id="bCsv" class="dl" href="#" style="display:none">Download CSV</a>
+    </div>
+    <div id="bProg" style="margin-top:8px"><span></span></div>
+    <div class="hint" id="bStatus" style="margin-top:4px">Pick an experiment, or set up your own, then press Run.</div>
+  </div>
+  <div id="bRight">
+    <div id="bHead"><h2 id="bTitle">Batch run</h2><span class="hint" id="bSub"></span><span class="sp"></span><button id="bClose">✕ Close</button></div>
+    <div id="bChartBox"><canvas id="bChart"></canvas></div>
+    <div id="bBottom"><div id="bSummary"><span class="hint">Results will appear here.</span></div><div id="bNote"></div></div>
+  </div>
+</section>
+<script>
+"use strict";
+/* =====================================================================
+   SHARED HELPERS: random numbers, statistics, charts
+   ===================================================================== */
+const el = id => document.getElementById(id);
+// Repeatable random numbers: the same seed always gives the same run.
+function hashSeed(str) { str = String(str); let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } return h >>> 0; }
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+// A normally distributed random number (mean 0, SD 1): the Box–Muller method
+function gauss(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+// A Poisson-distributed count with mean lam (how many random events happen in a time step)
+function poisson(rng, lam) {
+  if (lam <= 0) return 0;
+  if (lam > 40) return Math.max(0, Math.round(lam + Math.sqrt(lam) * gauss(rng)));
+  const L = Math.exp(-lam); let k = 0, p = 1;
+  do { k++; p *= rng(); } while (p > L);
+  return k - 1;
+}
+const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : NaN;
+function sd(a) { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); }
+// Least-squares straight line y = m x + c, with the standard error of the gradient
+function fitLine(xs, ys) {
+  const n = xs.length; if (n < 2) return null;
+  const mx = mean(xs), my = mean(ys);
+  let sxx = 0, sxy = 0, syy = 0;
+  for (let i = 0; i < n; i++) { sxx += (xs[i] - mx) ** 2; sxy += (xs[i] - mx) * (ys[i] - my); syy += (ys[i] - my) ** 2; }
+  if (sxx === 0) return null;
+  const m = sxy / sxx, c = my - m * mx;
+  let ss = 0; for (let i = 0; i < n; i++) ss += (ys[i] - m * xs[i] - c) ** 2;
+  return { m, c, r2: syy > 0 ? 1 - ss / syy : 1, se: n > 2 ? Math.sqrt(ss / (n - 2) / sxx) : 0, n };
+}
+// Format a number to about 3 significant figures, in a student-friendly way
+function fmt(v, sig = 3) {
+  if (v === null || v === undefined || Number.isNaN(v)) return "–";
+  if (!Number.isFinite(v)) return v > 0 ? "∞" : "−∞";
+  if (v === 0) return "0";
+  const a = Math.abs(v);
+  if (a >= 1e5 || a < 1e-3) { const e = Math.floor(Math.log10(a)); const m = v / 10 ** e; return `${(+m.toPrecision(sig)).toString()}×10${sup(e)}`; }
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return (+v.toFixed(Math.min(6, d))).toLocaleString("en-GB", { maximumFractionDigits: Math.min(6, d) }).replace("-", "−");
+}
+function sup(n) { const m = { "-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹" }; return String(n).split("").map(c => m[c] || c).join(""); }
+function niceStep(range, n) { const raw = range / n, p = 10 ** Math.floor(Math.log10(raw)), f = raw / p; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+function linTicks(a, b, n) { const s = niceStep(b - a || 1, n); const out = []; for (let v = Math.ceil(a / s - 1e-9) * s; v <= b + s * 1e-9; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v); return out; }
+function logTicks(a, b) {
+  const out = [], e0 = Math.floor(Math.log10(a)), e1 = Math.ceil(Math.log10(b)), dec = e1 - e0;
+  const mult = dec <= 1 ? [1, 2, 3, 5] : dec <= 3 ? [1, 2, 5] : [1];
+  const step = dec > 8 ? 2 : 1;
+  for (let e = e0; e <= e1; e += step) for (const m of mult) { const v = m * 10 ** e; if (v >= a * 0.999 && v <= b * 1.001) out.push(v); }
+  return out;
+}
+function prepCanvas(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(2, Math.round(c.clientWidth * dpr)), H = Math.max(2, Math.round(c.clientHeight * dpr));
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  const ctx = c.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: W / dpr, h: H / dpr, dpr };
+}
+/* A general-purpose x–y chart.
+   o.series: [{ pts: [[x, y], …], color, width, dash, type: "line" | "dots" | "bars" (pts [x0, x1, y]) , fill }]
+   o.err: [{ x, lo, hi, color }]   o.vLines / o.hLines: [{ v, color, label, dash }]   o.bands: [{ x0, x1, color }]
+   o.xLog, o.yLog: logarithmic axes.  o.legend: [{ color, label, dash, dot }] */
+function plot(c, o) {
+  const { ctx, w, h } = prepCanvas(c);
+  ctx.fillStyle = o.bg || "#10130e"; ctx.fillRect(0, 0, w, h);
+  const L = o.padL || 50, R = o.padR || 12, T = o.padT || 10, B = o.padB || 32;
+  // data ranges
+  let xs = [], ys = [];
+  for (const s of o.series || []) for (const p of s.pts) {
+    if (s.type === "bars") { xs.push(p[0], p[1]); ys.push(p[2]); } else { xs.push(p[0]); ys.push(p[1]); }
+  }
+  for (const e of o.err || []) { xs.push(e.x); ys.push(e.lo, e.hi); }
+  const ok = (v, lg) => Number.isFinite(v) && (!lg || v > 0);
+  xs = xs.filter(v => ok(v, o.xLog)); ys = ys.filter(v => ok(v, o.yLog));
+  for (const l of o.hLines || []) if (ok(l.v, o.yLog) && l.fit !== false) ys.push(l.v);
+  let x0 = o.xMin ?? Math.min(...xs), x1 = o.xMax ?? Math.max(...xs), y0 = o.yMin ?? Math.min(...ys), y1 = o.yMax ?? Math.max(...ys);
+  if (!Number.isFinite(x0) || !Number.isFinite(x1)) { x0 = o.xLog ? 1 : 0; x1 = o.xLog ? 10 : 1; }
+  if (!Number.isFinite(y0) || !Number.isFinite(y1)) { y0 = o.yLog ? 1 : 0; y1 = o.yLog ? 10 : 1; }
+  if (x1 <= x0) { if (o.xLog) { x0 /= 2; x1 *= 2; } else { x0 -= 0.5; x1 += 0.5; } }
+  if (y1 <= y0) { if (o.yLog) { y0 /= 2; y1 *= 2; } else { y0 -= Math.abs(y0) * 0.1 + 0.5; y1 += Math.abs(y1) * 0.1 + 0.5; } }
+  if (!o.yLog && o.yMin === undefined && o.yMax === undefined) { const p = (y1 - y0) * 0.06; y0 -= p; y1 += p; }
+  else if (!o.yLog && o.yMax === undefined) y1 += (y1 - y0) * 0.06;
+  if (o.yLog && o.yMin === undefined) { y0 /= 1.25; y1 *= 1.25; }
+  if (o.xPad && !o.xLog) { const p = (x1 - x0) * o.xPad; x0 -= p; x1 += p; }
+  if (o.xPad && o.xLog) { x0 /= 1.15; x1 *= 1.15; }
+  const tx = v => o.xLog ? Math.log10(v) : v, ty = v => o.yLog ? Math.log10(v) : v;
+  const X = v => L + (tx(v) - tx(x0)) / (tx(x1) - tx(x0)) * (w - L - R);
+  const Y = v => h - B - (ty(v) - ty(y0)) / (ty(y1) - ty(y0)) * (h - T - B);
+  ctx.font = "10.5px system-ui"; ctx.lineWidth = 1;
+  // shaded bands
+  for (const b of o.bands || []) { ctx.fillStyle = b.color; const a = Math.max(L, X(Math.max(b.x0, x0))), z = Math.min(w - R, X(Math.min(b.x1, x1))); if (z > a) ctx.fillRect(a, T, z - a, h - T - B); }
+  // grid and tick labels
+  const yt = o.yLog ? logTicks(y0, y1) : linTicks(y0, y1, Math.max(2, Math.floor((h - T - B) / 32)));
+  const xt = o.xLog ? logTicks(x0, x1) : linTicks(x0, x1, Math.max(2, Math.floor((w - L - R) / 70)));
+  ctx.strokeStyle = "rgba(160,170,150,0.14)"; ctx.fillStyle = "#a3ab96";
+  ctx.textAlign = "right";
+  for (const v of yt) { const y = Y(v); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke(); ctx.fillText(fmt(v, 3), L - 4, y + 3.5); }
+  ctx.textAlign = "center";
+  let lastX = -1e9;
+  for (const v of xt) { const x = X(v); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, h - B); ctx.stroke(); const s = (o.xFmt || fmt)(v, 3); const tw = ctx.measureText(s).width; if (x - tw / 2 > lastX + 4) { ctx.fillText(s, x, h - B + 13); lastX = x + tw / 2; } }
+  ctx.strokeStyle = "rgba(200,205,190,0.5)"; ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, h - B); ctx.lineTo(w - R, h - B); ctx.stroke();
+  // axis titles
+  ctx.fillStyle = "#c9cfbd"; ctx.font = "11px system-ui";
+  if (o.xLabel) { ctx.textAlign = "center"; ctx.fillText(o.xLabel, (L + w - R) / 2, h - 5); }
+  if (o.yLabel) { ctx.save(); ctx.translate(11, (T + h - B) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText(o.yLabel, 0, 0); ctx.restore(); }
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T - 2, w - L - R, h - T - B + 4); ctx.clip();
+  // series
+  for (const s of o.series || []) {
+    ctx.strokeStyle = s.color; ctx.fillStyle = s.color; ctx.lineWidth = s.width || 2; ctx.setLineDash(s.dash || []);
+    if (s.type === "bars") {
+      for (const [a, b, v] of s.pts) { if (!ok(v, o.yLog)) continue; const yb = o.yLog ? h - B : Y(Math.max(y0, 0)); ctx.fillStyle = s.colorFn ? s.colorFn(a, b, v) : s.color; ctx.fillRect(X(a) + 0.5, Y(v), Math.max(1, X(b) - X(a) - 1), yb - Y(v)); }
+    } else if (s.type === "dots") {
+      const r = s.r || 3;
+      for (const [x, y] of s.pts) if (ok(x, o.xLog) && ok(y, o.yLog)) { ctx.beginPath(); ctx.arc(X(x), Y(y), r, 0, 7); ctx.fill(); }
+    } else {
+      ctx.beginPath(); let on = false;
+      for (const [x, y] of s.pts) { if (!ok(x, o.xLog) || !ok(y, o.yLog)) { on = false; continue; } if (on) ctx.lineTo(X(x), Y(y)); else ctx.moveTo(X(x), Y(y)); on = true; }
+      if (s.fill && s.pts.length) { ctx.save(); ctx.lineTo(X(s.pts[s.pts.length - 1][0]), h - B); ctx.lineTo(X(s.pts[0][0]), h - B); ctx.closePath(); ctx.fillStyle = s.fill; ctx.fill(); ctx.restore(); ctx.beginPath(); on = false; for (const [x, y] of s.pts) { if (!ok(y, o.yLog)) { on = false; continue; } if (on) ctx.lineTo(X(x), Y(y)); else ctx.moveTo(X(x), Y(y)); on = true; } }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+  for (const e of o.err || []) {
+    if (!ok(e.x, o.xLog)) continue; const lo = o.yLog ? Math.max(e.lo, y0) : e.lo;
+    ctx.strokeStyle = e.color || "#eee"; ctx.lineWidth = 1.5; const x = X(e.x);
+    ctx.beginPath(); ctx.moveTo(x, Y(lo)); ctx.lineTo(x, Y(e.hi)); ctx.moveTo(x - 4, Y(lo)); ctx.lineTo(x + 4, Y(lo)); ctx.moveTo(x - 4, Y(e.hi)); ctx.lineTo(x + 4, Y(e.hi)); ctx.stroke();
+  }
+  ctx.restore();
+  ctx.font = "10.5px system-ui";
+  for (const l of o.vLines || []) { if (!ok(l.v, o.xLog) || l.v < x0 || l.v > x1) continue; const x = X(l.v); ctx.strokeStyle = l.color; ctx.lineWidth = l.width || 1.5; ctx.setLineDash(l.dash || []); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, h - B); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color; ctx.textAlign = x > (L + w) / 2 ? "right" : "left"; ctx.fillText(l.label, x + (x > (L + w) / 2 ? -4 : 4), T + 11 + (l.row || 0) * 12); } }
+  for (const l of o.hLines || []) { if (!ok(l.v, o.yLog) || l.v < y0 || l.v > y1) continue; const y = Y(l.v); ctx.strokeStyle = l.color; ctx.lineWidth = l.width || 1.5; ctx.setLineDash(l.dash || []); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color; ctx.textAlign = "right"; ctx.fillText(l.label, w - R - 4, y - 4); } }
+  // legend (top-left inside the plot, or top-right if asked)
+  if (o.legend && o.legend.length && o.legendRow) {
+    // one row of legend items above the plot area
+    ctx.font = "11px system-ui"; ctx.textAlign = "left"; let lx = L;
+    for (const g of o.legend) {
+      const y = 9; ctx.strokeStyle = g.color; ctx.fillStyle = g.color; ctx.lineWidth = 2;
+      if (g.dot) { ctx.beginPath(); ctx.arc(lx + 10, y, 3.5, 0, 7); ctx.fill(); }
+      else if (g.box) ctx.fillRect(lx + 3, y - 5, 14, 10);
+      else { ctx.setLineDash(g.dash || []); ctx.beginPath(); ctx.moveTo(lx, y); ctx.lineTo(lx + 20, y); ctx.stroke(); ctx.setLineDash([]); }
+      ctx.fillStyle = "#dfe3d6"; ctx.fillText(g.label, lx + 26, y + 4); lx += 26 + ctx.measureText(g.label).width + 18;
+    }
+  } else if (o.legend && o.legend.length) {
+    ctx.font = "11px system-ui"; ctx.textAlign = "left";
+    const lw = Math.max(...o.legend.map(g => ctx.measureText(g.label).width)) + 30, lh = 15;
+    const lx = o.legendRight ? w - R - lw - 6 : L + 6, ly = T + 4;
+    ctx.fillStyle = "rgba(16,19,14,0.85)"; ctx.fillRect(lx - 3, ly - 2, lw + 6, o.legend.length * lh + 4);
+    o.legend.forEach((g, k) => {
+      const y = ly + k * lh + 8; ctx.strokeStyle = g.color; ctx.fillStyle = g.color; ctx.lineWidth = 2;
+      if (g.dot) { ctx.beginPath(); ctx.arc(lx + 10, y, 3.5, 0, 7); ctx.fill(); }
+      else if (g.box) ctx.fillRect(lx + 3, y - 5, 14, 10);
+      else { ctx.setLineDash(g.dash || []); ctx.beginPath(); ctx.moveTo(lx, y); ctx.lineTo(lx + 20, y); ctx.stroke(); ctx.setLineDash([]); }
+      ctx.fillStyle = "#dfe3d6"; ctx.fillText(g.label, lx + 26, y + 4);
+    });
+  }
+  return { X, Y, L, R, T, B, w, h, ctx, x0, x1, y0, y1 };
+}
+
+/* =====================================================================
+   BATCH RUNS — run the model many times with no drawing and compare
+   the results with theory.  Each simulation supplies a config object:
+     vars       – things that can be swept  {key, label, unit, min, max, log, int}
+     outcomes   – things that can be recorded {key, label, unit, multi}
+     baseParams() – the current settings;  runOnce(params, seed) – one run, returns {outcomeKey: value}
+     theory(key, params, stat) – theory value or null;  interpret(spec, fit) – extra text for a fit
+     experiments – one-click questions;  describe(params) – text listing the settings used
+   ===================================================================== */
+const Batch = (function () {
+  let cfg = null, overrides = {}, expIdx = -1, mode = "repeat", running = false, stopFlag = false, last = null;
+  const varOf = k => cfg.vars.find(v => v.key === k), outOf = k => cfg.outcomes.find(o => o.key === k);
+  function init(c) {
+    cfg = c;
+    el("bExps").innerHTML = "";
+    cfg.experiments.forEach((ex, i) => { const b = document.createElement("button"); b.innerHTML = `${ex.q}<small>${ex.sub || ""}</small>`; b.onclick = () => applyExp(i); el("bExps").appendChild(b); });
+    el("bN").innerHTML = cfg.repeatSizes.map(n => `<option value="${n}">${n}</option>`).join("");
+    el("bVar").innerHTML = cfg.vars.map(v => `<option value="${v.key}">${v.label}${v.unit ? " (" + v.unit + ")" : ""}</option>`).join("");
+    el("bOut").innerHTML = cfg.outcomes.map(o => `<option value="${o.key}">${o.label}${o.unit ? " (" + o.unit + ")" : ""}</option>`).join("");
+    el("bModeRepeat").onclick = () => setMode("repeat"); el("bModeSweep").onclick = () => setMode("sweep");
+    el("bVar").onchange = () => { const v = varOf(el("bVar").value); el("bFrom").value = v.from ?? v.min; el("bTo").value = v.to ?? v.max; el("bX").value = v.log ? "log" : "lin"; showFixed(); };
+    for (const id of ["bOut", "bX", "bY", "bStat"]) el(id).onchange = () => { if (last) render(); };
+    el("bRun").onclick = run; el("bStop").onclick = () => { stopFlag = true; };
+    el("bClose").onclick = close;
+    el("bCsv").onclick = e => { e.preventDefault(); csv(); };
+    window.addEventListener("resize", () => { if (last && el("batch").classList.contains("open")) render(); });
+    setMode("repeat"); el("bVar").onchange(); el("bReps").value = 3; el("bSteps").value = 6;
+    applyExp(0, true);
+  }
+  function setMode(m) {
+    mode = m; el("bModeRepeat").classList.toggle("on", m === "repeat"); el("bModeSweep").classList.toggle("on", m === "sweep");
+    document.querySelectorAll("#batch .repOnly").forEach(e => e.style.display = m === "repeat" ? "" : "none");
+    document.querySelectorAll("#batch .swOnly").forEach(e => e.style.display = m === "sweep" ? "" : "none");
+    if (last) render();
+  }
+  function applyExp(i, quiet) {
+    const ex = cfg.experiments[i]; expIdx = i;
+    [...el("bExps").children].forEach((b, k) => b.classList.toggle("on", k === i));
+    overrides = { ...(ex.params || {}) };
+    setMode(ex.mode);
+    if (ex.mode === "repeat") { if (![...el("bN").options].some(o => +o.value === ex.n)) el("bN").insertAdjacentHTML("beforeend", `<option value="${ex.n}">${ex.n}</option>`); el("bN").value = ex.n; }
+    else { el("bVar").value = ex.var; el("bFrom").value = ex.from; el("bTo").value = ex.to; el("bSteps").value = ex.steps; el("bReps").value = ex.reps; el("bX").value = ex.x || "lin"; el("bY").value = ex.y || "lin"; el("bStat").value = ex.stat || "mean"; }
+    el("bOut").value = ex.out;
+    el("bNote").innerHTML = `<p><b>${ex.q}</b></p>${ex.note || ""}`;
+    showFixed();
+    if (!quiet) { el("bStatus").textContent = "Ready: press Run."; }
+  }
+  function params() { return { ...cfg.baseParams(), ...overrides }; }
+  function showFixed() {
+    const ov = Object.keys(overrides).length;
+    el("bFixed").innerHTML = `Settings for every run${ov ? " (set by this experiment)" : " (from the left panel)"}: ${cfg.describe(params())}${ov ? ` · <a href="#" id="bUseMine" class="dl">use my own settings instead</a>` : ""}${cfg.headlessNote ? "<br>" + cfg.headlessNote : ""}`;
+    const u = el("bUseMine"); if (u) u.onclick = e => { e.preventDefault(); overrides = {}; showFixed(); };
+  }
+  function readSpec() {
+    const s = { mode, out: el("bOut").value, x: el("bX").value, y: el("bY").value, stat: el("bStat").value, seed: Math.round(+el("bSeed").value || 1), params: params() };
+    if (mode === "repeat") s.n = +el("bN").value;
+    else {
+      s.var = el("bVar").value; const v = varOf(s.var);
+      let a = +el("bFrom").value, b = +el("bTo").value; const n = Math.max(2, Math.min(25, Math.round(+el("bSteps").value || 5)));
+      a = Math.max(v.min, Math.min(v.max, a)); b = Math.max(v.min, Math.min(v.max, b));
+      const geo = (v.log || s.x === "log") && a > 0 && b > 0;
+      let xs = []; for (let k = 0; k < n; k++) { const f = k / (n - 1); xs.push(geo ? a * (b / a) ** f : a + (b - a) * f); }
+      if (v.int) xs = [...new Set(xs.map(Math.round))]; else xs = xs.map(x => +x.toPrecision(6));
+      s.xs = xs; s.reps = Math.max(1, Math.min(200, Math.round(+el("bReps").value || 1)));
+    }
+    return s;
+  }
+  function run() {
+    if (running) return;
+    const spec = readSpec(); const jobs = [];
+    if (spec.mode === "repeat") for (let k = 0; k < spec.n; k++) jobs.push({ x: null, seed: spec.seed + k });
+    else { let k = 0; for (const x of spec.xs) for (let r = 0; r < spec.reps; r++) jobs.push({ x, seed: spec.seed + k++ }); }
+    last = { spec, rows: [], total: jobs.length, done: false };
+    running = true; stopFlag = false; el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").style.display = "none";
+    const t0 = performance.now(); let j = 0, lastDraw = 0;
+    function chunk() {
+      const tc = performance.now();
+      while (j < jobs.length && !stopFlag && performance.now() - tc < 45) {
+        const job = jobs[j++], p = { ...spec.params };
+        if (job.x !== null) p[spec.var] = job.x;
+        let out; try { out = cfg.runOnce(p, job.seed); } catch (e) { console.error(e); out = {}; }
+        last.rows.push({ x: job.x, seed: job.seed, out });
+      }
+      el("bProg").firstElementChild.style.width = (100 * j / jobs.length).toFixed(1) + "%";
+      const secs = (performance.now() - t0) / 1000, eta = j ? secs / j * (jobs.length - j) : 0;
+      el("bStatus").textContent = `Run ${j} of ${jobs.length} · ${secs.toFixed(1)} s` + (j < jobs.length ? ` · about ${Math.ceil(eta)} s to go` : "");
+      if (performance.now() - lastDraw > 400) { render(); lastDraw = performance.now(); }
+      if (j < jobs.length && !stopFlag) setTimeout(chunk, 0);
+      else {
+        running = false; last.done = true; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").style.display = "";
+        el("bStatus").textContent = `${stopFlag ? "Stopped after" : "Finished"} ${j} runs in ${secs.toFixed(1)} s.`; render();
+      }
+    }
+    setTimeout(chunk, 10);
+  }
+  const outVals = (row, key, multi) => { const v = row.out[key]; return multi ? (Array.isArray(v) ? v : []) : [v]; };
+  function render() {
+    if (!last) return;
+    const spec = last.spec, key = el("bOut").value, O = outOf(key), unit = O.unit ? ` (${O.unit})` : "";
+    el("bTitle").textContent = spec.mode === "repeat" ? `Repeat: ${O.label}` : `Sweep: ${O.label} against ${varOf(spec.var).label}`;
+    el("bSub").textContent = `${last.rows.length} of ${last.total} runs`;
+    const theoryCol = "#4fc3f7", dataCol = "#f1af28";
+    if (spec.mode === "repeat") {
+      const vals = last.rows.flatMap(r => outVals(r, key, O.multi)).filter(Number.isFinite);
+      const th = cfg.theory(key, spec.params, "mean");
+      const n = vals.length, m = mean(vals), s = sd(vals), se = n > 1 ? s / Math.sqrt(n) : NaN;
+      let lo = Math.min(...vals), hi = Math.max(...vals);
+      const series = [], legend = [];
+      if (n) {
+        if (hi === lo) { lo -= 0.5; hi += 0.5; }
+        const nb = Math.max(5, Math.min(30, Math.round(Math.sqrt(n) * 1.3))), bw = (hi - lo) / nb, cnt = new Array(nb).fill(0);
+        for (const v of vals) cnt[Math.min(nb - 1, Math.floor((v - lo) / bw))]++;
+        series.push({ type: "bars", color: "rgba(241,175,40,0.75)", pts: cnt.map((c, k) => [lo + k * bw, lo + (k + 1) * bw, c]) });
+        legend.push({ box: true, color: "rgba(241,175,40,0.75)", label: `results (${n})` });
+      }
+      const vLines = [];
+      if (n) { vLines.push({ v: m, color: "#fff", label: `mean ${fmt(m)}`, row: 0 }); legend.push({ color: "#fff", label: "mean of runs" }); }
+      if (th !== null && th !== undefined && Number.isFinite(th)) { vLines.push({ v: th, color: theoryCol, dash: [6, 4], label: `theory ${fmt(th)}`, row: 1, width: 2.5 }); legend.push({ color: theoryCol, dash: [6, 4], label: "theory" }); }
+      const xMin = Math.min(lo, th ?? lo), xMax = Math.max(hi, th ?? hi), padx = (xMax - xMin) * 0.05 || 0.5;
+      plot(el("bChart"), { series, vLines, legend, legendRight: true, xMin: xMin - padx, xMax: xMax + padx, yMin: 0, xLabel: `${O.label}${unit}`, yLabel: O.multi ? "number of crystals" : "number of runs", padT: 34 });
+      const diff = th !== null && Number.isFinite(th) && n ? `${fmt(100 * (m - th) / th, 2)}% · ${fmt((m - th) / se, 2)} SE` : "–";
+      el("bSummary").innerHTML = `<table><tr><th>Measure</th><th>Value</th></tr>
+        <tr><td>n (${O.multi ? "values" : "runs"})</td><td>${n}</td></tr><tr><td>Mean</td><td>${fmt(m, 4)}</td></tr><tr><td>Standard deviation (SD)</td><td>${fmt(s, 3)}</td></tr>
+        <tr><td>Standard error (SD/√n)</td><td>${fmt(se, 3)}</td></tr><tr><td>Min · max</td><td>${fmt(lo, 3)} · ${fmt(hi, 3)}</td></tr>
+        <tr><td>Theory</td><td>${th !== null && th !== undefined && Number.isFinite(th) ? fmt(th, 4) : "none"}</td></tr><tr><td>Mean − theory</td><td>${diff}</td></tr></table>
+        ${cfg.interpret ? cfg.interpret(spec, null, { vals, m, s, key }) || "" : ""}`;
+      return;
+    }
+    // ---- sweep ----
+    const V = varOf(spec.var), xt = spec.x, yt = spec.y, stat = spec.stat;
+    const groups = spec.xs.map(x => { const v = last.rows.filter(r => r.x === x).flatMap(r => outVals(r, key, O.multi)).filter(Number.isFinite); return { x, vals: v, n: v.length, m: mean(v), s: sd(v) }; }).filter(g => g.n);
+    const TX = x => xt === "inv" ? 1 / x : x, TY = y => yt === "ln" ? (y > 0 ? Math.log(y) : NaN) : y;
+    const yOf = g => stat === "sd" ? g.s : g.m;
+    const series = [], err = [], legend = [];
+    if (stat === "mean") {
+      series.push({ type: "dots", color: "rgba(241,175,40,0.35)", r: 2, pts: last.rows.flatMap(r => outVals(r, key, O.multi).map(v => [TX(r.x), TY(v)])) });
+      for (const g of groups) if (g.n > 1) err.push({ x: TX(g.x), lo: TY(Math.max(g.m - g.s, yt === "lin" ? -Infinity : g.m * 0.02)), hi: TY(g.m + g.s), color: "#f6d48a" });
+    }
+    series.push({ type: "dots", color: dataCol, r: 4.5, pts: groups.map(g => [TX(g.x), TY(yOf(g))]) });
+    legend.push({ dot: true, color: dataCol, label: stat === "sd" ? "SD of the repeats" : "mean of repeats (bars: ±1 SD)" });
+    // theory curve
+    const thPts = [], a = spec.xs[0], b = spec.xs[spec.xs.length - 1], geo = (V.log || xt === "log") && a > 0;
+    for (let k = 0; k <= 80; k++) { const f = k / 80, x = geo ? a * (b / a) ** f : a + (b - a) * f; const v = cfg.theory(key, { ...spec.params, [spec.var]: x }, stat); if (v !== null && v !== undefined && Number.isFinite(v)) thPts.push([TX(x), TY(v)]); }
+    if (thPts.length) { series.unshift({ type: "line", color: theoryCol, width: 2.5, dash: [7, 4], pts: thPts }); legend.push({ color: theoryCol, dash: [7, 4], label: cfg.theoryLabel ? cfg.theoryLabel(key, stat) : "theory" }); }
+    // straight-line fit on the axes as drawn
+    const fx = [], fy = [];
+    for (const g of groups) { let X = TX(g.x), Y = TY(yOf(g)); if (xt === "log") X = X > 0 ? Math.log10(X) : NaN; if (yt === "log") Y = Y > 0 ? Math.log10(Y) : NaN; if (Number.isFinite(X) && Number.isFinite(Y)) { fx.push(X); fy.push(Y); } }
+    const fit = fx.length >= 3 && !(cfg.noFit || []).includes(key) ? fitLine(fx, fy) : null;   // no straight line for yes/no outcomes
+    if (fit) {
+      const pts = []; const xa = Math.min(...fx), xb = Math.max(...fx);
+      for (let k = 0; k <= 20; k++) { const X = xa + (xb - xa) * k / 20; let px = xt === "log" ? 10 ** X : X, py = fit.m * X + fit.c; if (yt === "log") py = 10 ** py; pts.push([px, py]); }
+      series.push({ type: "line", color: "#e83181", width: 1.6, pts }); legend.push({ color: "#e83181", label: "best-fit straight line" });
+    }
+    const vl = V.label + (V.unit ? ` (${V.unit})` : "");
+    const xLabel = xt === "inv" ? `1 / ${V.label}  (${V.unit ? V.unit + "⁻¹" : "1/units"})` : vl;
+    const yBase = stat === "sd" ? `SD of ${O.label}` : O.label;
+    const yLabel = yt === "ln" ? `ln(${yBase}${O.unit ? " / " + O.unit : ""})` : yBase + unit;
+    plot(el("bChart"), { series, err, legend, xLog: xt === "log", yLog: yt === "log", xLabel, yLabel, xPad: 0.04, padT: 26, legendRow: true });
+    let rowsHtml = groups.map(g => { const th = cfg.theory(key, { ...spec.params, [spec.var]: g.x }, stat); const se = g.n > 1 ? g.s / Math.sqrt(g.n) : NaN; const y = yOf(g);
+      const d = th !== null && Number.isFinite(th) ? (th !== 0 ? `${fmt(100 * (y - th) / Math.abs(th), 2)}%` : (y === 0 ? "0" : "–")) + (stat === "mean" && g.n > 1 && se > 0 ? ` · ${fmt((g.m - th) / se, 2)} SE` : "") : "–";
+      return `<tr><td>${fmt(g.x, 4)}</td><td>${g.n}</td><td>${fmt(g.m, 4)}</td><td>${fmt(g.s, 3)}</td><td>${fmt(se, 3)}</td><td>${th !== null && Number.isFinite(th) ? fmt(th, 4) : "–"}</td><td>${d}</td></tr>`; }).join("");
+    const fitTxt = fit ? `<p class="fitline">Best-fit line on these axes: gradient = ${fmt(fit.m, 4)} ± ${fmt(fit.se, 2)}, intercept ${fmt(fit.c, 4)}, R² = ${fit.r2.toFixed(3)}</p>` : "";
+    el("bSummary").innerHTML = `${fitTxt}${cfg.interpret ? cfg.interpret(spec, fit, { groups, key }) || "" : ""}<table><tr><th>${V.label}</th><th>n</th><th>mean</th><th>SD</th><th>SE</th><th>theory</th><th>difference</th></tr>${rowsHtml}</table>`;
+  }
+  function csv() {
+    if (!last) return;
+    const spec = last.spec, scal = cfg.outcomes.filter(o => !o.multi), multi = cfg.outcomes.filter(o => o.multi);
+    const head = ["run", "seed"].concat(spec.mode === "sweep" ? [spec.var] : []).concat(scal.map(o => o.key + (o.unit ? ` (${o.unit})` : ""))).concat(multi.map(o => o.key + " (all values, space separated)"));
+    const lines = [head.map(h => `"${h}"`).join(",")];
+    last.rows.forEach((r, i) => lines.push([i + 1, r.seed].concat(spec.mode === "sweep" ? [r.x] : []).concat(scal.map(o => r.out[o.key] ?? "")).concat(multi.map(o => `"${(r.out[o.key] || []).map(v => +(+v).toPrecision(5)).join(" ")}"`)).join(",")));
+    const blob = new Blob([lines.join("\r\n")], { type: "text/csv" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${cfg.file || "batch"}-${spec.mode}.csv`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function open() { el("batch").classList.add("open"); showFixed(); if (last) render(); else plot(el("bChart"), { series: [], xLabel: "", yLabel: "" }); }
+  function close() { el("batch").classList.remove("open"); }
+  return { init, open, close, applyExp, run, get last() { return last; }, get running() { return running; } };
+})();
+
+/* =====================================================================
+   PANEL LAYOUT — resize or hide the side panels (remembered in this browser)
+   ===================================================================== */
+function initPanels(KEY, onChange) {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const STRIP = 30, MIN = 200, DEF = { lw: 290, rw: 330, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+    if (onChange) onChange();
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+}
+// Slider helper: link a range input to its <output>, with a formatter
+function bindSlider(id, f, onInput) {
+  const i = el(id), o = el("o_" + id);
+  const upd = () => { if (o) o.textContent = f(+i.value); if (onInput) onInput(+i.value); };
+  i.addEventListener("input", upd); upd(); return upd;
+}
+/* =====================================================================
+   1. THE GRID AND UNITS
+   ---------------------------------------------------------------------
+   The view is a thin slice of rock or a dish of solution, 20 mm × 13 mm,
+   split into square cells 0.1 mm across. Temperatures in °C, time in
+   seconds (shown as minutes, days or years), cooling rate in °C per hour.
+   ===================================================================== */
+const CELL = 0.1;                         // mm per cell
+const GW = 200, GH = 130, NCELL = GW * GH;
+const MELT = 0, IMPURITY = -1, AIR = -2;  // grain codes; crystals are numbered 1, 2, 3…
+// 8 neighbours
+const NB8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+const NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+/* =====================================================================
+   2. MAGMA: how fast crystals start (nucleation) and grow
+   ---------------------------------------------------------------------
+   Undercooling ΔT = Tm − T (how far below the freezing point).
+   • Mobility M(T): atoms must move to join a crystal. Molten rock gets
+     stickier (more viscous) as it cools, following the Vogel–Fulcher law
+     M = exp(−A/(T − T0)). Near the glass temperature Tg atoms can hardly move.
+   • Growth speed  G = G0 × M × ΔT/100           (mm per second)
+   • Nucleation    I = I0 × M × exp(−B/ΔT²)       (new crystals per mm² per s)
+     A new crystal needs a tiny cluster big enough to survive; the energy
+     barrier falls as 1/ΔT², so nucleation is almost impossible just below
+     Tm and then switches on steeply.
+   • Latent heat: crystallising the whole melt releases enough heat to
+     warm it by LH = 350 °C (rock: about 400 kJ/kg ÷ 1.2 kJ/kg/°C).
+   ===================================================================== */
+const MAG = { Tm: 1100, Tg: 650, A: 1170, T0K: 850, G0: 2e-5, I0: 1e-2, n: 2.5, LH: 350, Ihet0: 3e-3, nh: 1 };
+// Largest temperature change per step: small steps just below the melting point, where it matters most
+const dTstep = T => { const u = Math.abs(MAG.Tm - T); return u > 10 ? 0.25 : 0.01 + 0.024 * u; };
+function mobility(T) {
+  const TK = T + 273.15; if (TK <= MAG.T0K + 1) return 0;
+  return Math.exp(-MAG.A / (TK - MAG.T0K) + MAG.A / (MAG.Tm + 273.15 - MAG.T0K));
+}
+function growthRate(T) { const dT = MAG.Tm - T; return dT > 0 ? MAG.G0 * mobility(T) * dT / 100 : 0; }            // mm/s
+function nucRate(T) { const dT = MAG.Tm - T; return dT > 0 ? MAG.I0 * mobility(T) * (dT / 100) ** MAG.n : 0; }   // per mm² per s
+// Impurity specks lower the barrier (heterogeneous nucleation): rate per speck, per second
+function hetRate(T) { const dT = MAG.Tm - T; return dT > 0 ? MAG.Ihet0 * mobility(T) * (dT / 100) ** MAG.nh : 0; }
+
+/* =====================================================================
+   3. SOLUTIONS: solubility (g of solid per 100 g of water)
+   ===================================================================== */
+const SOLUB = {
+  cuso4: { name: "copper(II) sulfate", pts: [[0, 14.3], [20, 20.7], [40, 28.5], [60, 40.0], [80, 55.0], [100, 75.4]], col: [30, 150, 255] },
+  nacl:  { name: "sodium chloride (salt)", pts: [[0, 35.7], [20, 35.9], [40, 36.4], [60, 37.1], [80, 38.0], [100, 39.2]], col: [235, 235, 235] },
+  alum:  { name: "potash alum", pts: [[0, 3.0], [20, 5.9], [40, 11.7], [60, 24.8], [80, 71.0], [100, 109]], col: [245, 240, 255] },
+};
+function solubility(salt, T) { const p = SOLUB[salt].pts; if (T <= p[0][0]) return p[0][1]; for (let k = 1; k < p.length; k++) if (T <= p[k][0]) { const f = (T - p[k - 1][0]) / (p[k][0] - p[k - 1][0]); return p[k - 1][1] + f * (p[k][1] - p[k - 1][1]); } return p[p.length - 1][1]; }
+const G_PER_FRAC = 400;   // lattice: a fraction f of the water cells holding dissolved particles stands for f × 400 g per 100 g water
+
+/* =====================================================================
+   4. THE WORLD
+   ===================================================================== */
+class World {
+  constructor(p, seed, gw = GW, gh = GH) {
+    this.p = { ...p }; this.gw = gw; this.gh = gh; this.N = gw * gh;
+    this.rng = mulberry32(hashSeed("cr" + seed));
+    this.grain = new Int32Array(this.N);
+    this.inF = new Uint8Array(this.N); this.F = [];
+    this.nucX = [0]; this.nucY = [0]; this.lam0 = [0]; this.area = [0]; this.born = [0];
+    this.T = p.T0; this.t = 0; this.lam = 0; this.rate = p.rate / 3600;    // °C per second
+    this.crystal = 0; this.nG = 0; this.hist = []; this.done = false; this.glassy = false;
+    this.impSites = [];
+    if (p.mode === "solution") this.initSolution(); else this.initMelt();
+  }
+  idx(x, y) { return y * this.gw + x; }
+  initMelt() {
+    // impurity specks: fixed dark grains that help crystals start
+    const n = Math.round(this.p.imp / 100 * this.N);
+    for (let k = 0; k < n; k++) { const i = Math.floor(this.rng() * this.N); if (this.grain[i] === MELT) { this.grain[i] = IMPURITY; this.impSites.push(i); } }
+    this.meltCells = this.N - this.impSites.length;
+  }
+  /* ---------- a new crystal at cell i ---------- */
+  newGrain(i, r0 = 0) {
+    const g = this.nucX.length, x = i % this.gw, y = (i / this.gw) | 0;
+    this.nucX.push(x); this.nucY.push(y); this.lam0.push(this.lam - r0 * CELL); this.area.push(0); this.born.push(this.t);
+    this.nG++; this.setCrystal(i, g); return g;
+  }
+  setCrystal(i, g) {
+    this.grain[i] = g; this.area[g]++; this.crystal++; this.inF[i] = 0;
+    const x = i % this.gw, y = (i / this.gw) | 0;
+    for (const [dx, dy] of NB8) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= this.gw || Y >= this.gh) continue; const j = Y * this.gw + X; if (this.grain[j] === MELT && !this.inF[j]) { this.inF[j] = 1; this.F.push(j); } }
+  }
+  placeSeed(x, y) {
+    // a seed crystal about 0.3 mm across
+    if (x < 1 || y < 1 || x >= this.gw - 1 || y >= this.gh - 1) return;
+    const c = this.idx(x, y); if (this.grain[c] !== MELT) return;
+    if (this.solute && this.solute[c]) this.solute[c] = 0;
+    const g = this.newGrain(c, 1.5);
+    for (const [dx, dy] of NB8) { const j = this.idx(x + dx, y + dy); if (this.grain[j] === MELT) { if (this.solute) { if (this.solute[j]) { this.solute[j] = 0; this.nSol--; } } this.setCrystal(j, g); } }
+  }
+  fraction() { return this.crystal / Math.max(1, this.p.mode === "solution" ? this.crystal + this.nSol : this.meltCells); }
+
+  /* ---------- MAGMA: one time step ---------- */
+  safeDtMelt() {
+    const r = Math.max(this.rate, 1e-30), G = growthRate(this.T) / CELL, I = (this.p.nucScale ?? 1) * nucRate(this.T) * this.meltCells * CELL * CELL;
+    const u = Math.abs(MAG.Tm - this.T);
+    let dt = (u > 10 ? 0.5 : 0.06 + 0.05 * u) / r;    // cool by only a small amount each step (smaller near Tm)
+    if (G > 0 && this.nG > 0) dt = Math.min(dt, 0.4 / G);   // grow by at most 0.4 of a cell
+    if (I > 0) dt = Math.min(dt, 40 / I);              // at most ~40 new crystals per step
+    return dt;
+  }
+  stepMelt(dt) {
+    const rng = this.rng, T = this.T, gw = this.gw;
+    // (1) new crystals: a random (Poisson) number, placed at random in the melt
+    const nNew = poisson(rng, (this.p.nucScale ?? 1) * nucRate(T) * dt * (this.meltCells - this.crystal) * CELL * CELL);
+    for (let k = 0; k < nNew; k++) { const i = Math.floor(rng() * this.N); if (this.grain[i] === MELT) this.newGrain(i); }
+    // ...and on impurity specks
+    if (this.impSites.length) {
+      const nh = poisson(rng, hetRate(T) * dt * this.impSites.length);
+      for (let k = 0; k < nh && this.impSites.length; k++) {
+        const s = this.impSites.splice(Math.floor(rng() * this.impSites.length), 1)[0], x = s % gw, y = (s / gw) | 0;
+        const [dx, dy] = NB8[Math.floor(rng() * 8)], X = x + dx, Y = y + dy;
+        if (X >= 0 && Y >= 0 && X < gw && Y < this.gh && this.grain[Y * gw + X] === MELT) this.newGrain(Y * gw + X);
+      }
+    }
+    // (2) growth: every crystal's radius grows by G·dt. A melt cell next to a crystal joins it
+    //     once it lies inside that crystal's radius (measured from where it started).
+    this.lam += growthRate(T) * dt;
+    const before = this.crystal;
+    // latent heat can warm the melt back up to Tm but not beyond, so limit how many cells may freeze this step
+    const room = Math.max(0, (MAG.Tm - (T - this.rate * dt)) / MAG.LH * this.meltCells);
+    this.growFront(Math.floor(room) + (this.rng() < room % 1 ? 1 : 0));
+    // (3) melting if it is hotter than the melting point
+    if (T > MAG.Tm + 0.01) this.meltBack(dt);
+    // (4) temperature: steady heat loss, plus the latent heat given out by new crystal
+    const dX = (this.crystal - before) / this.meltCells;
+    this.T += -this.rate * dt + MAG.LH * dX;
+    if (this.T < this.p.Tend) this.T = this.p.Tend;
+    this.t += dt;
+  }
+  growFront(maxConv = Infinity) {
+    const F = this.F, gw = this.gw, next = [], conv = [];
+    for (const c of F) {
+      if (this.grain[c] !== MELT) { this.inF[c] = 0; continue; }
+      const x = c % gw, y = (c / gw) | 0; let got = 0;
+      for (const [dx, dy] of NB8) {
+        const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= gw || Y >= this.gh) continue;
+        const g = this.grain[Y * gw + X]; if (g <= 0) continue;
+        const R = (this.lam - this.lam0[g]) / CELL, ddx = x - this.nucX[g], ddy = y - this.nucY[g];
+        if (ddx * ddx + ddy * ddy <= R * R + 0.5) { got = g; break; }
+      }
+      if (got) conv.push(c, got); else next.push(c);
+    }
+    this.F = next;
+    if (conv.length / 2 > maxConv) {
+      // not all can freeze: pick which ones at random, the rest wait
+      for (let k = conv.length / 2 - 1; k > 0; k--) { const j = Math.floor(this.rng() * (k + 1)); [conv[2 * k], conv[2 * j]] = [conv[2 * j], conv[2 * k]]; [conv[2 * k + 1], conv[2 * j + 1]] = [conv[2 * j + 1], conv[2 * k + 1]]; }
+      for (let k = 2 * maxConv; k < conv.length; k += 2) this.F.push(conv[k]);
+      conv.length = 2 * maxConv;
+    }
+    for (let k = 0; k < conv.length; k += 2) if (this.grain[conv[k]] === MELT) this.setCrystal(conv[k], conv[k + 1]);
+  }
+  meltBack(dt) {
+    // Above Tm crystal edges melt again. The edge moves back at a speed like the growth speed, and melting
+    // absorbs latent heat, so it can only go on until the temperature is back down to Tm.
+    const gw = this.gw, speed = MAG.G0 * mobility(MAG.Tm) * (this.T - MAG.Tm) / 100;
+    const q = Math.min(1, speed * dt / CELL), cap = Math.floor((this.T - MAG.Tm) / MAG.LH * this.meltCells);
+    let melted = 0; const list = this.F.slice();
+    for (const c of list) {
+      if (melted >= cap) break;
+      if (this.rng() >= q) continue;
+      const x = c % gw, y = (c / gw) | 0;
+      for (const [dx, dy] of NB4) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= gw || Y >= this.gh) continue; const j = Y * gw + X, g = this.grain[j]; if (g > 0) { this.grain[j] = MELT; this.area[g]--; this.crystal--; if (this.area[g] === 0) this.nG--; this.inF[j] = 1; this.F.push(j); melted++; break; } }
+    }
+    this.T -= MAG.LH * melted / this.meltCells;
+  }
+}
+
+/* =====================================================================
+   4b. SOLUTIONS: dissolved particles wander about at random (diffusion).
+   ---------------------------------------------------------------------
+   • A dissolved particle that touches a crystal sticks to it with chance
+     "stick" each step (1 = always: branching, snowflake-like dendrites).
+   • A particle on the surface of a crystal can break off again. The chance
+     is set so that the solution settles at the real solubility for the
+     temperature; particles held by more neighbours break off less often,
+     so small crystals dissolve more easily than big ones.
+   • New crystals start with a chance that rises steeply with the
+     supersaturation S = concentration ÷ solubility (nothing happens for S ≤ 1).
+   • Each step is 2.5 s: about the time a dissolved ion takes to wander 0.1 mm.
+   ===================================================================== */
+const SOL = { dt: 2.5, kd: 3.5, beta: 0.45, An: 2e-6, Bn: 0.35, Ah: 2e-3 };
+Object.assign(World.prototype, {
+  initSolution() {
+    const p = this.p, rng = this.rng, N = this.N;
+    this.solute = new Uint8Array(N); this.nSol = 0; this.level = 0;
+    const nImp = Math.round(p.imp / 100 * N);
+    for (let k = 0; k < nImp; k++) { const i = Math.floor(rng() * N); if (this.grain[i] === MELT) { this.grain[i] = IMPURITY; this.impSites.push(i); } }
+    const f = p.conc / G_PER_FRAC;
+    for (let i = 0; i < N; i++) if (this.grain[i] === MELT && rng() < f) { this.solute[i] = 1; this.nSol++; }
+    this.meltCells = N - nImp;
+  },
+  waterCells() { return this.N - this.impSites.length - this.crystal - this.airCells(); },
+  airCells() { return Math.floor(this.level) * this.gw; },
+  conc() { return G_PER_FRAC * this.nSol / Math.max(1, this.waterCells()); },          // g per 100 g water
+  pruneFront() {
+    const g = this.grain, gw = this.gw, gh = this.gh, mark = this.mark || (this.mark = new Uint8Array(this.N)), nf = [];
+    for (const c of this.F) {
+      if (mark[c]) continue;
+      if (g[c] !== MELT) { this.inF[c] = 0; continue; }
+      const x = c % gw, y = (c / gw) | 0; let touch = false;
+      for (const [dx, dy] of NB8) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < gw && Y < gh && g[Y * gw + X] > 0) { touch = true; break; } }
+      if (touch) { mark[c] = 1; this.inF[c] = 1; nf.push(c); } else this.inF[c] = 0;
+    }
+    for (const c of nf) mark[c] = 0;
+    this.F = nf;
+  },
+  stepSolution() {
+    const rng = this.rng, gw = this.gw, gh = this.gh, g = this.grain, so = this.solute, dt = SOL.dt;
+    const T = this.T, fsat = solubility(this.p.salt, T) / G_PER_FRAC, stick = this.p.stick;
+    const top = Math.floor(this.level);
+    // (1) every dissolved particle takes one random step (if the cell is free water)
+    const nTry = this.nSol;
+    for (let k = 0; k < nTry; k++) {
+      const i = Math.floor(rng() * this.N); if (!so[i]) { k -= 0.97; continue; }   // pick dissolved particles at random
+      const x = i % gw, y = (i / gw) | 0, [dx, dy] = NB4[Math.floor(rng() * 4)], X = x + dx, Y = y + dy;
+      let j = i;
+      if (X >= 0 && Y >= top && X < gw && Y < gh) { const t = Y * gw + X; if (g[t] === MELT && !so[t]) { so[i] = 0; so[t] = 1; j = t; } }
+      // touching a crystal? it may stick
+      const jx = j % gw, jy = (j / gw) | 0;
+      for (const [ax, ay] of NB4) { const X2 = jx + ax, Y2 = jy + ay; if (X2 < 0 || Y2 < 0 || X2 >= gw || Y2 >= gh) continue; const c = g[Y2 * gw + X2]; if (c > 0 && rng() < stick) { so[j] = 0; this.nSol--; this.setCrystal(j, c); break; } }
+    }
+    // keep the list of water cells touching a crystal tidy: each cell once, only if it still touches a crystal
+    this.pruneFront();
+    // (2) surface particles may break off (dissolve)
+    if (this.p.dissolve !== false) {
+      const pd = SOL.kd * fsat * stick;
+      const list = this.F.slice(), done = new Set();
+      for (const c of list) {
+        if (g[c] !== MELT || so[c]) continue;
+        const x = c % gw, y = (c / gw) | 0, [dx, dy] = NB4[Math.floor(rng() * 4)], X = x + dx, Y = y + dy;
+        if (X < 0 || Y < 0 || X >= gw || Y >= gh) continue;
+        const j = Y * gw + X, gr = g[j]; if (gr <= 0 || done.has(j)) continue;
+        let nc = 0; for (const [ax, ay] of NB8) { const X2 = X + ax, Y2 = Y + ay; if (X2 >= 0 && Y2 >= 0 && X2 < gw && Y2 < gh && g[Y2 * gw + X2] > 0) nc++; }
+        if (rng() < pd * Math.exp(-SOL.beta * (nc - 3))) { done.add(j); g[j] = MELT; so[j] = 1; this.nSol++; this.area[gr]--; this.crystal--; if (this.area[gr] === 0) this.nG--; if (!this.inF[j]) { this.inF[j] = 1; this.F.push(j); } }
+      }
+    }
+    // (3) new crystals, if supersaturated (S > 1)
+    const S = this.conc() / solubility(this.p.salt, T);
+    if (S > 1 && this.p.nucleate !== false) {
+      const L = Math.log(S), barrier = Math.exp(-SOL.Bn / (L * L));
+      const nNew = poisson(rng, SOL.An * this.nSol * barrier * dt * 400);
+      for (let k = 0; k < nNew; k++) { const i = Math.floor(rng() * this.N); if (so[i]) { so[i] = 0; this.nSol--; this.newGrain(i); } }
+      // dust specks (impurities) make it much easier
+      if (this.impSites.length) {
+        const nh = poisson(rng, SOL.Ah * this.impSites.length * Math.exp(-0.3 * SOL.Bn / (L * L)) * dt);
+        for (let k = 0; k < nh && this.impSites.length; k++) {
+          const s = this.impSites[Math.floor(rng() * this.impSites.length)], x = s % gw, y = (s / gw) | 0, [dx, dy] = NB4[Math.floor(rng() * 4)], X = x + dx, Y = y + dy;
+          if (X >= 0 && Y >= top && X < gw && Y < gh) { const j = Y * gw + X; if (g[j] === MELT) { if (so[j]) { so[j] = 0; this.nSol--; } this.newGrain(j); } }
+        }
+      }
+    }
+    // (4) evaporation: the water level drops; dissolved particles in the top row are pushed down into the water
+    if (this.p.evap > 0 && this.level < gh * 0.75) {
+      const old = Math.floor(this.level);
+      this.level += this.p.evap / 100 / 3600 * dt * gh;           // evap: % of the water per hour
+      for (let row = old; row < Math.floor(this.level); row++) for (let x = 0; x < gw; x++) {
+        const i = row * gw + x;
+        if (so[i]) { so[i] = 0; this.nSol--; for (let tries = 0; tries < 50; tries++) { const j = (row + 1 + Math.floor(rng() * (gh - row - 1))) * gw + Math.floor(rng() * gw); if (g[j] === MELT && !so[j]) { so[j] = 1; this.nSol++; break; } } }
+        if (g[i] === MELT) g[i] = AIR;
+      }
+    }
+    // (5) temperature: cools at the set rate down to room temperature (no latent heat for a dilute solution)
+    this.T = Math.max(this.p.Tend, this.T - this.rate * dt);
+    this.t += dt;
+  },
+});
+
+/* =====================================================================
+   5. MAGMA THEORY: the Johnson–Mehl–Avrami–Kolmogorov (JMAK) equations
+   ---------------------------------------------------------------------
+   Crystals start at random and grow as circles. If they could overlap,
+   the "extended" fraction covered would be X_ext = Σ (number born) × π r².
+   Allowing for crystals bumping into each other, the real fraction is
+   X = 1 − e^(−X_ext). New crystals can only start in melt, so
+   dN = I × (1 − X) × dt. We step this forward with the same rates,
+   cooling and latent heat as the grid model.
+   ===================================================================== */
+function theoryMelt(p) {
+  let T = p.holdDT !== undefined ? MAG.Tm - p.holdDT : p.T0, t = 0, lam = 0, X = 0, N = 0;
+  const rate = p.holdDT !== undefined ? 0 : p.rate / 3600, tEnd = p.holdDT !== undefined ? p.holdTime : Infinity;
+  let sites = p.imp / 100 / (CELL * CELL);                 // impurity specks per mm²
+  let s0 = 0, s1 = 0, s2 = 0;      // running sums over crystals born: Σn, Σn·λ₀, Σn·λ₀² (so Σ n π (λ − λ₀)² is quick)
+  let dt = rate > 0 ? dTstep(T) / rate : tEnd / 2000;
+  for (let it = 0; it < 400000; it++) {
+    const G = growthRate(T), I = (p.nucScale ?? 1) * nucRate(T) + sites * hetRate(T);
+    dt = Math.min(dt * 1.5, rate > 0 ? dTstep(T) / rate : tEnd / 200);
+    if (t + dt > tEnd) dt = tEnd - t;
+    // try a step; if the crystal fraction would jump by more than 0.005, take a smaller step
+    let a0, a1, a2, lamN, Xn;
+    for (let k = 0; k < 60; k++) {
+      const dn = I * (1 - X) * dt;
+      a0 = s0 + dn; a1 = s1 + dn * lam; a2 = s2 + dn * lam * lam; lamN = lam + G * dt;
+      Xn = 1 - Math.exp(-Math.PI * Math.max(0, lamN * lamN * a0 - 2 * lamN * a1 + a2));
+      if (Xn - X <= 0.005 || dt < 1e-9) break;
+      dt /= 2;
+    }
+    N += a0 - s0; s0 = a0; s1 = a1; s2 = a2; lam = lamN;
+    sites -= sites * Math.min(1, hetRate(T) * dt);
+    const dX = Xn - X; X = Xn;
+    if (rate > 0) T += -rate * dt + MAG.LH * dX;
+    t += dt;
+    if (X > 0.9995 || t >= tEnd - 1e-12 || (rate > 0 && (T <= MAG.Tg - 30 || T <= p.Tend))) break;
+  }
+  // mean size: diameter of the average-sized crystal = 2√(crystal area per crystal ÷ π)
+  return { X, N, size: N > 0 ? 2 * Math.sqrt(X / N / Math.PI) : NaN, perCm2: N * 100 };
+}
+
+/* =====================================================================
+   6. ONE HEADLESS RUN (batch experiments)
+   ===================================================================== */
+function crystalStats(w) {
+  const sizes = []; let A = 0, n = 0, big = 0;
+  for (let g = 1; g < w.area.length; g++) if (w.area[g] > 0) { const a = w.area[g] * CELL * CELL; sizes.push(2 * Math.sqrt(a / Math.PI)); A += a; n++; if (a > big) big = a; }
+  return { sizes, n, mean: n ? 2 * Math.sqrt(A / n / Math.PI) : NaN, largest: 2 * Math.sqrt(big / Math.PI), area: A };
+}
+function runOnce(p0, seed) {
+  const p = { ...p0, mode: "melt" }, gw = p.gw || GW, gh = p.gh || GH;
+  if (p.holdDT !== undefined) { p.T0 = MAG.Tm - p.holdDT; p.rate = 0; }
+  const w = new World(p, seed, gw, gh);
+  if (p.holdDT !== undefined) {
+    while (w.t < p.holdTime) { let dt = Math.min(w.safeDtMelt(), p.holdTime / 300, p.holdTime - w.t); const T = w.T; w.stepMelt(dt); w.T = T; }
+  } else {
+    for (let it = 0; it < 200000; it++) {
+      w.stepMelt(w.safeDtMelt());
+      if (w.fraction() > 0.9995 || w.T <= MAG.Tg - 30 || w.T <= p.Tend) break;
+    }
+  }
+  const s = crystalStats(w), X = w.fraction(), fieldCm2 = gw * gh * CELL * CELL / 100;
+  return { size: s.mean, count: s.n / fieldCm2, X: 100 * X, glass: X < 0.5 ? 1 : 0, largest: s.largest, sizes: s.sizes, time: w.t };
+}
+
+/* =====================================================================
+   7. SETTINGS
+   ===================================================================== */
+const isSol = () => el("mode").value === "solution";
+// The rate slider is log₁₀ of the cooling rate: °C per hour for magma, °C per minute for solutions
+function rateCph() { const v = +el("rate").value; if (isSol()) return el("hold").checked ? 0 : 60 * 10 ** v; return 10 ** v; }
+function params() {
+  return { mode: el("mode").value, salt: el("salt").value, rate: rateCph(), T0: +el("T0").value, conc: +el("conc").value, imp: +el("imp").value,
+           stick: +el("stick").value, evap: +el("evap").value, Tend: isSol() ? 20 : 20, seed: el("seed").value || "1", nucScale: 1 };
+}
+function fmtRate(cph) {
+  if (cph <= 0) return "none (held steady)";
+  const perYr = cph * 24 * 365.25, perMin = cph / 60;
+  if (perMin >= 1) return `${fmt(perMin, 2)} °C per minute`;
+  if (cph >= 1) return `${fmt(cph, 2)} °C per hour`;
+  if (cph * 24 >= 1) return `${fmt(cph * 24, 2)} °C per day`;
+  if (perYr >= 1) return `${fmt(perYr, 2)} °C per year`;
+  return `${fmt(perYr * 1000, 2)} °C per 1000 years`;
+}
+function fmtTime(s) {
+  if (s < 120) return `${Math.round(s)} s`;
+  if (s < 7200) return `${(s / 60).toFixed(0)} min`;
+  if (s < 2 * 86400) return `${(s / 3600).toFixed(1)} hours`;
+  const d = s / 86400; if (d < 730) return `${d.toFixed(0)} days`;
+  const y = d / 365.25; if (y < 2000) return `${fmt(y, 3)} years`;
+  if (y < 2e6) return `${fmt(y / 1000, 3)} thousand years`;
+  return `${fmt(y / 1e6, 3)} million years`;
+}
+function timeUnit(s) { // a unit for graph axes
+  const U = [[1, "s"], [60, "min"], [3600, "hours"], [86400, "days"], [3.156e7, "years"], [3.156e10, "thousand years"]];
+  let u = U[0]; for (const x of U) if (s / x[0] >= 2) u = x; return u;
+}
+
+/* =====================================================================
+   8. PRESETS
+   ===================================================================== */
+const PRESETS = [
+  { name: "Granite", d: "deep underground: ~9 °C per 1000 yr", s: { mode: "melt", rate: -3, T0: 1150 } },
+  { name: "Basalt", d: "a lava flow: 10 °C per hour", s: { mode: "melt", rate: 1, T0: 1150 } },
+  { name: "Obsidian", d: "lava quenched: 50 °C per minute", s: { mode: "melt", rate: 3.5, T0: 1150 } },
+  { name: "Porphyry", d: "slow at depth, then erupts", s: { mode: "melt", rate: -2.5, T0: 1150 }, script: [{ when: w => w.fraction() > 0.06, act: () => { el("rate").value = 1.5; applyLive(); }, msg: "The magma has erupted: now it cools fast." }] },
+  { name: "Impure magma", d: "dust specks: many more crystals", s: { mode: "melt", rate: 0, T0: 1150, imp: 3 } },
+  { name: "Supercooling", d: "very pure melt, then sudden crystals", s: { mode: "melt", rate: 0.5, T0: 1150, nucScale: 1e-9 }, script: [{ when: w => w.T <= 1010, act: w => { w.p.nucScale = 1; }, msg: "Crystals suddenly start: watch the temperature jump back up." }] },
+  { name: "Copper sulfate", d: "hot solution cooled 1 °C/min", s: { mode: "solution", salt: "cuso4", rate: 0, T0: 80, conc: 55 } },
+  { name: "Seeded copper sulfate", d: "one seed, slow cooling", s: { mode: "solution", salt: "cuso4", rate: -0.7, T0: 70, conc: 46, nucScale: 0, seedCentre: true } },
+  { name: "Salt by evaporation", d: "warm, water evaporating", s: { mode: "solution", salt: "nacl", hold: true, T0: 40, conc: 36, evap: 25 } },
+  { name: "Salt by cooling?", d: "hardly anything: why?", s: { mode: "solution", salt: "nacl", rate: 0, T0: 90, conc: 38.6 } },
+  { name: "Snowflake dendrites", d: "every touch sticks: branches", s: { mode: "solution", salt: "alum", hold: true, T0: 20, conc: 22, stick: 1, nucScale: 0, seedCentre: true, noDissolve: true } },
+];
+let script = [], scriptMsg = "", presetExtra = {};
+function setPreset(k) {
+  const pr = PRESETS[k], s = { rate: 0, imp: 0, conc: 55, stick: 0.5, evap: 0, hold: false, salt: "cuso4", ...pr.s };
+  el("mode").value = s.mode; modeChanged(false);
+  for (const id of ["rate", "T0", "conc", "imp", "stick", "evap"]) el(id).value = s[id];
+  el("hold").checked = s.hold; el("salt").value = s.salt;
+  presetExtra = { nucScale: s.nucScale ?? 1, seedCentre: s.seedCentre, noDissolve: s.noDissolve };
+  [...el("presets").children].forEach((b, i) => b.classList.toggle("on", i === k));
+  refreshOutputs(); resetWorld();
+  script = (pr.script || []).map(x => ({ ...x, done: false })); scriptMsg = "";
+  setRunning(true);
+}
+PRESETS.forEach((p, k) => { const b = document.createElement("button"); b.innerHTML = `${p.name}<small>${p.d}</small>`; b.onclick = () => setPreset(k); el("presets").appendChild(b); });
+
+/* =====================================================================
+   9. LIVE STATE AND CONTROLS
+   ===================================================================== */
+let world = null, running = false, speed = 1, hist = [], colours = [];
+const DEG_PER_SECOND = 15, SOL_STEPS_PER_SECOND = 48;     // 1×: magma cools 15 °C per real second; solutions run 2 min per second
+function resetWorld() {
+  const p = { ...params(), ...presetExtra };
+  if (p.noDissolve) p.dissolve = false;
+  if (p.nucScale === 0) p.nucleate = false;
+  world = new World(p, p.seed);
+  if (p.seedCentre) world.placeSeed(GW >> 1, GH >> 1);
+  hist = [{ t: 0, T: world.T, X: 0, n: 0, c: isSol() ? world.conc() : 0 }]; script = []; scriptMsg = "";
+}
+function setRunning(on) { running = on; el("btnPlay").textContent = on ? "❚❚ Pause" : "▶ Play"; }
+function applyLive() {
+  refreshOutputs(); if (!world) return;
+  world.p.rate = rateCph(); world.rate = world.p.rate / 3600; world.p.stick = +el("stick").value; world.p.evap = +el("evap").value;
+}
+function modeChanged(reset = true) {
+  const sol = isSol();
+  document.querySelectorAll(".solOnly").forEach(e => e.style.display = sol ? "" : "none");
+  const r = el("rate"), t = el("T0");
+  if (sol) { r.min = -2; r.max = 1; r.value = 0; t.min = 20; t.max = 100; t.value = 80; }
+  else { r.min = -6; r.max = 4; r.value = 0; t.min = 1100; t.max = 1300; t.value = 1150; }
+  el("chart2Title").textContent = sol ? "Concentration and solubility" : "Crystallised and number of crystals";
+  if (reset) { presetExtra = {}; refreshOutputs(); resetWorld(); setRunning(true); }
+  legend();
+}
+function refreshOutputs() {
+  el("o_rate").textContent = fmtRate(rateCph());
+  el("o_T0").textContent = `${el("T0").value} °C`; el("o_imp").textContent = `${(+el("imp").value).toFixed(1)}% of cells`;
+  el("o_conc").textContent = `${el("conc").value} g per 100 g water (saturated at ${satTemp(+el("conc").value)})`;
+  el("o_stick").textContent = (+el("stick").value).toFixed(2); el("o_evap").textContent = `${el("evap").value}% of the water per hour`;
+}
+function satTemp(c) { const s = el("salt").value; for (let T = 0; T <= 100; T += 0.5) if (solubility(s, T) >= c) return `${Math.round(T)} °C`; return "over 100 °C"; }
+el("mode").onchange = () => modeChanged(true);
+for (const id of ["rate", "stick", "evap"]) el(id).addEventListener("input", applyLive);
+el("hold").addEventListener("change", applyLive);
+for (const id of ["T0", "conc", "imp"]) el(id).addEventListener("input", refreshOutputs);
+for (const id of ["T0", "conc", "imp", "salt", "seed"]) el(id).addEventListener("change", () => { refreshOutputs(); resetWorld(); setRunning(true); });
+el("btnPlay").onclick = () => setRunning(!running);
+el("btnReset").onclick = () => { resetWorld(); setRunning(true); };
+document.querySelectorAll(".speed button").forEach(b => b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll(".speed button").forEach(x => x.classList.toggle("on", x === b)); speedNote(); });
+function speedNote() { el("speedNote").textContent = isSol() ? `${fmt(2 * speed, 2)} min/s` : `${fmt(DEG_PER_SECOND * speed, 2)} °C/s cooling`; }
+el("btnBatch").onclick = () => { setRunning(false); Batch.open(); };
+// Click to drop a seed crystal
+el("view").addEventListener("pointerdown", e => {
+  const r = el("view").getBoundingClientRect(), x = Math.floor((e.clientX - r.left - view.ox) / view.s), y = Math.floor((e.clientY - r.top - view.oy) / view.s);
+  if (x > 0 && y > 0 && x < GW - 1 && y < GH - 1) { world.placeSeed(x, y); if (!running) setRunning(true); }
+});
+function legend() {
+  el("legend").innerHTML = isSol()
+    ? `<span><i style="background:#123047"></i>water</span><span><i style="background:#5a96d7;border-radius:50%"></i>dissolved particle</span><span><i style="background:${saltCss()}"></i>crystals (each shaded differently)</span><span><i style="background:#050604;border:1px solid #333"></i>air (water evaporated)</span><span><i style="background:#555"></i>dust</span>`
+    : `<span><i style="background:#ff8a1e"></i>molten rock (glows)</span><span><i style="background:#1b1612;border:1px solid #444"></i>glass</span><span><i style="background:linear-gradient(90deg,#e6a,#8ce,#ec6)"></i>crystals: each one a different colour</span><span><i style="background:#3a3a3a"></i>impurity speck</span><span>The slice is 20 mm × 13 mm.</span>`;
+}
+const saltCss = () => { const c = SOLUB[el("salt").value].col; return `rgb(${c[0]},${c[1]},${c[2]})`; };
+
+/* =====================================================================
+   10. DRAWING: the slice looks like a rock thin section under a microscope
+   ===================================================================== */
+const img = new ImageData(GW, GH), off = document.createElement("canvas"); off.width = GW; off.height = GH; const offCtx = off.getContext("2d");
+let view = { s: 1, ox: 0, oy: 0 };
+function grainColour(g) {
+  while (colours.length <= g) {
+    const r = mulberry32(colours.length * 7919 + 13);
+    if (isSol()) { const c = SOLUB[world.p.salt].col, k = 0.72 + 0.4 * r(); colours.push([Math.min(255, c[0] * k), Math.min(255, c[1] * k), Math.min(255, c[2] * k)]); }
+    else { // interference-like colours: bright, varied hues
+      const h = r() * 360, s = 0.45 + 0.35 * r(), l = 0.45 + 0.25 * r(), a = s * Math.min(l, 1 - l), f = n => { const k = (n + h / 30) % 12; return 255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))); };
+      colours.push([f(0), f(8), f(4)]);
+    }
+  }
+  return colours[g];
+}
+function meltColour(T) {
+  if (T < MAG.Tg) return [27, 22, 18];                     // glass: dark, almost black
+  const u = Math.max(0, Math.min(1, (T - 650) / 600));     // glowing: dull red → orange → yellow
+  return [90 + 165 * Math.min(1, u * 1.6), 20 + 150 * u * u, 10 + 40 * u * u * u];
+}
+function drawView() {
+  const { ctx, w, h } = prepCanvas(el("view")), d = img.data, g = world.grain, sol = world.solute;
+  ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, w, h);
+  const s = Math.min((w - 16) / GW, (h - 16) / GH); view = { s, ox: (w - GW * s) / 2, oy: (h - GH * s) / 2 };
+  const mc = meltColour(world.T), wc = [18, 48, 71];
+  if (isSol()) { const f = Math.min(1, world.conc() / 80); wc[2] = 71 + 80 * f * (world.p.salt === "cuso4" ? 1 : 0.2); }
+  for (let i = 0; i < NCELL; i++) {
+    const v = g[i]; let c;
+    if (v > 0) {
+      c = grainColour(v);
+      // darker line along grain boundaries
+      const x = i % GW, y = (i / GW) | 0;
+      const edge = (x < GW - 1 && g[i + 1] > 0 && g[i + 1] !== v) || (y < GH - 1 && g[i + GW] > 0 && g[i + GW] !== v);   // only between two different crystals
+      if (edge) c = [c[0] * 0.55, c[1] * 0.55, c[2] * 0.55];
+    } else if (v === IMPURITY) c = [58, 58, 58];
+    else if (v === AIR) c = [5, 6, 4];
+    else if (sol) c = sol[i] ? [90, 150, 215] : wc;
+    else c = mc;
+    d[4 * i] = c[0]; d[4 * i + 1] = c[1]; d[4 * i + 2] = c[2]; d[4 * i + 3] = 255;
+  }
+  offCtx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = false; ctx.drawImage(off, view.ox, view.oy, GW * s, GH * s);
+  // 1 mm scale bar
+  ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(view.ox + 6, view.oy + GH * s - 24, 10 * s + 16, 19);
+  ctx.fillStyle = "#fff"; ctx.fillRect(view.ox + 14, view.oy + GH * s - 10, 10 * s, 3); ctx.font = "11px system-ui"; ctx.textAlign = "left"; ctx.fillText("1 mm", view.ox + 14, view.oy + GH * s - 13);
+  if (scriptMsg) { ctx.font = "bold 14px system-ui"; const tw = ctx.measureText(scriptMsg).width; ctx.fillStyle = "rgba(20,19,59,.9)"; ctx.fillRect(view.ox + 8, view.oy + 8, tw + 16, 26); ctx.fillStyle = "#f1af28"; ctx.fillText(scriptMsg, view.ox + 16, view.oy + 26); }
+}
+function drawCharts() {
+  const tEnd = Math.max(world.t, 1), [us, un] = timeUnit(tEnd);
+  const step = Math.max(1, Math.floor(hist.length / 500)), H = hist.filter((_, k) => k % step === 0 || k === hist.length - 1);
+  if (!isSol()) {
+    plot(el("chartT"), { series: [{ pts: H.map(e => [e.t / us, e.T]), color: "#ff8a1e", width: 2 }], xMin: 0, xMax: tEnd / us, xLabel: `time (${un})`, yLabel: "temperature (°C)", padL: 46,
+      hLines: [{ v: MAG.Tm, color: "#4fc3f7", dash: [5, 4], label: "freezing point 1100 °C" }, { v: MAG.Tg, color: "#a3ab96", dash: [2, 4], label: "glass 650 °C" }] });
+    const nMax = Math.max(5, ...H.map(e => e.n));
+    plot(el("chart2"), { series: [{ pts: H.map(e => [e.t / us, 100 * e.X]), color: "#8fd694", width: 2 }, { pts: H.map(e => [e.t / us, 100 * e.n / nMax]), color: "#e83181", width: 1.6, dash: [5, 3] }], xMin: 0, xMax: tEnd / us, yMin: 0, yMax: 105,
+      xLabel: `time (${un})`, yLabel: "%", padL: 40, legend: [{ color: "#8fd694", label: "% crystallised" }, { color: "#e83181", dash: [5, 3], label: `crystals (100% = ${nMax})` }] });
+  } else {
+    plot(el("chartT"), { series: [{ pts: H.map(e => [e.t / us, e.T]), color: "#ff8a1e", width: 2 }], xMin: 0, xMax: tEnd / us, xLabel: `time (${un})`, yLabel: "temperature (°C)", padL: 40 });
+    const sal = world.p.salt;
+    plot(el("chart2"), { series: [{ pts: H.map(e => [e.t / us, e.c]), color: "#8fc4ff", width: 2 }, { pts: H.map(e => [e.t / us, solubility(sal, e.T)]), color: "#f1af28", width: 1.6, dash: [5, 3] }], xMin: 0, xMax: tEnd / us, yMin: 0,
+      xLabel: `time (${un})`, yLabel: "g per 100 g water", padL: 40, legend: [{ color: "#8fc4ff", label: "dissolved now" }, { color: "#f1af28", dash: [5, 3], label: "solubility" }] });
+  }
+  const st = crystalStats(world), sz = st.sizes;
+  if (sz.length) {
+    const hi = Math.max(...sz) * 1.05, nb = Math.min(24, Math.max(6, Math.round(Math.sqrt(sz.length)))), bw = hi / nb, cnt = new Array(nb).fill(0);
+    for (const v of sz) cnt[Math.min(nb - 1, Math.floor(v / bw))]++;
+    plot(el("chartH"), { series: [{ type: "bars", pts: cnt.map((c, k) => [k * bw, (k + 1) * bw, c]), color: "#f1af28" }], xMin: 0, xMax: hi, yMin: 0, xLabel: "crystal size (mm, as a circle's diameter)", yLabel: "crystals", padL: 40,
+      vLines: [{ v: st.mean, color: "#fff", label: `mean ${fmt(st.mean, 2)} mm` }] });
+  } else plot(el("chartH"), { series: [], xMin: 0, xMax: 1, yMin: 0, yMax: 1, xLabel: "crystal size (mm)", yLabel: "crystals", padL: 40 });
+}
+
+/* =====================================================================
+   11. READOUTS AND STORY
+   ===================================================================== */
+let lastUI = 0;
+function updateUI(now) {
+  el("clock").textContent = fmtTime(world.t);
+  if (now - lastUI < 300) return; lastUI = now;
+  const st = crystalStats(world), X = world.fraction(), sol = isSol(), T = world.T;
+  el("s_T").textContent = `${T.toFixed(T > 200 ? 0 : 1)} °C`; el("s_n").textContent = st.n; el("s_size").textContent = st.n ? `${fmt(st.mean, 2)} mm` : "–";
+  let status;
+  if (!sol) status = X > 0.995 ? ["solid rock", "#8fd694"] : T < MAG.Tg ? [X > 0.02 ? "glass with some crystals" : "glass", "#cfc3b0"] : T > MAG.Tm ? ["molten", "#ff8a1e"] : st.n ? ["crystallising", "#f1af28"] : ["supercooled melt", "#4fc3f7"];
+  else { const S = world.conc() / solubility(world.p.salt, T); status = S > 1.02 ? ["supersaturated", "#f1af28"] : S < 0.98 ? (st.n ? ["crystals dissolving", "#4fc3f7"] : ["unsaturated", "#4fc3f7"]) : ["saturated", "#8fd694"]; }
+  el("status").innerHTML = `<b style="color:${status[1]}">${status[0]}</b>`;
+  const area = GW * GH * CELL * CELL / 100;
+  const tiles = [["Temperature", `${T.toFixed(T > 200 ? 0 : 1)} °C`, sol ? `solubility ${fmt(solubility(world.p.salt, T), 3)} g/100 g` : `freezing point ${MAG.Tm} °C`],
+    ["Cooling rate", fmtRate(world.p.rate), sol && world.p.evap ? `evaporating ${world.p.evap}%/h` : "heat lost steadily"],
+    ["Crystals", `${st.n}`, `${fmt(st.n / area, 3)} per cm²`],
+    ["Mean crystal size", st.n ? `${fmt(st.mean, 3)} mm` : "–", "as a circle's diameter"],
+    ["Largest crystal", st.n ? `${fmt(st.largest, 3)} mm` : "–", st.n ? `${fmt(st.largest / 10, 2)} cm across` : ""],
+    [sol ? "Crystallised" : "Crystallised", `${fmt(100 * X, 3)}%`, sol ? "of the dissolved solid" : T < MAG.Tg && X < 0.995 ? "the rest is glass" : "of the melt"]];
+  if (sol) { const c = world.conc(), sat = solubility(world.p.salt, T); tiles.push(["Dissolved", `${fmt(c, 3)} g/100 g`, `saturation ${fmt(c / sat, 3)} × solubility`]); tiles.push(["Water left", `${fmt(100 * (1 - world.level / GH), 3)}%`, world.p.evap ? "evaporating" : "no evaporation"]); }
+  else if (!sol) { const th = theoryNow; tiles.push(["Growth speed", `${fmt(growthRate(T) * 3.156e7, 2)} mm/yr`, "at this temperature"]); tiles.push(["Theory (JMAK)", th ? `${fmt(th.size, 2)} mm` : "–", th ? `${th.X > 0.5 ? fmt(th.perCm2, 2) + " crystals/cm²" : "mostly glass"}` : ""]); }
+  el("tiles").innerHTML = tiles.map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+  el("story").innerHTML = story(st, X, status[0]);
+}
+let theoryNow = null;
+function story(st, X, status) {
+  const m = []; if (scriptMsg) m.push(`<b>${scriptMsg}</b>`);
+  if (!isSol()) {
+    const T = world.T, cph = world.p.rate;
+    if (T > MAG.Tm && !st.n) m.push("The rock is completely molten. It is losing heat and cooling towards its freezing point (1100 °C).");
+    else if (status === "supercooled melt") m.push(`The melt is below its freezing point by ${Math.round(MAG.Tm - T)} °C but no crystals have started yet. It is <b>supercooled</b>: a crystal needs a tiny seed cluster to start.`);
+    else if (status === "crystallising") m.push(`${st.n} crystals are growing. Freezing gives out latent heat, which holds the temperature near the freezing point: the flat part of the cooling curve.`);
+    if (status === "solid rock") m.push(`The rock is solid: ${st.n} crystals, about ${fmt(st.mean, 2)} mm across.`);
+    if (status.startsWith("glass")) m.push("The melt got too cold and sticky for atoms to move before crystals could fill it: it has frozen as <b>glass</b>, like obsidian.");
+    if (cph < 0.01) m.push("Cooling this slowly (deep underground) gives the few crystals that start lots of time to grow before new ones form: big crystals, like <b>granite</b>.");
+    else if (cph > 1 && cph < 300) m.push("Cooling fast (a lava flow at the surface) means many crystals start at once and each has little time to grow: small crystals, like <b>basalt</b>.");
+    if (world.p.imp > 0) m.push("Impurity specks make it easy for crystals to start, so there are more, smaller crystals.");
+  } else {
+    const T = world.T, c = world.conc(), sat = solubility(world.p.salt, T), name = SOLUB[world.p.salt].name;
+    if (c > sat * 1.02) m.push(`The water holds ${fmt(c, 3)} g of ${name} per 100 g, but at ${T.toFixed(0)} °C it can only hold ${fmt(sat, 3)} g. It is <b>supersaturated</b>, so the extra comes out as crystals.`);
+    else m.push(`At ${T.toFixed(0)} °C, 100 g of water can hold ${fmt(sat, 3)} g of ${name}. ${st.n ? "The solution is about saturated: particles join and leave the crystals at the same rate." : "Nothing needs to crystallise yet."}`);
+    if (world.p.salt === "nacl" && !world.p.evap) m.push("Salt is almost as soluble in cold water as in hot, so cooling makes very few crystals. To get salt you have to evaporate the water.");
+    if (world.p.evap) m.push("Water is evaporating, so the same salt is in less water: the solution becomes saturated and crystals form.");
+    if (world.p.stick >= 0.95) m.push("Every particle sticks the moment it touches: the tips of the crystal reach out into fresh solution first, so it grows branches (a dendrite, like a snowflake).");
+  }
+  return m.join(" ");
+}
+
+/* =====================================================================
+   12. MAIN LOOP
+   ===================================================================== */
+let lastT = performance.now();
+function finished() { return !isSol() && (world.fraction() > 0.9995 || world.T <= MAG.Tg - 30 || world.T <= world.p.Tend + 0.01); }
+function frame(now) {
+  const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (running) {
+    const t0 = performance.now();
+    if (isSol()) {
+      let n = Math.max(1, Math.round(real * speed * SOL_STEPS_PER_SECOND + Math.random() - 0.5));
+      while (n-- > 0 && performance.now() - t0 < 30) world.stepSolution();
+    } else if (!finished()) {
+      let left = real * speed * DEG_PER_SECOND / Math.max(world.rate, 1e-30);
+      while (left > 0 && performance.now() - t0 < 30 && !finished()) { const dt = Math.min(left, world.safeDtMelt()); world.stepMelt(dt); left -= dt; }
+      if (finished()) setRunning(false);
+    }
+    for (const sc of script) if (!sc.done && sc.when(world)) { sc.done = true; sc.act(world); scriptMsg = sc.msg; }
+    const last = hist[hist.length - 1];
+    if (world.t > last.t) hist.push({ t: world.t, T: world.T, X: world.fraction(), n: world.nG, c: isSol() ? world.conc() : 0 });
+    if (hist.length > 4000) hist = hist.filter((_, k) => k % 2 === 0);
+  }
+  drawView(); drawCharts(); updateUI(now);
+  requestAnimationFrame(frame);
+}
+// the theory value shown in the readings (worked out once per setting)
+setInterval(() => { if (world && !isSol()) { const p = world.p; const key = [p.rate, p.T0, p.imp, p.nucScale].join(); if (key !== theoryNow?.key) theoryNow = { ...theoryMelt(p), key }; } }, 500);
+
+/* =====================================================================
+   13. BATCH EXPERIMENTS (magma)
+   ===================================================================== */
+Batch.init({
+  file: "crystallisation",
+  noFit: ["glass", "X"],
+  repeatSizes: [10, 20, 50],
+  headlessNote: "Batch runs use the magma model (the same grid, with no drawing). Theory: the JMAK (Avrami) equations worked out step by step with the same rates and latent heat.",
+  vars: [
+    { key: "rate", label: "Cooling rate", unit: "°C per hour", min: 1e-6, max: 1e4, log: true },
+    { key: "T0", label: "Starting temperature", unit: "°C", min: 1100, max: 1300 },
+    { key: "imp", label: "Impurities", unit: "% of cells", min: 0, max: 5 },
+    { key: "holdDT", label: "Undercooling held for 1 day", unit: "°C", min: 1, max: 449 },
+  ],
+  outcomes: [
+    { key: "size", label: "Mean crystal size", unit: "mm" },
+    { key: "count", label: "Number of crystals", unit: "per cm²" },
+    { key: "X", label: "Crystallised", unit: "%" },
+    { key: "glass", label: "Formed glass (1 = yes, 0 = no)", unit: "" },
+    { key: "largest", label: "Largest crystal", unit: "mm" },
+    { key: "sizes", label: "Sizes of every crystal", unit: "mm", multi: true },
+  ],
+  baseParams: () => { const p = params(); delete p.seed; if (p.mode !== "melt") { p.rate = 1; p.T0 = 1150; p.imp = 0; } p.mode = "melt"; return p; },
+  describe: p => p.holdTime ? `Molten rock cooled instantly to a set undercooling (chosen by the sweep), held there for 1 day, impurities ${p.imp}%${p.gw ? `, smaller ${p.gw / 10} × ${p.gh / 10} mm slice` : ""}.` : p.holdDT !== undefined ? `Molten rock cooled instantly to ${Math.round(MAG.Tm - p.holdDT)} °C (undercooling ${Math.round(p.holdDT)} °C), held there for 1 day, impurities ${p.imp}%${p.gw ? `, smaller ${p.gw / 10} × ${p.gh / 10} mm slice` : ""}.` : `Molten rock from ${p.T0} °C, cooling at ${fmtRate(p.rate)}, impurities ${p.imp}%.`,
+  runOnce: (p, seed) => runOnce(p, seed),
+  theory(key, p) {
+    if (key === "largest") return null;
+    const th = theoryMelt(p);
+    if (key === "size" || key === "sizes") return th.X > 0.02 ? th.size : null;
+    if (key === "count") return th.perCm2;
+    if (key === "X") return 100 * th.X;
+    if (key === "glass") return th.X < 0.5 ? 1 : 0;
+    return null;
+  },
+  theoryLabel: key => key === "glass" ? "theory (glass if JMAK gives < 50% crystals)" : "theory (JMAK)",
+  interpret(spec, fit, d) {
+    if (spec.mode === "repeat" && d.key === "sizes") return `<p>The theory line is the size of the <i>average-area</i> crystal; the mean of all the diameters is a little smaller, because there are many small crystals.</p>`;
+    if (spec.mode !== "sweep" || !fit) return "";
+    if (spec.var === "rate" && spec.x === "log" && spec.y === "log" && (d.key === "size" || d.key === "count")) {
+      const a = spec.xs[0], b = spec.xs[spec.xs.length - 1], ta = theoryMelt({ ...spec.params, rate: a }), tb = theoryMelt({ ...spec.params, rate: b });
+      const thG = d.key === "size" ? Math.log10(tb.size / ta.size) / Math.log10(b / a) : Math.log10(tb.perCm2 / ta.perCm2) / Math.log10(b / a);
+      return `<p>${d.key === "size" ? "Crystal size" : "Number of crystals"} ∝ (cooling rate)<sup>${fmt(fit.m, 2)}</sup>. JMAK theory over this range: gradient <b>${fmt(thG, 2)}</b>${d.key === "size" ? " (−0.2 for very slow cooling)" : ""}. ${d.key === "size" ? "Faster cooling → smaller crystals." : "Faster cooling → more crystals."}</p>`;
+    }
+    return "";
+  },
+  experiments: [
+    { q: "Faster cooling, smaller crystals?", sub: "cooling rate 0.001 to 30 °C/hour → crystal size", mode: "sweep", var: "rate", from: 0.001, to: 30, steps: 7, reps: 2, out: "size", x: "log", y: "log",
+      params: { T0: 1150, imp: 0, Tend: 20, nucScale: 1 },
+      note: "<p>Each run cools a fresh melt at one rate. On a log–log graph the crystal size falls in a straight-ish line: about ten times faster cooling makes crystals about 1.6 times smaller.</p><p>This is why granite (cooled over thousands of years underground) has crystals you can see, and basalt (a lava flow) does not. Slower than about 0.001 °C/hour the crystals become bigger than the slice, so the grid cannot show them.</p>" },
+    { q: "…and more crystals?", sub: "the same sweep, counting crystals", mode: "sweep", var: "rate", from: 0.001, to: 30, steps: 7, reps: 2, out: "count", x: "log", y: "log",
+      params: { T0: 1150, imp: 0, Tend: 20, nucScale: 1 },
+      note: "<p>Faster cooling takes the melt further below its freezing point before it crystallises. There, new crystals start much more often, so there are many more of them sharing the same space.</p><p>When the crystals are only a few cells across the grid counts slightly fewer than theory.</p>" },
+    { q: "How big are the crystals in one rock?", sub: "20 rocks cooled at 1 °C/hour: every crystal", mode: "repeat", n: 20, out: "sizes",
+      params: { rate: 1, T0: 1150, imp: 0, Tend: 20, nucScale: 1 },
+      note: "<p>Even in one rock the crystals are different sizes: early starters grow big, late starters are squeezed small between them. The histogram pools every crystal from 20 rocks.</p><p>Switch <b>Record</b> to <i>Mean crystal size</i> to see how much the average varies from rock to rock (very little: each slice has hundreds of crystals).</p>" },
+    { q: "When does a melt freeze as glass?", sub: "held 1 day at 1 to 440 °C below Tm", mode: "sweep", var: "holdDT", from: 5, to: 440, steps: 16, reps: 4, out: "glass", x: "lin", y: "lin",
+      params: { holdTime: 86400, imp: 0, Tend: 20, nucScale: 1, gw: 100, gh: 65 },
+      note: "<p>The melt is cooled instantly to a fixed temperature and held for a day, then frozen. Just below Tm almost no crystals start, so it stays liquid and then freezes as glass. Far below Tm the melt is too stiff for atoms to move: glass again. Only in between does it crystallise.</p><p>This U-shape is the \"nose\" of a time–temperature–transformation diagram. Obsidian forms when lava cools through the middle too fast to crystallise. These runs use a smaller 10 × 6.5 mm slice to be quick.</p>" },
+    { q: "Do impurities make more, smaller crystals?", sub: "0 to 5% dust specks at 1 °C/hour", mode: "sweep", var: "imp", from: 0, to: 5, steps: 6, reps: 2, out: "count", x: "lin", y: "lin",
+      params: { rate: 1, T0: 1150, Tend: 20, nucScale: 1 },
+      note: "<p>Dust specks are places where crystals start easily (heterogeneous nucleation), so they add crystals. More crystals sharing the same space means each is smaller: switch <b>Record</b> to <i>Mean crystal size</i>.</p><p>The same idea is used to make ice cream smooth and chocolate glossy: control where crystals start.</p>" },
+  ],
+});
+
+/* =====================================================================
+   14. START
+   ===================================================================== */
+initPanels("crystallisation-layout");
+modeChanged(false);
+speedNote();
+setPreset(1);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

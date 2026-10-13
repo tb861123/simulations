@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exoplanet Hunting</title>
+<!--
+  EXOPLANET HUNTING — transits and radial velocities, a teaching model
+  ====================================================================
+  One self-contained file: no libraries, no internet needed.
+
+  TRANSIT METHOD: when a planet passes in front of its star, the star
+  dims by the fraction of its disc that is covered:
+      depth = (Rp / Rs)²        (Rp planet radius, Rs star radius)
+  The dip repeats every orbital period P and lasts about
+      duration ≈ (P / π) × (Rs / a)   for a central transit.
+  We only see transits if the orbit is nearly edge-on: for random
+  orientations the chance is about Rs / a.
+
+  RADIAL VELOCITY METHOD: the star and planet both orbit their centre of
+  mass, so the star wobbles towards and away from us. Its light is
+  Doppler shifted (blue when coming towards us, red when going away). The
+  wobble's speed amplitude is
+      K = 28.4 m/s × (Mp sin i / M_Jupiter) × (M_star / M☉)^(−2/3) × (P / 1 year)^(−1/3)
+  which gives the planet's MINIMUM mass Mp sin i (i = inclination).
+
+  KEPLER'S THIRD LAW gives the orbit size: a³ = M_star P²  (a in AU,
+  P in years, M in solar masses).
+
+  Units: time in days, brightness changes in ppm (parts per million:
+  1% = 10,000 ppm), star speeds in m/s, planet sizes and masses in Earth
+  units. Every simplification is listed in the app.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; --theory:#00aec3; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 330px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: #3b3a5c; }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select, input[type=number], input[type=text] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .chk { display: flex; gap: 6px; align-items: center; font-size: 13px; margin: 4px 0 8px; }
+  .chk input { accent-color: var(--accent); }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+  .seg { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 8px; }
+  .seg button { padding: 3px 8px; font-size: 12px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #viewWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; min-width: 0; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; overflow-wrap: anywhere; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .tile.hl { border-color: var(--accent); }
+  .chartBox { position: relative; height: 170px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+  table.mini { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  table.mini td, table.mini th { padding: 2px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+  table.mini td:first-child, table.mini th:first-child { text-align: left; }
+
+  /* Batch run overlay (covers the centre and right panels) */
+  #batch { display: none; position: fixed; z-index: 30; background: var(--panel); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px;
+           flex-direction: column; gap: 7px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+  #batch.open { display: flex; }
+  #batch .bhead { display: flex; align-items: center; gap: 10px; }
+  #batch .bhead h3 { margin: 0; font-size: 17px; color: var(--accent); white-space: nowrap; }
+  #batch .brow { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; }
+  #batch .brow label { display: inline-flex; gap: 5px; align-items: center; }
+  #batch input[type=number] { width: 82px; }
+  #bexp { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 5px; }
+  #bexp button { text-align: left; font-size: 12px; padding: 5px 7px; line-height: 1.25; }
+  #bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, 31%); gap: 10px; }
+  #bchartBox { position: relative; min-height: 0; background: #050604; border-radius: 8px; }
+  #bchart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bside { overflow-y: auto; font-size: 12.5px; min-height: 0; }
+  #bsum table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #bsum td, #bsum th { padding: 1px 4px; border-bottom: 1px solid var(--line); text-align: right; font-size: 12px; }
+  #bsum td:first-child, #bsum th:first-child { text-align: left; }
+  #bnote { margin-top: 8px; padding: 7px 9px; background: var(--panel-2); border-left: 3px solid var(--accent); border-radius: 5px; color: #dfe3d6; }
+  .prog { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; flex: 1; min-width: 120px; }
+  .prog span { display: block; height: 100%; width: 0; background: var(--accent); }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+
+  .tabs { display: flex; gap: 3px; flex-wrap: wrap; }
+  .tabs button { padding: 3px 9px; font-size: 12px; }
+  #ptabs button { padding: 3px 10px; font-size: 12px; }
+  #ptabs button.off { opacity: .55; }
+  #res table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  #res td, #res th { padding: 2px 4px; border-bottom: 1px solid var(--line); text-align: right; vertical-align: top; }
+  #res td:first-child, #res th:first-child { text-align: left; color: var(--muted); }
+  #res .truth { color: #00aec3; }
+  #msg { font-size: 12.5px; margin-top: 6px; color: #dfe3d6; }
+  #msg b { color: var(--accent); }
+  .prow { display: flex; gap: 5px; align-items: center; }
+  .prow input[type=number] { width: 90px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Exoplanet Hunting</h1>
+  <span class="sub">Find planets round other stars from tiny dips in starlight (transits) and the star's wobble (radial velocity), then work out their size, mass, orbit and what they are made of.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: PRESETS, STAR, PLANETS, TELESCOPE ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">The star <span class="hint" style="text-transform:none;letter-spacing:0">(new observations)</span></h2>
+    <div class="ctl"><select id="star"><option value="sun">Sun-like star (G type, 1 M☉)</option><option value="mdwarf">Red dwarf (M type, 0.3 M☉)</option><option value="ucd">Ultra-cool dwarf like TRAPPIST-1 (0.09 M☉)</option><option value="astar">Bigger, hotter star (A type, 1.8 M☉)</option></select></div>
+    <label class="chk"><input type="checkbox" id="spots"> Star spots (the star's brightness wobbles as it spins)</label>
+    <label class="chk"><input type="checkbox" id="flares"> Flares (sudden brightenings)</label>
+
+    <h2 class="gap">Planets <span class="hint" style="text-transform:none;letter-spacing:0">(new observations)</span></h2>
+    <div class="seg" id="ptabs"><button data-p="0" class="on">Planet b</button><button data-p="1">Planet c</button><button data-p="2">Planet d</button></div>
+    <label class="chk"><input type="checkbox" id="pon" checked> This planet exists</label>
+    <div class="ctl"><label>Type</label><select id="ptype"><option value="hotj">Hot Jupiter</option><option value="neptune">Neptune-like</option><option value="superearth">Super-Earth</option><option value="earth">Earth-like</option><option value="custom">Custom</option></select></div>
+    <div class="ctl"><label>Radius <output id="o_pR"></output></label><input type="range" id="pR" min="-0.5" max="1.25" step="0.005" value="0"></div>
+    <div class="ctl"><label>Mass <output id="o_pM"></output></label><input type="range" id="pM" min="-1.3" max="3.5" step="0.005" value="0"></div>
+    <div class="ctl"><label>Orbital period <output id="o_pP"></output></label><input type="range" id="pP" min="-0.3" max="3" step="0.001" value="0.5"></div>
+    <div class="ctl"><label>Inclination of the orbits <output id="o_inc"></output></label><input type="range" id="inc" min="0" max="90" step="0.01" value="90">
+      <div class="hint">90° = exactly edge-on (we look along the orbit's plane). The planets share one orbital plane.</div></div>
+
+    <h2 class="gap">Telescope <span class="hint" style="text-transform:none;letter-spacing:0">(new observations)</span></h2>
+    <div class="ctl"><label>Light-curve instrument</label><select id="instr"><option value="ground">Ground telescope (nights only, weather)</option><option value="tess">TESS-like space telescope</option><option value="kepler">Kepler-like space telescope</option></select></div>
+    <div class="ctl"><label>Noise × <output id="o_noise"></output></label><input type="range" id="noise" min="-0.6" max="0.6" step="0.01" value="0">
+      <div class="hint">Higher for fainter (more distant) stars.</div></div>
+    <div class="ctl"><label>Observing for <output id="o_days"></output></label><input type="range" id="days" min="0.7" max="3.17" step="0.001" value="1.43"></div>
+    <div class="ctl"><label>Radial-velocity precision <output id="o_rvSig"></output></label><input type="range" id="rvSig" min="0.1" max="30" step="0.1" value="3"></div>
+    <div class="ctl"><label>Radial-velocity measurements <output id="o_rvN"></output></label><input type="range" id="rvN" min="5" max="200" step="1" value="40"></div>
+    <div class="ctl"><label>Random seed</label><input type="text" id="seed" value="1" style="width:100%"></div>
+    <div class="row"><button id="btnNew" style="flex:1">New observations</button></div>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Orbits:</b> circular, all planets in one plane at inclination i. Kepler's third law gives the orbit size: a³ = (M<sub>star</sub> + M<sub>planet</sub>) P² (AU, years, solar masses). Planets do not pull on each other.</li>
+        <li><b>Transits:</b> the fraction of the star covered by the planet's disc (exact circle-overlap formula, so grazing transits work). The star is a uniform disc: real stars are darker near the edge (limb darkening), which rounds the bottom of real transits.</li>
+        <li><b>Transit depth</b> = (R<sub>p</sub>/R<sub>s</sub>)². Duration T = (P/π) arcsin(√((1 + k)² − b²) / ((a/R<sub>s</sub>) sin i)), k = R<sub>p</sub>/R<sub>s</sub>, impact parameter b = (a/R<sub>s</sub>) cos i. A transit happens only if b &lt; 1 + k; for random orientations the chance is (R<sub>s</sub> + R<sub>p</sub>)/a.</li>
+        <li><b>Noise:</b> each brightness measurement has a random (normal) error: ground 2,500 ppm every 5 minutes, observing 8 hours a night and losing 35% of nights to cloud, plus a random offset each night; TESS-like 600 ppm every 30 minutes with a 1-day gap every 13.7 days; Kepler-like 80 ppm every 30 minutes. Real noise also depends on the star's brightness (the noise slider).</li>
+        <li><b>Star spots</b> make a slow wave in brightness as the star spins (Sun-like 800 ppm, 25 days; red dwarf 4,000 ppm, 12 days). <b>Flares</b> are sudden brightenings that fade in about half an hour. A running median 2 days wide (one night from the ground) is subtracted to remove them, and bright flares are cut out. This also makes very long transits a little shallower.</li>
+        <li><b>Search (BLS, box least squares):</b> for each trial period the light curve is folded and a box-shaped dip is slid along it; the signal-to-noise ratio is SNR = √(χ² improvement). Trial periods are spaced so a dip of the expected length can't be missed, from 0.5 days to two-thirds of the observing time (at least about two transits). A planet counts as found if SNR &gt; 7.</li>
+        <li><b>Fitting:</b> a trapezoid-shaped dip (flat bottom, sloping ingress and egress, never sharper than one exposure). The depth is the least-squares best fit: depth = −Σym/Σm², error = σ/√Σm². The period error is how far the period can move before χ² rises by 1.</li>
+        <li><b>Theory:</b> SNR = depth/σ × √(points in transit). Radius R<sub>p</sub> = R<sub>s</sub> √depth, so its error is R<sub>s</sub> × σ<sub>depth</sub> / (2√depth). The star's radius and mass are taken as known exactly; in reality their errors (often 5–10%) add to the planet's.</li>
+        <li><b>Radial velocity:</b> the star's speed along our line of sight is −K sin(2π(t − t<sub>0</sub>)/P) for each planet, added together, measured on random nights with a random error (the precision slider; active, spotty stars add "jitter"). A sine wave is fitted at the trial period by least squares to get K, then the minimum mass M sin i = K/28.4 m/s × M<sub>Jupiter</sub> × M<sub>star</sub><sup>2/3</sup> × (P/1 yr)<sup>1/3</sup>. If the planet transits, sin i ≈ 1, so this is the true mass.</li>
+        <li><b>Density and make-up:</b> density = 5.51 g/cm³ × (M/M⊕)/(R/R⊕)³. Above about 4 g/cm³ (and smaller than 1.7 R⊕) it is probably rocky; below about 2 g/cm³ it must have a thick gas envelope.</li>
+        <li><b>Habitable zone:</b> where a planet gets between 0.53 and 1.1 times the sunlight Earth gets: from √(L/1.1) to √(L/0.53) AU. Equilibrium temperature 278.6 K × L<sup>¼</sup> / √a × 0.7<sup>¼</sup> (30% of light reflected).</li>
+        <li><b>Not modelled:</b> limb darkening, eccentric orbits, planets tugging on each other (transit timing variations), the planet's own light, moons, false positives such as eclipsing binary stars, and stellar granulation noise.</li>
+      </ul>
+    </details>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE: THE SYSTEM AND THE DATA ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">Day 0</span>
+      <span class="stat">of <b id="s_days">–</b></span>
+      <span class="stat">Brightness points <b id="s_n">0</b></span>
+      <span class="stat">Radial velocities <b id="s_rv">0</b></span>
+      <span class="stat">Transits so far <b id="s_tr">0</b></span>
+    </div>
+    <div id="viewWrap"><canvas id="view" aria-label="The planetary system and the observations"></canvas></div>
+    <div class="row" style="justify-content:space-between">
+      <div class="tabs" id="gtabs"><button data-g="lc" class="on">Light curve</button><button data-g="pg">Periodogram</button><button data-g="fold">Folded light curve</button><button data-g="rv">Radial velocity</button><button data-g="rvfold">Folded RV</button></div>
+      <span class="hint" id="gnote"></span>
+    </div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:96px">▶ Observe</button>
+      <button id="btnAll" title="Collect all the data straight away">Observe all now</button>
+      <button id="btnReset" title="Start observing again">Reset</button>
+      <span class="speed">Speed <button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="10">10×</button><button data-s="100">100×</button></span>
+      <span class="hint">1× = 1 day a second</span>
+      <button id="btnBatch" style="margin-left:auto">📊 Batch run</button>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT: ANALYSIS TOOLS AND RESULTS ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Analysis</button>
+    <h2>Analysis tools</h2>
+    <div class="ctl"><label>Trial period <output id="o_trial"></output></label><input type="range" id="trial" min="-0.3" max="3" step="0.0001" value="0.5"></div>
+    <div class="prow"><input type="number" id="trialNum" step="any" min="0.3" max="1000" title="Type a period in days"><span class="hint">days</span><button id="half" title="Halve the trial period">÷2</button><button id="dbl" title="Double the trial period">×2</button></div>
+    <div class="row" style="margin-top:8px">
+      <button id="btnBLS" class="primary">🔍 Search for transits</button>
+      <button id="btnNext" title="Hide the planets found so far and search again">Find next planet</button>
+      <button id="btnRVP" title="Search the radial velocities for a repeating wobble">RV periodogram</button>
+    </div>
+    <div id="msg">Observe for a while, then press <b>Search for transits</b>, or fold the data with the trial period slider.</div>
+    <h2 class="gap">Measurements at the trial period</h2>
+    <div id="res"></div>
+    <div class="row" style="margin-top:6px"><button id="btnReveal">👁 Reveal true values</button></div>
+    <h2 class="gap">What's happening</h2>
+    <div id="story"></div>
+  </section>
+</main>
+
+<!-- ======================= BATCH RUN OVERLAY ======================= -->
+<div id="batch" role="dialog" aria-label="Batch run">
+  <div class="bhead">
+    <h3>📊 Batch run</h3>
+    <span class="hint" id="bIntro"></span>
+    <button id="bClose" style="margin-left:auto">✕ Close</button>
+  </div>
+  <div id="bexp"></div>
+  <div class="brow">
+    <label>Mode <select id="bMode"><option value="repeat">Repeat (same settings, different random seeds)</option><option value="sweep">Sweep (change one setting in steps)</option></select></label>
+    <label>Record <select id="bOut"></select></label>
+    <span id="bRepeatOpts"><label>Runs <select id="bRuns"></select></label></span>
+    <span id="bSweepOpts" class="brow">
+      <label>Change <select id="bVar"></select></label>
+      <label>from <input type="number" id="bFrom" step="any"></label>
+      <label>to <input type="number" id="bTo" step="any"></label>
+      <label>steps <input type="number" id="bSteps" min="2" max="25" value="8" style="width:56px"></label>
+      <label>repeats <input type="number" id="bReps" min="1" max="500" value="20" style="width:64px"></label>
+    </span>
+  </div>
+  <div class="brow">
+    <button id="bRun" class="primary">▶ Run batch</button>
+    <button id="bStop" disabled>■ Stop</button>
+    <div class="prog"><span id="bProg"></span></div>
+    <span id="bStatus" class="hint">Ready</span>
+    <label id="bShowWrap">Show <select id="bShow"><option value="mean">mean ± error bar</option><option value="sd">spread (SD) only</option></select></label>
+    <label>Error bars <select id="bErr"><option value="sd">± 1 SD</option><option value="se">± 1 standard error</option></select></label>
+    <label><input type="checkbox" id="bLogX"> log x</label>
+    <label><input type="checkbox" id="bLogY"> log y</label>
+    <button id="bCsv" disabled>⬇ Download CSV</button>
+  </div>
+  <div id="bbody">
+    <div id="bchartBox"><canvas id="bchart"></canvas></div>
+    <div id="bside"><div id="bsum" class="hint">Pick an experiment above, or set up your own, then press <b>Run batch</b>.</div><div id="bnote" style="display:none"></div></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   SHARED HELPERS: random numbers, formatting, graphs
+   ===================================================================== */
+const el = id => document.getElementById(id);
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+// Repeatable random numbers: the same seed always gives the same "random" run.
+function hashSeed(str) { str = String(str); let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } return h >>> 0; }
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+// A normally distributed random number (mean 0, SD 1), by the Box–Muller method.
+function gauss(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+// The normal cumulative distribution Φ(z): the chance a normal variable is below z.
+function normCdf(z) { const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989423 * Math.exp(-z * z / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - p : p; }
+// Format a number to about `sig` significant figures, with thousands separators.
+function fmt(v, sig = 3) {
+  if (v == null || !isFinite(v)) return "–";
+  const a = Math.abs(v);
+  if (a === 0) return "0";
+  if (a >= 1e6 || a < 1e-3) { const e = Math.floor(Math.log10(a)), m = v / Math.pow(10, e); return `${m.toFixed(Math.max(0, sig - 1))}×10<sup>${e}</sup>`; }
+  if (a >= Math.pow(10, sig - 1)) return Math.round(v).toLocaleString("en-GB");
+  return Number(v.toPrecision(sig)).toString();
+}
+const fmtPlain = (v, sig = 3) => fmt(v, sig).replace(/×10<sup>(-?\d+)<\/sup>/, "e$1");
+const tile = (k, v, s = "", cls = "") => `<div class="tile ${cls}"><div class="k">${k}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ""}</div>`;
+
+// Make a canvas sharp on high-resolution screens and match its on-screen size.
+function fitCanvas(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(2, Math.round(c.clientWidth * dpr)), H = Math.max(2, Math.round(c.clientHeight * dpr));
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  return { ctx: c.getContext("2d"), W, H, dpr };
+}
+// "Nice" tick marks for an axis (1, 2, 5 × a power of ten)
+function niceTicks(lo, hi, n = 5) {
+  if (!(hi > lo)) return [lo];
+  const raw = (hi - lo) / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  const step = (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p, out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+  return out;
+}
+function logTicks(lo, hi) {
+  const out = [], a = Math.floor(Math.log10(lo)), b = Math.ceil(Math.log10(hi));
+  const mult = b - a <= 2 ? [1, 2, 5] : b - a <= 4 ? [1, 3] : [1];
+  for (let e = a; e <= b; e++) for (const m of mult) { const v = m * Math.pow(10, e); if (v >= lo * 0.999 && v <= hi * 1.001) out.push(v); }
+  return out;
+}
+const tickLabel = v => { const a = Math.abs(v); if (a !== 0 && (a >= 1e5 || a < 1e-3)) { const e = Math.floor(Math.log10(a) + 1e-9), m = v / Math.pow(10, e); return (Math.abs(m - 1) < 1e-6 ? "" : +m.toFixed(1) + "×") + "1e" + e; } return +v.toPrecision(4) + ""; };
+
+/* Draw axes, grid and labels inside rectangle r = {x, y, w, h} (device pixels).
+   Returns functions X(value) and Y(value) that turn data values into pixels. */
+function plotFrame(ctx, r, o) {
+  const d = o.dpr || 1, L = r.x + (o.padL ?? 50) * d, R = r.x + r.w - (o.padR ?? 10) * d, T = r.y + (o.title ? 20 : 8) * d, B = r.y + r.h - (o.xlabel ? 32 : 18) * d;
+  const lx = o.logX, ly = o.logY;
+  const fx = v => (lx ? Math.log10(v) : v), fy = v => (ly ? Math.log10(v) : v);
+  const X = v => L + (fx(v) - fx(o.x0)) / (fx(o.x1) - fx(o.x0)) * (R - L);
+  const Y = v => B - (fy(v) - fy(o.y0)) / (fy(o.y1) - fy(o.y0)) * (B - T);
+  ctx.save();
+  ctx.fillStyle = o.bg || "#0d100b"; ctx.fillRect(r.x, r.y, r.w, r.h);
+  ctx.font = `${10.5 * d}px system-ui`; ctx.lineWidth = 1;
+  const xt = o.xticks || (lx ? logTicks(o.x0, o.x1) : niceTicks(o.x0, o.x1, Math.max(2, Math.floor((R - L) / (70 * d)))));
+  const yt = o.yticks || (ly ? logTicks(o.y0, o.y1) : niceTicks(o.y0, o.y1, Math.max(2, Math.floor((B - T) / (34 * d)))));
+  for (const v of xt) { const x = X(v); if (x < L - 1 || x > R + 1) continue; ctx.strokeStyle = "rgba(160,170,150,0.13)"; ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, B); ctx.stroke();
+    ctx.fillStyle = "#a3ab96"; ctx.textAlign = "center"; ctx.fillText((o.xfmt || tickLabel)(v), x, B + 12 * d); }
+  for (const v of yt) { const y = Y(v); if (y < T - 1 || y > B + 1) continue; ctx.strokeStyle = "rgba(160,170,150,0.13)"; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(R, y); ctx.stroke();
+    ctx.fillStyle = "#a3ab96"; ctx.textAlign = "right"; ctx.fillText((o.yfmt || tickLabel)(v), L - 4 * d, y + 3.5 * d); }
+  ctx.strokeStyle = "rgba(200,205,190,0.45)"; ctx.strokeRect(L, T, R - L, B - T);
+  ctx.fillStyle = "#cfd4c5"; ctx.font = `${11 * d}px system-ui`;
+  if (o.xlabel) { ctx.textAlign = "center"; ctx.fillText(o.xlabel, (L + R) / 2, r.y + r.h - 6 * d); }
+  if (o.ylabel) { ctx.save(); ctx.translate(r.x + 11 * d, (T + B) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText(o.ylabel, 0, 0); ctx.restore(); }
+  if (o.title) { ctx.textAlign = "left"; ctx.fillStyle = "#eef0e8"; ctx.font = `600 ${11.5 * d}px system-ui`; ctx.fillText(o.title, L, r.y + 13 * d); }
+  ctx.restore();
+  return { X, Y, L, R, T, B, clip() { ctx.save(); ctx.beginPath(); ctx.rect(L, T, R - L, B - T); ctx.clip(); } };
+}
+function polyline(ctx, pts, col, w = 2, dash = null) {
+  ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = w; if (dash) ctx.setLineDash(dash); ctx.beginPath();
+  let started = false;
+  for (const p of pts) { if (!p || !isFinite(p[0]) || !isFinite(p[1])) { started = false; continue; } if (!started) { ctx.moveTo(p[0], p[1]); started = true; } else ctx.lineTo(p[0], p[1]); }
+  ctx.stroke(); ctx.restore();
+}
+function legendBox(ctx, items, x, y, d) {
+  ctx.save(); ctx.font = `${11 * d}px system-ui`;
+  const w = Math.max(...items.map(i => ctx.measureText(i[1]).width)) + 30 * d, h = items.length * 15 * d + 6 * d;
+  ctx.fillStyle = "rgba(10,12,9,0.82)"; ctx.fillRect(x - w, y, w, h);
+  items.forEach(([col, txt, dash], k) => {
+    const yy = y + 12 * d + k * 15 * d;
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2.5 * d; ctx.setLineDash(dash ? [5 * d, 4 * d] : []);
+    if (dash === "dot") { ctx.beginPath(); ctx.arc(x - w + 13 * d, yy - 3.5 * d, 3 * d, 0, 7); ctx.fill(); }
+    else { ctx.beginPath(); ctx.moveTo(x - w + 5 * d, yy - 4 * d); ctx.lineTo(x - w + 21 * d, yy - 4 * d); ctx.stroke(); }
+    ctx.setLineDash([]); ctx.fillStyle = "#dfe3d6"; ctx.textAlign = "left"; ctx.fillText(txt, x - w + 25 * d, yy);
+  });
+  ctx.restore();
+}
+function basicStats(v) {
+  const n = v.length; if (!n) return { n: 0 };
+  let s = 0, mn = Infinity, mx = -Infinity; for (const x of v) { s += x; if (x < mn) mn = x; if (x > mx) mx = x; }
+  const mean = s / n; let ss = 0; for (const x of v) ss += (x - mean) ** 2;
+  const sd = n > 1 ? Math.sqrt(ss / (n - 1)) : 0;
+  return { n, mean, sd, se: sd / Math.sqrt(n), min: mn, max: mx };
+}
+// Least-squares straight line y = a + b x, with the standard error of the gradient
+function linFit(xs, ys) {
+  const n = xs.length; if (n < 2) return null;
+  let sx = 0, sy = 0; for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; }
+  const mx = sx / n, my = sy / n; let sxx = 0, sxy = 0; for (let i = 0; i < n; i++) { sxx += (xs[i] - mx) ** 2; sxy += (xs[i] - mx) * (ys[i] - my); }
+  if (!sxx) return null;
+  const b = sxy / sxx, a = my - b * mx; let ss = 0; for (let i = 0; i < n; i++) ss += (ys[i] - a - b * xs[i]) ** 2;
+  return { a, b, seB: n > 2 ? Math.sqrt(ss / (n - 2) / sxx) : 0 };
+}
+
+/* =====================================================================
+   BATCH RUN — run the model many times with no drawing, compare with theory.
+   The simulation supplies a SPEC:
+     outcomes   : [{key, label, unit, binary}]   things a run can measure
+     vars       : [{key, label, unit, min, max, log, int}]  settings a sweep can change
+     runs       : choices for the number of repeats
+     base()     : the current settings (from the controls)
+     run(p, seed, outKey) → {key: value, ...}  ONE headless run
+     theory(p, outKey) → {y, sd, label} or null  the theory prediction
+     experiments: [{q, note, setup(), cfg}]   one-click questions
+   ===================================================================== */
+function setupBatch(S) {
+  let busy = false, stop = false, res = null, expNote = null;
+  const O = k => S.outcomes.find(o => o.key === k), V = k => S.vars.find(v => v.key === k);
+  el("bIntro").innerHTML = S.intro;
+  el("bOut").innerHTML = S.outcomes.map(o => `<option value="${o.key}">${o.label}${o.unit ? " (" + o.unit + ")" : ""}</option>`).join("");
+  el("bVar").innerHTML = S.vars.map(v => `<option value="${v.key}">${v.label}${v.unit ? " (" + v.unit + ")" : ""}</option>`).join("");
+  el("bRuns").innerHTML = S.runs.map(n => `<option>${n}</option>`).join("");
+  el("bRuns").value = S.runs[1] ?? S.runs[0];
+  el("bexp").innerHTML = S.experiments.map((e, i) => `<button data-i="${i}">${e.q}</button>`).join("");
+  const sync = () => {
+    const sw = el("bMode").value === "sweep";
+    el("bRepeatOpts").style.display = sw ? "none" : ""; el("bSweepOpts").style.display = sw ? "" : "none"; el("bShowWrap").style.display = sw ? "" : "none";
+  };
+  const setVarDefaults = () => { const v = V(el("bVar").value); el("bFrom").value = v.from ?? v.min; el("bTo").value = v.to ?? v.max; el("bLogX").checked = !!v.log; };
+  function loadExperiment(i) {
+    const e = S.experiments[i], c = e.cfg;
+    if (e.setup) e.setup();
+    el("bMode").value = c.mode; el("bOut").value = c.outcome;
+    if (c.mode === "repeat") el("bRuns").value = c.n;
+    else { el("bVar").value = c.var; setVarDefaults(); el("bFrom").value = c.from; el("bTo").value = c.to; el("bSteps").value = c.steps; el("bReps").value = c.reps; }
+    el("bShow").value = c.show || "mean"; el("bErr").value = c.err || "sd"; el("bLogY").checked = !!c.logY; if (c.logX != null) el("bLogX").checked = c.logX;
+    document.querySelectorAll("#bexp button").forEach((b, j) => b.classList.toggle("on", j === i));
+    expNote = e; sync(); el("bnote").style.display = "none";
+    el("bsum").innerHTML = `<b>${e.q}</b><br>Press <b>Run batch</b>.`;
+  }
+  function xs(c) {
+    const v = V(c.var), out = [];
+    for (let k = 0; k < c.steps; k++) {
+      const f = c.steps === 1 ? 0 : k / (c.steps - 1);
+      let x = v.log && c.from > 0 && c.to > 0 ? c.from * Math.pow(c.to / c.from, f) : c.from + (c.to - c.from) * f;
+      x = clamp(x, v.min, v.max); if (v.int) x = Math.round(x);
+      if (!out.includes(x)) out.push(x);
+    }
+    return out;
+  }
+  function run() {
+    if (busy) return;
+    const c = { mode: el("bMode").value, outcome: el("bOut").value, n: +el("bRuns").value, var: el("bVar").value,
+                from: +el("bFrom").value, to: +el("bTo").value, steps: clamp(+el("bSteps").value | 0, 2, 25), reps: clamp(+el("bReps").value | 0, 1, 500) };
+    const base = S.base(), jobs = [], tag = String(base.seed ?? "batch");
+    if (c.mode === "repeat") for (let k = 0; k < c.n; k++) jobs.push({ p: base, seed: hashSeed(tag + "|r" + k), x: null });
+    else for (const x of xs(c)) for (let k = 0; k < c.reps; k++) jobs.push({ p: Object.assign({}, base, { [c.var]: x }), seed: hashSeed(tag + "|" + x + "|" + k), x });
+    res = { c, base, rows: [], note: expNote };
+    busy = true; stop = false; el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").disabled = true;
+    const t0 = performance.now(); let k = 0;
+    (function chunk() {
+      const tc = performance.now();
+      while (k < jobs.length && performance.now() - tc < 40 && !stop) {
+        const j = jobs[k++], r = S.run(j.p, j.seed, c.outcome);
+        res.rows.push(Object.assign({ seed: j.seed, x: j.x }, r));
+      }
+      el("bProg").style.width = (100 * k / jobs.length) + "%";
+      el("bStatus").textContent = `${k} / ${jobs.length} runs · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+      draw();
+      if (k < jobs.length && !stop) setTimeout(chunk, 0);
+      else { busy = false; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").disabled = !res.rows.length; el("bStatus").textContent += stop ? " · stopped" : " · done"; }
+    })();
+  }
+  function theoryAt(p, key) { try { const t = S.theory(p, key); return t && isFinite(t.y) ? t : null; } catch (e) { return null; } }
+  function draw() {
+    const cv = el("bchart"), { ctx, W, H, dpr: d } = fitCanvas(cv);
+    ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, W, H);
+    if (!res || !res.rows.length) return;
+    const c = res.c, key = el("bOut").value, o = O(key), unit = o.unit ? ` (${o.unit})` : "";
+    const logY = el("bLogY").checked, useSE = el("bErr").value === "se";
+    const note = res.note && res.note.note ? `<b>What this shows.</b> ${res.note.note}` : "";
+    el("bnote").innerHTML = note; el("bnote").style.display = note ? "" : "none";
+    if (c.mode === "repeat") {
+      const vals = res.rows.map(r => r[key]).filter(v => v != null && isFinite(v));
+      const st = basicStats(vals), th = theoryAt(res.base, key);
+      if (!st.n) { el("bsum").innerHTML = "No valid results for this measure yet."; return; }
+      let lo = st.min, hi = st.max;
+      if (o.binary) { lo = -0.5; hi = 1.5; }
+      else { if (th) { lo = Math.min(lo, th.y - (th.sd || 0) * 2.5); hi = Math.max(hi, th.y + (th.sd || 0) * 2.5); } if (hi - lo < 1e-12) { lo -= 1; hi += 1; } const pad = (hi - lo) * 0.06; lo -= pad; hi += pad; }
+      const nb = o.binary ? 2 : clamp(Math.round(Math.sqrt(st.n) * 1.3), 8, 40), bw = o.binary ? 1 : (hi - lo) / nb, bins = new Array(nb).fill(0);
+      for (const v of vals) bins[o.binary ? (v >= 0.5 ? 1 : 0) : clamp(Math.floor((v - lo) / bw), 0, nb - 1)]++;
+      let ymax = Math.max(...bins);
+      const curve = th && th.sd > 0 && !o.binary ? x => st.n * bw * Math.exp(-0.5 * ((x - th.y) / th.sd) ** 2) / (th.sd * Math.sqrt(2 * Math.PI)) : null;
+      if (curve) ymax = Math.max(ymax, curve(th.y));
+      const ax = plotFrame(ctx, { x: 0, y: 0, w: W, h: H }, { dpr: d, x0: lo, x1: hi, y0: 0, y1: ymax * 1.12, xlabel: o.label + unit, ylabel: "Number of runs",
+        title: `Repeat: ${st.n} runs`, xticks: o.binary ? [0, 1] : null, xfmt: o.binary ? (v => (v ? "yes (1)" : "no (0)")) : null });
+      ax.clip();
+      ctx.fillStyle = "rgba(241,175,40,0.55)"; ctx.strokeStyle = "#f1af28";
+      bins.forEach((b, i) => { const x0 = o.binary ? ax.X(i - 0.35) : ax.X(lo + i * bw), x1 = o.binary ? ax.X(i + 0.35) : ax.X(lo + (i + 1) * bw); ctx.fillRect(x0 + d, ax.Y(b), x1 - x0 - 2 * d, ax.Y(0) - ax.Y(b)); });
+      const leg = [["#f1af28", "simulated runs"]];
+      if (curve) { const pts = []; for (let i = 0; i <= 120; i++) { const x = lo + (hi - lo) * i / 120; pts.push([ax.X(x), ax.Y(curve(x))]); } polyline(ctx, pts, "#00aec3", 2.5 * d); leg.push(["#00aec3", "theory spread (normal curve)"]); }
+      if (th && !o.binary) { polyline(ctx, [[ax.X(th.y), ax.T], [ax.X(th.y), ax.B]], "#00aec3", 2.5 * d, [7 * d, 5 * d]); leg.push(["#00aec3", (th.label || "theory value"), true]); }
+      if (!o.binary) { polyline(ctx, [[ax.X(st.mean), ax.T], [ax.X(st.mean), ax.B]], "#ffffff", 2 * d); leg.push(["#ffffff", "mean of runs"]); }
+      ctx.restore();
+      legendBox(ctx, leg, W - 12 * d, 24 * d, d);
+      const diff = th ? st.mean - th.y : null;
+      let rows = `<tr><th>Runs (valid)</th><td>${st.n}${vals.length < res.rows.length ? ` of ${res.rows.length}` : ""}</td></tr>` +
+        (o.binary ? `<tr><th>Fraction “yes”</th><td>${fmt(st.mean, 3)} ± ${fmt(Math.sqrt(st.mean * (1 - st.mean) / st.n), 2)}</td></tr>` :
+        `<tr><th>Mean</th><td>${fmt(st.mean, 4)}</td></tr><tr><th>SD</th><td>${fmt(st.sd, 3)}</td></tr><tr><th>Standard error</th><td>${fmt(st.se, 3)}</td></tr><tr><th>Min / max</th><td>${fmt(st.min, 3)} / ${fmt(st.max, 3)}</td></tr>`);
+      if (th) {
+        const se = o.binary ? Math.sqrt(Math.max(th.y * (1 - th.y), 1e-9) / st.n) : st.se;
+        rows += `<tr><th>${th.label || "Theory"}</th><td>${fmt(th.y, 4)}</td></tr>` + (th.sd && !o.binary ? `<tr><th>Theory SD</th><td>${fmt(th.sd, 3)}</td></tr>` : "") +
+          `<tr><th>Difference</th><td>${th.y ? fmt(100 * diff / Math.abs(th.y), 2) + "%" : fmt(diff, 3)}</td></tr><tr><th>…in standard errors</th><td>${se > 0 ? (diff / se).toFixed(1) : "–"}</td></tr>`;
+      }
+      el("bsum").innerHTML = `<table>${rows}</table>` + (S.extraSummary ? S.extraSummary(res.rows, key, res.base) : "");
+    } else {
+      const v = V(c.var), logX = el("bLogX").checked, showSD = el("bShow").value === "sd";
+      const groups = new Map();
+      for (const r of res.rows) { if (!groups.has(r.x)) groups.set(r.x, []); const y = r[key]; if (y != null && isFinite(y)) groups.get(r.x).push(y); }
+      const G = [...groups.entries()].map(([x, ys]) => { const s = basicStats(ys); const p = Object.assign({}, res.base, { [c.var]: x }); return { x, s, th: theoryAt(p, key) }; }).filter(g => g.s.n);
+      if (!G.length) { el("bsum").innerHTML = "No valid results for this measure yet."; return; }
+      const err = g => (o.binary ? Math.sqrt(g.s.mean * (1 - g.s.mean) / g.s.n) * (useSE ? 1 : Math.sqrt(g.s.n)) : useSE ? g.s.se : g.s.sd);
+      const yv = g => (showSD ? g.s.sd : g.s.mean), tv = g => (g.th ? (showSD ? g.th.sd : g.th.y) : null);
+      let x0 = Math.min(...G.map(g => g.x)), x1 = Math.max(...G.map(g => g.x));
+      if (x1 === x0) { x0 -= 1; x1 += 1; }
+      if (!logX) { const p = (x1 - x0) * 0.05; x0 -= p; x1 += p; } else { x0 = Math.max(x0 / 1.15, 1e-12); x1 *= 1.15; }
+      const tcurve = []; for (let i = 0; i <= 100; i++) { const x = logX ? x0 * Math.pow(x1 / x0, i / 100) : x0 + (x1 - x0) * i / 100; const xc = clamp(x, v.min, v.max); const t = theoryAt(Object.assign({}, res.base, { [c.var]: v.int ? xc : xc }), key); if (t) tcurve.push([x, showSD ? t.sd : t.y]); }
+      let ys = [];
+      G.forEach(g => { ys.push(yv(g)); if (!showSD) { ys.push(g.s.mean - err(g), g.s.mean + err(g)); } });
+      if (!showSD) res.rows.forEach(r => { const y = r[key]; if (y != null && isFinite(y)) ys.push(y); });
+      tcurve.forEach(p => ys.push(p[1]));
+      ys = ys.filter(y => y != null && isFinite(y) && (!logY || y > 0));
+      let y0 = Math.min(...ys), y1 = Math.max(...ys);
+      if (o.binary && !showSD) { y0 = Math.min(0, y0); y1 = Math.max(1, y1); }
+      if (logY) { y0 = Math.max(y0 / 1.3, 1e-12); y1 *= 1.3; } else { if (y1 - y0 < 1e-12) { y0 -= 1; y1 += 1; } const p = (y1 - y0) * 0.08; y0 -= p; y1 += p; if (!o.binary && y0 < 0 && Math.min(...ys) >= 0) y0 = 0; }
+      const ax = plotFrame(ctx, { x: 0, y: 0, w: W, h: H }, { dpr: d, x0, x1, y0, y1, logX, logY, xlabel: v.label + (v.unit ? ` (${v.unit})` : ""),
+        ylabel: (showSD ? "Spread (SD) of " : "") + o.label + unit, title: `Sweep: ${G.length} steps × ${c.reps} runs` });
+      ax.clip();
+      if (!showSD && !o.binary) { ctx.fillStyle = "rgba(0,174,195,0.0)"; ctx.fillStyle = "rgba(241,175,40,0.22)"; for (const r of res.rows) { const y = r[key]; if (y == null || !isFinite(y) || (logY && y <= 0)) continue; ctx.beginPath(); ctx.arc(ax.X(r.x), ax.Y(y), 2 * d, 0, 7); ctx.fill(); } }
+      const leg = [];
+      if (tcurve.length) {
+        polyline(ctx, tcurve.map(p => [ax.X(p[0]), ax.Y(p[1])]), "#00aec3", 2.5 * d);
+        leg.push(["#00aec3", showSD ? "theory spread" : "theory"]);
+        if (!showSD && tcurve.length && G.some(g => g.th && g.th.sd)) {
+          const band = s => { const pts = []; for (let i = 0; i <= 100; i++) { const x = logX ? x0 * Math.pow(x1 / x0, i / 100) : x0 + (x1 - x0) * i / 100; const t = theoryAt(Object.assign({}, res.base, { [c.var]: clamp(x, v.min, v.max) }), key); if (t && t.sd) pts.push([ax.X(x), ax.Y(t.y + s * t.sd)]); } return pts; };
+          polyline(ctx, band(1), "rgba(0,174,195,0.6)", 1.3 * d, [5 * d, 4 * d]); polyline(ctx, band(-1), "rgba(0,174,195,0.6)", 1.3 * d, [5 * d, 4 * d]);
+          leg.push(["rgba(0,174,195,0.8)", "theory ± 1 SD of one run", true]);
+        }
+      }
+      ctx.strokeStyle = "#ffffff"; ctx.fillStyle = "#f1af28"; ctx.lineWidth = 1.6 * d;
+      for (const g of G) {
+        const X = ax.X(g.x), y = yv(g); if (!(isFinite(y)) || (logY && y <= 0)) continue;
+        if (!showSD) { const e = err(g), ya = ax.Y(Math.max(logY ? y0 : -Infinity, y - e)), yb = ax.Y(y + e); ctx.beginPath(); ctx.moveTo(X, ya); ctx.lineTo(X, yb); ctx.moveTo(X - 5 * d, ya); ctx.lineTo(X + 5 * d, ya); ctx.moveTo(X - 5 * d, yb); ctx.lineTo(X + 5 * d, yb); ctx.stroke(); }
+        ctx.beginPath(); ctx.arc(X, ax.Y(y), 4.5 * d, 0, 7); ctx.fill(); ctx.stroke();
+      }
+      ctx.restore();
+      leg.unshift(["#f1af28", showSD ? "SD of the runs at each step" : `mean ± ${o.binary ? (useSE ? "standard error" : "1 SD") : useSE ? "standard error" : "1 SD"}`, "dot"]);
+      if (!showSD && !o.binary) leg.push(["rgba(241,175,40,0.6)", "individual runs", "dot"]);
+      legendBox(ctx, leg, W - 12 * d, 24 * d, d);
+      // summary table and fitted relationships
+      let rows = `<tr><th>${v.label}</th><th>n</th><th>${showSD ? "SD" : "mean"}</th><th>${showSD ? "mean" : o.binary ? "SE" : "SD"}</th><th>theory</th></tr>`;
+      let within = 0, cnt = 0;
+      for (const g of G) {
+        const se = o.binary ? Math.sqrt(Math.max(g.s.mean * (1 - g.s.mean), 0.25 / g.s.n) / g.s.n) : g.s.se;
+        if (g.th && !showSD) { cnt++; if (Math.abs(g.s.mean - g.th.y) <= 2 * Math.max(se, 1e-12)) within++; }
+        rows += `<tr><td>${fmt(g.x, 3)}</td><td>${g.s.n}</td><td>${fmt(yv(g), 3)}</td><td>${fmt(showSD ? g.s.mean : o.binary ? se : g.s.sd, showSD ? 3 : 2)}</td><td>${tv(g) != null ? fmt(tv(g), 3) : "–"}</td></tr>`;
+      }
+      let fits = "";
+      const pos = G.filter(g => g.x > 0 && yv(g) > 0);
+      if (pos.length >= 3) { const f = linFit(pos.map(g => Math.log10(g.x)), pos.map(g => Math.log10(yv(g)))); if (f) fits += `<div>Log–log gradient of ${showSD ? "SD" : "mean"} against ${v.label}: <b>${f.b.toFixed(2)} ± ${f.seB.toFixed(2)}</b>${S.slopeHint ? S.slopeHint(c.var, key, showSD) : ""}</div>`; }
+      if (!showSD) { const f = linFit(G.map(g => g.x), G.map(g => g.s.mean)); if (f) fits += `<div>Straight-line fit: ${o.label} = ${fmt(f.a, 3)} + ${fmt(f.b, 3)} × ${v.label}</div>`; }
+      if (cnt) fits += `<div>Steps within 2 standard errors of theory: <b>${within} of ${cnt}</b></div>`;
+      el("bsum").innerHTML = `<table>${rows}</table><div style="margin-top:6px">${fits}</div>` + (S.extraSummary ? S.extraSummary(res.rows, key, res.base, c) : "");
+    }
+  }
+  function csv() {
+    if (!res) return;
+    const keys = [...new Set(res.rows.flatMap(r => Object.keys(r)))].filter(k => k !== "seed" && k !== "x");
+    const head = ["run", "seed", res.c.mode === "sweep" ? res.c.var : null, ...keys].filter(Boolean);
+    const lines = [head.join(",")].concat(res.rows.map((r, i) => [i + 1, r.seed, res.c.mode === "sweep" ? r.x : null, ...keys.map(k => (r[k] == null || !isFinite(r[k]) ? "" : +(+r[k]).toPrecision(8)))].filter(v => v !== null).join(",")));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" })); a.download = `${S.file}-batch-${res.c.mode}.csv`;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+  function place() {
+    const c = el("centre").getBoundingClientRect(), r = el("right").getBoundingClientRect(), b = el("batch");
+    b.style.left = c.left + "px"; b.style.top = c.top + "px"; b.style.width = (r.right - c.left) + "px"; b.style.height = c.height + "px";
+  }
+  document.querySelectorAll("#bexp button").forEach(b => b.addEventListener("click", () => loadExperiment(+b.dataset.i)));
+  el("bMode").addEventListener("input", () => { expNote = null; document.querySelectorAll("#bexp button").forEach(b => b.classList.remove("on")); sync(); });
+  el("bVar").addEventListener("input", () => { setVarDefaults(); expNote = null; });
+  ["bOut", "bShow", "bErr", "bLogX", "bLogY"].forEach(id => el(id).addEventListener("input", draw));
+  el("btnBatch").addEventListener("click", () => { place(); el("batch").classList.add("open"); if (!res && !expNote) loadExperiment(0); draw(); });
+  el("bClose").addEventListener("click", () => el("batch").classList.remove("open"));
+  el("bRun").addEventListener("click", run);
+  el("bStop").addEventListener("click", () => { stop = true; });
+  el("bCsv").addEventListener("click", csv);
+  window.addEventListener("resize", () => { if (el("batch").classList.contains("open")) { place(); draw(); } });
+  setVarDefaults(); sync();
+  return { place, draw, isBusy: () => busy, isOpen: () => el("batch").classList.contains("open"), loadExperiment, run, result: () => res };
+}
+
+/* =====================================================================
+   PANEL LAYOUT — resize or hide the side panels
+   ===================================================================== */
+function setupPanels(KEY, onChange) {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const STRIP = 30, MIN = 200, DEF = { lw: 290, rw: 330, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+    if (onChange) onChange();
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+}
+
+/* =====================================================================
+   1. CONSTANTS, STARS AND PLANET TYPES
+   ---------------------------------------------------------------------
+   Units: time in days, star mass and radius in Sun units (M☉, R☉),
+   planet radius and mass in Earth units (R⊕, M⊕), orbit size in AU,
+   brightness changes in ppm (parts per million: 1% = 10,000 ppm),
+   star speeds in m/s.
+   ===================================================================== */
+const RSUN_REARTH = 109.1;          // the Sun is 109 Earths across
+const AU_RSUN = 215.03;             // 1 AU = 215 solar radii
+const MSUN_MEARTH = 332946;         // the Sun is 333,000 Earth masses
+const MJUP_MEARTH = 317.83;         // Jupiter is 318 Earth masses
+const K_JUP = 28.4329;              // star wobble (m/s) caused by Jupiter's mass on a 1-year orbit round a 1 M☉ star
+const STARS = {
+  sun:    { name: "Sun-like star (G)", M: 1.0, R: 1.0, T: 5778, spot: 800, prot: 25, flare: 0.03, flareA: 1500 },
+  mdwarf: { name: "Red dwarf (M)", M: 0.3, R: 0.3, T: 3400, spot: 4000, prot: 12, flare: 0.4, flareA: 6000 },
+  ucd:    { name: "Ultra-cool dwarf (TRAPPIST-1)", M: 0.09, R: 0.12, T: 2560, spot: 6000, prot: 3.3, flare: 1.0, flareA: 15000 },
+  astar:  { name: "Bigger, hotter star (A)", M: 1.8, R: 1.8, T: 8000, spot: 150, prot: 1.5, flare: 0, flareA: 0 },
+};
+for (const s of Object.values(STARS)) s.L = s.R * s.R * Math.pow(s.T / 5778, 4);   // luminosity L = R² T⁴ (Sun units)
+const PTYPES = {
+  hotj:    { name: "Hot Jupiter", R: 11.2, M: 318, P: 3.5 },
+  neptune: { name: "Neptune-like", R: 3.9, M: 17, P: 12 },
+  superearth: { name: "Super-Earth", R: 1.6, M: 5, P: 20 },
+  earth:   { name: "Earth-like", R: 1.0, M: 1.0, P: 365.25 },
+  custom:  { name: "Custom" },
+};
+/* Instruments. sigma = random error of one brightness measurement (ppm) for a
+   bright star; cadence = time between measurements (days). */
+const INSTR = {
+  ground: { name: "Ground telescope", sigma: 2500, cadence: 5 / 1440, night: 8 / 24, weather: 0.35, nightOff: 800 },
+  tess:   { name: "TESS-like space telescope", sigma: 600, cadence: 30 / 1440, gap: 13.7 },
+  kepler: { name: "Kepler-like space telescope", sigma: 80, cadence: 30 / 1440 },
+};
+const semiMajor = (Mstar, Mp, P) => Math.cbrt((Mstar + Mp / MSUN_MEARTH) * (P / 365.25) ** 2);   // Kepler's third law: a³ = M P²  (AU, years)
+// Radial-velocity semi-amplitude K (m/s) for a circular orbit
+const rvK = (Mp, incl, P, Mstar) => K_JUP * (Mp * Math.sin(incl * Math.PI / 180) / MJUP_MEARTH) * Math.pow(Mstar + Mp / MSUN_MEARTH, -2 / 3) * Math.pow(P / 365.25, -1 / 3);
+// Minimum mass (M⊕) from K (m/s), P (days), star mass
+const minMass = (K, P, Mstar) => K / K_JUP * MJUP_MEARTH * Math.pow(Mstar, 2 / 3) * Math.pow(P / 365.25, 1 / 3);
+const hzOf = L => [Math.sqrt(L / 1.1), Math.sqrt(L / 0.53)];      // habitable zone (AU), simple flux limits
+const tEq = (L, a) => 278.6 * Math.pow(L, 0.25) / Math.sqrt(a) * Math.pow(0.7, 0.25);   // equilibrium temperature (K), albedo 0.3
+
+/* Geometry of one planet: everything needed to know where it is and
+   what it blocks. Orbit is circular; i = 90° is exactly edge-on. */
+function geom(star, pl, incl) {
+  const a = semiMajor(star.M, pl.M, pl.P), aR = a * AU_RSUN / star.R, k = pl.R / RSUN_REARTH / star.R;
+  const ci = Math.cos(incl * Math.PI / 180), si = Math.sin(incl * Math.PI / 180), b = aR * ci;
+  const dur = x => (x * x - b * b > 0 ? pl.P / Math.PI * Math.asin(Math.min(1, Math.sqrt(x * x - b * b) / (aR * si))) : 0);
+  const T14 = dur(1 + k), T23 = dur(1 - k);
+  return { a, aR, k, b, ci, si, depth: k * k, T14, T23, tau: (T14 - T23) / 2, transits: b < 1 + k, K: rvK(pl.M, incl, pl.P, star.M) };
+}
+// Fraction of the star's disc covered by a planet (uniform disc): z = separation, k = radius ratio (both in star radii)
+function overlap(z, k) {
+  if (z >= 1 + k) return 0;
+  if (z <= 1 - k) return k * k;
+  if (z <= k - 1) return 1;
+  const k0 = Math.acos(clamp((k * k + z * z - 1) / (2 * k * z), -1, 1)), k1 = Math.acos(clamp((1 - k * k + z * z) / (2 * z), -1, 1));
+  return (k * k * k0 + k1 - 0.5 * Math.sqrt(Math.max(0, 4 * z * z - (1 + z * z - k * k) ** 2))) / Math.PI;
+}
+// Position of the planet at time t: sky-plane x, y and towards-us z (in star radii)
+function skyPos(g, pl, t) { const th = 2 * Math.PI * (t - pl.t0) / pl.P; return { x: g.aR * Math.sin(th), y: g.aR * Math.cos(th) * g.ci, z: g.aR * Math.cos(th) * g.si, th }; }
+
+/* =====================================================================
+   2. MAKE THE OBSERVATIONS (with a seeded random-number generator)
+   ===================================================================== */
+function makeData(p, rng) {
+  const star = STARS[p.star], ins = INSTR[p.instr], sig = ins.sigma * p.noise;
+  const pls = p.planets.map(pl => Object.assign({}, pl, { t0: pl.phase * pl.P }));
+  const G = pls.map(pl => geom(star, pl, p.incl));
+  const t = [], y = [];
+  // which nights are clear (ground) / one random offset per night
+  const nightN = Math.ceil(p.days) + 1, clear = [], off = [];
+  for (let k = 0; k < nightN; k++) { clear.push(!ins.night || rng() > ins.weather); off.push(ins.nightOff ? ins.nightOff * p.noise * gauss(rng) : 0); }
+  const spot = p.spots ? star.spot : 0, ph1 = rng() * 6.28, ph2 = rng() * 6.28;
+  let flareT = -1, flareA = 0;
+  for (let tt = rng() * ins.cadence; tt < p.days; tt += ins.cadence) {
+    const day = Math.floor(tt);
+    if (ins.night && (tt - day > ins.night || !clear[day])) continue;
+    if (ins.gap && (tt % ins.gap) > ins.gap - 1) continue;       // data download gap once an orbit
+    let f = 0;
+    for (let j = 0; j < pls.length; j++) { const g = G[j]; if (!g.transits) continue; const s = skyPos(g, pls[j], tt); if (s.z > 0) f -= overlap(Math.hypot(s.x, s.y), g.k); }
+    f *= 1e6;                                                      // in ppm
+    if (spot) f += spot * (1 + 0.4 * Math.sin(2 * Math.PI * tt / (3.1 * star.prot) + ph2)) * Math.sin(2 * Math.PI * tt / star.prot + ph1);   // star spots rotating
+    if (p.flares && star.flare && rng() < star.flare * ins.cadence) { flareT = tt; flareA = star.flareA * -Math.log(rng()); }
+    if (flareT >= 0) f += flareA * Math.exp(-(tt - flareT) / 0.02);
+    f += off[day] + sig * gauss(rng);
+    t.push(tt); y.push(f);
+  }
+  // Radial velocities: one measurement on a random selection of nights
+  const rv = { t: [], v: [], s: Math.hypot(p.rvSig, p.spots ? (p.star === "sun" ? 1 : 3) : 0) };
+  for (let k = 0; k < p.rvN; k++) {
+    const tt = Math.floor(rng() * p.days) + 0.3 * rng();
+    let v = 0; for (let j = 0; j < pls.length; j++) v += -G[j].K * Math.sin(2 * Math.PI * (tt - pls[j].t0) / pls[j].P);   // the star moves opposite to its planet
+    rv.t.push(tt); rv.v.push(v + rv.s * gauss(rng));
+  }
+  const o = rv.t.map((x, i) => i).sort((a, b) => rv.t[a] - rv.t[b]); rv.t = o.map(i => rv.t[i]); rv.v = o.map(i => rv.v[i]);
+  return { t: Float64Array.from(t), y: Float64Array.from(y), sig, rv, pls, G, star };
+}
+/* Remove slow changes (star spots, nightly offsets): subtract a running
+   median, 2 days wide (one night for the ground telescope). Bright flares
+   are cut out (more than 4 errors above the trend). */
+function detrend(D, p) {
+  const n = D.t.length, trend = new Float64Array(n), keep = new Uint8Array(n).fill(1);
+  const ins = INSTR[p.instr], needed = p.spots || p.flares || ins.night;
+  if (!needed) { let s = 0; for (let i = 0; i < n; i++) s += D.y[i]; trend.fill(n ? s / n : 0); }
+  else if (ins.night) {
+    let i = 0; while (i < n) { const day = Math.floor(D.t[i]); let j = i; while (j < n && Math.floor(D.t[j]) === day) j++; const a = Array.from(D.y.subarray(i, j)).sort((x, y) => x - y), m = a[a.length >> 1]; for (let k = i; k < j; k++) trend[k] = m; i = j; }
+  } else {
+    const W = 2, step = 0.25, nb = Math.ceil(D.t[n - 1] / step) + 1, med = new Float64Array(nb);
+    let lo = 0, hi = 0;
+    for (let b = 0; b < nb; b++) { const c = b * step; while (lo < n && D.t[lo] < c - W / 2) lo++; while (hi < n && D.t[hi] < c + W / 2) hi++; const a = Array.from(D.y.subarray(lo, hi)).sort((x, y) => x - y); med[b] = a.length ? a[a.length >> 1] : (b ? med[b - 1] : 0); }
+    for (let i = 0; i < n; i++) { const f = D.t[i] / step, b = Math.min(nb - 2, Math.floor(f)); trend[i] = med[b] + (med[b + 1] - med[b]) * (f - b); }
+  }
+  const y = new Float64Array(n);
+  for (let i = 0; i < n; i++) { y[i] = D.y[i] - trend[i]; if (p.flares && y[i] > 4 * D.sig) { keep[i] = 0; if (i + 1 < n) keep[i + 1] = 0; } }
+  return { y, trend, keep };
+}
+
+/* =====================================================================
+   3. FINDING TRANSITS: the Box Least Squares (BLS) periodogram
+   ---------------------------------------------------------------------
+   For each trial period, fold the light curve (stack every orbit on top of
+   each other) and slide a box-shaped dip along it. The best box gives the
+   improvement in χ² it makes; its square root is the signal-to-noise ratio
+   (SNR) of the dip. Trial periods are spaced closely enough that a transit
+   of the expected length can't be missed.
+   ===================================================================== */
+function blsSetup(t, y, ok, sig, star, Pmin, Pmax, os, maxF, binW) {
+  const idx = []; for (let i = 0; i < t.length; i++) if (ok[i]) idx.push(i);
+  const n = idx.length, T = n ? t[idx[n - 1]] - t[idx[0]] : 0;
+  let sy = 0; for (let k = 0; k < n; k++) sy += y[idx[k]];
+  const mean = n ? sy / n : 0;
+  // full-resolution copy (for fitting) ...
+  const tt = new Float64Array(n), wy = new Float64Array(n);
+  for (let k = 0; k < n; k++) { tt[k] = t[idx[k]]; wy[k] = y[idx[k]] - mean; }
+  // ... and, for long searches, points averaged into time bins (much faster to fold)
+  let bt = tt, bc = new Float64Array(n).fill(1), bs = wy;
+  if (binW && binW > INSTR_CAD * 1.5 && n) {
+    const T0 = [], C = [], Sy = []; let cur = -1;
+    for (let k = 0; k < n; k++) { const b = Math.floor(tt[k] / binW); if (b !== cur) { cur = b; T0.push(0); C.push(0); Sy.push(0); } const j = T0.length - 1; T0[j] += tt[k]; C[j]++; Sy[j] += wy[k]; }
+    bt = Float64Array.from(T0.map((v, j) => v / C[j])); bc = Float64Array.from(C); bs = Float64Array.from(Sy);
+  }
+  // duty cycle (fraction of the orbit in transit) for a central transit at period P
+  const q = P => Math.max(Math.asin(Math.min(1, star.R / (semiMajor(star.M, 0, P) * AU_RSUN))) / Math.PI, 0.6 * Math.max(INSTR_CAD, binW || 0) / P);
+  Pmax = Math.max(Pmin * 1.2, Math.min(Pmax, T / 1.5));
+  const count = s => { let c = 0, f = 1 / Pmin; while (f > 1 / Pmax && c < 5e6) { f -= q(1 / f) / (T * s); c++; } return c; };
+  let o = os, c = count(o); if (c > maxF) { o = os * maxF / c; c = count(o); }
+  const P = new Float64Array(c + 1); let f = 1 / Pmin, k = 0; while (f > 1 / Pmax && k <= c) { P[k++] = 1 / f; f -= q(1 / f) / (T * o); }
+  return { tt, wy, n, bt, bc, bs, nb: bt.length, T, mean, P: P.subarray(0, k), snr: new Float64Array(k), best: null, i: 0, q, w: 1 / (sig * sig), sw: new Float64Array(6000), sy: new Float64Array(6000), Pmin, Pmax };
+}
+let INSTR_CAD = 30 / 1440;
+// The best box at one period: returns SNR, phase of mid-transit and duration
+function boxAt(S, P) {
+  const q = S.q(P), nb = clamp(Math.round(3 / q), 24, 6000), f = 1 / P, sw = S.sw, sy = S.sy, tt = S.bt, bc = S.bc, bs = S.bs, m = S.nb, n = S.n;
+  for (let b = 0; b < nb; b++) { sw[b] = 0; sy[b] = 0; }
+  for (let i = 0; i < m; i++) { let ph = tt[i] * f; ph -= Math.floor(ph); const b = (ph * nb) | 0; sw[b] += bc[i]; sy[b] += bs[i]; }
+  let best = 0, bj = 0, bk = 1;
+  const k1 = Math.max(1, Math.round(nb * q * 0.4)), k2 = Math.max(k1 + 1, Math.round(nb * q * 2));
+  for (let kk = k1; kk <= k2; kk += Math.max(1, Math.round((k2 - k1) / 5))) {
+    let Win = 0, Yin = 0;
+    for (let b = 0; b < kk; b++) { Win += sw[b]; Yin += sy[b]; }
+    for (let j = 0; j < nb; j++) {
+      if (Win > 0 && Yin < 0 && Win < n) { const dc = Yin * Yin * n / (Win * (n - Win)); if (dc > best) { best = dc; bj = j; bk = kk; } }
+      const out = j, inn = (j + kk) % nb; Win += sw[inn] - sw[out]; Yin += sy[inn] - sy[out];
+    }
+  }
+  // χ² improvement uses weights 1/σ²: all points have the same σ here
+  return { snr: Math.sqrt(best * S.w), t0: (bj + bk / 2) / nb * P, D: bk / nb * P };
+}
+function blsRun(S, budgetMs) {
+  const t0 = performance.now();
+  while (S.i < S.P.length) {
+    const r = boxAt(S, S.P[S.i]); S.snr[S.i] = r.snr;
+    if (!S.best || r.snr > S.best.snr) S.best = Object.assign({ P: S.P[S.i] }, r);
+    S.i++;
+    if (budgetMs && (S.i & 15) === 0 && performance.now() - t0 > budgetMs) return false;
+  }
+  return true;
+}
+
+/* =====================================================================
+   4. FITTING THE TRANSIT: a trapezoid-shaped dip (flat bottom, sloping
+   ingress and egress). For a given shape the best depth comes straight
+   from least squares:  depth = −Σ y m / Σ m²,  error = σ / √(Σ m²).
+   ===================================================================== */
+function trapSum(S, P, t0, D, tau) {
+  let a = 0, b = 0; const h = D / 2, tt = S.tt, wy = S.wy, n = S.n, iP = 1 / P;
+  for (let i = 0; i < n; i++) {
+    let x = (tt[i] - t0) * iP; x -= Math.round(x); x = Math.abs(x * P);
+    if (x >= h) continue;
+    const m = x <= h - tau ? 1 : (h - x) / tau;
+    a += wy[i] * m; b += m * m;
+  }
+  return { a, b, dchi: a < 0 && b > 0 ? a * a / b : 0 };
+}
+function fitTransit(S, P, t0, D, sig, fixP) {
+  const tmid = S.n ? (S.tt[0] + S.tt[S.n - 1]) / 2 : 0;
+  t0 = t0 + P * Math.round((tmid - t0) / P);       // use the transit nearest the middle of the data
+  let depth = 1e-6, tau = D * 0.1;
+  const val = (P_, t0_, D_) => trapSum(S, P_, t0_, D_, Math.min(D_ / 2, tau)).dchi;
+  const scan = (fn, lo, hi, n, log) => { let bx = lo, bv = -1; for (let k = 0; k < n; k++) { const x = log ? lo * Math.pow(hi / lo, k / (n - 1)) : lo + (hi - lo) * k / (n - 1); const v = fn(x); if (v > bv) { bv = v; bx = x; } } return bx; };
+  const setTau = () => { const r = trapSum(S, P, t0, D, Math.min(D / 2, tau)); depth = Math.max(1e-9, -r.a / r.b) / 1e6; const k = Math.sqrt(depth); tau = Math.max(D * k / (1 + k), Math.min(INSTR_CAD, D / 4)); };
+  t0 = scan(x => val(P, x, D), t0 - 0.6 * D, t0 + 0.6 * D, 41); setTau();
+  D = scan(x => val(P, t0, x), D * 0.4, D * 1.8, 25, true); setTau();
+  t0 = scan(x => val(P, x, D), t0 - 0.1 * D, t0 + 0.1 * D, 21);
+  const Ntr = Math.max(1, S.T / P);
+  let hP = Math.max(D / Ntr, P * 1e-6);
+  if (!fixP) for (let z = 0; z < 3; z++) { P = scan(x => val(x, t0, D), P - hP, P + hP, 31); hP /= 6; }
+  t0 = scan(x => val(P, x, D), t0 - 0.05 * D, t0 + 0.05 * D, 21); setTau();
+  D = scan(x => val(P, t0, x), D * 0.8, D * 1.25, 15, true); setTau();
+  // the ingress/egress time: try a range of slopes (never shorter than one exposure)
+  const tau0 = tau; tau = scan(x => { tau = x; return val(P, t0, D); }, tau0 * 0.4, Math.min(D / 2, tau0 * 3), 11, true); tau = Math.max(tau, Math.min(INSTR_CAD, D / 4));
+  const r = trapSum(S, P, t0, D, Math.min(D / 2, tau)), dep = -r.a / r.b, sd = sig / Math.sqrt(r.b);
+  // uncertainty in the period: how far P can move before χ² gets worse by 1
+  let sdP = NaN;
+  if (!fixP && r.dchi > 0) {
+    const best = val(P, t0, D);
+    let s = hP;
+    for (let it = 0; it < 14; it++) {
+      const drop = best - 0.5 * (val(P + s, t0, D) + val(P - s, t0, D)), dropW = drop / (sig * sig);
+      if (dropW > 0.3 && dropW < 30) { sdP = s / Math.sqrt(dropW); break; }
+      s = dropW <= 0.3 ? s * 2.5 : s / 2.5;
+    }
+  }
+  return { P, t0, D, tau, depth: dep, sdDepth: sd, snr: dep / sd, sdP };
+}
+
+/* Radial velocities: fit v = A sin(2πt/P) + B cos(2πt/P) + C by least squares.
+   K = √(A² + B²) is the size of the star's wobble. */
+function rvFit(t, v, s, P, n) {
+  n = n ?? t.length; if (n < 4) return null;
+  const M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], r = [0, 0, 0];
+  for (let i = 0; i < n; i++) { const ph = 2 * Math.PI * t[i] / P, x = [Math.sin(ph), Math.cos(ph), 1]; for (let a = 0; a < 3; a++) { r[a] += x[a] * v[i]; for (let b = 0; b < 3; b++) M[a][b] += x[a] * x[b]; } }
+  const inv = inv3(M); if (!inv) return null;
+  const c = inv.map(row => row[0] * r[0] + row[1] * r[1] + row[2] * r[2]);
+  const K = Math.hypot(c[0], c[1]);
+  const varK = (c[0] ** 2 * inv[0][0] + 2 * c[0] * c[1] * inv[0][1] + c[1] ** 2 * inv[1][1]) / Math.max(K * K, 1e-30) * s * s;
+  let chi = 0, chi0 = 0, mean = 0; for (let i = 0; i < n; i++) mean += v[i]; mean /= n;
+  for (let i = 0; i < n; i++) { const ph = 2 * Math.PI * t[i] / P; chi += (v[i] - c[0] * Math.sin(ph) - c[1] * Math.cos(ph) - c[2]) ** 2; chi0 += (v[i] - mean) ** 2; }
+  return { A: c[0], B: c[1], C: c[2], K, sdK: Math.sqrt(varK), P, power: (chi0 - chi) / (s * s) };
+}
+function inv3(m) {
+  const [a, b, c] = m[0], [d, e, f] = m[1], [g, h, i] = m[2];
+  const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g, det = a * A + b * B + c * C;
+  if (Math.abs(det) < 1e-12) return null;
+  return [[A / det, -(b * i - c * h) / det, (b * f - c * e) / det], [B / det, (a * i - c * g) / det, -(a * f - c * d) / det], [C / det, -(a * h - b * g) / det, (a * e - b * d) / det]];
+}
+function rvPeriodogram(rv, Pmin, Pmax, n) {
+  const out = []; for (let k = 0; k < 2500; k++) { const P = Pmin * Math.pow(Pmax / Pmin, k / 2499), f = rvFit(rv.t, rv.v, rv.s, P, n); out.push([P, f ? Math.sqrt(Math.max(0, f.power)) : 0]); }
+  return out;
+}
+
+/* =====================================================================
+   5. ONE HEADLESS RUN (for the batch mode): observe, search, fit
+   ===================================================================== */
+function analyse(D, p, os, maxF) {
+  INSTR_CAD = INSTR[p.instr].cadence;
+  const dt = detrend(D, p);
+  const S = blsSetup(D.t, dt.y, dt.keep, D.sig, D.star, 0.5, p.days / 2, os, maxF);
+  blsRun(S, 0);
+  if (!S.best) return { S, fit: null };
+  const fit = fitTransit(S, S.best.P, S.best.t0, S.best.D, D.sig, false);
+  return { S, fit, dt };
+}
+function batchPlanet(p) { return { R: p.Rp, M: p.Mp, P: p.P, phase: 0 }; }
+function runOnce(p, seed, outKey) {
+  const rng = mulberry32(seed), star = STARS[p.star], pl = batchPlanet(p);
+  // geometric transit chance: a random orientation in space (cos i evenly spread from 0 to 1)
+  const gRand = geom(star, pl, Math.acos(rng()) * 180 / Math.PI);
+  const res = { transits: gRand.transits ? 1 : 0 };
+  if (outKey === "transits") return res;
+  pl.phase = rng();
+  const q = Object.assign({}, p, { planets: [pl] });
+  const D = makeData(q, rng);
+  const rf = rvFit(D.rv.t, D.rv.v, D.rv.s, pl.P);
+  res.rvmass = rf ? minMass(rf.K, pl.P, star.M) : NaN;
+  if (outKey === "rvmass") return res;
+  const { fit } = analyse(D, q, 1.5, 4000);
+  if (!fit) return Object.assign(res, { det: 0, snr: NaN, Pmeas: NaN, Rmeas: NaN, within1R: NaN, withinP: NaN });
+  const right = Math.abs(fit.P - pl.P) / pl.P < 0.01;
+  const Rm = star.R * RSUN_REARTH * Math.sqrt(Math.max(fit.depth, 0) / 1e6), Re = star.R * RSUN_REARTH * (fit.sdDepth / 1e6) / (2 * Math.sqrt(Math.max(fit.depth, 1e-3) / 1e6));
+  Object.assign(res, { det: right && fit.snr > 7 ? 1 : 0, snr: fit.snr, Pfound: fit.P });
+  // measured values only count when the right planet was found
+  if (right) Object.assign(res, { Pmeas: fit.P, Perr: fit.sdP, Rmeas: Rm, Rerr: Re, within1R: Math.abs(Rm - pl.R) <= Re ? 1 : 0, withinP: isFinite(fit.sdP) ? (Math.abs(fit.P - pl.P) <= fit.sdP ? 1 : 0) : NaN });
+  else Object.assign(res, { Pmeas: NaN, Rmeas: NaN, within1R: NaN, withinP: NaN });
+  return res;
+}
+/* THEORY: signal-to-noise of the transits, SNR = depth / σ × √(points in transit) */
+function theoryFor(p) {
+  const star = STARS[p.star], pl = batchPlanet(p), g = geom(star, pl, p.incl), ins = INSTR[p.instr];
+  let frac = 1; if (ins.night) frac = ins.night * (1 - ins.weather); if (ins.gap) frac = 1 - 1 / ins.gap;
+  const npts = p.days / ins.cadence * frac, sig = ins.sigma * p.noise / 1e6;
+  const deff = Math.max(0, g.T14 - 4 * g.tau / 3);                 // ∫ m² dt for a trapezoid-shaped dip
+  const nin = npts * deff / pl.P, depth = g.transits ? Math.min(g.depth, overlapMax(g)) : 0;
+  const snr = depth / sig * Math.sqrt(nin);
+  const ntr = p.days / pl.P;
+  const twoTransits = clamp(ntr - 1, 0, 1);
+  const sdDepth = sig / Math.sqrt(Math.max(nin, 1e-9));
+  const sdR = star.R * RSUN_REARTH * sdDepth / (2 * Math.sqrt(Math.max(depth, 1e-12)));
+  // Carter et al. (2008): error in one transit time, then the period from a straight-line fit through N transit times
+  const tauE = Math.max(g.tau, Math.min(ins.cadence, g.T14 / 4)), Tm = g.T14 - tauE, Q = Math.sqrt(Tm / ins.cadence * frac) * depth / sig, stc = Tm / Q * Math.sqrt(tauE / (2 * Tm));
+  const N = Math.max(2, Math.floor(ntr)), sdP = stc * Math.sqrt(12 / (N ** 3 - N));
+  return { g, snr, det: twoTransits * normCdf(snr - 7), sdR, sdP, depth };
+}
+function overlapMax(g) { return overlap(Math.abs(g.b), g.k); }
+
+/* =====================================================================
+   6. CONTROLS → SETTINGS
+   ===================================================================== */
+const planetsUI = [
+  { on: true, type: "hotj", R: 11.2, M: 318, P: 3.5 },
+  { on: false, type: "neptune", R: 3.9, M: 17, P: 12 },
+  { on: false, type: "superearth", R: 1.6, M: 5, P: 30 },
+];
+let editing = 0;
+function params() {
+  const v = id => +el(id).value, seed = el("seed").value || "1", r = mulberry32(hashSeed(seed + "|phases"));
+  const phases = [r(), r(), r()];
+  return {
+    star: el("star").value, spots: el("spots").checked, flares: el("flares").checked,
+    planets: planetsUI.map((p, i) => Object.assign({}, p, { phase: phases[i], idx: i })).filter(p => p.on),
+    incl: v("inc"), instr: el("instr").value, noise: Math.pow(10, v("noise")), days: +Math.pow(10, v("days")).toPrecision(3),
+    rvSig: v("rvSig"), rvN: v("rvN"), seed,
+  };
+}
+const PNAMES = ["b", "c", "d"];
+
+/* =====================================================================
+   7. OBSERVING (data are made in advance and revealed as time passes)
+   ===================================================================== */
+const obs = { D: null, dt: null, t: 0, n: 0, nrv: 0, running: false, p: null };
+const an = { S: null, searching: false, pg: null, rvpg: null, fit: null, rvfit: null, found: [], mask: null, trial: 3.5, reveal: false, Pmin: 0.5 };
+function newObservations() {
+  const p = params(); obs.p = p;
+  INSTR_CAD = INSTR[p.instr].cadence;
+  obs.D = makeData(p, mulberry32(hashSeed(p.seed + "|obs")));
+  obs.dt = detrend(obs.D, p);
+  obs.t = 0; obs.n = 0; obs.nrv = 0;
+  an.S = null; an.searching = false; an.pg = null; an.rvpg = null; an.fit = null; an.rvfit = null; an.found = []; an.mask = new Uint8Array(obs.D.t.length).fill(1);
+  setRunning(false); setMsg("Press <b>Observe</b> to start collecting data, then search it for transits. Very deep transits make the whole periodogram rise: look for the tallest, sharpest peak.");
+  graphDirty = true;
+}
+function countUpTo(arr, t) { let lo = 0, hi = arr.length; while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m] <= t) lo = m + 1; else hi = m; } return lo; }
+function advance(t) {
+  obs.t = Math.min(t, obs.p.days);
+  const n = countUpTo(obs.D.t, obs.t), nrv = countUpTo(obs.D.rv.t, obs.t);
+  if (n !== obs.n || nrv !== obs.nrv) { obs.n = n; obs.nrv = nrv; graphDirty = true; }
+  if (obs.t >= obs.p.days) setRunning(false);
+}
+
+/* =====================================================================
+   8. ANALYSIS: search, fit, radial velocities
+   ===================================================================== */
+const setMsg = h => { el("msg").innerHTML = h; };
+function okMask() { const ok = new Uint8Array(obs.n); for (let i = 0; i < obs.n; i++) ok[i] = obs.dt.keep[i] && an.mask[i]; return ok; }
+function startSearch() {
+  if (obs.n < 50) { setMsg("Not enough data yet — observe for longer first."); return; }
+  const p = obs.p, star = STARS[p.star], T = obs.D.t[obs.n - 1] - obs.D.t[0];
+  const Pmin = Math.max(0.5, an.Pmin), Pmax = T / 1.5;
+  if (Pmax <= Pmin * 1.2) { setMsg(`To find a planet you need to see at least two transits. Observe for longer than ${fmt(Pmin * 3, 2)} days.`); return; }
+  // bin the data in time when even the shortest transits searched last much longer than one exposure
+  const dShort = Pmin / Math.PI * Math.asin(Math.min(1, star.R / (semiMajor(star.M, 0, Pmin) * AU_RSUN)));
+  an.S = blsSetup(obs.D.t.subarray(0, obs.n), obs.dt.y.subarray(0, obs.n), okMask(), obs.D.sig, star, Pmin, Pmax, 2, 40000, dShort / 4);
+  an.searching = true; an.t0 = performance.now();
+  setMsg(`Searching ${an.S.P.length.toLocaleString("en-GB")} trial periods from ${fmt(an.S.Pmin, 2)} to ${fmt(an.S.Pmax, 3)} days…`);
+}
+function searchStep() {
+  const S = an.S;
+  const done = blsRun(S, 30);
+  an.pg = { P: S.P.slice(0, S.i), snr: S.snr.slice(0, S.i) };
+  graphDirty = true;
+  if (!done) { setMsg(`Searching… ${Math.round(100 * S.i / S.P.length)}% of ${S.P.length.toLocaleString("en-GB")} trial periods`); return; }
+  an.searching = false;
+  const b = S.best;
+  const fit = fitTransit(S, b.P, b.t0, b.D, obs.D.sig, false);
+  an.fit = fit; setTrial(fit.P, true);
+  an.rvfit = rvFit(obs.D.rv.t, obs.D.rv.v, obs.D.rv.s, fit.P, obs.nrv);
+  const secs = ((performance.now() - an.t0) / 1000).toFixed(1);
+  setMsg(fit.snr > 7 ? `<b>Found a transit signal!</b> Period ${fit.P.toFixed(4)} days, SNR = ${fit.snr.toFixed(1)} (above 7 counts as a detection). Searched in ${secs} s. Check the folded light curve.`
+    : `Strongest signal: period ${fit.P.toFixed(3)} days but SNR is only ${fit.snr.toFixed(1)} — below 7, so it could just be noise. Observe for longer or use a quieter telescope.`);
+  switchTab(fit.snr > 7 ? "fold" : "pg");
+}
+// Fit the transit at the trial period (period fixed): find when it happens and how deep it is
+function fitAtTrial() {
+  if (!obs.D || obs.n < 20) { an.fit = null; an.rvfit = null; return; }
+  const star = STARS[obs.p.star], P = an.trial;
+  if (!an.fit || Math.abs(an.fit.P - P) / P > 1e-7) {
+    const S = blsSetup(obs.D.t.subarray(0, obs.n), obs.dt.y.subarray(0, obs.n), okMask(), obs.D.sig, star, P, P * 1.0000001, 1, 1, 0);
+    S.P = Float64Array.of(P);
+    const b = boxAt(S, P);
+    an.fit = b.snr > 0 ? fitTransit(S, P, b.t0, b.D, obs.D.sig, true) : null;
+  }
+  an.rvfit = obs.nrv >= 4 ? rvFit(obs.D.rv.t, obs.D.rv.v, obs.D.rv.s, P, obs.nrv) : null;
+}
+function setTrial(P, keepFit) {
+  an.trial = clamp(P, 0.3, 1000);
+  el("trial").value = Math.log10(an.trial); el("trialNum").value = +an.trial.toPrecision(7);
+  el("o_trial").textContent = `${an.trial < 10 ? an.trial.toFixed(4) : an.trial.toFixed(2)} days`;
+  if (!keepFit) an.fit = null;
+  fitAtTrial(); graphDirty = true; updateResults();
+}
+function findNext() {
+  if (!an.fit || an.fit.snr < 7) { setMsg("First find a planet (SNR above 7), then this hides its transits and searches again."); return; }
+  const f = an.fit; an.found.push({ P: f.P, t0: f.t0, D: f.D });
+  for (let i = 0; i < obs.D.t.length; i++) { let x = (obs.D.t[i] - f.t0) / f.P; x -= Math.round(x); if (Math.abs(x * f.P) < 0.75 * f.D) an.mask[i] = 0; }
+  startSearch();
+}
+function rvSearch() {
+  if (obs.nrv < 6) { setMsg("Not enough radial-velocity measurements yet."); return; }
+  an.rvpg = rvPeriodogram(obs.D.rv, 0.5, Math.max(2, obs.t * 1.5), obs.nrv);
+  let best = an.rvpg[0]; for (const q of an.rvpg) if (q[1] > best[1]) best = q;
+  setTrial(best[0], false);
+  setMsg(`Strongest wobble at a period of ${best[0].toFixed(3)} days (signal strength ${best[1].toFixed(1)}). ${best[1] > 7 ? "That looks real." : "That is weak: it may be noise."}`);
+  switchTab("pg"); graphDirty = true;
+}
+
+/* =====================================================================
+   9. DRAWING
+   ===================================================================== */
+function starColour(T) { return T > 7000 ? [205, 220, 255] : T > 5200 ? [255, 236, 190] : T > 3600 ? [255, 190, 120] : [255, 140, 80]; }
+function planetCol(i) { return ["#00aec3", "#e83181", "#76b82a"][i]; }
+function drawTop(ctx, R, d) {
+  const p = obs.p, star = STARS[p.star], D = obs.D, cx = R.x + R.w / 2, cy = R.y + R.h / 2 + 4 * d;
+  const aMax = Math.max(...D.G.map(g => g.a), 1e-3), hz = hzOf(star.L);
+  const showHZ = hz[0] < aMax * 3;
+  const Rview = Math.max(aMax, showHZ ? Math.min(hz[1], aMax * 3) : 0) * 1.08, s = (Math.min(R.w, R.h) / 2 - 16 * d) / Rview;
+  ctx.save(); ctx.beginPath(); ctx.rect(R.x, R.y, R.w, R.h); ctx.clip(); ctx.fillStyle = "#03040a"; ctx.fillRect(R.x, R.y, R.w, R.h);
+  if (showHZ) { ctx.fillStyle = "rgba(118,184,42,0.18)"; ctx.beginPath(); ctx.arc(cx, cy, hz[1] * s, 0, 7); ctx.arc(cx, cy, hz[0] * s, 0, 7, true); ctx.fill(); }
+  // the star wobbles round the centre of mass (shown much bigger than real)
+  let wx = 0, wy = 0; D.pls.forEach((pl, j) => { const th = 2 * Math.PI * (obs.t - pl.t0) / pl.P, f = (pl.M / MSUN_MEARTH) / star.M * D.G[j].a; wx -= f * Math.sin(th); wy -= f * Math.cos(th); });
+  const wmax = D.pls.reduce((a, pl, j) => a + (pl.M / MSUN_MEARTH) / star.M * D.G[j].a, 0), E = wmax > 0 ? 7 * d / (wmax * s) : 0;
+  const sr = Math.max(4 * d, star.R / AU_RSUN * s), [r, g, b] = starColour(star.T);
+  ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.beginPath(); ctx.arc(cx + wx * s * E, cy + wy * s * E, sr, 0, 7); ctx.fill();
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 1 * d; ctx.beginPath(); ctx.moveTo(cx - 4 * d, cy); ctx.lineTo(cx + 4 * d, cy); ctx.moveTo(cx, cy - 4 * d); ctx.lineTo(cx, cy + 4 * d); ctx.stroke();
+  D.pls.forEach((pl, j) => {
+    const a = D.G[j].a, th = 2 * Math.PI * (obs.t - pl.t0) / pl.P;
+    ctx.strokeStyle = "rgba(200,205,190,0.3)"; ctx.beginPath(); ctx.arc(cx, cy, a * s, 0, 7); ctx.stroke();
+    ctx.fillStyle = planetCol(pl.idx); ctx.beginPath(); ctx.arc(cx + a * s * Math.sin(th), cy + a * s * Math.cos(th), Math.max(2.5, 1.4 * Math.sqrt(pl.R)) * d, 0, 7); ctx.fill();
+  });
+  ctx.font = `600 ${11 * d}px system-ui`; ctx.fillStyle = "#eef0e8"; ctx.textAlign = "left"; ctx.fillText("From above", R.x + 7 * d, R.y + 14 * d);
+  ctx.font = `${10 * d}px system-ui`; ctx.fillStyle = "#a3ab96";
+  if (showHZ) { ctx.fillStyle = "#8fd694"; ctx.fillText("green: habitable zone", R.x + 7 * d, R.y + 27 * d); }
+  ctx.fillStyle = "#a3ab96"; ctx.fillText("+ centre of mass", R.x + 7 * d, R.y + R.h - 20 * d); ctx.fillText(`star's wobble ×${fmtPlain(E, 2)}`, R.x + 7 * d, R.y + R.h - 7 * d);
+  ctx.textAlign = "right"; ctx.fillText("↓ to Earth", R.x + R.w - 6 * d, R.y + R.h - 7 * d);
+  const bar = niceTicks(0, Rview * 0.5, 1).pop() || Rview / 2; ctx.fillRect(R.x + R.w - 6 * d - bar * s, R.y + 9 * d, bar * s, 2 * d); ctx.fillText(`${fmtPlain(bar, 2)} AU`, R.x + R.w - 6 * d, R.y + 23 * d);
+  ctx.restore();
+}
+function drawSide(ctx, R, d) {
+  const p = obs.p, star = STARS[p.star], D = obs.D, ci = Math.cos(p.incl * Math.PI / 180), si = Math.sin(p.incl * Math.PI / 180);
+  const aRmax = Math.max(...D.G.map(g => g.aR), 2);
+  const s = (R.w / 2 - 24 * d) / aRmax, ev = Math.max(1, 5 * d / s);         // pixels per star radius; vertical exaggeration
+  const cx = R.x + R.w / 2 - 8 * d, cy = R.y + R.h / 2 + 6 * d, X = z => cx + z * s, Y = y => cy - y * s * ev;
+  ctx.save(); ctx.beginPath(); ctx.rect(R.x, R.y, R.w, R.h); ctx.clip(); ctx.fillStyle = "#03040a"; ctx.fillRect(R.x, R.y, R.w, R.h);
+  // the shadow the star casts towards Earth: planets inside it block light
+  ctx.fillStyle = "rgba(241,175,40,0.10)"; ctx.fillRect(X(0), Y(1), R.x + R.w - X(0), Y(-1) - Y(1));
+  ctx.setLineDash([4 * d, 4 * d]); ctx.strokeStyle = "rgba(241,175,40,0.6)"; ctx.beginPath(); ctx.moveTo(X(0), cy); ctx.lineTo(R.x + R.w, cy); ctx.stroke(); ctx.setLineDash([]);
+  const [r, g, b] = starColour(star.T); ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.beginPath(); ctx.ellipse(X(0), cy, Math.max(2 * d, s), Math.max(2 * d, s * ev), 0, 0, 7); ctx.fill();
+  D.pls.forEach((pl, j) => {
+    const G = D.G[j], th = 2 * Math.PI * (obs.t - pl.t0) / pl.P, c = Math.cos(th);
+    ctx.strokeStyle = "rgba(200,205,190,0.35)"; ctx.beginPath(); ctx.moveTo(X(-G.aR * si), Y(-G.aR * ci)); ctx.lineTo(X(G.aR * si), Y(G.aR * ci)); ctx.stroke();
+    ctx.fillStyle = planetCol(pl.idx); ctx.beginPath(); ctx.arc(X(G.aR * c * si), Y(G.aR * c * ci), Math.max(2.5, 1.4 * Math.sqrt(pl.R)) * d, 0, 7); ctx.fill();
+  });
+  ctx.font = `600 ${11 * d}px system-ui`; ctx.fillStyle = "#eef0e8"; ctx.textAlign = "left"; ctx.fillText(`From the side · i = ${p.incl.toFixed(2)}°`, R.x + 7 * d, R.y + 14 * d);
+  ctx.font = `${10 * d}px system-ui`; ctx.fillStyle = "#a3ab96"; ctx.textAlign = "right"; ctx.fillText("Earth →", R.x + R.w - 5 * d, cy - 5 * d);
+  ctx.textAlign = "left"; ctx.fillText(ev > 1.01 ? `height × ${fmtPlain(ev, 2)} so the star shows` : "line of sight (dashed)", R.x + 7 * d, R.y + R.h - 7 * d);
+  ctx.restore();
+}
+function drawDisc(ctx, R, d) {
+  const p = obs.p, star = STARS[p.star], D = obs.D, cx = R.x + R.w / 2, cy = R.y + R.h / 2 + 6 * d, Rs = Math.min(R.w, R.h) * 0.3;
+  ctx.save(); ctx.beginPath(); ctx.rect(R.x, R.y, R.w, R.h); ctx.clip(); ctx.fillStyle = "#03040a"; ctx.fillRect(R.x, R.y, R.w, R.h);
+  let v = 0, Ksum = 0, f = 0;
+  D.pls.forEach((pl, j) => { const G = D.G[j]; v += -G.K * Math.sin(2 * Math.PI * (obs.t - pl.t0) / pl.P); Ksum += G.K; });
+  const [r, g, b] = starColour(star.T), gr = ctx.createRadialGradient(cx, cy, 0, cx, cy, Rs);
+  gr.addColorStop(0, `rgb(${r},${g},${b})`); gr.addColorStop(0.85, `rgb(${r * 0.85 | 0},${g * 0.8 | 0},${b * 0.7 | 0})`); gr.addColorStop(1, `rgb(${r * 0.6 | 0},${g * 0.5 | 0},${b * 0.4 | 0})`);
+  ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(cx, cy, Rs, 0, 7); ctx.fill();
+  const fr = Ksum ? v / Ksum : 0;   // Doppler tint (much exaggerated)
+  ctx.fillStyle = fr < 0 ? `rgba(60,120,255,${0.32 * -fr})` : `rgba(255,40,40,${0.32 * fr})`; ctx.beginPath(); ctx.arc(cx, cy, Rs, 0, 7); ctx.fill();
+  D.pls.forEach((pl, j) => { const G = D.G[j], sp = skyPos(G, pl, obs.t); if (sp.z > 0 && Math.hypot(sp.x, sp.y) < 1.6 + G.k) { f += overlap(Math.hypot(sp.x, sp.y), G.k); ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(cx + sp.x * Rs, cy - sp.y * Rs, Math.max(1.2 * d, G.k * Rs), 0, 7); ctx.fill(); } });
+  ctx.font = `600 ${11 * d}px system-ui`; ctx.fillStyle = "#eef0e8"; ctx.textAlign = "left"; ctx.fillText("The star seen from Earth", R.x + 7 * d, R.y + 14 * d);
+  ctx.font = `${10.5 * d}px system-ui`; ctx.fillStyle = v < 0 ? "#8fb8ff" : "#ff9a9a";
+  ctx.fillText(`${v < 0 ? "towards us" : "away"} ${Math.abs(v) < 10 ? Math.abs(v).toFixed(2) : Math.abs(v).toFixed(0)} m/s (${v < 0 ? "blueshift" : "redshift"})`, R.x + 7 * d, R.y + R.h - 20 * d);
+  ctx.fillStyle = "#cfd4c5"; ctx.fillText(f > 0 ? `${(f * 100).toFixed(f < 0.001 ? 4 : 2)}% of the light blocked` : "no planet in front", R.x + 7 * d, R.y + R.h - 7 * d);
+  ctx.restore();
+}
+// ---------- the data graph (one tab at a time) ----------
+let tab = "lc", graphDirty = true, graphCache = null;
+function switchTab(t) { tab = t; document.querySelectorAll("#gtabs button").forEach(b => b.classList.toggle("on", b.dataset.g === t)); graphDirty = true; }
+function robustRange(vals) { if (!vals.length) return [-1, 1]; const a = Array.from(vals).sort((x, y) => x - y); const lo = a[Math.floor(a.length * 0.002)], hi = a[Math.ceil(a.length * 0.998) - 1]; return [lo, hi]; }
+function drawGraph(ctx, R, d) {
+  const p = obs.p, D = obs.D, n = obs.n, note = el("gnote");
+  if (tab === "lc") {
+    const yv = D.y.subarray(0, n); let [lo, hi] = robustRange(n ? yv : [-1000, 1000]); const pad = (hi - lo) * 0.08 || 500; lo -= pad; hi += pad;
+    const ax = plotFrame(ctx, R, { dpr: d, x0: 0, x1: p.days, y0: lo, y1: hi, xlabel: "Time (days)", ylabel: "Brightness change (ppm)", padL: 62, title: "Light curve: the star's brightness" });
+    ax.clip();
+    ctx.fillStyle = n > 20000 ? "rgba(241,175,40,0.35)" : "rgba(241,175,40,0.7)"; const z = (n > 5000 ? 1.2 : 2) * d;
+    for (let i = 0; i < n; i++) ctx.fillRect(ax.X(D.t[i]) - z / 2, ax.Y(D.y[i]) - z / 2, z, z);
+    if (p.spots || p.flares || INSTR[p.instr].night) { const pts = []; const st = Math.max(1, Math.floor(n / 1500)); for (let i = 0; i < n; i += st) pts.push([ax.X(D.t[i]), ax.Y(obs.dt.trend[i])]); polyline(ctx, pts, "#00aec3", 1.5 * d); }
+    if (an.fit && an.fit.snr > 5) { ctx.fillStyle = "#e83181"; for (let k = Math.ceil(-an.fit.t0 / an.trial); an.fit.t0 + k * an.trial <= obs.t; k++) { const X = ax.X(an.fit.t0 + k * an.trial); ctx.fillRect(X - d, ax.B - 9 * d, 2 * d, 9 * d); } }
+    ctx.restore();
+    note.textContent = (p.spots || p.flares || INSTR[p.instr].night ? "Blue line: slow trend that is removed before searching. " : "") + (an.fit && an.fit.snr > 5 ? "Pink ticks: predicted transits at the trial period." : "");
+  } else if (tab === "pg") {
+    const pg = an.pg, rp = an.rvpg;
+    const Pmin = 0.3, Pmax = Math.max(p.days, 2);
+    const ymax = Math.max(10, ...(pg ? pg.snr : [0]), ...(rp ? rp.map(q => q[1]) : [0])) * 1.1;
+    const ax = plotFrame(ctx, R, { dpr: d, x0: Pmin, x1: Pmax, y0: 0, y1: ymax, logX: true, xlabel: "Trial period (days)", ylabel: "Signal-to-noise ratio", title: "Periodogram: how strong a repeating signal is at each period", padL: 50 });
+    ax.clip();
+    polyline(ctx, [[ax.L, ax.Y(7)], [ax.R, ax.Y(7)]], "rgba(255,255,255,0.5)", 1.2 * d, [6 * d, 4 * d]);
+    if (rp) polyline(ctx, rp.map(q => [ax.X(q[0]), ax.Y(q[1])]), "rgba(0,174,195,0.85)", 1.2 * d);
+    if (pg) { ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 1 * d; ctx.beginPath(); for (let i = 0; i < pg.P.length; i++) { const X = ax.X(pg.P[i]), Y = ax.Y(pg.snr[i]); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); } ctx.stroke(); }
+    polyline(ctx, [[ax.X(an.trial), ax.T], [ax.X(an.trial), ax.B]], "#ffffff", 1.5 * d);
+    if (an.reveal) for (const pl of D.pls) polyline(ctx, [[ax.X(pl.P), ax.T], [ax.X(pl.P), ax.T + 14 * d]], planetCol(pl.idx), 3 * d);
+    ctx.restore();
+    legendBox(ctx, [["#f1af28", "transit search (BLS)"], ["rgba(0,174,195,0.85)", "radial-velocity search"], ["rgba(255,255,255,0.6)", "SNR = 7 detection line", true], ["#ffffff", "trial period"]], ax.R - 4 * d, ax.T + 4 * d, d);
+    note.textContent = pg ? "" : "Press “Search for transits” or “RV periodogram”.";
+  } else if (tab === "fold") {
+    const P = an.trial, f = an.fit, t0 = f ? f.t0 : 0, Dh = f ? f.D : 0.1;
+    const half = Math.min(P / 2, Math.max(2.5 * Dh, 0.2));
+    const xs = [], ys = [];
+    for (let i = 0; i < n; i++) { if (!obs.dt.keep[i]) continue; let x = (D.t[i] - t0) / P; x -= Math.round(x); x *= P; if (Math.abs(x) <= half) { xs.push(x * 24); ys.push(obs.dt.y[i]); } }
+    // binned averages
+    const nbin = clamp(Math.round(2 * half / (Dh / 8)), 20, 120), bw = 2 * half * 24 / nbin, bs = new Float64Array(nbin), bc = new Float64Array(nbin);
+    xs.forEach((x, k) => { const b = clamp(Math.floor((x + half * 24) / bw), 0, nbin - 1); bs[b] += ys[k]; bc[b]++; });
+    const bins = []; for (let b = 0; b < nbin; b++) if (bc[b]) bins.push([-half * 24 + (b + 0.5) * bw, bs[b] / bc[b], obs.D.sig / Math.sqrt(bc[b])]);
+    let [lo, hi] = robustRange(ys.length > 50 ? ys : [-3 * D.sig, 3 * D.sig]);
+    if (bins.length) { lo = Math.min(lo, ...bins.map(q => q[1] - 2 * q[2])); hi = Math.max(hi, ...bins.map(q => q[1] + 2 * q[2])); }
+    if (ys.length > 3000) { const bl = Math.min(...bins.map(q => q[1])), bh = Math.max(...bins.map(q => q[1])), span = Math.max(bh - bl, 4 * D.sig / Math.sqrt(Math.max(1, ys.length / nbin))); lo = Math.max(lo, bl - span * 1.2); hi = Math.min(hi, bh + span * 1.2); }
+    const ax = plotFrame(ctx, R, { dpr: d, x0: -half * 24, x1: half * 24, y0: lo, y1: hi, xlabel: `Hours from the middle of the transit (folded at P = ${P.toFixed(4)} days)`, ylabel: "Brightness change (ppm)", padL: 62, title: "Folded light curve: every orbit stacked on top of each other" });
+    ax.clip();
+    ctx.fillStyle = xs.length > 5000 ? "rgba(241,175,40,0.18)" : "rgba(241,175,40,0.45)";
+    for (let k = 0; k < xs.length; k++) ctx.fillRect(ax.X(xs[k]) - d, ax.Y(ys[k]) - d, 2 * d, 2 * d);
+    ctx.strokeStyle = "#ffffff"; ctx.fillStyle = "#ffffff"; ctx.lineWidth = 1.2 * d;
+    for (const [x, y, e] of bins) { ctx.beginPath(); ctx.moveTo(ax.X(x), ax.Y(y - e)); ctx.lineTo(ax.X(x), ax.Y(y + e)); ctx.stroke(); ctx.beginPath(); ctx.arc(ax.X(x), ax.Y(y), 2.6 * d, 0, 7); ctx.fill(); }
+    if (f && f.depth > 0) { const h = f.D * 12, tau = f.tau * 24; polyline(ctx, [[ax.L, ax.Y(0)], [ax.X(-h), ax.Y(0)], [ax.X(-h + tau), ax.Y(-f.depth)], [ax.X(h - tau), ax.Y(-f.depth)], [ax.X(h), ax.Y(0)], [ax.R, ax.Y(0)]], "#00aec3", 2.2 * d); }
+    ctx.restore();
+    legendBox(ctx, [["rgba(241,175,40,0.8)", "measurements", "dot"], ["#ffffff", "averages (± error)", "dot"], ["#00aec3", "fitted transit"]], ax.R - 4 * d, ax.B - 55 * d, d);
+    note.textContent = f ? `Fitted depth ${fmtPlain(f.depth, 3)} ± ${fmtPlain(f.sdDepth, 2)} ppm, duration ${(f.D * 24).toFixed(1)} h, SNR ${f.snr.toFixed(1)}` : "";
+  } else {
+    const rv = D.rv, m = obs.nrv, P = an.trial, fold = tab === "rvfold", rf = an.rvfit;
+    const vals = rv.v.slice(0, m); let lo = Math.min(-1, ...vals.map(v => v - rv.s)), hi = Math.max(1, ...vals.map(v => v + rv.s));
+    if (rf) { lo = Math.min(lo, rf.C - rf.K); hi = Math.max(hi, rf.C + rf.K); }
+    const pad = (hi - lo) * 0.1; lo -= pad; hi += pad;
+    const ax = plotFrame(ctx, R, { dpr: d, x0: fold ? 0 : 0, x1: fold ? 1 : p.days, y0: lo, y1: hi, xlabel: fold ? `Phase (fraction of an orbit, P = ${P.toFixed(4)} days)` : "Time (days)", ylabel: "Star's velocity (m/s)", padL: 56,
+      title: fold ? "Folded radial velocity" : "Radial velocity: the star's wobble towards (−) and away from (+) us" });
+    ax.clip();
+    if (rf) { const pts = []; for (let k = 0; k <= 400; k++) { const x = fold ? k / 400 : p.days * k / 400, tt = fold ? x * P : x, ph = 2 * Math.PI * tt / P; pts.push([ax.X(x), ax.Y(rf.A * Math.sin(ph) + rf.B * Math.cos(ph) + rf.C)]); } polyline(ctx, pts, "#00aec3", 2 * d); }
+    ctx.lineWidth = 1.2 * d;
+    for (let i = 0; i < m; i++) { let x = rv.t[i]; if (fold) { x = (rv.t[i] / P) % 1; } const X = ax.X(x); ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.beginPath(); ctx.moveTo(X, ax.Y(rv.v[i] - rv.s)); ctx.lineTo(X, ax.Y(rv.v[i] + rv.s)); ctx.stroke(); ctx.fillStyle = rv.v[i] < 0 ? "#6fa8ff" : "#ff6f6f"; ctx.beginPath(); ctx.arc(X, ax.Y(rv.v[i]), 3 * d, 0, 7); ctx.fill(); }
+    ctx.restore();
+    note.textContent = rf ? `Fitted wobble K = ${fmtPlain(rf.K, 3)} ± ${fmtPlain(rf.sdK, 2)} m/s at the trial period` : "Need at least 4 measurements.";
+  }
+}
+function drawView() {
+  const { ctx, W, H, dpr: d } = fitCanvas(el("view"));
+  ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, W, H);
+  if (!obs.D) return;
+  const g = 6 * d, th = Math.round(Math.min(H * 0.42, W * 0.3)), w3 = (W - 2 * g) / 3;
+  drawTop(ctx, { x: 0, y: 0, w: w3, h: th }, d);
+  drawSide(ctx, { x: w3 + g, y: 0, w: w3, h: th }, d);
+  drawDisc(ctx, { x: 2 * (w3 + g), y: 0, w: w3, h: th }, d);
+  const gr = { x: 0, y: th + g, w: W, h: H - th - g };
+  // the data graph is costly with many points: redraw it only when something changed
+  if (graphDirty || !graphCache || graphCache.width !== W || graphCache.height !== gr.h) {
+    if (!graphCache) graphCache = document.createElement("canvas");
+    graphCache.width = W; graphCache.height = Math.max(1, gr.h);
+    const c2 = graphCache.getContext("2d"); drawGraph(c2, { x: 0, y: 0, w: W, h: gr.h }, d); graphDirty = false;
+  }
+  ctx.drawImage(graphCache, 0, gr.y);
+}
+
+/* =====================================================================
+   10. READOUTS
+   ===================================================================== */
+function verdict(rho, R) {
+  if (!isFinite(rho)) return "–";
+  if (R > 6) return "gas giant";
+  if (rho > 4 && R < 1.8) return "rocky (like Earth)";
+  if (rho > 3) return "rocky, maybe with water or a thin atmosphere";
+  if (rho > 1.5) return "water world or thin gas envelope";
+  return "thick gas envelope (mini-Neptune or gas giant)";
+}
+function updateResults() {
+  if (!obs.D) return;
+  const p = obs.p, star = STARS[p.star], P = an.trial, f = an.fit, rf = an.rvfit;
+  const a = semiMajor(star.M, 0, P), hz = hzOf(star.L), Te = tEq(star.L, a);
+  const transit = f && f.snr > 5;
+  const Rp = transit ? star.R * RSUN_REARTH * Math.sqrt(Math.max(0, f.depth) / 1e6) : NaN, sR = transit ? star.R * RSUN_REARTH * (f.sdDepth / 1e6) / (2 * Math.sqrt(Math.max(f.depth, 1e-3) / 1e6)) : NaN;
+  const Mp = rf ? minMass(rf.K, P, star.M) : NaN, sM = rf ? Mp * rf.sdK / rf.K : NaN;
+  const rho = transit && rf && rf.K > 2 * rf.sdK ? 5.51 * Mp / Rp ** 3 : NaN, sRho = rho * Math.hypot(sM / Mp, 3 * sR / Rp);
+  // the true planet with this period (if there is one)
+  const tp = obs.D.pls.map((pl, j) => ({ pl, g: obs.D.G[j] })).find(o => Math.abs(o.pl.P - P) / o.pl.P < 0.02);
+  const T = (v, txt) => (an.reveal ? `<td class="truth">${tp ? txt : "no planet"}</td>` : "");
+  const pm = (v, e, sig = 3) => (isFinite(v) ? `${fmt(v, sig)}${isFinite(e) ? ` ± ${fmt(e, 2)}` : ""}` : "–");
+  let rows = `<tr><th>Quantity</th><th>Measured</th>${an.reveal ? "<th class='truth'>True</th>" : ""}</tr>`;
+  rows += `<tr><td>Period</td><td>${P < 10 ? P.toFixed(4) : P.toFixed(2)} d${f && isFinite(f.sdP) ? ` ± ${fmt(f.sdP, 2)}` : ""}</td>${T(0, tp && tp.pl.P.toFixed(4) + " d")}</tr>`;
+  rows += `<tr><td>Transit depth</td><td>${transit ? pm(f.depth, f.sdDepth) + " ppm" : "no clear dip"}</td>${T(0, tp && (tp.g.transits ? fmt(tp.g.depth * 1e6, 3) + " ppm" : "no transit"))}</tr>`;
+  rows += `<tr><td>Signal-to-noise</td><td>${f ? f.snr.toFixed(1) : "–"}</td>${an.reveal ? "<td></td>" : ""}</tr>`;
+  rows += `<tr><td>Radius (√depth × R★)</td><td>${transit ? pm(Rp, sR) + " R⊕" : "–"}</td>${T(0, tp && fmt(tp.pl.R, 3) + " R⊕")}</tr>`;
+  rows += `<tr><td>Duration</td><td>${transit ? (f.D * 24).toFixed(1) + " h" : "–"}</td>${T(0, tp && (tp.g.transits ? (tp.g.T14 * 24).toFixed(1) + " h" : "–"))}</tr>`;
+  rows += `<tr><td>Orbit size a (Kepler 3)</td><td>${fmt(a, 3)} AU</td>${T(0, tp && fmt(tp.g.a, 3) + " AU")}</tr>`;
+  rows += `<tr><td>Wobble K</td><td>${rf ? pm(rf.K, rf.sdK) + " m/s" : "–"}</td>${T(0, tp && fmt(tp.g.K, 3) + " m/s")}</tr>`;
+  rows += `<tr><td>${transit ? "Mass (sin i ≈ 1)" : "Minimum mass M sin i"}</td><td>${rf ? pm(Mp, sM) + " M⊕" : "–"}</td>${T(0, tp && fmt(tp.pl.M, 3) + " M⊕" + (tp.g.transits ? "" : ` (M sin i ${fmt(tp.pl.M * tp.g.si, 3)})`))}</tr>`;
+  rows += `<tr><td>Density</td><td>${isFinite(rho) ? pm(rho, sRho, 2) + " g/cm³" : "–"}</td>${T(0, tp && fmt(5.51 * tp.pl.M / tp.pl.R ** 3, 2) + " g/cm³")}</tr>`;
+  rows += `<tr><td>Made of</td><td>${verdict(rho, Rp)}</td>${T(0, tp && verdict(5.51 * tp.pl.M / tp.pl.R ** 3, tp.pl.R))}</tr>`;
+  rows += `<tr><td>Temperature</td><td>${Math.round(Te)} K (${Math.round(Te - 273)} °C)</td>${an.reveal ? "<td></td>" : ""}</tr>`;
+  rows += `<tr><td>Habitable zone?</td><td>${a < hz[0] ? "no: too hot" : a > hz[1] ? "no: too cold" : "<b style='color:#8fd694'>yes</b>"}</td>${an.reveal ? "<td></td>" : ""}</tr>`;
+  el("res").innerHTML = (`<table>${rows}</table>` + (an.reveal ? `<div class="hint" style="margin-top:4px">${obs.D.pls.map(pl => `Planet ${PNAMES[pl.idx]}: P = ${pl.P.toFixed(3)} d, ${fmt(pl.R, 3)} R⊕, ${fmt(pl.M, 3)} M⊕${obs.D.G[obs.D.pls.indexOf(pl)].transits ? "" : " (does not transit)"}`).join("<br>")}</div>` : "")).replace(/([RM])⊕/g, '$1<sub style="font-size:.7em">⊕</sub>');
+}
+function storyText() {
+  const p = obs.p, D = obs.D, star = STARS[p.star], msgs = [];
+  if (!obs.n) return `A ${star.name.toLowerCase()} with ${D.pls.length} planet${D.pls.length > 1 ? "s" : ""}. Press <b>Observe</b>: the telescope measures the star's brightness again and again. When a planet passes in front, the star dims a tiny bit.`;
+  const deepest = Math.max(0, ...D.G.map(g => (g.transits ? g.depth : 0))) * 1e6;
+  if (!D.G.some(g => g.transits)) msgs.push(`At an inclination of ${p.incl.toFixed(1)}° the planets never pass in front of the star as seen from Earth, so there are <b>no transits</b>. The star still wobbles, so the radial-velocity method can find them.`);
+  else if (deepest < D.sig) msgs.push(`The deepest transit is only ${fmt(deepest, 2)} ppm, smaller than the noise in one measurement (${fmt(D.sig, 2)} ppm). It is invisible by eye — you need many transits folded together.`);
+  else msgs.push(`The deepest transit is ${fmt(deepest, 3)} ppm (${(deepest / 1e4).toFixed(3)}%), compared with ${fmt(D.sig, 2)} ppm of noise per measurement.`);
+  if (D.G.some(g => g.transits && g.b > 1 - g.k)) msgs.push("One planet only clips the edge of the star (a grazing transit): the dip is V-shaped and shallower than (Rp/Rs)², so the radius comes out too small.");
+  if (p.spots) msgs.push("Star spots make the brightness rise and fall as the star spins; this slow trend has to be removed first.");
+  if (INSTR[p.instr].night) msgs.push("From the ground you only see the star at night and when it is clear, so many transits are missed and some periods are confused with others (aliases).");
+  if (an.found.length) msgs.push(`${an.found.length} planet${an.found.length > 1 ? "s" : ""} found and hidden from the search so far.`);
+  if (an.fit && an.fit.snr > 7 && an.rvfit && an.rvfit.K > 3 * an.rvfit.sdK) msgs.push("With both a radius (transit) and a mass (wobble) you get the planet's density — and so what it is made of.");
+  else if (an.fit && an.fit.snr > 7) msgs.push("The wobble at this period is too small to measure yet: more or better radial velocities would give the mass.");
+  return msgs.join(" ");
+}
+function updateUI() {
+  if (!obs.D) return;
+  const p = obs.p, D = obs.D;
+  el("clock").textContent = `Day ${obs.t < 10 ? obs.t.toFixed(1) : Math.floor(obs.t)}`;
+  el("s_days").textContent = `${fmtPlain(p.days, 3)} days`;
+  el("s_n").textContent = obs.n.toLocaleString("en-GB"); el("s_rv").textContent = obs.nrv;
+  let tr = 0; D.pls.forEach((pl, j) => { if (D.G[j].transits) tr += Math.max(0, Math.floor((obs.t - pl.t0) / pl.P) + 1); });
+  el("s_tr").textContent = tr;
+  el("story").innerHTML = storyText();
+}
+
+/* =====================================================================
+   11. PRESETS AND CONTROLS
+   ===================================================================== */
+const PL = (type, extra) => Object.assign({ on: true, type }, PTYPES[type], extra || {});
+const OFF = { on: false, type: "neptune", R: 3.9, M: 17, P: 12 };
+const PRESETS = [
+  { name: "Hot Jupiter", note: "easy: big, close, quick", s: { star: "sun", spots: false, flares: false, inc: 90, instr: "tess", noise: 1, days: 27, rvSig: 5, rvN: 30 }, pl: [PL("hotj"), OFF, OFF] },
+  { name: "Earth round the Sun", note: "very hard: Kepler, 4 years", s: { star: "sun", spots: false, flares: false, inc: 90, instr: "kepler", noise: 1, days: 1460, rvSig: 0.5, rvN: 150 }, pl: [PL("earth"), OFF, OFF], Pmin: 50 },
+  { name: "Earth round a red dwarf", note: "small star: easier", s: { star: "mdwarf", spots: false, flares: false, inc: 90, instr: "kepler", noise: 3, days: 90, rvSig: 1, rvN: 100 }, pl: [PL("earth", { P: 20 }), OFF, OFF] },
+  { name: "TRAPPIST-1-like", note: "3 Earth-sized, cool star", s: { star: "ucd", spots: false, flares: true, inc: 89.7, instr: "tess", noise: 2, days: 30, rvSig: 3, rvN: 40 }, pl: [PL("custom", { R: 1.12, M: 1.37, P: 1.51 }), PL("custom", { R: 0.92, M: 0.69, P: 6.1 }), PL("custom", { R: 1.05, M: 1.04, P: 9.21 })] },
+  { name: "Multi-planet system", note: "Sun-like star, 3 planets", s: { star: "sun", spots: false, flares: false, inc: 89.9, instr: "kepler", noise: 1, days: 200, rvSig: 1, rvN: 80 }, pl: [PL("superearth", { P: 9 }), PL("neptune", { P: 31 }), PL("custom", { R: 2.5, M: 8, P: 64 })] },
+  { name: "Grazing transit", note: "only clips the star's edge", s: { star: "sun", spots: false, flares: false, inc: 84.1, instr: "tess", noise: 1, days: 27, rvSig: 5, rvN: 30 }, pl: [PL("hotj", { P: 3.3 }), OFF, OFF] },
+  { name: "Not edge-on", note: "no transit, but RV works", s: { star: "sun", spots: false, flares: false, inc: 70, instr: "tess", noise: 1, days: 27, rvSig: 5, rvN: 30 }, pl: [PL("hotj"), OFF, OFF] },
+  { name: "Noisy, ground-based", note: "nights only, clouds", s: { star: "sun", spots: false, flares: false, inc: 90, instr: "ground", noise: 1, days: 60, rvSig: 10, rvN: 25 }, pl: [PL("hotj", { P: 3.3 }), OFF, OFF] },
+  { name: "Spotty red dwarf", note: "spots and flares", s: { star: "mdwarf", spots: true, flares: true, inc: 90, instr: "tess", noise: 1, days: 27, rvSig: 3, rvN: 40 }, pl: [PL("neptune", { P: 6 }), OFF, OFF] },
+  { name: "Too small for TESS?", note: "super-Earth, Sun-like star", s: { star: "sun", spots: false, flares: false, inc: 90, instr: "tess", noise: 1, days: 27, rvSig: 3, rvN: 40 }, pl: [PL("custom", { R: 2.0, M: 6, P: 5 }), OFF, OFF] },
+];
+function applySettings(s) {
+  for (const [k, v] of Object.entries(s)) { const e = el(k); if (!e) continue; if (e.type === "checkbox") e.checked = v; else if (k === "noise" || k === "days") e.value = Math.log10(v); else e.value = v; }
+}
+function setPreset(k) {
+  const pr = PRESETS[k];
+  applySettings(pr.s);
+  pr.pl.forEach((pl, i) => { planetsUI[i] = Object.assign({}, pl); });
+  an.Pmin = pr.Pmin || 0.5;
+  document.querySelectorAll("#presets button").forEach((b, j) => b.classList.toggle("on", j === k));
+  an.reveal = false; el("btnReveal").textContent = "👁 Reveal true values";
+  editPlanet(0); newObservations(); setTrial(planetsUI[0].P * 1.37, false); switchTab("lc");
+}
+function editPlanet(i) {
+  editing = i; const pl = planetsUI[i];
+  document.querySelectorAll("#ptabs button").forEach((b, j) => { b.classList.toggle("on", j === i); b.classList.toggle("off", !planetsUI[j].on); });
+  el("pon").checked = pl.on; el("ptype").value = pl.type; el("pR").value = Math.log10(pl.R); el("pM").value = Math.log10(pl.M); el("pP").value = Math.log10(pl.P);
+  updateLabels();
+}
+function updateLabels() {
+  const pl = planetsUI[editing], p = params(), star = STARS[p.star];
+  el("o_pR").innerHTML = `${fmtPlain(pl.R, 3)} R<sub style="font-size:.7em">⊕</sub>${pl.R > 6 ? ` (${(pl.R / 11.2).toFixed(2)} Jupiters)` : ""}`;
+  el("o_pM").innerHTML = `${fmtPlain(pl.M, 3)} M<sub style="font-size:.7em">⊕</sub>${pl.M > 50 ? ` (${(pl.M / MJUP_MEARTH).toFixed(2)} Jupiters)` : ""}`;
+  const g = geom(star, pl, p.incl);
+  el("o_pP").textContent = `${pl.P < 10 ? pl.P.toFixed(2) : fmtPlain(pl.P, 4)} days (a = ${fmtPlain(g.a, 3)} AU)`;
+  el("o_inc").textContent = `${p.incl.toFixed(2)}° (b = ${g.b.toFixed(2)})`;
+  el("o_noise").textContent = `${p.noise.toFixed(2)} (${fmtPlain(INSTR[p.instr].sigma * p.noise, 3)} ppm)`;
+  el("o_days").textContent = `${fmtPlain(p.days, 3)} days`;
+  el("o_rvSig").textContent = `±${p.rvSig} m/s`; el("o_rvN").textContent = p.rvN;
+  document.querySelectorAll("#ptabs button").forEach((b, j) => b.classList.toggle("off", !planetsUI[j].on));
+}
+el("presets").innerHTML = PRESETS.map((p, k) => `<button data-k="${k}">${p.name}<small>${p.note}</small></button>`).join("");
+document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.k)));
+const clearPreset = () => document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on"));
+document.querySelectorAll("#ptabs button").forEach(b => (b.onclick = () => editPlanet(+b.dataset.p)));
+const planetChanged = () => { clearPreset(); updateLabels(); newObservations(); fitAtTrial(); updateResults(); };
+el("pon").addEventListener("change", () => { planetsUI[editing].on = el("pon").checked; if (!planetsUI.some(q => q.on)) { planetsUI[editing].on = true; el("pon").checked = true; } planetChanged(); });
+el("ptype").addEventListener("change", () => { const t = el("ptype").value, T = PTYPES[t]; planetsUI[editing].type = t; if (T.R) Object.assign(planetsUI[editing], { R: T.R, M: T.M, P: T.P }); editPlanet(editing); planetChanged(); });
+["pR", "pM", "pP"].forEach(id => el(id).addEventListener("input", () => { const k = { pR: "R", pM: "M", pP: "P" }[id]; planetsUI[editing][k] = Math.pow(10, +el(id).value); planetsUI[editing].type = "custom"; el("ptype").value = "custom"; updateLabels(); }));
+["pR", "pM", "pP"].forEach(id => el(id).addEventListener("change", planetChanged));
+["inc", "noise", "days", "rvSig", "rvN", "seed"].forEach(id => { el(id).addEventListener("input", () => { clearPreset(); updateLabels(); }); el(id).addEventListener("change", planetChanged); });
+["star", "instr", "spots", "flares"].forEach(id => el(id).addEventListener("change", planetChanged));
+el("btnNew").onclick = () => { el("seed").value = String(1 + Math.floor(Math.random() * 99999)); planetChanged(); };
+function setRunning(r) { obs.running = r; el("btnPlay").textContent = r ? "⏸ Pause" : obs.p && obs.t >= obs.p.days ? "▶ Again" : obs.t > 0 ? "▶ Resume" : "▶ Observe"; }
+el("btnPlay").onclick = () => { if (obs.t >= obs.p.days) { newObservations(); setRunning(true); return; } setRunning(!obs.running); };
+el("btnAll").onclick = () => { advance(obs.p.days); setRunning(false); fitAtTrial(); updateResults(); };
+el("btnReset").onclick = () => { newObservations(); fitAtTrial(); updateResults(); };
+let speed = 1;
+document.querySelectorAll("[data-s]").forEach(b => (b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", x === b)); }));
+document.querySelectorAll("#gtabs button").forEach(b => (b.onclick = () => switchTab(b.dataset.g)));
+el("trial").addEventListener("input", () => setTrial(Math.pow(10, +el("trial").value), false));
+el("trialNum").addEventListener("change", () => { const v = +el("trialNum").value; if (v > 0) setTrial(v, false); });
+el("half").onclick = () => setTrial(an.trial / 2, false);
+el("dbl").onclick = () => setTrial(an.trial * 2, false);
+el("btnBLS").onclick = () => { an.found = []; an.mask.fill(1); startSearch(); };
+el("btnNext").onclick = findNext;
+el("btnRVP").onclick = rvSearch;
+el("btnReveal").onclick = () => { an.reveal = !an.reveal; el("btnReveal").textContent = an.reveal ? "🙈 Hide true values" : "👁 Reveal true values"; updateResults(); graphDirty = true; };
+
+/* =====================================================================
+   12. BATCH RUN
+   ===================================================================== */
+function batchBase() {
+  const p = params(), pl = planetsUI[0];
+  return { star: p.star, instr: p.instr, noise: p.noise, days: p.days, spots: p.spots, flares: p.flares, rvN: p.rvN, rvSig: p.rvSig, incl: p.incl, Rp: pl.R, Mp: pl.M, P: pl.P, seed: p.seed };
+}
+function setupBatchCase(star, instr, days, R, M, P, incl, extra) {
+  applySettings(Object.assign({ star, instr, noise: 1, days, inc: incl, spots: false, flares: false, rvSig: 3, rvN: 40 }, extra || {}));
+  planetsUI[0] = { on: true, type: "custom", R, M, P }; planetsUI[1].on = false; planetsUI[2].on = false;
+  clearPreset(); editPlanet(0); newObservations(); setTrial(P * 1.37, false);
+}
+const batch = setupBatch({
+  file: "exoplanet-hunting",
+  intro: "Each run makes new observations of planet b alone (new random noise and a random time of transit), searches them with BLS and fits the transit. Uses the star, telescope and planet b on the left unless an experiment sets them.",
+  runs: [20, 100, 300, 1000],
+  outcomes: [
+    { key: "det", label: "Planet found (right period, SNR > 7)", unit: "", binary: true },
+    { key: "snr", label: "Signal-to-noise ratio of the transit", unit: "" },
+    { key: "Rmeas", label: "Measured radius", unit: "R⊕" },
+    { key: "Pmeas", label: "Measured period", unit: "days" },
+    { key: "within1R", label: "True radius within ±1σ of measured", unit: "", binary: true },
+    { key: "transits", label: "Transits for a random orientation", unit: "", binary: true },
+    { key: "rvmass", label: "Minimum mass from radial velocities", unit: "M⊕" },
+  ],
+  vars: [
+    { key: "Rp", label: "Planet radius", unit: "R⊕", min: 0.3, max: 25, from: 1, to: 5 },
+    { key: "noise", label: "Noise multiplier", unit: "×", min: 0.05, max: 20, from: 0.25, to: 4, log: true },
+    { key: "days", label: "Observing time", unit: "days", min: 5, max: 1500, from: 15, to: 120, log: true },
+    { key: "P", label: "Orbital period", unit: "days", min: 0.5, max: 1000, from: 1, to: 400, log: true },
+    { key: "incl", label: "Inclination", unit: "°", min: 0, max: 90, from: 5, to: 90 },
+    { key: "rvSig", label: "Radial-velocity precision", unit: "m/s", min: 0.1, max: 100, from: 1, to: 30, log: true },
+  ],
+  base: batchBase,
+  run: runOnce,
+  theory: (p, key) => {
+    const th = theoryFor(p), star = STARS[p.star];
+    if (key === "det") return { y: th.det, label: "theory: Φ(SNR − 7)" };
+    if (key === "snr") return { y: th.snr, sd: 1, label: "theory: depth/σ × √n" };
+    if (key === "Rmeas") return { y: p.Rp, sd: th.sdR, label: "true radius" };
+    if (key === "Pmeas") return { y: p.P, sd: th.sdP, label: "true period" };
+    if (key === "within1R") return { y: 0.683, label: "theory: 68.3%" };
+    if (key === "transits") return { y: Math.min(1, (1 + th.g.k) / th.g.aR), label: "theory: (R★ + Rp)/a" };
+    if (key === "rvmass") { const s = Math.hypot(p.rvSig, p.spots ? (p.star === "sun" ? 1 : 3) : 0), K = rvK(p.Mp, p.incl, p.P, star.M), sk = s * Math.sqrt(2 / p.rvN); return { y: p.Mp * Math.sin(p.incl * Math.PI / 180), sd: p.Mp * sk / rvK(p.Mp, 90, p.P, star.M), label: "theory: M sin i" }; }
+    return null;
+  },
+  slopeHint: () => "",
+  extraSummary: (rows, key) => {
+    if (key === "Rmeas") { const v = rows.filter(r => isFinite(r.Rmeas) && isFinite(r.Rerr)); if (!v.length) return ""; const w = v.filter(r => r.within1R === 1).length; return `<div style="margin-top:6px">True radius inside the run's own ±1σ error bar in <b>${(100 * w / v.length).toFixed(0)}%</b> of ${v.length} runs (honest error bars: 68%). Typical quoted error: ${fmt(basicStats(v.map(r => r.Rerr)).mean, 2)} R⊕.</div>`; }
+    if (key === "Pmeas") { const v = rows.filter(r => isFinite(r.Pmeas) && isFinite(r.Perr)); if (!v.length) return ""; const w = v.filter(r => r.withinP === 1).length; return `<div style="margin-top:6px">True period inside the run's own ±1σ error bar in <b>${(100 * w / v.length).toFixed(0)}%</b> of ${v.length} runs (honest error bars: 68%). Typical quoted error: ${fmt(basicStats(v.map(r => r.Perr)).mean, 2)} days.</div>`; }
+    if (key === "det") { const n = rows.length, d = rows.filter(r => r.det === 1).length; return `<div style="margin-top:6px">${d} of ${n} runs found the planet.</div>`; }
+    return "";
+  },
+  experiments: [
+    { q: "How small a planet can TESS find?", setup: () => setupBatchCase("sun", "tess", 27, 3, 10, 5, 90), cfg: { mode: "sweep", var: "Rp", from: 1, to: 5, steps: 9, reps: 30, outcome: "det", err: "se" },
+      note: "Small planets make shallow dips (depth ∝ Rp²) that hide in the noise. Detection switches on over a narrow range of sizes, where SNR = depth/σ × √(points in transit) passes 7. The theory curve assumes the measured SNR scatters by ±1 around the expected value." },
+    { q: "Does SNR = depth/σ × √n hold?", setup: () => setupBatchCase("sun", "tess", 27, 3, 10, 5, 90), cfg: { mode: "sweep", var: "Rp", from: 1, to: 5, steps: 9, reps: 15, outcome: "snr" },
+      note: "The measured SNR follows the theory line, rising as Rp² (depth). For very small planets the search still finds an SNR of about 4–5: the best-looking noise bump out of thousands of trial periods (false alarms). That is why the threshold is set as high as 7." },
+    { q: "Detection rate against noise", setup: () => setupBatchCase("sun", "tess", 27, 3.9, 17, 5, 90), cfg: { mode: "sweep", var: "noise", from: 0.25, to: 4, steps: 9, reps: 20, outcome: "det", err: "se" },
+      note: "A Neptune-sized planet is easy for a bright star but lost round a faint (noisier) one. SNR falls as 1/σ, so doubling the noise halves the SNR." },
+    { q: "Are the radius error bars honest? (68% within 1σ?)", setup: () => setupBatchCase("sun", "tess", 27, 3.9, 17, 5, 90), cfg: { mode: "repeat", n: 300, outcome: "Rmeas" },
+      note: "The measured radii scatter around the true radius with no bias, and roughly 2 in 3 of the runs' own error bars include the truth. The spread is about 20% wider than the simple theory, because the fit also has to find the transit's timing, length and shape from the same noisy data — so slightly fewer than 68% are inside. The star's radius is assumed known exactly here; in real life its error adds to the planet's." },
+    { q: "How precise is the period?", setup: () => setupBatchCase("sun", "tess", 27, 3.9, 17, 5, 90), cfg: { mode: "repeat", n: 300, outcome: "Pmeas" },
+      note: "Periods are measured to a few minutes, because a small error adds up over many orbits. But the spread is wider than the theory (Carter et al. 2008) and only about half the error bars include the truth: with only about 5 noisy transits, some runs lock onto a period slightly off, where the dips line up nearly as well. The quoted error only looks at the best peak, so it is too optimistic — a real lesson about error bars." },
+    { q: "How likely is a transit? (random orientations)", setup: () => setupBatchCase("sun", "tess", 27, 1, 1, 5, 90), cfg: { mode: "sweep", var: "P", from: 1, to: 400, steps: 10, reps: 300, outcome: "transits", err: "se", logY: true },
+      note: "With orbits pointing in random directions, only a fraction R★/a line up to transit: about 1 in 9 for a 3-day orbit but only 1 in 215 for an Earth-like orbit. So for every transiting Earth twin there are about 200 we can't see this way." },
+    { q: "More transits help: observing time", setup: () => setupBatchCase("sun", "tess", 27, 2.5, 7, 6, 90), cfg: { mode: "sweep", var: "days", from: 15, to: 120, steps: 7, reps: 20, outcome: "det", err: "se" },
+      note: "Observing longer catches more transits, and SNR grows as √(number of transits). A planet invisible in one 27-day TESS sector can be found in four." },
+    { q: "Minimum mass from the wobble against inclination", setup: () => setupBatchCase("sun", "tess", 27, 11.2, 318, 3.5, 90, { rvSig: 5, rvN: 30 }), cfg: { mode: "sweep", var: "incl", from: 10, to: 90, steps: 9, reps: 20, outcome: "rvmass" },
+      note: "The wobble only shows the part of the star's motion along our line of sight, so radial velocities give M sin i, a minimum mass. For a face-on orbit (small i) the true mass could be much bigger. A transit tells us i ≈ 90°, so then we get the true mass." },
+  ],
+});
+
+/* =====================================================================
+   13. MAIN LOOP
+   ===================================================================== */
+let lastT = performance.now(), lastFitT = 0;
+function frame(now) {
+  const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (obs.running && !batch.isBusy()) advance(obs.t + real * speed);             // 1× = 1 day of observing per second
+  if (an.searching && !batch.isBusy()) searchStep();
+  // keep the fit at the trial period up to date while data come in (at most twice a second)
+  if (obs.running && now - lastFitT > 500) { lastFitT = now; fitAtTrial(); updateResults(); }
+  if (!batch.isOpen()) drawView();
+  if (now - (frame.ui || 0) > 250) { frame.ui = now; updateUI(); }
+  requestAnimationFrame(frame);
+}
+setupPanels("exoplanet-hunting-layout", () => { graphDirty = true; });
+setPreset(0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

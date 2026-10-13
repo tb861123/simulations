@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heart and Circulation</title>
+<!--
+  THE HEART AND CIRCULATION — a teaching model
+  =============================================
+  One self-contained file: no libraries, no internet needed.
+
+  The blood system is modelled as nine stretchy "compartments" joined by
+  pipes, like an electrical circuit (a "lumped" or Windkessel model):
+    left atrium → left ventricle → aorta → arteries → (capillaries) → veins
+    → right atrium → right ventricle → pulmonary artery → lungs → pulmonary
+    veins → back to the left atrium. This is the DOUBLE circulation.
+
+  The heart chambers are "time-varying elastances": their stiffness E rises
+  when the muscle contracts and falls when it relaxes, so
+      chamber pressure P = E(t) × (V − V0)
+  Vessel pressure is P = (V − V0) / C  (C = compliance, how stretchy it is).
+  Blood flows down a pressure difference through a resistance, Q = ΔP / R
+  (the same idea as Ohm's law, I = V / R). Valves only open when the pressure
+  pushes blood forwards.
+
+  Units: pressure in mmHg (millimetres of mercury, the units of a blood
+  pressure reading), volume in mL, flow in mL/s (shown as litres per minute),
+  time in seconds.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 330px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .trow { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+               background: rgba(14,18,12,.94); border: 2px solid #8fd694; border-radius: 12px; padding: 14px 18px; box-shadow: 0 8px 30px rgba(0,0,0,.6); }
+  #status { font-weight: 700; font-size: 13px; border-radius: 999px; padding: 1px 10px; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+  #centre { position: relative; }
+  .phase { font-weight: 700; font-size: 13px; border-radius: 999px; padding: 1px 10px; background: #2a3024; color: var(--muted); }
+  .cv { position: relative; min-height: 0; background: #07080a; border-radius: 8px; overflow: hidden; }
+  .cv canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .graphBox { position: relative; height: 180px; }
+  .graphBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .chk { display: flex; gap: 6px; align-items: center; font-size: 13px; margin: 4px 0 8px; }
+  .chk input { accent-color: var(--accent); }
+  #btnBatch { margin-left: auto; }
+
+  /* Batch run overlay (covers the centre panel) */
+  #batch { display: none; position: absolute; inset: 0; z-index: 20; background: var(--panel); border-radius: 10px; padding: 10px 12px; flex-direction: column; gap: 8px; }
+  #batch.open { display: flex; }
+  #batch .bhead { display: flex; align-items: baseline; gap: 12px; }
+  #batch .bhead h3 { margin: 0; font-size: 17px; white-space: nowrap; }
+  #batch .bhead button { white-space: nowrap; }
+  .presets button.on small { color: var(--ink-dark); }
+  #batch .bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 12px; }
+  #batch .bcfg { overflow-y: auto; padding-right: 4px; }
+  #batch .bcfg .ctl input[type=number] { width: 100%; font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+  #batch .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+  #batch .row3 label { font-size: 11.5px; color: var(--muted); display: block; }
+  #bExps { display: flex; flex-direction: column; gap: 4px; }
+  #bExps button { text-align: left; font-size: 12.5px; padding: 5px 8px; }
+  #bExps button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  #batch .bres { display: flex; flex-direction: column; min-height: 0; gap: 6px; }
+  #bChartBox { position: relative; flex: 1 1 55%; min-height: 200px; background: #07080a; border-radius: 8px; }
+  #bChart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bInfo { flex: 0 1 45%; overflow: auto; font-size: 12.5px; }
+  #bInfo table { border-collapse: collapse; margin: 4px 0; font-variant-numeric: tabular-nums; }
+  #bInfo td, #bInfo th { border: 1px solid var(--line); padding: 1px 7px; text-align: right; font-size: 12px; }
+  #bInfo th { color: var(--muted); font-weight: 600; }
+  #bNote { color: #dfe3d6; margin-bottom: 4px; }
+  .progress { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; margin: 6px 0 2px; }
+  #bBar { height: 100%; width: 0; background: var(--accent); }
+  #bCsv { color: var(--accent); }
+
+  #topbar { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
+  #scene { flex: 1 1 58%; }
+  #wig { flex: 1 1 42%; }
+  #pvBox { height: 200px; }
+  .pill-sys { color: #ff8a8a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>The Heart and Circulation</h1>
+  <span class="sub">How the heart's four chambers and four valves pump blood round the body and the lungs, and what happens with exercise, high blood pressure, heart failure, valve disease and blood loss.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: PRESETS AND CONTROLS ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">The heart <span class="live">changes take effect at once</span></h2>
+    <div class="ctl"><label>Heart rate (pacemaker setting) <output id="o_hr"></output></label>
+      <input type="range" id="hr" min="30" max="220" step="1" value="72"></div>
+    <div class="ctl"><label>Contractility (strength of squeeze) <output id="o_contract"></output></label>
+      <input type="range" id="contract" min="40" max="200" step="5" value="100">
+      <div class="hint">Adrenaline and the sympathetic nerves make each beat squeeze harder.</div></div>
+    <div class="ctl"><label>Heart failure <output id="o_failure"></output></label>
+      <input type="range" id="failure" min="0" max="100" step="5" value="0">
+      <div class="hint">Damaged muscle (for example after a heart attack): the left ventricle is weaker and stretches larger.</div></div>
+    <div class="ctl"><label>Valve problem</label>
+      <select id="valve">
+        <option value="none">None (healthy valves)</option>
+        <option value="mr">Leaky mitral valve (regurgitation)</option>
+        <option value="as">Narrow, stiff aortic valve (stenosis)</option>
+        <option value="ar">Leaky aortic valve (regurgitation)</option>
+        <option value="ms">Narrow mitral valve (stenosis)</option>
+      </select></div>
+    <div class="ctl"><label>How bad is the valve problem <output id="o_valveSev"></output></label>
+      <input type="range" id="valveSev" min="0" max="100" step="5" value="60"></div>
+    <div class="ctl"><label>Hole in the heart (septal defect) <output id="o_vsd"></output></label>
+      <input type="range" id="vsd" min="0" max="100" step="5" value="0"></div>
+
+    <h2 class="gap">Blood and vessels</h2>
+    <div class="ctl"><label>Blood volume <output id="o_volume"></output></label>
+      <input type="range" id="volume" min="2750" max="6500" step="50" value="5000">
+      <div class="hint">Lower = blood loss (haemorrhage); higher = transfusion or fluid retention.</div></div>
+    <div class="ctl"><label>Arteriole resistance <output id="o_resist"></output></label>
+      <input type="range" id="resist" min="40" max="300" step="5" value="100">
+      <div class="hint">Narrow arterioles (high blood pressure) raise it; widening them (vasodilation) lowers it.</div></div>
+    <div class="ctl"><label>Artery stiffness <output id="o_stiff"></output></label>
+      <input type="range" id="stiff" min="1" max="3" step="0.05" value="1">
+      <div class="hint">Arteries lose their stretch with age.</div></div>
+
+    <h2 class="gap">The body</h2>
+    <div class="ctl"><label>Exercise level <output id="o_exercise"></output></label>
+      <input type="range" id="exercise" min="0" max="100" step="5" value="0">
+      <div class="hint">Raises heart rate and squeeze, widens blood vessels in muscles and squeezes blood out of the veins.</div></div>
+    <label class="chk"><input type="checkbox" id="reflex"> Body's reflexes (baroreceptor reflex)</label>
+    <div class="hint" style="margin-top:-4px">When on, pressure sensors in the neck and aorta speed the heart and tighten the vessels if blood pressure falls.</div>
+    <label class="chk" style="margin-top:8px"><input type="checkbox" id="sound"> Heart sounds ("lub-dub")</label>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE: HEART, CIRCULATION AND WIGGERS DIAGRAM ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">0.0 s</span>
+      <span id="phase" class="phase">–</span>
+      <span class="stat">Blood pressure <b id="s_bp">–</b></span>
+      <span class="stat">Heart rate <b id="s_hr">–</b></span>
+    </div>
+    <div class="cv" id="scene"><canvas id="sceneC" aria-label="Cut-away heart and the double circulation"></canvas></div>
+    <div class="cv" id="wig"><canvas id="wigC" aria-label="Wiggers diagram: pressures, volume and ECG against time"></canvas></div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">❚❚ Pause</button>
+      <button id="btnReset" title="Restart the circulation from the settings">Reset</button>
+      <span class="speed">Speed <button data-s="0.25">¼×</button><button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="2">2×</button></span>
+      <span class="hint" id="speedNote">1× = real time</span>
+      <button id="btnBatch" title="Run the model many times and compare with theory">📊 Batch run</button>
+    </div>
+    <div class="legend">
+      <span><i style="background:#e0303a"></i>Oxygenated blood</span><span><i style="background:#3d63d6"></i>Deoxygenated blood</span>
+      <span><i style="background:#f4e6c8"></i>Valve leaflets</span><span><i style="background:#ff6b6b"></i>Aortic pressure</span><span><i style="background:#f1af28"></i>Left ventricle</span><span><i style="background:#7fb8ff"></i>Left atrium</span><span><i style="background:#8fd694"></i>ECG</span><span>· Heart seen from the front: its right side is on your left</span>
+    </div>
+    <!-- ======================= BATCH RUN OVERLAY ======================= -->
+    <div id="batch" role="dialog" aria-label="Batch run">
+      <div class="bhead"><h3>Batch run</h3><span class="hint" id="bHeadless"></span><button id="bClose" style="margin-left:auto">✕ Close</button></div>
+      <div class="bbody">
+        <div class="bcfg">
+          <h2>Batch experiments</h2>
+          <div id="bExps"></div>
+          <h2 class="gap">Or set up your own</h2>
+          <div class="ctl"><label>Mode</label>
+            <select id="bMode"><option value="repeat">A · Repeat the same set-up</option><option value="sweep">B · Sweep one input</option></select></div>
+          <div id="bRepeatBox" class="ctl"><label>How many runs</label><select id="bN"></select></div>
+          <div id="bSweepBox">
+            <div class="ctl"><label>Change this input</label><select id="bVar"></select></div>
+            <div class="row3 ctl"><div><label>from</label><input type="number" id="bFrom" step="any"></div><div><label>to</label><input type="number" id="bTo" step="any"></div><div><label>steps</label><input type="number" id="bSteps" min="2" max="60"></div></div>
+            <div class="ctl"><label>Repeats per step</label><input type="number" id="bReps" min="1" max="200" value="3"></div>
+          </div>
+          <div class="ctl"><label>Record this outcome</label><select id="bOut"></select></div>
+          <label class="chk"><input type="checkbox" id="bVary"> <span id="bVaryLabel"></span></label>
+          <label class="chk"><input type="checkbox" id="bLog"> Log–log axes (sweeps)</label>
+          <div style="display:flex;gap:6px"><button id="bRun" class="primary" style="flex:1">▶ Run batch</button><button id="bStop" disabled>■ Stop</button></div>
+          <div class="progress"><div id="bBar"></div></div>
+          <div class="hint" id="bProg">Not run yet.</div>
+          <a id="bCsv" style="display:none" href="#">⬇ Download CSV of every run</a>
+        </div>
+        <div class="bres">
+          <div id="bChartBox"><canvas id="bChart"></canvas></div>
+          <div id="bInfo"><div id="bNote"></div><div id="bSummary"></div></div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT: READOUTS ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readouts</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">Readings (average of the last few beats)</h2>
+    <div class="tiles" id="tiles"></div>
+    <h2 class="gap">Pressure–volume loop (left ventricle)</h2>
+    <div class="graphBox" id="pvBox"><canvas id="pvC"></canvas></div>
+    <div class="hint">Each beat goes round the loop anticlockwise: filling (bottom), squeezing with valves shut (right side), ejecting (top), relaxing (left side). The width of the loop is the stroke volume; its area is the work done by the heart.</div>
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Compartments:</b> 4 heart chambers and 5 vessel sections (aorta, body arteries, body veins, pulmonary arteries, pulmonary veins). Capillaries are the resistance between arteries and veins. Total blood volume is shared between them.</li>
+        <li><b>Chambers</b> (time-varying elastance): P = E(t)·(V − V<sub>0</sub>). E rises smoothly from its relaxed value E<sub>min</sub> to E<sub>max</sub> as the muscle contracts, then falls again. Left ventricle E<sub>max</sub> 2.6, E<sub>min</sub> 0.075 mmHg/mL; right ventricle 0.55 and 0.035; atria about 0.3 and 0.15.</li>
+        <li><b>Timing:</b> the atria contract first (P wave); after the AV-node delay (about 0.15 s) the ventricles contract for 0.16 + 0.13T seconds and relax for 55% of that (T = time per beat). At fast rates this leaves very little filling time.</li>
+        <li><b>Vessels:</b> P = (V − V<sub>0</sub>)/C. Compliance C: aorta 0.3, body arteries 1.25 (both divided by the stiffness setting), veins 110, pulmonary arteries 4, pulmonary veins 10 mL/mmHg.</li>
+        <li><b>Flow:</b> Q = ΔP/R between compartments. Body (systemic) resistance 0.95 mmHg·s/mL (about 16 mmHg per L/min); lungs 0.085 — about a tenth, which is why lung pressures are low.</li>
+        <li><b>Valves:</b> open only when pressure pushes forwards. Flow through an opening of area A follows Bernoulli/Gorlin: ΔP = (Q / 44.3A)². Stenosis shrinks A (aortic 3.5 cm² → 0.35 cm²). A leaky valve lets blood flow backwards through a small hole.</li>
+        <li><b>Hole in the heart:</b> a ventricular septal defect lets blood flow between the ventricles, mostly left to right because the left side is at higher pressure.</li>
+        <li><b>Exercise:</b> heart rate rises towards 185/min, contractility ×1.8, body resistance falls by 62% (muscle vessels widen), and the muscle pump and tightened veins return about 800 mL of extra blood to the heart.</li>
+        <li><b>Heart failure:</b> the left ventricle's E<sub>max</sub> falls by up to 70%, it stiffens when relaxed and enlarges (V<sub>0</sub> grows).</li>
+        <li><b>Reflexes (optional):</b> a simple baroreceptor reflex compares mean pressure with 93 mmHg and, over a few seconds, changes heart rate, resistance, squeeze and vein tone.</li>
+        <li><b>ECG and heart sounds</b> are drawn from the timing, not calculated from electrical currents. "Lub" (S1) is drawn when the mitral valve shuts, "dub" (S2) when the aortic valve shuts.</li>
+        <li><b>Blood pressure</b> shown is the aortic pressure. A cuff on the arm reads a few mmHg higher systolic.</li>
+        <li><b>Not modelled:</b> the momentum of blood (so no proper dicrotic notch), the pericardium, breathing, gravity and posture, the coronary blood supply, the kidneys' slow control of blood volume, hormones, valve leaflet mechanics, and the different branches of the circulation (brain, gut, kidneys, muscles) — the body is one combined circuit. Real hearts also change size slowly (athletes' hearts grow). The heart picture is a simplified cut-away and not to scale.</li>
+      </ul>
+    </details>
+  </section>
+</main>
+
+<script>
+"use strict";
+/* =====================================================================
+   1. THE CIRCULATION MODEL (no drawing here, so it can also run "headless")
+   ---------------------------------------------------------------------
+   Nine stretchy compartments hold the blood (volumes in mL):
+     0 LA  left atrium        4 SV  systemic veins (body)
+     1 LV  left ventricle     5 RA  right atrium
+     2 AO  aorta              6 RV  right ventricle
+     3 SA  arteries & arterioles of the body
+     7 PA  pulmonary arteries 8 PV  pulmonary veins (lungs)
+   Pressure in a VESSEL:  P = (V − V0) / C      (C = compliance, mL per mmHg)
+   Pressure in a CHAMBER: P = E(t) × (V − V0)   (E = elastance = stiffness,
+       mmHg per mL. It rises when the muscle contracts and falls when it relaxes.)
+   Blood flows from high to low pressure through a resistance:
+       Q = ΔP / R   (like current = voltage / resistance)
+   Valves only let blood go forwards (unless leaky).
+   Units: pressure mmHg, volume mL, flow mL/s, time s,
+          resistance mmHg·s/mL, compliance mL/mmHg.
+   ===================================================================== */
+const LA = 0, LV = 1, AO = 2, SA = 3, SV = 4, RA = 5, RV = 6, PA = 7, PV = 8, NC = 9;
+const NAMES = ["left atrium", "left ventricle", "aorta", "arteries", "veins", "right atrium", "right ventricle", "pulmonary artery", "pulmonary veins"];
+
+// Normal resting adult values
+const DEFAULTS = {
+  hr: 72,            // heart rate (beats per minute)
+  contract: 1.0,     // contractility (1 = normal)
+  volume: 5000,      // total blood volume (mL)
+  resist: 1.0,       // arteriole (systemic) resistance (1 = normal)
+  stiff: 1.0,        // artery stiffness (1 = young adult; 2 = about age 80)
+  exercise: 0,       // 0–1
+  failure: 0,        // 0–1 heart failure (weak, enlarged left ventricle)
+  valve: "none",     // "none" | "mr" leaky mitral | "as" aortic stenosis | "ar" leaky aortic | "ms" mitral stenosis
+  valveSev: 0.6,     // severity 0–1
+  vsd: 0,            // hole between the ventricles, 0–1
+  reflex: false,     // baroreflex on/off
+};
+
+// Bernoulli + small linear term: ΔP = R·Q + K·Q²  →  solve for Q
+function orificeFlow(dp, R, K) {
+  if (K <= 0) return dp / R;
+  const a = Math.abs(dp), q = (-R + Math.sqrt(R * R + 4 * K * a)) / (2 * K);
+  return dp >= 0 ? q : -q;
+}
+// Gorlin/Bernoulli constant for an opening of area A (cm²): ΔP = (Q / (44.3 A))²
+const kArea = A => 1 / ((44.3 * A) * (44.3 * A));
+
+// Work out every model constant from the student-facing settings p
+function makeConsts(p) {
+  const ex = p.exercise, hf = p.failure;
+  const c = {};
+  c.hr = Math.min(220, p.hr + ex * Math.max(0, 185 - p.hr) * 0.85);      // exercise raises heart rate
+  const inotrope = p.contract * (1 + 0.8 * ex);                            // adrenaline: stronger beats
+  // Chambers: Emax = stiffness at full squeeze, Emin = when relaxed, V0 = volume at zero pressure
+  c.lv = { emax: 2.6 * inotrope * (1 - 0.7 * hf), emin: 0.075 * (1 + 0.6 * hf), v0: 10 + 90 * hf };
+  c.rv = { emax: 0.55 * inotrope * (1 - 0.3 * hf), emin: 0.035, v0: 10 };
+  c.la = { emax: 0.30 * Math.sqrt(inotrope), emin: 0.15, v0: 5 };
+  c.ra = { emax: 0.22 * Math.sqrt(inotrope), emin: 0.10, v0: 5 };
+  // Vessels: compliance and unstressed volume. Stiff (old) arteries stretch less.
+  c.C = new Float64Array(NC); c.V0 = new Float64Array(NC);
+  c.C[AO] = 0.30 / p.stiff;  c.V0[AO] = 120;
+  c.C[SA] = 1.25 / p.stiff;  c.V0[SA] = 600;
+  c.C[SV] = 110;             c.V0[SV] = 2650 * (0.4 + 0.6 * p.volume / 5000) - 800 * ex;   // muscle pump & venoconstriction push blood back to the heart
+  c.C[PA] = 4.0;             c.V0[PA] = 120;
+  c.C[PV] = 10;              c.V0[PV] = 250;
+  // Resistances (mmHg·s/mL)
+  c.Rao = 0.045;                                   // along the aorta to the arteries
+  c.Rsys = 0.95 * p.resist * (1 - 0.62 * ex);      // arterioles + capillaries (muscle vessels widen in exercise)
+  c.Rven = 0.025;                                  // veins → right atrium
+  c.Rpul = 0.085;                                  // lung capillaries
+  c.Rpv = 0.01;                                    // pulmonary veins → left atrium
+  // Valves: normal opening areas (cm²) and a tiny linear resistance
+  const sev = p.valveSev;
+  c.valves = {
+    mitral:    { R: 0.003, K: kArea(p.valve === "ms" ? 4.5 * (1 - 0.8 * sev) : 4.5), back: p.valve === "mr" ? kArea(0.06 + 0.5 * sev) : 0 },
+    aortic:    { R: 0.003, K: kArea(p.valve === "as" ? 3.5 * (1 - 0.9 * sev) : 3.5), back: p.valve === "ar" ? kArea(0.04 + 0.4 * sev) : 0 },
+    tricuspid: { R: 0.003, K: kArea(6), back: 0 },
+    pulmonary: { R: 0.003, K: kArea(3.8), back: 0 },
+  };
+  c.vsdK = p.vsd > 0 ? kArea(0.02 + 0.8 * p.vsd) : 0;   // hole in the septum (cm²)
+  return c;
+}
+
+// Activation 0..1 of the heart muscle at time tb into the beat (beat length T)
+//   Atria squeeze first (P wave), then after the AV-node delay the ventricles squeeze.
+function timing(T, symp) {
+  const f = 1 + 0.3 * (symp || 0);      // adrenaline shortens the squeeze
+  const Ta = 0.2 * Math.sqrt(T);        // atrial squeeze + relax (s)
+  const PR = 0.17 * Math.sqrt(T) / f;   // delay from atria to ventricles (s)
+  const Ts = (0.16 + 0.13 * T) / f;     // ventricle: time to full squeeze. Shortens only a little at high rates,
+  const Tr = 0.55 * Ts;                 // so filling time (diastole) is what gets squeezed out. Time to relax.
+  return { T, Ta, PR, Ts, Tr };
+}
+function atrialAct(tb, tm) { return tb < tm.Ta ? Math.sin(Math.PI * tb / tm.Ta) : 0; }
+function ventAct(u, tm) {
+  if (u < 0) return 0;
+  if (u < tm.Ts) return 0.5 * (1 - Math.cos(Math.PI * u / tm.Ts));
+  if (u < tm.Ts + tm.Tr) return 0.5 * (1 + Math.cos(Math.PI * (u - tm.Ts) / tm.Tr));
+  return 0;
+}
+// A pretend ECG (mV) built from bumps at the right moments: P wave, QRS, T wave
+function ecgAt(tb, u, tm) {
+  const g = (x, m, w) => Math.exp(-((x - m) * (x - m)) / (2 * w * w));
+  let e = 0.15 * g(tb, tm.Ta * 0.45, 0.022);
+  e += -0.12 * g(u, 0.012, 0.007) + 1.25 * g(u, 0.035, 0.010) - 0.30 * g(u, 0.058, 0.009);
+  e += 0.32 * g(u, tm.Ts * 0.95, 0.045 * Math.sqrt(tm.T));
+  return e;
+}
+
+// Create a fresh circulation with blood shared out sensibly
+function makeState(p) {
+  const c = makeConsts(p);
+  const s = { t: 0, tb: 0, beat: 0, c, p, V: new Float64Array(NC), P: new Float64Array(NC), Q: {}, tm: timing(60 / c.hr, p.exercise),
+              prevTm: timing(60 / c.hr, p.exercise), open: { mitral: false, aortic: false, tricuspid: false, pulmonary: false },
+              reflex: { mapF: 93, hrM: 1, rM: 1, cM: 1, vM: 0 }, events: [], acc: null, beats: [], ecg: 0, aAct: 0, vAct: 0 };
+  // initial guess of pressures (mmHg) → volumes
+  const guess = { [AO]: 95, [SA]: 92, [SV]: 5, [PA]: 15, [PV]: 8 };
+  for (const k in guess) s.V[k] = c.V0[k] + guess[k] * c.C[k];
+  s.V[LA] = 50; s.V[LV] = 120 + 80 * p.failure; s.V[RA] = 50; s.V[RV] = 120;
+  // the veins hold whatever is left over
+  let sum = 0; for (let i = 0; i < NC; i++) if (i !== SV) sum += s.V[i];
+  s.V[SV] = Math.max(c.V0[SV] * 0.6, p.volume - sum);
+  // if the veins can't take the deficit, scale everything
+  let tot = 0; for (let i = 0; i < NC; i++) tot += s.V[i];
+  for (let i = 0; i < NC; i++) s.V[i] *= p.volume / tot;
+  newAcc(s);
+  return s;
+}
+function newAcc(s) { s.acc = { t: 0, aoMax: -1e9, aoMin: 1e9, aoSum: 0, raSum: 0, laSum: 0, paMax: -1e9, paMin: 1e9, lvMax: -1e9, edv: 0, esv: 1e9, fwd: 0, back: 0, lvPmax: -1e9, mitBack: 0, shunt: 0 }; }
+
+const DT = 0.0002;   // time step (s): 0.2 ms — small enough for the fast valve flows
+
+// Advance the model by one small time step
+function step(s) {
+  const c = s.c, V = s.V, P = s.P, p = s.p;
+  const rf = s.reflex;
+  // ---- the beat clock
+  s.tb += DT;
+  if (s.tb >= s.tm.T) { endBeat(s); s.tb -= s.tm.T; s.prevTm = s.tm; s.tm = timing(60 / (c.hr * rf.hrM), s.p.exercise + Math.max(0, rf.hrM - 1)); }
+  const tm = s.tm;
+  const ea = atrialAct(s.tb, tm);
+  const ev = s.tb >= tm.PR ? ventAct(s.tb - tm.PR, tm) : ventAct(s.tb + s.prevTm.T - s.prevTm.PR, s.prevTm);
+  s.aAct = ea; s.vAct = ev;
+  s.ecg = s.tb >= tm.PR ? ecgAt(s.tb, s.tb - tm.PR, tm) : ecgAt(s.tb, s.tb + s.prevTm.T - s.prevTm.PR, s.prevTm);
+  const cm = rf.cM;
+  // ---- pressures
+  const el = (ch, a, m) => ch.emin + (ch.emax * m - ch.emin) * a;
+  P[LA] = el(c.la, ea, 1) * (V[LA] - c.la.v0);
+  P[RA] = el(c.ra, ea, 1) * (V[RA] - c.ra.v0);
+  P[LV] = el(c.lv, ev, cm) * (V[LV] - c.lv.v0);
+  P[RV] = el(c.rv, ev, cm) * (V[RV] - c.rv.v0);
+  for (const k of [AO, SA, PA, PV]) P[k] = (V[k] - c.V0[k]) / c.C[k];
+  P[SV] = (V[SV] - (c.V0[SV] - rf.vM)) / c.C[SV];
+  // ---- flows (mL/s)
+  const vf = (dp, v) => dp > 0 ? orificeFlow(dp, v.R, v.K) : (v.back > 0 ? orificeFlow(dp, v.R, v.back) : 0);
+  const Q = s.Q;
+  Q.mitral = vf(P[LA] - P[LV], c.valves.mitral);
+  Q.aortic = vf(P[LV] - P[AO], c.valves.aortic);
+  Q.tricuspid = vf(P[RA] - P[RV], c.valves.tricuspid);
+  Q.pulmonary = vf(P[RV] - P[PA], c.valves.pulmonary);
+  Q.aorta = (P[AO] - P[SA]) / c.Rao;
+  Q.body = (P[SA] - P[SV]) / (c.Rsys * rf.rM);      // through the capillaries of the body
+  Q.venous = Math.max(0, (P[SV] - P[RA]) / c.Rven); // veins have valves too
+  Q.lungs = (P[PA] - P[PV]) / c.Rpul;
+  Q.pulmVein = (P[PV] - P[LA]) / c.Rpv;
+  Q.vsd = c.vsdK > 0 ? orificeFlow(P[LV] - P[RV], 0.003, c.vsdK) : 0;
+  // ---- volumes change: what flows in minus what flows out
+  V[LA] += DT * (Q.pulmVein - Q.mitral);
+  V[LV] += DT * (Q.mitral - Q.aortic - Q.vsd);
+  V[AO] += DT * (Q.aortic - Q.aorta);
+  V[SA] += DT * (Q.aorta - Q.body);
+  V[SV] += DT * (Q.body - Q.venous);
+  V[RA] += DT * (Q.venous - Q.tricuspid);
+  V[RV] += DT * (Q.tricuspid - Q.pulmonary + Q.vsd);
+  V[PA] += DT * (Q.pulmonary - Q.lungs);
+  V[PV] += DT * (Q.lungs - Q.pulmVein);
+  s.t += DT;
+  // ---- valve events: a valve shutting makes a heart sound
+  const open = s.open, ev2 = s.events;
+  const nowM = Q.mitral > 0.5, nowA = Q.aortic > 0.5, nowT = Q.tricuspid > 0.5, nowP = Q.pulmonary > 0.5;
+  if (open.mitral && !nowM && P[LV] > P[LA]) ev2.push({ t: s.t, k: "S1" });
+  if (open.aortic && !nowA && P[LV] < P[AO]) ev2.push({ t: s.t, k: "S2" });
+  open.mitral = nowM; open.aortic = nowA; open.tricuspid = nowT; open.pulmonary = nowP;
+  if (ev2.length > 40) ev2.splice(0, ev2.length - 40);
+  // ---- baroreflex: the brainstem senses mean pressure and adjusts heart rate, vessel tone and squeeze
+  if (p.reflex) {
+    rf.mapF += (P[SA] - rf.mapF) * DT / 1.5;
+    const e = Math.max(-0.5, Math.min(0.6, (93 - rf.mapF) / 93));   // fraction below the set point
+    const lag = DT / 4;
+    rf.hrM += (Math.min(2.4, Math.max(0.6, 1 + 2.2 * e)) - rf.hrM) * lag;
+    rf.rM += (Math.min(1.9, Math.max(0.55, 1 + 2.0 * e)) - rf.rM) * lag;
+    rf.cM += (Math.min(1.5, Math.max(0.8, 1 + 1.0 * e)) - rf.cM) * lag;
+    rf.vM += (Math.max(-300, Math.min(700, 1600 * e)) - rf.vM) * lag;
+  } else { rf.hrM = 1; rf.rM = 1; rf.cM = 1; rf.vM = 0; }
+  // ---- per-beat measurements
+  const a = s.acc;
+  a.t += DT;
+  if (P[AO] > a.aoMax) a.aoMax = P[AO]; if (P[AO] < a.aoMin) a.aoMin = P[AO];
+  if (P[PA] > a.paMax) a.paMax = P[PA]; if (P[PA] < a.paMin) a.paMin = P[PA];
+  a.aoSum += P[AO] * DT; a.raSum += P[RA] * DT; a.laSum += P[LA] * DT;
+  if (V[LV] > a.lvMax) a.lvMax = V[LV];
+  if (V[LV] < a.esv) a.esv = V[LV];
+  if (P[LV] > a.lvPmax) a.lvPmax = P[LV];
+  if (Q.aortic > 0) a.fwd += Q.aortic * DT; else a.back -= Q.aortic * DT;
+  if (Q.mitral < 0) a.mitBack -= Q.mitral * DT;
+  a.shunt += Q.vsd * DT;
+}
+
+// At the end of each beat, store its measurements
+function endBeat(s) {
+  const a = s.acc;
+  if (a.t > 0.1) {
+    const sv = a.fwd - a.back;                  // net forward stroke volume
+    s.beats.push({
+      t: s.t, T: a.t, hr: 60 / a.t, sys: a.aoMax, dia: a.aoMin, map: a.aoSum / a.t, cvp: a.raSum / a.t, lap: a.laSum / a.t,
+      paSys: a.paMax, paDia: a.paMin, edv: a.lvMax, esv: a.esv, sv, totalSV: a.lvMax - a.esv, ef: (a.lvMax - a.esv) / a.lvMax,
+      co: sv * 60 / a.t / 1000, lvPmax: a.lvPmax, regurg: a.back + a.mitBack, shunt: a.shunt,
+    });
+    if (s.beats.length > 60) s.beats.shift();
+  }
+  s.beat++;
+  newAcc(s);
+}
+
+// Average of the last few beats
+function summary(s, n) {
+  const b = s.beats.slice(-n);
+  if (!b.length) return null;
+  const out = {};
+  for (const k in b[0]) out[k] = b.reduce((x, y) => x + y[k], 0) / b.length;
+  return out;
+}
+
+/* ---------------------------------------------------------------------
+   runOnce(params, seed): one complete headless run, no drawing.
+   Runs 25 s of heartbeats so the blood settles, then averages the last
+   few beats. Returns the outcomes recorded by the batch runner.
+   --------------------------------------------------------------------- */
+function runOnce(p, seed, opts) {
+  const settle = (opts && opts.settle) || (p.reflex ? 40 : 20);
+  const s = makeState(p);
+  const n = Math.round(settle / DT);
+  for (let i = 0; i < n; i++) step(s);
+  const m = summary(s, Math.max(3, Math.min(10, Math.round(4 * s.c.hr / 60)))) || {};
+  return {
+    sys: m.sys, dia: m.dia, map: m.map, pp: m.sys - m.dia, co: m.co, sv: m.sv, ef: m.ef * 100, hr: m.hr,
+    cvp: m.cvp, lap: m.lap, edv: m.edv, grad: m.lvPmax - m.sys,
+  };
+}
+
+
+/* Seeded random numbers (same seed → same patient) */
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function gauss(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+// A random adult: age 18–80 and normal person-to-person differences.
+//   Arteries stiffen with age; resistance creeps up a little too.
+function varyPatient(p, rng, keep) {
+  const q = Object.assign({}, p);
+  const age = 18 + 62 * rng();
+  q.age = age;
+  q.stiff = p.stiff * (1 + 0.011 * (age - 18)) * Math.exp(0.08 * gauss(rng));
+  q.resist = p.resist * (1 + 0.002 * (age - 18)) * Math.exp(0.08 * gauss(rng));
+  q.hr = Math.min(110, Math.max(45, p.hr + 8 * gauss(rng)));
+  q.contract = p.contract * Math.exp(0.06 * gauss(rng));
+  q.volume = p.volume * Math.exp(0.035 * gauss(rng));
+  if (keep === "hr") q.hr = p.hr;           // don't vary the input being swept
+  if (keep === "resist") q.resist = p.resist;
+  if (keep === "stiff") q.stiff = p.stiff;
+  if (keep === "contract") q.contract = p.contract;
+  return q;
+}
+
+
+/* =====================================================================
+   2. PRESETS — each one shows one idea
+   ===================================================================== */
+const PRESETS = [
+  { name: "Resting adult", d: "Normal: 72 beats/min, about 120/80", p: {} },
+  { name: "Exercise", d: "Fast, strong beats; muscles' vessels widen", p: { exercise: 0.8 } },
+  { name: "Trained athlete", d: "Slow resting rate, big stroke volume", p: { hr: 48, contract: 1.1, volume: 5300, resist: 0.95 } },
+  { name: "High blood pressure", d: "Narrow arterioles raise the pressure", p: { resist: 1.45, stiff: 1.2 } },
+  { name: "Old, stiff arteries", d: "High systolic, low diastolic", p: { hr: 68, stiff: 1.9, resist: 1.1 } },
+  { name: "Heart failure", d: "Weak, enlarged ventricle; fluid in lungs", p: { failure: 0.8, volume: 5500, hr: 85 } },
+  { name: "Leaky mitral valve", d: "Blood squirts back into the atrium", p: { valve: "mr", valveSev: 0.7 } },
+  { name: "Aortic stenosis", d: "Ventricle must push hard through a narrow valve", p: { valve: "as", valveSev: 0.8 } },
+  { name: "Leaky aortic valve", d: "Blood falls back in diastole: wide pulse", p: { valve: "ar", valveSev: 0.7 } },
+  { name: "Blood loss", d: "25% lost; reflexes fight back", p: { volume: 3750, reflex: true } },
+  { name: "Hole in the heart", d: "Septal defect: blood crosses left → right", p: { vsd: 0.5 } },
+  { name: "Too fast (SVT)", d: "190 beats/min: no time to fill", p: { hr: 190 } },
+];
+
+/* =====================================================================
+   3. READING THE CONTROLS
+   ===================================================================== */
+const el = id => document.getElementById(id);
+const CTRL = ["hr", "contract", "failure", "valve", "valveSev", "vsd", "volume", "resist", "stiff", "exercise", "reflex"];
+function readParams() {
+  return { hr: +el("hr").value, contract: el("contract").value / 100, failure: el("failure").value / 100, valve: el("valve").value,
+           valveSev: el("valveSev").value / 100, vsd: el("vsd").value / 100, volume: +el("volume").value, resist: el("resist").value / 100,
+           stiff: +el("stiff").value, exercise: el("exercise").value / 100, reflex: el("reflex").checked };
+}
+function writeParams(p) {
+  el("hr").value = p.hr; el("contract").value = Math.round(p.contract * 100); el("failure").value = Math.round(p.failure * 100);
+  el("valve").value = p.valve; el("valveSev").value = Math.round(p.valveSev * 100); el("vsd").value = Math.round(p.vsd * 100);
+  el("volume").value = p.volume; el("resist").value = Math.round(p.resist * 100); el("stiff").value = p.stiff;
+  el("exercise").value = Math.round(p.exercise * 100); el("reflex").checked = p.reflex;
+  showOutputs();
+}
+function showOutputs() {
+  const p = readParams();
+  el("o_hr").textContent = p.hr + " /min";
+  el("o_contract").textContent = Math.round(p.contract * 100) + "%";
+  el("o_failure").textContent = p.failure ? Math.round(p.failure * 100) + "%" : "none";
+  el("o_valveSev").textContent = p.valve === "none" ? "–" : Math.round(p.valveSev * 100) + "%";
+  el("o_vsd").textContent = p.vsd ? Math.round(p.vsd * 100) + "%" : "none";
+  const dv = (p.volume - 5000) / 50;
+  el("o_volume").textContent = `${(p.volume / 1000).toFixed(2)} L (${dv > 0 ? "+" : ""}${dv.toFixed(0)}%)`;
+  el("o_resist").textContent = Math.round(p.resist * 100) + "% of normal";
+  el("o_stiff").textContent = "×" + p.stiff.toFixed(2) + " (like age ~" + Math.round(20 + (p.stiff - 1) / 0.011) + ")";
+  el("o_exercise").textContent = p.exercise ? Math.round(p.exercise * 100) + "%" : "resting";
+}
+
+/* =====================================================================
+   4. THE LIVE SIMULATION
+   ===================================================================== */
+let S = null;                 // model state
+let running = true, speed = 1, presetIdx = 0;
+const WIN = 3.0;              // seconds of trace shown on the Wiggers diagram
+let samples = [];             // {t, pao, plv, pla, vlv, ecg}
+let pvNow = [], pvPrev = [];  // pressure–volume points, this beat and the last
+let lastSample = 0, lastBeat = 0, prevV = 0, phaseName = "", sounds = [];
+let parts = null;             // blood particles for the picture
+
+function reset() {
+  S = makeState(readParams());
+  samples = []; pvNow = []; pvPrev = []; lastSample = 0; lastBeat = 0; sounds = [];
+  makeParticles();
+}
+// Change the settings without restarting: the blood stays where it is
+function applyLive() {
+  showOutputs();
+  const p = readParams();
+  const c = makeConsts(p);
+  // add or remove blood (spread in proportion to what each part holds)
+  let tot = 0; for (let i = 0; i < NC; i++) tot += S.V[i];
+  const f = p.volume / tot;
+  for (let i = 0; i < NC; i++) S.V[i] *= f;
+  S.p = p; S.c = c;
+  if (!p.reflex) Object.assign(S.reflex, { hrM: 1, rM: 1, cM: 1, vM: 0 });
+  presetIdx = -1; markPreset();
+}
+
+function advance(dtReal) {
+  const simT = Math.min(0.1, dtReal) * speed;
+  const n = Math.round(simT / DT);
+  const ev0 = S.events.length ? S.events[S.events.length - 1].t : -1;
+  for (let i = 0; i < n; i++) {
+    step(S);
+    if (S.t - lastSample >= 0.004) {
+      lastSample = S.t;
+      samples.push({ t: S.t, pao: S.P[AO], plv: S.P[LV], pla: S.P[LA], vlv: S.V[LV], ecg: S.ecg });
+      pvNow.push([S.V[LV], S.P[LV]]);
+    }
+    if (S.beat !== lastBeat) { lastBeat = S.beat; pvPrev = pvNow; pvNow = []; }
+  }
+  while (samples.length && samples[0].t < S.t - WIN) samples.shift();
+  // new heart sounds since last frame
+  for (const e of S.events) if (e.t > ev0 && ev0 >= -1 && e.t > S.t - simT - 1e-9) playSound(e.k);
+}
+
+/* ---- heart sounds with the Web Audio API (only after the box is ticked) */
+let audio = null;
+function playSound(k) {
+  if (!el("sound").checked || speed > 1) return;
+  try {
+    if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+    const t = audio.currentTime, o = audio.createOscillator(), g = audio.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(k === "S1" ? 55 : 80, t);
+    o.frequency.exponentialRampToValueAtTime(k === "S1" ? 35 : 55, t + 0.12);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(k === "S1" ? 0.9 : 0.6, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + (k === "S1" ? 0.16 : 0.11));
+    o.connect(g).connect(audio.destination); o.start(t); o.stop(t + 0.2);
+  } catch (e) { /* no sound available */ }
+}
+
+/* ---- which phase of the cardiac cycle are we in? */
+function phaseOf() {
+  const Q = S.Q, dv = S.vAct - prevV; prevV = S.vAct;
+  if (Q.aortic > 1) return ["Ejection: outflow valves open", "#e0303a"];
+  if (S.vAct > 0.02 && Q.mitral <= 0.5 && dv >= 0) return ["Squeeze: all valves shut", "#b23a3a"];
+  if (S.vAct > 0.02 && Q.mitral <= 0.5) return ["Relax: all valves shut", "#6b4fa0"];
+  if (S.aAct > 0.1) return ["Atria contract", "#c77d1a"];
+  return ["Filling the ventricles", "#2f6f9e"];
+}
+
+/* =====================================================================
+   5. DRAWING THE HEART (a simplified cut-away, viewed from the front:
+      the heart's RIGHT side is on YOUR left)
+   ===================================================================== */
+const RED = [224, 48, 58], BLUE = [61, 99, 214];
+const rgb = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a === undefined ? 1 : a})`;
+// chamber centres and sizes in a 1000 × 560 drawing space
+const CH = {
+  ra: { x: 170, y: 215, rx: 58, ry: 56, vref: 60, col: BLUE, idx: RA, wall: 7, name: "Right atrium" },
+  rv: { x: 228, y: 380, rx: 88, ry: 78, vref: 125, col: BLUE, idx: RV, wall: 11, name: "Right ventricle" },
+  la: { x: 425, y: 205, rx: 54, ry: 50, vref: 60, col: RED, idx: LA, wall: 7, name: "Left atrium" },
+  lv: { x: 378, y: 385, rx: 74, ry: 98, vref: 125, col: RED, idx: LV, wall: 22, name: "Left ventricle" },
+};
+const VALVES = {
+  tricuspid: { x: 196, y: 292, ang: Math.PI * 0.42, w: 54, col: BLUE, label: "tricuspid" },
+  pulmonary: { x: 262, y: 280, ang: -Math.PI * 0.52, w: 30, col: BLUE, label: "pulmonary" },
+  mitral: { x: 410, y: 285, ang: Math.PI * 0.6, w: 50, col: RED, label: "mitral" },
+  aortic: { x: 326, y: 272, ang: -Math.PI * 0.5, w: 32, col: RED, label: "aortic" },
+};
+// Paths the blood particles follow: points and which flow pushes them along each leg
+const PATHS = [
+  { col: BLUE, w: [14, 14, 30, 6, 30, 8, 10, 10], pts: [[170, 0], [170, 150], [170, 215], [196, 292], [228, 380], [262, 280], [258, 150], [200, 75], [70, 60]], q: ["venous", "venous", "tricuspid", "tricuspid", "pulmonary", "pulmonary", "pulmonary", "pulmonary"] },
+  { col: BLUE, w: [14, 14, 30, 6, 30, 8, 10, 10], pts: [[95, 560], [130, 330], [160, 250], [196, 292], [235, 395], [262, 280], [262, 150], [320, 60], [390, 20]], q: ["venous", "venous", "tricuspid", "tricuspid", "pulmonary", "pulmonary", "pulmonary", "pulmonary"] },
+  { col: RED, w: [10, 26, 6, 34, 8, 12, 12, 12, 12], pts: [[600, 165], [480, 190], [425, 205], [410, 285], [378, 390], [326, 272], [322, 130], [380, 60], [470, 70], [530, 160], [530, 560]], q: ["pulmVein", "pulmVein", "mitral", "mitral", "aortic", "aortic", "aorta", "aorta", "aorta", "aorta"] },
+  { col: RED, w: [10, 26, 6, 34, 8, 12, 12, 12, 12], pts: [[600, 235], [480, 215], [430, 210], [410, 285], [372, 410], [326, 272], [328, 130], [390, 55], [480, 75], [530, 170], [530, 560]], q: ["pulmVein", "pulmVein", "mitral", "mitral", "aortic", "aortic", "aorta", "aorta", "aorta", "aorta"] },
+];
+function makeParticles() {
+  parts = [];
+  for (const [pi, path] of PATHS.entries()) {
+    let L = 0; path.len = [];
+    for (let k = 0; k < path.pts.length - 1; k++) { const a = path.pts[k], b = path.pts[k + 1]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]); path.len.push(l); L += l; }
+    path.L = L;
+    const n = Math.round(L / 9);
+    for (let i = 0; i < n; i++) parts.push({ pi, s: Math.random() * L, off: Math.random() * 2 - 1 });
+  }
+  // the hole in the heart: a short path from left to right ventricle
+  for (let i = 0; i < 18; i++) parts.push({ pi: -1, s: Math.random(), off: Math.random() * 2 - 1 });
+}
+function legAt(path, s) { let k = 0; while (k < path.len.length - 1 && s > path.len[k]) { s -= path.len[k]; k++; } return [k, s]; }
+function moveParticles(dt) {
+  // dt = simulated seconds this frame; speed in drawing units per (mL/s)
+  const K = 0.42;
+  for (const pt of parts) {
+    if (pt.pi < 0) { pt.s += dt * S.Q.vsd / 60; if (pt.s > 1) pt.s -= 1; if (pt.s < 0) pt.s += 1; continue; }
+    const path = PATHS[pt.pi];
+    const [k] = legAt(path, pt.s);
+    const q = Math.max(0, S.Q[path.q[k]] || 0) / (pt.pi < 2 ? 1 : 1);
+    pt.s += dt * q * K * (path.q[k] === "venous" || path.q[k] === "pulmVein" ? 1.6 : 1);
+    if (pt.s >= path.L) pt.s -= path.L;
+  }
+}
+function pointOn(path, s, off) {
+  const [k, r] = legAt(path, s);
+  const a = path.pts[k], b = path.pts[k + 1], l = path.len[k] || 1;
+  const ux = (b[0] - a[0]) / l, uy = (b[1] - a[1]) / l;
+  const w = path.w[k] || 8;
+  return [a[0] + ux * r - uy * off * w * 0.5, a[1] + uy * r + ux * off * w * 0.5];
+}
+
+function chamberScale(ch) { return Math.max(0.45, Math.min(1.5, Math.pow(Math.max(1, S.V[ch.idx]) / ch.vref, 0.42))); }
+
+function drawScene() {
+  const c = el("sceneC"), dpr = window.devicePixelRatio || 1;
+  const W = Math.round(c.clientWidth * dpr), H = Math.round(c.clientHeight * dpr);
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#07080a"; ctx.fillRect(0, 0, W, H);
+  const s = Math.min(W / 1000, H / 560), ox = (W - 1000 * s) / 2, oy = (H - 560 * s) / 2;
+  ctx.save(); ctx.translate(ox, oy); ctx.scale(s, s);
+  const fs = 11.5 * dpr / s;   // font size in drawing units so text stays ≥ 11.5 px
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  const Q = S.Q;
+
+  // ---- big vessels (drawn as tubes)
+  const tube = (pts, w, col) => { ctx.strokeStyle = "#4a1c22"; ctx.lineWidth = w + 6; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke();
+    ctx.strokeStyle = rgb(col, 0.55); ctx.lineWidth = w; ctx.stroke(); };
+  tube([[170, 0], [170, 170]], 30, BLUE);                         // superior vena cava
+  tube([[95, 560], [130, 330], [160, 250]], 30, BLUE);            // inferior vena cava
+  tube([[600, 165], [470, 195]], 22, RED); tube([[600, 235], [470, 215]], 22, RED);   // pulmonary veins
+  tube([[262, 285], [258, 150], [200, 75], [70, 60]], 30, BLUE);  // pulmonary artery → right lung
+  tube([[258, 150], [320, 60], [390, 20]], 26, BLUE);             // → left lung
+  // ---- chamber walls (muscle). Brighter while contracting.
+  const act = { ra: S.aAct, la: S.aAct, rv: S.vAct, lv: S.vAct };
+  const sc = {}; for (const k in CH) sc[k] = chamberScale(CH[k]);
+  for (const k of ["ra", "la", "rv", "lv"]) {
+    const ch = CH[k], a = act[k], w = ch.wall * (1 + 0.5 * a);
+    const m = [Math.round(120 + 80 * a), Math.round(40 + 20 * a), Math.round(44 + 10 * a)];
+    ctx.fillStyle = rgb(m); ctx.beginPath(); ctx.ellipse(ch.x, ch.y, ch.rx * sc[k] + w, ch.ry * sc[k] + w, k === "lv" ? -0.25 : k === "rv" ? 0.2 : 0, 0, 7); ctx.fill();
+  }
+  // ---- aorta on top (it arches over the pulmonary artery)
+  tube([[326, 272], [322, 130], [380, 60], [470, 70], [530, 160], [530, 560]], 34, RED);
+  // ---- chamber cavities filled with blood
+  for (const k of ["ra", "la", "rv", "lv"]) {
+    const ch = CH[k];
+    ctx.fillStyle = rgb(ch.col, 0.55); ctx.beginPath(); ctx.ellipse(ch.x, ch.y, ch.rx * sc[k], ch.ry * sc[k], k === "lv" ? -0.25 : k === "rv" ? 0.2 : 0, 0, 7); ctx.fill();
+  }
+  // ---- hole in the septum
+  if (S.p.vsd > 0) {
+    ctx.fillStyle = "#1a0b0d"; ctx.beginPath(); ctx.ellipse(305, 400, 8, 6 + 14 * S.p.vsd, 0, 0, 7); ctx.fill();
+  }
+  // ---- blood particles
+  for (const pt of parts) {
+    let x, y, col;
+    if (pt.pi < 0) { if (S.p.vsd <= 0) continue; const f = pt.s; x = 360 - 100 * f; y = 400 + pt.off * 10 * S.p.vsd; col = f < 0.5 ? RED : [150, 80, 170]; if (Math.abs(S.Q.vsd) < 1) continue; }
+    else { [x, y] = pointOn(PATHS[pt.pi], pt.s, pt.off); col = PATHS[pt.pi].col; }
+    ctx.fillStyle = rgb(col.map(v => Math.min(255, v + 40))); ctx.beginPath(); ctx.arc(x, y, 3.2, 0, 7); ctx.fill();
+  }
+  // ---- valves: two leaflets hinged at each side of the opening
+  for (const k in VALVES) {
+    const v = VALVES[k], q = Q[k];
+    const leak = q < -0.5;
+    let open = Math.max(0, Math.min(1, q / 60));
+    if ((k === "aortic" && S.p.valve === "as") || (k === "mitral" && S.p.valve === "ms")) open *= 1 - 0.75 * S.p.valveSev;
+    v.o = (v.o || 0) + (open - (v.o || 0)) * 0.5;
+    const ux = Math.cos(v.ang), uy = Math.sin(v.ang), px = -uy, py = ux;   // u = flow direction, p = across
+    const thick = ((k === "aortic" && S.p.valve === "as") || (k === "mitral" && S.p.valve === "ms")) ? 4 + 4 * S.p.valveSev : 3.5;
+    ctx.strokeStyle = leak ? "#ffd27a" : "#f4e6c8"; ctx.lineWidth = thick;
+    for (const side of [-1, 1]) {
+      const hx = v.x + side * px * v.w / 2, hy = v.y + side * py * v.w / 2;
+      // closed: leaflet points across the opening; open: it swings to point along the flow
+      const th = v.o * Math.PI / 2 * 0.9;
+      const dx = -side * px * Math.cos(th) + ux * Math.sin(th), dy = -side * py * Math.cos(th) + uy * Math.sin(th);
+      const len = v.w / 2 * (leak ? 0.82 : 1);
+      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + dx * len, hy + dy * len); ctx.stroke();
+      ctx.fillStyle = "#2a1215"; ctx.beginPath(); ctx.arc(hx, hy, 3.5, 0, 7); ctx.fill();
+    }
+    if (leak) { ctx.fillStyle = "#ffd27a"; ctx.font = `bold ${fs}px system-ui`; ctx.textAlign = "center"; ctx.fillText("leak!", v.x - ux * 22, v.y - uy * 22); }
+  }
+  // ---- labels
+  ctx.textAlign = "center";
+  const lab = (t, x, y, col, size, bold, al) => { ctx.textAlign = al || "center"; ctx.font = `${bold ? "600 " : ""}${size || fs}px system-ui`; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,0.75)"; ctx.strokeText(t, x, y); ctx.fillStyle = col || "#eef0e8"; ctx.fillText(t, x, y); };
+  const pr = i => Math.round(S.P[i]) + " mmHg";
+  lab("Right atrium", CH.ra.x, CH.ra.y - 4, "#fff", fs, true); lab(pr(RA), CH.ra.x, CH.ra.y + fs, "#cfd8ff");
+  lab("Right ventricle", CH.rv.x - 10, CH.rv.y + 10, "#fff", fs, true); lab(pr(RV), CH.rv.x - 10, CH.rv.y + 10 + fs * 1.1, "#cfd8ff");
+  lab("Left atrium", CH.la.x, CH.la.y - 4, "#fff", fs, true); lab(pr(LA), CH.la.x, CH.la.y + fs, "#ffd0d0");
+  lab("Left ventricle", CH.lv.x + 10, CH.lv.y + 20, "#fff", fs, true); lab(pr(LV), CH.lv.x + 10, CH.lv.y + 20 + fs * 1.1, "#ffd0d0");
+  lab("Aorta " + pr(AO), 430, 40, "#ffb0b0", fs, true);
+  lab("to the body ↓", 530, 548, "#ffb0b0");
+  lab("Vena cava", 150, 150, "#b9c8ff", fs, true, "right"); lab("from body ↓", 150, 150 + fs * 1.1, "#b9c8ff", fs, false, "right");
+  lab("from body ↑", 70, 545, "#b9c8ff");
+  lab("Pulmonary artery", 10, 28, "#b9c8ff", fs, true, "left"); lab("← to the lungs", 10, 28 + fs * 1.1, "#b9c8ff", fs, false, "left");
+  lab("Pulmonary veins", 560, 270, "#ffb0b0", fs, true); lab("from lungs ←", 560, 150, "#ffb0b0");
+  for (const k in VALVES) { const v = VALVES[k]; const off = k === "aortic" ? [26, 22] : k === "pulmonary" ? [-12, 26] : k === "mitral" ? [42, 0] : [-44, -4]; lab(v.label, v.x + off[0], v.y + off[1], "#f4e6c8", fs * 0.92); }
+  if (S.p.vsd > 0) lab("hole", 305, 445, "#e0b0ff", fs * 0.92);
+
+  drawLoop(ctx, fs);
+  ctx.restore();
+}
+
+/* ---- the double circulation: a simple loop diagram on the right */
+let loopPhase = { pul: 0, sys: 0 };
+function drawLoop(ctx, fs) {
+  const X0 = 640, X1 = 990;
+  ctx.fillStyle = "rgba(255,255,255,0.03)"; ctx.fillRect(X0 - 15, 0, X1 - X0 + 25, 560);
+  const lab = (t, x, y, col, size, bold, al) => { ctx.textAlign = al || "center"; ctx.font = `${bold ? "600 " : ""}${size || fs}px system-ui`; ctx.fillStyle = col || "#eef0e8"; ctx.fillText(t, x, y); };
+  const b = summary(S, 3);
+  // lungs and body capillary beds
+  const bed = (x, y, w, h, c1, c2, title) => {
+    const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, rgb(c1, 0.8)); g.addColorStop(1, rgb(c2, 0.8));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(x, y, w, h, 14); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1.2;
+    for (let i = 1; i < 9; i++) { ctx.beginPath(); ctx.moveTo(x + 10, y + h * i / 9); for (let k = 0; k <= 12; k++) ctx.lineTo(x + 10 + (w - 20) * k / 12, y + h * i / 9 + 4 * Math.sin(k * 1.7 + i)); ctx.stroke(); }
+    lab(title, x + w / 2, y + h / 2 + fs * 0.35, "#fff", fs * 1.05, true);
+  };
+  bed(700, 30, 230, 70, BLUE, RED, "Lungs: pick up O₂, lose CO₂");
+  bed(700, 445, 230, 70, RED, BLUE, "Body: organs and muscles");
+  // little heart: four boxes
+  const hb = (x, y, t, col) => { ctx.fillStyle = rgb(col, 0.75); ctx.beginPath(); ctx.roundRect(x, y, 70, 46, 8); ctx.fill(); lab(t, x + 35, y + 28, "#fff", fs * 0.9, true); };
+  // loops (as rectangles round the outside): pulmonary on the inside, systemic on the outside
+  const loops = [
+    { col1: BLUE, col2: RED, key: "pul", q: S.Q.lungs, pts: [[780, 288], [690, 288], [690, 65], [700, 65]], pts2: [[930, 65], [940, 65], [940, 238], [850, 238]] },
+    { col1: RED, col2: BLUE, key: "sys", q: S.Q.body, pts: [[850, 288], [970, 288], [970, 480], [930, 480]], pts2: [[700, 480], [660, 480], [660, 238], [780, 238]] },
+  ];
+  for (const L of loops) {
+    for (const [pts, col] of [[L.pts, L.col1], [L.pts2, L.col2]]) {
+      ctx.strokeStyle = rgb(col, 0.5); ctx.lineWidth = 10; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke();
+      // moving dots show the flow
+      let len = 0; const segs = []; for (let i = 0; i < pts.length - 1; i++) { const l = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); segs.push(l); len += l; }
+      ctx.fillStyle = rgb(col.map(v => Math.min(255, v + 60)));
+      for (let d = (loopPhase[L.key] % 22); d < len; d += 22) {
+        let r = d, i = 0; while (i < segs.length - 1 && r > segs[i]) { r -= segs[i]; i++; }
+        const a = pts[i], bb = pts[i + 1], f = r / segs[i];
+        ctx.beginPath(); ctx.arc(a[0] + (bb[0] - a[0]) * f, a[1] + (bb[1] - a[1]) * f, 3, 0, 7); ctx.fill();
+      }
+      // arrow head at the end
+      const a = pts[pts.length - 2], e = pts[pts.length - 1], ang = Math.atan2(e[1] - a[1], e[0] - a[0]);
+      ctx.fillStyle = rgb(col); ctx.beginPath(); ctx.moveTo(e[0], e[1]); ctx.lineTo(e[0] - 12 * Math.cos(ang - 0.5), e[1] - 12 * Math.sin(ang - 0.5)); ctx.lineTo(e[0] - 12 * Math.cos(ang + 0.5), e[1] - 12 * Math.sin(ang + 0.5)); ctx.fill();
+    }
+  }
+  hb(745, 215, "RA", BLUE); hb(745, 266, "RV", BLUE); hb(815, 215, "LA", RED); hb(815, 266, "LV", RED);
+  lab("Pulmonary circuit", 815, 135, "#b9c8ff", fs, true);
+  lab(b ? `artery ${b.paSys.toFixed(0)}/${b.paDia.toFixed(0)} mmHg` : "", 815, 135 + fs * 1.15, "#b9c8ff", fs * 0.92);
+  lab("Systemic circuit", 815, 360, "#ffb0b0", fs, true);
+  lab(b ? `aorta ${b.sys.toFixed(0)}/${b.dia.toFixed(0)} mmHg` : "", 815, 360 + fs * 1.15, "#ffb0b0", fs * 0.92);
+  lab(b ? `${b.co.toFixed(1)} L/min round each loop` : "", 815, 360 + fs * 2.3, "#dfe3d6", fs * 0.92);
+  lab("Double circulation", 815, 555, "#f1af28", fs, true);
+}
+
+/* =====================================================================
+   6. WIGGERS DIAGRAM: pressures, volume, ECG and heart sounds against time
+   ===================================================================== */
+function drawWiggers() {
+  const c = el("wigC"), dpr = window.devicePixelRatio || 1;
+  const W = Math.round(c.clientWidth * dpr), H = Math.round(c.clientHeight * dpr);
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#07080a"; ctx.fillRect(0, 0, W, H);
+  const L = 34 * dpr, R = 12 * dpr, T = 16 * dpr, B = 18 * dpr;
+  const ph = (H - T - B);
+  const bands = [{ y: T, h: ph * 0.56 }, { y: T + ph * 0.6, h: ph * 0.2 }, { y: T + ph * 0.84, h: ph * 0.16 }];
+  const now = S.t, x0 = now - (now % WIN);   // sweeping display, like a hospital monitor
+  const X = t => { let u = t - x0; if (u < 0) u += WIN; return L + (W - L - R) * u / WIN; };
+  ctx.font = `${10.5 * dpr}px system-ui`;
+  let pmax = 140; for (const q of samples) pmax = Math.max(pmax, q.plv + 10, q.pao + 10);
+  pmax = Math.ceil(pmax / 20) * 20;
+  let vmax = 160, vmin = 1e9; for (const q of samples) { vmax = Math.max(vmax, q.vlv + 10); vmin = Math.min(vmin, q.vlv); }
+  vmax = Math.ceil(vmax / 20) * 20; vmin = Math.max(0, Math.floor((Math.min(vmin, 40) - 10) / 20) * 20);
+  const scales = [[0, pmax], [vmin, vmax], [-0.5, 1.4]];
+  const titles = ["Pressure (mmHg)", "Left ventricle volume (mL)", "ECG (mV)"];
+  bands.forEach((b, i) => {
+    const [lo, hi] = scales[i];
+    ctx.strokeStyle = "rgba(170,180,160,0.13)"; ctx.fillStyle = "#a3ab96"; ctx.textAlign = "right";
+    const ticks = i === 0 ? [0, pmax / 2, pmax] : i === 1 ? [vmin, vmax] : [0, 1];
+    for (const v of ticks) { const y = b.y + b.h - b.h * (v - lo) / (hi - lo); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); ctx.fillText(v.toFixed(0), L - 4 * dpr, y + 3.5 * dpr); }
+    ctx.textAlign = "left"; ctx.fillStyle = "#cfd5c4"; ctx.fillText(titles[i], L + 6 * dpr, b.y + 10 * dpr);
+  });
+  // time axis
+  ctx.textAlign = "center"; ctx.fillStyle = "#a3ab96";
+  for (let k = 0; k <= WIN; k += 0.5) ctx.fillText(k.toFixed(1) + (k === WIN ? " s" : ""), L + (W - L - R) * k / WIN, H - 4 * dpr);
+  // sweep line
+  ctx.strokeStyle = "rgba(241,175,40,0.5)"; ctx.lineWidth = 1 * dpr; const xs = X(now); ctx.beginPath(); ctx.moveTo(xs, T); ctx.lineTo(xs, H - B); ctx.stroke();
+  // traces
+  const trace = (band, lo, hi, key, col, w) => {
+    const b = bands[band]; ctx.strokeStyle = col; ctx.lineWidth = w * dpr; ctx.beginPath();
+    let px = null;
+    for (const q of samples) { const x = X(q.t), y = b.y + b.h - b.h * (q[key] - lo) / (hi - lo); if (px === null || x < px) ctx.moveTo(x, y); else ctx.lineTo(x, y); px = x; }
+    ctx.stroke();
+  };
+  trace(0, 0, pmax, "pla", "#7fb8ff", 1.6);
+  trace(0, 0, pmax, "plv", "#f1af28", 2);
+  trace(0, 0, pmax, "pao", "#ff6b6b", 2);
+  trace(1, vmin, vmax, "vlv", "#f1af28", 2);
+  trace(2, -0.5, 1.4, "ecg", "#8fd694", 1.6);
+  // heart sounds at valve closure
+  for (const e of S.events) {
+    if (e.t < now - WIN) continue;
+    const x = X(e.t);
+    ctx.strokeStyle = e.k === "S1" ? "rgba(255,255,255,0.55)" : "rgba(255,210,122,0.6)"; ctx.setLineDash([3 * dpr, 3 * dpr]); ctx.lineWidth = 1 * dpr;
+    ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - B); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = e.k === "S1" ? "#fff" : "#ffd27a"; ctx.textAlign = "center"; ctx.font = `600 ${11 * dpr}px system-ui`;
+    ctx.fillText(e.k === "S1" ? "lub" : "dub", x, T - 4 * dpr);
+  }
+  // legend
+  ctx.font = `${10.5 * dpr}px system-ui`; ctx.textAlign = "right"; ctx.fillStyle = "#a3ab96";
+  ctx.fillText("lub = mitral & tricuspid valves shut · dub = aortic & pulmonary valves shut", W - R - 4 * dpr, bands[0].y + 12 * dpr);
+}
+
+/* ---- pressure–volume loop */
+function drawPV() {
+  const c = el("pvC"), dpr = window.devicePixelRatio || 1;
+  const W = Math.round(c.clientWidth * dpr), H = Math.round(c.clientHeight * dpr);
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  const ctx = c.getContext("2d");
+  ctx.clearRect(0, 0, W, H);
+  const L = 40 * dpr, R = 8 * dpr, T = 8 * dpr, B = 28 * dpr;
+  let vmax = 200, pmax = 160;
+  for (const [v, p] of pvPrev.concat(pvNow)) { vmax = Math.max(vmax, v + 20); pmax = Math.max(pmax, p + 15); }
+  vmax = Math.ceil(vmax / 50) * 50; pmax = Math.ceil(pmax / 40) * 40;
+  const X = v => L + (W - L - R) * v / vmax, Y = p => H - B - (H - T - B) * p / pmax;
+  ctx.font = `${10 * dpr}px system-ui`; ctx.strokeStyle = "rgba(160,170,150,0.15)"; ctx.fillStyle = "#a3ab96";
+  for (let p = 0; p <= pmax; p += 40) { ctx.beginPath(); ctx.moveTo(L, Y(p)); ctx.lineTo(W - R, Y(p)); ctx.stroke(); ctx.textAlign = "right"; ctx.fillText(p, L - 4 * dpr, Y(p) + 3 * dpr); }
+  for (let v = 0; v <= vmax; v += 50) { ctx.textAlign = "center"; ctx.fillText(v, X(v), H - B + 12 * dpr); }
+  ctx.fillText("LV volume (mL)", (L + W) / 2, H - 3 * dpr);
+  ctx.save(); ctx.translate(10 * dpr, (T + H - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("LV pressure (mmHg)", 0, 0); ctx.restore();
+  // end-systolic stiffness line (contractility)
+  const c0 = S.c.lv, em = c0.emax * S.reflex.cM;
+  ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.setLineDash([4 * dpr, 4 * dpr]); ctx.lineWidth = 1 * dpr;
+  ctx.beginPath(); ctx.moveTo(X(c0.v0), Y(0)); ctx.lineTo(X(Math.min(vmax, c0.v0 + pmax / em)), Y(Math.min(pmax, em * (vmax - c0.v0)))); ctx.stroke();
+  ctx.beginPath(); for (let v = c0.v0; v <= vmax; v += 2) { const p = c0.emin * (v - c0.v0); v === c0.v0 ? ctx.moveTo(X(v), Y(p)) : ctx.lineTo(X(v), Y(Math.min(p, pmax))); } ctx.stroke(); ctx.setLineDash([]);
+  const line = (pts, col, w) => { ctx.strokeStyle = col; ctx.lineWidth = w * dpr; ctx.beginPath(); pts.forEach(([v, p], i) => i ? ctx.lineTo(X(v), Y(p)) : ctx.moveTo(X(v), Y(p))); ctx.stroke(); };
+  line(pvPrev, "rgba(241,175,40,0.45)", 2);
+  line(pvNow, "#f1af28", 2.5);
+  if (pvNow.length) { const [v, p] = pvNow[pvNow.length - 1]; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(X(v), Y(p), 3.5 * dpr, 0, 7); ctx.fill(); }
+  ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.textAlign = "left"; ctx.font = `${9.5 * dpr}px system-ui`;
+  ctx.fillText("full squeeze", X(c0.v0 + Math.min(pmax * 0.8 / em, (vmax - c0.v0) * 0.5)) + 4 * dpr, Y(Math.min(pmax * 0.8, em * (vmax - c0.v0) * 0.5)));
+  ctx.fillText("relaxed", X(vmax * 0.78), Y(Math.min(pmax, c0.emin * (vmax * 0.78 - c0.v0))) - 5 * dpr);
+}
+
+/* =====================================================================
+   7. READOUTS AND STORY
+   ===================================================================== */
+function tiles(b) {
+  const t = [];
+  const add = (k, v, s) => t.push(`<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`);
+  if (!b) { el("tiles").innerHTML = "<div class='hint'>Measuring the first beats…</div>"; return; }
+  add("Heart rate", b.hr.toFixed(0) + " /min", "beats per minute");
+  add("Blood pressure", `<span class="pill-sys">${b.sys.toFixed(0)}</span>/${b.dia.toFixed(0)} mmHg`, "systolic / diastolic");
+  add("Mean arterial pressure", b.map.toFixed(0) + " mmHg", "≈ diastolic + ⅓ pulse pressure");
+  add("Stroke volume", b.sv.toFixed(0) + " mL", "forward per beat");
+  add("Cardiac output", b.co.toFixed(2) + " L/min", `= ${b.hr.toFixed(0)} × ${b.sv.toFixed(0)} mL`);
+  add("Ejection fraction", (b.ef * 100).toFixed(0) + "%", `(${b.edv.toFixed(0)} − ${b.esv.toFixed(0)}) ÷ ${b.edv.toFixed(0)} mL`);
+  add("Venous pressure", b.cvp.toFixed(1) + " mmHg", "right atrium");
+  add("Left atrial pressure", b.lap.toFixed(1) + " mmHg", b.lap > 18 ? "high: fluid in lungs" : "lung vein pressure");
+  el("tiles").innerHTML = t.join("");
+}
+function story(b) {
+  if (!b) return "The heart is starting up…";
+  const p = S.p, out = [];
+  out.push(`Each beat the left ventricle fills to <b>${b.edv.toFixed(0)} mL</b> and squeezes out <b>${(b.edv - b.esv).toFixed(0)} mL</b> (ejection fraction ${(b.ef * 100).toFixed(0)}%). ${b.hr.toFixed(0)} beats × ${b.sv.toFixed(0)} mL forward = <b>${b.co.toFixed(1)} L of blood a minute</b>.`);
+  if (p.exercise > 0) out.push("Exercise: adrenaline speeds and strengthens the heart, muscle arterioles widen so resistance falls, and squeezing muscles push blood back along the veins. Output rises a lot while mean pressure changes only a little.");
+  if (b.hr > 160) out.push(`At ${b.hr.toFixed(0)} beats a minute there is little time to fill between beats, so each stroke is small. Beyond a point, beating faster pumps <i>less</i> blood.`);
+  if (b.sys >= 140 || b.dia >= 90) out.push("Blood pressure is <b>high</b> (140/90 or more). Over years this strains the heart and damages arteries in the brain, kidneys and eyes.");
+  if (p.stiff > 1.5) out.push("Stiff arteries can't stretch to store each beat's blood, so systolic pressure shoots up and diastolic drops: a wide <b>pulse pressure</b>, typical of older people.");
+  if (p.failure > 0.3) out.push(`Heart failure: the weak, enlarged ventricle only ejects ${(b.ef * 100).toFixed(0)}% of its blood. Pressure backs up into the lungs (left atrium ${b.lap.toFixed(0)} mmHg), causing breathlessness.`);
+  if (p.valve === "mr" && p.valveSev > 0) out.push("Leaky mitral valve: when the ventricle squeezes, some blood squirts back into the left atrium (watch the yellow leaflets). The ejection fraction looks good but less blood goes forwards.");
+  if (p.valve === "as" && p.valveSev > 0) out.push(`Aortic stenosis: the ventricle has to reach ${b.lvPmax.toFixed(0)} mmHg to push blood through the narrow valve — ${(b.lvPmax - b.sys).toFixed(0)} mmHg more than the aorta. Over time its wall thickens.`);
+  if (p.valve === "ar" && p.valveSev > 0) out.push("Leaky aortic valve: blood falls back into the ventricle while it relaxes, so diastolic pressure is low and the ventricle overfills.");
+  if (p.valve === "ms" && p.valveSev > 0) out.push("Mitral stenosis: blood struggles from the left atrium into the ventricle, so pressure builds up behind it in the lungs.");
+  if (p.vsd > 0) out.push(`Hole in the heart: ${Math.abs(b.shunt).toFixed(0)} mL per beat crosses from the left ventricle to the right, so it goes round the lungs again instead of to the body.`);
+  if (p.volume < 4600) out.push(`Blood loss (${((5000 - p.volume) / 50).toFixed(0)}%): less blood returns to the heart, so it fills less (Starling's law) and pumps less. ${p.reflex ? "The reflexes speed the heart and tighten blood vessels to hold the pressure up." : "Turn on the reflexes to see the body fight back."}`);
+  if (b.map < 65 || b.sys < 90) out.push("<b>Shock:</b> the pressure is too low to push enough blood through the organs.");
+  if (out.length === 1) out.push("Blood is pumped round two loops: the right side sends it to the lungs, the left side to the rest of the body. Both sides pump the same amount each minute.");
+  return out.join("<br><br>");
+}
+
+/* =====================================================================
+   8. MAIN LOOP
+   ===================================================================== */
+let lastFrame = performance.now(), uiTimer = 0;
+function frame(now) {
+  const dt = (now - lastFrame) / 1000; lastFrame = now;
+  if (running && !el("batch").classList.contains("open")) { advance(dt); moveParticles(Math.min(0.1, dt) * speed);
+    loopPhase.pul += Math.min(0.1, dt) * speed * S.Q.lungs * 0.35; loopPhase.sys += Math.min(0.1, dt) * speed * S.Q.body * 0.35; }
+  const [ph, col] = phaseOf();
+  const pe = el("phase"); if (ph !== phaseName) { phaseName = ph; pe.textContent = ph; pe.style.background = col; pe.style.color = "#fff"; }
+  el("clock").textContent = S.t.toFixed(1) + " s";
+  drawScene(); drawWiggers(); drawPV();
+  uiTimer -= dt;
+  if (uiTimer <= 0) {
+    uiTimer = 0.5;
+    const b = summary(S, 3);
+    tiles(b);
+    if (b) { el("s_bp").textContent = `${b.sys.toFixed(0)}/${b.dia.toFixed(0)} mmHg`; el("s_hr").textContent = b.hr.toFixed(0) + " /min"; }
+    el("story").innerHTML = story(b);
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---- wiring up the buttons */
+function markPreset() { [...el("presets").children].forEach((b, i) => b.classList.toggle("on", i === presetIdx)); }
+function setPreset(i) {
+  presetIdx = i;
+  writeParams(Object.assign({}, DEFAULTS, PRESETS[i].p));
+  reset(); markPreset();
+}
+el("presets").innerHTML = PRESETS.map((p, i) => `<button data-i="${i}">${p.name}<small>${p.d}</small></button>`).join("");
+el("presets").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setPreset(+b.dataset.i); });
+for (const id of CTRL) el(id).addEventListener("input", applyLive);
+el("btnPlay").addEventListener("click", () => { running = !running; el("btnPlay").textContent = running ? "❚❚ Pause" : "▶ Play"; });
+el("btnReset").addEventListener("click", reset);
+document.querySelectorAll(".speed button").forEach(b => b.addEventListener("click", () => {
+  speed = +b.dataset.s; document.querySelectorAll(".speed button").forEach(x => x.classList.toggle("on", x === b));
+  el("speedNote").textContent = speed === 1 ? "1× = real time" : speed < 1 ? "slow motion" : "fast";
+}));
+el("sound").addEventListener("change", () => { if (el("sound").checked) { try { if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)(); audio.resume(); } catch (e) {} } });
+
+/* =====================================================================
+   9. BATCH RUNS: the model run many times with no drawing
+   ===================================================================== */
+/* =====================================================================
+   BATCH RUN — run the model many times with no drawing and compare with theory
+   ---------------------------------------------------------------------
+   Mode A "Repeat": the same set-up N times with different random seeds
+                    (and random variation where the model allows it).
+   Mode B "Sweep":  change one input step by step, a few repeats per step.
+   Runs happen in small chunks so the page never freezes.
+   ===================================================================== */
+function setupBatch(cfg) {
+  const $ = id => document.getElementById(id);
+  const box = $("batch");
+  const st = { running: false, stop: false, results: [], job: null, ref: null };
+  const COL = { data: "#7fb8ff", mean: "#f1af28", theory: "#ff6b9a", fit: "#8fd694", grid: "rgba(170,180,200,0.14)", text: "#a9b0c3" };
+
+  // ---- fill the drop-downs
+  $("bVar").innerHTML = cfg.vars.map(v => `<option value="${v.key}">${v.label}${v.unit ? " (" + v.unit + ")" : ""}</option>`).join("");
+  $("bOut").innerHTML = cfg.outcomes.map(o => `<option value="${o.key}">${o.label}${o.unit ? " (" + o.unit + ")" : ""}</option>`).join("");
+  $("bN").innerHTML = cfg.repeatNs.map(n => `<option value="${n}">${n} runs</option>`).join("");
+  $("bN").value = cfg.defaultN;
+  $("bVaryLabel").textContent = cfg.varyLabel;
+  $("bHeadless").innerHTML = cfg.headlessNote;
+  $("bExps").innerHTML = cfg.experiments.map((e, i) => `<button data-i="${i}">${e.q}</button>`).join("");
+
+  function varDef(k) { return cfg.vars.find(v => v.key === k); }
+  function outDef(k) { return cfg.outcomes.find(o => o.key === k); }
+  function setVarRange() { const v = varDef($("bVar").value); $("bFrom").value = v.from; $("bTo").value = v.to; $("bSteps").value = v.steps || 10; }
+  $("bVar").addEventListener("change", setVarRange);
+  setVarRange();
+  function showMode() { const sw = $("bMode").value === "sweep"; $("bSweepBox").style.display = sw ? "" : "none"; $("bRepeatBox").style.display = sw ? "none" : ""; }
+  $("bMode").addEventListener("change", showMode); showMode();
+  $("bOut").addEventListener("change", () => { if (st.job) { st.job.out = $("bOut").value; st.job.theory = makeTheory(st.job); draw(); } });
+  $("bLog").addEventListener("change", () => draw());
+
+  $("btnBatch").addEventListener("click", () => { box.classList.add("open"); draw(); });
+  $("bClose").addEventListener("click", () => { box.classList.remove("open"); });
+
+  // ---- one-click experiments
+  $("bExps").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    const ex = cfg.experiments[+b.dataset.i];
+    $("bMode").value = ex.mode; showMode();
+    if (ex.mode === "sweep") { $("bVar").value = ex.var; $("bFrom").value = ex.from; $("bTo").value = ex.to; $("bSteps").value = ex.steps; $("bReps").value = ex.reps; }
+    else $("bN").value = ex.n;
+    $("bOut").value = ex.out; $("bVary").checked = !!ex.vary; $("bLog").checked = !!ex.log;
+    for (const x of $("bExps").children) x.classList.toggle("on", x === b);
+    $("bNote").innerHTML = `<b>${ex.q}</b> ${ex.note}`;
+    start(ex);
+  });
+
+  $("bRun").addEventListener("click", () => { for (const x of $("bExps").children) x.classList.remove("on"); $("bNote").innerHTML = ""; start(null); });
+  $("bStop").addEventListener("click", () => { st.stop = true; });
+
+  function start(ex) {
+    if (st.running) return;
+    const mode = $("bMode").value;
+    const base = ex && ex.base ? ex.base() : cfg.baseParams();
+    const job = { ex, mode, base, out: $("bOut").value, vary: $("bVary").checked, list: [] };
+    if (mode === "sweep") {
+      const v = varDef($("bVar").value); job.var = v.key;
+      let a = +$("bFrom").value, b = +$("bTo").value, n = Math.max(2, Math.min(60, Math.round(+$("bSteps").value))), reps = Math.max(1, Math.min(200, Math.round(+$("bReps").value)));
+      const logSp = v.log && a > 0 && b > 0;
+      for (let i = 0; i < n; i++) { const f = i / (n - 1), x = logSp ? a * Math.pow(b / a, f) : a + (b - a) * f; for (let r = 0; r < reps; r++) job.list.push(x); }
+    } else { const n = +$("bN").value; for (let i = 0; i < n; i++) job.list.push(null); }
+    st.ref = cfg.prepare ? cfg.prepare(base, job) : null;
+    job.ref = st.ref;
+    job.theory = makeTheory(job);
+    st.job = job; st.results = []; st.running = true; st.stop = false;
+    $("bRun").disabled = true; $("bStop").disabled = false; $("bCsv").style.display = "none";
+    const t0 = performance.now();
+    let i = 0;
+    const seed0 = 1000 + Math.floor(Math.random() * 1e6);
+    function chunk() {
+      const tEnd = performance.now() + 45;
+      while (i < job.list.length && performance.now() < tEnd && !st.stop) {
+        const seed = seed0 + i;
+        let p = Object.assign({}, job.base);
+        if (job.mode === "sweep") cfg.setVar(p, job.var, job.list[i]);
+        if (job.vary && cfg.vary) p = cfg.vary(p, mulberry32(seed * 7919 + 13), job.mode === "sweep" ? job.var : null);
+        const o = cfg.runOnce(p, seed);
+        st.results.push({ x: job.list[i], seed, o });
+        i++;
+      }
+      const frac = i / job.list.length;
+      $("bBar").style.width = (100 * frac).toFixed(1) + "%";
+      $("bProg").textContent = `${i} / ${job.list.length} runs · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+      draw();
+      if (i < job.list.length && !st.stop) setTimeout(chunk, 0);
+      else { st.running = false; $("bRun").disabled = false; $("bStop").disabled = true; makeCsv(); if (st.stop) $("bProg").textContent += " (stopped)"; }
+    }
+    setTimeout(chunk, 0);
+  }
+  function makeTheory(job) { return cfg.theory ? cfg.theory(job) : null; }
+
+  // ---- statistics
+  function stats(a) {
+    const v = a.filter(Number.isFinite), n = v.length;
+    if (!n) return { n: 0 };
+    const mean = v.reduce((x, y) => x + y, 0) / n;
+    const sd = n > 1 ? Math.sqrt(v.reduce((x, y) => x + (y - mean) * (y - mean), 0) / (n - 1)) : 0;
+    return { n, mean, sd, se: sd / Math.sqrt(n), min: Math.min(...v), max: Math.max(...v) };
+  }
+  function groups() {
+    const m = new Map();
+    for (const r of st.results) { const k = r.x; if (!m.has(k)) m.set(k, []); m.get(k).push(r.o[st.job.out]); }
+    return [...m.entries()].map(([x, ys]) => Object.assign({ x }, stats(ys)));
+  }
+  function linfit(xs, ys) {
+    const n = xs.length; if (n < 2) return null;
+    const mx = xs.reduce((a, b) => a + b) / n, my = ys.reduce((a, b) => a + b) / n;
+    let sxy = 0, sxx = 0, syy = 0; for (let i = 0; i < n; i++) { sxy += (xs[i] - mx) * (ys[i] - my); sxx += (xs[i] - mx) ** 2; syy += (ys[i] - my) ** 2; }
+    const m = sxy / sxx; return { m, c: my - m * mx, r2: syy > 0 ? (sxy * sxy) / (sxx * syy) : 1 };
+  }
+  // cumulative normal, for fitting an S-shaped (sigmoid) probability curve
+  function Phi(z) { const t = 1 / (1 + 0.2316419 * Math.abs(z)); const d = 0.3989423 * Math.exp(-z * z / 2); const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - p : p; }
+  function sigmoidFit(g) {
+    const xs = g.map(q => q.x), lo = Math.min(...xs), hi = Math.max(...xs), span = hi - lo || 1;
+    let best = null;
+    for (let i = 0; i <= 120; i++) { const mu = lo + span * i / 120; for (let j = 0; j <= 50; j++) { const sg = span * 0.004 * Math.pow(250, j / 50);
+      let e = 0; for (const q of g) e += (Phi((q.x - mu) / sg) - q.mean) ** 2 * q.n; if (!best || e < best.e) best = { e, mu, sg }; } }
+    return best;
+  }
+  window.batchPhi = Phi;
+
+  // ---- drawing the results chart
+  function draw() {
+    const c = $("bChart"), dpr = window.devicePixelRatio || 1;
+    const W = Math.max(10, Math.round(c.clientWidth * dpr)), H = Math.max(10, Math.round(c.clientHeight * dpr));
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, W, H);
+    ctx.font = `${12 * dpr}px system-ui`;
+    const job = st.job;
+    if (!job || !st.results.length) {
+      ctx.fillStyle = COL.text; ctx.textAlign = "center";
+      ctx.fillText("Choose a batch experiment on the left, or set one up and press Run batch.", W / 2, H / 2);
+      $("bSummary").innerHTML = ""; return;
+    }
+    const od = outDef(job.out);
+    const L = 62 * dpr, R = 16 * dpr, T = 30 * dpr, B = 44 * dpr;
+    const th = [].concat(job.theory || []).filter(q => q && (!q.out || q.out === job.out));
+    if (job.mode === "repeat") drawHist(ctx, W, H, L, R, T, B, dpr, od, th);
+    else drawSweep(ctx, W, H, L, R, T, B, dpr, od, th);
+  }
+  function axes(ctx, W, H, L, R, T, B, dpr, x0, x1, y0, y1, xl, yl, logx, logy) {
+    const X = v => L + (W - L - R) * ((logx ? Math.log(v) : v) - (logx ? Math.log(x0) : x0)) / ((logx ? Math.log(x1) : x1) - (logx ? Math.log(x0) : x0));
+    const Y = v => H - B - (H - T - B) * ((logy ? Math.log(v) : v) - (logy ? Math.log(y0) : y0)) / ((logy ? Math.log(y1) : y1) - (logy ? Math.log(y0) : y0));
+    ctx.strokeStyle = COL.grid; ctx.fillStyle = COL.text; ctx.lineWidth = 1;
+    const ticks = (a, b, log) => {
+      if (log) { const out = []; for (let e = Math.floor(Math.log10(a)); e <= Math.ceil(Math.log10(b)); e++) for (const m of [1, 2, 5]) { const v = m * 10 ** e; if (v >= a * 0.999 && v <= b * 1.001) out.push(v); } return out; }
+      const span = b - a, st0 = 10 ** Math.floor(Math.log10(span / 5)), stp = [1, 2, 5, 10].map(k => k * st0).find(s => span / s <= 7);
+      const out = []; for (let v = Math.ceil(a / stp) * stp; v <= b + 1e-9; v += stp) out.push(+v.toPrecision(10)); return out;
+    };
+    const fmt = v => Math.abs(v) >= 1000 ? v.toFixed(0) : +v.toPrecision(3) + "";
+    ctx.textAlign = "right";
+    for (const v of ticks(y0, y1, logy)) { const y = Y(v); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); ctx.fillText(fmt(v), L - 5 * dpr, y + 4 * dpr); }
+    ctx.textAlign = "center";
+    for (const v of ticks(x0, x1, logx)) { const x = X(v); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - B); ctx.stroke(); ctx.fillText(fmt(v), x, H - B + 15 * dpr); }
+    ctx.strokeStyle = "rgba(200,205,220,0.5)"; ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, H - B); ctx.lineTo(W - R, H - B); ctx.stroke();
+    ctx.fillStyle = "#dfe3ee"; ctx.fillText(xl, (L + W - R) / 2, H - 8 * dpr);
+    ctx.save(); ctx.translate(14 * dpr, (T + H - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(yl, 0, 0); ctx.restore();
+    return { X, Y };
+  }
+  function legend(ctx, W, T, dpr, items) {
+    // right-aligned rows of key entries; wraps onto a new row if there isn't room
+    ctx.font = `${11.5 * dpr}px system-ui`; ctx.textAlign = "left";
+    let x = W - 16 * dpr, y = 14 * dpr;
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i], w = ctx.measureText(it[1]).width;
+      if (x - w - 32 * dpr < 70 * dpr && x < W - 20 * dpr) { x = W - 16 * dpr; y += 16 * dpr; }
+      x -= w; ctx.fillStyle = "rgba(7,8,10,0.7)"; ctx.fillRect(x - 20 * dpr, y - 9 * dpr, w + 22 * dpr, 16 * dpr);
+      ctx.fillStyle = "#dfe3ee"; ctx.fillText(it[1], x, y + 4 * dpr); x -= 18 * dpr; ctx.fillStyle = it[0]; ctx.fillRect(x, y - 3 * dpr, 12 * dpr, 6 * dpr); x -= 14 * dpr; }
+  }
+  const f3 = v => !Number.isFinite(v) ? "–" : Math.abs(v) >= 100 ? v.toFixed(1) : Math.abs(v) >= 1 ? v.toFixed(2) : v.toPrecision(3);
+
+  function drawHist(ctx, W, H, L, R, T, B, dpr, od, th) {
+    const vals = st.results.map(r => r.o[st.job.out]).filter(Number.isFinite);
+    const s = stats(vals);
+    if (!s.n) { $("bSummary").innerHTML = "No valid results yet."; return; }
+    let lo = s.min, hi = s.max;
+    const pdf = th.find(q => q.type === "pdf"), val = th.find(q => q.type === "value");
+    if (pdf && pdf.range) { lo = Math.min(lo, pdf.range[0]); hi = Math.max(hi, pdf.range[1]); }
+    if (val) { lo = Math.min(lo, val.value); hi = Math.max(hi, val.value); }
+    if (hi - lo < 1e-9) { lo -= 1; hi += 1; }
+    const nb = Math.max(6, Math.min(30, Math.round(Math.sqrt(s.n) * 1.5)));
+    const bw = (hi - lo) / nb, cnt = new Array(nb).fill(0);
+    for (const v of vals) cnt[Math.min(nb - 1, Math.floor((v - lo) / bw))]++;
+    let ymax = Math.max(...cnt);
+    if (pdf) for (let k = 0; k <= 100; k++) ymax = Math.max(ymax, pdf.fn(lo + (hi - lo) * k / 100) * s.n * bw);
+    const { X, Y } = axes(ctx, W, H, L, R, T, B, dpr, lo, hi, 0, ymax * 1.12, `${od.label}${od.unit ? " (" + od.unit + ")" : ""}`, "number of runs", false, false);
+    ctx.fillStyle = "rgba(127,184,255,0.55)"; ctx.strokeStyle = COL.data;
+    for (let k = 0; k < nb; k++) { const x0 = X(lo + k * bw), x1 = X(lo + (k + 1) * bw); ctx.fillRect(x0 + 1, Y(cnt[k]), x1 - x0 - 2, Y(0) - Y(cnt[k])); }
+    const items = [[COL.data, "model runs"], [COL.mean, "model mean"]];
+    ctx.strokeStyle = COL.mean; ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.moveTo(X(s.mean), T); ctx.lineTo(X(s.mean), H - B); ctx.stroke();
+    if (pdf) { ctx.strokeStyle = COL.theory; ctx.lineWidth = 2.5 * dpr; ctx.beginPath(); for (let k = 0; k <= 200; k++) { const x = lo + (hi - lo) * k / 200, y = pdf.fn(x) * s.n * bw; k ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y)); } ctx.stroke(); items.push([COL.theory, pdf.label]); }
+    if (val) { ctx.strokeStyle = COL.theory; ctx.setLineDash([6 * dpr, 4 * dpr]); ctx.lineWidth = 2.5 * dpr; ctx.beginPath(); ctx.moveTo(X(val.value), T); ctx.lineTo(X(val.value), H - B); ctx.stroke(); ctx.setLineDash([]); items.push([COL.theory, val.label]); }
+    for (const q of th.filter(q => q.type === "vline")) { ctx.strokeStyle = "#ffffff"; ctx.setLineDash([3 * dpr, 4 * dpr]); ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.moveTo(X(q.x), T); ctx.lineTo(X(q.x), H - B); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "#fff"; ctx.textAlign = "left"; ctx.fillText(q.label, X(q.x) + 4 * dpr, T + 12 * dpr); }
+    legend(ctx, W, T, dpr, items);
+    let html = `<table><tr><th>n</th><th>mean</th><th>SD</th><th>std error</th><th>min</th><th>max</th></tr><tr><td>${s.n}</td><td>${f3(s.mean)}</td><td>${f3(s.sd)}</td><td>${f3(s.se)}</td><td>${f3(s.min)}</td><td>${f3(s.max)}</td></tr></table>`;
+    const tv = val ? val.value : pdf && pdf.mean !== undefined ? pdf.mean : null;
+    if (tv !== null) {
+      const d = s.mean - tv;
+      html += `<div>Theory: <b>${f3(tv)}</b> ${od.unit || ""}. Model mean differs by <b>${f3(d)}</b> (${tv ? (100 * d / Math.abs(tv)).toFixed(1) + "%" : "–"}${s.se > 0 ? ", " + (d / s.se).toFixed(1) + " standard errors" : ""}).</div>`;
+    }
+    for (const q of th) if (q.extra) html += `<div>${q.extra(vals, st.results)}</div>`;
+    $("bSummary").innerHTML = html;
+  }
+
+  function drawSweep(ctx, W, H, L, R, T, B, dpr, od, th) {
+    const job = st.job, vd = varDef(job.var), g = groups().filter(q => q.n);
+    if (!g.length) return;
+    const pts = st.results.map(r => [r.x, r.o[job.out]]).filter(q => Number.isFinite(q[1]));
+    const logOn = $("bLog").checked;
+    let x0 = Math.min(...g.map(q => q.x)), x1 = Math.max(...g.map(q => q.x));
+    if (x1 - x0 < 1e-12) { x0 -= 1; x1 += 1; }
+    const logx = logOn && x0 > 0;
+    if (logx) { x0 /= 1.08; x1 *= 1.08; } else { const px = (x1 - x0) * 0.03; x0 -= px; x1 += px; }   // a little room at the ends
+    let ys = pts.map(q => q[1]).concat(g.map(q => q.mean + q.sd), g.map(q => q.mean - q.sd));
+    const curves = th.filter(q => q.type === "curve");
+    for (const cv of curves) for (let k = 0; k <= 60; k++) { const x = logOn ? x0 * Math.pow(x1 / x0, k / 60) : x0 + (x1 - x0) * k / 60; const y = cv.fn(x); if (Number.isFinite(y)) ys.push(y); }
+    for (const q of th.filter(q => q.type === "hline")) ys.push(q.y);
+    let y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const logy = logOn && y0 > 0;
+    if (!logy) { if (y0 > 0 && y0 < 0.4 * y1) y0 = 0; const pad = (y1 - y0) * 0.08 || 1; y0 -= y0 === 0 ? 0 : pad; y1 += pad; }
+    else { y0 *= 0.8; y1 *= 1.2; }
+    const { X, Y } = axes(ctx, W, H, L, R, T, B, dpr, x0, x1, y0, y1, `${vd.label}${vd.unit ? " (" + vd.unit + ")" : ""}`, `${od.label}${od.unit ? " (" + od.unit + ")" : ""}`, logx, logy);
+    ctx.save(); ctx.beginPath(); ctx.rect(L, T, W - L - R, H - T - B); ctx.clip();
+    const items = [[COL.data, "each run"], [COL.mean, "mean ± 1 SD"]];
+    // theory curves
+    for (const cv of curves) {
+      ctx.strokeStyle = cv.colour || COL.theory; ctx.lineWidth = 2.5 * dpr; ctx.setLineDash(cv.dash ? [7 * dpr, 5 * dpr] : []);
+      ctx.beginPath(); let started = false;
+      for (let k = 0; k <= 200; k++) { const x = logx ? x0 * Math.pow(x1 / x0, k / 200) : x0 + (x1 - x0) * k / 200, y = cv.fn(x); if (!Number.isFinite(y) || (logy && y <= 0)) { started = false; continue; } started ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y)); started = true; }
+      ctx.stroke(); ctx.setLineDash([]); items.push([cv.colour || COL.theory, cv.label]);
+    }
+    for (const q of th.filter(q => q.type === "hline")) { ctx.strokeStyle = q.colour || COL.theory; ctx.setLineDash([6 * dpr, 4 * dpr]); ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.moveTo(L, Y(q.y)); ctx.lineTo(W - R, Y(q.y)); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = q.colour || COL.theory; ctx.textAlign = "left"; ctx.fillText(q.label, L + 6 * dpr, Y(q.y) - 5 * dpr); }
+    for (const q of th.filter(q => q.type === "vline")) { ctx.strokeStyle = q.colour || "#fff"; ctx.setLineDash([3 * dpr, 4 * dpr]); ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.moveTo(X(q.x), T); ctx.lineTo(X(q.x), H - B); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = q.colour || "#fff"; const rt = X(q.x) > L + (W - L - R) * 0.6; ctx.textAlign = rt ? "right" : "left"; ctx.fillText(q.label, X(q.x) + (rt ? -4 : 4) * dpr, T + 14 * dpr); }
+    // fitted sigmoid
+    let fitTxt = "";
+    if (job.ex && job.ex.fit === "sigmoid" && g.length > 3) {
+      const f = sigmoidFit(g);
+      ctx.strokeStyle = COL.fit; ctx.lineWidth = 2 * dpr; ctx.beginPath();
+      for (let k = 0; k <= 200; k++) { const x = x0 + (x1 - x0) * k / 200, y = Phi((x - f.mu) / f.sg); k ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y)); }
+      ctx.stroke(); items.push([COL.fit, "fitted S-curve"]);
+      fitTxt = `Fitted S-curve: 50% firing at <b>${f3(f.mu)}</b> ${vd.unit}, spread (SD) <b>${f3(f.sg)}</b> ${vd.unit} — the 10% to 90% range is ${f3(f.mu - 1.28 * f.sg)} to ${f3(f.mu + 1.28 * f.sg)} ${vd.unit}.`;
+    }
+    // raw points (small, slightly jittered sideways)
+    ctx.fillStyle = "rgba(127,184,255,0.45)";
+    for (const [x, y] of pts) { if (logy && y <= 0) continue; ctx.beginPath(); ctx.arc(X(x), Y(y), 2.2 * dpr, 0, 7); ctx.fill(); }
+    // means and error bars
+    ctx.strokeStyle = COL.mean; ctx.fillStyle = COL.mean; ctx.lineWidth = 1.6 * dpr;
+    for (const q of g) {
+      if (logy && q.mean <= 0) continue;
+      const x = X(q.x);
+      if (q.sd > 0) { const a = Y(logy ? Math.max(q.mean - q.sd, q.mean * 0.05) : q.mean - q.sd), b = Y(q.mean + q.sd); ctx.beginPath(); ctx.moveTo(x, a); ctx.lineTo(x, b); ctx.moveTo(x - 4 * dpr, a); ctx.lineTo(x + 4 * dpr, a); ctx.moveTo(x - 4 * dpr, b); ctx.lineTo(x + 4 * dpr, b); ctx.stroke(); }
+      ctx.beginPath(); ctx.arc(x, Y(q.mean), 3.8 * dpr, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+    legend(ctx, W, T, dpr, items);
+    // ---- summary
+    let html = "";
+    const okG = g.filter(q => Number.isFinite(q.mean));
+    if (job.ex && job.ex.fit === "loglog") {
+      const gg = okG.filter(q => q.x > 0 && q.mean > 0);
+      const f = linfit(gg.map(q => Math.log(q.x)), gg.map(q => Math.log(q.mean)));
+      if (f) html += `<div>Gradient of the log–log graph: <b>${f.m.toFixed(3)}</b> (theory <b>${job.ex.slope}</b>, difference ${(100 * (f.m - job.ex.slope) / job.ex.slope).toFixed(1)}%), R² = ${f.r2.toFixed(4)}. So ${od.label.toLowerCase()} ∝ ${vd.label.toLowerCase()}<sup>${f.m.toFixed(2)}</sup>.</div>`;
+    }
+    if (job.ex && job.ex.fit === "linear") {
+      const f = linfit(okG.map(q => q.x), okG.map(q => q.mean));
+      if (f) html += `<div>Straight-line fit: ${od.label.toLowerCase()} = ${f3(f.m)} × ${vd.label.toLowerCase()} + ${f3(f.c)}, R² = ${f.r2.toFixed(4)}.</div>`;
+    }
+    if (job.ex && job.ex.fit === "peak") {
+      const best = okG.reduce((a, b) => (b.mean > a.mean ? b : a));
+      html += `<div>Highest ${od.label.toLowerCase()}: <b>${f3(best.mean)}</b> ${od.unit} at ${vd.label.toLowerCase()} = <b>${f3(best.x)}</b> ${vd.unit}.</div>`;
+    }
+    if (fitTxt) html += `<div>${fitTxt}</div>`;
+    for (const q of th) if (q.extra) html += `<div>${q.extra(okG, st.results)}</div>`;
+    // table of each step
+    const cv = curves[0];
+    html += `<table><tr><th>${vd.label} (${vd.unit})</th><th>n</th><th>mean</th><th>SD</th><th>std error</th>${cv ? "<th>theory</th><th>diff %</th>" : ""}</tr>`;
+    for (const q of okG) {
+      const tv = cv ? cv.fn(q.x) : NaN;
+      html += `<tr><td>${f3(q.x)}</td><td>${q.n}</td><td>${f3(q.mean)}</td><td>${f3(q.sd)}</td><td>${f3(q.se)}</td>${cv ? `<td>${f3(tv)}</td><td>${Number.isFinite(tv) && tv !== 0 ? (100 * (q.mean - tv) / Math.abs(tv)).toFixed(1) : "–"}</td>` : ""}</tr>`;
+    }
+    html += "</table>";
+    $("bSummary").innerHTML = html;
+  }
+
+  // ---- CSV download (works from file:// because the data never leaves the page)
+  function makeCsv() {
+    const job = st.job, keys = cfg.outcomes.map(o => o.key);
+    const rows = [["run", "seed", job.mode === "sweep" ? job.var : "x"].concat(keys).join(",")];
+    st.results.forEach((r, i) => rows.push([i + 1, r.seed, r.x === null ? "" : r.x].concat(keys.map(k => Number.isFinite(r.o[k]) ? +r.o[k].toPrecision(6) : "")).join(",")));
+    const a = $("bCsv");
+    if (a.href) URL.revokeObjectURL(a.href);
+    a.href = URL.createObjectURL(new Blob([rows.join("\n")], { type: "text/csv" }));
+    a.download = cfg.csvName + (job.mode === "sweep" ? "-sweep-" + job.var : "-repeat") + ".csv";
+    a.style.display = "";
+  }
+  window.addEventListener("resize", () => { if (box.classList.contains("open")) draw(); });
+  return { draw, state: st };
+}
+
+const rTotal = x => (0.045 + 0.95 * x + 0.025) * 1000 / 60;   // whole-body resistance in mmHg per (L/min)
+const normPdf = (m, s) => x => Math.exp(-0.5 * ((x - m) / s) ** 2) / (s * Math.sqrt(2 * Math.PI));
+const resting = () => Object.assign({}, DEFAULTS);
+setupBatch({
+  csvName: "heart",
+  headlessNote: "Each run simulates 20–40 s of heartbeats with no drawing (about 0.02 s of computer time each), then averages the last few beats.",
+  varyLabel: "Random patient variation (age 18–80, normal differences)",
+  repeatNs: [20, 100, 300, 500], defaultN: 100,
+  vars: [
+    { key: "hr", label: "Heart rate", unit: "beats/min", from: 40, to: 220, steps: 19 },
+    { key: "resist", label: "Arteriole resistance", unit: "× normal", from: 0.4, to: 3, steps: 14 },
+    { key: "loss", label: "Blood loss", unit: "%", from: 0, to: 45, steps: 10 },
+    { key: "stiff", label: "Artery stiffness", unit: "× young adult", from: 1, to: 3, steps: 9 },
+    { key: "contract", label: "Contractility", unit: "× normal", from: 0.4, to: 2, steps: 9 },
+    { key: "exercise", label: "Exercise level", unit: "%", from: 0, to: 100, steps: 11 },
+    { key: "failure", label: "Heart failure", unit: "%", from: 0, to: 90, steps: 10 },
+  ],
+  outcomes: [
+    { key: "sys", label: "Systolic pressure", unit: "mmHg" }, { key: "dia", label: "Diastolic pressure", unit: "mmHg" },
+    { key: "map", label: "Mean arterial pressure", unit: "mmHg" }, { key: "co", label: "Cardiac output", unit: "L/min" },
+    { key: "sv", label: "Stroke volume", unit: "mL" }, { key: "pp", label: "Pulse pressure", unit: "mmHg" },
+    { key: "ef", label: "Ejection fraction", unit: "%" },
+  ],
+  baseParams: readParams,
+  setVar(p, k, x) {
+    if (k === "loss") p.volume = p.volume * (1 - x / 100);
+    else if (k === "exercise" || k === "failure") p[k] = x / 100;
+    else p[k] = x;
+  },
+  vary: varyPatient,
+  runOnce: (p, seed) => runOnce(p, seed),
+  prepare(p) { return runOnce(Object.assign({}, p), 1); },
+  theory(job) {
+    const ref = job.ref, out = [];
+    if (job.mode === "repeat") {
+      out.push({ type: "pdf", out: "sys", fn: normPdf(126, 17), mean: 126, range: [70, 190], label: "UK adults (approx.: mean 126, SD 17)",
+        extra: (vals, res) => { const hi = res.filter(r => r.o.sys >= 140 || r.o.dia >= 90).length; return `Model: <b>${(100 * hi / res.length).toFixed(0)}%</b> of patients at 140/90 or above. Real adults in England: roughly 1 in 4 to 1 in 3 have high blood pressure (about 20% would read 140 or more systolic on the reference curve).`; } });
+      out.push({ type: "value", out: "map", value: 93, label: "typical adult 93 mmHg" });
+      out.push({ type: "value", out: "co", value: 5.0, label: "typical adult 5 L/min" });
+      return out;
+    }
+    if (job.var === "hr") {
+      out.push({ type: "curve", out: "co", fn: x => x * ref.sv / 1000, label: `naïve theory: CO = HR × ${ref.sv.toFixed(0)} mL (fixed stroke volume)`, dash: true });
+      out.push({ type: "curve", out: "sv", fn: x => ref.sv, label: "naïve theory: fixed stroke volume", dash: true });
+    }
+    if (job.var === "resist") {
+      out.push({ type: "curve", out: "map", fn: x => ref.cvp + ref.co * rTotal(x), label: `Ohm's-law theory: MAP = CVP + ${ref.co.toFixed(2)} L/min × R` });
+      out.push({ type: "curve", out: "co", fn: x => ref.co, label: "if output stayed the same", dash: true });
+      out.push({ type: "note", out: "map", extra: (g, res) => {
+        let worst = 0; for (const r of res) { const p = r.o, pred = p.cvp + p.co * rTotal(r.x); if (!job.vary) worst = Math.max(worst, Math.abs(p.map - pred) / p.map); }
+        return job.vary ? "" : `Check: using the model's own cardiac output at each step, MAP − CVP = CO × R holds to within <b>${(100 * worst).toFixed(1)}%</b> — the "Ohm's law" of the circulation. The straight theory line misses because the heart pumps less against a higher resistance.`; } });
+    }
+    if (job.var === "loss") {
+      out.push({ type: "hline", out: "sys", y: 90, label: "shock: systolic below 90 mmHg" });
+      out.push({ type: "hline", out: "map", y: 65, label: "shock: mean below 65 mmHg" });
+      out.push({ type: "vline", x: 30, label: "class III haemorrhage (30%+)" });
+      out.push({ type: "note", out: "sys", extra: g => { for (let i = 1; i < g.length; i++) if (g[i - 1].mean >= 90 && g[i].mean < 90) { const f = (g[i - 1].mean - 90) / (g[i - 1].mean - g[i].mean); return `In the model, systolic pressure falls below 90 mmHg at about <b>${(g[i - 1].x + f * (g[i].x - g[i - 1].x)).toFixed(0)}%</b> blood loss. Doctors' guide: pressure is usually held up until about 30% is lost (class III).`; } return "Systolic pressure did not fall below 90 mmHg in this range."; } });
+    }
+    if (job.var === "stiff") out.push({ type: "curve", out: "pp", fn: x => ref.pp * x / job.base.stiff, label: "theory: pulse pressure ∝ stiffness (∝ 1/compliance)" });
+    return out.filter(q => q.label || q.extra);
+  },
+  experiments: [
+    { q: "Does a faster heart always pump more blood?", mode: "sweep", var: "hr", from: 40, to: 220, steps: 10, reps: 4, out: "co", vary: true, fit: "peak", base: resting,
+      note: "The naïve idea CO = HR × SV assumes each beat pumps the same. In fact the time to fill shrinks as the rate rises, so stroke volume falls. Output rises at first, peaks, then falls: very fast heart rhythms make people faint. The error bars come from random patient differences." },
+    { q: "Is mean pressure = cardiac output × resistance?", mode: "sweep", var: "resist", from: 0.4, to: 3, steps: 14, reps: 1, out: "map", vary: false, fit: "linear", base: resting,
+      note: "Ohm's law for blood: pressure difference = flow × resistance. The pink line assumes the heart keeps pumping the resting output. The model bends below it because a heart pumping against narrow arterioles ejects less each beat — but MAP = CO × R still holds exactly at every step (see the check)." },
+    { q: "How spread out is blood pressure in a population?", mode: "repeat", n: 500, out: "sys", vary: true, base: resting,
+      note: "500 random 'patients' aged 18–80 with normal differences in resistance, artery stiffness, heart rate, heart strength and blood volume. The pink curve is an approximate distribution for UK adults. Older patients have stiffer arteries, which stretches the high tail. Real populations also include treatment, obesity and kidney disease, which the model leaves out." },
+    { q: "When does blood loss cause shock?", mode: "sweep", var: "loss", from: 0, to: 45, steps: 10, reps: 3, out: "sys", vary: true, base: () => Object.assign(resting(), { reflex: true }),
+      note: "Reflexes are switched on. As blood is lost, the heart fills less and output falls, but the baroreceptor reflex speeds the heart and tightens vessels, so systolic pressure falls only slowly at first. After about 30% loss it can't keep up and pressure collapses: shock. Try it again with reflexes off (untick them on the left and use Run batch)." },
+    { q: "Why do stiff arteries widen the pulse pressure?", mode: "sweep", var: "stiff", from: 1, to: 2.6, steps: 9, reps: 1, out: "pp", vary: false, fit: "linear", base: resting,
+      note: "A stretchy aorta stores part of each beat and lets it out during diastole (the Windkessel effect). Pulse pressure ≈ stroke volume ÷ compliance, so if stiffness doubles the theory says pulse pressure doubles. The model rises a little less, because some blood runs off to the body during ejection and stroke volume falls slightly." },
+  ],
+});
+
+/* =====================================================================
+   10. PANEL LAYOUT — resize or hide the side panels
+   ===================================================================== */
+(function () {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const KEY = "heart-circulation-layout", STRIP = 30, MIN = 200, DEF = { lw: 290, rw: 330, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+})();
+
+setPreset(0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

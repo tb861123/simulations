@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carbon Cycle and CO₂</title>
+<!--
+  THE CARBON CYCLE AND CO2 OVER TIME — a teaching model
+  ======================================================
+  One self-contained file: no libraries, no internet needed.
+
+  Carbon moves between STORES ("reservoirs"). Amounts are in gigatonnes of
+  carbon (GtC; 1 GtC = 1 billion tonnes of carbon). Flows ("fluxes") are in
+  GtC per year. 1 ppm of CO2 in the air = about 2.12 GtC.
+
+  Stores at the start (1750, "pre-industrial"):
+    atmosphere      595 GtC  (280 ppm)
+    plants          550 GtC
+    soils          1700 GtC
+    surface ocean   ~870 GtC (top 100 m)
+    middle ocean   ~8,800 GtC (100–1000 m)
+    deep ocean    ~29,500 GtC (below 1000 m)
+    fossil fuels   5000 GtC (coal, oil and gas that could be dug up, roughly)
+    rocks & sediments ~60 million GtC (limestone etc. — not drawn to scale)
+
+  Every year:
+    d(store)/dt = (flows in) − (flows out)
+  Step by step the model adds up the flows (Euler method, Δt = 0.1 year).
+
+  Flows:
+    photosynthesis  GPP = 120 × (forest area) × (1 + β ln(CO2/280))    (β = CO2 fertilisation)
+    plant respiration = half of GPP; leaf/wood fall to soil = 60 × plants/550
+    soil respiration  = 60 × soils/1700 × 1.5^(warming/10)
+    air → sea  = 0.286 × pCO2(air);  sea → air = 0.286 × pCO2(surface water)
+      pCO2(surface water) comes from real seawater chemistry (dissolved carbon,
+      alkalinity, carbonic acid constants). It rises about 10× faster (in %)
+      than the dissolved carbon does: the REVELLE (buffer) factor.
+    surface ↔ middle ↔ deep ocean mixing carries the extra dissolved carbon down
+      (about 6 years to mix the top 100 m, about 300 years for the middle layer)
+    volcanoes 0.1 GtC/yr out of the rocks; weathering and burial put it back.
+
+  Warming estimate: forcing F = 5.35 ln(CO2/280) W/m², fed into a two-layer
+  ocean energy balance with the chosen climate sensitivity (°C per CO2 doubling).
+  Every simplification is listed in the app under "How the model works".
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 330px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: var(--ink-dark); }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select, input[type=number] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .chk { display: block; font-size: 13px; margin-bottom: 6px; }
+  .chk input { accent-color: var(--accent); }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; position: relative; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #mapWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .chartBox { position: relative; height: 150px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+  table.data { border-collapse: collapse; font-size: 12px; margin: 6px 0; }
+  table.data td, table.data th { border: 1px solid var(--line); padding: 2px 6px; text-align: right; font-variant-numeric: tabular-nums; }
+  table.data th { color: var(--text); font-weight: 600; }
+
+  #drawBox { position: relative; height: 130px; margin-top: 4px; display: none; }
+  #drawBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: ns-resize; border-radius: 6px; }
+
+  /* Batch-run overlay */
+  #batch { display: none; position: fixed; left: 10px; right: 10px; top: 56px; bottom: 10px; z-index: 20; background: var(--panel); border: 1px solid var(--accent);
+           border-radius: 10px; padding: 12px; grid-template-columns: 300px minmax(0, 1fr); gap: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.7); }
+  #batch.open { display: grid; }
+  #batch .bl { overflow-y: auto; min-height: 0; padding-right: 4px; }
+  #batch .br { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
+  #batch h3 { margin: 0 0 6px; font-size: 16px; color: var(--accent); }
+  .bexp { display: grid; gap: 4px; margin-bottom: 10px; }
+  .bexp button { text-align: left; font-size: 12px; padding: 5px 7px; line-height: 1.25; }
+  .seg { display: inline-flex; gap: 3px; margin-bottom: 8px; }
+  .seg button { padding: 3px 10px; font-size: 12.5px; }
+  .brow { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; font-size: 13px; flex-wrap: wrap; }
+  .brow select, .brow input { flex: 1; min-width: 0; }
+  .brow input[type=number] { width: 70px; flex: 0 0 70px; }
+  #bProg { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  #bProg span { display: block; height: 100%; width: 0; background: var(--accent); }
+  .bcharts { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .bcharts.one { grid-template-columns: 1fr; }
+  .bcharts.one > div:nth-child(2) { display: none; }
+  .bcharts > div { position: relative; min-height: 0; background: #10130e; border-radius: 6px; }
+  .bcharts canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bSummary { font-size: 12.5px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  #bSummary div { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+  #bSummary div b { display: block; font-variant-numeric: tabular-nums; }
+  #bSummary div span { color: var(--muted); font-size: 11px; }
+  #bNote { font-size: 12.5px; color: #dfe3d6; background: var(--panel-2); border-left: 3px solid var(--accent); padding: 6px 9px; border-radius: 4px; }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Carbon Cycle and CO₂</h1>
+  <span class="sub">Where does the carbon we burn go? Follow it between the air, plants, soils and the ocean from 1750 to 2300.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: PRESETS AND CONTROLS ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">Emissions</h2>
+    <div class="ctl">
+      <label>Future (after 2024)</label>
+      <select id="scenario">
+        <option value="hist">Historical only (stop the clock in 2024)</option>
+        <option value="stop">Sudden stop: zero from 2025</option>
+        <option value="nz">Net zero by 2050</option>
+        <option value="ssp1">Low (like SSP1-2.6)</option>
+        <option value="ssp2">Middle road (like SSP2-4.5)</option>
+        <option value="ssp5">High (like SSP5-8.5)</option>
+        <option value="keep">Keep going at today's rate</option>
+        <option value="custom">Draw your own</option>
+        <option value="natural">No humans at all (natural world)</option>
+      </select>
+      <div class="hint" id="scenHint"></div>
+    </div>
+    <div id="drawBox"><canvas id="drawCv" aria-label="Drag the points to draw future emissions"></canvas></div>
+    <div class="hint" id="drawHint" style="display:none">Drag the dots up or down: emissions from fossil fuels each year (GtC/yr). Below zero means CO₂ is pulled out of the air and stored underground.</div>
+    <div class="ctl">
+      <label>Extra deforestation 2025–2100 <output id="o_defor"></output></label>
+      <input type="range" id="defor" min="0" max="5" step="0.25" value="0">
+    </div>
+    <div class="ctl">
+      <label>Trees planted 2025–2075 <output id="o_plant"></output></label>
+      <input type="range" id="plant" min="0" max="250" step="10" value="0">
+      <div class="hint">How much more carbon the new forests (trees and their soil) could hold once fully grown. A trillion trees ≈ 200 GtC (an optimistic estimate).</div>
+    </div>
+    <div class="ctl">
+      <label>Volcanic activity <output id="o_volc"></output></label>
+      <input type="range" id="volc" min="0" max="10" step="0.5" value="1">
+      <div class="hint">×1 = today's volcanoes, about 0.1 GtC a year, balanced by rock weathering.</div>
+    </div>
+
+    <h2 class="gap">How the Earth responds</h2>
+    <div class="ctl">
+      <label>CO₂ fertilisation of plants (β) <output id="o_beta"></output></label>
+      <input type="range" id="beta" min="0" max="0.8" step="0.01" value="0.30">
+    </div>
+    <div class="ctl">
+      <label>Ocean mixing speed <output id="o_mix"></output></label>
+      <input type="range" id="mix" min="0.3" max="3" step="0.05" value="1">
+    </div>
+    <div class="ctl">
+      <label>Climate sensitivity <output id="o_sens"></output></label>
+      <input type="range" id="sens" min="1.5" max="6" step="0.1" value="3">
+      <div class="hint">Warming (°C) for doubled CO₂, once things settle. Likely 2.5–4 °C.</div>
+    </div>
+    <label class="chk"><input type="checkbox" id="ocean" checked> The ocean absorbs CO₂</label>
+    <label class="chk"><input type="checkbox" id="feedback" checked> Warming feedbacks (warm soils and seas give off more CO₂)</label>
+    <label class="chk"><input type="checkbox" id="wiggle"> Seasonal wiggle (Keeling curve look)</label>
+    <div class="hint">Changes take effect at once, even mid-run.</div>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE: THE DIAGRAM ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">1750</span>
+      <span class="stat">CO₂ <b id="s_ppm">280 ppm</b></span>
+      <span class="stat">Emissions <b id="s_emit">0 GtC/yr</b></span>
+      <span class="stat">Warming <b id="s_warm">0.0 °C</b></span>
+      <span class="stat">Ocean pH <b id="s_ph">8.17</b></span>
+    </div>
+    <div id="mapWrap">
+      <canvas id="map" aria-label="Diagram of the carbon stores and flows"></canvas>
+    </div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">▶ Start</button>
+      <button id="btnReset" title="Back to 1750">Reset</button>
+      <span class="speed" title="1× = 3 years of carbon cycle every second">Speed <button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="4">4×</button><button data-s="15">15×</button></span>
+            <span style="flex:1"></span>
+      <button id="btnBatch" title="Run the model many times">📊 Batch run</button>
+    </div>
+    <div class="legend">
+      <span>Box area ∝ √(carbon stored), so the huge deep ocean still fits</span>
+      <span>Arrow width ∝ flow</span>
+      <span><i style="background:#ff7a45"></i>Human emissions</span><span><i style="background:#8fd694"></i>Plants &amp; soils</span>
+      <span><i style="background:#5ab4e6"></i>Ocean</span><span><i style="background:#c9a77c"></i>Rocks &amp; volcanoes</span>
+    </div>
+
+    <!-- Batch run overlay -->
+    <div id="batch">
+      <div class="bl">
+        <h3>Batch run</h3>
+        <div class="hint" style="margin-bottom:6px">Run the model many times. Each run picks the uncertain numbers (ocean mixing, CO₂ fertilisation, climate sensitivity) at random from realistic ranges around your slider settings.</div>
+        <h2>Batch experiments</h2>
+        <div class="bexp" id="bExps"></div>
+        <h2>Set up your own</h2>
+        <div class="seg"><button data-bm="repeat" class="on">Repeat</button><button data-bm="sweep">Sweep</button></div>
+        <div class="brow">Experiment <select id="bKind">
+          <option value="scenario">Run 1750 → 2300</option>
+          <option value="historical">Historical test 1750 → 2024</option>
+          <option value="pulse">100 GtC pulse (lasting 1000 years)</option>
+        </select></div>
+        <div class="brow" id="bScenRow">Future <select id="bScen"></select></div>
+        <div class="brow">Record <select id="bOut"></select></div>
+        <div class="brow" id="bNRow">Runs <select id="bN"><option>20</option><option selected>100</option><option>200</option><option>500</option><option>1000</option></select></div>
+        <div id="bSweepRows" style="display:none">
+          <div class="brow">Vary <select id="bVar"></select></div>
+          <div class="brow" id="bRange">From <input type="number" id="bFrom" step="any"> to <input type="number" id="bTo" step="any"></div>
+          <div class="brow">Steps <input type="number" id="bSteps" value="8" min="2" max="30"> repeats <input type="number" id="bReps" value="20" min="1" max="200"></div>
+        </div>
+        <label class="chk"><input type="checkbox" id="bVary" checked> Vary the uncertain numbers between runs</label>
+        <div class="brow"><button id="bRun" class="primary">▶ Run batch</button><button id="bStop" disabled>■ Stop</button><button id="bCsv" disabled>⬇ CSV</button></div>
+        <div id="bProg"><span></span></div>
+        <div class="hint" id="bStatus" style="margin-top:4px">Headless runs use a 0.2-year time step (the live view uses 0.1 years); results differ by less than 1 ppm.</div>
+      </div>
+      <div class="br">
+        <div style="display:flex;justify-content:space-between;align-items:center"><b id="bTitle">Results</b><button id="bClose">✕ Close</button></div>
+        <div class="bcharts" id="bCharts"><div><canvas id="bChart1"></canvas></div><div><canvas id="bChart2"></canvas></div></div>
+        <div id="bSummary"></div>
+        <div id="bNote">Pick a batch experiment on the left, or set up your own, then press <b>Run batch</b>.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT: WHAT IS HAPPENING ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readings</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">Readings</h2>
+    <div class="tiles" id="tiles"></div>
+    <h2 class="gap">CO₂ in the air (ppm)</h2>
+    <div class="chartBox"><canvas id="chCO2"></canvas></div>
+    <div class="legend" style="margin-top:3px"><span><i style="background:#f1af28"></i>Model</span><span><i style="background:#fff"></i>Mauna Loa (measured)</span><span><i style="background:#b38bd9"></i>Ice cores</span></div>
+    <h2 class="gap">Where has our carbon gone? (% of all emitted)</h2>
+    <div class="chartBox"><canvas id="chSinks"></canvas></div>
+    <div class="legend" style="margin-top:3px"><span><i style="background:#c8c8c8"></i>Still in the air</span><span><i style="background:#3d8fc6"></i>Ocean</span><span><i style="background:#5aa35a"></i>Plants &amp; soils</span></div>
+    <h2 class="gap">Surface ocean pH</h2>
+    <div class="chartBox" style="height:120px"><canvas id="chPH"></canvas></div>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Stores (1750):</b> air 595 GtC (280 ppm; 1 ppm = 2.124 GtC), plants 550, soils 1,700, surface ocean ~870 (top 100 m), middle ocean ~8,800 (100–1,000 m), deep ocean ~29,500, fossil fuels 5,000 (coal, oil and gas that could be dug up — a rough figure), rocks ~60 million GtC.</li>
+        <li><b>Book-keeping:</b> each year, change in a store = flows in − flows out. The model adds this up every 0.1 year.</li>
+        <li><b>Photosynthesis:</b> GPP = 120 GtC/yr × forest area × (1 + β ln(CO₂/280)). β (CO₂ fertilisation, about 0.3) means more CO₂ helps plants grow faster — but with diminishing returns (a logarithm).</li>
+        <li><b>Plants:</b> half of GPP is breathed straight back out (plant respiration). Plants drop 60 GtC/yr × (plants ÷ 550) of leaves and wood into the soil (they last about 9 years).</li>
+        <li><b>Soils:</b> microbes breathe out 60 GtC/yr × (soils ÷ 1,700), which rises by 1.3× for every 10 °C of warming (the "Q₁₀" feedback). Soil carbon lasts about 28 years.</li>
+        <li><b>Deforestation</b> moves carbon from plants straight to the air. 10% of the cleared area never grows back (farms, towns), so the land can absorb a little less. Tree planting increases the forest area; the trees then soak up carbon as they grow.</li>
+        <li><b>Air ↔ sea:</b> about 80 GtC/yr goes each way. Flow in = 0.286 × pCO₂(air); flow out = 0.286 × pCO₂(sea). The sea's pCO₂ is worked out with real seawater chemistry (alkalinity 2,300 µmol/kg, 18 °C, salinity 35, the carbonic acid and borate constants). Most dissolved carbon becomes bicarbonate, which is why the sea holds so much — but each extra bit pushes the sea's pCO₂ up about 10 times faster than its share (the <b>Revelle factor</b>, 9.5 in 1750, rising as the ocean takes up more). So the ocean's uptake slows down as it fills up.</li>
+        <li><b>Ocean mixing:</b> the extra dissolved carbon is mixed down: surface ↔ middle layer in about 6 years (of surface water), middle ↔ deep in about 300 years. The natural "biological pump" and the old gradient between the layers stay constant, so only the extra carbon is tracked.</li>
+        <li><b>Ocean pH</b> comes from the same chemistry. A drop of 0.1 means about 26% more hydrogen ions.</li>
+        <li><b>Rocks:</b> volcanoes give off 0.1 GtC/yr (× the activity slider); rock weathering takes about 0.1 GtC/yr from the air into rivers and the sea; shells and particles sinking from the surface ocean bury 0.1 GtC/yr in sea-floor sediments. These take hundreds of thousands of years to matter.</li>
+        <li><b>Warming:</b> forcing F = 5.35 ln(CO₂/280) W/m². Surface (heat capacity 8 W yr m⁻² K⁻¹) and deep ocean (100) layers; heat lost to space = (3.71 ÷ sensitivity) × warming. Only CO₂ is counted: methane, other gases and air pollution (aerosols) are left out (today they roughly cancel out). Warming is measured from 1750.</li>
+        <li><b>Emissions 1750–2024</b> follow the Global Carbon Project's history approximately (fossil fuels + cement, plus land-use change). Future paths are simplified versions of the IPCC SSP scenarios; after 2100 they are smoothly extended. Negative emissions (capturing CO₂) put carbon back underground.</li>
+        <li><b>Left out:</b> methane, permafrost thaw, wildfires, changes in ocean circulation, ocean warming and sea-ice effects on uptake (apart from a simple temperature effect), nitrogen limits on plant growth, the slow dissolving of sea-floor chalk (which matters after thousands of years), and regional differences. Real land uptake jumps about from year to year (El Niño); the model is smooth.</li>
+        <li><b>Where the model and reality disagree:</b> the model starts at 280 ppm, slightly above the ice-core value (277 ppm). It tracks Mauna Loa within a few ppm. Because only CO₂ is counted, its warming for each scenario differs from IPCC figures.</li>
+      </ul>
+      <b>Mauna Loa annual mean CO₂ (ppm), NOAA:</b>
+      <table class="data" id="mlTable"></table>
+    </details>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   1. CONSTANTS AND REAL DATA
+   ===================================================================== */
+const PPM = 2.124;                   // GtC of carbon in the air for each 1 ppm of CO2
+const DT_LIVE = 0.1, DT_BATCH = 0.2; // years per model step
+const YEAR0 = 1750, YEAR_END = 2300;
+const MOL_PER_GTC = 1e15 / 12;       // 1 GtC = 10^15 g of carbon, 12 g per mole
+const SURF_MASS = 3.62e14 * 100 * 1025;   // kg of seawater in the top 100 m (area × depth × density)
+const MID_MASS = SURF_MASS * 9;           // 100 – 1000 m
+const DEEP_MASS = SURF_MASS * 29;         // below 1000 m (about 2900 m more)
+const TA = 2300e-6;                       // alkalinity (mol/kg), kept constant
+const K_AS = 80 / 280;                    // air–sea exchange: 80 GtC/yr each way at 280 ppm
+const TAU_S = 6, TAU_I = 300;             // ocean mixing times (years)
+const V0 = 550, L0 = 1700, GPP0 = 120;    // plants, soils, photosynthesis at the start
+const PERM = 0.1;                         // fraction of cleared forest that never grows back
+const Q10 = 1.3;                          // soil breathing rises ×Q10 for every 10 °C warmer
+const FOSSIL0 = 5000, ROCK0 = 6e7;
+
+// Mauna Loa annual means (ppm), NOAA Global Monitoring Laboratory
+const ML = [[1959,315.98],[1965,320.04],[1970,325.68],[1975,331.11],[1980,338.75],[1985,346.12],[1990,354.39],[1995,360.82],[2000,369.71],[2005,379.80],[2010,389.90],[2015,401.01],[2020,414.24],[2024,424.61]];
+// Ice cores (Law Dome, smoothed), ppm
+const ICE = [[1750,277],[1800,283],[1850,285],[1900,296],[1940,310],[1950,311]];
+// Joos et al. (2013) multi-model mean: fraction of a CO2 pulse left in the air after t years
+const joos = t => 0.2173 + 0.2240 * Math.exp(-t / 394.4) + 0.2824 * Math.exp(-t / 36.54) + 0.2763 * Math.exp(-t / 4.304);
+
+// Historical emissions (GtC/yr), simplified from the Global Carbon Project
+const FOSSIL_HIST = [[1750,0.003],[1800,0.01],[1850,0.054],[1870,0.15],[1900,0.53],[1910,0.82],[1920,0.93],[1930,1.05],[1940,1.3],[1950,1.63],[1960,2.58],[1970,4.08],[1980,5.3],[1990,6.15],[2000,6.9],[2010,9.1],[2019,9.9],[2020,9.5],[2024,10.2]];
+const LUC_HIST = [[1750,0.2],[1800,0.3],[1850,0.5],[1900,0.8],[1950,1.4],[1960,1.5],[1980,1.4],[2000,1.4],[2010,1.3],[2024,1.1]];
+// Future paths: total human CO2 emissions (GtC/yr) from 2024
+const SCEN = {
+  hist:  { name: "Historical only", pts: [[2024, 11.3]], note: "The run stops at the end of 2024." },
+  stop:  { name: "Sudden stop", pts: [[2024.99, 11.3], [2025, 0]], note: "All emissions stop on 1 January 2025 — impossible in practice, but it shows what is already 'locked in'." },
+  nz:    { name: "Net zero 2050", pts: [[2024, 11.3], [2050, 0]], note: "Emissions fall in a straight line to zero in 2050, then stay at zero." },
+  ssp1:  { name: "Low (SSP1-2.6)", pts: [[2024,11.3],[2030,10],[2040,7.5],[2050,5],[2060,2.5],[2070,0.5],[2080,-0.5],[2100,-0.9],[2150,-0.5],[2200,0]], note: "Fast cuts, then removing a little CO₂ from the air after 2075." },
+  ssp2:  { name: "Middle (SSP2-4.5)", pts: [[2024,11.3],[2030,12],[2040,12.3],[2050,12],[2060,11.5],[2070,10.5],[2080,9],[2090,6],[2100,2.7],[2150,0]], note: "Emissions stay near today's level until about 2070, then fall." },
+  ssp5:  { name: "High (SSP5-8.5)", pts: [[2024,11.3],[2030,15],[2050,23],[2070,30],[2090,34],[2100,34],[2250,0]], note: "Fossil fuels use triples by 2100, then fades out by 2250." },
+  keep:  { name: "Keep going", pts: [[2024, 11.3]], note: "Emissions stay at 2024's 11.3 GtC a year forever (or until the fossil fuels run out)." },
+  custom:{ name: "Your own", pts: null, note: "Drag the dots below to draw your own emissions path." },
+  natural:{ name: "No humans", pts: [[1750, 0]], note: "No fossil fuels and no forest clearing, ever: only nature." },
+};
+const CUSTOM_YEARS = [2024, 2040, 2060, 2080, 2100, 2150, 2200, 2250, 2300];
+let customPts = [11.3, 12, 10, 7, 4, 1, 0, 0, 0];
+
+function interp(pts, x) {
+  if (x <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++) if (x <= pts[i][0]) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i]; return y0 + (y1 - y0) * (x - x0) / (x1 - x0); }
+  return pts[pts.length - 1][1];
+}
+
+/* =====================================================================
+   2. SEAWATER CHEMISTRY
+   ---------------------------------------------------------------------
+   CO2 dissolves:  CO2 + H2O ⇌ H2CO3 ⇌ H+ + HCO3-  ⇌ 2H+ + CO3^2-
+   Total dissolved carbon (DIC) = CO2 + HCO3- + CO3^2-.
+   Alkalinity (the sea's "antacid") stays fixed, so we can find the
+   hydrogen-ion concentration (pH) that balances it, then how much of the
+   carbon is still CO2 gas — and so the pressure of CO2 the sea "pushes"
+   back into the air (pCO2). Constants: Lueker et al. 2000, Dickson 1990,
+   Weiss 1974, Millero 1995. Temperature in °C, salinity 35.
+   ===================================================================== */
+const chemCache = new Map();
+function chemConsts(Tc) {
+  const key = Math.round(Tc * 50) / 50;        // cache to the nearest 0.02 °C
+  if (chemCache.has(key)) return chemCache.get(key);
+  const T = key + 273.15, S = 35, sS = Math.sqrt(S), lnT = Math.log(T);
+  const pK1 = 3633.86 / T - 61.2172 + 9.6777 * lnT - 0.011555 * S + 0.0001152 * S * S;
+  const pK2 = 471.78 / T + 25.9290 - 3.16967 * lnT - 0.01781 * S + 0.0001122 * S * S;
+  const lnKB = (-8966.90 - 2890.53 * sS - 77.942 * S + 1.728 * S * sS - 0.0996 * S * S) / T + 148.0248 + 137.1942 * sS + 1.62142 * S
+             - (24.4344 + 25.085 * sS + 0.2474 * S) * lnT + 0.053105 * sS * T;
+  const lnK0 = -60.2409 + 93.4517 * (100 / T) + 23.3585 * Math.log(T / 100) + S * (0.023517 - 0.023656 * (T / 100) + 0.0047036 * (T / 100) ** 2);
+  const lnKw = 148.96502 - 13847.26 / T - 23.6521 * lnT + (118.67 / T - 5.977 + 1.0495 * lnT) * sS - 0.01615 * S;
+  const c = { K1: 10 ** -pK1, K2: 10 ** -pK2, KB: Math.exp(lnKB), K0: Math.exp(lnK0), Kw: Math.exp(lnKw), TB: 0.000416 };
+  if (chemCache.size > 2000) chemCache.clear();
+  chemCache.set(key, c); return c;
+}
+// Given dissolved carbon (mol/kg) → { pCO2 in µatm (≈ ppm), pH }.  Halving search on pH.
+function seawater(DIC, c, guess) {
+  let lo = (guess || 8.1) - 0.6, hi = (guess || 8.1) + 0.6;
+  for (let k = 0; k < 26; k++) {
+    const pH = (lo + hi) / 2, h = 10 ** -pH;
+    const alk = DIC * (c.K1 * h + 2 * c.K1 * c.K2) / (h * h + c.K1 * h + c.K1 * c.K2) + c.TB * c.KB / (c.KB + h) + c.Kw / h - h;
+    if (alk > TA) hi = pH; else lo = pH;                // too much alkalinity → the water must be more acidic
+  }
+  const pH = (lo + hi) / 2, h = 10 ** -pH;
+  const co2 = DIC * h * h / (h * h + c.K1 * h + c.K1 * c.K2);
+  return { p: co2 / c.K0 * 1e6, pH };
+}
+// The dissolved carbon that is in balance with 280 ppm at 18 °C
+const DIC0 = (() => { const c = chemConsts(18); let lo = 1.5e-3, hi = 2.3e-3; for (let k = 0; k < 60; k++) { const m = (lo + hi) / 2; if (seawater(m, c, 8.17).p > 280) hi = m; else lo = m; } return (lo + hi) / 2; })();
+const S0 = DIC0 * SURF_MASS / MOL_PER_GTC;          // surface ocean carbon (GtC)
+const I0 = DIC0 * 1.10 * MID_MASS / MOL_PER_GTC;    // the deeper water holds ~10–15% more dissolved carbon
+const D0 = DIC0 * 1.15 * DEEP_MASS / MOL_PER_GTC;
+function revelle(S, Tc) { const c = chemConsts(Tc), a = seawater(S * MOL_PER_GTC / SURF_MASS, c), b = seawater(S * 1.001 * MOL_PER_GTC / SURF_MASS, c, a.pH); return (b.p / a.p - 1) / 0.001; }
+
+/* =====================================================================
+   3. THE MODEL — one state, one step
+   ===================================================================== */
+function newState() {
+  return { t: YEAR0, A: 280 * PPM, S: S0, I: I0, D: D0, V: V0, L: L0, F: FOSSIL0, R: ROCK0, area: 1, T: 0, Td: 0,
+           pH: 8.17, pO: 280, cum: 0, fl: null };
+}
+// Human emissions this year: { E: fossil (GtC/yr, negative = capture), luc: forest clearing, plant: forest-area growth per year }
+function humanAt(t, P) {
+  let E = 0, luc = 0, plant = 0;
+  if (P.scenario === "natural") return { E, luc, plant };
+  if (t < 2025) { E = interp(FOSSIL_HIST, t); luc = interp(LUC_HIST, t); }
+  else {
+    if (P.scenario === "custom") E = interp(CUSTOM_YEARS.map((y, i) => [y, P.custom[i]]), t);
+    else E = interp(SCEN[P.scenario === "hist" ? "keep" : P.scenario].pts, t);
+    if (t < 2100) luc = P.defor;
+    if (t < 2075) plant = P.plant / (V0 + L0) / 50;   // more forest area: new trees AND the soil under them, spread over 50 years
+  }
+  return { E, luc, plant };
+}
+/* One step of dt years. P = parameters. hold = true keeps the air fixed (used for the pulse test)
+   and returns the emissions that would have been needed to keep it fixed. */
+function step(st, P, dt, hold, forcedE) {
+  const h = forcedE === undefined ? humanAt(st.t, P) : { E: forcedE, luc: 0, plant: 0 };
+  if (h.E > 0 && st.F <= 0) h.E = 0;                  // the fossil fuels have run out
+  const pA = st.A / PPM;                              // CO2 in the air (ppm)
+  // --- ocean surface chemistry (warmer water holds less CO2)
+  const Tsea = 18 + (P.feedback ? 0.8 * st.T : 0);
+  const sw = seawater(st.S * MOL_PER_GTC / SURF_MASS, chemConsts(Tsea), st.pH);
+  st.pH = sw.pH; st.pO = sw.p;
+  const k = P.ocean ? K_AS : 0;
+  const airToSea = k * pA, seaToAir = k * sw.p;
+  // --- mixing the EXTRA dissolved carbon downwards (anomaly concentrations, mol/kg × mass)
+  const cS = (st.S - S0) / SURF_MASS, cI = (st.I - I0) / MID_MASS, cD = (st.D - D0) / DEEP_MASS;
+  const toMid = P.mix / TAU_S * (cS - cI) * SURF_MASS;
+  const toDeep = P.mix / TAU_I * (cI - cD) * MID_MASS;
+  // --- land
+  const gpp = GPP0 * st.area * Math.max(0, 1 + P.beta * Math.log(pA / 280));
+  const plantResp = 0.5 * gpp;
+  const litter = 60 * st.V / V0;
+  const soilResp = 60 * st.L / L0 * (P.feedback ? Math.pow(Q10, st.T / 10) : 1);
+  const luc = Math.min(h.luc, Math.max(0, st.V - 50));
+  st.area = Math.max(0.05, st.area - PERM * luc / V0 * dt + h.plant * dt);
+  // --- rocks
+  const volc = 0.1 * P.volc, weath = 0.1 * Math.sqrt(pA / 280), burial = 0.1;
+  // --- book-keeping: change = in − out
+  const natural = -airToSea + seaToAir - gpp + plantResp + soilResp + volc - weath;
+  let needed = 0;
+  if (hold) needed = -natural; else st.A += (h.E + luc + natural) * dt;
+  st.S += (airToSea - seaToAir - toMid + weath - burial) * dt;   // shells and particles sink and are buried
+  st.I += (toMid - toDeep) * dt;
+  st.D += toDeep * dt;
+  st.V += (gpp - plantResp - litter - luc) * dt;
+  st.L += (litter - soilResp) * dt;
+  st.F -= h.E * dt;
+  st.R += (burial - volc) * dt;
+  st.cum += (h.E + luc) * dt;
+  // --- warming: two-layer energy balance
+  const F = 5.35 * Math.log(st.A / PPM / 280), lam = 3.71 / P.sens;
+  st.T += (F - lam * st.T - 0.7 * (st.T - st.Td)) / 8 * dt;
+  st.Td += 0.7 * (st.T - st.Td) / 100 * dt;
+  st.t += dt;
+  st.fl = { E: h.E, luc, gpp, plantResp, litter, soilResp, airToSea, seaToAir, toMid, toDeep, volc, weath, burial };
+  return needed;
+}
+const oceanGain = st => st.S - S0 + st.I - I0 + st.D - D0;
+const landGain = st => st.V - V0 + st.L - L0;
+
+/* =====================================================================
+   4. HEADLESS RUNS (for the batch mode) — no drawing at all
+   ===================================================================== */
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function gauss(rng) { let u = 0, v = 0; while (u === 0) u = rng(); v = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+// Randomly pick the uncertain numbers around the chosen values
+function sampleParams(base, rng) {
+  return { ...base,
+    mix: base.mix * Math.exp(0.35 * gauss(rng)),                 // ocean mixing: ×/÷ 1.4
+    beta: Math.max(0, base.beta * (0.6 + 0.9 * rng())),         // CO2 fertilisation 60%–150%
+    sens: Math.min(8, Math.max(1.2, base.sens * Math.exp(0.25 * gauss(rng)))) };  // likely ~2.3–3.9 °C
+}
+/* runOnce(params, kind) → outcomes and a yearly series.
+   kind: "scenario" 1750→2300, "historical" 1750→2024, "pulse" (Joos et al. 2013 test) */
+function runOnce(P, kind) {
+  const dt = DT_BATCH;
+  if (kind === "pulse") {
+    // Spin up with real history to 2015, then hold CO2 fixed (control) vs add a 100 GtC pulse.
+    const st = newState(); const Ph = { ...P, scenario: "hist" };
+    while (st.t < 2015 - 1e-9) step(st, Ph, dt);
+    const ctl = { ...st }, pul = { ...st }; pul.A += 100;
+    const series = [1]; let next = 1;
+    const n = Math.round(1000 / dt);
+    for (let i = 1; i <= n; i++) {
+      const need = step(ctl, Ph, dt, true, 0);
+      step(pul, Ph, dt, false, need);
+      if (Math.abs(i * dt - next) < 1e-6) { series.push((pul.A - ctl.A) / 100); next += next < 100 ? 1 : 10; }
+    }
+    const at = y => series[y <= 100 ? y : 100 + (y - 100) / 10];
+    return { out: { pulse20: at(20), pulse100: at(100), pulse1000: at(1000) }, series, years: series.map((_, i) => i <= 100 ? i : 100 + (i - 100) * 10) };
+  }
+  const st = newState(); const lastYear = kind === "historical" ? 2025 : YEAR_END;
+  const series = [st.A / PPM], years = [YEAR0], at = {}, perYear = Math.round(1 / dt);
+  for (let y = YEAR0 + 1; y <= lastYear; y++) {
+    for (let k = 0; k < perYear; k++) step(st, P, dt);
+    st.t = y;                                       // keep the clock exact (no rounding drift)
+    series.push(st.A / PPM); years.push(y);          // value at 1 January of year y
+    if (y === 2025) at.af = (st.A - 280 * PPM) / st.cum;
+    if (y === 2101) { at.co2_2100 = st.A / PPM; at.warm2100 = st.T; at.ph2100 = st.pH; }
+    if (y === 2300) { at.co2_2300 = st.A / PPM; at.warm2300 = st.T; }
+  }
+  // RMS error against Mauna Loa (model at mid-year ≈ annual mean)
+  let se = 0; for (const [y, v] of ML) { const i = y - YEAR0; se += ((series[i] + series[i + 1]) / 2 - v) ** 2; }
+  at.rms = Math.sqrt(se / ML.length);
+  at.co2_2024 = (series[2024 - YEAR0] + series[2025 - YEAR0]) / 2;
+  return { out: at, series, years };
+}
+
+/* =====================================================================
+   5. LIVE SIMULATION
+   ===================================================================== */
+const el = id => document.getElementById(id);
+let st = newState(), hist = [], running = false, speed = 1, presetIdx = -1;
+const YEARS_PER_SEC = 3;                       // 1× = 3 years every second
+function P() {
+  return { scenario: el("scenario").value, defor: +el("defor").value, plant: +el("plant").value, volc: +el("volc").value,
+           beta: +el("beta").value, mix: +el("mix").value, sens: +el("sens").value, ocean: el("ocean").checked,
+           feedback: el("feedback").checked, custom: customPts.slice() };
+}
+function snapshot() {
+  return { t: st.t, ppm: st.A / PPM, pH: st.pH, T: st.T, cum: st.cum, air: st.A - 280 * PPM, ocean: oceanGain(st), land: landGain(st) };
+}
+function resetSim() { st = newState(); step(st, P(), 0); st.t = YEAR0; hist = [snapshot()]; setRunning(false); updateUI(); }
+function stopYear() { return el("scenario").value === "hist" ? 2025 : YEAR_END; }
+function setRunning(on) {
+  if (on && st.t >= stopYear() - 1e-6) resetSim();
+  running = on; el("btnPlay").textContent = on ? "❚❚ Pause" : (st.t > YEAR0 + 0.01 ? "▶ Continue" : "▶ Start");
+}
+
+/* =====================================================================
+   6. PRESETS
+   ===================================================================== */
+const PRESETS = [
+  { name: "Historical run", d: "1750 to 2024: match Mauna Loa?", s: { scenario: "hist" } },
+  { name: "Stop emissions today", d: "CO₂ falls, but slowly", s: { scenario: "stop" } },
+  { name: "Net zero 2050", d: "CO₂ peaks then drifts down", s: { scenario: "nz" } },
+  { name: "Middle road", d: "Like SSP2-4.5", s: { scenario: "ssp2" } },
+  { name: "High emissions", d: "Like SSP5-8.5: 1,000+ ppm", s: { scenario: "ssp5" } },
+  { name: "Keep going", d: "Today's rate for ever", s: { scenario: "keep" } },
+  { name: "Deforestation", d: "Clear 4 GtC/yr of forest", s: { scenario: "ssp2", defor: 4 } },
+  { name: "Plant a trillion trees", d: "+200 GtC of new forest", s: { scenario: "ssp2", plant: 200 } },
+  { name: "Volcanic CO₂", d: "Double all volcanoes, no humans", s: { scenario: "natural", volc: 2 } },
+  { name: "No ocean uptake", d: "What if the sea didn't absorb?", s: { scenario: "ssp2", ocean: false } },
+  { name: "Keeling curve", d: "Seasonal wiggle, 1750–2024", s: { scenario: "hist", wiggle: true } },
+  { name: "Draw your own", d: "Drag points to set emissions", s: { scenario: "custom" } },
+];
+const DEFAULTS = { scenario: "hist", defor: 0, plant: 0, volc: 1, beta: 0.30, mix: 1, sens: 3, ocean: true, feedback: true, wiggle: false };
+function setPreset(i) {
+  presetIdx = i;
+  const s = { ...DEFAULTS, ...PRESETS[i].s };
+  for (const k of ["scenario", "defor", "plant", "volc", "beta", "mix", "sens"]) el(k).value = s[k];
+  el("ocean").checked = s.ocean; el("feedback").checked = s.feedback; el("wiggle").checked = s.wiggle;
+  document.querySelectorAll("#presets button").forEach((b, k) => b.classList.toggle("on", k === i));
+  syncOutputs(); resetSim(); setRunning(true);
+}
+PRESETS.forEach((p, i) => {
+  const b = document.createElement("button"); b.innerHTML = `${p.name}<small>${p.d}</small>`;
+  b.onclick = () => setPreset(i); el("presets").appendChild(b);
+});
+
+/* =====================================================================
+   7. DRAWING THE DIAGRAM
+   ===================================================================== */
+function fitCanvas(c) {
+  const dpr = window.devicePixelRatio || 1, W = Math.max(10, Math.round(c.clientWidth * dpr)), H = Math.max(10, Math.round(c.clientHeight * dpr));
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  return { ctx: c.getContext("2d"), W, H, dpr };
+}
+const fmt = (v, d = 0) => v.toLocaleString("en-GB", { minimumFractionDigits: d, maximumFractionDigits: d });
+let dotPhase = 0;
+// Box for a store: area ∝ √(carbon), centred at (cx, cy) as fractions of the canvas
+function boxFor(C, cx, cy, W, H, k) {
+  const side = k * Math.pow(Math.max(300, C), 0.25);   // never smaller than a 300 GtC box, so the label fits
+  const w = side * 1.5, h = side / 1.5;
+  return { x: cx * W - w / 2, y: cy * H - h / 2, w, h, cx: cx * W, cy: cy * H };
+}
+function drawDiagram(realDt) {
+  const { ctx, W, H, dpr } = fitCanvas(el("map"));
+  const ground = 0.42 * H, coast = 0.55 * W;
+  // --- sky: greyer as CO2 builds up
+  const ppm = st.A / PPM, haze = Math.min(1, Math.max(0, (ppm - 280) / 900));
+  const sky = ctx.createLinearGradient(0, 0, 0, ground);
+  sky.addColorStop(0, `rgb(${30 + 60 * haze},${60 + 30 * haze},${110 - 40 * haze})`); sky.addColorStop(1, `rgb(${120 + 70 * haze},${160 + 20 * haze},${200 - 60 * haze})`);
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, ground);
+  ctx.fillStyle = "rgba(255,220,120,0.9)"; ctx.beginPath(); ctx.arc(W * 0.93, H * 0.08, 18 * dpr, 0, 7); ctx.fill();
+  // --- land and underground
+  const soil = ctx.createLinearGradient(0, ground, 0, H);
+  soil.addColorStop(0, "#5a4126"); soil.addColorStop(0.5, "#3b2c1c"); soil.addColorStop(1, "#2a2119");
+  ctx.fillStyle = soil; ctx.fillRect(0, ground, coast + 40 * dpr, H - ground);
+  ctx.fillStyle = "#4f7a33"; ctx.fillRect(0, ground - 4 * dpr, coast, 6 * dpr);
+  // --- ocean (three layers)
+  const sea = ctx.createLinearGradient(0, ground, 0, H);
+  sea.addColorStop(0, "#1f6fa8"); sea.addColorStop(0.15, "#155a8c"); sea.addColorStop(0.45, "#0d3d63"); sea.addColorStop(1, "#071f36");
+  ctx.fillStyle = sea; ctx.beginPath(); ctx.moveTo(coast, ground); ctx.lineTo(W, ground); ctx.lineTo(W, H * 0.9); ctx.lineTo(coast - 30 * dpr, H * 0.9); ctx.quadraticCurveTo(coast - 10 * dpr, H * 0.6, coast, ground); ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1.5 * dpr; ctx.beginPath();
+  for (let x = coast; x < W; x += 4 * dpr) { const y = ground + 2 * dpr * Math.sin(x / (14 * dpr) + performance.now() / 600); x === coast ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+  ctx.stroke();
+  ctx.setLineDash([5 * dpr, 5 * dpr]); ctx.strokeStyle = "rgba(255,255,255,0.15)";
+  for (const f of [0.52, 0.66]) { ctx.beginPath(); ctx.moveTo(coast - 8 * dpr, H * f); ctx.lineTo(W, H * f); ctx.stroke(); }
+  ctx.setLineDash([]);
+  // --- rocks and sediments (not to scale)
+  ctx.fillStyle = "#57514a"; ctx.fillRect(0, H * 0.9, W, H * 0.1);
+  ctx.fillStyle = "#6c655c"; for (let x = 0; x < W; x += 26 * dpr) { ctx.fillRect(x, H * 0.9 + ((x / dpr) % 3) * 5 * dpr, 16 * dpr, 3 * dpr); }
+  // --- trees: how many depends on plant carbon
+  const nTrees = Math.round(14 * st.V / V0);
+  for (let i = 0; i < Math.min(30, nTrees); i++) {
+    const x = (0.03 + 0.38 * ((i * 0.618) % 1)) * W, s = (8 + 5 * ((i * 0.37) % 1)) * dpr;
+    ctx.fillStyle = "#3d2b17"; ctx.fillRect(x - 1.5 * dpr, ground - s * 0.6, 3 * dpr, s * 0.6);
+    ctx.fillStyle = i % 3 ? "#2f7d3a" : "#3e9a46"; ctx.beginPath(); ctx.moveTo(x, ground - s * 2.2); ctx.lineTo(x - s * 0.7, ground - s * 0.5); ctx.lineTo(x + s * 0.7, ground - s * 0.5); ctx.fill();
+  }
+  // --- volcano
+  const vx = 0.47 * W; ctx.fillStyle = "#4a3b33"; ctx.beginPath(); ctx.moveTo(vx - 30 * dpr, ground + 2 * dpr); ctx.lineTo(vx - 7 * dpr, ground - 28 * dpr); ctx.lineTo(vx + 7 * dpr, ground - 28 * dpr); ctx.lineTo(vx + 30 * dpr, ground + 2 * dpr); ctx.fill();
+  ctx.fillStyle = "#e4572e"; ctx.fillRect(vx - 6 * dpr, ground - 29 * dpr, 12 * dpr, 3 * dpr);
+  // --- power station with chimney
+  const fl = st.fl || {}, E = fl.E || 0;
+  const px = 0.33 * W; ctx.fillStyle = "#5d6066"; ctx.fillRect(px - 16 * dpr, ground - 16 * dpr, 30 * dpr, 16 * dpr); ctx.fillRect(px + 6 * dpr, ground - 40 * dpr, 7 * dpr, 26 * dpr);
+  if (E > 0.05) { for (let k = 0; k < 4; k++) { const ph = (performance.now() / 1500 + k / 4) % 1; ctx.fillStyle = `rgba(160,160,160,${0.5 * (1 - ph)})`; ctx.beginPath(); ctx.arc(px + 10 * dpr + ph * 20 * dpr, ground - 44 * dpr - ph * 30 * dpr, (4 + 8 * ph) * dpr * Math.min(2, Math.sqrt(E / 4)), 0, 7); ctx.fill(); } }
+
+  // --- the stores as boxes
+  const k = Math.min(W / 1.5 * 0.30, H * 1.5 * 0.17) / Math.pow(D0, 0.25);  // scale so the deep ocean fits
+  const B = {
+    air:   boxFor(st.A, 0.47, 0.15, W, H, k),
+    plant: boxFor(st.V, 0.14, 0.27, W, H, k),
+    soil:  boxFor(st.L, 0.17, 0.56, W, H, k),
+    fossil:boxFor(Math.max(0, st.F), 0.35, 0.76, W, H, k),
+    surf:  boxFor(st.S, 0.78, 0.47, W, H, k),
+    mid:   boxFor(st.I, 0.70, 0.59, W, H, k),
+    deep:  boxFor(st.D, 0.80, 0.78, W, H, k),
+  };
+  const start = { air: 280 * PPM, plant: V0, soil: L0, fossil: FOSSIL0, surf: S0, mid: I0, deep: D0 };
+  const now = { air: st.A, plant: st.V, soil: st.L, fossil: st.F, surf: st.S, mid: st.I, deep: st.D };
+  const names = { air: "Atmosphere", plant: "Plants", soil: "Soils", fossil: "Fossil fuels", surf: "Surface ocean", mid: "Middle ocean", deep: "Deep ocean" };
+  const fills = { air: "rgba(230,230,240,0.85)", plant: "rgba(70,150,70,0.9)", soil: "rgba(110,80,45,0.95)", fossil: "rgba(25,22,20,0.95)", surf: "rgba(70,150,210,0.9)", mid: "rgba(40,110,170,0.9)", deep: "rgba(25,70,125,0.9)" };
+
+  // --- arrows (flows): width ∝ √flow so small and big flows are both visible
+  const arrows = [];
+  const add = (a, b, flow, col, label, bend = 0, fromPt, toPt) => { if (flow > 0.005) arrows.push({ a, b, flow, col, label, bend, fromPt, toPt }); };
+  const edge = (bx, side, f = 0.5) => side === "t" ? [bx.x + bx.w * f, bx.y] : side === "b" ? [bx.x + bx.w * f, bx.y + bx.h] : side === "l" ? [bx.x, bx.y + bx.h * f] : [bx.x + bx.w, bx.y + bx.h * f];
+  add(edge(B.air, "l", 0.35), edge(B.plant, "t", 0.65), fl.gpp, "#8fd694", "photosynthesis", -0.25);
+  add(edge(B.plant, "t", 0.25), edge(B.air, "l", 0.75), fl.plantResp, "#c6e8a0", "plant respiration", -0.35);
+  add(edge(B.plant, "b", 0.5), edge(B.soil, "t", 0.4), fl.litter, "#a8c66c", "dead leaves & wood", 0.15);
+  add(edge(B.soil, "r", 0.3), edge(B.air, "b", 0.2), fl.soilResp, "#d0b080", "soil respiration", 0.15);
+  add(edge(B.plant, "r", 0.6), edge(B.air, "b", 0.05), fl.luc, "#ff7a45", "deforestation", 0.1);
+  add(edge(B.fossil, "t", 0.5), edge(B.air, "b", 0.45), Math.max(0, fl.E || 0), "#ff7a45", "burning fossil fuels", 0.05);
+  add(edge(B.air, "b", 0.6), edge(B.fossil, "t", 0.8), Math.max(0, -(fl.E || 0)), "#e0e0ff", "CO₂ captured", -0.1);
+  add(edge(B.air, "r", 0.35), edge(B.surf, "t", 0.35), fl.airToSea, "#5ab4e6", "dissolving", 0.25);
+  add(edge(B.surf, "t", 0.75), edge(B.air, "r", 0.8), fl.seaToAir, "#9fd4f2", "outgassing", 0.3);
+  const net1 = fl.toMid || 0, net2 = fl.toDeep || 0;
+  if (net1 >= 0) add(edge(B.surf, "b", 0.3), edge(B.mid, "t", 0.6), net1, "#5ab4e6", "mixing down", 0); else add(edge(B.mid, "t", 0.6), edge(B.surf, "b", 0.3), -net1, "#5ab4e6", "mixing up", 0);
+  if (net2 >= 0) add(edge(B.mid, "b", 0.6), edge(B.deep, "t", 0.3), net2, "#5ab4e6", "mixing down", 0); else add(edge(B.deep, "t", 0.3), edge(B.mid, "b", 0.6), -net2, "#5ab4e6", "mixing up", 0);
+  add([vx, ground - 30 * dpr], edge(B.air, "b", 0.85), fl.volc, "#c9a77c", "volcanoes", -0.05);
+  add(edge(B.air, "b", 0.95), [coast + 4 * dpr, ground + 6 * dpr], fl.weath, "#c9a77c", "weathering → rivers", 0.3);
+  add(edge(B.deep, "b", 0.5), [B.deep.cx, H * 0.93], fl.burial, "#c9a77c", "burial", 0);
+
+  dotPhase += realDt;
+  const labels = [];
+  for (const ar of arrows) {
+    const [x0, y0] = ar.a, [x1, y1] = ar.b;
+    const mx = (x0 + x1) / 2 - (y1 - y0) * ar.bend, my = (y0 + y1) / 2 + (x1 - x0) * ar.bend;
+    const wdt = Math.min(14, 1 + 1.3 * Math.sqrt(ar.flow)) * dpr;
+    ctx.strokeStyle = ar.col; ctx.globalAlpha = 0.55; ctx.lineWidth = wdt; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(mx, my, x1, y1); ctx.stroke(); ctx.globalAlpha = 1;
+    // arrow head
+    const tx = x1 - mx, ty = y1 - my, tl = Math.hypot(tx, ty) || 1, ux = tx / tl, uy = ty / tl, hs = (6 + wdt / dpr * 0.8) * dpr;
+    ctx.fillStyle = ar.col; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - ux * hs - uy * hs * 0.6, y1 - uy * hs + ux * hs * 0.6); ctx.lineTo(x1 - ux * hs + uy * hs * 0.6, y1 - uy * hs - ux * hs * 0.6); ctx.fill();
+    // moving dots of carbon: more dots for bigger flows
+    const nd = Math.max(1, Math.min(14, Math.round(Math.sqrt(ar.flow) * 1.6)));
+    ctx.fillStyle = "#fff";
+    for (let d = 0; d < nd; d++) {
+      const u = ((dotPhase * 0.35 * (running ? Math.min(3, Math.sqrt(speed)) : 0.15) + d / nd) % 1);
+      const x = (1 - u) * (1 - u) * x0 + 2 * u * (1 - u) * mx + u * u * x1, y = (1 - u) * (1 - u) * y0 + 2 * u * (1 - u) * my + u * u * y1;
+      ctx.beginPath(); ctx.arc(x, y, Math.max(1.5 * dpr, wdt * 0.28), 0, 7); ctx.fill();
+    }
+    // label at the bend
+    labels.push({ x: 0.25 * x0 + 0.5 * mx + 0.25 * x1, y: 0.25 * y0 + 0.5 * my + 0.25 * y1, col: ar.col,
+                  txt: `${ar.label} ${ar.flow < 1 ? ar.flow.toFixed(2) : ar.flow.toFixed(1)}` });
+  }
+  // --- boxes on top
+  const chips = [];
+  for (const key of Object.keys(B)) {
+    const b = B[key];
+    ctx.fillStyle = fills[key]; ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1.2 * dpr;
+    roundRect(ctx, b.x, b.y, b.w, b.h, 6 * dpr); ctx.fill(); ctx.stroke();
+        const change = now[key] - start[key];
+    ctx.fillStyle = key === "air" ? "#14133b" : "#fff"; ctx.textAlign = "center";
+    ctx.font = `bold ${11.5 * dpr}px system-ui`; ctx.fillText(names[key], b.cx, b.cy - 4 * dpr);
+    ctx.font = `${11 * dpr}px system-ui`; ctx.fillText(`${fmt(now[key])} GtC`, b.cx, b.cy + 9 * dpr);
+    if (Math.abs(change) >= 0.5) {
+      // a small chip just under the box: how much this store has gained (+) or lost (−)
+      ctx.font = `bold ${10.5 * dpr}px system-ui`;
+      const txt = `${change > 0 ? "+" : "−"}${fmt(Math.abs(change))} GtC since 1750`, tw = ctx.measureText(txt).width + 8 * dpr;
+      ctx.fillStyle = "rgba(8,10,8,0.82)"; ctx.fillRect(b.cx - tw / 2, b.y + b.h + 2 * dpr, tw, 14 * dpr);
+      ctx.fillStyle = change > 0 ? "#ffb38a" : "#9fe8b0";
+      ctx.fillText(txt, b.cx, b.y + b.h + 13 * dpr);
+      chips.push({ x: b.cx - tw / 2, y: b.y + b.h + 2 * dpr, w: tw, h: 14 * dpr });
+    }
+  }
+  // labels last, nudged up or down so that they never overlap each other
+  ctx.font = `${10.5 * dpr}px system-ui`; ctx.textAlign = "center";
+  const placed = Object.values(B).map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h })).concat(chips);
+  for (const lb of labels) {
+    const tw = ctx.measureText(lb.txt).width + 6 * dpr, th = 13 * dpr;
+    let best = null;
+    search: for (const dx of [0, 0.6, -0.6, 1.1, -1.1]) for (const off of [0, 1, -1, 2, -2, 3, -3]) {
+      const r = { x: lb.x - tw / 2 + dx * tw, y: lb.y - 9 * dpr + off * 14 * dpr, w: tw, h: th };
+      if (r.x < 0 || r.x + r.w > W || r.y < 0) continue;
+      if (!placed.some(q => r.x < q.x + q.w && q.x < r.x + r.w && r.y < q.y + q.h && q.y < r.y + r.h)) { best = r; break search; }
+    }
+    if (!best) best = { x: lb.x - tw / 2, y: lb.y - 9 * dpr, w: tw, h: th };
+    placed.push(best);
+    ctx.fillStyle = "rgba(8,10,8,0.78)"; ctx.fillRect(best.x, best.y, best.w, best.h);
+    ctx.fillStyle = lb.col; ctx.fillText(lb.txt, best.x + best.w / 2, best.y + 10 * dpr);
+  }
+  ctx.fillStyle = "#e8e2d8"; ctx.font = `bold ${11.5 * dpr}px system-ui`; ctx.textAlign = "left";
+  ctx.fillText(`Rocks & sediments (limestone, chalk): ~60 million GtC — far too big to draw to scale`, 10 * dpr, H * 0.965);
+  ctx.font = `${10.5 * dpr}px system-ui`; ctx.fillStyle = "rgba(255,255,255,0.8)";
+  ctx.fillText("Flows in GtC per year", 10 * dpr, 16 * dpr);
+}
+function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+/* =====================================================================
+   8. SMALL CHARTS
+   ===================================================================== */
+const DIM = "#a3ab96";
+function axes(ctx, W, H, dpr, xr, yr, xlab, ylab, opts = {}) {
+  const L = (opts.L || 42) * dpr, R = (opts.R || 8) * dpr, T = (opts.T || 8) * dpr, Bm = 26 * dpr;
+  const X = x => L + (x - xr[0]) / (xr[1] - xr[0]) * (W - L - R), Y = y => H - Bm - (y - yr[0]) / (yr[1] - yr[0]) * (H - T - Bm);
+  ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "rgba(160,170,150,0.15)"; ctx.fillStyle = DIM; ctx.font = `${10 * dpr}px system-ui`; ctx.lineWidth = 1;
+  const yt = niceTicks(yr[0], yr[1], opts.ny || 4);
+  for (const v of yt) { const y = Y(v); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); ctx.textAlign = "right"; ctx.fillText(opts.yfmt ? opts.yfmt(v) : +v.toFixed(3), L - 4 * dpr, y + 3 * dpr); }
+  const xt = opts.xticks || niceTicks(xr[0], xr[1], opts.nx || 5);
+  for (const v of xt) { const x = X(v); ctx.textAlign = "center"; ctx.fillText(opts.xfmt ? opts.xfmt(v) : +v.toFixed(3), x, H - Bm + 12 * dpr); }
+  ctx.fillText(xlab, (L + W - R) / 2, H - 3 * dpr);
+  ctx.save(); ctx.translate(10 * dpr, (T + H - Bm) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(ylab, 0, 0); ctx.restore();
+  return { X, Y, L, R, T, B: Bm };
+}
+function niceTicks(a, b, n) {
+  const span = b - a; if (!(span > 0)) return [a];
+  const raw = span / n, mag = 10 ** Math.floor(Math.log10(raw)), f = raw / mag;
+  const stp = (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag;
+  const out = []; for (let v = Math.ceil(a / stp - 1e-9) * stp; v <= b + 1e-9; v += stp) out.push(Math.abs(v) < stp * 1e-6 ? 0 : v);
+  return out;
+}
+const seasonal = t => 3.2 * Math.cos(2 * Math.PI * (t - Math.floor(t) - 0.37));   // peak in May, low in Sept–Oct
+function drawCharts() {
+  const xEnd = stopYear() <= 2025 ? 2025 : YEAR_END, wig = el("wiggle").checked;
+  // CO2
+  {
+    const { ctx, W, H, dpr } = fitCanvas(el("chCO2"));
+    const vis = hist.filter(h => h.t <= xEnd);
+    const maxP = Math.max(430, ...vis.map(h => h.ppm)) * 1.04, minP = Math.min(270, ...vis.map(h => h.ppm)) - 5;
+    const a = axes(ctx, W, H, dpr, [YEAR0, xEnd], [minP, maxP], "year", "CO₂ (ppm)", { xticks: xEnd > 2100 ? [1750, 1850, 1950, 2050, 2150, 2250] : [1750, 1800, 1850, 1900, 1950, 2000] });
+    ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 1.6 * dpr; ctx.beginPath();
+    vis.forEach((h, i) => { const v = h.ppm + (wig && h.t > 1900 ? seasonal(h.t) : 0); i ? ctx.lineTo(a.X(h.t), a.Y(v)) : ctx.moveTo(a.X(h.t), a.Y(v)); }); ctx.stroke();
+    ctx.fillStyle = "#b38bd9"; for (const [y, v] of ICE) { ctx.beginPath(); ctx.arc(a.X(y), a.Y(v), 2.6 * dpr, 0, 7); ctx.fill(); }
+    ctx.fillStyle = "#fff"; for (const [y, v] of ML) { ctx.beginPath(); ctx.arc(a.X(y + 0.5), a.Y(v), 2.6 * dpr, 0, 7); ctx.fill(); }
+  }
+  // Where has it gone (stacked %)
+  {
+    const { ctx, W, H, dpr } = fitCanvas(el("chSinks"));
+    const a = axes(ctx, W, H, dpr, [1800, xEnd], [0, 100], "year", "% of emitted", { xticks: xEnd > 2100 ? [1800, 1900, 2000, 2100, 2200, 2300] : [1800, 1850, 1900, 1950, 2000], yfmt: v => v + "%" });
+    const pts = hist.filter(h => h.t >= 1800 && h.cum > 15);
+    if (pts.length > 1) {
+      const layers = [["air", "#c8c8c8"], ["ocean", "#3d8fc6"], ["land", "#5aa35a"]];
+      let base = pts.map(() => 0);
+      for (const [key, col] of layers) {
+        const top = pts.map((h, i) => base[i] + Math.max(0, Math.min(100, 100 * (key === "land" ? (h.cum - h.air - h.ocean) : h[key]) / h.cum)));
+        ctx.fillStyle = col; ctx.beginPath();
+        pts.forEach((h, i) => (i ? ctx.lineTo(a.X(h.t), a.Y(Math.min(100, top[i]))) : ctx.moveTo(a.X(h.t), a.Y(Math.min(100, top[i])))));
+        for (let i = pts.length - 1; i >= 0; i--) ctx.lineTo(a.X(pts[i].t), a.Y(Math.min(100, base[i])));
+        ctx.fill(); base = top;
+      }
+    } else { ctx.fillStyle = DIM; ctx.textAlign = "center"; ctx.fillText(el("scenario").value === "natural" ? "No human emissions in this run" : "Waiting for emissions to build up…", W / 2, H / 2); }
+  }
+  // pH
+  {
+    const { ctx, W, H, dpr } = fitCanvas(el("chPH"));
+    const vis = hist.filter(h => h.t <= xEnd);
+    const minPH = Math.min(8.0, ...vis.map(h => h.pH)) - 0.03;
+    const a = axes(ctx, W, H, dpr, [YEAR0, xEnd], [minPH, 8.22], "year", "pH", { ny: 3, xticks: xEnd > 2100 ? [1750, 1850, 1950, 2050, 2150, 2250] : [1750, 1800, 1850, 1900, 1950, 2000], yfmt: v => v.toFixed(2) });
+    ctx.strokeStyle = "#5ab4e6"; ctx.lineWidth = 1.6 * dpr; ctx.beginPath();
+    vis.forEach((h, i) => (i ? ctx.lineTo(a.X(h.t), a.Y(h.pH)) : ctx.moveTo(a.X(h.t), a.Y(h.pH)))); ctx.stroke();
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(a.X(2020), a.Y(8.05), 2.6 * dpr, 0, 7); ctx.fill();
+    ctx.textAlign = "left"; ctx.font = `${10 * dpr}px system-ui`; ctx.fillText("measured ≈ 8.05", a.X(2020) + 5 * dpr, a.Y(8.05) - 4 * dpr);
+  }
+}
+
+/* =====================================================================
+   9. READOUTS AND STORY
+   ===================================================================== */
+function updateUI() {
+  const ppm = st.A / PPM, yr = Math.min(Math.floor(st.t), stopYear() - 1), fl = st.fl || {};
+  const disp = ppm + (el("wiggle").checked && st.t > 1900 ? seasonal(st.t) : 0);
+  el("clock").textContent = yr;
+  el("s_ppm").textContent = disp.toFixed(1) + " ppm";
+  el("s_emit").textContent = ((fl.E || 0) + (fl.luc || 0)).toFixed(1) + " GtC/yr";
+  el("s_warm").textContent = (st.T >= 0 ? "+" : "") + st.T.toFixed(2) + " °C";
+  el("s_ph").textContent = st.pH.toFixed(3);
+  const cum = st.cum, ok = cum > 5;
+  const af = ok ? (st.A - 280 * PPM) / cum : NaN, of = ok ? oceanGain(st) / cum : NaN, lf = ok ? 1 - af - of : NaN;
+  const pct = v => isFinite(v) ? Math.round(100 * v) + "%" : "–";
+  const R = revelle(st.S, 18 + (el("feedback").checked ? 0.8 * st.T : 0));
+  const tiles = [
+    ["CO₂ in the air", ppm.toFixed(1) + " ppm", `${fmt(st.A)} GtC · ${(ppm / 280).toFixed(2)}× 1750`],
+    ["Airborne fraction", pct(af), "of all carbon emitted is still in the air"],
+    ["Ocean took", pct(of), ok ? `${fmt(oceanGain(st))} GtC` : "–"],
+    ["Plants & soils took", pct(lf), ok ? `${fmt(lf * cum)} GtC` : "–"],
+    ["Ocean pH", st.pH.toFixed(3), `${Math.round(100 * (10 ** (8.1734 - st.pH) - 1))}% more acidic (H⁺) than 1750`],
+    ["Warming (CO₂ only)", (st.T >= 0 ? "+" : "") + st.T.toFixed(2) + " °C", `heading for +${(+el("sens").value * Math.log2(ppm / 280)).toFixed(1)} °C if CO₂ stayed here`],
+    ["Emitted so far", fmt(cum) + " GtC", `this year ${((fl.E || 0) + (fl.luc || 0)).toFixed(1)} GtC`],
+    ["Revelle factor", R.toFixed(1), "higher = ocean takes CO₂ less easily"],
+    ["Fossil fuels left", fmt(Math.max(0, st.F)) + " GtC", st.F <= 0 ? "all used up!" : "in the ground"],
+    ["Net land flow", ((fl.gpp || 0) - (fl.plantResp || 0) - (fl.soilResp || 0) - (fl.luc || 0)).toFixed(2) + " GtC/yr", "into plants & soils (− = out)"],
+  ];
+  el("tiles").innerHTML = tiles.map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+  el("story").innerHTML = storyText(ppm, af, of, lf);
+  el("btnPlay").textContent = running ? "❚❚ Pause" : (st.t >= stopYear() - 1e-6 ? "↺ Run again" : st.t > YEAR0 + 0.01 ? "▶ Continue" : "▶ Start");
+}
+function storyText(ppm, af, of, lf) {
+  const p = P(), t = st.t, m = [], fl = st.fl || {};
+  if (t < YEAR0 + 0.5) return "Press <b>Start</b>. In 1750 the carbon cycle is in balance: each year plants take in about 120 GtC and give it back, and the sea swaps about 80 GtC each way with the air, so CO₂ stays at 280 ppm.";
+  if (p.scenario === "natural") {
+    m.push(`With no humans, CO₂ is <b>${ppm.toFixed(1)} ppm</b>.`);
+    if (p.volc > 1) m.push(`Volcanoes are giving off ${(0.1 * p.volc).toFixed(2)} GtC a year — ${p.volc}× normal. Humans today emit about 11 GtC a year, roughly <b>${Math.round(11 / (0.1 * p.volc))} times</b> more. Most extra volcanic CO₂ ends up in the ocean, and rock weathering removes the rest over hundreds of thousands of years.`);
+    else m.push("The flows in and out balance, so nothing changes.");
+    return m.join(" ");
+  }
+  if (t < 1850) m.push("Early on, most human carbon comes from clearing forests for farms, not from fossil fuels.");
+  else if (t < 1950) m.push("Coal powers the industrial revolution. Emissions grow, but CO₂ rises only slowly.");
+  else if (t < 2025) m.push("Since 1950 emissions have shot up. CO₂ is now rising by about 2 ppm every year.");
+  if (isFinite(af)) m.push(`Of all the carbon we have released, <b>${Math.round(100 * af)}%</b> is still in the air, the ocean has taken <b>${Math.round(100 * of)}%</b> and plants and soils <b>${Math.round(100 * lf)}%</b>.`);
+  if (t >= 2025) {
+    const E = (fl.E || 0) + (fl.luc || 0);
+    if (Math.abs(E) < 0.05) m.push("Emissions are zero, yet CO₂ only falls slowly: the ocean and plants keep soaking it up, but they slow down as they catch up. About a fifth of our CO₂ will stay in the air for thousands of years.");
+    else if (E < 0) m.push("Emissions are negative: machines and new forests take CO₂ out of the air, so CO₂ falls faster.");
+    else if (E > 15) m.push("Emissions are very high. The ocean and land cannot keep up, so the airborne fraction climbs and CO₂ races upwards.");
+    if (st.F <= 0) m.push("<b>The fossil fuels have run out.</b>");
+  }
+  if (!p.ocean) m.push("<b>The ocean is switched off</b>, so CO₂ rises much faster: normally the sea takes about a quarter of what we emit.");
+  if (p.defor > 0 && t >= 2025 && t < 2100) m.push(`Forests are being cleared at an extra ${p.defor} GtC a year — this adds CO₂ AND leaves fewer trees to absorb it.`);
+  if (p.plant > 0 && t >= 2025) m.push(`New forests are growing. They pull CO₂ in while they grow, then the soaking-up slows once they are mature.`);
+  if (st.pH < 8.0) m.push(`The ocean is turning more acidic (pH ${st.pH.toFixed(2)}): shellfish and corals find it harder to build shells.`);
+  return m.join(" ");
+}
+
+/* =====================================================================
+   10. CONTROLS
+   ===================================================================== */
+function syncOutputs() {
+  el("o_defor").textContent = (+el("defor").value).toFixed(2) + " GtC/yr";
+  el("o_plant").textContent = el("plant").value + " GtC";
+  el("o_volc").textContent = "×" + el("volc").value;
+  el("o_beta").textContent = (+el("beta").value).toFixed(2);
+  el("o_mix").textContent = "×" + (+el("mix").value).toFixed(2);
+  el("o_sens").textContent = (+el("sens").value).toFixed(1) + " °C";
+  const sc = el("scenario").value;
+  el("scenHint").textContent = SCEN[sc].note;
+  el("drawBox").style.display = el("drawHint").style.display = sc === "custom" ? "block" : "none";
+  if (sc === "custom") drawCustom();
+}
+for (const id of ["defor", "plant", "volc", "beta", "mix", "sens", "ocean", "feedback", "wiggle"]) el(id).addEventListener("input", () => { syncOutputs(); markCustom(); });
+el("scenario").addEventListener("change", () => { syncOutputs(); markCustom(); if (st.t >= stopYear()) { st.t = Math.min(st.t, stopYear()); } });
+function markCustom() { presetIdx = -1; document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); }
+el("btnPlay").onclick = () => setRunning(!running);
+el("btnReset").onclick = () => resetSim();
+document.querySelectorAll(".speed button").forEach(b => b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll(".speed button").forEach(x => x.classList.toggle("on", x === b)); });
+
+// Draw-your-own emissions editor
+const DR = { min: -5, max: 40 };
+let dragIdx = -1;
+function drawCustom() {
+  const { ctx, W, H, dpr } = fitCanvas(el("drawCv"));
+  const a = axes(ctx, W, H, dpr, [2024, 2300], [DR.min, DR.max], "year", "GtC/yr", { L: 34, R: 16, xticks: [2050, 2100, 2150, 2200, 2250, 2300], ny: 4 });
+  ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.beginPath(); ctx.moveTo(a.X(2024), a.Y(0)); ctx.lineTo(a.X(2300), a.Y(0)); ctx.stroke();
+  ctx.strokeStyle = "#ff7a45"; ctx.lineWidth = 2 * dpr; ctx.beginPath();
+  CUSTOM_YEARS.forEach((y, i) => (i ? ctx.lineTo(a.X(y), a.Y(customPts[i])) : ctx.moveTo(a.X(y), a.Y(customPts[i])))); ctx.stroke();
+  CUSTOM_YEARS.forEach((y, i) => { ctx.fillStyle = i === 0 ? "#888" : "#f1af28"; ctx.beginPath(); ctx.arc(a.X(y), a.Y(customPts[i]), 5 * dpr, 0, 7); ctx.fill(); });
+  drawCustom.a = a; drawCustom.dpr = dpr;
+}
+el("drawCv").addEventListener("pointerdown", e => {
+  const a = drawCustom.a, dpr = drawCustom.dpr; if (!a) return;
+  const r = el("drawCv").getBoundingClientRect(), x = (e.clientX - r.left) * dpr;
+  let best = -1, bd = 1e9; CUSTOM_YEARS.forEach((y, i) => { const d = Math.abs(a.X(y) - x); if (i > 0 && d < bd) { bd = d; best = i; } });
+  dragIdx = best; el("drawCv").setPointerCapture(e.pointerId); moveCustom(e);
+});
+el("drawCv").addEventListener("pointermove", e => { if (dragIdx > 0) moveCustom(e); });
+el("drawCv").addEventListener("pointerup", () => { dragIdx = -1; });
+function moveCustom(e) {
+  const a = drawCustom.a, dpr = drawCustom.dpr, r = el("drawCv").getBoundingClientRect(), y = (e.clientY - r.top) * dpr;
+  const H = el("drawCv").height, v = DR.min + (H - a.B - y) / (H - a.T - a.B) * (DR.max - DR.min);
+  customPts[dragIdx] = Math.round(Math.max(DR.min, Math.min(DR.max, v)) * 2) / 2; drawCustom();
+}
+
+el("mlTable").innerHTML = "<tr><th>Year</th>" + ML.map(([y]) => `<td>${y}</td>`).join("") + "</tr><tr><th>ppm</th>" + ML.map(([, v]) => `<td>${v.toFixed(1)}</td>`).join("") + "</tr>";
+el("mlTable").style.display = "block"; el("mlTable").style.overflowX = "auto";
+
+/* =====================================================================
+   11. BATCH RUN
+   ===================================================================== */
+const OUTCOMES = {
+  co2_2100:  { name: "CO₂ in 2100 (ppm)", kind: "scenario", unit: "ppm", d: 0 },
+  warm2100:  { name: "Warming by 2100 (°C, CO₂ only)", kind: "scenario", unit: "°C", d: 2 },
+  co2_2300:  { name: "CO₂ in 2300 (ppm)", kind: "scenario", unit: "ppm", d: 0 },
+  ph2100:    { name: "Ocean pH in 2100", kind: "scenario", unit: "", d: 3 },
+  rms:       { name: "RMS error vs Mauna Loa 1959–2024 (ppm)", kind: "historical", unit: "ppm", d: 2 },
+  co2_2024:  { name: "CO₂ in 2024 (ppm)", kind: "historical", unit: "ppm", d: 1 },
+  af:        { name: "Airborne fraction 1750–2024", kind: "historical", unit: "", d: 3 },
+  pulse20:   { name: "Pulse left in the air after 20 years", kind: "pulse", unit: "", d: 3 },
+  pulse100:  { name: "Pulse left in the air after 100 years", kind: "pulse", unit: "", d: 3 },
+  pulse1000: { name: "Pulse left in the air after 1000 years", kind: "pulse", unit: "", d: 3 },
+};
+// "Theory" = published values to compare with
+const IPCC_CO2 = { ssp1: 446, ssp2: 603, ssp5: 1135 };       // SSP concentrations in 2100 (ppm)
+const IPCC_WARM = { ssp1: 1.8, ssp2: 2.7, ssp5: 4.4 };        // AR6 best estimates, 2081–2100, all gases
+function theoryFor(outKey, scen) {
+  if (outKey === "co2_2100" && IPCC_CO2[scen]) return { v: IPCC_CO2[scen], label: "IPCC scenario value" };
+  if (outKey === "warm2100" && IPCC_WARM[scen]) return { v: IPCC_WARM[scen], label: "IPCC AR6 best estimate (all gases)" };
+  if (outKey === "rms") return { v: 0, label: "perfect match" };
+  if (outKey === "co2_2024") return { v: 424.61, label: "Mauna Loa 2024" };
+  if (outKey === "af") return { v: 0.44, label: "Global Carbon Project ≈ 0.44" };
+  if (outKey === "pulse20") return { v: joos(20), label: "Joos et al. 2013" };
+  if (outKey === "pulse100") return { v: joos(100), label: "Joos et al. 2013" };
+  if (outKey === "pulse1000") return { v: joos(1000), label: "Joos et al. 2013" };
+  return null;
+}
+const SWEEPS = {
+  scenario: { name: "Future scenario", cats: ["stop", "nz", "ssp1", "ssp2", "ssp5", "keep"] },
+  sens: { name: "Climate sensitivity (°C)", from: 1.5, to: 6 },
+  beta: { name: "CO₂ fertilisation β", from: 0, to: 0.8 },
+  mix: { name: "Ocean mixing speed (×)", from: 0.3, to: 3 },
+  defor: { name: "Extra deforestation (GtC/yr)", from: 0, to: 5 },
+  plant: { name: "Trees planted (GtC)", from: 0, to: 250 },
+};
+const BEXPS = [
+  { q: "Where will CO₂ be in 2100 on the middle road?", cfg: { mode: "repeat", kind: "scenario", scen: "ssp2", out: "co2_2100", n: 200 },
+    note: "Each run uses different, equally believable values for ocean mixing, CO₂ fertilisation and sensitivity. The spread is the uncertainty from the Earth's response alone — the emissions are identical. The IPCC's SSP2-4.5 path reaches about 603 ppm; our simple model lands close to it, but our emissions are simplified." },
+  { q: "How much warmer by 2100 if emissions stay high?", cfg: { mode: "repeat", kind: "scenario", scen: "ssp5", out: "warm2100", n: 200 },
+    note: "The spread is mostly from climate sensitivity. The IPCC's 4.4 °C is measured from 1850–1900 and includes methane and other gases, so our CO₂-only figure is not expected to match exactly — but CO₂ is the biggest part." },
+  { q: "Does the model match Mauna Loa?", cfg: { mode: "repeat", kind: "historical", out: "rms", n: 200 },
+    note: "The fan shows the spread of model runs from 1750; white dots are measured annual means. An RMS error of a few ppm means the box model captures the real rise well (with the default settings a single run is about 1 ppm out; runs with extreme random settings are worse). Runs scatter because each one picks different ocean and plant responses; real CO₂ also wobbles by about 1 ppm from year to year (El Niño), which the model does not have." },
+  { q: "How long does a pulse of CO₂ stay in the air?", cfg: { mode: "repeat", kind: "pulse", out: "pulse100", n: 100 },
+    note: "We add 100 GtC to the air in 2015 and compare with a run held at the 2015 level (the Joos et al. 2013 method). The red curve is the multi-model mean from that paper: about 60% left after 20 years, 40% after 100 years and 25% after 1000 years. The ocean slowly mixes it down; about a fifth stays for thousands of years because the ocean's chemistry is buffered." },
+  { q: "Which future? CO₂ in 2100 for each scenario", cfg: { mode: "sweep", kind: "scenario", out: "co2_2100", sweep: "scenario", reps: 20 },
+    note: "The choice of scenario changes 2100 CO₂ far more than the uncertainty in the Earth's response does. Red diamonds are the IPCC scenario values (where they exist)." },
+  { q: "Does stronger CO₂ fertilisation help much?", cfg: { mode: "sweep", kind: "scenario", scen: "ssp2", out: "co2_2100", sweep: "beta", from: 0, to: 0.8, steps: 9, reps: 10 },
+    note: "Bigger β means plants grow faster with more CO₂ and soak up more. This is one of the biggest uncertainties in the real carbon cycle; it matters, but less than the emissions themselves." },
+];
+const SHORT = { stop: "Sudden stop", nz: "Net zero 2050", ssp1: "Low", ssp2: "Middle", ssp5: "High", keep: "Keep going" };
+const B = { mode: "repeat", running: false, results: [], series: [], cfg: null, stop: false };
+el("bScen").innerHTML = Object.entries(SCEN).filter(([k]) => !["hist", "natural"].includes(k)).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join("");
+el("bScen").value = "ssp2";
+el("bVar").innerHTML = Object.entries(SWEEPS).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join("");
+function fillOutcomes() {
+  const kind = el("bKind").value;
+  el("bOut").innerHTML = Object.entries(OUTCOMES).filter(([, o]) => o.kind === kind).map(([k, o]) => `<option value="${k}">${o.name}</option>`).join("");
+  el("bScenRow").style.display = kind === "scenario" ? "flex" : "none";
+}
+function setBMode(m) { B.mode = m; document.querySelectorAll("[data-bm]").forEach(b => b.classList.toggle("on", b.dataset.bm === m)); el("bSweepRows").style.display = m === "sweep" ? "block" : "none"; el("bNRow").style.display = m === "repeat" ? "flex" : "none"; }
+document.querySelectorAll("[data-bm]").forEach(b => b.onclick = () => setBMode(b.dataset.bm));
+el("bKind").onchange = fillOutcomes;
+el("bVar").onchange = () => { const s = SWEEPS[el("bVar").value]; el("bRange").style.display = s.cats ? "none" : "flex"; if (!s.cats) { el("bFrom").value = s.from; el("bTo").value = s.to; } };
+fillOutcomes(); el("bVar").onchange();
+BEXPS.forEach((x, i) => { const b = document.createElement("button"); b.textContent = x.q; b.onclick = () => applyBExp(i, true); el("bExps").appendChild(b); });
+let bNoteText = "";
+function applyBExp(i, run) {
+  const c = BEXPS[i].cfg; setBMode(c.mode); el("bKind").value = c.kind; fillOutcomes(); el("bOut").value = c.out;
+  if (c.scen) el("bScen").value = c.scen;
+  if (c.n) el("bN").value = c.n;
+  if (c.sweep) { el("bVar").value = c.sweep; el("bVar").onchange(); if (c.from !== undefined) { el("bFrom").value = c.from; el("bTo").value = c.to; } if (c.steps) el("bSteps").value = c.steps; el("bReps").value = c.reps; }
+  el("bVary").checked = true; bNoteText = BEXPS[i].note;
+  document.querySelectorAll("#bExps button").forEach((b, k) => b.classList.toggle("on", k === i));
+  if (run) startBatch();
+}
+el("btnBatch").onclick = () => { el("batch").classList.add("open"); setRunning(false); drawBatch(); };
+el("bClose").onclick = () => { el("batch").classList.remove("open"); B.stop = true; };
+el("bStop").onclick = () => { B.stop = true; };
+
+function startBatch() {
+  if (B.running) return;
+  const base = P(), kind = el("bKind").value, outKey = el("bOut").value, vary = el("bVary").checked;
+  const cfg = { mode: B.mode, kind, outKey, vary, scen: el("bScen").value };
+  const jobs = [];
+  if (B.mode === "repeat") { const n = +el("bN").value; for (let i = 0; i < n; i++) jobs.push({ x: null, seed: 1000 + i }); }
+  else {
+    const sv = el("bVar").value, s = SWEEPS[sv], reps = Math.max(1, +el("bReps").value | 0);
+    cfg.sweep = sv;
+    const xs = s.cats ? s.cats : (() => { const a = +el("bFrom").value, b = +el("bTo").value, n = Math.max(2, +el("bSteps").value | 0); return Array.from({ length: n }, (_, i) => a + (b - a) * i / (n - 1)); })();
+    xs.forEach((x, xi) => { for (let r = 0; r < reps; r++) jobs.push({ x, xi, seed: 5000 + xi * 1000 + r }); });
+  }
+  cfg.theory = B.mode === "repeat" ? theoryFor(outKey, cfg.scen) : null;
+  B.cfg = cfg; B.results = []; B.series = []; B.running = true; B.stop = false;
+  el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").disabled = true;
+  el("bNote").innerHTML = bNoteText || "Running…";
+  let idx = 0; const t0 = performance.now();
+  function chunk() {
+    const c0 = performance.now();
+    while (idx < jobs.length && performance.now() - c0 < 30 && !B.stop) {
+      const j = jobs[idx++], rng = mulberry32(j.seed);
+      let p = { ...base, scenario: kind === "historical" ? "hist" : cfg.scen, feedback: base.feedback };
+      if (j.x !== null && j.x !== undefined) { if (cfg.sweep === "scenario") p.scenario = j.x; else p[cfg.sweep] = j.x; }
+      if (vary) p = sampleParams(p, rng);
+      if (j.x !== null && j.x !== undefined && cfg.sweep !== "scenario" && ["beta", "mix", "sens"].includes(cfg.sweep) && vary) {
+        // keep the swept value itself fixed; only the other uncertain numbers vary
+        p[cfg.sweep] = j.x;
+      }
+      const r = runOnce(p, kind);
+      B.results.push({ run: B.results.length + 1, seed: j.seed, x: j.x, mix: p.mix, beta: p.beta, sens: p.sens, v: r.out[outKey] });
+      if (B.mode === "repeat") B.series.push(r.series), B.years = r.years;
+    }
+    el("bProg").firstElementChild.style.width = (100 * idx / jobs.length) + "%";
+    el("bStatus").textContent = `${idx} of ${jobs.length} runs · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+    drawBatch();
+    if (idx < jobs.length && !B.stop) setTimeout(chunk, 0);
+    else { B.running = false; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").disabled = !B.results.length; if (B.stop) el("bStatus").textContent += " (stopped)"; }
+  }
+  setTimeout(chunk, 0);
+}
+el("bRun").onclick = () => { bNoteText = ""; document.querySelectorAll("#bExps button").forEach(b => b.classList.remove("on")); startBatch(); };
+el("bCsv").onclick = () => {
+  const c = B.cfg, rows = [["run", "seed", c.sweep || "x", "ocean_mixing", "beta", "sensitivity", c.outKey]];
+  for (const r of B.results) rows.push([r.run, r.seed, r.x ?? "", r.mix.toFixed(4), r.beta.toFixed(4), r.sens.toFixed(3), r.v]);
+  const blob = new Blob([rows.map(r => r.join(",")).join("\n")], { type: "text/csv" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `carbon-cycle-batch-${c.outKey}.csv`; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+};
+function stats(v) {
+  const n = v.length; if (!n) return null;
+  const mean = v.reduce((a, b) => a + b, 0) / n, sd = n > 1 ? Math.sqrt(v.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1)) : 0;
+  return { n, mean, sd, se: sd / Math.sqrt(n), min: Math.min(...v), max: Math.max(...v) };
+}
+function quant(sorted, q) { const i = (sorted.length - 1) * q, a = Math.floor(i), b = Math.ceil(i); return sorted[a] + (sorted[b] - sorted[a]) * (i - a); }
+function drawBatch() {
+  const c = B.cfg; if (!c) { clearB(); return; }
+  const O = OUTCOMES[c.outKey], vals = B.results.map(r => r.v).filter(v => isFinite(v));
+  el("bTitle").textContent = `${c.mode === "repeat" ? "Repeat" : "Sweep"}: ${O.name}${c.kind === "scenario" && c.mode === "repeat" ? " — " + SCEN[c.scen].name : ""}`;
+  el("bCharts").classList.toggle("one", c.mode === "sweep");
+  if (c.mode === "repeat") { drawHist(vals, c, O); drawFan(c); }
+  else drawSweep(c, O);
+  // summary
+  const s = stats(vals); if (!s) { el("bSummary").innerHTML = ""; return; }
+  const th = c.theory, f = v => v.toFixed(O.d + (O.d < 3 ? 1 : 0));
+  const cells = [["Runs (n)", s.n], ["Mean", f(s.mean)], ["SD", f(s.sd)], ["Standard error", f(s.se)], ["Min – max", `${f(s.min)} – ${f(s.max)}`]];
+  if (c.mode === "repeat" && th) {
+    const diff = s.mean - th.v;
+    cells.push(["Theory / real", `${f(th.v)}`], ["Source", th.label], ["Difference", th.v ? `${diff >= 0 ? "+" : ""}${(100 * diff / th.v).toFixed(1)}%` : f(diff)], ["In standard errors", s.se > 0 ? (diff / s.se).toFixed(1) : "–"], ["Middle 90% of runs", (() => { const so = vals.slice().sort((a, b) => a - b); return `${f(quant(so, 0.05))} – ${f(quant(so, 0.95))}`; })()]);
+  } else if (c.mode === "sweep" && c.sweep !== "scenario") {
+    const pts = B.results.filter(r => isFinite(r.v)); const mx = pts.reduce((a, r) => a + r.x, 0) / pts.length, my = pts.reduce((a, r) => a + r.v, 0) / pts.length;
+    const g = pts.reduce((a, r) => a + (r.x - mx) * (r.v - my), 0) / Math.max(1e-12, pts.reduce((a, r) => a + (r.x - mx) ** 2, 0));
+    cells.push(["Fitted gradient", `${g.toPrecision(3)} ${O.unit} per unit`], ["Fit", "straight line"]);
+  }
+  el("bSummary").innerHTML = cells.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+}
+function clearB() { for (const id of ["bChart1", "bChart2"]) { const { ctx, W, H } = fitCanvas(el(id)); ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H); } }
+function drawHist(vals, c, O) {
+  const { ctx, W, H, dpr } = fitCanvas(el("bChart1"));
+  if (!vals.length) { ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H); return; }
+  const th = c.theory;
+  let lo = Math.min(...vals), hi = Math.max(...vals); if (th) { lo = Math.min(lo, th.v); hi = Math.max(hi, th.v); }
+  if (hi - lo < 1e-9) { lo -= 1; hi += 1; } const pad = (hi - lo) * 0.06; lo -= pad; hi += pad;
+  const nb = Math.max(8, Math.min(30, Math.round(Math.sqrt(vals.length) * 1.5)));
+  const bins = new Array(nb).fill(0); for (const v of vals) bins[Math.min(nb - 1, Math.floor((v - lo) / (hi - lo) * nb))]++;
+  const a = axes(ctx, W, H, dpr, [lo, hi], [0, Math.max(...bins) * 1.15], O.name, "number of runs", { L: 44, T: 24, R: 16 });
+  ctx.fillStyle = "#f1af28";
+  bins.forEach((b, i) => { const x0 = a.X(lo + (hi - lo) * i / nb), x1 = a.X(lo + (hi - lo) * (i + 1) / nb); ctx.fillRect(x0 + 1, a.Y(b), x1 - x0 - 2, a.Y(0) - a.Y(b)); });
+  const s = stats(vals);
+  ctx.strokeStyle = "#fff"; ctx.setLineDash([4 * dpr, 3 * dpr]); ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.moveTo(a.X(s.mean), a.T); ctx.lineTo(a.X(s.mean), a.Y(0)); ctx.stroke(); ctx.setLineDash([]);
+  if (th) { ctx.strokeStyle = "#e4572e"; ctx.lineWidth = 2.5 * dpr; ctx.beginPath(); ctx.moveTo(a.X(th.v), a.T); ctx.lineTo(a.X(th.v), a.Y(0)); ctx.stroke(); }
+  legend(ctx, dpr, W, [["#f1af28", "model runs"], ["#fff", "model mean"], ...(th ? [["#e4572e", th.label]] : [])]);
+}
+function legend(ctx, dpr, W, items) {
+  ctx.font = `${10.5 * dpr}px system-ui`; ctx.textAlign = "left";
+  let x = W - 8 * dpr; const y = 14 * dpr;
+  for (let i = items.length - 1; i >= 0; i--) { const [col, t] = items[i]; const w = ctx.measureText(t).width; x -= w; ctx.fillStyle = "#dfe3d6"; ctx.fillText(t, x, y + 4 * dpr); x -= 14 * dpr; ctx.fillStyle = col; ctx.fillRect(x, y - 4 * dpr, 10 * dpr, 10 * dpr); x -= 12 * dpr; }
+}
+function drawFan(c) {
+  const { ctx, W, H, dpr } = fitCanvas(el("bChart2"));
+  const S = B.series; if (!S.length) { ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H); return; }
+  const yrs = B.years, n = yrs.length;
+  const qs = [0.05, 0.17, 0.5, 0.83, 0.95], Q = qs.map(() => new Array(n));
+  for (let i = 0; i < n; i++) { const col = S.map(s => s[i]).filter(isFinite).sort((a, b) => a - b); qs.forEach((q, k) => Q[k][i] = quant(col, q)); }
+  const pulse = c.kind === "pulse";
+  const xr = pulse ? [0, 1000] : [yrs[0], yrs[n - 1]];
+  let i0 = 0; if (c.kind === "historical") i0 = yrs.indexOf(1900);
+  const ymax = pulse ? 1 : Math.max(...Q[4].slice(i0)) * 1.04, ymin = pulse ? 0 : Math.min(...Q[0].slice(i0)) * 0.97;
+  const a = axes(ctx, W, H, dpr, [c.kind === "historical" ? 1900 : xr[0], xr[1]], [ymin, ymax], pulse ? "years after the pulse" : "year", pulse ? "fraction still in the air" : "CO₂ (ppm)", { L: 44, T: 24, R: 18 });
+  const band = (lo, hi, col) => { ctx.fillStyle = col; ctx.beginPath(); for (let i = i0; i < n; i++) (i === i0 ? ctx.moveTo : ctx.lineTo).call(ctx, a.X(yrs[i]), a.Y(hi[i])); for (let i = n - 1; i >= i0; i--) ctx.lineTo(a.X(yrs[i]), a.Y(lo[i])); ctx.fill(); };
+  band(Q[0], Q[4], "rgba(241,175,40,0.22)"); band(Q[1], Q[3], "rgba(241,175,40,0.4)");
+  ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 2 * dpr; ctx.beginPath(); for (let i = i0; i < n; i++) (i === i0 ? ctx.moveTo : ctx.lineTo).call(ctx, a.X(yrs[i]), a.Y(Q[2][i])); ctx.stroke();
+  const items = [["rgba(241,175,40,0.4)", "middle 66% / 90% of runs"], ["#f1af28", "median"]];
+  if (pulse) { ctx.strokeStyle = "#e4572e"; ctx.lineWidth = 2.5 * dpr; ctx.beginPath(); for (let t = 0; t <= 1000; t += 2) (t ? ctx.lineTo : ctx.moveTo).call(ctx, a.X(t), a.Y(joos(t))); ctx.stroke(); items.push(["#e4572e", "Joos et al. 2013 mean"]); }
+  else { ctx.fillStyle = "#fff"; for (const [y, v] of ML) { ctx.beginPath(); ctx.arc(a.X(y + 0.5), a.Y(v), 2.8 * dpr, 0, 7); ctx.fill(); } items.push(["#fff", "Mauna Loa"]);
+    if (c.kind === "scenario" && IPCC_CO2[c.scen]) { ctx.fillStyle = "#e4572e"; const x = a.X(2100), y = a.Y(IPCC_CO2[c.scen]); ctx.beginPath(); ctx.moveTo(x, y - 6 * dpr); ctx.lineTo(x + 6 * dpr, y); ctx.lineTo(x, y + 6 * dpr); ctx.lineTo(x - 6 * dpr, y); ctx.fill(); items.push(["#e4572e", "IPCC 2100"]); } }
+  legend(ctx, dpr, W, items);
+}
+function drawSweep(c, O) {
+  const { ctx, W, H, dpr } = fitCanvas(el("bChart1"));
+  const groups = new Map(); for (const r of B.results) { if (!isFinite(r.v)) continue; const k = String(r.x); if (!groups.has(k)) groups.set(k, { x: r.x, v: [] }); groups.get(k).v.push(r.v); }
+  if (!groups.size) { ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H); return; }
+  const cat = c.sweep === "scenario", cats = SWEEPS.scenario.cats;
+  const G = [...groups.values()].map(g => ({ ...g, s: stats(g.v), xp: cat ? cats.indexOf(g.x) : g.x }));
+  const allV = B.results.map(r => r.v).filter(isFinite);
+  const th = cat && (c.outKey === "co2_2100" || c.outKey === "warm2100") ? cats.map((k, i) => ({ xp: i, v: (c.outKey === "co2_2100" ? IPCC_CO2 : IPCC_WARM)[k] })).filter(t => t.v) : [];
+  let lo = Math.min(...allV, ...th.map(t => t.v)), hi = Math.max(...allV, ...th.map(t => t.v)); const pad = (hi - lo) * 0.08 || 1; lo -= pad; hi += pad;
+  const xr = cat ? [-0.5, cats.length - 0.5] : [Math.min(...G.map(g => g.xp)), Math.max(...G.map(g => g.xp))];
+  if (!cat) { const p = (xr[1] - xr[0]) * 0.05 || 1; xr[0] -= p; xr[1] += p; }
+  const a = axes(ctx, W, H, dpr, xr, [lo, hi], SWEEPS[c.sweep].name, O.name, { L: 48, T: 24, R: 16, xticks: cat ? cats.map((_, i) => i) : undefined, xfmt: cat ? (i => SHORT[cats[i]]) : undefined });
+  ctx.fillStyle = "rgba(241,175,40,0.25)";
+  for (const r of B.results) if (isFinite(r.v)) { const xp = cat ? cats.indexOf(r.x) : r.x; ctx.beginPath(); ctx.arc(a.X(xp) + (cat ? (Math.sin(r.seed) * 8 * dpr) : 0), a.Y(r.v), 2 * dpr, 0, 7); ctx.fill(); }
+  for (const g of G) {
+    const x = a.X(g.xp); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5 * dpr;
+    ctx.beginPath(); ctx.moveTo(x, a.Y(g.s.mean - g.s.sd)); ctx.lineTo(x, a.Y(g.s.mean + g.s.sd)); ctx.stroke();
+    for (const yv of [g.s.mean - g.s.sd, g.s.mean + g.s.sd]) { ctx.beginPath(); ctx.moveTo(x - 5 * dpr, a.Y(yv)); ctx.lineTo(x + 5 * dpr, a.Y(yv)); ctx.stroke(); }
+    ctx.fillStyle = "#f1af28"; ctx.beginPath(); ctx.arc(x, a.Y(g.s.mean), 4 * dpr, 0, 7); ctx.fill();
+  }
+  for (const t of th) { ctx.fillStyle = "#e4572e"; const x = a.X(t.xp) + 14 * dpr, y = a.Y(t.v); ctx.beginPath(); ctx.moveTo(x, y - 6 * dpr); ctx.lineTo(x + 6 * dpr, y); ctx.lineTo(x, y + 6 * dpr); ctx.lineTo(x - 6 * dpr, y); ctx.fill(); }
+  legend(ctx, dpr, W, [["rgba(241,175,40,0.5)", "each run"], ["#f1af28", "mean ± 1 SD"], ...(th.length ? [["#e4572e", "IPCC value"]] : [])]);
+}
+
+/* =====================================================================
+   12. THE MAIN LOOP
+   ===================================================================== */
+let lastT = performance.now();
+function frame(now) {
+  const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (running && !el("batch").classList.contains("open")) {
+    let years = real * YEARS_PER_SEC * speed;
+    const p = P(), end = stopYear();
+    while (years > 1e-9 && st.t < end - 1e-9) {
+      const dt = Math.min(DT_LIVE, years, end - st.t);
+      step(st, p, dt); years -= dt;
+      hist.push(snapshot());
+    }
+    if (st.t >= end - 1e-9) { running = false; }
+  }
+  drawDiagram(real);
+  drawCharts();
+  updateUI();
+  requestAnimationFrame(frame);
+}
+
+/* =====================================================================
+   13. PANEL LAYOUT — resize or hide the side panels
+   ===================================================================== */
+(function () {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const KEY = "carbon-cycle-layout", STRIP = 30, MIN = 200, DEF = { lw: 290, rw: 330, lc: false, rc: false };
+  let s = { ...DEF };
+  try { Object.assign(s, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    s.lw = Math.min(maxW(), Math.max(MIN, s.lw)); s.rw = Math.min(maxW(), Math.max(MIN, s.rw));
+    main.style.setProperty("--lw", (s.lc ? STRIP : s.lw) + "px"); main.style.setProperty("--rw", (s.rc ? STRIP : s.rw) + "px");
+    left.classList.toggle("collapsed", s.lc); right.classList.toggle("collapsed", s.rc);
+    document.querySelector("#splitL button").textContent = s.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = s.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {}
+    if (el("scenario").value === "custom") drawCustom();
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) s[side + "c"] = true; else { s[side + "c"] = false; s[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { s = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { s[side + "c"] = !s[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { s.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { s.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+})();
+
+syncOutputs();
+setPreset(0); setRunning(false);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

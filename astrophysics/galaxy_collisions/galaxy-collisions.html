@@ -1,0 +1,1531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galaxy Collisions</title>
+<!--
+  GALAXY COLLISIONS AND MERGERS — a teaching model
+  =================================================
+  One self-contained file: no libraries, no internet needed.
+
+  Two galaxies fall towards each other under gravity. The default model is a
+  "restricted N-body" model like the famous 1972 work of Alar and Juri Toomre:
+    * each galaxy is a smooth, massive ball of matter (a "core": visible stars
+      as a Plummer sphere, plus an optional dark matter halo as a Hernquist sphere);
+    * the stars in each disc are thousands of "test particles": they feel the
+      gravity of both galaxies but have no mass themselves;
+    * when the galaxies pass through each other's dark matter halos, the halo
+      drags on them (Chandrasekhar's "dynamical friction"), so they lose orbital
+      energy, spiral together and merge.
+  An optional "self-gravitating" mode replaces this with 4000 particles that
+  all pull on each other (a Barnes–Hut tree code), so friction happens by itself.
+
+  Units used inside the code:
+    distance  kpc (kiloparsec, 1 kpc = 3260 light years)
+    time      Myr (million years)
+    mass      10^10 solar masses
+  In these units G = 0.044985 kpc³ / (10^10 M☉ · Myr²), and 1 km/s = 0.0010227 kpc/Myr.
+  The orbits are integrated with the leapfrog (kick–drift–kick) method, which
+  keeps energy well behaved over thousands of steps.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b;
+          --galA:#f1af28; --galB:#ff6fa8; --sf:#7cc4ff; --theory:#5fd3e6; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 330px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: #3b3a5c; }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  input[type=text], input[type=number] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .chk { display: flex; gap: 6px; align-items: center; font-size: 13px; margin: 4px 0 8px; }
+  #pending { display: none; background: #3a2a07; color: #ffd98a; border: 1px solid #6b4e10; border-radius: 6px; padding: 6px 8px; font-size: 12.5px; margin: 6px 0; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; position: relative; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #viewWrap { position: relative; flex: 1; min-height: 0; background: #020303; border-radius: 8px; overflow: hidden; cursor: grab; touch-action: none; }
+  #viewWrap:active { cursor: grabbing; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #vtools { position: absolute; right: 8px; top: 8px; display: flex; gap: 4px; align-items: center; }
+  #vtools button { padding: 3px 9px; font-size: 12.5px; background: rgba(20,24,17,.88); }
+  #vtools select { font-size: 12px; padding: 2px 4px; background: rgba(20,24,17,.88); }
+  #vhelp { position: absolute; left: 10px; bottom: 8px; font-size: 11.5px; color: #8b927f; pointer-events: none; }
+  #status { font-weight: 700; font-size: 13px; border-radius: 999px; padding: 1px 10px; background: #2a3024; color: var(--muted); }
+  #status.peri { background: #e4572e; color: #fff; }
+  #status.merged { background: #8fd694; color: #10200c; }
+  #status.flyby { background: #3a6ea5; color: #fff; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 6px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .chartBox { position: relative; height: 150px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  #story p { margin: 0 0 6px; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+
+  /* Batch run overlay */
+  #batch { position: fixed; left: 12px; right: 12px; top: 52px; bottom: 12px; z-index: 50; display: none; grid-template-columns: 330px minmax(0, 1fr);
+           gap: 12px; background: rgba(12,15,10,.98); border: 1px solid var(--accent); border-radius: 12px; padding: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.7); }
+  #batch.open { display: grid; }
+  #bLeft { overflow-y: auto; min-height: 0; padding-right: 4px; }
+  #bRight { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
+  #bHead { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  #bHead h3 { margin: 0; font-size: 17px; }
+  .bexp { display: grid; gap: 5px; }
+  .bexp button { text-align: left; font-size: 12.5px; padding: 6px 8px; line-height: 1.3; }
+  .bexp button small { display: block; color: var(--muted); font-size: 11px; }
+  .bexp button.on small { color: #3b3a5c; }
+  .brow { display: flex; gap: 6px; align-items: center; margin: 5px 0; font-size: 12.5px; flex-wrap: wrap; }
+  .brow label { color: var(--muted); min-width: 70px; }
+  .brow select, .brow input { flex: 1; min-width: 0; }
+  .brow input[type=number] { width: 70px; flex: 0 1 80px; }
+  #bChartBox { position: relative; flex: 1; min-height: 200px; background: #070906; border-radius: 8px; border: 1px solid var(--line); }
+  #bChart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bProg { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; margin: 6px 0; }
+  #bProg span { display: block; height: 100%; width: 0; background: var(--accent); }
+  #bSummary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; }
+  #bSummary .tile .v { font-size: 13px; }
+  #bNote { font-size: 12.5px; color: #dfe3d6; max-height: 120px; overflow-y: auto; }
+  #bNote p { margin: 0 0 5px; }
+  #bBase { font-size: 12px; color: var(--muted); }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Galaxy Collisions</h1>
+  <span class="sub">What happens when two galaxies meet: tidal tails, rings, starbursts and mergers, and why dark matter makes galaxies merge.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: SET UP THE COLLISION ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">The galaxies</h2>
+    <div class="ctl">
+      <label>Galaxy A visible mass <output id="o_massA"></output></label>
+      <input type="range" id="massA" min="1" max="20" step="0.5" value="6">
+      <div class="hint">Stars and gas. The Milky Way is about 6 × 10¹⁰ M☉ (60 billion Suns).</div>
+    </div>
+    <div class="ctl">
+      <label>Mass ratio B : A <output id="o_ratio"></output></label>
+      <input type="range" id="ratio" min="0.05" max="1" step="0.05" value="1">
+    </div>
+    <label class="chk"><input type="checkbox" id="halo" checked> Dark matter halos</label>
+    <div class="ctl">
+      <label>Halo mass <output id="o_haloX"></output></label>
+      <input type="range" id="haloX" min="2" max="25" step="1" value="12">
+      <div class="hint">Real galaxies have 10–20 times more dark matter than visible matter.</div>
+    </div>
+
+    <h2 class="gap">The orbit</h2>
+    <div class="ctl">
+      <label>Orbit set-up</label>
+      <select id="orbit">
+        <option value="peri">Choose the closest approach</option>
+        <option value="mwm31">Milky Way &amp; Andromeda (measured today)</option>
+      </select>
+    </div>
+    <div id="periCtl">
+      <div class="ctl">
+        <label>Closest approach (pericentre) <output id="o_rp"></output></label>
+        <input type="range" id="rp" min="0" max="60" step="1" value="15">
+        <div class="hint">For two point masses. 0 = head-on.</div>
+      </div>
+      <div class="ctl">
+        <label>Approach speed <output id="o_vfac"></output></label>
+        <input type="range" id="vfac" min="0.5" max="2" step="0.05" value="0.95">
+        <div class="hint">Compared with the escape speed at the start. Below 1× the pair is bound.</div>
+      </div>
+    </div>
+    <div id="mwCtl" style="display:none">
+      <div class="ctl">
+        <label>Andromeda's sideways speed <output id="o_vtan"></output></label>
+        <input type="range" id="vtan" min="0" max="150" step="1" value="17">
+        <div class="hint">Andromeda is 785 kpc away, approaching at 109 km/s. Its sideways (transverse) speed is hard to measure: 17 km/s (Hubble, 2012), about 57 km/s (Gaia, 2019), with large errors.</div>
+      </div>
+    </div>
+
+    <h2 class="gap">Disc orientations</h2>
+    <div class="hint" style="margin-bottom:6px">Tilt 0° = <b>prograde</b>: the disc spins the same way as the orbit. 180° = <b>retrograde</b>: it spins the other way.</div>
+    <div class="ctl"><label>Galaxy A tilt <output id="o_tiltA"></output></label><input type="range" id="tiltA" min="0" max="180" step="5" value="0"></div>
+    <div class="ctl"><label>Galaxy A tilt direction <output id="o_turnA"></output></label><input type="range" id="turnA" min="0" max="355" step="5" value="0"></div>
+    <div class="ctl"><label>Galaxy B tilt <output id="o_tiltB"></output></label><input type="range" id="tiltB" min="0" max="180" step="5" value="0"></div>
+    <div class="ctl"><label>Galaxy B tilt direction <output id="o_turnB"></output></label><input type="range" id="turnB" min="0" max="355" step="5" value="0"></div>
+
+    <h2 class="gap">Simulation</h2>
+    <div class="ctl">
+      <label>Gravity model</label>
+      <select id="grav">
+        <option value="r">Restricted (Toomre): fast, smooth</option>
+        <option value="s">Self-gravitating N-body (4000 particles)</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <label>Number of stars (restricted model)</label>
+      <select id="nStars"><option>2000</option><option>4000</option><option selected>8000</option><option>16000</option></select>
+    </div>
+    <label class="chk"><input type="checkbox" id="gas" checked> Gas clouds (light up blue when squeezed: new stars)</label>
+    <div class="ctl">
+      <label>Random seed</label>
+      <input type="text" id="seed" value="1" style="width:100%">
+    </div>
+    <div id="pending">Settings changed — press <b>Reset</b> to start again with them.</div>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Units:</b> distance in kiloparsecs (1 kpc = 3260 light years), time in millions of years (Myr), mass in Suns (M☉). G = 4.50 × 10⁻¹² kpc³ M☉⁻¹ Myr⁻².</li>
+        <li><b>Each galaxy</b> (restricted model) is a rigid, smooth ball of mass that moves as a whole: visible matter as a Plummer sphere (radius scale about 2.5 kpc for a Milky Way), plus a dark matter halo as a Hernquist sphere (scale about 30 kpc). Bigger galaxies are made bigger in proportion to (mass)<sup>1/3</sup>.</li>
+        <li><b>Gravity:</b> Plummer: g = GMr/(r² + a²)<sup>3/2</sup>. Hernquist: g = GM/(r + a)². The pull between the two galaxies uses the same shapes with the two sizes combined.</li>
+        <li><b>Stars</b> are test particles: they feel both galaxies but do not pull on anything. They start on circular orbits in a thin disc, spread out like a real disc (more in the middle).</li>
+        <li><b>Dynamical friction</b> (Chandrasekhar): a galaxy moving through matter pulls a "wake" of matter behind it, and the wake drags it back: a = −4πG²M lnΛ ρ [erf(X) − 2X e<sup>−X²</sup>/√π] v / v³, with X = v/(√2 σ). The "Coulomb logarithm" lnΛ is set to 0.5, smaller than the textbook 2–3, because a rigid halo that is never stripped drags too hard; with this value the model gives the published Milky Way–Andromeda timing (first pass about 4 Gyr, merger about 6 Gyr) and equal-mass mergers after two or three passes, as in full simulations. This is what makes galaxies with dark matter halos spiral together. The cores are joined into one when they are closer than their combined core sizes and bound.</li>
+        <li><b>Leapfrog integration</b> with 1 Myr steps (2 Myr in the N-body mode); gravity is "softened" at short range so nothing blows up.</li>
+        <li><b>Self-gravitating mode:</b> 4000 particles (halo, bulge and disc) all pull on each other, worked out with a Barnes–Hut tree (θ = 0.7, softening 1 kpc). Friction and merging happen by themselves, but the discs are grainy and slowly thicken.</li>
+        <li><b>Gas and star formation:</b> about a quarter of the disc particles are gas clouds. Where gas is squeezed, clouds that share a 1.5 kpc box are assumed to collide: their velocities are nudged towards the box's average (over about 100 Myr), so colliding gas loses energy and sinks inwards. Each cloud's density boost is capped at 10×, standing in for young stars blowing the gas apart (feedback). The model counts how crowded the clouds are; where gas is squeezed to 2.5× its starting density it is marked as forming new stars (blue). Rate follows the Schmidt law, rate ∝ density<sup>1.5</sup>. Real gas also has pressure, shocks and cools; this sticky-cloud rule is only a rough copy.</li>
+        <li><b>Stars in tails:</b> stars more than twice their galaxy's starting disc radius from every core. <b>Stripped:</b> no longer bound to their own galaxy. <b>Escaping:</b> moving faster than the escape speed of the whole system.</li>
+        <li><b>Star–star collisions:</b> each star sweeps out a tube with area σ = π(2R☉)², boosted by gravitational focusing (1 + v<sub>esc</sub>²/v²), through the other galaxy's stars (number density n = ρ / 0.5 M☉). Expected hits = Σ nσv Δt, scaled up to the real number of stars.</li>
+        <li><b>Left out:</b> gas pressure, shocks and cooling; supernovae and black holes; the halos being stripped and stretched (they stay rigid spheres); the expansion of the Universe; other galaxies nearby (e.g. M33 and the LMC for the Milky Way); stars' masses.</li>
+        <li><b>Where it disagrees with reality:</b> a rigid halo with a friction formula is only a rough copy of a real, deformable halo, so merger times are uncertain by tens of percent. Toomre's model still gets the shapes of tails and bridges remarkably right.</li>
+      </ul>
+    </details>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE: THE 3D VIEW ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">0 Myr</span>
+      <span id="status">Approaching</span>
+      <span class="stat">Separation <b id="s_sep">–</b></span>
+      <span class="stat">Relative speed <b id="s_vrel">–</b></span>
+      <span class="stat">In tails <b id="s_tail">–</b></span>
+      <span class="stat">Merged <b id="s_merged">no</b></span>
+    </div>
+    <div id="viewWrap">
+      <canvas id="view" aria-label="3D view of the two galaxies"></canvas>
+      <div id="vtools">
+        <span class="hint">Centre on</span>
+        <select id="follow"><option value="com">Both (centre of mass)</option><option value="0">Galaxy A</option><option value="1">Galaxy B</option></select>
+        <button id="zIn" title="Zoom in">+</button><button id="zOut" title="Zoom out">−</button>
+        <button id="vTop" title="Look down on the orbit">Top</button><button id="vSide" title="Look along the orbit plane">Side</button>
+        <label class="hint"><input type="checkbox" id="autoZoom" checked> auto zoom</label>
+      </div>
+      <div id="vhelp">Drag to rotate · scroll to zoom · double-click to reset the view</div>
+    </div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">▶ Play</button>
+      <button id="btnReset" title="Start again with the settings on the left">Reset</button>
+      <span class="speed">Speed <button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="3">3×</button><button data-s="10">10×</button><button data-s="30">30×</button></span>
+      <span class="hint" id="speedNote"></span>
+      <span style="flex:1"></span>
+      <button id="btnBatch" title="Run the model many times and compare with theory">📊 Batch run</button>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--galA)"></i>Stars from galaxy A</span><span><i style="background:var(--galB)"></i>Stars from galaxy B</span>
+      <span><i style="background:#7d8796"></i>Gas</span><span><i style="background:var(--sf)"></i>Gas forming new stars</span>
+      <span><i style="background:#555"></i>Dark matter (N-body view)</span><span>Grey rings: orbit plane, every 20 kpc</span>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT: WHAT IS HAPPENING ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readouts</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">Readouts</h2>
+    <div class="tiles" id="tiles"></div>
+    <h2 class="gap">Distance between the cores</h2>
+    <div class="chartBox"><canvas id="chart1"></canvas></div>
+    <h2 class="gap">Tails, escapers and star birth</h2>
+    <div class="chartBox"><canvas id="chart2"></canvas></div>
+    <div class="legend" style="margin-top:4px"><span><i style="background:#f1af28"></i>In tails (%)</span><span><i style="background:#e4572e"></i>Escaping (%)</span><span><i style="background:#7cc4ff"></i>Star-formation rate (× start, right axis)</span></div>
+    <h2 class="gap">Why tails?</h2>
+    <div class="hint" style="font-size:12.5px">Gravity gets weaker with distance. The side of a disc nearest the other galaxy is pulled harder than its centre, and the centre harder than the far side. This stretching (a <b>tide</b>, like the Moon's tides on Earth) pulls out a bridge towards the other galaxy and flings a tail out behind.</div>
+  </section>
+</main>
+
+<!-- ======================= BATCH RUN OVERLAY ======================= -->
+<div id="batch" role="dialog" aria-label="Batch run">
+  <div id="bLeft">
+    <h2>Batch experiments</h2>
+    <div class="bexp" id="bExps"></div>
+    <h2 class="gap">Set up your own</h2>
+    <div id="bBase"></div>
+    <div class="brow"><button id="bUseCurrent" style="flex:1" title="Use whatever is set in the left-hand panel">Use the current left-panel settings</button></div>
+    <div class="brow"><label>Mode</label><select id="bMode"><option value="repeat">Repeat (same settings, many runs)</option><option value="sweep">Sweep (change one setting)</option></select></div>
+    <div id="bRepeatRow" class="brow"><label>Runs</label><select id="bN"><option>20</option><option selected>50</option><option>100</option><option>200</option><option>500</option></select></div>
+    <div class="brow"><label>Vary</label><select id="bVary"></select></div>
+    <div id="bSweepRows">
+      <div class="brow"><label>Sweep</label><select id="bVar"></select></div>
+      <div class="brow"><label>From</label><input type="number" id="bFrom" step="any"><label style="min-width:0">to</label><input type="number" id="bTo" step="any"></div>
+      <div class="brow"><label>Steps</label><input type="number" id="bSteps" min="2" max="20" value="6"><label style="min-width:0">repeats</label><input type="number" id="bReps" min="1" max="20" value="3"></div>
+    </div>
+    <div class="brow"><label>Record</label><select id="bOut"></select></div>
+    <div class="brow"><button id="bRun" class="primary" style="flex:1">▶ Run batch</button><button id="bStop" disabled>■ Stop</button></div>
+    <div id="bProg"><span></span></div>
+    <div class="hint" id="bInfo"></div>
+    <p class="hint">Batch runs use the restricted model with <b>800 test stars</b> (not thousands) and 1 Myr steps, and skip the drawing, so they finish quickly. Results about the cores (merger times) use no stars at all. Fewer stars means more scatter.</p>
+  </div>
+  <div id="bRight">
+    <div id="bHead"><h3 id="bTitle">Batch run</h3><span><a id="bCsv" href="#" download="galaxy-batch.csv" style="color:var(--accent);margin-right:10px">Download CSV</a><button id="bClose">✕ Close</button></span></div>
+    <div id="bChartBox"><canvas id="bChart"></canvas></div>
+    <div id="bSummary"></div>
+    <div id="bNote"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const el = id => document.getElementById(id);
+
+/* =====================================================================
+   1. UNITS, CONSTANTS AND RANDOM NUMBERS
+   ===================================================================== */
+const G = 0.044985;                 // gravitational constant in kpc³ / (10^10 M☉ · Myr²)
+const KMS = 1.0227e-3;              // 1 km/s expressed in kpc per Myr
+const LN_LAMBDA = 0.5;              // Coulomb logarithm in Chandrasekhar's friction formula (tuned: see notes)
+const M_STAR = 5e-11;               // mean mass of a star: 0.5 M☉, in units of 10^10 M☉
+const R_SUN = 2.255e-11;            // radius of the Sun in kpc
+const SIGMA_COLL = Math.PI * Math.pow(2 * R_SUN, 2);  // two Sun-sized stars touch if centres pass within 2R☉
+const VESC_STAR = 618 * KMS;        // escape speed from the surface of the Sun (for gravitational focusing)
+const MYR_PER_SEC = 15;             // at 1× speed, 15 million years pass every real second
+
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function hashSeed(str) { let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } return h >>> 0; }
+function gauss(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+function erf(x) {                    // Abramowitz & Stegun 7.1.26 (accurate to 1e-7)
+  const s = x < 0 ? -1 : 1; x = Math.abs(x);
+  const t = 1 / (1 + 0.3275911 * x);
+  const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return s * y;
+}
+
+/* =====================================================================
+   2. A GALAXY: VISIBLE MATTER + DARK MATTER HALO
+   ---------------------------------------------------------------------
+   comps: list of mass components. k = 0 Plummer sphere, k = 1 Hernquist.
+   Bigger galaxies are bigger: sizes scale as (mass)^(1/3).
+   ===================================================================== */
+function galaxyModel(Ml, haloOn, haloX) {
+  const s = Math.cbrt(Ml / 6);              // 1 for a Milky-Way-sized galaxy
+  const g = { Ml, s, al: 2.5 * s, Rmax: 15 * s };
+  g.Rd = g.Rmax / 3;                         // disc scale length
+  g.Rin = 0.12 * g.Rmax;                     // no test stars inside this (the bulge)
+  g.Mh = haloOn ? haloX * Ml : 0;
+  g.ah = haloOn ? 30 * Math.cbrt(g.Mh / 90) : 1;   // 30 kpc for a 9 × 10^11 M☉ halo
+  g.comps = [{ m: Ml, a: g.al, k: 0 }];
+  if (haloOn) g.comps.push({ m: g.Mh, a: g.ah, k: 1 });
+  g.Mtot = Ml + g.Mh;
+  g.x = g.y = g.z = g.vx = g.vy = g.vz = g.ax = g.ay = g.az = 0;
+  return g;
+}
+// Mass inside radius r, density at r, potential at r for one component
+function mEnc(c, r) { return c.k ? c.m * r * r / ((r + c.a) * (r + c.a)) : c.m * r * r * r / Math.pow(r * r + c.a * c.a, 1.5); }
+function rho(c, r) { return c.k ? c.m * c.a / (2 * Math.PI * Math.max(r, 1e-3) * Math.pow(r + c.a, 3)) : 3 * c.m / (4 * Math.PI * c.a * c.a * c.a) * Math.pow(1 + r * r / (c.a * c.a), -2.5); }
+function phi(c, r) { return c.k ? -G * c.m / (r + c.a) : -G * c.m / Math.sqrt(r * r + c.a * c.a); }
+function galMenc(g, r) { let m = 0; for (const c of g.comps) m += mEnc(c, r); return m; }
+function galPhi(g, r) { let p = 0; for (const c of g.comps) p += phi(c, r); return p; }
+function vCirc(g, R) { return Math.sqrt(G * galMenc(g, R) / R); }
+// Interaction between whole galaxies: pair of components with sizes combined
+function pairU(k, r, a) { return k ? 1 / (r + a) : 1 / Math.sqrt(r * r + a * a); }                 // U = −G m1 m2 × this
+function pairFr(k, r, a) { return k ? 1 / (Math.max(r, 1e-6) * (r + a) * (r + a)) : Math.pow(r * r + a * a, -1.5); }  // force ÷ r
+function galPairU(A, B, r) { let u = 0; for (const ca of A.comps) for (const cb of B.comps) u -= G * ca.m * cb.m * pairU(Math.max(ca.k, cb.k), r, Math.hypot(ca.a, cb.a)); return u; }
+function galPairFr(A, B, r) { let f = 0; for (const ca of A.comps) for (const cb of B.comps) f += G * ca.m * cb.m * pairFr(Math.max(ca.k, cb.k), r, Math.hypot(ca.a, cb.a)); return f; }
+
+function spinVec(tiltDeg, turnDeg) {
+  const i = tiltDeg * Math.PI / 180, w = turnDeg * Math.PI / 180;
+  return [Math.sin(i) * Math.cos(w), Math.sin(i) * Math.sin(w), Math.cos(i)];
+}
+function discAxes(sv) {               // two unit vectors in the disc plane, e1 × e2 = spin
+  let e1 = [sv[1], -sv[0], 0];         // spin × z
+  let n = Math.hypot(e1[0], e1[1]);
+  if (n < 1e-6) e1 = [1, 0, 0]; else e1 = [e1[0] / n, e1[1] / n, 0];
+  const e2 = [sv[1] * e1[2] - sv[2] * e1[1], sv[2] * e1[0] - sv[0] * e1[2], sv[0] * e1[1] - sv[1] * e1[0]];
+  return [e1, e2];
+}
+
+/* =====================================================================
+   3. SETTING UP THE ORBIT
+   ---------------------------------------------------------------------
+   Treat the pair as one body of "reduced mass" μ moving in the potential
+   U(r). Energy ε = ½v² + U/μ, angular momentum L = r v_sideways.
+   At closest approach r_p all the speed is sideways, so
+     L = r_p √(2(ε − U(r_p)/μ)).
+   The orbit lies in the x–y plane; its spin (angular momentum) points along +z.
+   ===================================================================== */
+function setupOrbit(A, B, p) {
+  const M = A.Mtot + B.Mtot, mu = A.Mtot * B.Mtot / M;
+  const Urel = r => galPairU(A, B, r) / mu;
+  let d0, vr, vt, info = {};
+  if (p.orbit === "mwm31") {
+    d0 = p.d0 || 785; vr = -(p.vrad || 109.3) * KMS; vt = p.vtan * KMS;
+    info.vesc = Math.sqrt(-2 * Urel(d0)) / KMS;
+  } else {
+    d0 = Math.max(3.5 * p.rp, 3 * (A.Rmax + B.Rmax));
+    const vesc = Math.sqrt(-2 * Urel(d0)), v0 = p.vfac * vesc;
+    const eps = 0.5 * v0 * v0 + Urel(d0);
+    const L = p.rp * Math.sqrt(Math.max(0, 2 * (eps - Urel(Math.max(p.rp, 1e-3)))));
+    vt = L / d0;
+    if (vt > 0.98 * v0) { vt = 0.98 * v0; info.clamped = true; }
+    vr = -Math.sqrt(Math.max(0, v0 * v0 - vt * vt));
+    info.vesc = vesc / KMS; info.v0 = v0 / KMS;
+  }
+  // B sits at +x relative to A; centre of mass at the origin, at rest
+  const fA = B.Mtot / M, fB = A.Mtot / M;
+  A.x = -fA * d0; A.y = 0; A.z = 0; A.vx = -fA * vr; A.vy = -fA * vt; A.vz = 0;
+  B.x = fB * d0; B.y = 0; B.z = 0; B.vx = fB * vr; B.vy = fB * vt; B.vz = 0;
+  info.d0 = d0;
+  return info;
+}
+
+/* =====================================================================
+   4. BUILDING THE SIMULATION
+   ===================================================================== */
+function sampleDiscR(g, rng) {         // surface density ∝ e^(−R/Rd): ring of radius R holds ∝ R e^(−R/Rd)
+  const top = (g.Rd >= g.Rin && g.Rd <= g.Rmax) ? g.Rd * Math.exp(-1) : Math.max(g.Rin * Math.exp(-g.Rin / g.Rd), g.Rmax * Math.exp(-g.Rmax / g.Rd));
+  for (;;) { const R = g.Rin + (g.Rmax - g.Rin) * rng(); if (rng() * top <= R * Math.exp(-R / g.Rd)) return R; }
+}
+function allocParticles(S, n) {
+  S.n = n;
+  for (const k of ["x", "y", "z", "vx", "vy", "vz", "ax", "ay", "az", "m", "col"]) S[k] = new Float64Array(n);
+  for (const k of ["R0", "glow", "rhoS", "rho0"]) S[k] = new Float32Array(n);
+  S.type = new Uint8Array(n);        // 0 disc star, 1 gas, 2 bulge star, 3 dark matter
+  S.pg = new Uint8Array(n);
+}
+// put particle i in galaxy g's disc at radius R, angle ph, height z, with speeds (vR, vphi, vz)
+function placeInDisc(S, i, g, R, ph, zd, vR, vph, vz) {
+  const [e1, e2] = discAxes(g.spin), sv = g.spin;
+  const c = Math.cos(ph), s = Math.sin(ph);
+  const lx = R * c, ly = R * s, lvx = vR * c - vph * s, lvy = vR * s + vph * c;
+  for (let d = 0; d < 3; d++) {
+    const pos = e1[d] * lx + e2[d] * ly + sv[d] * zd, vel = e1[d] * lvx + e2[d] * lvy + sv[d] * vz;
+    if (d === 0) { S.x[i] = pos; S.vx[i] = vel; } else if (d === 1) { S.y[i] = pos; S.vy[i] = vel; } else { S.z[i] = pos; S.vz[i] = vel; }
+  }
+}
+function buildSim(p, seed, nStarsOverride) {
+  const rng = mulberry32(seed >>> 0);
+  const A = galaxyModel(p.massA, p.halo, p.haloX), B = galaxyModel(p.massA * p.ratio, p.halo, p.haloX);
+  A.spin = spinVec(p.tiltA, p.turnA); B.spin = spinVec(p.tiltB, p.turnB);
+  const orbit = setupOrbit(A, B, p);
+  const S = { p, gal: [A, B], t: 0, self: !!p.selfGrav, dt: p.selfGrav ? 2 : 1, merged: false, mergeT: null, orbit,
+              sepHist: [], periT: null, periD: null, minSep: Infinity, passes: 0, hist: [], steps: 0, sfr: 1, sfBase: 0, measure: null, collExpected: 0 };
+  const wA = Math.sqrt(A.Ml) / (Math.sqrt(A.Ml) + Math.sqrt(B.Ml));   // share of particles in galaxy A
+  if (!S.self) {
+    const n = nStarsOverride != null ? nStarsOverride : p.nStars;
+    allocParticles(S, n);
+    const nA = Math.round(n * wA);
+    for (let i = 0; i < n; i++) {
+      const gi = i < nA ? 0 : 1, g = S.gal[gi];
+      S.pg[i] = gi; S.type[i] = (p.gas && rng() < 0.25) ? 1 : 0;
+      const R = sampleDiscR(g, rng), vc = vCirc(g, R);
+      S.R0[i] = R;
+      placeInDisc(S, i, g, R, 2 * Math.PI * rng(), 0.08 * g.s * gauss(rng), 0.03 * vc * gauss(rng), vc * (1 + 0.02 * gauss(rng)), 0.02 * vc * gauss(rng));
+    }
+  } else buildNBody(S, rng, wA);
+  // move each galaxy's particles to its starting place on the orbit
+  for (let i = 0; i < S.n; i++) {
+    const g = S.gal[S.pg[i]];
+    S.x[i] += g.x; S.y[i] += g.y; S.z[i] += g.z; S.vx[i] += g.vx; S.vy[i] += g.vy; S.vz[i] += g.vz;
+  }
+  S.nPerGal = [0, 0]; S.nLum = 0;
+  for (let i = 0; i < S.n; i++) if (S.type[i] !== 3) { S.nPerGal[S.pg[i]]++; S.nLum++; }
+  forces(S);
+  return S;
+}
+
+/* ----- the self-gravitating (N-body) version of each galaxy ----- */
+// Velocity spread σ(r) from the Jeans equation for a spherical component in the total potential:
+//   ρσ²(r) = ∫ from r to ∞ of ρ(r') G M(<r') / r'² dr'
+function jeansTable(comp, MencTot) {
+  const K = 260, rs = new Float64Array(K), s2 = new Float64Array(K);
+  for (let k = 0; k < K; k++) rs[k] = 0.01 * Math.pow(5e5, k / (K - 1));   // 0.01 kpc … 5000 kpc
+  let integral = 0;
+  for (let k = K - 1; k >= 0; k--) {
+    if (k < K - 1) {
+      const f = r => rho(comp, r) * G * MencTot(r) / (r * r);
+      integral += 0.5 * (f(rs[k]) + f(rs[k + 1])) * (rs[k + 1] - rs[k]);
+    }
+    s2[k] = integral / Math.max(rho(comp, rs[k]), 1e-300);
+  }
+  return r => { const k = Math.min(K - 2, Math.max(0, Math.floor(Math.log(r / 0.01) / Math.log(5e5) * (K - 1)))); return Math.sqrt(Math.max(0, s2[k])); };
+}
+function buildNBody(S, rng, wA) {
+  const NTOT = 4000, p = S.p;
+  const counts = S.gal.map((g, gi) => {
+    const n = Math.round(NTOT * (gi === 0 ? wA : 1 - wA));
+    const nh = p.halo ? Math.round(0.55 * n) : 0, nb = Math.round((n - nh) * 0.22);
+    return { nh, nb, nd: n - nh - nb };
+  });
+  allocParticles(S, counts.reduce((s, c) => s + c.nh + c.nb + c.nd, 0));
+  let i = 0;
+  S.gal.forEach((g, gi) => {
+    const c = counts[gi];
+    const bulge = { m: 0.25 * g.Ml, a: 0.35 * g.al, k: 0 }, Md = 0.75 * g.Ml, halo = { m: g.Mh, a: g.ah, k: 1 };
+    const discMenc = r => Md * (1 - (1 + r / g.Rd) * Math.exp(-r / g.Rd));
+    const MencTot = r => mEnc(bulge, r) + discMenc(r) + (g.Mh ? mEnc(halo, r) : 0);
+    const i0 = i;
+    // dark matter halo (Hernquist, cut off at 8 scale lengths)
+    if (c.nh) {
+      const sig = jeansTable(halo, MencTot), uMax = Math.pow(8 / 9, 2);
+      for (let k = 0; k < c.nh; k++, i++) {
+        const u = Math.sqrt(uMax * rng()), r = g.ah * u / (1 - u);
+        const ct = 2 * rng() - 1, st = Math.sqrt(1 - ct * ct), ph = 2 * Math.PI * rng();
+        S.x[i] = r * st * Math.cos(ph); S.y[i] = r * st * Math.sin(ph); S.z[i] = r * ct;
+        const sg = sig(r), vesc = Math.sqrt(-2 * (phi(halo, r) + phi(bulge, r) - G * Md / Math.sqrt(r * r + g.Rd * g.Rd)));
+        let vx, vy, vz; do { vx = sg * gauss(rng); vy = sg * gauss(rng); vz = sg * gauss(rng); } while (Math.hypot(vx, vy, vz) > 0.92 * vesc);
+        S.vx[i] = vx; S.vy[i] = vy; S.vz[i] = vz; S.m[i] = g.Mh / c.nh; S.type[i] = 3; S.pg[i] = gi;
+      }
+    }
+    // bulge (Plummer)
+    const sigB = jeansTable(bulge, MencTot);
+    for (let k = 0; k < c.nb; k++, i++) {
+      let r; do { r = bulge.a / Math.sqrt(Math.pow(rng(), -2 / 3) - 1); } while (r > 10 * bulge.a);
+      const ct = 2 * rng() - 1, st = Math.sqrt(1 - ct * ct), ph = 2 * Math.PI * rng();
+      S.x[i] = r * st * Math.cos(ph); S.y[i] = r * st * Math.sin(ph); S.z[i] = r * ct;
+      const sg = sigB(r);
+      S.vx[i] = sg * gauss(rng); S.vy[i] = sg * gauss(rng); S.vz[i] = sg * gauss(rng);
+      S.m[i] = bulge.m / c.nb; S.type[i] = 2; S.pg[i] = gi; S.R0[i] = r;
+    }
+    // disc
+    const eps = 1.0;
+    for (let k = 0; k < c.nd; k++, i++) {
+      const R = sampleDiscR(g, rng);
+      const vc = Math.sqrt(G * MencTot(R) * R * R / Math.pow(R * R + eps * eps, 1.5));
+      placeInDisc(S, i, g, R, 2 * Math.PI * rng(), 0.2 * g.s * gauss(rng), 0.1 * vc * gauss(rng), vc * (1 + 0.03 * gauss(rng)), 0.05 * vc * gauss(rng));
+      S.m[i] = Md / c.nd; S.type[i] = (p.gas && rng() < 0.25) ? 1 : 0; S.pg[i] = gi; S.R0[i] = R;
+    }
+    // remove any small drift so each galaxy's centre of mass is at rest at its own origin
+    let M = 0, cx = 0, cy = 0, cz = 0, cvx = 0, cvy = 0, cvz = 0;
+    for (let j = i0; j < i; j++) { M += S.m[j]; cx += S.m[j] * S.x[j]; cy += S.m[j] * S.y[j]; cz += S.m[j] * S.z[j]; cvx += S.m[j] * S.vx[j]; cvy += S.m[j] * S.vy[j]; cvz += S.m[j] * S.vz[j]; }
+    for (let j = i0; j < i; j++) { S.x[j] -= cx / M; S.y[j] -= cy / M; S.z[j] -= cz / M; S.vx[j] -= cvx / M; S.vy[j] -= cvy / M; S.vz[j] -= cvz / M; }
+  });
+}
+
+/* =====================================================================
+   5. FORCES
+   ===================================================================== */
+// Chandrasekhar dynamical friction on galaxy j moving through galaxy i.
+// Returns the coefficient k so that the acceleration is −k × (relative velocity).
+function dfCoeff(gi, gj, r, v) {
+  if (v < 1e-6) return 0;
+  const reff = Math.sqrt(r * r + gj.al * gj.al);
+  let dens = 0; for (const c of gi.comps) dens += rho(c, reff);
+  const Mi = galMenc(gi, Math.max(r, 0.5));
+  const sigma = Math.max(0.01, Math.sqrt(G * Mi / Math.max(r, 0.5) / 2));   // σ ≈ v_circ / √2
+  const X = v / (Math.SQRT2 * sigma);
+  // only the part of galaxy j inside its tidal radius moves with it
+  const rt = r * Math.cbrt(gj.Mtot / (3 * Math.max(Mi, 1e-3)));
+  const Mj = galMenc(gj, rt);
+  return 4 * Math.PI * G * G * Mj * LN_LAMBDA * dens * (erf(X) - 2 * X / Math.sqrt(Math.PI) * Math.exp(-X * X)) / (v * v * v);
+}
+function coreForces(S) {
+  const [A, B] = S.gal;
+  A.ax = A.ay = A.az = B.ax = B.ay = B.az = 0;
+  if (S.merged) return;
+  const dx = B.x - A.x, dy = B.y - A.y, dz = B.z - A.z, r = Math.hypot(dx, dy, dz);
+  const f = galPairFr(A, B, r);                 // force ÷ r, pulling them together
+  A.ax += f * dx / A.Mtot; A.ay += f * dy / A.Mtot; A.az += f * dz / A.Mtot;
+  B.ax -= f * dx / B.Mtot; B.ay -= f * dy / B.Mtot; B.az -= f * dz / B.Mtot;
+  // dynamical friction: each galaxy drags on the other; momentum is shared so the total is conserved
+  const dvx = B.vx - A.vx, dvy = B.vy - A.vy, dvz = B.vz - A.vz, v = Math.hypot(dvx, dvy, dvz);
+  const k = dfCoeff(A, B, r, v) + dfCoeff(B, A, r, v) * A.Mtot / B.Mtot;   // both expressed as drag on B (relative motion)
+  const kB = k * A.Mtot / (A.Mtot + B.Mtot), kA = k * B.Mtot / (A.Mtot + B.Mtot);
+  B.ax -= kB * dvx; B.ay -= kB * dvy; B.az -= kB * dvz;
+  A.ax += kA * dvx; A.ay += kA * dvy; A.az += kA * dvz;
+}
+function starForces(S) {
+  const gs = S.gal, n = S.n;
+  for (let i = 0; i < n; i++) {
+    let ax = 0, ay = 0, az = 0;
+    const xi = S.x[i], yi = S.y[i], zi = S.z[i];
+    for (let q = 0; q < 2; q++) {
+      const g = gs[q], dx = xi - g.x, dy = yi - g.y, dz = zi - g.z, r2 = dx * dx + dy * dy + dz * dz;
+      for (const c of g.comps) {
+        let f;
+        if (c.k) { const r = Math.sqrt(r2 + 1e-4); f = G * c.m / (r * (r + c.a) * (r + c.a)); }
+        else { const d2 = r2 + c.a * c.a; f = G * c.m / (d2 * Math.sqrt(d2)); }
+        ax -= f * dx; ay -= f * dy; az -= f * dz;
+      }
+    }
+    S.ax[i] = ax; S.ay[i] = ay; S.az[i] = az;
+  }
+}
+
+/* ----- Barnes–Hut tree: distant groups of particles are treated as one lump ----- */
+const BH = { cap: 0 };
+function bhAlloc(n) {
+  const cap = 4 * n + 64; if (BH.cap >= cap) return;
+  BH.cap = cap;
+  for (const k of ["cx", "cy", "cz", "hs", "m", "mx", "my", "mz"]) BH[k] = new Float64Array(cap);
+  BH.child = new Int32Array(cap * 8); BH.body = new Int32Array(cap);
+  BH.stack = new Int32Array(cap);
+}
+function bhForces(S) {
+  const n = S.n, X = S.x, Y = S.y, Z = S.z, Mm = S.m;
+  bhAlloc(n);
+  let minx = Infinity, miny = Infinity, minz = Infinity, maxx = -Infinity, maxy = -Infinity, maxz = -Infinity;
+  for (let i = 0; i < n; i++) { if (X[i] < minx) minx = X[i]; if (X[i] > maxx) maxx = X[i]; if (Y[i] < miny) miny = Y[i]; if (Y[i] > maxy) maxy = Y[i]; if (Z[i] < minz) minz = Z[i]; if (Z[i] > maxz) maxz = Z[i]; }
+  const { cx, cy, cz, hs, m, mx, my, mz, child, body } = BH;
+  let nodes = 0;
+  const newNode = (x, y, z, h) => { const k = nodes++; cx[k] = x; cy[k] = y; cz[k] = z; hs[k] = h; m[k] = 0; body[k] = -1; child.fill(-1, k * 8, k * 8 + 8); return k; };
+  newNode((minx + maxx) / 2, (miny + maxy) / 2, (minz + maxz) / 2, Math.max(maxx - minx, maxy - miny, maxz - minz) / 2 + 1e-3);
+  const octant = (k, x, y, z) => (x > cx[k] ? 1 : 0) + (y > cy[k] ? 2 : 0) + (z > cz[k] ? 4 : 0);
+  const childOf = (k, o) => {
+    let c = child[k * 8 + o];
+    if (c < 0) { const h = hs[k] / 2; c = newNode(cx[k] + (o & 1 ? h : -h), cy[k] + (o & 2 ? h : -h), cz[k] + (o & 4 ? h : -h), h); child[k * 8 + o] = c; }
+    return c;
+  };
+  for (let i = 0; i < n; i++) {
+    let k = 0;
+    for (let depth = 0; depth < 48; depth++) {
+      if (body[k] === -1) { body[k] = i; break; }
+      if (body[k] >= 0) { const b = body[k]; body[k] = -2; const c = childOf(k, octant(k, X[b], Y[b], Z[b])); body[c] = b; }
+      k = childOf(k, octant(k, X[i], Y[i], Z[i]));
+    }
+  }
+  // masses and centres of mass, children before parents (children are always created later)
+  for (let k = nodes - 1; k >= 0; k--) {
+    if (body[k] >= 0) { const b = body[k]; m[k] = Mm[b]; mx[k] = X[b]; my[k] = Y[b]; mz[k] = Z[b]; continue; }
+    let M = 0, sx = 0, sy = 0, sz = 0;
+    for (let o = 0; o < 8; o++) { const c = child[k * 8 + o]; if (c >= 0 && m[c] > 0) { M += m[c]; sx += m[c] * mx[c]; sy += m[c] * my[c]; sz += m[c] * mz[c]; } }
+    m[k] = M; if (M > 0) { mx[k] = sx / M; my[k] = sy / M; mz[k] = sz / M; }
+  }
+  const th2 = 0.7 * 0.7, e2 = 1.0, st = BH.stack;
+  for (let i = 0; i < n; i++) {
+    let ax = 0, ay = 0, az = 0, sp = 0; st[sp++] = 0;
+    const xi = X[i], yi = Y[i], zi = Z[i];
+    while (sp > 0) {
+      const k = st[--sp];
+      if (m[k] === 0 || body[k] === i) continue;
+      const dx = mx[k] - xi, dy = my[k] - yi, dz = mz[k] - zi, r2 = dx * dx + dy * dy + dz * dz;
+      const w = 2 * hs[k];
+      if (body[k] >= 0 || w * w < th2 * r2) {
+        const d2 = r2 + e2, f = G * m[k] / (d2 * Math.sqrt(d2));
+        ax += f * dx; ay += f * dy; az += f * dz;
+      } else for (let o = 0; o < 8; o++) { const c = child[k * 8 + o]; if (c >= 0) st[sp++] = c; }
+    }
+    S.ax[i] = ax; S.ay[i] = ay; S.az[i] = az;
+  }
+}
+// In the N-body model each galaxy's centre is found from its bulge stars ("shrinking sphere")
+function findCentres(S) {
+  for (let q = 0; q < 2; q++) {
+    const g = S.gal[q];
+    let cx = g.x, cy = g.y, cz = g.z, rad = Infinity;
+    for (let pass = 0; pass < 4; pass++) {
+      let n = 0, sx = 0, sy = 0, sz = 0, svx = 0, svy = 0, svz = 0;
+      for (let i = 0; i < S.n; i++) {
+        if (S.type[i] !== 2 || S.pg[i] !== q) continue;
+        if (rad < Infinity && (S.x[i] - cx) ** 2 + (S.y[i] - cy) ** 2 + (S.z[i] - cz) ** 2 > rad * rad) continue;
+        n++; sx += S.x[i]; sy += S.y[i]; sz += S.z[i]; svx += S.vx[i]; svy += S.vy[i]; svz += S.vz[i];
+      }
+      if (!n) break;
+      cx = sx / n; cy = sy / n; cz = sz / n; g.vx = svx / n; g.vy = svy / n; g.vz = svz / n;
+      rad = pass === 0 ? 6 * g.s : rad * 0.6;
+    }
+    g.x = cx; g.y = cy; g.z = cz;
+  }
+}
+function forces(S) {
+  if (S.self) { bhForces(S); findCentres(S); }
+  else { coreForces(S); starForces(S); }
+}
+
+/* =====================================================================
+   6. ONE TIME STEP (leapfrog: kick ½, drift, new forces, kick ½)
+   ===================================================================== */
+function step(S) {
+  const dt = S.dt, h = dt / 2, n = S.n;
+  for (let i = 0; i < n; i++) {
+    S.vx[i] += S.ax[i] * h; S.vy[i] += S.ay[i] * h; S.vz[i] += S.az[i] * h;
+    S.x[i] += S.vx[i] * dt; S.y[i] += S.vy[i] * dt; S.z[i] += S.vz[i] * dt;
+  }
+  if (!S.self) for (const g of S.gal) {
+    g.vx += g.ax * h; g.vy += g.ay * h; g.vz += g.az * h;
+    g.x += g.vx * dt; g.y += g.vy * dt; g.z += g.vz * dt;
+  }
+  forces(S);
+  for (let i = 0; i < n; i++) { S.vx[i] += S.ax[i] * h; S.vy[i] += S.ay[i] * h; S.vz[i] += S.az[i] * h; }
+  if (!S.self) for (const g of S.gal) { g.vx += g.ax * h; g.vy += g.ay * h; g.vz += g.az * h; }
+  S.t += dt; S.steps++;
+  afterStep(S);
+}
+function relState(S) {
+  const [A, B] = S.gal;
+  const sep = Math.hypot(B.x - A.x, B.y - A.y, B.z - A.z), v = Math.hypot(B.vx - A.vx, B.vy - A.vy, B.vz - A.vz);
+  const mu = A.Mtot * B.Mtot / (A.Mtot + B.Mtot);
+  return { sep, v, E: 0.5 * v * v + galPairU(A, B, sep) / mu };
+}
+function afterStep(S) {
+  const [A, B] = S.gal, rs = relState(S);
+  if (!S.merged) {
+    S.minSep = Math.min(S.minSep, rs.sep);
+    // closest approach: the separation stops falling and starts rising
+    const h = S.sepHist; h.push(rs.sep); if (h.length > 3) h.shift();
+    if (h.length === 3 && h[1] < h[0] && h[2] > h[1] && h[1] < 0.6 * S.orbit.d0) {
+      S.passes++;
+      if (S.periT == null) { S.periT = S.t - S.dt; S.periD = h[1]; }
+    }
+    // merger: the cores are closer than their combined sizes and bound to each other
+    const rm = S.self ? 0.7 * (A.al + B.al) : A.al + B.al;
+    // "bound" here means slower than half the local escape speed, so a fast first pass does not count
+    if (rs.sep < rm && 0.5 * rs.v * rs.v < -0.25 * galPairU(A, B, rs.sep) * (A.Mtot + B.Mtot) / (A.Mtot * B.Mtot)) {
+      S.merged = true; S.mergeT = S.t;
+      if (S.periT == null) { S.periT = S.t; S.periD = rs.sep; }
+      if (!S.self) {                               // join the two cores into one
+        const M = A.Mtot + B.Mtot;
+        for (const k of ["x", "y", "z", "vx", "vy", "vz"]) { const c = (A[k] * A.Mtot + B[k] * B.Mtot) / M; A[k] = c; B[k] = c; }
+      }
+    }
+  }
+  if (S.steps % 5 === 0 && S.n) { collisions(S, 5 * S.dt); if (S.p.gas) gasDensity(S, 5 * S.dt); }
+}
+
+/* =====================================================================
+   7. STAR–STAR COLLISIONS AND STAR FORMATION
+   ===================================================================== */
+// Each star sweeps a tube through the OTHER galaxy's stars: hits = n σ v Δt × (gravitational focusing)
+function collisions(S, dt) {
+  for (let i = 0; i < S.n; i++) {
+    if (S.type[i] === 3) continue;
+    const o = S.gal[S.pg[i] ^ 1];
+    const r = Math.hypot(S.x[i] - o.x, S.y[i] - o.y, S.z[i] - o.z);
+    const nStars = rho(o.comps[0], r) / M_STAR;               // stars per kpc³
+    if (nStars < 1e3) continue;
+    const v = Math.hypot(S.vx[i] - o.vx, S.vy[i] - o.vy, S.vz[i] - o.vz) + 1e-6;
+    S.col[i] += nStars * SIGMA_COLL * v * dt * (1 + (VESC_STAR / v) ** 2);
+  }
+}
+function expectedCollisions(S) {
+  let sum = 0;
+  for (let i = 0; i < S.n; i++) {
+    if (S.type[i] === 3) continue;
+    const g = S.gal[S.pg[i]];
+    sum += S.col[i] * (g.Ml / M_STAR) / Math.max(1, S.nPerGal[S.pg[i]]);   // each simulated star stands for many real ones
+  }
+  return sum;
+}
+// Gas clouds: count neighbours in 1.5 kpc boxes. Squeezed to 2.5× the starting density → new stars.
+function gasDensity(S, dt) {
+  const h = 1.5, map = new Map(), key = i => (Math.floor(S.x[i] / h) + 2048) * 16777216 + (Math.floor(S.y[i] / h) + 2048) * 4096 + (Math.floor(S.z[i] / h) + 2048);
+  // count gas clouds in each box, and their mean velocity
+  for (let i = 0; i < S.n; i++) if (S.type[i] === 1) {
+    const k = key(i); let c = map.get(k);
+    if (!c) { c = [0, 0, 0, 0]; map.set(k, c); }
+    c[0]++; c[1] += S.vx[i]; c[2] += S.vy[i]; c[3] += S.vz[i];
+  }
+  // "Sticky" gas: clouds sharing a box collide, so their random motions are damped towards the box's
+  // mean velocity (time-scale 100 Myr) wherever gas is squeezed. Colliding gas streams lose energy and sink inwards.
+  const damp = 1 - Math.exp(-dt / 100);
+  const fade = Math.exp(-dt / 40);
+  let sfr = 0;
+  const baseline = S.t >= 20 && !S.sfBase;
+  for (let i = 0; i < S.n; i++) {
+    if (S.type[i] !== 1) continue;
+    const cell = map.get(key(i)), c = cell[0];
+    if (c >= 2 && S.rho0[i] && S.rhoS[i] > 2 * S.rho0[i]) { S.vx[i] += (cell[1] / c - S.vx[i]) * damp; S.vy[i] += (cell[2] / c - S.vy[i]) * damp; S.vz[i] += (cell[3] / c - S.vz[i]) * damp; }
+    S.rhoS[i] = S.rhoS[i] ? 0.6 * S.rhoS[i] + 0.4 * c : c;
+    if (baseline) S.rho0[i] = Math.max(1.5, S.rhoS[i]);
+    S.glow[i] *= fade;
+    if (S.rho0[i] && S.rhoS[i] >= 4 && S.rhoS[i] > 2.5 * S.rho0[i]) S.glow[i] = 1;
+    // Schmidt law, rate ∝ density^1.5; each cloud's boost is capped at 10× because young stars blow the rest of the gas away
+    sfr += Math.pow(S.rho0[i] ? Math.min(S.rhoS[i], 10 * S.rho0[i]) : S.rhoS[i], 1.5);
+  }
+  if (baseline) S.sfBase = sfr;
+  S.sfr = S.sfBase ? sfr / S.sfBase : 1;
+}
+
+/* =====================================================================
+   8. MEASUREMENTS: TAILS, STRIPPED AND ESCAPING STARS
+   ===================================================================== */
+function measure(S) {
+  const gs = S.gal;
+  const M = gs[0].Mtot + gs[1].Mtot;
+  const vcx = (gs[0].vx * gs[0].Mtot + gs[1].vx * gs[1].Mtot) / M, vcy = (gs[0].vy * gs[0].Mtot + gs[1].vy * gs[1].Mtot) / M, vcz = (gs[0].vz * gs[0].Mtot + gs[1].vz * gs[1].Mtot) / M;
+  let tail = 0, esc = 0, strip = 0, n = 0;
+  for (let i = 0; i < S.n; i++) {
+    if (S.type[i] === 3) continue;
+    n++;
+    const own = gs[S.pg[i]];
+    let dmin = Infinity, phiTot = 0, phiOwn = 0;
+    for (let q = 0; q < 2; q++) {
+      const g = gs[q], r = Math.hypot(S.x[i] - g.x, S.y[i] - g.y, S.z[i] - g.z);
+      dmin = Math.min(dmin, r);
+      const ph = galPhi(g, r); phiTot += ph;
+      if (g === own || S.merged) phiOwn += ph;
+    }
+    if (dmin > 2 * own.Rmax) tail++;
+    const v2c = (S.vx[i] - vcx) ** 2 + (S.vy[i] - vcy) ** 2 + (S.vz[i] - vcz) ** 2;
+    if (0.5 * v2c + phiTot > 0) esc++;
+    const ox = S.merged ? vcx : own.vx, oy = S.merged ? vcy : own.vy, oz = S.merged ? vcz : own.vz;
+    const v2o = (S.vx[i] - ox) ** 2 + (S.vy[i] - oy) ** 2 + (S.vz[i] - oz) ** 2;
+    if (0.5 * v2o + phiOwn > 0) strip++;
+  }
+  n = Math.max(1, n);
+  return { tail: 100 * tail / n, esc: 100 * esc / n, strip: 100 * strip / n };
+}
+
+/* =====================================================================
+   9. ONE HEADLESS RUN FOR THE BATCH MODE
+   ---------------------------------------------------------------------
+   Star outcomes are measured 400 Myr after the first closest approach.
+   ===================================================================== */
+const AFTER_PERI = 400;
+function runOnce(p, seed, opt) {
+  const q = Object.assign({}, p, { selfGrav: false, gas: false });
+  const S = buildSim(q, seed, opt.nStars);
+  if (!opt.nStars) S.dt = 2;                       // cores only: bigger steps are fine
+  let meas = null;
+  const tMax = opt.tMax;
+  while (S.t < tMax) {
+    step(S);
+    if (opt.nStars && !meas && S.periT != null && S.t >= S.periT + AFTER_PERI) { meas = measure(S); meas.coll = expectedCollisions(S); }
+    const starsDone = !opt.nStars || meas;
+    if (starsDone && (!opt.needMerge || S.merged)) break;
+  }
+  if (opt.nStars && !meas) { meas = measure(S); meas.coll = expectedCollisions(S); }
+  return {
+    strip: meas ? meas.strip : NaN, tail: meas ? meas.tail : NaN, esc: meas ? meas.esc : NaN,
+    mergeT: S.merged ? S.mergeT / 1000 : NaN, periT: S.periT != null ? S.periT / 1000 : NaN, periD: S.periD != null ? S.periD : NaN,
+    coll: meas ? meas.coll : NaN, merged: S.merged ? 1 : 0,
+  };
+}
+
+/* ----- theory to compare with ----- */
+// Impulse approximation (Spitzer 1958): in a fast pass, a star at distance R from its own centre
+// gets a sideways kick Δv ≈ 2 G M_p R / (b² V) from the tide of the passing galaxy (mass M_p inside
+// the miss distance b, relative speed V). The star is stripped if the kick can lift it from its
+// circular speed v_c up to the escape speed v_esc: Δv > v_esc − v_c.
+function pairAtPeri(p) {
+  const A = galaxyModel(p.massA, p.halo, p.haloX), B = galaxyModel(p.massA * p.ratio, p.halo, p.haloX);
+  const M = A.Mtot + B.Mtot, mu = A.Mtot * B.Mtot / M, Urel = r => galPairU(A, B, r) / mu;
+  const rp = Math.max(1, p.rp), d0 = Math.max(3.5 * p.rp, 3 * (A.Rmax + B.Rmax));
+  const v0 = p.vfac * Math.sqrt(-2 * Urel(d0));
+  const vp = Math.sqrt(Math.max(1e-6, v0 * v0 + 2 * (Urel(d0) - Urel(rp))));
+  return { A, B, rp, vp };
+}
+// mode "strip": kick must reach escape speed. mode "tail": kick must carry the star out past 2 disc radii.
+function theoryStrip(p, mode) {
+  const { A, B, rp, vp } = pairAtPeri(p);
+  const wA = Math.sqrt(A.Ml) / (Math.sqrt(A.Ml) + Math.sqrt(B.Ml));
+  const frac = (g, o) => {               // fraction of g's disc stars whose kick beats the escape condition
+    const Mp = galMenc(o, rp);
+    let num = 0, den = 0;
+    for (let k = 0; k < 200; k++) {
+      const R = g.Rin + (g.Rmax - g.Rin) * (k + 0.5) / 200, w = R * Math.exp(-R / g.Rd);
+      const dv = 2 * G * Mp * R / ((rp * rp + R * R) * vp), vc = vCirc(g, R);
+      const need = mode === "tail" ? Math.sqrt(vc * vc + 2 * Math.max(0, galPhi(g, 2 * g.Rmax) - galPhi(g, R))) - vc : Math.sqrt(-2 * galPhi(g, R)) - vc;
+      den += w; if (dv > need) num += w;
+    }
+    return num / den;
+  };
+  return 100 * (wA * frac(A, B) + (1 - wA) * frac(B, A));
+}
+// Straight-line estimate: each disc star crosses the other galaxy once, at the closest approach.
+function theoryCollisions(p) {
+  const { A, B, rp, vp } = pairAtPeri(p);
+  const focus = 1 + (VESC_STAR / vp) ** 2;
+  let total = 0;
+  for (const [g, o] of [[A, B], [B, A]]) {
+    const c = o.comps[0];
+    const Sigma = b => c.m * c.a * c.a / (Math.PI * Math.pow(c.a * c.a + b * b, 2));  // Plummer column density
+    let sum = 0, wsum = 0;
+    for (let k = 0; k < 40; k++) {
+      const R = g.Rin + (g.Rmax - g.Rin) * (k + 0.5) / 40, w = R * Math.exp(-R / g.Rd);
+      for (let j = 0; j < 36; j++) { const ph = 2 * Math.PI * (j + 0.5) / 36; sum += w * Sigma(Math.sqrt(R * R + rp * rp - 2 * R * rp * Math.cos(ph))); wsum += w; }
+    }
+    total += (g.Ml / M_STAR) * SIGMA_COLL * focus * (sum / wsum) / M_STAR;
+  }
+  return total;
+}
+
+/* =====================================================================
+   10. PRESETS
+   ===================================================================== */
+const BASE = { massA: 6, ratio: 1, halo: true, haloX: 12, orbit: "peri", rp: 15, vfac: 0.95, vtan: 17, tiltA: 0, turnA: 0, tiltB: 0, turnB: 0, grav: "r", nStars: 8000, gas: true };
+const PRESETS = [
+  { name: "Antennae galaxies", note: "two spirals, long curved tails", s: { rp: 12, vfac: 0.85, tiltA: 25, turnA: 300, tiltB: 55, turnB: 150 }, view: { yaw: -70, el: 70 } },
+  { name: "Mice galaxies", note: "two long straight tails", s: { rp: 18, vfac: 0.95, tiltA: 15, turnA: 90, tiltB: 70, turnB: 0 }, view: { yaw: -100, el: 35 } },
+  { name: "Cartwheel ring", note: "small galaxy punches through the middle", s: { ratio: 0.3, rp: 1, vfac: 1.5, tiltA: 90, turnA: 0, tiltB: 30, turnB: 0 }, view: { yaw: 0, el: 5 }, follow: "0", zoom: 45 },
+  { name: "Milky Way & Andromeda", note: "first pass in about 4 billion years", s: { orbit: "mwm31", massA: 10, ratio: 0.6, haloX: 15, vtan: 17, tiltA: 45, turnA: 60, tiltB: 100, turnB: 200, nStars: 4000 }, view: { yaw: -90, el: 50 }, speed: 30 },
+  { name: "Satellite eaten", note: "a small galaxy is cannibalised", s: { ratio: 0.1, rp: 20, vfac: 0.7, tiltA: 20, turnA: 0, tiltB: 60, turnB: 90 }, view: { yaw: -90, el: 60 }, speed: 3 },
+  { name: "Prograde flyby", note: "spins with the orbit: big tails", s: { rp: 20, vfac: 1.4, tiltA: 0, tiltB: 0 }, view: { yaw: -90, el: 75 } },
+  { name: "Retrograde flyby", note: "spins against the orbit: few tails", s: { rp: 20, vfac: 1.4, tiltA: 180, tiltB: 180 }, view: { yaw: -90, el: 75 } },
+  { name: "No dark matter", note: "Antennae without halos: no merger", s: { halo: false, rp: 12, vfac: 0.85, tiltA: 25, turnA: 300, tiltB: 55, turnB: 150 }, view: { yaw: -70, el: 70 }, speed: 3 },
+  { name: "Full N-body merger", note: "every particle pulls (slower)", s: { grav: "s", rp: 12, vfac: 0.85, tiltA: 25, turnA: 300, tiltB: 55, turnB: 150 }, view: { yaw: -70, el: 70 } },
+];
+
+/* =====================================================================
+   11. CONTROLS
+   ===================================================================== */
+const CTL = ["massA", "ratio", "haloX", "rp", "vfac", "vtan", "tiltA", "turnA", "tiltB", "turnB"];
+function readParams() {
+  const p = {};
+  for (const k of CTL) p[k] = +el(k).value;
+  p.halo = el("halo").checked; p.gas = el("gas").checked; p.orbit = el("orbit").value;
+  p.selfGrav = el("grav").value === "s"; p.nStars = +el("nStars").value;
+  return p;
+}
+function applySettings(s) {
+  for (const k of CTL) if (s[k] != null) el(k).value = s[k];
+  el("halo").checked = s.halo; el("gas").checked = s.gas; el("orbit").value = s.orbit;
+  el("grav").value = s.grav; el("nStars").value = String(s.nStars);
+  updateLabels();
+}
+function spinName(t) { return t <= 45 ? "prograde" : t >= 135 ? "retrograde" : t > 75 && t < 105 ? "polar" : "tilted"; }
+function fmtMass(m) { return (m >= 10 ? (m / 10).toFixed(m % 10 ? 2 : 0) + " × 10¹¹" : m.toFixed(m % 1 ? 1 : 0) + " × 10¹⁰") + " M☉"; }
+function updateLabels() {
+  const p = readParams();
+  el("o_massA").textContent = fmtMass(p.massA);
+  el("o_ratio").textContent = p.ratio >= 0.995 ? "1 : 1 (equal)" : `1 : ${(1 / p.ratio).toFixed(1).replace(/\.0$/, "")}`;
+  el("o_haloX").textContent = `${p.haloX}× visible`;
+  el("haloX").disabled = !p.halo;
+  el("o_rp").textContent = `${p.rp} kpc`;
+  const A = galaxyModel(p.massA, p.halo, p.haloX), B = galaxyModel(p.massA * p.ratio, p.halo, p.haloX);
+  const tmp = setupOrbit(A, B, Object.assign({}, p, { orbit: "peri" }));
+  el("o_vfac").textContent = `${p.vfac.toFixed(2)}× escape (${Math.round(tmp.v0)} km/s)`;
+  el("o_vtan").textContent = `${p.vtan} km/s`;
+  for (const g of ["A", "B"]) { el("o_tilt" + g).textContent = `${p["tilt" + g]}° (${spinName(p["tilt" + g])})`; el("o_turn" + g).textContent = `${p["turn" + g]}°`; }
+  el("periCtl").style.display = p.orbit === "peri" ? "" : "none";
+  el("mwCtl").style.display = p.orbit === "mwm31" ? "" : "none";
+}
+
+/* =====================================================================
+   12. THE LIVE SIMULATION, CAMERA AND DRAWING
+   ===================================================================== */
+let sim = null, running = false, speed = 1, presetIdx = 0;
+const cam = { yaw: -90, el: 60, half: 60, follow: "com", cx: 0, cy: 0, cz: 0 };
+let defaultView = { yaw: -90, el: 60 };
+
+function reset() {
+  const p = readParams();
+  sim = buildSim(p, hashSeed(el("seed").value || "1"));
+  sim.label = p.orbit === "mwm31" ? ["Andromeda", "Milky Way"] : ["A", "B"];
+  sim.hist = [];
+  recordHistory();
+  el("pending").style.display = "none";
+  centreTarget(true);
+  setRunning(false);
+}
+function centreTarget(snap) {
+  const [A, B] = sim.gal;
+  let tx, ty, tz;
+  if (cam.follow === "com") { const M = A.Mtot + B.Mtot; tx = (A.x * A.Mtot + B.x * B.Mtot) / M; ty = (A.y * A.Mtot + B.y * B.Mtot) / M; tz = (A.z * A.Mtot + B.z * B.Mtot) / M; }
+  else { const g = sim.gal[+cam.follow]; tx = g.x; ty = g.y; tz = g.z; }
+  const k = snap ? 1 : 0.25;
+  cam.cx += (tx - cam.cx) * k; cam.cy += (ty - cam.cy) * k; cam.cz += (tz - cam.cz) * k;
+  if (el("autoZoom").checked) {
+    const sep = relState(sim).sep, Rm = Math.max(A.Rmax, B.Rmax);
+    const want = Math.min(1500, Math.max(35, cam.follow === "com" ? (sep * Math.max(A.Mtot, B.Mtot) / (A.Mtot + B.Mtot) + 2.2 * Rm) * 1.15 : 2.6 * Rm));
+    cam.half = snap ? want : cam.half + (want - cam.half) * 0.03;
+  }
+}
+function recordHistory() {
+  const m = measure(sim), rs = relState(sim);
+  sim.measure = m;
+  sim.collExpected = expectedCollisions(sim);
+  sim.hist.push({ t: sim.t, sep: rs.sep, tail: m.tail, esc: m.esc, sfr: sim.sfr });
+}
+
+const view = el("view"), vctx = view.getContext("2d");
+function sizeCanvas(c) {
+  const dpr = window.devicePixelRatio || 1, W = Math.max(10, Math.round(c.clientWidth * dpr)), H = Math.max(10, Math.round(c.clientHeight * dpr));
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  return dpr;
+}
+function camBasis() {
+  const y = cam.yaw * Math.PI / 180, e = cam.el * Math.PI / 180;
+  const f = [-Math.cos(e) * Math.cos(y), -Math.cos(e) * Math.sin(y), -Math.sin(e)];   // looking direction
+  const r = [-Math.sin(y), Math.cos(y), 0];                                         // screen right
+  const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];  // screen up
+  return { f, r, u };
+}
+function drawView() {
+  const dpr = sizeCanvas(view), W = view.width, H = view.height, ctx = vctx;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "#020303"; ctx.fillRect(0, 0, W, H);
+  const { f, r, u } = camBasis();
+  const scale = Math.min(W, H) / 2 / cam.half, D = 4 * cam.half;
+  const proj = (x, y, z, out) => {
+    const dx = x - cam.cx, dy = y - cam.cy, dz = z - cam.cz;
+    const depth = dx * f[0] + dy * f[1] + dz * f[2];
+    const k = D / (D + depth);
+    if (k <= 0) return false;
+    out[0] = W / 2 + (dx * r[0] + dy * r[1] + dz * r[2]) * k * scale;
+    out[1] = H / 2 - (dx * u[0] + dy * u[1] + dz * u[2]) * k * scale;
+    out[2] = k;
+    return true;
+  };
+  const P = [0, 0, 0];
+  // orbit-plane rings every 20 kpc (or 200 kpc when zoomed far out)
+  const step = cam.half > 400 ? 200 : cam.half > 150 ? 50 : 20;
+  ctx.strokeStyle = "rgba(140,150,130,0.13)"; ctx.lineWidth = 1 * dpr;
+  for (let R = step; R <= cam.half * 1.6; R += step) {
+    ctx.beginPath();
+    for (let j = 0; j <= 64; j++) { const a = j / 64 * 2 * Math.PI; if (proj(cam.cx + R * Math.cos(a), cam.cy + R * Math.sin(a), 0, P)) j ? ctx.lineTo(P[0], P[1]) : ctx.moveTo(P[0], P[1]); }
+    ctx.stroke();
+  }
+  // core tracks
+  ctx.lineWidth = 1.2 * dpr;
+  ["rgba(241,175,40,0.45)", "rgba(255,111,168,0.45)"].forEach((col, q) => {
+    ctx.strokeStyle = col; ctx.beginPath(); let first = true;
+    for (const tr of sim.track || []) { if (proj(tr[q * 3], tr[q * 3 + 1], tr[q * 3 + 2], P)) { first ? ctx.moveTo(P[0], P[1]) : ctx.lineTo(P[0], P[1]); first = false; } }
+    ctx.stroke();
+  });
+  // stars: additive blending so crowded places glow
+  ctx.globalCompositeOperation = "lighter";
+  const sz = Math.max(1, 1.5 * dpr), n = sim.n;
+  const groups = [
+    { test: i => sim.type[i] === 3, col: "rgba(120,120,130,0.25)", s: 1 },
+    { test: i => (sim.type[i] === 0 || sim.type[i] === 2) && sim.pg[i] === 0, col: "rgba(241,175,40,0.55)", s: 1 },
+    { test: i => (sim.type[i] === 0 || sim.type[i] === 2) && sim.pg[i] === 1, col: "rgba(255,111,168,0.55)", s: 1 },
+    { test: i => sim.type[i] === 1 && sim.glow[i] < 0.25, col: "rgba(125,135,150,0.4)", s: 1 },
+    { test: i => sim.type[i] === 1 && sim.glow[i] >= 0.25, col: "rgba(124,196,255,0.9)", s: 2.2 },
+  ];
+  const showDM = sim.self;
+  for (const gr of groups) {
+    if (gr === groups[0] && !showDM) continue;
+    ctx.fillStyle = gr.col;
+    const s = sz * gr.s;
+    for (let i = 0; i < n; i++) {
+      if (!gr.test(i)) continue;
+      if (!proj(sim.x[i], sim.y[i], sim.z[i], P)) continue;
+      if (P[0] < -5 || P[1] < -5 || P[0] > W + 5 || P[1] > H + 5) continue;
+      ctx.fillRect(P[0] - s / 2, P[1] - s / 2, s, s);
+    }
+  }
+  // glowing galaxy centres
+  sim.gal.forEach((g, q) => {
+    if (!proj(g.x, g.y, g.z, P)) return;
+    const rad = Math.max(4 * dpr, 1.2 * g.al * P[2] * scale);
+    const gr = ctx.createRadialGradient(P[0], P[1], 0, P[0], P[1], rad);
+    gr.addColorStop(0, q ? "rgba(255,200,220,0.75)" : "rgba(255,235,180,0.8)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(P[0], P[1], rad, 0, 2 * Math.PI); ctx.fill();
+  });
+  ctx.globalCompositeOperation = "source-over";
+  // labels
+  ctx.font = `${12 * dpr}px system-ui`; ctx.textAlign = "left";
+  if (!(sim.merged && !sim.self)) sim.gal.forEach((g, q) => {
+    if (!proj(g.x, g.y, g.z, P)) return;
+    ctx.fillStyle = q ? "#ff9cc4" : "#ffd27a";
+    ctx.fillText(sim.label[q], P[0] + 8 * dpr, P[1] - 8 * dpr);
+  });
+  // scale bar
+  const nice = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000], target = cam.half * 0.35;
+  let L = nice[0]; for (const v of nice) if (v <= target) L = v;
+  const px = L * scale, x0 = 14 * dpr, y0 = H - 28 * dpr;
+  ctx.strokeStyle = "#dfe3d6"; ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + px, y0); ctx.stroke();
+  ctx.fillStyle = "#dfe3d6"; ctx.fillText(`${L} kpc (${(L * 3.26).toFixed(L < 10 ? 1 : 0)} thousand light years)`, x0, y0 - 6 * dpr);
+}
+
+/* ----- small line charts ----- */
+function lineChart(cv, series, opts) {
+  const dpr = sizeCanvas(cv), W = cv.width, H = cv.height, ctx = cv.getContext("2d");
+  ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H);
+  const L = 40 * dpr, R = (opts.right ? 34 : 8) * dpr, T = 8 * dpr, B = 22 * dpr;
+  const tMax = Math.max(opts.tMin || 100, ...series[0].pts.map(p => p[0]));
+  const inGyr = tMax > 1500;
+  const X = t => L + t / tMax * (W - L - R);
+  ctx.font = `${10 * dpr}px system-ui`; ctx.strokeStyle = "rgba(160,170,150,0.15)"; ctx.fillStyle = "#a3ab96";
+  const yMaxL = opts.yMax || Math.max(opts.yMinTop || 1, ...series.filter(s => !s.right).flatMap(s => s.pts.map(p => p[1]))) * 1.1;
+  const yMaxR = opts.right ? Math.max(2, ...series.filter(s => s.right).flatMap(s => s.pts.map(p => p[1]))) * 1.1 : 1;
+  for (let k = 0; k <= 4; k++) {
+    const y = H - B - k / 4 * (H - T - B);
+    ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke();
+    ctx.textAlign = "right"; const v = yMaxL * k / 4; ctx.fillText(v >= 10 ? Math.round(v) : v.toFixed(1), L - 4 * dpr, y + 3 * dpr);
+    if (opts.right) { ctx.textAlign = "left"; const w = yMaxR * k / 4; ctx.fillText(w.toFixed(1) + "×", W - R + 3 * dpr, y + 3 * dpr); }
+  }
+  ctx.textAlign = "center";
+  ctx.fillText(`time (${inGyr ? "Gyr" : "Myr"}), 0 to ${inGyr ? (tMax / 1000).toFixed(1) : Math.round(tMax)}  ·  ${opts.yLabel}`, (L + W - R) / 2, H - 6 * dpr);
+  for (const s of series) {
+    const yMax = s.right ? yMaxR : yMaxL, Y = v => H - B - Math.min(1, v / yMax) * (H - T - B);
+    ctx.strokeStyle = s.col; ctx.lineWidth = 1.6 * dpr; ctx.beginPath();
+    s.pts.forEach((p, j) => j ? ctx.lineTo(X(p[0]), Y(p[1])) : ctx.moveTo(X(p[0]), Y(p[1])));
+    ctx.stroke();
+  }
+  if (opts.mark != null) { ctx.strokeStyle = "rgba(143,214,148,0.7)"; ctx.setLineDash([4 * dpr, 3 * dpr]); ctx.beginPath(); ctx.moveTo(X(opts.mark), T); ctx.lineTo(X(opts.mark), H - B); ctx.stroke(); ctx.setLineDash([]); }
+}
+function drawCharts() {
+  const h = sim.hist;
+  lineChart(el("chart1"), [{ pts: h.map(p => [p.t, p.sep]), col: "#dfe3d6" }], { yLabel: "separation (kpc)", mark: sim.mergeT });
+  lineChart(el("chart2"), [{ pts: h.map(p => [p.t, p.tail]), col: "#f1af28" }, { pts: h.map(p => [p.t, p.esc]), col: "#e4572e" }, { pts: h.map(p => [p.t, p.sfr]), col: "#7cc4ff", right: true }],
+    { yLabel: "stars (%)", right: true, yMinTop: 5 });
+}
+
+/* ----- readouts and the story ----- */
+function fmtT(t) { return t < 1000 ? `${Math.round(t)} Myr` : `${(t / 1000).toFixed(2)} Gyr`; }
+function fmtBig(x) {
+  if (!isFinite(x)) return "–";
+  if (x === 0) return "0";
+  if (x < 0.01) return x.toExponential(1).replace("e", " × 10^");
+  if (x < 10) return x.toFixed(2);
+  return Math.round(x).toLocaleString("en-GB");
+}
+function updateUI() {
+  const rs = relState(sim), m = sim.measure, [A, B] = sim.gal;
+  el("clock").textContent = (sim.p.orbit === "mwm31" ? "+" : "") + fmtT(sim.t) + (sim.p.orbit === "mwm31" ? " from now" : "");
+  const st = el("status");
+  let phase;
+  if (sim.merged) phase = "merged";
+  else if (sim.periT == null && rs.sep < 1.5 * (A.Rmax + B.Rmax) && sim.minSep === rs.sep) phase = "peri";
+  else if (sim.periT != null && sim.t - sim.periT < 120) phase = "peri";
+  else if (sim.periT != null) phase = rs.E > 0 ? "flyby" : "between";
+  else phase = "approach";
+  st.className = phase === "merged" ? "merged" : phase === "peri" ? "peri" : phase === "flyby" ? "flyby" : "";
+  st.textContent = { merged: "Merged", peri: "Close encounter", flyby: "Flying apart", between: "Falling back together", approach: "Approaching" }[phase];
+  el("s_sep").textContent = sim.merged && !sim.self ? "0 (one core)" : `${rs.sep.toFixed(rs.sep < 100 ? 1 : 0)} kpc`;
+  el("s_vrel").textContent = sim.merged && !sim.self ? "–" : `${Math.round(rs.v / KMS)} km/s`;
+  el("s_tail").textContent = `${m.tail.toFixed(1)}%`;
+  el("s_merged").textContent = sim.merged ? `yes, at ${fmtT(sim.mergeT)}` : "no";
+  const nReal = (A.Ml + B.Ml) / M_STAR;
+  const tiles = [
+    ["Time", fmtT(sim.t), sim.p.orbit === "mwm31" ? "after today" : "since the start"],
+    ["Core separation", sim.merged && !sim.self ? "merged" : `${rs.sep.toFixed(1)} kpc`, `${Math.round(rs.sep * 3.26)} thousand light years`],
+    ["Relative speed", sim.merged && !sim.self ? "–" : `${Math.round(rs.v / KMS)} km/s`, rs.E < 0 ? "bound: will meet again" : "faster than escape speed"],
+    ["Closest so far", isFinite(sim.minSep) ? `${sim.minSep.toFixed(1)} kpc` : "–", sim.periT != null ? `first pass at ${fmtT(sim.periT)}` : "not reached yet"],
+    ["Stars in tails", `${m.tail.toFixed(1)}%`, "over 2 disc radii from both cores"],
+    ["Stars escaping", `${m.esc.toFixed(1)}%`, "will never come back"],
+    ["Merged?", sim.merged ? "yes" : "no", sim.merged ? `at ${fmtT(sim.mergeT)}` : (A.Mh ? "dark matter halos: friction on" : "no halos: little friction")],
+    ["Star birth rate", sim.p.gas ? `${sim.sfr.toFixed(1)}×` : "gas off", "compared with the start"],
+    ["Star–star collisions", fmtBig(sim.collExpected), `expected among ${(nReal / 1e9).toFixed(0)} billion stars`],
+    ["Chance per star", fmtBig(sim.collExpected / nReal), "of hitting another star"],
+  ];
+  el("tiles").innerHTML = tiles.map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+  el("story").innerHTML = story(phase, rs, m);
+}
+function story(phase, rs, m) {
+  const [A, B] = sim.gal, p = sim.p, out = [];
+  const pro = [p.tiltA, p.tiltB].map(spinName);
+  const nm = sim.label;
+  if (phase === "approach") {
+    out.push(`The galaxies are ${rs.sep.toFixed(0)} kpc apart (${(rs.sep * 3.26 / 1000).toFixed(2)} million light years), closing at ${Math.round(rs.v / KMS)} km/s. Gravity pulls them together; inside each disc, stars still orbit calmly.`);
+    out.push(A.Mh ? `Each galaxy sits inside a dark matter halo ${p.haloX}× heavier than its stars. You cannot see it, but it is most of the mass.` : `These galaxies have <b>no dark matter</b>: just stars and gas.`);
+    if (p.orbit === "mwm31") out.push(`This is our future. Andromeda's sideways speed decides how close the first pass will be: ${p.vtan} km/s here.`);
+  } else if (phase === "peri") {
+    out.push(`<b>Closest approach.</b> Tides stretch both discs: the near side is pulled harder than the far side.`);
+    out.push(`Disc ${nm[0]} is ${pro[0]}, disc ${nm[1]} is ${pro[1]}. A prograde disc spins in step with the passing galaxy, so the pull lasts longer and flings out long tails. A retrograde disc spins the other way, so the pull keeps changing direction and averages out.`);
+  } else if (phase === "flyby") {
+    out.push(`The galaxies are moving faster than escape speed: they will fly apart for ever. ${m.tail.toFixed(0)}% of stars are in tidal tails and bridges.`);
+    if (!A.Mh) out.push(`Without dark matter halos there is almost nothing to drag on the galaxies, so they keep their orbital energy and do not merge.`);
+  } else if (phase === "between") {
+    out.push(`After the first pass the galaxies are still bound. ${A.Mh ? "Dynamical friction from the dark matter halos has stolen orbital energy, so they will fall back together, closer each time." : "Without halos, there is very little friction: they may swing past each other many times before (if ever) merging."}`);
+    out.push(`${m.tail.toFixed(0)}% of stars are out in the tails. Most will fall back over hundreds of millions of years.`);
+  } else {
+    out.push(`<b>Merged!</b> The two centres have become one, ${fmtT(sim.mergeT)} after the start. Over the next few hundred million years the stars settle into a big round "elliptical" galaxy, with shells and loops of stars from the tails falling back.`);
+    if (p.orbit === "mwm31") out.push(`Astronomers call the result "Milkomeda". The Sun would very likely survive, flung onto a new, wider orbit.`);
+  }
+  if (p.gas && sim.sfr > 1.6) out.push(`Gas clouds squeezed together in the collision light up blue: a <b>starburst</b>, with stars forming ${sim.sfr.toFixed(1)}× faster than before.`);
+  const nReal = (A.Ml + B.Ml) / M_STAR;
+  if (sim.periT != null || sim.merged) out.push(`Even so, stars almost never hit each other: about ${fmtBig(sim.collExpected)} collisions are expected among ${(nReal / 1e9).toFixed(0)} billion stars. Stars are tiny compared with the gaps between them.`);
+  return out.map(s => `<p>${s}</p>`).join("");
+}
+
+/* ----- the main loop ----- */
+let lastT = performance.now(), lastHist = 0;
+function setRunning(r) { running = r; el("btnPlay").textContent = r ? "⏸ Pause" : "▶ Play"; }
+function frame(now) {
+  const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (running && sim) {
+    let want = real * speed * MYR_PER_SEC, done = 0;
+    const t0 = performance.now();
+    while (done + sim.dt / 2 < want && performance.now() - t0 < 35) {
+      step(sim); done += sim.dt;
+      if (!sim.track) sim.track = [];
+      if (sim.steps % 5 === 0) { const [A, B] = sim.gal; sim.track.push([A.x, A.y, A.z, B.x, B.y, B.z]); if (sim.track.length > 600) sim.track.shift(); }
+      if (sim.t - lastHist >= 5) { recordHistory(); lastHist = sim.t; }
+    }
+    el("speedNote").textContent = done < 0.7 * want ? "running slower than chosen: too many particles for this speed" : "";
+  }
+  if (sim) { centreTarget(false); drawView(); }
+  if (now - (frame.ui || 0) > 150 && sim) { frame.ui = now; updateUI(); drawCharts(); }
+  requestAnimationFrame(frame);
+}
+
+/* ----- mouse: drag to rotate, wheel to zoom ----- */
+(function () {
+  const w = el("viewWrap"); let drag = null;
+  w.addEventListener("pointerdown", e => { if (e.target.closest("#vtools")) return; drag = { x: e.clientX, y: e.clientY }; w.setPointerCapture(e.pointerId); });
+  w.addEventListener("pointermove", e => {
+    if (!drag) return;
+    cam.yaw -= (e.clientX - drag.x) * 0.4; cam.el = Math.max(-89, Math.min(89, cam.el + (e.clientY - drag.y) * 0.4));
+    drag = { x: e.clientX, y: e.clientY };
+  });
+  w.addEventListener("pointerup", () => (drag = null));
+  w.addEventListener("wheel", e => { e.preventDefault(); el("autoZoom").checked = false; cam.half *= Math.pow(1.0015, e.deltaY); cam.half = Math.max(5, Math.min(3000, cam.half)); }, { passive: false });
+  w.addEventListener("dblclick", e => { if (e.target.closest("#vtools")) return; cam.yaw = defaultView.yaw; cam.el = defaultView.el; el("autoZoom").checked = true; });
+  el("zIn").onclick = () => { el("autoZoom").checked = false; cam.half = Math.max(5, cam.half / 1.3); };
+  el("zOut").onclick = () => { el("autoZoom").checked = false; cam.half = Math.min(3000, cam.half * 1.3); };
+  el("vTop").onclick = () => { cam.el = 89; };
+  el("vSide").onclick = () => { cam.el = 0; };
+  el("follow").onchange = () => { cam.follow = el("follow").value; };
+})();
+
+function setPreset(k) {
+  presetIdx = k;
+  const pr = PRESETS[k];
+  applySettings(Object.assign({}, BASE, pr.s));
+  document.querySelectorAll("#presets button").forEach((b, j) => b.classList.toggle("on", j === k));
+  defaultView = pr.view; cam.yaw = pr.view.yaw; cam.el = pr.view.el;
+  cam.follow = pr.follow || "com"; el("follow").value = cam.follow;
+  el("autoZoom").checked = !pr.zoom; if (pr.zoom) cam.half = pr.zoom;
+  setSpeed(pr.speed || 1);
+  reset();
+  if (pr.zoom) cam.half = pr.zoom;
+}
+function setSpeed(s) { speed = s; document.querySelectorAll(".speed button").forEach(b => b.classList.toggle("on", +b.dataset.s === s)); }
+
+el("presets").innerHTML = PRESETS.map((p, k) => `<button data-k="${k}">${p.name}<small>${p.note}</small></button>`).join("");
+document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.k)));
+const markPending = () => { document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); updateLabels(); el("pending").style.display = "block"; };
+CTL.concat(["seed"]).forEach(id => el(id).addEventListener("input", markPending));
+["halo", "gas", "orbit", "grav", "nStars"].forEach(id => el(id).addEventListener("change", markPending));
+el("btnPlay").onclick = () => setRunning(!running);
+el("btnReset").onclick = () => { reset(); };
+document.querySelectorAll(".speed button").forEach(b => (b.onclick = () => setSpeed(+b.dataset.s)));
+
+/* =====================================================================
+   13. BATCH RUNS
+   ---------------------------------------------------------------------
+   runOnce(params, seed) runs one collision with no drawing. "Repeat" runs
+   the same set-up many times with random variations; "Sweep" changes one
+   setting in steps. Results are compared with theory where there is one.
+   ===================================================================== */
+const BVARS = [
+  { key: "rp", label: "Closest approach (kpc)", from: 5, to: 60 },
+  { key: "vfac", label: "Approach speed (× escape)", from: 0.6, to: 1.8 },
+  { key: "ratio", label: "Mass ratio B : A", from: 0.1, to: 1 },
+  { key: "haloX", label: "Halo mass (× visible)", from: 2, to: 20 },
+  { key: "tiltA", label: "Tilt of both discs (°)", from: 0, to: 180, both: true },
+  { key: "vtan", label: "Andromeda sideways speed (km/s)", from: 0, to: 140 },
+];
+const BOUT = [
+  { key: "strip", label: "Stars stripped from their galaxy (%)", stars: true, theory: p => theoryStrip(p, "strip"), theoryName: "impulse approximation (no resonance)" },
+  { key: "tail", label: "Stars in tidal tails (%)", stars: true, theory: p => theoryStrip(p, "tail"), theoryName: "impulse approximation (no resonance)" },
+  { key: "esc", label: "Stars escaping for ever (%)", stars: true },
+  { key: "mergeT", label: "Merger time (Gyr)", merge: true, theory: p => p.orbit === "mwm31" ? 5.9 : null, theoryName: "published (van der Marel et al. 2012): 5.9 Gyr" },
+  { key: "periT", label: "Time of first close pass (Gyr)", theory: p => p.orbit === "mwm31" ? 3.9 : null, theoryName: "published (van der Marel et al. 2012): 3.9 Gyr" },
+  { key: "periD", label: "Closest approach reached (kpc)" },
+  { key: "coll", label: "Star–star collisions (expected number)", stars: true, theory: p => theoryCollisions(p), theoryName: "straight-line estimate: N σ (column density)" },
+];
+const BVARY = {
+  seed: { label: "Only the random star positions", f: () => {} },
+  jitter: { label: "Disc orientations ±10°", f: (p, r) => { p.tiltA = Math.max(0, Math.min(180, p.tiltA + 20 * (r() - 0.5))); p.tiltB = Math.max(0, Math.min(180, p.tiltB + 20 * (r() - 0.5))); p.turnA = 360 * r(); p.turnB = 360 * r(); } },
+  pro: { label: "Random prograde orientations (tilt 0–45°)", f: (p, r) => { p.tiltA = 45 * r(); p.tiltB = 45 * r(); p.turnA = 360 * r(); p.turnB = 360 * r(); } },
+  retro: { label: "Random retrograde orientations (tilt 135–180°)", f: (p, r) => { p.tiltA = 180 - 45 * r(); p.tiltB = 180 - 45 * r(); p.turnA = 360 * r(); p.turnB = 360 * r(); } },
+  any: { label: "Completely random orientations", f: (p, r) => { p.tiltA = Math.acos(2 * r() - 1) * 180 / Math.PI; p.tiltB = Math.acos(2 * r() - 1) * 180 / Math.PI; p.turnA = 360 * r(); p.turnB = 360 * r(); } },
+  mw: { label: "Milky Way–Andromeda measurement errors", f: (p, r) => {
+      // Gaia + Hubble (van der Marel et al. 2019): sideways speed 57 (+35/−31) km/s; radial speed −109.3 ± 4.4 km/s;
+      // distance 785 ± 25 kpc; masses uncertain by about ±20%.
+      p.vtan = Math.max(0, 57 + 33 * gauss(r)); p.vrad = 109.3 + 4.4 * gauss(r); p.d0 = 785 + 25 * gauss(r);
+      const f = Math.exp(0.2 * gauss(r)); p.massA *= f; p.ratio = Math.min(1, Math.max(0.3, p.ratio * Math.exp(0.2 * gauss(r))));
+    } },
+};
+const BEXP = [
+  { q: "Does a closer pass throw more stars into tails?", base: 5, cfg: { mode: "sweep", var: "rp", from: 8, to: 60, steps: 7, reps: 3, out: "tail", vary: "jitter" },
+    note: "Closer passes throw far more stars into tails: tidal stretching depends on the difference in gravity across a disc, which grows steeply as the galaxies get closer (about 1/distance³). The blue theory line is the simple 'impulse approximation': one quick sideways kick to each star. It predicts almost no tails, because these galaxies pass quickly and their dark matter halos hold stars in tightly. The simulated prograde discs beat it by a long way: their stars orbit in step with the passing galaxy, so the pull keeps acting in the same direction (a resonance). Try the retrograde experiment: those runs sit close to the theory. Repeats scatter because stars are placed at random and the discs are tilted slightly differently each time." },
+  { q: "Prograde: how many stars are thrown out?", base: 5, cfg: { mode: "repeat", n: 50, out: "tail", vary: "pro" },
+    note: "With both discs spinning the same way as the orbit, a large share of stars ends up in long tails, far more than the simple impulse theory (blue line, near zero) predicts. The extra comes from resonance: prograde stars move along with the passing galaxy and feel its pull for longer. Run the retrograde experiment next: this result will stay on the chart as a grey outline for comparison." },
+  { q: "Retrograde: how many stars are thrown out?", base: 6, cfg: { mode: "repeat", n: 50, out: "tail", vary: "retro" },
+    note: "Retrograde discs make far fewer tail stars than prograde ones, even though the tidal force is the same. A star going the other way sees the tidal pull swing round quickly, so the kicks cancel out. This is why Toomre & Toomre (1972) found that only prograde encounters make long tails. Retrograde results sit close to the impulse theory (blue line), which ignores resonance." },
+  { q: "When will the Milky Way and Andromeda merge?", base: 3, cfg: { mode: "repeat", n: 200, out: "mergeT", vary: "mw" },
+    note: "Each run uses a different 'possible' Andromeda orbit, picked from the measurement errors (sideways speed 57 ± 33 km/s, distance, masses). Slow sideways speeds give a near head-on collision and a merger in about 5–6 billion years, as van der Marel et al. (2012) found. Faster sideways speeds give a wide first pass and a much later merger, or none within 10 billion years (those runs are not in the histogram, but are counted). Sawala et al. (2025), who also included the Large Magellanic Cloud and M33, found only about a 50% chance of a merger in the next 10 billion years. Uncertain inputs give an uncertain answer." },
+  { q: "Does dark matter make galaxies merge?", base: 0, cfg: { mode: "sweep", var: "haloX", from: 2, to: 20, steps: 7, reps: 2, out: "mergeT", vary: "jitter" },
+    note: "Heavier dark matter halos make galaxies merge sooner. A galaxy moving through a halo pulls a wake of dark matter behind it, and the wake's gravity drags it back (dynamical friction). More halo means more drag, so orbital energy is lost faster. Runs with no merger within 4 billion years are marked at the top. Without halos (see the 'No dark matter' preset) the galaxies usually fly apart again." },
+  { q: "Do any stars actually crash into each other?", base: 5, cfg: { mode: "repeat", n: 50, out: "coll", vary: "any" },
+    note: "Hardly ever. Stars are tiny compared with the space between them: the Sun is about 1.4 million km across, but the nearest star is 40 million million km away. Shrink the Sun to a grain of sand, and the next grain is 10 km away. So even when two galaxies of a hundred billion stars each pass through each other, only a handful of stars, if any, collide. The simulation's number varies with the orientation of the discs; the theory is a rough straight-line estimate." },
+];
+const B = { running: false, stop: false, results: [], cfg: null, base: null, baseName: "", prev: null, exp: null };
+function bFill() {
+  el("bExps").innerHTML = BEXP.map((e, k) => `<button data-k="${k}">${e.q}<small>${e.cfg.mode === "sweep" ? "Sweep" : "Repeat"} · base: ${PRESETS[e.base].name}</small></button>`).join("");
+  el("bExps").querySelectorAll("button").forEach(b => (b.onclick = () => bLoadExp(+b.dataset.k)));
+  el("bVar").innerHTML = BVARS.map(v => `<option value="${v.key}">${v.label}</option>`).join("");
+  el("bOut").innerHTML = BOUT.map(o => `<option value="${o.key}">${o.label}</option>`).join("");
+  el("bVary").innerHTML = Object.entries(BVARY).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+}
+function bSetBase(params, name) { B.base = params; B.baseName = name; el("bBase").innerHTML = `Base settings: <b>${name}</b>`; }
+function bLoadExp(k) {
+  const e = BEXP[k]; B.exp = e;
+  el("bExps").querySelectorAll("button").forEach((b, j) => b.classList.toggle("on", j === k));
+  const pr = PRESETS[e.base];
+  bSetBase(Object.assign({}, BASE, pr.s, { selfGrav: false, gas: false }), pr.name);
+  const c = e.cfg;
+  el("bMode").value = c.mode;
+  if (c.n) { if (![...el("bN").options].some(o => o.value === String(c.n))) el("bN").add(new Option(String(c.n))); el("bN").value = String(c.n); }
+  if (c.var) { el("bVar").value = c.var; el("bFrom").value = c.from; el("bTo").value = c.to; el("bSteps").value = c.steps; el("bReps").value = c.reps; }
+  el("bOut").value = c.out; el("bVary").value = c.vary;
+  bModeRows();
+  el("bTitle").textContent = e.q;
+  el("bNote").innerHTML = `<p>${e.note}</p>`;
+}
+function bModeRows() {
+  const sw = el("bMode").value === "sweep";
+  el("bSweepRows").style.display = sw ? "" : "none"; el("bRepeatRow").style.display = sw ? "none" : "";
+}
+function bJobs(cfg) {
+  const jobs = [];
+  if (cfg.mode === "repeat") for (let i = 0; i < cfg.n; i++) jobs.push({ i, x: null });
+  else for (let s = 0; s < cfg.steps; s++) {
+    const x = cfg.from + (cfg.to - cfg.from) * s / Math.max(1, cfg.steps - 1);
+    for (let r = 0; r < cfg.reps; r++) jobs.push({ i: s * cfg.reps + r, x });
+  }
+  return jobs;
+}
+function bRunOpts(cfg, base) {
+  const out = BOUT.find(o => o.key === cfg.out);
+  const mw = base.orbit === "mwm31";
+  return { nStars: out.stars ? 800 : 0, needMerge: !!out.merge, tMax: out.merge || out.key === "periT" || out.key === "periD" ? (mw ? 10000 : 4000) : (mw ? 10000 : 3000) };
+}
+function bStart() {
+  if (B.running) return;
+  const cfg = { mode: el("bMode").value, n: +el("bN").value, var: el("bVar").value, from: +el("bFrom").value, to: +el("bTo").value,
+                steps: Math.max(2, Math.min(20, +el("bSteps").value || 6)), reps: Math.max(1, Math.min(20, +el("bReps").value || 1)), out: el("bOut").value, vary: el("bVary").value };
+  if (B.results.length && B.cfg && B.cfg.mode === "repeat") B.prev = { cfg: B.cfg, vals: B.results.map(r => r[B.cfg.out]).filter(isFinite), label: el("bTitle").textContent };
+  B.cfg = cfg; B.results = []; B.running = true; B.stop = false; B.opts = bRunOpts(cfg, B.base);
+  B.theory = null;
+  const jobs = bJobs(cfg); let idx = 0;
+  el("bRun").disabled = true; el("bStop").disabled = false;
+  const t0 = performance.now();
+  const pump = () => {
+    const tc = performance.now();
+    while (idx < jobs.length && !B.stop && performance.now() - tc < 50) {
+      const job = jobs[idx++], seed = 1000 + job.i * 7919, rng = mulberry32(seed);
+      const p = Object.assign({}, B.base);
+      BVARY[cfg.vary].f(p, rng);
+      if (job.x != null) { p[cfg.var] = job.x; if (cfg.var === "tiltA") p.tiltB = job.x; if (cfg.var === "haloX") p.halo = job.x > 0; }
+      const r = runOnce(p, seed, B.opts);
+      r.x = job.x; r.seed = seed; r.vtan = p.vtan; r.tiltA = p.tiltA; r.tiltB = p.tiltB;
+      B.results.push(r);
+    }
+    el("bProg").firstElementChild.style.width = `${100 * idx / jobs.length}%`;
+    el("bInfo").textContent = `${idx} of ${jobs.length} runs · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+    bDraw();
+    if (idx < jobs.length && !B.stop) setTimeout(pump, 0);
+    else { B.running = false; el("bRun").disabled = false; el("bStop").disabled = true; bDraw(); }
+  };
+  pump();
+}
+function stats(v) {
+  const n = v.length; if (!n) return null;
+  const mean = v.reduce((a, b) => a + b, 0) / n;
+  const sd = n > 1 ? Math.sqrt(v.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1)) : 0;
+  return { n, mean, sd, se: sd / Math.sqrt(n), min: Math.min(...v), max: Math.max(...v) };
+}
+function fmtN(x) { if (!isFinite(x)) return "–"; const a = Math.abs(x); return a === 0 ? "0" : a < 0.01 || a >= 1e5 ? x.toExponential(2) : a < 1 ? x.toFixed(3) : a < 100 ? x.toFixed(2) : x.toFixed(0); }
+function bDraw() {
+  const cv = el("bChart"), dpr = sizeCanvas(cv), W = cv.width, H = cv.height, ctx = cv.getContext("2d");
+  ctx.fillStyle = "#070906"; ctx.fillRect(0, 0, W, H);
+  ctx.font = `${12 * dpr}px system-ui`;
+  const cfg = B.cfg;
+  if (!cfg) { ctx.fillStyle = "#a3ab96"; ctx.textAlign = "center"; ctx.fillText("Pick a batch experiment on the left, or set up your own, then press Run.", W / 2, H / 2); el("bSummary").innerHTML = ""; return; }
+  const out = BOUT.find(o => o.key === cfg.out);
+  const vals = B.results.map(r => r[cfg.out]);
+  const L = 62 * dpr, R = 18 * dpr, T = 30 * dpr, Bm = 46 * dpr;
+  const theoryBase = out.theory ? out.theory(B.base) : null;
+  let summ = [];
+  if (cfg.mode === "repeat") {
+    const v = vals.filter(isFinite), s = stats(v);
+    const prev = B.prev && B.prev.cfg.out === cfg.out ? B.prev.vals : null;
+    let lo = Math.min(...v, ...(prev || []), theoryBase != null ? theoryBase : Infinity), hi = Math.max(...v, ...(prev || []), theoryBase != null ? theoryBase : -Infinity);
+    if (!isFinite(lo)) { lo = 0; hi = 1; }
+    if (hi - lo < 1e-9) { lo -= 0.5 * Math.abs(lo) + 0.5; hi += 0.5 * Math.abs(hi) + 0.5; }
+    const pad = (hi - lo) * 0.06; lo -= pad; hi += pad;
+    const nb = Math.max(8, Math.min(30, Math.round(Math.sqrt(Math.max(1, v.length)) * 1.5)));
+    const counts = new Array(nb).fill(0), pc = new Array(nb).fill(0);
+    v.forEach(x => counts[Math.min(nb - 1, Math.floor((x - lo) / (hi - lo) * nb))]++);
+    if (prev) prev.forEach(x => pc[Math.max(0, Math.min(nb - 1, Math.floor((x - lo) / (hi - lo) * nb)))]++);
+    const prevScale = prev && prev.length ? Math.max(1, v.length) / prev.length : 1;
+    const cMax = Math.max(1, ...counts, ...pc.map(c => c * prevScale)) * 1.1;
+    const X = x => L + (x - lo) / (hi - lo) * (W - L - R), Y = c => H - Bm - c / cMax * (H - T - Bm);
+    axes(ctx, dpr, W, H, L, R, T, Bm, lo, hi, 0, cMax, out.label, "number of runs");
+    ctx.fillStyle = "rgba(241,175,40,0.75)";
+    counts.forEach((c, k) => { const x0 = X(lo + k * (hi - lo) / nb), x1 = X(lo + (k + 1) * (hi - lo) / nb); ctx.fillRect(x0 + 1, Y(c), x1 - x0 - 2, H - Bm - Y(c)); });
+    if (prev) {
+      ctx.strokeStyle = "rgba(220,220,220,0.75)"; ctx.lineWidth = 1.5 * dpr; ctx.beginPath();
+      pc.forEach((c, k) => { const x0 = X(lo + k * (hi - lo) / nb), x1 = X(lo + (k + 1) * (hi - lo) / nb), y = Y(c * prevScale); k ? ctx.lineTo(x0, y) : ctx.moveTo(x0, H - Bm); ctx.lineTo(x0, y); ctx.lineTo(x1, y); });
+      ctx.lineTo(X(hi), H - Bm); ctx.stroke();
+    }
+    if (theoryBase != null && isFinite(theoryBase)) { ctx.strokeStyle = "#5fd3e6"; ctx.lineWidth = 2.5 * dpr; ctx.beginPath(); ctx.moveTo(X(theoryBase), T); ctx.lineTo(X(theoryBase), H - Bm); ctx.stroke(); }
+    if (s) { ctx.strokeStyle = "#fff"; ctx.setLineDash([5 * dpr, 4 * dpr]); ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.moveTo(X(s.mean), T); ctx.lineTo(X(s.mean), H - Bm); ctx.stroke(); ctx.setLineDash([]); }
+    legend(ctx, dpr, L, 8 * dpr, [["rgba(241,175,40,0.85)", "this batch"], ["#fff", "mean"], ...(theoryBase != null ? [["#5fd3e6", "theory: " + out.theoryName]] : []), ...(prev ? [["rgba(220,220,220,0.75)", "previous batch (scaled)"]] : [])]);
+    const missing = vals.length - v.length;
+    summ = [["Runs (n)", s ? s.n : 0, missing ? `${missing} with no value (e.g. no merger)` : ""], ["Mean", s ? fmtN(s.mean) : "–", ""], ["SD", s ? fmtN(s.sd) : "–", "spread"],
+            ["Std error", s ? fmtN(s.se) : "–", "SD ÷ √n"], ["Min – max", s ? `${fmtN(s.min)} – ${fmtN(s.max)}` : "–", ""],
+            ["Theory", theoryBase != null ? fmtN(theoryBase) : "none", theoryBase != null && s ? `diff ${theoryBase !== 0 ? fmtN(100 * (s.mean - theoryBase) / theoryBase) + "%" : fmtN(s.mean - theoryBase)} = ${s.se > 0 ? fmtN((s.mean - theoryBase) / s.se) + " SE" : "exact"}` : ""]];
+    if (cfg.out === "mergeT") summ[0][2] = `merged within ${B.opts.tMax / 1000} Gyr: ${vals.length ? Math.round(100 * v.length / vals.length) : 0}%`;
+  } else {
+    const groups = new Map();
+    B.results.forEach(r => { if (!groups.has(r.x)) groups.set(r.x, []); groups.get(r.x).push(r[cfg.out]); });
+    const xs = [...groups.keys()];
+    const allV = B.results.map(r => r[cfg.out]).filter(isFinite);
+    const thFn = out.theory ? x => { const p = Object.assign({}, B.base); p[cfg.var] = x; if (cfg.var === "tiltA") p.tiltB = x; return out.theory(p); } : null;
+    const thPts = thFn ? Array.from({ length: 60 }, (_, k) => { const x = cfg.from + (cfg.to - cfg.from) * k / 59; return [x, thFn(x)]; }).filter(q => q[1] != null && isFinite(q[1])) : [];
+    let yLo = Math.min(0, ...allV, ...thPts.map(q => q[1])), yHi = Math.max(...allV, ...thPts.map(q => q[1]), 1e-9) * 1.12;
+    const xlo = Math.min(cfg.from, cfg.to), xhi = Math.max(cfg.from, cfg.to), xp = (xhi - xlo) * 0.05 || 1;
+    const X = x => L + (x - xlo + xp) / (xhi - xlo + 2 * xp) * (W - L - R), Y = y => H - Bm - (y - yLo) / (yHi - yLo) * (H - T - Bm);
+    axes(ctx, dpr, W, H, L, R, T, Bm, xlo - xp, xhi + xp, yLo, yHi, BVARS.find(v => v.key === cfg.var).label, out.label);
+    if (thPts.length) { ctx.strokeStyle = "#5fd3e6"; ctx.lineWidth = 2.5 * dpr; ctx.beginPath(); thPts.forEach((q, k) => k ? ctx.lineTo(X(q[0]), Y(q[1])) : ctx.moveTo(X(q[0]), Y(q[1]))); ctx.stroke(); }
+    const means = [];
+    for (const x of xs) {
+      const g = groups.get(x), v = g.filter(isFinite), s = stats(v);
+      ctx.fillStyle = "rgba(241,175,40,0.35)";
+      v.forEach(y => { ctx.beginPath(); ctx.arc(X(x) + (Math.random() - 0.5) * 6 * dpr, Y(y), 2.5 * dpr, 0, 2 * Math.PI); ctx.fill(); });
+      if (g.length - v.length) { ctx.fillStyle = "#e4572e"; ctx.textAlign = "center"; ctx.fillText(`✕${g.length - v.length}`, X(x), T + 12 * dpr); }
+      if (s) {
+        means.push([x, s.mean]);
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.moveTo(X(x), Y(s.mean - s.sd)); ctx.lineTo(X(x), Y(s.mean + s.sd));
+        ctx.moveTo(X(x) - 5 * dpr, Y(s.mean - s.sd)); ctx.lineTo(X(x) + 5 * dpr, Y(s.mean - s.sd)); ctx.moveTo(X(x) - 5 * dpr, Y(s.mean + s.sd)); ctx.lineTo(X(x) + 5 * dpr, Y(s.mean + s.sd)); ctx.stroke();
+        ctx.fillStyle = "#f1af28"; ctx.beginPath(); ctx.arc(X(x), Y(s.mean), 4.5 * dpr, 0, 2 * Math.PI); ctx.fill();
+      }
+    }
+    legend(ctx, dpr, L, 8 * dpr, [["rgba(241,175,40,0.6)", "single runs"], ["#f1af28", "mean ± 1 SD"], ...(thPts.length ? [["#5fd3e6", "theory: " + out.theoryName]] : []), ...(B.results.some(r => !isFinite(r[cfg.out])) ? [["#e4572e", "✕ = no value (e.g. no merger)"]] : [])]);
+    // straight-line fit to the means
+    let fit = "–";
+    if (means.length >= 2) {
+      const n = means.length, mx = means.reduce((a, q) => a + q[0], 0) / n, my = means.reduce((a, q) => a + q[1], 0) / n;
+      const sxy = means.reduce((a, q) => a + (q[0] - mx) * (q[1] - my), 0), sxx = means.reduce((a, q) => a + (q[0] - mx) ** 2, 0);
+      fit = fmtN(sxy / sxx);
+    }
+    let dev = [];
+    if (thFn) means.forEach(([x, m]) => { const t = thFn(x); if (t) dev.push(Math.abs(m - t)); });
+    summ = [["Steps", xs.length, `${cfg.reps} repeats each`], ["Runs", B.results.length, ""], ["Fitted slope", fit, "change per unit of x (straight line)"],
+            ["Lowest mean", means.length ? fmtN(Math.min(...means.map(q => q[1]))) : "–", ""], ["Highest mean", means.length ? fmtN(Math.max(...means.map(q => q[1]))) : "–", ""],
+            ["Theory", thPts.length ? "blue line" : "none", dev.length ? `mean |sim − theory| ${fmtN(dev.reduce((a, b) => a + b, 0) / dev.length)}` : ""]];
+  }
+  el("bSummary").innerHTML = summ.map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s || ""}</div></div>`).join("");
+  // CSV
+  const cols = ["run", "seed", "x", "strip", "tail", "esc", "mergeT", "periT", "periD", "coll", "vtan", "tiltA", "tiltB"];
+  const head = ["run", "seed", cfg.mode === "sweep" ? cfg.var : "x", "stripped_pct", "tail_pct", "escaping_pct", "merger_time_Gyr", "first_pass_Gyr", "closest_kpc", "star_collisions", "vtan_kms", "tiltA_deg", "tiltB_deg"];
+  const rows = B.results.map((r, k) => cols.map(c => c === "run" ? k + 1 : r[c] == null || (typeof r[c] === "number" && !isFinite(r[c])) ? "" : r[c]).join(","));
+  const blob = new Blob([head.join(",") + "\n" + rows.join("\n")], { type: "text/csv" });
+  if (B.csvUrl) URL.revokeObjectURL(B.csvUrl);
+  B.csvUrl = URL.createObjectURL(blob); el("bCsv").href = B.csvUrl;
+}
+function fmtTick(v) { const a = Math.abs(v); return a !== 0 && (a < 1e-3 || a >= 1e6) ? v.toExponential(1) : String(Number(v.toPrecision(6))); }
+function niceTicks(lo, hi, n) {
+  const span = hi - lo, raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / mag;
+  const st = (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * mag, out = [];
+  for (let v = Math.ceil(lo / st) * st; v <= hi + 1e-9; v += st) out.push(Math.abs(v) < st * 1e-6 ? 0 : v);
+  return out;
+}
+function axes(ctx, dpr, W, H, L, R, T, Bm, xlo, xhi, ylo, yhi, xl, yl) {
+  ctx.strokeStyle = "rgba(160,170,150,0.18)"; ctx.fillStyle = "#a3ab96"; ctx.lineWidth = 1; ctx.font = `${11 * dpr}px system-ui`;
+  const X = x => L + (x - xlo) / (xhi - xlo) * (W - L - R), Y = y => H - Bm - (y - ylo) / (yhi - ylo) * (H - T - Bm);
+  ctx.textAlign = "center";
+  for (const v of niceTicks(xlo, xhi, 8)) { ctx.beginPath(); ctx.moveTo(X(v), T); ctx.lineTo(X(v), H - Bm); ctx.stroke(); ctx.fillText(fmtTick(v), X(v), H - Bm + 14 * dpr); }
+  ctx.textAlign = "right";
+  for (const v of niceTicks(ylo, yhi, 6)) { ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(W - R, Y(v)); ctx.stroke(); ctx.fillText(fmtTick(v), L - 5 * dpr, Y(v) + 4 * dpr); }
+  ctx.strokeStyle = "#a3ab96"; ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, H - Bm); ctx.lineTo(W - R, H - Bm); ctx.stroke();
+  ctx.fillStyle = "#dfe3d6"; ctx.font = `${12.5 * dpr}px system-ui`; ctx.textAlign = "center"; ctx.fillText(xl, (L + W - R) / 2, H - 12 * dpr);
+  ctx.save(); ctx.translate(16 * dpr, (T + H - Bm) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(yl, 0, 0); ctx.restore();
+}
+function legend(ctx, dpr, x, y, items) {
+  ctx.font = `${11.5 * dpr}px system-ui`; ctx.textAlign = "left";
+  for (const [c, t] of items) { ctx.fillStyle = c; ctx.fillRect(x, y + 3 * dpr, 14 * dpr, 8 * dpr); ctx.fillStyle = "#dfe3d6"; ctx.fillText(t, x + 18 * dpr, y + 11 * dpr); x += ctx.measureText(t).width + 34 * dpr; }
+}
+bFill();
+el("btnBatch").onclick = () => { el("batch").classList.add("open"); setRunning(false); if (!B.exp) bLoadExp(0); bDraw(); };
+el("bClose").onclick = () => { B.stop = true; el("batch").classList.remove("open"); };
+el("bRun").onclick = bStart;
+el("bStop").onclick = () => { B.stop = true; };
+el("bMode").onchange = bModeRows;
+el("bOut").onchange = () => { if (B.cfg) { B.cfg.out = el("bOut").value; bDraw(); } };
+el("bUseCurrent").onclick = () => { const p = readParams(); bSetBase(Object.assign(p, { selfGrav: false, gas: false }), "current left-panel settings"); B.exp = null; el("bExps").querySelectorAll("button").forEach(b => b.classList.remove("on")); el("bTitle").textContent = "Your own batch run"; };
+el("bVar").onchange = () => { const v = BVARS.find(q => q.key === el("bVar").value); el("bFrom").value = v.from; el("bTo").value = v.to; };
+window.addEventListener("keydown", e => { if (e.key === "Escape" && el("batch").classList.contains("open")) el("bClose").click(); });
+
+/* =====================================================================
+   14. PANEL LAYOUT — resize or hide the side panels
+   ===================================================================== */
+(function () {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const KEY = "galaxy-collisions-layout", STRIP = 30, MIN = 200, DEF = { lw: 290, rw: 330, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+})();
+
+window.GC = { runOnce, buildSim, step, measure, theoryStrip, theoryCollisions, PRESETS, BASE, setPreset, get sim() { return sim; }, B, bLoadExp, bStart, expectedCollisions, relState };
+setPreset(0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

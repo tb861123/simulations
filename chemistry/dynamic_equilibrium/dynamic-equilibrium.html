@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dynamic Equilibrium</title>
+<!--
+  DYNAMIC EQUILIBRIUM AND LE CHATELIER'S PRINCIPLE — a teaching model
+  ===================================================================
+  One self-contained file: no libraries, no internet needed.
+
+  Particles fly around a 2D box and react BOTH ways:
+    • a reaction step that needs two particles happens when they collide with
+      energy along the line of centres ≥ Ea (collision theory);
+    • a step that needs one particle (A → B, N₂O₄ → 2NO₂) happens at random with
+      chance k = ν e^(−Ea/RT) per picosecond.
+  Forward and reverse steps have their own activation energies, so
+      ΔH = Ea(forward) − Ea(reverse)
+  and the temperature dependence of K comes out of the model by itself.
+  At equilibrium the forward and reverse rates are equal and
+      Kc = k(forward) / k(reverse).
+
+  Reactions: A ⇌ B; 2NO₂ ⇌ N₂O₄; H₂ + I₂ ⇌ 2HI; N₂ + 3H₂ ⇌ 2NH₃ (Haber).
+  Units: nm, ps, kJ/mol, K. Concentrations are particles per 100 nm².
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 330px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: var(--ink-dark); }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  .chk { display: block; font-size: 13px; margin: 0 0 8px; }
+  .chk input { accent-color: var(--accent); }
+  select, input[type=number], input[type=text] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #viewWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .legend i.ln { height: 3px; vertical-align: 3px; border-radius: 0; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .chartBox { position: relative; height: 170px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+  .tabs { display: flex; gap: 3px; margin-bottom: 4px; }
+  .tabs button { padding: 2px 8px; font-size: 11.5px; }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+
+  /* Batch run overlay */
+  #batch { display: none; position: fixed; left: 10px; right: 10px; top: 52px; bottom: 10px; z-index: 50; background: var(--panel); border: 1px solid var(--accent);
+           border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.75); padding: 12px; gap: 12px; grid-template-columns: 330px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  #batch.open { display: grid; }
+  #bLeft { overflow-y: auto; min-height: 0; padding-right: 4px; }
+  #bRight { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
+  #bHead { display: flex; gap: 10px; align-items: baseline; }
+  #bHead h2 { margin: 0; font-size: 15px; color: var(--accent); text-transform: none; letter-spacing: 0; }
+  #bHead .sp { flex: 1; }
+  #bExps { display: flex; flex-direction: column; gap: 4px; }
+  #bExps button { text-align: left; font-size: 12.5px; padding: 5px 8px; font-weight: 600; }
+  #bExps button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  #bExps button.on small { color: var(--ink-dark); }
+  .bform { display: grid; grid-template-columns: auto 1fr; gap: 5px 8px; align-items: center; font-size: 12.5px; margin-top: 6px; }
+  .bform select, .bform input { width: 100%; font-size: 12.5px; padding: 3px 5px; }
+  .bform .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+  .seg { display: inline-flex; gap: 3px; }
+  .seg button { padding: 3px 9px; font-size: 12.5px; }
+  #bProg { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  #bProg span { display: block; height: 100%; width: 0; background: var(--accent); }
+  #bChartBox { position: relative; flex: 1; min-height: 220px; background: #10130e; border-radius: 8px; }
+  #bChart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bBottom { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 10px; max-height: 38%; min-height: 120px; }
+  #bSummary, #bNote { overflow: auto; font-size: 12.5px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; }
+  #bSummary table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #bSummary td, #bSummary th { padding: 1px 6px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  #bSummary th { color: var(--muted); font-weight: 600; }
+  #bSummary td:first-child, #bSummary th:first-child { text-align: left; }
+  #bNote b { color: var(--text); }
+  #bNote p { margin: 4px 0; }
+  .fitline { color: var(--accent); font-weight: 700; }
+  a.dl { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Dynamic Equilibrium</h1>
+  <span class="sub">Reversible reactions keep going both ways at equilibrium. Change the temperature, pressure or amounts and watch the position of equilibrium shift (Le Chatelier).</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: PRESETS AND CONTROLS ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">Reaction</h2>
+    <div class="ctl"><select id="sys">
+      <option value="AB">A ⇌ B (one particle changes shape)</option>
+      <option value="NO2">2NO₂ ⇌ N₂O₄ (brown ⇌ colourless)</option>
+      <option value="HI">H₂ + I₂ ⇌ 2HI</option>
+      <option value="NH3">Haber process: N₂ + 3H₂ ⇌ 2NH₃</option>
+    </select></div>
+    <div class="hint" id="sysInfo" style="margin:-4px 0 8px"></div>
+
+    <h2 class="gap">Conditions <span class="live">change at once</span></h2>
+    <div class="ctl"><label>Temperature <output id="o_T"></output></label><input type="range" id="T" min="250" max="1000" step="1" value="400"></div>
+    <div class="ctl"><label>Volume (piston) <output id="o_vol"></output></label><input type="range" id="vol" min="25" max="100" step="1" value="100">
+      <div class="hint">A smaller volume means a higher pressure.</div></div>
+    <label class="chk"><input type="checkbox" id="cat"> Add a catalyst</label>
+
+    <h2 class="gap">Add or remove particles</h2>
+    <div id="addRemove"></div>
+
+    <h2 class="gap">Isotope labelling</h2>
+    <div class="row"><button id="btnTag" style="flex:1">Label 10 particles</button><button id="btnUntag">Clear</button></div>
+    <div class="hint" style="margin-top:4px">Labelled particles get a yellow ring. Labelled atoms stay labelled when they react, so you can see where they go.</div>
+
+    <h2 class="gap">Starting mixture <span class="hint" style="text-transform:none;letter-spacing:0">(restarts)</span></h2>
+    <div class="ctl"><label>Amount <output id="o_amount"></output></label><input type="range" id="amount" min="25" max="200" step="5" value="100"></div>
+    <div class="ctl"><label>Start with</label><select id="startFrom"><option value="reactants">only reactants</option><option value="products">only products</option></select></div>
+    <div class="ctl"><label>Random seed</label><input type="text" id="seed" value="1" style="width:100%"></div>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Particles</b> are hard discs in a flat (2D) box 40 nm × 25 nm. In the physics every particle has radius 0.3 nm and mass 30 g/mol; they are drawn as different molecules. Speeds follow the Maxwell–Boltzmann spread for the temperature.</li>
+        <li><b>Two-particle steps</b> (2NO₂ → N₂O₄, H₂ + I₂ → 2HI, 2HI → H₂ + I₂, N₂ + H₂…, 2NH₃ → …) happen on a collision whose energy along the line of centres (½μv²) is at least the activation energy. For 2HI → H₂ + I₂ only 1 in 5 such collisions is the right way round.</li>
+        <li><b>One-particle steps</b> (A → B, B → A, N₂O₄ → 2NO₂) happen at random: each particle has chance k = ν e<sup>−Ea/RT</sup> per picosecond. The new NO₂ appears right next to the old one, flying apart.</li>
+        <li><b>Haber:</b> N₂ has to meet three H₂ at once, which is too rare to simulate directly. When N₂ hits an H₂ with enough energy, the chance that two more H₂ are close enough is taken as ([H₂] ÷ 1 per nm²)². The two nearest H₂ are used up. Real ammonia is made on an iron catalyst in several steps.</li>
+        <li><b>Energies (kJ/mol):</b> A ⇌ B: Ea 12 forward, 18 back (ΔH = −6). NO₂: 2 and 27 (ΔH = −25; real −57). HI: 14 and 23.4 (ΔH = −9.4, close to the real value). Haber: 5 and 28 (ΔH = −23; real −92). Energies are scaled down where needed so that both directions happen often enough to watch.</li>
+        <li><b>Catalyst:</b> lowers both activation energies by the same amount, so forward and reverse speed up by the same factor. K and the yield do not change.</li>
+        <li><b>Theory:</b> at equilibrium forward rate = reverse rate, so Kc = k<sub>forward</sub> ÷ k<sub>reverse</sub>. For collisions k = 2d × v̄<sub>rel</sub> × g × P × e<sup>−Ea/RT</sup> (halved for two identical particles), with v̄<sub>rel</sub> = √(πRT/2μ) and g a small crowding correction. ln K against 1/T is a straight line with gradient −ΔH/R (van 't Hoff).</li>
+        <li><b>Measured Kc</b> uses the average amounts over the last 300 ps. It is only Kc once the mixture is at equilibrium; before that it is the reaction quotient Q.</li>
+        <li><b>Water bath:</b> an unreactive solvent (not drawn) bumps each particle about once every 3 ps, keeping the temperature steady and the speed spread right. Heat from the reaction is taken away at once.</li>
+        <li><b>Pressure</b> for the Haber process is shown in scaled atmospheres: about 200 atm for the preset. With only a few hundred particles, amounts and Kc jiggle about: real vessels have about 10²³ particles, so their equilibria look perfectly steady.</li>
+        <li><b>Not modelled:</b> 3D motion, attractions between particles, heat from the reaction changing the temperature, and different sizes and masses of molecules.</li>
+      </ul>
+    </details>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">0 ps</span>
+      <span id="status" class="stat"></span>
+      <span class="stat">Kc measured <b id="s_K">–</b></span>
+      <span class="stat">theory <b id="s_Kth">–</b></span>
+      <span class="stat">Yield <b id="s_Y">–</b></span>
+    </div>
+    <div id="viewWrap"><canvas id="view" aria-label="Particles reacting both ways in a box"></canvas></div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">▶ Play</button>
+      <button id="btnReset" title="Start again with the starting mixture">↺ Reset</button>
+      <span class="speed">Speed <button data-s="0.25">¼×</button><button data-s="1" class="on">1×</button><button data-s="4">4×</button><button data-s="15">15×</button></span>
+      <span class="hint" id="speedNote"></span>
+      <span style="flex:1"></span>
+      <button id="btnBatch" title="Run the model many times and compare with theory">📊 Batch run</button>
+    </div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readings</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">Readings</h2>
+    <div class="tiles" id="tiles"></div>
+    <h2 class="gap">Amounts</h2>
+    <div class="chartBox"><canvas id="chartA"></canvas></div>
+    <h2 class="gap">Forward and reverse rates</h2>
+    <div class="chartBox" style="height:150px"><canvas id="chartR"></canvas></div>
+    <h2 class="gap">Q compared with K</h2>
+    <div class="chartBox" style="height:150px"><canvas id="chartQ"></canvas></div>
+    <div class="hint">Q is worked out from the amounts right now. Below K, the reaction goes forwards overall; above K, backwards. At equilibrium Q jiggles around K.</div>
+    <h2 class="gap">Energy profile</h2>
+    <div class="chartBox" style="height:140px"><canvas id="chartE"></canvas></div>
+  </section>
+</main>
+<!-- ======================= BATCH RUN OVERLAY ======================= -->
+<section id="batch" role="dialog" aria-label="Batch run">
+  <div id="bLeft">
+    <h2>Batch experiments</h2>
+    <div id="bExps"></div>
+    <h2 class="gap">Set up your own</h2>
+    <div class="bform">
+      <span>Mode</span>
+      <span class="seg"><button id="bModeRepeat" class="on">Repeat</button><button id="bModeSweep">Sweep</button></span>
+      <span class="repOnly">Runs</span>
+      <select class="repOnly" id="bN"></select>
+      <span class="swOnly">Vary</span>
+      <select class="swOnly" id="bVar"></select>
+      <span class="swOnly">From · to · steps</span>
+      <span class="swOnly three"><input type="number" id="bFrom" step="any"><input type="number" id="bTo" step="any"><input type="number" id="bSteps" min="2" max="25" step="1"></span>
+      <span class="swOnly">Repeats per step</span>
+      <input class="swOnly" type="number" id="bReps" min="1" max="200" step="1">
+      <span>Record</span>
+      <select id="bOut"></select>
+      <span class="swOnly">x axis</span>
+      <select class="swOnly" id="bX"><option value="lin">linear</option><option value="log">log scale</option><option value="inv">1 / x</option></select>
+      <span class="swOnly">y axis</span>
+      <select class="swOnly" id="bY"><option value="lin">linear</option><option value="log">log scale</option><option value="ln">ln(y)</option></select>
+      <span class="swOnly">Plot</span>
+      <select class="swOnly" id="bStat"><option value="mean">mean ± 1 SD of repeats</option><option value="sd">SD (spread) of repeats</option></select>
+      <span>First seed</span>
+      <input type="number" id="bSeed" value="1" step="1">
+    </div>
+    <div class="hint" id="bFixed" style="margin-top:6px"></div>
+    <div class="row" style="margin-top:8px">
+      <button id="bRun" class="primary">▶ Run batch</button>
+      <button id="bStop" disabled>■ Stop</button>
+      <a id="bCsv" class="dl" href="#" style="display:none">Download CSV</a>
+    </div>
+    <div id="bProg" style="margin-top:8px"><span></span></div>
+    <div class="hint" id="bStatus" style="margin-top:4px">Pick an experiment, or set up your own, then press Run.</div>
+  </div>
+  <div id="bRight">
+    <div id="bHead"><h2 id="bTitle">Batch run</h2><span class="hint" id="bSub"></span><span class="sp"></span><button id="bClose">✕ Close</button></div>
+    <div id="bChartBox"><canvas id="bChart"></canvas></div>
+    <div id="bBottom"><div id="bSummary"><span class="hint">Results will appear here.</span></div><div id="bNote"></div></div>
+  </div>
+</section>
+<script>
+"use strict";
+/* =====================================================================
+   SHARED HELPERS: random numbers, statistics, charts
+   ===================================================================== */
+const el = id => document.getElementById(id);
+// Repeatable random numbers: the same seed always gives the same run.
+function hashSeed(str) { str = String(str); let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } return h >>> 0; }
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+// A normally distributed random number (mean 0, SD 1): the Box–Muller method
+function gauss(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+// A Poisson-distributed count with mean lam (how many random events happen in a time step)
+function poisson(rng, lam) {
+  if (lam <= 0) return 0;
+  if (lam > 40) return Math.max(0, Math.round(lam + Math.sqrt(lam) * gauss(rng)));
+  const L = Math.exp(-lam); let k = 0, p = 1;
+  do { k++; p *= rng(); } while (p > L);
+  return k - 1;
+}
+const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : NaN;
+function sd(a) { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); }
+// Least-squares straight line y = m x + c, with the standard error of the gradient
+function fitLine(xs, ys) {
+  const n = xs.length; if (n < 2) return null;
+  const mx = mean(xs), my = mean(ys);
+  let sxx = 0, sxy = 0, syy = 0;
+  for (let i = 0; i < n; i++) { sxx += (xs[i] - mx) ** 2; sxy += (xs[i] - mx) * (ys[i] - my); syy += (ys[i] - my) ** 2; }
+  if (sxx === 0) return null;
+  const m = sxy / sxx, c = my - m * mx;
+  let ss = 0; for (let i = 0; i < n; i++) ss += (ys[i] - m * xs[i] - c) ** 2;
+  return { m, c, r2: syy > 0 ? 1 - ss / syy : 1, se: n > 2 ? Math.sqrt(ss / (n - 2) / sxx) : 0, n };
+}
+// Format a number to about 3 significant figures, in a student-friendly way
+function fmt(v, sig = 3) {
+  if (v === null || v === undefined || Number.isNaN(v)) return "–";
+  if (!Number.isFinite(v)) return v > 0 ? "∞" : "−∞";
+  if (v === 0) return "0";
+  const a = Math.abs(v);
+  if (a >= 1e5 || a < 1e-3) { const e = Math.floor(Math.log10(a)); const m = v / 10 ** e; return `${(+m.toPrecision(sig)).toString()}×10${sup(e)}`; }
+  const d = Math.max(0, sig - 1 - Math.floor(Math.log10(a)));
+  return (+v.toFixed(Math.min(6, d))).toLocaleString("en-GB", { maximumFractionDigits: Math.min(6, d) }).replace("-", "−");
+}
+function sup(n) { const m = { "-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹" }; return String(n).split("").map(c => m[c] || c).join(""); }
+function niceStep(range, n) { const raw = range / n, p = 10 ** Math.floor(Math.log10(raw)), f = raw / p; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+function linTicks(a, b, n) { const s = niceStep(b - a || 1, n); const out = []; for (let v = Math.ceil(a / s - 1e-9) * s; v <= b + s * 1e-9; v += s) out.push(Math.abs(v) < s * 1e-9 ? 0 : v); return out; }
+function logTicks(a, b) {
+  const out = [], e0 = Math.floor(Math.log10(a)), e1 = Math.ceil(Math.log10(b)), dec = e1 - e0;
+  const mult = dec <= 1 ? [1, 2, 3, 5] : dec <= 3 ? [1, 2, 5] : [1];
+  const step = dec > 8 ? 2 : 1;
+  for (let e = e0; e <= e1; e += step) for (const m of mult) { const v = m * 10 ** e; if (v >= a * 0.999 && v <= b * 1.001) out.push(v); }
+  return out;
+}
+function prepCanvas(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(2, Math.round(c.clientWidth * dpr)), H = Math.max(2, Math.round(c.clientHeight * dpr));
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  const ctx = c.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: W / dpr, h: H / dpr, dpr };
+}
+/* A general-purpose x–y chart.
+   o.series: [{ pts: [[x, y], …], color, width, dash, type: "line" | "dots" | "bars" (pts [x0, x1, y]) , fill }]
+   o.err: [{ x, lo, hi, color }]   o.vLines / o.hLines: [{ v, color, label, dash }]   o.bands: [{ x0, x1, color }]
+   o.xLog, o.yLog: logarithmic axes.  o.legend: [{ color, label, dash, dot }] */
+function plot(c, o) {
+  const { ctx, w, h } = prepCanvas(c);
+  ctx.fillStyle = o.bg || "#10130e"; ctx.fillRect(0, 0, w, h);
+  const L = o.padL || 50, R = o.padR || 12, T = o.padT || 10, B = o.padB || 32;
+  // data ranges
+  let xs = [], ys = [];
+  for (const s of o.series || []) for (const p of s.pts) {
+    if (s.type === "bars") { xs.push(p[0], p[1]); ys.push(p[2]); } else { xs.push(p[0]); ys.push(p[1]); }
+  }
+  for (const e of o.err || []) { xs.push(e.x); ys.push(e.lo, e.hi); }
+  const ok = (v, lg) => Number.isFinite(v) && (!lg || v > 0);
+  xs = xs.filter(v => ok(v, o.xLog)); ys = ys.filter(v => ok(v, o.yLog));
+  for (const l of o.hLines || []) if (ok(l.v, o.yLog) && l.fit !== false) ys.push(l.v);
+  let x0 = o.xMin ?? Math.min(...xs), x1 = o.xMax ?? Math.max(...xs), y0 = o.yMin ?? Math.min(...ys), y1 = o.yMax ?? Math.max(...ys);
+  if (!Number.isFinite(x0) || !Number.isFinite(x1)) { x0 = o.xLog ? 1 : 0; x1 = o.xLog ? 10 : 1; }
+  if (!Number.isFinite(y0) || !Number.isFinite(y1)) { y0 = o.yLog ? 1 : 0; y1 = o.yLog ? 10 : 1; }
+  if (x1 <= x0) { if (o.xLog) { x0 /= 2; x1 *= 2; } else { x0 -= 0.5; x1 += 0.5; } }
+  if (y1 <= y0) { if (o.yLog) { y0 /= 2; y1 *= 2; } else { y0 -= Math.abs(y0) * 0.1 + 0.5; y1 += Math.abs(y1) * 0.1 + 0.5; } }
+  if (!o.yLog && o.yMin === undefined && o.yMax === undefined) { const p = (y1 - y0) * 0.06; y0 -= p; y1 += p; }
+  else if (!o.yLog && o.yMax === undefined) y1 += (y1 - y0) * 0.06;
+  if (o.yLog && o.yMin === undefined) { y0 /= 1.25; y1 *= 1.25; }
+  if (o.xPad && !o.xLog) { const p = (x1 - x0) * o.xPad; x0 -= p; x1 += p; }
+  if (o.xPad && o.xLog) { x0 /= 1.15; x1 *= 1.15; }
+  const tx = v => o.xLog ? Math.log10(v) : v, ty = v => o.yLog ? Math.log10(v) : v;
+  const X = v => L + (tx(v) - tx(x0)) / (tx(x1) - tx(x0)) * (w - L - R);
+  const Y = v => h - B - (ty(v) - ty(y0)) / (ty(y1) - ty(y0)) * (h - T - B);
+  ctx.font = "10.5px system-ui"; ctx.lineWidth = 1;
+  // shaded bands
+  for (const b of o.bands || []) { ctx.fillStyle = b.color; const a = Math.max(L, X(Math.max(b.x0, x0))), z = Math.min(w - R, X(Math.min(b.x1, x1))); if (z > a) ctx.fillRect(a, T, z - a, h - T - B); }
+  // grid and tick labels
+  const yt = o.yLog ? logTicks(y0, y1) : linTicks(y0, y1, Math.max(2, Math.floor((h - T - B) / 32)));
+  const xt = o.xLog ? logTicks(x0, x1) : linTicks(x0, x1, Math.max(2, Math.floor((w - L - R) / 70)));
+  ctx.strokeStyle = "rgba(160,170,150,0.14)"; ctx.fillStyle = "#a3ab96";
+  ctx.textAlign = "right";
+  for (const v of yt) { const y = Y(v); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke(); ctx.fillText(fmt(v, 3), L - 4, y + 3.5); }
+  ctx.textAlign = "center";
+  let lastX = -1e9;
+  for (const v of xt) { const x = X(v); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, h - B); ctx.stroke(); const s = (o.xFmt || fmt)(v, 3); const tw = ctx.measureText(s).width; if (x - tw / 2 > lastX + 4) { ctx.fillText(s, x, h - B + 13); lastX = x + tw / 2; } }
+  ctx.strokeStyle = "rgba(200,205,190,0.5)"; ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, h - B); ctx.lineTo(w - R, h - B); ctx.stroke();
+  // axis titles
+  ctx.fillStyle = "#c9cfbd"; ctx.font = "11px system-ui";
+  if (o.xLabel) { ctx.textAlign = "center"; ctx.fillText(o.xLabel, (L + w - R) / 2, h - 5); }
+  if (o.yLabel) { ctx.save(); ctx.translate(11, (T + h - B) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText(o.yLabel, 0, 0); ctx.restore(); }
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T - 2, w - L - R, h - T - B + 4); ctx.clip();
+  // series
+  for (const s of o.series || []) {
+    ctx.strokeStyle = s.color; ctx.fillStyle = s.color; ctx.lineWidth = s.width || 2; ctx.setLineDash(s.dash || []);
+    if (s.type === "bars") {
+      for (const [a, b, v] of s.pts) { if (!ok(v, o.yLog)) continue; const yb = o.yLog ? h - B : Y(Math.max(y0, 0)); ctx.fillStyle = s.colorFn ? s.colorFn(a, b, v) : s.color; ctx.fillRect(X(a) + 0.5, Y(v), Math.max(1, X(b) - X(a) - 1), yb - Y(v)); }
+    } else if (s.type === "dots") {
+      const r = s.r || 3;
+      for (const [x, y] of s.pts) if (ok(x, o.xLog) && ok(y, o.yLog)) { ctx.beginPath(); ctx.arc(X(x), Y(y), r, 0, 7); ctx.fill(); }
+    } else {
+      ctx.beginPath(); let on = false;
+      for (const [x, y] of s.pts) { if (!ok(x, o.xLog) || !ok(y, o.yLog)) { on = false; continue; } if (on) ctx.lineTo(X(x), Y(y)); else ctx.moveTo(X(x), Y(y)); on = true; }
+      if (s.fill && s.pts.length) { ctx.save(); ctx.lineTo(X(s.pts[s.pts.length - 1][0]), h - B); ctx.lineTo(X(s.pts[0][0]), h - B); ctx.closePath(); ctx.fillStyle = s.fill; ctx.fill(); ctx.restore(); ctx.beginPath(); on = false; for (const [x, y] of s.pts) { if (!ok(y, o.yLog)) { on = false; continue; } if (on) ctx.lineTo(X(x), Y(y)); else ctx.moveTo(X(x), Y(y)); on = true; } }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+  for (const e of o.err || []) {
+    if (!ok(e.x, o.xLog)) continue; const lo = o.yLog ? Math.max(e.lo, y0) : e.lo;
+    ctx.strokeStyle = e.color || "#eee"; ctx.lineWidth = 1.5; const x = X(e.x);
+    ctx.beginPath(); ctx.moveTo(x, Y(lo)); ctx.lineTo(x, Y(e.hi)); ctx.moveTo(x - 4, Y(lo)); ctx.lineTo(x + 4, Y(lo)); ctx.moveTo(x - 4, Y(e.hi)); ctx.lineTo(x + 4, Y(e.hi)); ctx.stroke();
+  }
+  ctx.restore();
+  ctx.font = "10.5px system-ui";
+  for (const l of o.vLines || []) { if (!ok(l.v, o.xLog) || l.v < x0 || l.v > x1) continue; const x = X(l.v); ctx.strokeStyle = l.color; ctx.lineWidth = l.width || 1.5; ctx.setLineDash(l.dash || []); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, h - B); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color; ctx.textAlign = x > (L + w) / 2 ? "right" : "left"; ctx.fillText(l.label, x + (x > (L + w) / 2 ? -4 : 4), T + 11 + (l.row || 0) * 12); } }
+  for (const l of o.hLines || []) { if (!ok(l.v, o.yLog) || l.v < y0 || l.v > y1) continue; const y = Y(l.v); ctx.strokeStyle = l.color; ctx.lineWidth = l.width || 1.5; ctx.setLineDash(l.dash || []); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color; ctx.textAlign = "right"; ctx.fillText(l.label, w - R - 4, y - 4); } }
+  // legend (top-left inside the plot, or top-right if asked)
+  if (o.legend && o.legend.length && o.legendRow) {
+    // one row of legend items above the plot area
+    ctx.font = "11px system-ui"; ctx.textAlign = "left"; let lx = L;
+    for (const g of o.legend) {
+      const y = 9; ctx.strokeStyle = g.color; ctx.fillStyle = g.color; ctx.lineWidth = 2;
+      if (g.dot) { ctx.beginPath(); ctx.arc(lx + 10, y, 3.5, 0, 7); ctx.fill(); }
+      else if (g.box) ctx.fillRect(lx + 3, y - 5, 14, 10);
+      else { ctx.setLineDash(g.dash || []); ctx.beginPath(); ctx.moveTo(lx, y); ctx.lineTo(lx + 20, y); ctx.stroke(); ctx.setLineDash([]); }
+      ctx.fillStyle = "#dfe3d6"; ctx.fillText(g.label, lx + 26, y + 4); lx += 26 + ctx.measureText(g.label).width + 18;
+    }
+  } else if (o.legend && o.legend.length) {
+    ctx.font = "11px system-ui"; ctx.textAlign = "left";
+    const lw = Math.max(...o.legend.map(g => ctx.measureText(g.label).width)) + 30, lh = 15;
+    const lx = o.legendRight ? w - R - lw - 6 : L + 6, ly = T + 4;
+    ctx.fillStyle = "rgba(16,19,14,0.85)"; ctx.fillRect(lx - 3, ly - 2, lw + 6, o.legend.length * lh + 4);
+    o.legend.forEach((g, k) => {
+      const y = ly + k * lh + 8; ctx.strokeStyle = g.color; ctx.fillStyle = g.color; ctx.lineWidth = 2;
+      if (g.dot) { ctx.beginPath(); ctx.arc(lx + 10, y, 3.5, 0, 7); ctx.fill(); }
+      else if (g.box) ctx.fillRect(lx + 3, y - 5, 14, 10);
+      else { ctx.setLineDash(g.dash || []); ctx.beginPath(); ctx.moveTo(lx, y); ctx.lineTo(lx + 20, y); ctx.stroke(); ctx.setLineDash([]); }
+      ctx.fillStyle = "#dfe3d6"; ctx.fillText(g.label, lx + 26, y + 4);
+    });
+  }
+  return { X, Y, L, R, T, B, w, h, ctx, x0, x1, y0, y1 };
+}
+
+/* =====================================================================
+   BATCH RUNS — run the model many times with no drawing and compare
+   the results with theory.  Each simulation supplies a config object:
+     vars       – things that can be swept  {key, label, unit, min, max, log, int}
+     outcomes   – things that can be recorded {key, label, unit, multi}
+     baseParams() – the current settings;  runOnce(params, seed) – one run, returns {outcomeKey: value}
+     theory(key, params, stat) – theory value or null;  interpret(spec, fit) – extra text for a fit
+     experiments – one-click questions;  describe(params) – text listing the settings used
+   ===================================================================== */
+const Batch = (function () {
+  let cfg = null, overrides = {}, expIdx = -1, mode = "repeat", running = false, stopFlag = false, last = null;
+  const varOf = k => cfg.vars.find(v => v.key === k), outOf = k => cfg.outcomes.find(o => o.key === k);
+  function init(c) {
+    cfg = c;
+    el("bExps").innerHTML = "";
+    cfg.experiments.forEach((ex, i) => { const b = document.createElement("button"); b.innerHTML = `${ex.q}<small>${ex.sub || ""}</small>`; b.onclick = () => applyExp(i); el("bExps").appendChild(b); });
+    el("bN").innerHTML = cfg.repeatSizes.map(n => `<option value="${n}">${n}</option>`).join("");
+    el("bVar").innerHTML = cfg.vars.map(v => `<option value="${v.key}">${v.label}${v.unit ? " (" + v.unit + ")" : ""}</option>`).join("");
+    el("bOut").innerHTML = cfg.outcomes.map(o => `<option value="${o.key}">${o.label}${o.unit ? " (" + o.unit + ")" : ""}</option>`).join("");
+    el("bModeRepeat").onclick = () => setMode("repeat"); el("bModeSweep").onclick = () => setMode("sweep");
+    el("bVar").onchange = () => { const v = varOf(el("bVar").value); el("bFrom").value = v.from ?? v.min; el("bTo").value = v.to ?? v.max; el("bX").value = v.log ? "log" : "lin"; showFixed(); };
+    for (const id of ["bOut", "bX", "bY", "bStat"]) el(id).onchange = () => { if (last) render(); };
+    el("bRun").onclick = run; el("bStop").onclick = () => { stopFlag = true; };
+    el("bClose").onclick = close;
+    el("bCsv").onclick = e => { e.preventDefault(); csv(); };
+    window.addEventListener("resize", () => { if (last && el("batch").classList.contains("open")) render(); });
+    setMode("repeat"); el("bVar").onchange(); el("bReps").value = 3; el("bSteps").value = 6;
+    applyExp(0, true);
+  }
+  function setMode(m) {
+    mode = m; el("bModeRepeat").classList.toggle("on", m === "repeat"); el("bModeSweep").classList.toggle("on", m === "sweep");
+    document.querySelectorAll("#batch .repOnly").forEach(e => e.style.display = m === "repeat" ? "" : "none");
+    document.querySelectorAll("#batch .swOnly").forEach(e => e.style.display = m === "sweep" ? "" : "none");
+    if (last) render();
+  }
+  function applyExp(i, quiet) {
+    const ex = cfg.experiments[i]; expIdx = i;
+    [...el("bExps").children].forEach((b, k) => b.classList.toggle("on", k === i));
+    overrides = { ...(ex.params || {}) };
+    setMode(ex.mode);
+    if (ex.mode === "repeat") { if (![...el("bN").options].some(o => +o.value === ex.n)) el("bN").insertAdjacentHTML("beforeend", `<option value="${ex.n}">${ex.n}</option>`); el("bN").value = ex.n; }
+    else { el("bVar").value = ex.var; el("bFrom").value = ex.from; el("bTo").value = ex.to; el("bSteps").value = ex.steps; el("bReps").value = ex.reps; el("bX").value = ex.x || "lin"; el("bY").value = ex.y || "lin"; el("bStat").value = ex.stat || "mean"; }
+    el("bOut").value = ex.out;
+    el("bNote").innerHTML = `<p><b>${ex.q}</b></p>${ex.note || ""}`;
+    showFixed();
+    if (!quiet) { el("bStatus").textContent = "Ready: press Run."; }
+  }
+  function params() { return { ...cfg.baseParams(), ...overrides }; }
+  function showFixed() {
+    const ov = Object.keys(overrides).length;
+    el("bFixed").innerHTML = `Settings for every run${ov ? " (set by this experiment)" : " (from the left panel)"}: ${cfg.describe(params())}${ov ? ` · <a href="#" id="bUseMine" class="dl">use my own settings instead</a>` : ""}${cfg.headlessNote ? "<br>" + cfg.headlessNote : ""}`;
+    const u = el("bUseMine"); if (u) u.onclick = e => { e.preventDefault(); overrides = {}; showFixed(); };
+  }
+  function readSpec() {
+    const s = { mode, out: el("bOut").value, x: el("bX").value, y: el("bY").value, stat: el("bStat").value, seed: Math.round(+el("bSeed").value || 1), params: params() };
+    if (mode === "repeat") s.n = +el("bN").value;
+    else {
+      s.var = el("bVar").value; const v = varOf(s.var);
+      let a = +el("bFrom").value, b = +el("bTo").value; const n = Math.max(2, Math.min(25, Math.round(+el("bSteps").value || 5)));
+      a = Math.max(v.min, Math.min(v.max, a)); b = Math.max(v.min, Math.min(v.max, b));
+      const geo = (v.log || s.x === "log") && a > 0 && b > 0;
+      let xs = []; for (let k = 0; k < n; k++) { const f = k / (n - 1); xs.push(geo ? a * (b / a) ** f : a + (b - a) * f); }
+      if (v.int) xs = [...new Set(xs.map(Math.round))]; else xs = xs.map(x => +x.toPrecision(6));
+      s.xs = xs; s.reps = Math.max(1, Math.min(200, Math.round(+el("bReps").value || 1)));
+    }
+    return s;
+  }
+  function run() {
+    if (running) return;
+    const spec = readSpec(); const jobs = [];
+    if (spec.mode === "repeat") for (let k = 0; k < spec.n; k++) jobs.push({ x: null, seed: spec.seed + k });
+    else { let k = 0; for (const x of spec.xs) for (let r = 0; r < spec.reps; r++) jobs.push({ x, seed: spec.seed + k++ }); }
+    last = { spec, rows: [], total: jobs.length, done: false };
+    running = true; stopFlag = false; el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").style.display = "none";
+    const t0 = performance.now(); let j = 0, lastDraw = 0;
+    function chunk() {
+      const tc = performance.now();
+      while (j < jobs.length && !stopFlag && performance.now() - tc < 45) {
+        const job = jobs[j++], p = { ...spec.params };
+        if (job.x !== null) p[spec.var] = job.x;
+        let out; try { out = cfg.runOnce(p, job.seed); } catch (e) { console.error(e); out = {}; }
+        last.rows.push({ x: job.x, seed: job.seed, out });
+      }
+      el("bProg").firstElementChild.style.width = (100 * j / jobs.length).toFixed(1) + "%";
+      const secs = (performance.now() - t0) / 1000, eta = j ? secs / j * (jobs.length - j) : 0;
+      el("bStatus").textContent = `Run ${j} of ${jobs.length} · ${secs.toFixed(1)} s` + (j < jobs.length ? ` · about ${Math.ceil(eta)} s to go` : "");
+      if (performance.now() - lastDraw > 400) { render(); lastDraw = performance.now(); }
+      if (j < jobs.length && !stopFlag) setTimeout(chunk, 0);
+      else {
+        running = false; last.done = true; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").style.display = "";
+        el("bStatus").textContent = `${stopFlag ? "Stopped after" : "Finished"} ${j} runs in ${secs.toFixed(1)} s.`; render();
+      }
+    }
+    setTimeout(chunk, 10);
+  }
+  const outVals = (row, key, multi) => { const v = row.out[key]; return multi ? (Array.isArray(v) ? v : []) : [v]; };
+  function render() {
+    if (!last) return;
+    const spec = last.spec, key = el("bOut").value, O = outOf(key), unit = O.unit ? ` (${O.unit})` : "";
+    el("bTitle").textContent = spec.mode === "repeat" ? `Repeat: ${O.label}` : `Sweep: ${O.label} against ${varOf(spec.var).label}`;
+    el("bSub").textContent = `${last.rows.length} of ${last.total} runs`;
+    const theoryCol = "#4fc3f7", dataCol = "#f1af28";
+    if (spec.mode === "repeat") {
+      const vals = last.rows.flatMap(r => outVals(r, key, O.multi)).filter(Number.isFinite);
+      const th = cfg.theory(key, spec.params, "mean");
+      const n = vals.length, m = mean(vals), s = sd(vals), se = n > 1 ? s / Math.sqrt(n) : NaN;
+      let lo = Math.min(...vals), hi = Math.max(...vals);
+      const series = [], legend = [];
+      if (n) {
+        if (hi === lo) { lo -= 0.5; hi += 0.5; }
+        const nb = Math.max(5, Math.min(30, Math.round(Math.sqrt(n) * 1.3))), bw = (hi - lo) / nb, cnt = new Array(nb).fill(0);
+        for (const v of vals) cnt[Math.min(nb - 1, Math.floor((v - lo) / bw))]++;
+        series.push({ type: "bars", color: "rgba(241,175,40,0.75)", pts: cnt.map((c, k) => [lo + k * bw, lo + (k + 1) * bw, c]) });
+        legend.push({ box: true, color: "rgba(241,175,40,0.75)", label: `results (${n})` });
+      }
+      const vLines = [];
+      if (n) { vLines.push({ v: m, color: "#fff", label: `mean ${fmt(m)}`, row: 0 }); legend.push({ color: "#fff", label: "mean of runs" }); }
+      if (th !== null && th !== undefined && Number.isFinite(th)) { vLines.push({ v: th, color: theoryCol, dash: [6, 4], label: `theory ${fmt(th)}`, row: 1, width: 2.5 }); legend.push({ color: theoryCol, dash: [6, 4], label: "theory" }); }
+      const xMin = Math.min(lo, th ?? lo), xMax = Math.max(hi, th ?? hi), padx = (xMax - xMin) * 0.05 || 0.5;
+      plot(el("bChart"), { series, vLines, legend, legendRight: true, xMin: xMin - padx, xMax: xMax + padx, yMin: 0, xLabel: `${O.label}${unit}`, yLabel: O.multi ? "number of crystals" : "number of runs", padT: 34 });
+      const diff = th !== null && Number.isFinite(th) && n ? `${fmt(100 * (m - th) / th, 2)}% · ${fmt((m - th) / se, 2)} SE` : "–";
+      el("bSummary").innerHTML = `<table><tr><th>Measure</th><th>Value</th></tr>
+        <tr><td>n (${O.multi ? "values" : "runs"})</td><td>${n}</td></tr><tr><td>Mean</td><td>${fmt(m, 4)}</td></tr><tr><td>Standard deviation (SD)</td><td>${fmt(s, 3)}</td></tr>
+        <tr><td>Standard error (SD/√n)</td><td>${fmt(se, 3)}</td></tr><tr><td>Min · max</td><td>${fmt(lo, 3)} · ${fmt(hi, 3)}</td></tr>
+        <tr><td>Theory</td><td>${th !== null && th !== undefined && Number.isFinite(th) ? fmt(th, 4) : "none"}</td></tr><tr><td>Mean − theory</td><td>${diff}</td></tr></table>
+        ${cfg.interpret ? cfg.interpret(spec, null, { vals, m, s, key }) || "" : ""}`;
+      return;
+    }
+    // ---- sweep ----
+    const V = varOf(spec.var), xt = spec.x, yt = spec.y, stat = spec.stat;
+    const groups = spec.xs.map(x => { const v = last.rows.filter(r => r.x === x).flatMap(r => outVals(r, key, O.multi)).filter(Number.isFinite); return { x, vals: v, n: v.length, m: mean(v), s: sd(v) }; }).filter(g => g.n);
+    const TX = x => xt === "inv" ? 1 / x : x, TY = y => yt === "ln" ? (y > 0 ? Math.log(y) : NaN) : y;
+    const yOf = g => stat === "sd" ? g.s : g.m;
+    const series = [], err = [], legend = [];
+    if (stat === "mean") {
+      series.push({ type: "dots", color: "rgba(241,175,40,0.35)", r: 2, pts: last.rows.flatMap(r => outVals(r, key, O.multi).map(v => [TX(r.x), TY(v)])) });
+      for (const g of groups) if (g.n > 1) err.push({ x: TX(g.x), lo: TY(Math.max(g.m - g.s, yt === "lin" ? -Infinity : g.m * 0.02)), hi: TY(g.m + g.s), color: "#f6d48a" });
+    }
+    series.push({ type: "dots", color: dataCol, r: 4.5, pts: groups.map(g => [TX(g.x), TY(yOf(g))]) });
+    legend.push({ dot: true, color: dataCol, label: stat === "sd" ? "SD of the repeats" : "mean of repeats (bars: ±1 SD)" });
+    // theory curve
+    const thPts = [], a = spec.xs[0], b = spec.xs[spec.xs.length - 1], geo = (V.log || xt === "log") && a > 0;
+    for (let k = 0; k <= 80; k++) { const f = k / 80, x = geo ? a * (b / a) ** f : a + (b - a) * f; const v = cfg.theory(key, { ...spec.params, [spec.var]: x }, stat); if (v !== null && v !== undefined && Number.isFinite(v)) thPts.push([TX(x), TY(v)]); }
+    if (thPts.length) { series.unshift({ type: "line", color: theoryCol, width: 2.5, dash: [7, 4], pts: thPts }); legend.push({ color: theoryCol, dash: [7, 4], label: cfg.theoryLabel ? cfg.theoryLabel(key, stat) : "theory" }); }
+    // straight-line fit on the axes as drawn
+    const fx = [], fy = [];
+    for (const g of groups) { let X = TX(g.x), Y = TY(yOf(g)); if (xt === "log") X = X > 0 ? Math.log10(X) : NaN; if (yt === "log") Y = Y > 0 ? Math.log10(Y) : NaN; if (Number.isFinite(X) && Number.isFinite(Y)) { fx.push(X); fy.push(Y); } }
+    const fit = fx.length >= 3 && !(cfg.noFit || []).includes(key) ? fitLine(fx, fy) : null;   // no straight line for yes/no outcomes
+    if (fit) {
+      const pts = []; const xa = Math.min(...fx), xb = Math.max(...fx);
+      for (let k = 0; k <= 20; k++) { const X = xa + (xb - xa) * k / 20; let px = xt === "log" ? 10 ** X : X, py = fit.m * X + fit.c; if (yt === "log") py = 10 ** py; pts.push([px, py]); }
+      series.push({ type: "line", color: "#e83181", width: 1.6, pts }); legend.push({ color: "#e83181", label: "best-fit straight line" });
+    }
+    const vl = V.label + (V.unit ? ` (${V.unit})` : "");
+    const xLabel = xt === "inv" ? `1 / ${V.label}  (${V.unit ? V.unit + "⁻¹" : "1/units"})` : vl;
+    const yBase = stat === "sd" ? `SD of ${O.label}` : O.label;
+    const yLabel = yt === "ln" ? `ln(${yBase}${O.unit ? " / " + O.unit : ""})` : yBase + unit;
+    plot(el("bChart"), { series, err, legend, xLog: xt === "log", yLog: yt === "log", xLabel, yLabel, xPad: 0.04, padT: 26, legendRow: true });
+    let rowsHtml = groups.map(g => { const th = cfg.theory(key, { ...spec.params, [spec.var]: g.x }, stat); const se = g.n > 1 ? g.s / Math.sqrt(g.n) : NaN; const y = yOf(g);
+      const d = th !== null && Number.isFinite(th) ? (th !== 0 ? `${fmt(100 * (y - th) / Math.abs(th), 2)}%` : (y === 0 ? "0" : "–")) + (stat === "mean" && g.n > 1 && se > 0 ? ` · ${fmt((g.m - th) / se, 2)} SE` : "") : "–";
+      return `<tr><td>${fmt(g.x, 4)}</td><td>${g.n}</td><td>${fmt(g.m, 4)}</td><td>${fmt(g.s, 3)}</td><td>${fmt(se, 3)}</td><td>${th !== null && Number.isFinite(th) ? fmt(th, 4) : "–"}</td><td>${d}</td></tr>`; }).join("");
+    const fitTxt = fit ? `<p class="fitline">Best-fit line on these axes: gradient = ${fmt(fit.m, 4)} ± ${fmt(fit.se, 2)}, intercept ${fmt(fit.c, 4)}, R² = ${fit.r2.toFixed(3)}</p>` : "";
+    el("bSummary").innerHTML = `${fitTxt}${cfg.interpret ? cfg.interpret(spec, fit, { groups, key }) || "" : ""}<table><tr><th>${V.label}</th><th>n</th><th>mean</th><th>SD</th><th>SE</th><th>theory</th><th>difference</th></tr>${rowsHtml}</table>`;
+  }
+  function csv() {
+    if (!last) return;
+    const spec = last.spec, scal = cfg.outcomes.filter(o => !o.multi), multi = cfg.outcomes.filter(o => o.multi);
+    const head = ["run", "seed"].concat(spec.mode === "sweep" ? [spec.var] : []).concat(scal.map(o => o.key + (o.unit ? ` (${o.unit})` : ""))).concat(multi.map(o => o.key + " (all values, space separated)"));
+    const lines = [head.map(h => `"${h}"`).join(",")];
+    last.rows.forEach((r, i) => lines.push([i + 1, r.seed].concat(spec.mode === "sweep" ? [r.x] : []).concat(scal.map(o => r.out[o.key] ?? "")).concat(multi.map(o => `"${(r.out[o.key] || []).map(v => +(+v).toPrecision(5)).join(" ")}"`)).join(",")));
+    const blob = new Blob([lines.join("\r\n")], { type: "text/csv" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${cfg.file || "batch"}-${spec.mode}.csv`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function open() { el("batch").classList.add("open"); showFixed(); if (last) render(); else plot(el("bChart"), { series: [], xLabel: "", yLabel: "" }); }
+  function close() { el("batch").classList.remove("open"); }
+  return { init, open, close, applyExp, run, get last() { return last; }, get running() { return running; } };
+})();
+
+/* =====================================================================
+   PANEL LAYOUT — resize or hide the side panels (remembered in this browser)
+   ===================================================================== */
+function initPanels(KEY, onChange) {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const STRIP = 30, MIN = 200, DEF = { lw: 290, rw: 330, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+    if (onChange) onChange();
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+}
+// Slider helper: link a range input to its <output>, with a formatter
+function bindSlider(id, f, onInput) {
+  const i = el(id), o = el("o_" + id);
+  const upd = () => { if (o) o.textContent = f(+i.value); if (onInput) onInput(+i.value); };
+  i.addEventListener("input", upd); upd(); return upd;
+}
+/* =====================================================================
+   1. CONSTANTS AND UNITS
+   ---------------------------------------------------------------------
+   Lengths nm, time ps, energy kJ/mol, temperature K, masses g/mol.
+   1 g/mol × (nm/ps)² = 1 kJ/mol, so ½mv² comes out in kJ/mol.
+   Concentrations are shown as particles per 100 nm² (the 2D box stands in
+   for a 3D vessel).
+   ===================================================================== */
+const R_GAS = 0.008314;
+const BOX_W = 40, BOX_H = 25;      // full box (nm); the piston moves the right-hand wall
+const RAD = 0.3, MASS = 30;        // every particle has the same size and mass in the physics
+const BATH_RATE = 0.3;             // solvent/third-body bumps per particle per ps (keeps the temperature steady)
+const CAT_SHARE = 0.6;             // a catalyst lowers BOTH activation energies by 60% of the forward one
+const CUNIT = 100;                 // concentrations shown per 100 nm²
+
+/* The four reactions.
+   fwd / rev: { uni: species }  – a particle changes on its own with chance k = ν e^(−Ea/RT) per ps
+              { bi: [X, Y], p } – a collision of X with Y reacts if its energy ≥ Ea, with chance p (orientation)
+   Energies are in kJ/mol. ΔH = Ef − Er. Haber energies are scaled down 5× so both directions can be seen. */
+const SYS = {
+  AB: { name: "A ⇌ B", eq: "A ⇌ B", sp: ["A", "B"], coef: [-1, 1], fwd: { uni: 0 }, rev: { uni: 1 }, Ef: 12, Er: 18, nu: 0.3,
+        T0: 400, Tmin: 250, Tmax: 900, start: [200, 0], vol0: 100, fwdName: "A → B", revName: "B → A", ptxt: "B",
+        draw: [{ atoms: [[0, 0, 0.3, "#00aec3"]] }, { atoms: [[0, 0, 0.3, "#e83181"]] }] },
+  NO2: { name: "2NO₂ ⇌ N₂O₄", eq: "2NO₂ (brown) ⇌ N₂O₄ (colourless)", sp: ["NO₂", "N₂O₄"], coef: [-2, 1], fwd: { bi: [0, 0], p: 1 }, rev: { uni: 1 }, Ef: 2, Er: 27, nu: 800,
+        T0: 330, Tmin: 250, Tmax: 450, start: [200, 0], vol0: 100, fwdName: "2NO₂ → N₂O₄", revName: "N₂O₄ → 2NO₂", ptxt: "N₂O₄",
+        draw: [{ atoms: [[0, 0, 0.17, "#4f7fd1"], [0.17, 0.12, 0.14, "#de252a"], [-0.17, 0.12, 0.14, "#de252a"]] },
+               { atoms: [[-0.12, 0, 0.15, "#4f7fd1"], [0.12, 0, 0.15, "#4f7fd1"], [-0.25, 0.15, 0.12, "#de252a"], [-0.25, -0.15, 0.12, "#de252a"], [0.25, 0.15, 0.12, "#de252a"], [0.25, -0.15, 0.12, "#de252a"]] }] },
+  HI: { name: "H₂ + I₂ ⇌ 2HI", eq: "H₂ + I₂ ⇌ 2HI", sp: ["H₂", "I₂", "HI"], coef: [-1, -1, 2], fwd: { bi: [0, 1], p: 1 }, rev: { bi: [2, 2], p: 0.2 }, Ef: 14, Er: 23.4,
+        T0: 700, Tmin: 400, Tmax: 1000, start: [60, 60, 0], vol0: 100, fwdName: "H₂ + I₂ → 2HI", revName: "2HI → H₂ + I₂", ptxt: "HI",
+        draw: [{ atoms: [[-0.1, 0, 0.12, "#f2f2f2"], [0.1, 0, 0.12, "#f2f2f2"]] }, { atoms: [[-0.14, 0, 0.17, "#a86dab"], [0.14, 0, 0.17, "#a86dab"]] },
+               { atoms: [[-0.15, 0, 0.11, "#f2f2f2"], [0.08, 0, 0.19, "#a86dab"]] }] },
+  NH3: { name: "Haber: N₂ + 3H₂ ⇌ 2NH₃", eq: "N₂ + 3H₂ ⇌ 2NH₃", sp: ["N₂", "H₂", "NH₃"], coef: [-1, -3, 2], fwd: { bi: [0, 1], p: 1, extraH: true }, rev: { bi: [2, 2], p: 1 }, Ef: 5, Er: 28,
+        T0: 723, Tmin: 500, Tmax: 1000, start: [45, 135, 0], vol0: 60, fwdName: "N₂ + 3H₂ → 2NH₃", revName: "2NH₃ → N₂ + 3H₂", ptxt: "NH₃",
+        draw: [{ atoms: [[-0.12, 0, 0.15, "#4f7fd1"], [0.12, 0, 0.15, "#4f7fd1"]] }, { atoms: [[-0.1, 0, 0.12, "#f2f2f2"], [0.1, 0, 0.12, "#f2f2f2"]] },
+               { atoms: [[0, 0, 0.17, "#4f7fd1"], [0.2, 0.08, 0.1, "#f2f2f2"], [-0.17, 0.12, 0.1, "#f2f2f2"], [0, -0.21, 0.1, "#f2f2f2"]] }] },
+};
+let CREF = 1.0;     // Haber: chance that two more H₂ are close enough = ([H₂] ÷ 1 per nm²)²
+const SPCOL = { AB: ["#00aec3", "#e83181"], NO2: ["#c8742c", "#e9e2c6"], HI: ["#f2f2f2", "#a86dab", "#d07fb0"], NH3: ["#4f7fd1", "#f2f2f2", "#8fd694"] };
+
+// mean relative speed of two particles in 2D, and Henderson's crowding factor for hard discs
+const vRel = T => Math.sqrt(Math.PI * R_GAS * T / (2 * (MASS / 2)));
+const gContact = phi => (1 - 7 * phi / 16) / ((1 - phi) * (1 - phi));
+const catDrop = (s, p) => p.cat ? CAT_SHARE * s.Ef : 0;
+
+/* =====================================================================
+   2. THEORY: rate constants, Kc and the equilibrium mixture
+   ===================================================================== */
+// Effective rate constant of one direction. Units: per ps (uni), nm²/ps (bi), adjusted for Haber's extra H₂.
+function kDir(sys, dir, T, cat, phi) {
+  const s = SYS[sys], d = dir === "f" ? s.fwd : s.rev, Ea = (dir === "f" ? s.Ef : s.Er) - catDrop(s, { cat });
+  const boltz = Math.exp(-Ea / (R_GAS * T));
+  if (d.uni !== undefined) return s.nu * boltz;
+  const kappa = 2 * (2 * RAD) * vRel(T) * gContact(phi);      // collisions per unit concentration²: 2d × v̄rel × g
+  let k = kappa * d.p * boltz;
+  if (d.bi[0] === d.bi[1]) k *= 0.5;                          // a pair of identical particles is only counted once
+  if (d.extraH) k /= CREF * CREF;
+  return k;
+}
+// Kc = k_forward / k_reverse, in (per nm²) units, then converted to (per 100 nm²) units for display
+function KcTheory(sys, T, cat, phi = 0.08) {
+  const s = SYS[sys], dn = s.coef.reduce((a, b) => a + b, 0);
+  return kDir(sys, "f", T, cat, phi) / kDir(sys, "r", T, cat, phi) * CUNIT ** dn;
+}
+// The reaction quotient Q from amounts and area (display units)
+function quotient(sys, counts, area) {
+  const s = SYS[sys]; let q = 1;
+  s.coef.forEach((c, k) => { q *= (CUNIT * counts[k] / area) ** c; });
+  return q;
+}
+// Solve for the equilibrium mixture: find the extent of reaction ξ where Q = Kc
+function eqMixture(sys, start, area, T, cat) {
+  const s = SYS[sys];
+  // allow the crowding factor to follow the number of particles (matters for NO₂ only)
+  let phi = start.reduce((a, b) => a + b, 0) * Math.PI * RAD * RAD / area, out = null;
+  for (let it = 0; it < 3; it++) {
+    const K = KcTheory(sys, T, cat, phi);
+    let lo = -Infinity, hi = Infinity;
+    s.coef.forEach((c, k) => { const lim = -start[k] / c; if (c < 0) hi = Math.min(hi, lim); else lo = Math.max(lo, lim); });
+    lo += 1e-9; hi -= 1e-9;
+    for (let n = 0; n < 200; n++) { const m = (lo + hi) / 2; const c = start.map((v, k) => v + s.coef[k] * m); if (quotient(sys, c, area) < K) lo = m; else hi = m; }
+    const xi = (lo + hi) / 2; out = start.map((v, k) => v + s.coef[k] * xi);
+    phi = out.reduce((a, b) => a + b, 0) * Math.PI * RAD * RAD / area;
+  }
+  return out;
+}
+// Percentage yield: how much product there is, compared with the most there could be
+function maxProduct(sys, counts) {
+  const s = SYS[sys], pk = s.coef.length - 1; let xiMax = Infinity;
+  s.coef.forEach((c, k) => { if (c < 0) xiMax = Math.min(xiMax, counts[k] / -c); });
+  if (sys === "AB" || sys === "NO2") xiMax = counts[0] / -s.coef[0];
+  // total possible product = product already there + what the reactants could still make
+  return counts[pk] + s.coef[pk] * xiMax;
+}
+const yieldPct = (sys, counts) => { const m = maxProduct(sys, counts); return m > 0 ? 100 * counts[counts.length - 1] / m : 0; };
+
+/* =====================================================================
+   3. THE WORLD: particles in a box that react both ways
+   ===================================================================== */
+class World {
+  constructor(p, seed) {
+    this.p = { ...p }; this.sys = p.sys; this.S = SYS[p.sys];
+    this.rng = mulberry32(hashSeed("eq" + seed));
+    const cap = 900;
+    this.x = new Float64Array(cap); this.y = new Float64Array(cap); this.vx = new Float64Array(cap); this.vy = new Float64Array(cap);
+    this.ang = new Float64Array(cap); this.type = new Int8Array(cap); this.alive = new Uint8Array(cap); this.tag = new Uint8Array(cap);
+    this.n = 0; this.t = 0; this.W = BOX_W * p.vol / 100;
+    this.nf = 0; this.nr = 0;                  // forward and reverse reaction events so far
+    this.counts = new Array(this.S.sp.length).fill(0);
+    this.free = [];
+    this.gw = Math.ceil(BOX_W) + 1; this.gh = Math.ceil(BOX_H) + 1;
+    this.head = new Int32Array(this.gw * this.gh); this.next = new Int32Array(cap);
+    let st = p.startFrom === "products" ? this.productStart() : this.S.start.map(v => Math.round(v * p.amount / 100));
+    if (p.startFrom === "eq") st = eqMixture(p.sys, this.S.start.map(v => v * p.amount / 100), this.area(), p.T, p.cat).map(Math.round);
+    st.forEach((num, k) => this.addMany(k, num));
+  }
+  productStart() {
+    // the same atoms, all made into products
+    const s = this.S, r = s.start.map(v => Math.round(v * this.p.amount / 100)), xi = Math.min(...s.coef.map((c, k) => c < 0 ? r[k] / -c : Infinity));
+    return r.map((v, k) => Math.round(v + s.coef[k] * xi));
+  }
+  area() { return this.W * BOX_H; }
+  occupied(x, y, skip = -1) {
+    if (x < RAD || y < RAD || x > this.W - RAD || y > BOX_H - RAD) return true;
+    for (let j = 0; j < this.n; j++) if (this.alive[j] && j !== skip) { const dx = this.x[j] - x, dy = this.y[j] - y; if (dx * dx + dy * dy < 4 * RAD * RAD * 1.1) return true; }
+    return false;
+  }
+  addAt(type, x, y, vx, vy) {
+    const i = this.free.length ? this.free.pop() : this.n++;
+    if (i >= this.x.length) { this.n--; return -1; }
+    this.x[i] = x; this.y[i] = y; this.type[i] = type; this.alive[i] = 1; this.tag[i] = 0; this.ang[i] = this.rng() * 6.283;
+    if (vx === undefined) { const sig = Math.sqrt(R_GAS * this.p.T / MASS); vx = sig * gauss(this.rng); vy = sig * gauss(this.rng); }
+    this.vx[i] = vx; this.vy[i] = vy; this.counts[type]++;
+    return i;
+  }
+  addMany(type, num) {
+    for (let q = 0; q < num; q++) for (let tries = 0; tries < 300; tries++) {
+      const x = RAD + this.rng() * (this.W - 2 * RAD), y = RAD + this.rng() * (BOX_H - 2 * RAD);
+      if (!this.occupied(x, y)) { this.addAt(type, x, y); break; }
+    }
+  }
+  remove(i) { if (!this.alive[i]) return; this.alive[i] = 0; this.counts[this.type[i]]--; this.free.push(i); }
+  removeMany(type, num) {
+    const list = []; for (let i = 0; i < this.n; i++) if (this.alive[i] && this.type[i] === type) list.push(i);
+    for (let q = 0; q < num && list.length; q++) this.remove(list.splice(Math.floor(this.rng() * list.length), 1)[0]);
+  }
+  setType(i, t) { this.counts[this.type[i]]--; this.type[i] = t; this.counts[t]++; }
+  // place a new particle next to (x, y), or anywhere free if it is crowded
+  spawnNear(type, x, y, from = -1) {
+    for (let k = 0; k < 12; k++) {
+      const a = this.rng() * 6.283, X = x + 0.65 * Math.cos(a), Y = y + 0.65 * Math.sin(a);
+      if (this.occupied(X, Y)) continue;
+      const i = this.addAt(type, X, Y);
+      if (i >= 0 && from >= 0) {
+        // the fragments fly apart: if the new particle is heading back towards its partner, reverse that part of its motion
+        const ux = Math.cos(a), uy = Math.sin(a), vr = (this.vx[i] - this.vx[from]) * ux + (this.vy[i] - this.vy[from]) * uy;
+        if (vr < 0) { this.vx[i] -= vr * ux; this.vy[i] -= vr * uy; this.vx[from] += vr * ux; this.vy[from] += vr * uy; }
+      }
+      return i;
+    }
+    for (let k = 0; k < 300; k++) { const X = RAD + this.rng() * (this.W - 2 * RAD), Y = RAD + this.rng() * (BOX_H - 2 * RAD); if (!this.occupied(X, Y)) return this.addAt(type, X, Y); }
+    return -1;
+  }
+  setVolume(vol) {
+    this.p.vol = vol; this.W = BOX_W * vol / 100;
+    for (let i = 0; i < this.n; i++) if (this.alive[i] && this.x[i] > this.W - RAD) { this.x[i] = this.W - RAD - this.rng() * 0.6; this.vx[i] = -Math.abs(this.vx[i]); }
+  }
+  phi() { let n = 0; for (const c of this.counts) n += c; return n * Math.PI * RAD * RAD / this.area(); }
+  safeDt() { return Math.min(0.05, 0.05 / Math.sqrt(R_GAS * this.p.T / MASS)); }
+  Ea(dir) { return (dir === "f" ? this.S.Ef : this.S.Er) - catDrop(this.S, this.p); }
+
+  step(dt) {
+    const { x, y, vx, vy, alive, n, rng } = this, W = this.W, H = BOX_H, r = RAD;
+    // (1) move and bounce off the walls
+    for (let i = 0; i < n; i++) {
+      if (!alive[i]) continue;
+      x[i] += vx[i] * dt; y[i] += vy[i] * dt; this.ang[i] += 0.8 * dt;
+      if (x[i] < r) { x[i] = 2 * r - x[i]; vx[i] = Math.abs(vx[i]); }
+      if (x[i] > W - r) { x[i] = 2 * (W - r) - x[i]; vx[i] = -Math.abs(vx[i]); }
+      if (y[i] < r) { y[i] = 2 * r - y[i]; vy[i] = Math.abs(vy[i]); }
+      if (y[i] > H - r) { y[i] = 2 * (H - r) - y[i]; vy[i] = -Math.abs(vy[i]); }
+    }
+    // (2) collisions (only needed when a direction of the reaction is a collision)
+    if (this.S.fwd.bi || this.S.rev.bi || this.p.physics) this.collide();
+    // (3) one-particle reactions: each particle changes with chance k·dt
+    for (const dir of ["f", "r"]) {
+      const d = dir === "f" ? this.S.fwd : this.S.rev; if (d.uni === undefined) continue;
+      const pr = 1 - Math.exp(-kDir(this.sys, dir, this.p.T, this.p.cat, 0) * dt);
+      for (let i = 0; i < this.n; i++) if (alive[i] && this.type[i] === d.uni && rng() < pr) this.react(dir, i, -1);
+    }
+    // (4) the solvent bath: random thermal kicks keep the Maxwell–Boltzmann spread
+    const pb = 1 - Math.exp(-BATH_RATE * dt), sig = Math.sqrt(R_GAS * this.p.T / MASS);
+    for (let i = 0; i < this.n; i++) if (alive[i] && rng() < pb) { vx[i] = sig * gauss(rng); vy[i] = sig * gauss(rng); }
+    this.t += dt;
+  }
+  collide() {
+    const { x, y, alive, n, head, next, gw, gh } = this;
+    head.fill(-1);
+    for (let i = 0; i < n; i++) if (alive[i]) { const cx = Math.min(gw - 1, Math.max(0, x[i] | 0)), cy = Math.min(gh - 1, Math.max(0, y[i] | 0)), c = cy * gw + cx; next[i] = head[c]; head[c] = i; }
+    for (let cy = 0; cy < gh; cy++) for (let cx = 0; cx < gw; cx++)
+      for (let i = head[cy * gw + cx]; i >= 0; i = next[i])
+        for (let oy = 0; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+          if (oy === 0 && ox < 0) continue;
+          const nx = cx + ox, ny = cy + oy; if (nx < 0 || nx >= gw || ny >= gh) continue;
+          for (let j = (ox === 0 && oy === 0) ? next[i] : head[ny * gw + nx]; j >= 0; j = next[j]) this.pair(i, j);
+        }
+  }
+  pair(i, j) {
+    if (!this.alive[i] || !this.alive[j]) return;
+    const { x, y, vx, vy } = this, rr = 2 * RAD;
+    const dx = x[j] - x[i], dy = y[j] - y[i], d2 = dx * dx + dy * dy;
+    if (d2 >= rr * rr || d2 === 0) return;
+    const dvx = vx[j] - vx[i], dvy = vy[j] - vy[i], app = dvx * dx + dvy * dy;
+    if (app >= 0) return;
+    // wind back to the moment of contact so the line of centres is right
+    const a2 = dvx * dvx + dvy * dvy, s = a2 > 0 ? (-app - Math.sqrt(Math.max(0, app * app - a2 * (d2 - rr * rr)))) / a2 : 0;
+    x[i] += vx[i] * s; y[i] += vy[i] * s; x[j] += vx[j] * s; y[j] += vy[j] * s;
+    const cx = x[j] - x[i], cy = y[j] - y[i], cd = Math.hypot(cx, cy) || rr, nx = cx / cd, ny = cy / cd, vn = dvx * nx + dvy * ny;
+    // equal masses: an elastic collision swaps the velocity components along the line of centres
+    vx[i] += vn * nx; vy[i] += vn * ny; vx[j] -= vn * nx; vy[j] -= vn * ny;
+    x[i] -= vx[i] * s; y[i] -= vy[i] * s; x[j] -= vx[j] * s; y[j] -= vy[j] * s;
+    // collision energy along the line of centres (reduced mass = m/2)
+    const E = 0.5 * (MASS / 2) * vn * vn, ti = this.type[i], tj = this.type[j];
+    for (const dir of ["f", "r"]) {
+      const d = dir === "f" ? this.S.fwd : this.S.rev; if (!d.bi) continue;
+      const [A, B] = d.bi;
+      if (!((ti === A && tj === B) || (ti === B && tj === A))) continue;
+      if (E < this.Ea(dir) || this.rng() >= d.p) continue;
+      if (d.extraH) {
+        // Haber: N₂ needs to meet three H₂ at once. The chance that two more H₂ are close enough is ([H₂]/c_ref)²
+        const cH = this.counts[1] / this.area(); if (this.counts[1] < 3 || this.rng() >= (cH / CREF) ** 2) continue;
+      }
+      if (ti === A) this.react(dir, i, j); else this.react(dir, j, i);
+      return;
+    }
+  }
+  /* ---------- carry out one reaction event (the atoms keep their labels) ---------- */
+  react(dir, i, j) {
+    const sys = this.sys, rng = this.rng;
+    if (dir === "f") this.nf++; else this.nr++;
+    if (sys === "AB") { this.setType(i, dir === "f" ? 1 : 0); return; }
+    if (sys === "NO2") {
+      if (dir === "f") { this.setType(i, 1); this.tag[i] = this.tag[i] | this.tag[j]; this.x[i] = (this.x[i] + this.x[j]) / 2; this.y[i] = (this.y[i] + this.y[j]) / 2; this.remove(j); }
+      else { const t = this.tag[i]; this.setType(i, 0); const k = this.spawnNear(0, this.x[i], this.y[i], i); if (k >= 0 && t && rng() < 0.5) { this.tag[k] = 1; this.tag[i] = 0; } }
+      return;
+    }
+    if (sys === "HI") {
+      if (dir === "f") { this.setType(i, 2); this.setType(j, 2); }
+      else { this.setType(i, 0); this.setType(j, 1); }
+      return;
+    }
+    // Haber
+    if (dir === "f") {
+      // N₂ (i) + H₂ (j) + the two nearest other H₂ → 2NH₃
+      let tagged = 0; const near = [];
+      for (let k = 0; k < this.n; k++) if (this.alive[k] && this.type[k] === 1 && k !== j) { const d = (this.x[k] - this.x[i]) ** 2 + (this.y[k] - this.y[i]) ** 2; near.push([d, k]); }
+      near.sort((a, b) => a[0] - b[0]);
+      for (const [, k] of near.slice(0, 2)) { tagged |= this.tag[k]; this.remove(k); }
+      this.setType(i, 2); this.setType(j, 2); if (tagged) this.tag[j] = 1;
+    } else {
+      // 2NH₃ → N₂ + 3H₂: one NH₃ becomes N₂, the other H₂, and two more H₂ appear nearby
+      this.setType(i, 0); this.setType(j, 1);
+      this.spawnNear(1, this.x[j], this.y[j], j); this.spawnNear(1, this.x[i], this.y[i], i);
+    }
+  }
+  tagSome(type, num) {
+    const list = []; for (let i = 0; i < this.n; i++) if (this.alive[i] && this.type[i] === type && !this.tag[i]) list.push(i);
+    for (let q = 0; q < num && list.length; q++) this.tag[list.splice(Math.floor(this.rng() * list.length), 1)[0]] = 1;
+  }
+  tagCounts() { const c = new Array(this.S.sp.length).fill(0); for (let i = 0; i < this.n; i++) if (this.alive[i] && this.tag[i]) c[this.type[i]]++; return c; }
+}
+
+/* =====================================================================
+   4. HEADLESS RUNS (batch experiments)
+   ---------------------------------------------------------------------
+   A ⇌ B needs no collisions, so it is run as numbers only: each step the
+   number of A that turn into B is a random (binomial) count. This is exactly
+   the same model as the animation, just much faster.
+   ===================================================================== */
+function binom(rng, n, p) {
+  // how many of n particles react this step, each with chance p
+  if (n <= 0 || p <= 0) return 0;
+  if (n < 40) { let c = 0; for (let k = 0; k < n; k++) if (rng() < p) c++; return c; }
+  const m = n * p;
+  if (m < 25) return Math.min(n, poisson(rng, m));                 // rare events: Poisson is accurate
+  return Math.max(0, Math.min(n, Math.round(m + Math.sqrt(m * (1 - p)) * gauss(rng))));
+}
+function runAB(p, seed) {
+  const rng = mulberry32(hashSeed("ab" + seed)), N = Math.round(p.amount * 2);
+  const kf = kDir("AB", "f", p.T, p.cat, 0), kr = kDir("AB", "r", p.T, p.cat, 0), dt = Math.min(0.5, 0.1 / (kf + kr));
+  let a = p.startFrom === "products" ? 0 : p.startFrom === "eq" ? Math.round(N * kr / (kf + kr)) : N, b = N - a;
+  const pf = 1 - Math.exp(-kf * dt), pr = 1 - Math.exp(-kr * dt);
+  return trace(p, (t) => { const f = binom(rng, a, pf), r = binom(rng, b, pr); a += r - f; b += f - r; return { c: [a, b], nf: f, nr: r }; }, dt, [a, b], 1);
+}
+// Follow a run, recording the product amount; measure Kc, yield and the time to reach equilibrium
+function trace(p, stepFn, dt, start, area) {
+  const tRun = p.tRun, tMeas = p.tMeas ?? 0.4 * tRun;
+  const prod = [], pk = start.length - 1; let t = 0, sum = new Array(start.length).fill(0), ns = 0, nf = 0;
+  let c = start;
+  const every = Math.max(1, Math.round(1 / dt));
+  for (let k = 0; t < tRun; k++) {
+    const r = stepFn(t); c = r.c; t += dt;
+    if (k % every === 0) prod.push([t, c[pk]]);
+    if (t > tRun - tMeas) { c.forEach((v, q) => sum[q] += v); ns++; nf += r.nf; }
+  }
+  const avg = sum.map(v => v / ns);
+  // time to equilibrium: first time a 20 ps running mean of the product gets 90% of the way to its final average
+  const target = start[pk] + 0.9 * (avg[pk] - start[pk]), up = avg[pk] >= start[pk];
+  let teq = NaN; const win = [], wl = Math.max(1, Math.round(20 / Math.max(1, dt * every)));
+  for (const [tt, v] of prod) { win.push(v); if (win.length > wl) win.shift(); const m = mean(win); if (win.length === wl && (up ? m >= target : m <= target)) { teq = tt - 10; break; } }
+  return { Kc: quotient(p.sys, avg, area), yield: yieldPct(p.sys, avg), teq, frate: 1000 * nf / tMeas, avg };
+}
+function runOnce(p0, seed) {
+  const p = { ...p0 }, s = SYS[p.sys];
+  if (p.P) p.vol = volForPressure(p);
+  if (p.sys === "AB" && !p.physics) {
+    // In the numbers-only run, concentration = count ÷ area: with area 1 (A ⇌ B has Δn = 0, so area does not matter)
+    return runAB(p, seed);
+  }
+  const w = new World(p, seed), dt = w.safeDt();
+  let lastF = 0;
+  const r = trace(p, () => { w.step(dt); const f = w.nf - lastF; lastF = w.nf; return { c: w.counts.slice(), nf: f, nr: 0 }; }, dt, w.counts.slice(), w.area());
+  return r;
+}
+// Haber: the volume (as % of the box) that gives a chosen starting pressure (scaled atmospheres)
+const P_SCALE = 1.04;   // pressure (atm, scaled) = P_SCALE × particles per nm² × T: the Haber preset starts at about 200 atm
+function pressureAtm(nTot, area, T) { return P_SCALE * nTot / area * T; }
+function volForPressure(p) {
+  const s = SYS[p.sys], nTot = s.start.reduce((a, b) => a + b, 0) * p.amount / 100;
+  return Math.max(20, Math.min(100, 100 * (P_SCALE * nTot * p.T / p.P) / (BOX_W * BOX_H)));
+}
+
+/* =====================================================================
+   5. SETTINGS
+   ===================================================================== */
+function params() {
+  return { sys: el("sys").value, T: +el("T").value, vol: +el("vol").value, cat: el("cat").checked ? 1 : 0,
+           amount: +el("amount").value, startFrom: el("startFrom").value, seed: el("seed").value || "1" };
+}
+// Forward rate (reactions per ns) predicted by the rate law for a mixture
+function fwdRateTheory(sys, counts, area, T, cat) {
+  const s = SYS[sys], phi = counts.reduce((a, b) => a + b, 0) * Math.PI * RAD * RAD / area, k = kDir(sys, "f", T, cat, phi);
+  if (s.fwd.uni !== undefined) return 1000 * k * counts[s.fwd.uni];
+  let r = k * area; s.coef.forEach((c, q) => { if (c < 0) r *= (counts[q] / area) ** (sys === "NO2" ? 2 : -c); });
+  return 1000 * r;
+}
+
+/* =====================================================================
+   6. PRESETS — each shows one idea; some change something part-way through
+   ===================================================================== */
+const PRESETS = [
+  { name: "Reaching equilibrium", d: "A ⇌ B, starting with only A", s: { sys: "AB", T: 400 } },
+  { name: "From the other side", d: "start with only B: same mixture", s: { sys: "AB", T: 400, startFrom: "products" } },
+  { name: "Labelled atoms", d: "it keeps reacting at equilibrium", s: { sys: "HI", T: 700, startFrom: "eq" }, script: [{ t: 150, act: w => { w.tagSome(0, 12); }, msg: "12 H₂ molecules have been labelled." }] },
+  { name: "Add more reactant", d: "H₂ added at 900 ps", s: { sys: "HI", T: 700 }, script: [{ t: 900, act: w => w.addMany(0, 40), msg: "40 extra H₂ were added." }] },
+  { name: "Remove product", d: "half the HI taken out at 900 ps", s: { sys: "HI", T: 700 }, script: [{ t: 900, act: w => w.removeMany(2, Math.round(w.counts[2] / 2)), msg: "Half of the HI was removed." }] },
+  { name: "NO₂ in ice", d: "273 K: mostly colourless N₂O₄", s: { sys: "NO2", T: 273 } },
+  { name: "NO₂ in hot water", d: "373 K: mostly brown NO₂", s: { sys: "NO2", T: 373 } },
+  { name: "Heat it up", d: "NO₂ warmed 300 → 400 K at 300 ps", s: { sys: "NO2", T: 300 }, script: [{ t: 300, act: () => setT(400), msg: "The temperature was raised to 400 K." }] },
+  { name: "Squeeze NO₂", d: "volume halved at 300 ps", s: { sys: "NO2", T: 330 }, script: [{ t: 300, act: () => setVol(50), msg: "The piston halved the volume." }] },
+  { name: "Squeeze H₂ + I₂", d: "same number of molecules each side", s: { sys: "HI", T: 700, startFrom: "eq" }, script: [{ t: 300, act: () => setVol(50), msg: "The piston halved the volume." }] },
+  { name: "Haber: 450 °C, 200 atm", d: "the industrial compromise", s: { sys: "NH3", T: 723 } },
+  { name: "Haber: 300 °C", d: "better yield, but slower", s: { sys: "NH3", T: 573 } },
+  { name: "Haber: catalyst", d: "iron added at 600 ps: yield same", s: { sys: "NH3", T: 723 }, script: [{ t: 600, act: () => { el("cat").checked = true; applyLive(); }, msg: "The catalyst was added." }] },
+];
+let presetIdx = 0, script = [], scriptMsg = "";
+function setPreset(k) {
+  presetIdx = k; const pr = PRESETS[k], s = pr.s, S = SYS[s.sys];
+  el("sys").value = s.sys; sysChanged(false);
+  el("T").value = s.T; el("vol").value = s.vol ?? S.vol0; el("cat").checked = !!s.cat; el("amount").value = 100;
+  el("startFrom").value = s.startFrom === "products" ? "products" : "reactants";
+  [...el("presets").children].forEach((b, i) => b.classList.toggle("on", i === k));
+  refreshOutputs(); resetWorld(s.startFrom === "eq");
+  script = (pr.script || []).map(x => ({ ...x, done: false })); scriptMsg = "";
+  setRunning(true);
+}
+PRESETS.forEach((p, k) => { const b = document.createElement("button"); b.innerHTML = `${p.name}<small>${p.d}</small>`; b.onclick = () => setPreset(k); el("presets").appendChild(b); });
+
+/* =====================================================================
+   7. LIVE STATE
+   ===================================================================== */
+let world = null, running = false, speed = 1, hist = [], lastChange = 0;
+const PS_PER_SECOND = 25;
+function resetWorld(fromEq) {
+  const p = params();
+  if (fromEq) p.startFrom = "eq";
+  world = new World(p, p.seed);
+  hist = [{ t: 0, c: world.counts.slice(), nf: 0, nr: 0, area: world.area(), vol: world.p.vol, T: world.p.T, K: KcTheory(world.sys, world.p.T, world.p.cat, world.phi()) }]; lastChange = 0; script = []; scriptMsg = "";
+}
+function setRunning(on) { running = on; el("btnPlay").textContent = on ? "❚❚ Pause" : "▶ Play"; }
+function setT(T) { el("T").value = T; applyLive(); }
+function setVol(v) { el("vol").value = v; applyLive(); }
+function applyLive() {
+  refreshOutputs(); if (!world) return;
+  const T = +el("T").value, v = +el("vol").value, c = el("cat").checked ? 1 : 0;
+  if (T !== world.p.T || v !== world.p.vol) lastChange = world.t;
+  world.p.T = T; world.p.cat = c; world.setVolume(v);
+}
+function sysChanged(reset = true) {
+  const S = SYS[el("sys").value];
+  el("T").min = S.Tmin; el("T").max = S.Tmax; el("T").value = S.T0; el("vol").value = S.vol0;
+  el("sysInfo").textContent = `${S.eq}.  ΔH = ${S.Ef - S.Er > 0 ? "+" : ""}${(S.Ef - S.Er).toFixed(1)} kJ/mol (forward ${S.Ef - S.Er < 0 ? "exothermic" : "endothermic"}).`;
+  el("addRemove").innerHTML = S.sp.map((n, k) => `<div class="row" style="margin-bottom:4px"><span style="flex:1;font-size:13px"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${SPCOL[el("sys").value][k]};margin-right:6px"></i>${n}</span><button data-add="${k}" data-n="10">+10</button><button data-add="${k}" data-n="-10">−10</button></div>`).join("");
+  el("addRemove").querySelectorAll("button").forEach(b => b.onclick = () => { const k = +b.dataset.add, n = +b.dataset.n; if (n > 0) world.addMany(k, n); else world.removeMany(k, -n); lastChange = world.t; });
+  el("btnTag").textContent = `Label 10 ${S.sp[0]}`;
+  legend();
+  if (reset) { refreshOutputs(); resetWorld(); setRunning(true); }
+}
+function refreshOutputs() {
+  const T = +el("T").value; el("o_T").textContent = `${T} K (${Math.round(T - 273)} °C)`;
+  el("o_vol").textContent = `${el("vol").value}%`; el("o_amount").textContent = `${el("amount").value}%`;
+}
+el("sys").onchange = () => sysChanged(true);
+for (const id of ["T", "vol"]) el(id).addEventListener("input", applyLive);
+el("cat").addEventListener("change", applyLive);
+for (const id of ["amount", "startFrom", "seed"]) el(id).addEventListener("change", () => { refreshOutputs(); resetWorld(); setRunning(true); });
+el("amount").addEventListener("input", refreshOutputs);
+el("btnPlay").onclick = () => setRunning(!running);
+el("btnReset").onclick = () => { resetWorld(); setRunning(true); };
+el("btnTag").onclick = () => world.tagSome(0, 10);
+el("btnUntag").onclick = () => world.tag.fill(0);
+document.querySelectorAll(".speed button").forEach(b => b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll(".speed button").forEach(x => x.classList.toggle("on", x === b)); el("speedNote").textContent = `${PS_PER_SECOND * speed} ps per second`; });
+el("speedNote").textContent = `${PS_PER_SECOND} ps per second`;
+el("btnBatch").onclick = () => { setRunning(false); Batch.open(); };
+function legend() {
+  const sys = el("sys").value, S = SYS[sys];
+  el("legend").innerHTML = S.sp.map((n, k) => `<span><i style="background:${SPCOL[sys][k]};border-radius:50%"></i>${n}</span>`).join("") +
+    `<span><i style="background:none;border:2px solid #f1af28;border-radius:50%"></i>labelled</span>` +
+    (sys === "NO2" ? `<span>Background tint = brown colour of NO₂</span>` : "") + (sys !== "AB" ? `<span>Atoms: <b style="color:#4f7fd1">N</b> <b style="color:#ddd">H</b> <b style="color:#a86dab">I</b> <b style="color:#de252a">O</b></span>` : "");
+}
+
+/* =====================================================================
+   8. DRAWING
+   ===================================================================== */
+function drawView() {
+  const { ctx, w, h } = prepCanvas(el("view")), S = world.S, sys = world.sys;
+  ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, w, h);
+  const s = Math.min((w - 20) / BOX_W, (h - 20) / BOX_H), ox = (w - BOX_W * s) / 2, oy = (h - BOX_H * s) / 2, W = world.W;
+  // the gas: NO₂ is brown, so the box gets browner as [NO₂] rises
+  let bg = "#0d1410";
+  if (sys === "NO2") { const c = Math.min(1, world.counts[0] / world.area() / 0.2); bg = `rgb(${13 + 110 * c},${20 + 45 * c},${16 + 4 * c})`; }
+  ctx.fillStyle = bg; ctx.fillRect(ox, oy, W * s, BOX_H * s);
+  ctx.strokeStyle = "#5d6a55"; ctx.lineWidth = 2; ctx.strokeRect(ox, oy, BOX_W * s, BOX_H * s);
+  if (W < BOX_W - 0.01) { ctx.fillStyle = "#2a3024"; ctx.fillRect(ox + W * s, oy, (BOX_W - W) * s, BOX_H * s); ctx.fillStyle = "#6b7562"; ctx.fillRect(ox + W * s, oy, 5, BOX_H * s); ctx.fillStyle = "#a3ab96"; ctx.font = "12px system-ui"; ctx.textAlign = "center"; ctx.fillText("piston", ox + (W + (BOX_W - W) / 2) * s, oy + BOX_H * s / 2); }
+  for (let i = 0; i < world.n; i++) {
+    if (!world.alive[i]) continue;
+    const X = ox + world.x[i] * s, Y = oy + world.y[i] * s, a = world.ang[i], ca = Math.cos(a), sa = Math.sin(a);
+    const z = sys === "AB" ? s : 1.35 * s;   // molecules drawn a little larger than their collision size so the atoms are clear
+    for (const [dx, dy, r, col] of S.draw[world.type[i]].atoms) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(X + (dx * ca - dy * sa) * z, Y + (dx * sa + dy * ca) * z, r * z, 0, 7); ctx.fill(); }
+    if (world.tag[i]) { ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(X, Y, 0.45 * s, 0, 7); ctx.stroke(); }
+  }
+  ctx.fillStyle = "#cfd5c4"; ctx.fillRect(ox + 10, oy + BOX_H * s - 12, 5 * s, 3); ctx.font = "11px system-ui"; ctx.textAlign = "left"; ctx.fillText("5 nm", ox + 10, oy + BOX_H * s - 16);
+  if (scriptMsg) { ctx.font = "bold 14px system-ui"; const tw = ctx.measureText(scriptMsg).width; ctx.fillStyle = "rgba(20,19,59,.9)"; ctx.fillRect(ox + 8, oy + 8, tw + 16, 26); ctx.fillStyle = "#f1af28"; ctx.fillText(scriptMsg, ox + 16, oy + 26); }
+}
+function avgCounts(span) {
+  // average amounts over the last `span` ps, but not from before the last change of conditions
+  const t0 = Math.max(world.t - span, lastChange); let sum = null, n = 0;
+  for (let k = hist.length - 1; k >= 0 && hist[k].t >= t0; k--) { const c = hist[k].c; sum = sum ? sum.map((v, q) => v + c[q]) : c.slice(); n++; }
+  return n ? { c: sum.map(v => v / n), span: world.t - t0 } : null;
+}
+function rateAt(k, span) {
+  let j = k; while (j > 0 && hist[k].t - hist[j - 1].t <= span) j--;
+  const a = hist[Math.max(0, j - 1)], b = hist[k], dt = b.t - a.t;
+  return dt > 0 ? [1000 * (b.nf - a.nf) / dt, 1000 * (b.nr - a.nr) / dt] : [0, 0];
+}
+function drawCharts() {
+  const sys = world.sys, S = world.S, cols = SPCOL[sys], tMax = Math.max(100, world.t);
+  const step = Math.max(1, Math.floor(hist.length / 400)), H = hist.filter((_, k) => k % step === 0 || k === hist.length - 1);
+  plot(el("chartA"), { series: S.sp.map((n, q) => ({ pts: H.map(e => [e.t, e.c[q]]), color: cols[q], width: 2 })), xMin: 0, xMax: tMax, yMin: 0, xLabel: "time (ps)", yLabel: "particles", padL: 40,
+    legend: S.sp.map((n, q) => ({ color: cols[q], label: n })), legendRight: true });
+  const rf = [], rr = []; for (let k = 0; k < hist.length; k += step) { const [f, r] = rateAt(k, 40); rf.push([hist[k].t, f]); rr.push([hist[k].t, r]); }
+  plot(el("chartR"), { series: [{ pts: rf, color: "#f1af28", width: 2 }, { pts: rr, color: "#4fc3f7", width: 2 }], xMin: 0, xMax: tMax, yMin: 0, xLabel: "time (ps)", yLabel: "reactions per ns", padL: 44,
+    legend: [{ color: "#f1af28", label: S.fwdName }, { color: "#4fc3f7", label: S.revName }], legendRight: true });
+  const K = KcTheory(sys, world.p.T, world.p.cat, world.phi()), q = [];
+  for (const e of H) { const Q = quotient(sys, e.c, e.area || world.area()); if (Number.isFinite(Q) && Q > 0) q.push([e.t, Q]); }
+  const Ks = H.map(e => [e.t, e.K]);
+  plot(el("chartQ"), { series: [{ pts: Ks, color: "#4fc3f7", width: 2, dash: [6, 4] }, { pts: q, color: "#f1af28", width: 1.6 }], xMin: 0, xMax: tMax, yLog: true, xLabel: "time (ps)", yLabel: "Q or Kc (log scale)", padL: 52,
+    legend: [{ color: "#f1af28", label: "Q now" }, { color: "#4fc3f7", dash: [6, 4], label: "Kc theory" }], legendRight: true });
+  drawProfile();
+}
+function drawProfile() {
+  const { ctx, w, h } = prepCanvas(el("chartE")), S = world.S;
+  ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, w, h);
+  const Ef = S.Ef, dH = S.Ef - S.Er, drop = catDrop(S, { cat: 1 }), top = Ef * 1.35 + 2, bot = Math.min(0, dH) * 1.25 - 2;
+  const L = 40, Rr = 10, T = 12, B = 20, Y = E => T + (top - E) / (top - bot) * (h - T - B), X = f => L + f * (w - L - Rr);
+  const path = Eh => { ctx.beginPath(); for (let k = 0; k <= 100; k++) { const f = k / 100; let E; if (f < 0.2) E = 0; else if (f > 0.8) E = dH; else { const u = (f - 0.2) / 0.6; E = dH * (0.5 - 0.5 * Math.cos(Math.PI * u)) + (Eh - dH / 2) * Math.sin(Math.PI * u) ** 2; } k ? ctx.lineTo(X(f), Y(E)) : ctx.moveTo(X(f), Y(E)); } ctx.stroke(); };
+  ctx.lineWidth = 2.5; ctx.strokeStyle = world.p.cat ? "rgba(241,175,40,.45)" : "#f1af28"; path(Ef);
+  ctx.setLineDash([6, 4]); ctx.strokeStyle = world.p.cat ? "#8fd694" : "rgba(143,214,148,.4)"; path(Ef - drop); ctx.setLineDash([]);
+  ctx.strokeStyle = "rgba(200,205,190,.5)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, h - B); ctx.lineTo(w - Rr, h - B); ctx.stroke();
+  ctx.font = "10.5px system-ui"; ctx.fillStyle = "#c9cfbd"; ctx.textAlign = "center"; ctx.fillText("progress of reaction →", (L + w) / 2, h - 5);
+  ctx.save(); ctx.translate(11, (T + h - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("kJ/mol", 0, 0); ctx.restore();
+  ctx.textAlign = "left"; ctx.fillStyle = "#dfe3d6"; ctx.fillText("reactants", X(0.01), Y(0) - 4); ctx.textAlign = "right"; ctx.fillText("products", X(0.99), Y(dH) - 4);
+  ctx.fillStyle = "#f1af28"; ctx.textAlign = "left"; ctx.fillText(`Ea forward ${Ef}`, X(0.52), Y(Ef) - 2);
+  ctx.fillStyle = "#4fc3f7"; ctx.fillText(`Ea reverse ${S.Er}`, X(0.62), Y((Ef + dH) / 2) + 4);
+  ctx.fillStyle = "#a3ab96"; ctx.textAlign = "right"; ctx.fillText(`ΔH = ${dH.toFixed(1)}`, X(0.99), Y(dH) + 13);
+  if (world.p.cat) { ctx.fillStyle = "#8fd694"; ctx.textAlign = "left"; ctx.fillText("with catalyst", X(0.02), Y(Ef - drop) + 3); }
+}
+
+/* =====================================================================
+   9. READOUTS AND STORY
+   ===================================================================== */
+const fmtPs = t => t < 1000 ? `${Math.floor(t)} ps` : `${(t / 1000).toFixed(2)} ns`;
+let lastUI = 0;
+function updateUI(now) {
+  el("clock").textContent = fmtPs(world.t);
+  if (now - lastUI < 300) return; lastUI = now;
+  const sys = world.sys, S = world.S, area = world.area(), phi = world.phi(), K = KcTheory(sys, world.p.T, world.p.cat, phi);
+  const av = avgCounts(300), Kmeas = av ? quotient(sys, av.c, area) : NaN, Qnow = quotient(sys, world.counts, area);
+  const rng = hist.length > 1 ? rateAt(hist.length - 1, 60) : [0, 0];
+  const eqMix = eqMixture(sys, world.counts, area, world.p.T, world.p.cat), yNow = yieldPct(sys, world.counts), yEq = yieldPct(sys, eqMix);
+  const near = Math.abs(Math.log(Qnow / K)) < (sys === "AB" ? 0.35 : 0.6) && Math.abs(rng[0] - rng[1]) < 0.35 * Math.max(rng[0], rng[1], 1);
+  const st = el("status"); st.innerHTML = near ? "<b style='color:#8fd694'>≈ at equilibrium</b>" : Qnow < K ? "<b style='color:#f1af28'>shifting → (forwards)</b>" : "<b style='color:#4fc3f7'>shifting ← (backwards)</b>";
+  el("s_K").textContent = `${fmt(Kmeas, 3)}${av && av.span < 150 ? " (settling)" : ""}`;
+  el("s_Kth").textContent = fmt(K, 3); el("s_Y").textContent = `${fmt(yNow, 3)}%`;
+  const dn = S.coef.reduce((a, b) => a + b, 0), unit = dn === 0 ? "no units" : `(per 100 nm²)${sup(-dn)}`;
+  const tags = world.tagCounts(), totTag = tags.reduce((a, b) => a + b, 0);
+  const nTot = world.counts.reduce((a, b) => a + b, 0), P = sys === "NH3" ? `${Math.round(pressureAtm(nTot, area, world.p.T))} atm` : `${fmt((nTot / area * world.p.T) / (hist[0].c.reduce((a, b) => a + b, 0) / hist[0].area * hist[0].T), 3)} × start`;
+  const tiles = [
+    ["Temperature", `${world.p.T} K`, `${Math.round(world.p.T - 273)} °C`],
+    ["Pressure", P, sys === "NH3" ? "scaled atmospheres" : `${nTot} particles`],
+    ["Kc measured", fmt(Kmeas, 3), `avg of last ${Math.round(av ? av.span : 0)} ps · ${unit}`],
+    ["Kc theory", fmt(K, 3), `k forward ÷ k reverse`],
+    [sys === "NH3" ? "Yield of NH₃" : `Yield of ${S.ptxt}`, `${fmt(yNow, 3)}%`, `at equilibrium: ${fmt(yEq, 3)}%`],
+    ["Forward rate", `${fmt(rng[0], 3)} /ns`, S.fwdName],
+    ["Reverse rate", `${fmt(rng[1], 3)} /ns`, S.revName],
+    ["Labelled", totTag ? tags.map((c, k) => `${c} ${S.sp[k]}`).join(", ") : "none", totTag ? "where the labels are now" : "press Label"],
+  ];
+  el("tiles").innerHTML = tiles.map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+  el("story").innerHTML = story(near, Qnow, K, rng, tags, yNow, yEq);
+}
+function story(near, Q, K, rng, tags, yNow, yEq) {
+  const sys = world.sys, S = world.S, m = [];
+  if (scriptMsg) m.push(`<b>${scriptMsg}</b>`);
+  if (near) {
+    m.push(`The mixture is at <b>dynamic equilibrium</b>: the forward and reverse reactions are both still happening (about ${fmt((rng[0] + rng[1]) / 2, 2)} times per ns each), at the same rate, so the amounts stay about the same.`);
+    if (tags.reduce((a, b) => a + b, 0) && tags.filter(c => c > 0).length > 1) m.push("Labelled atoms have turned up in both reactants and products, proof that reactions carry on at equilibrium.");
+  } else if (Q < K) m.push(`Q is below K, so the forward reaction (${S.fwdName}) is faster than the reverse. The mixture is moving towards the products.`);
+  else m.push(`Q is above K, so the reverse reaction (${S.revName}) is faster. The mixture is moving back towards the reactants.`);
+  const dH = S.Ef - S.Er;
+  if (sys === "NO2") m.push(world.p.T < 300 ? "It is cold, so the exothermic forward reaction is favoured: mostly pale N₂O₄." : world.p.T > 360 ? "It is hot, so the endothermic reverse reaction is favoured: lots of brown NO₂." : "Warming favours brown NO₂ (endothermic direction); cooling favours colourless N₂O₄.");
+  if (world.p.vol < 70 && (sys === "NO2" || sys === "NH3")) m.push(`The higher pressure favours the side with fewer gas molecules (${S.ptxt}).`);
+  if (world.p.vol < 70 && sys === "HI") m.push("Both sides have 2 gas molecules, so squeezing changes the concentrations but not the position of equilibrium.");
+  if (sys === "NH3") m.push(`Equilibrium yield here: ${fmt(yEq, 3)}%. Lower temperatures give a higher yield (the forward reaction is exothermic, ΔH ${dH.toFixed(0)} kJ/mol) but the reactions get much slower. Real plants compromise at about 450 °C and 200 atm, with an iron catalyst.`);
+  if (world.p.cat) m.push("The catalyst speeds up the forward and reverse reactions by the same factor: equilibrium is reached sooner, but the yield is the same.");
+  return m.join(" ");
+}
+
+/* =====================================================================
+   10. MAIN LOOP
+   ===================================================================== */
+let lastT = performance.now();
+function frame(now) {
+  const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (running) {
+    let left = real * speed * PS_PER_SECOND; const t0 = performance.now(), dt = world.safeDt();
+    while (left > 1e-9 && performance.now() - t0 < 30) {
+      const d = Math.min(left, dt); world.step(d); left -= d;
+      for (const sc of script) if (!sc.done && world.t >= sc.t) { sc.done = true; sc.act(world); scriptMsg = sc.msg; lastChange = world.t; }
+    }
+    const last = hist[hist.length - 1];
+    if (world.t - last.t >= 2) hist.push({ t: world.t, c: world.counts.slice(), nf: world.nf, nr: world.nr, area: world.area(), vol: world.p.vol, T: world.p.T, K: KcTheory(world.sys, world.p.T, world.p.cat, world.phi()) });
+    if (hist.length > 6000) hist.splice(1, 1);
+  }
+  drawView(); drawCharts(); updateUI(now);
+  requestAnimationFrame(frame);
+}
+
+/* =====================================================================
+   11. BATCH EXPERIMENTS
+   ===================================================================== */
+const startCounts = p => { const s = SYS[p.sys]; const r = s.start.map(v => v * p.amount / 100); return r; };
+const areaOf = p => BOX_W * BOX_H * (p.P ? volForPressure(p) : p.vol) / 100;
+function prepBatch(p) { const q = { ...p }; if (q.N) q.amount = 100 * q.N / SYS[q.sys].start.reduce((a, b) => a + b, 0); return q; }
+Batch.init({
+  file: "dynamic-equilibrium",
+  repeatSizes: [20, 50, 100],
+  headlessNote: "Batch runs use the same particle model with no drawing. A ⇌ B needs no collisions, so it runs as numbers only (much faster, same chances). Kc and yield are averaged over the last part of each run.",
+  vars: [
+    { key: "T", label: "Temperature", unit: "K", min: 200, max: 1000 },
+    { key: "vol", label: "Volume", unit: "%", min: 20, max: 100 },
+    { key: "P", label: "Starting pressure (Haber)", unit: "atm", min: 50, max: 800, log: true },
+    { key: "N", label: "Number of particles", unit: "", min: 10, max: 2000, int: true, log: true },
+    { key: "cat", label: "Catalyst (0 = no, 1 = yes)", unit: "", min: 0, max: 1, int: true },
+  ],
+  outcomes: [
+    { key: "Kc", label: "Kc measured", unit: "" },
+    { key: "yield", label: "Yield at the end", unit: "%" },
+    { key: "teq", label: "Time to reach equilibrium", unit: "ps" },
+    { key: "frate", label: "Forward rate at equilibrium", unit: "per ns" },
+  ],
+  baseParams: () => { const p = params(); delete p.seed; return { ...p, tRun: 1500, tMeas: 800 }; },
+  describe: p => { const q = prepBatch(p); return `${SYS[q.sys].eq}, ${Math.round(q.T)} K, ${q.P ? `start ${Math.round(q.P)} atm` : `volume ${Math.round(q.vol)}%`}, ${Math.round(startCounts(q).reduce((a, b) => a + b, 0))} particles${q.cat ? ", catalyst" : ""}, starting from ${q.startFrom === "eq" ? "the equilibrium mixture" : q.startFrom}. Each run lasts ${q.tRun} ps; averages over the last ${q.tMeas} ps.`; },
+  runOnce: (p, seed) => runOnce(prepBatch(p), seed),
+  theory(key, p0, stat) {
+    const p = prepBatch(p0), sys = p.sys, area = areaOf(p), st = startCounts(p);
+    const mix = eqMixture(sys, st, area, p.T, p.cat), phi = mix.reduce((a, b) => a + b, 0) * Math.PI * RAD * RAD / area;
+    const K = KcTheory(sys, p.T, p.cat, phi);
+    if (key === "Kc") {
+      if (stat !== "sd") return K;
+      if (sys !== "AB") return null;
+      // SD of a time-averaged ratio: snapshot variance x(1−x)/N, reduced by averaging over W ≫ τ: × 2τ/W
+      const N = st.reduce((a, b) => a + b, 0), x = K / (1 + K), tau = 1 / (kDir("AB", "f", p.T, p.cat, 0) + kDir("AB", "r", p.T, p.cat, 0));
+      return Math.sqrt(x * (1 - x) / N * 2 * tau / p.tMeas) / (1 - x) ** 2;
+    }
+    if (stat === "sd") return null;
+    if (key === "yield") return yieldPct(sys, mix);
+    if (key === "teq") return sys === "AB" ? Math.log(10) / (kDir("AB", "f", p.T, p.cat, 0) + kDir("AB", "r", p.T, p.cat, 0)) : null;
+    if (key === "frate") return fwdRateTheory(sys, mix, sys === "AB" ? 1 : area, p.T, p.cat);
+    return null;
+  },
+  theoryLabel: (key, stat) => stat === "sd" ? "theory: SD ∝ 1/√N" : key === "Kc" ? "theory Kc = k_f ÷ k_r" : key === "yield" ? "theory equilibrium yield" : "theory",
+  interpret(spec, fit, d) {
+    if (spec.mode !== "sweep" || !fit) return "";
+    const p = spec.params, S = SYS[p.sys];
+    if (spec.var === "T" && spec.x === "inv" && spec.y === "ln" && d.key === "Kc")
+      return `<p>van 't Hoff: gradient = −ΔH/R, so ΔH = −gradient × R = <b>${fmt(-fit.m * R_GAS, 3)} ± ${fmt(fit.se * R_GAS, 2)} kJ/mol</b>. ΔH in the model: <b>${(S.Ef - S.Er).toFixed(1)} kJ/mol</b>.${p.sys === "NO2" ? " (For NO₂ the collision rate also rises as √T, which adds about −½RT.)" : ""}</p>`;
+    if (spec.var === "N" && spec.x === "log" && spec.y === "log" && spec.stat === "sd")
+      return `<p>Gradient of log(SD) against log(N) = <b>${fmt(fit.m, 3)} ± ${fmt(fit.se, 2)}</b>. Theory: <b>−0.5</b>, so the scatter shrinks as 1/√N. Four times the particles halves the scatter.</p>`;
+    return "";
+  },
+  experiments: [
+    { q: "Is Kc the same every time?", sub: "50 runs of H₂ + I₂ ⇌ 2HI at 700 K", mode: "repeat", n: 50, out: "Kc",
+      params: { sys: "HI", T: 700, vol: 100, cat: 0, amount: 100, startFrom: "eq", tRun: 1000, tMeas: 900 },
+      note: "<p>Each run starts from a mixture close to equilibrium and Kc = [HI]² ÷ ([H₂][I₂]) is measured from the average amounts. With only about 120 molecules the amounts jiggle, so each run gives a slightly different Kc, scattered around the theory value.</p><p>The small amounts of H₂ and I₂ (about 13 each) on the bottom of the fraction make Kc scatter a lot. Their ups and downs also push the average a few percent above theory: a small-number effect that disappears in a real flask.</p>" },
+    { q: "Does more particles mean less scatter?", sub: "A ⇌ B, 25 to 1600 particles, 30 runs each", mode: "sweep", var: "N", from: 25, to: 1600, steps: 7, reps: 30, out: "Kc", x: "log", y: "log", stat: "sd",
+      params: { sys: "AB", T: 400, vol: 100, cat: 0, startFrom: "eq", tRun: 2500, tMeas: 2000 },
+      note: "<p>For each number of particles, 30 runs measure Kc, and we plot how much they disagree (the SD). Random fluctuations shrink as 1/√N, so the log–log graph has gradient −½.</p><p>A real flask holds about 10²³ molecules: the scatter is about 10⁻¹¹ of the value, far too small to see. That is why real equilibria look perfectly steady.</p>" },
+    { q: "van 't Hoff: how does K change with T?", sub: "A ⇌ B from 300 to 700 K → ln K against 1/T", mode: "sweep", var: "T", from: 300, to: 700, steps: 6, reps: 5, out: "Kc", x: "inv", y: "ln",
+      params: { sys: "AB", vol: 100, cat: 0, amount: 100, startFrom: "reactants", tRun: 5000, tMeas: 2500 },
+      note: "<p>The forward reaction is exothermic (ΔH = −6 kJ/mol), so K falls as the temperature rises. ln K against 1/T is a straight line with gradient −ΔH/R: measuring K at different temperatures tells you ΔH.</p><p>This is Le Chatelier in numbers: heating favours the endothermic direction.</p>" },
+    { q: "Haber: how does pressure change the yield?", sub: "100 to 600 atm at 450 °C", mode: "sweep", var: "P", from: 100, to: 600, steps: 6, reps: 3, out: "yield", x: "lin", y: "lin",
+      params: { sys: "NH3", T: 723, cat: 0, amount: 100, startFrom: "reactants", tRun: 1300, tMeas: 500 },
+      note: "<p>N₂ + 3H₂ ⇌ 2NH₃ turns 4 gas molecules into 2, so higher pressure pushes the equilibrium to the right: more ammonia. Higher pressure also makes the reaction faster (more collisions).</p><p>Real plants stop at about 200 atm because thicker pipes, stronger pumps and the energy to compress the gas cost too much.</p>" },
+    { q: "Haber: the temperature compromise", sub: "550 to 900 K: yield, then switch to time taken", mode: "sweep", var: "T", from: 550, to: 900, steps: 6, reps: 3, out: "yield", x: "lin", y: "lin",
+      params: { sys: "NH3", P: 200, cat: 0, amount: 100, startFrom: "reactants", tRun: 1500, tMeas: 500 },
+      note: "<p>The forward reaction is exothermic, so a lower temperature gives a higher equilibrium yield. Now change <b>Record</b> to <i>Time to reach equilibrium</i> or <i>Forward rate</i>: at low temperatures the reaction is much slower.</p><p>A fast reaction with a lower yield beats a slow one with a high yield, because unreacted gas is recycled. So plants run at about 450 °C (723 K).</p>" },
+    { q: "Does a catalyst change the yield?", sub: "A ⇌ B with and without a catalyst, 30 runs each", mode: "sweep", var: "cat", from: 0, to: 1, steps: 2, reps: 30, out: "teq", x: "lin", y: "lin",
+      params: { sys: "AB", T: 400, vol: 100, amount: 100, startFrom: "reactants", tRun: 2500, tMeas: 1500 },
+      note: "<p>With the catalyst, equilibrium is reached much sooner. Now change <b>Record</b> to <i>Kc measured</i> or <i>Yield</i>: they are the same with and without the catalyst, because it speeds up both directions equally.</p><p>The theory time is ln 10 ÷ (k<sub>f</sub> + k<sub>r</sub>), the time to get 90% of the way.</p>" },
+  ],
+});
+
+/* =====================================================================
+   12. START
+   ===================================================================== */
+initPanels("dynamic-equilibrium-layout");
+setPreset(0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

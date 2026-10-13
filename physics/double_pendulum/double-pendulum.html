@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Double Pendulum Chaos</title>
+<!--
+  DOUBLE PENDULUM — chaos and the limits of prediction, a teaching model
+  ======================================================================
+  One self-contained file: no libraries, no internet needed.
+
+  A double pendulum is one pendulum hanging from the bottom of another.
+  Its motion follows Newton's laws exactly; there is no randomness at all.
+  Even so, two double pendulums started a tiny fraction of a degree apart
+  soon do completely different things. This is CHAOS: the tiny difference
+  grows exponentially, roughly
+        separation ≈ δ × e^(λt)
+  where δ is the starting difference and λ (the Lyapunov exponent, per
+  second) measures how chaotic the motion is. So the time for which we can
+  predict the motion grows only like ln(1/δ)/λ: making the starting error
+  1000 times smaller only adds ln(1000)/λ ≈ 7/λ seconds.
+
+  Model: two point masses m1, m2 on light rigid rods of lengths L1, L2,
+  swinging in a vertical plane under gravity g. Angles θ1, θ2 are measured
+  from straight down. The equations of motion (from Lagrange's method) are
+  solved with the classical 4th-order Runge–Kutta method (RK4) using a fixed
+  time step of 1 ms. The energy readout shows how well energy is conserved,
+  so you can check the computer isn't inventing the chaos.
+
+  Units: SI throughout. Lengths m, masses kg, time s, angles shown in
+  degrees (radians inside the code), energy J, λ per second.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 340px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: var(--ink-dark); }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select, input[type=number] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .chk { display: flex; gap: 6px; align-items: center; font-size: 13px; margin-bottom: 7px; }
+  .chk input { accent-color: var(--accent); }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+  #pending { display: none; background: #3a2a07; color: #ffd98a; border: 1px solid #6b4e10; border-radius: 6px; padding: 6px 8px; font-size: 12.5px; margin: 6px 0; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #mapWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #tools { position: absolute; left: 8px; top: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
+  #tools button { padding: 4px 9px; font-size: 12.5px; background: rgba(20,24,17,.88); }
+  #tools button.on { background: var(--accent); }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 6px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .chartBox { position: relative; height: 175px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+
+  /* Batch run overlay (covers the centre and right panels) */
+  #batch { display: none; position: fixed; z-index: 30; background: var(--panel); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px;
+           flex-direction: column; gap: 7px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+  #batch.open { display: flex; }
+  #batch .bhead { display: flex; align-items: center; gap: 10px; }
+  #batch .bhead h3 { margin: 0; white-space: nowrap; font-size: 17px; color: var(--accent); }
+  #batch .brow { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; }
+  #batch .brow label { display: inline-flex; gap: 5px; align-items: center; }
+  #batch input[type=number] { width: 82px; }
+  #bexp { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 5px; }
+  #bexp button { text-align: left; font-size: 12px; padding: 5px 7px; line-height: 1.25; }
+  #bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, 31%); gap: 10px; }
+  #bchartBox { position: relative; min-height: 0; background: #050604; border-radius: 8px; }
+  #bchart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bside { overflow-y: auto; font-size: 12.5px; min-height: 0; }
+  #bsum table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #bsum td, #bsum th { padding: 1px 4px; border-bottom: 1px solid var(--line); text-align: right; font-size: 12px; }
+  #bsum td:first-child, #bsum th:first-child { text-align: left; }
+  #bnote { margin-top: 8px; padding: 7px 9px; background: var(--panel-2); border-left: 3px solid var(--accent); border-radius: 5px; color: #dfe3d6; }
+  .prog { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; flex: 1; min-width: 120px; }
+  .prog span { display: block; height: 100%; width: 0; background: var(--accent); }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+
+</style>
+</head>
+<body>
+<header>
+  <h1>Double Pendulum Chaos</h1>
+  <span class="sub">Two pendulums started a hair's breadth apart: how quickly does the difference grow, and how far ahead can we predict?</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: PRESETS AND CONTROLS ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">The pendulum <span class="hint" style="text-transform:none;letter-spacing:0">(restarts the swing)</span></h2>
+    <div class="ctl">
+      <label>Type</label>
+      <select id="mode"><option value="double">Double pendulum</option><option value="single">Single pendulum</option></select>
+    </div>
+    <div class="ctl"><label>Upper mass m₁ <output id="o_m1"></output></label><input type="range" id="m1" min="0.1" max="5" step="0.1" value="1"></div>
+    <div class="ctl dbl"><label>Lower mass m₂ <output id="o_m2"></output></label><input type="range" id="m2" min="0.1" max="5" step="0.1" value="1"></div>
+    <div class="ctl"><label>Upper rod L₁ <output id="o_L1"></output></label><input type="range" id="L1" min="0.2" max="2" step="0.05" value="1"></div>
+    <div class="ctl dbl"><label>Lower rod L₂ <output id="o_L2"></output></label><input type="range" id="L2" min="0.2" max="2" step="0.05" value="1"></div>
+    <div class="ctl">
+      <label>Gravity</label>
+      <select id="g">
+        <option value="9.81">Earth (9.81 m/s²)</option><option value="1.62">Moon (1.62 m/s²)</option>
+        <option value="3.71">Mars (3.71 m/s²)</option><option value="24.79">Jupiter (24.79 m/s²)</option>
+      </select>
+    </div>
+    <div class="ctl"><label>Starting angle θ₁ <output id="o_th1"></output></label><input type="range" id="th1" min="-180" max="180" step="0.5" value="120"></div>
+    <div class="ctl dbl"><label>Starting angle θ₂ <output id="o_th2"></output></label><input type="range" id="th2" min="-180" max="180" step="0.5" value="120">
+      <div class="hint">Or drag the bobs on the picture. Angles are from straight down; both start at rest.</div></div>
+
+    <h2 class="gap">The copies</h2>
+    <div class="ctl"><label>Number of pendulums <output id="o_np"></output></label><input type="range" id="np" min="1" max="50" step="1" value="2"></div>
+    <div class="ctl"><label>Difference between neighbours <output id="o_delta"></output></label><input type="range" id="delta" min="-9" max="0" step="0.25" value="-3">
+      <div class="hint">Each copy starts with θ₁ larger by this much than the one before.</div></div>
+    <div class="ctl"><label>Call them "different" when apart by <output id="o_X"></output></label><input type="range" id="X" min="1" max="90" step="1" value="10"></div>
+
+    <h2 class="gap">While it runs <span class="live">acts at once</span></h2>
+    <div class="ctl"><label>Damping (air resistance) <output id="o_damp"></output></label><input type="range" id="damp" min="0" max="0.5" step="0.01" value="0"></div>
+    <div class="ctl"><label>Trail length <output id="o_trail"></output></label><input type="range" id="trail" min="0" max="10" step="0.5" value="3"></div>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE: THE PENDULUMS ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">0.00 s</span>
+      <span class="stat">Separation <b id="s_sep">–</b></span>
+      <span class="stat">Energy drift <b id="s_drift">–</b></span>
+      <span class="stat">Prediction lost at <b id="s_hor">–</b></span>
+    </div>
+    <div id="mapWrap">
+      <canvas id="map" aria-label="The pendulums"></canvas>
+    </div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">⏸ Pause</button>
+      <button id="btnReset" title="Start again from the starting angles">Restart</button>
+      <span class="speed">Speed <button data-s="0.25">¼×</button><button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="4">4×</button></span>
+      <span class="hint">1× = real time</span>
+      <button id="btnBatch" style="margin-left:auto">📊 Batch run</button>
+    </div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT: WHAT IS HAPPENING ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readings</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">How far apart? (log scale)</h2>
+    <div class="chartBox"><canvas id="sepChart"></canvas></div>
+    <div class="legend" id="sepLegend" style="margin-top:4px"></div>
+    <h2 class="gap" style="display:flex;justify-content:space-between;align-items:center">Graph
+      <select id="chartSel" style="font-size:12px;text-transform:none;letter-spacing:0">
+        <option value="angles">Angles against time</option>
+        <option value="phase">Phase space (θ against ω)</option>
+        <option value="poincare">Poincaré section</option>
+      </select></h2>
+    <div class="chartBox"><canvas id="chart2"></canvas></div>
+    <div class="legend" id="chart2Legend" style="margin-top:4px"></div>
+    <h2 class="gap">Readings</h2>
+    <div class="tiles" id="tiles"></div>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>The pendulum:</b> two point masses on light, rigid rods, joined by frictionless hinges, swinging in a flat vertical plane. Angles θ₁ and θ₂ are measured from straight down.</li>
+        <li><b>Equations of motion</b> (from Lagrange's method, with Δ = θ₁ − θ₂ and D = 2m₁ + m₂ − m₂cos2Δ):<br>
+          θ₁'' = [−g(2m₁+m₂)sinθ₁ − m₂g sin(θ₁−2θ₂) − 2 sinΔ · m₂(ω₂²L₂ + ω₁²L₁cosΔ)] ÷ (L₁D)<br>
+          θ₂'' = [2 sinΔ (ω₁²L₁(m₁+m₂) + g(m₁+m₂)cosθ₁ + ω₂²L₂m₂cosΔ)] ÷ (L₂D)<br>
+          Single pendulum: θ'' = −(g/L)sinθ.</li>
+        <li><b>Solving them:</b> 4th-order Runge–Kutta with a fixed 1 ms step. Its error per step is tiny (about (step)⁵), so the energy drifts by less than a millionth of a per cent per minute. That is far smaller than the 0.001° differences we study, so the chaos is real, not a computer error.</li>
+        <li><b>Energy:</b> KE = ½(m₁+m₂)L₁²ω₁² + ½m₂L₂²ω₂² + m₂L₁L₂ω₁ω₂cosΔ; PE = −(m₁+m₂)gL₁cosθ₁ − m₂gL₂cosθ₂. The drift is shown as a percentage of (m₁+m₂)gL₁ + m₂gL₂.</li>
+        <li><b>Separation</b> is the distance between two pendulums in "phase space": √(Δθ₁² + Δθ₂² + τ²(Δω₁² + Δω₂²)) in radians, where τ = √(L₁/g) turns angular speeds into angles. For chaotic swings it grows like δe<sup>λt</sup> until the pendulums are completely different (about 1 radian), then stops growing.</li>
+        <li><b>Lyapunov exponent λ</b> is found two ways: the gradient of ln(separation) against time on the graph, and a long-run average (the Benettin method: a shadow pendulum 10⁻⁸ rad away is pulled back every 0.05 s and the stretching is averaged).</li>
+        <li><b>Prediction horizon:</b> the time until either angle differs by more than your chosen amount. Theory: about ln(X/δ) ÷ λ.</li>
+        <li><b>Small swings</b> are not chaotic. A single pendulum has period 2π√(L/g) for small angles; bigger swings take longer (exact: 4√(L/g)·K(sin(θ₀/2)), where K is an elliptic integral). A double pendulum with small swings is a mix of two "normal modes" with fixed periods.</li>
+        <li><b>Damping</b> is a simple drag on each angle, θ'' gets an extra −bω. Real air resistance depends on speed squared, and real hinges have friction.</li>
+        <li><b>Left out:</b> rods with mass (real pendulums have heavy arms, which changes the numbers but not the chaos), the bobs' size, bending and stretching, air currents and the pendulums hitting each other. A real double pendulum can be predicted for only a few seconds, partly because you can never set it up more accurately than about 0.1°.</li>
+      </ul>
+    </details>
+  </section>
+</main>
+
+<!-- ======================= BATCH RUN OVERLAY ======================= -->
+<div id="batch" role="dialog" aria-label="Batch run">
+  <div class="bhead">
+    <h3>📊 Batch run</h3>
+    <span class="hint">Run many pendulums with no drawing (RK4, 1 ms steps). Uses the masses, lengths, gravity and angles on the left unless an experiment sets them. Each repeat uses a different random start (the same set of starts at every step of a sweep).</span>
+    <button id="bClose" style="margin-left:auto">✕ Close</button>
+  </div>
+  <div id="bexp"></div>
+  <div class="brow">
+    <label>Mode <select id="bMode"><option value="repeat">Repeat (different random starts)</option><option value="sweep">Sweep (change one setting in steps)</option></select></label>
+    <label>Record <select id="bOut"></select></label>
+    <label>Starts <select id="bStart"><option value="random">Random big swings (90°–180° each arm)</option><option value="jitter">Angles on the left ± 2°</option><option value="exact">Exactly the angles on the left</option></select></label>
+    <span id="bRepeatOpts"><label>Runs <select id="bRuns"><option>20</option><option>50</option><option selected>100</option><option>500</option></select></label></span>
+  </div>
+  <div class="brow" id="bSweepOpts">
+    <label>Change <select id="bVar"></select></label>
+    <label>from <input type="number" id="bFrom" step="any"></label>
+    <label>to <input type="number" id="bTo" step="any"></label>
+    <label>steps <input type="number" id="bSteps" min="2" max="15" value="5" style="width:56px"></label>
+    <label>repeats <input type="number" id="bReps" min="1" max="30" value="3" style="width:56px"></label>
+  </div>
+  <div class="brow">
+    <button id="bRun" class="primary">▶ Run batch</button>
+    <button id="bStop" disabled>■ Stop</button>
+    <div class="prog"><span id="bProg"></span></div>
+    <span id="bStatus" class="hint">Ready</span>
+    <label><input type="checkbox" id="bLogX"> log x</label>
+    <label><input type="checkbox" id="bLogY"> log y</label>
+    <button id="bCsv" disabled>⬇ Download CSV</button>
+  </div>
+  <div id="bbody">
+    <div id="bchartBox"><canvas id="bchart"></canvas></div>
+    <div id="bside"><div id="bsum" class="hint">Pick an experiment above, or set up your own, then press <b>Run batch</b>.</div><div id="bnote" style="display:none"></div></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const el = id => document.getElementById(id);
+const DEG = Math.PI / 180;
+const DT = 0.001;               // RK4 time step: 1 ms
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));   // angle difference in −π…π
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+/* =====================================================================
+   1. THE PHYSICS — equations of motion and the RK4 solver
+   State s = [θ1, θ2, ω1, ω2] (radians, rad/s).
+   P = { mode, m1, m2, L1, L2, g, b (damping per second) }
+   ===================================================================== */
+function deriv(s, P, out) {
+  const t1 = s[0], t2 = s[1], w1 = s[2], w2 = s[3];
+  out[0] = w1; out[1] = w2;
+  if (P.mode === "single") {        // simple pendulum: θ'' = −(g/L) sinθ
+    out[2] = -P.g / P.L1 * Math.sin(t1) - P.b * w1; out[3] = 0; return;
+  }
+  const { m1, m2, L1, L2, g } = P, d = t1 - t2, sd = Math.sin(d), cd = Math.cos(d);
+  const den = 2 * m1 + m2 - m2 * Math.cos(2 * d);
+  out[2] = (-g * (2 * m1 + m2) * Math.sin(t1) - m2 * g * Math.sin(t1 - 2 * t2) - 2 * sd * m2 * (w2 * w2 * L2 + w1 * w1 * L1 * cd)) / (L1 * den) - P.b * w1;
+  out[3] = (2 * sd * (w1 * w1 * L1 * (m1 + m2) + g * (m1 + m2) * Math.cos(t1) + w2 * w2 * L2 * m2 * cd)) / (L2 * den) - P.b * w2;
+}
+// One RK4 step: average four slope estimates across the step (error per step ∝ dt⁵)
+const k1 = new Float64Array(4), k2 = new Float64Array(4), k3 = new Float64Array(4), k4 = new Float64Array(4), tmp = new Float64Array(4);
+function rk4(s, P, dt) {
+  deriv(s, P, k1);
+  for (let i = 0; i < 4; i++) tmp[i] = s[i] + 0.5 * dt * k1[i]; deriv(tmp, P, k2);
+  for (let i = 0; i < 4; i++) tmp[i] = s[i] + 0.5 * dt * k2[i]; deriv(tmp, P, k3);
+  for (let i = 0; i < 4; i++) tmp[i] = s[i] + dt * k3[i]; deriv(tmp, P, k4);
+  for (let i = 0; i < 4; i++) s[i] += dt / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
+}
+function energy(s, P) {
+  if (P.mode === "single") return 0.5 * P.m1 * P.L1 ** 2 * s[2] ** 2 - P.m1 * P.g * P.L1 * Math.cos(s[0]);
+  const { m1, m2, L1, L2, g } = P;
+  const ke = 0.5 * (m1 + m2) * L1 * L1 * s[2] * s[2] + 0.5 * m2 * L2 * L2 * s[3] * s[3] + m2 * L1 * L2 * s[2] * s[3] * Math.cos(s[0] - s[1]);
+  const pe = -(m1 + m2) * g * L1 * Math.cos(s[0]) - m2 * g * L2 * Math.cos(s[1]);
+  return ke + pe;
+}
+// Size of the energy scale used for "drift %": the energy needed to lift the bobs from bottom to top, ÷ 2
+const energyScale = P => P.mode === "single" ? P.m1 * P.g * P.L1 : (P.m1 + P.m2) * P.g * P.L1 + P.m2 * P.g * P.L2;
+// Distance between two states in phase space (radians)
+function sepDist(a, b, P) {
+  const tau2 = P.L1 / P.g, d1 = wrap(a[0] - b[0]), d2 = P.mode === "single" ? 0 : wrap(a[1] - b[1]);
+  const e1 = a[2] - b[2], e2 = P.mode === "single" ? 0 : a[3] - b[3];
+  return Math.sqrt(d1 * d1 + d2 * d2 + tau2 * (e1 * e1 + e2 * e2));
+}
+const angleGap = (a, b, P) => Math.max(Math.abs(wrap(a[0] - b[0])), P.mode === "single" ? 0 : Math.abs(wrap(a[1] - b[1])));
+
+// Benettin method for the largest Lyapunov exponent: follow a shadow state d0 away,
+// measure how much the gap has stretched every 0.05 s, add up ln(stretch), then shrink the gap back to d0.
+function makeLyap(s0, P) { const d0 = 1e-8, b = Float64Array.from(s0); b[0] += d0; return { b, d0, sum: 0, t: 0, n: 0 }; }
+function lyapStep(L, a, P) {           // call after each step of a; advances the shadow too
+  rk4(L.b, P, DT); L.n++;
+  if (L.n % 50 === 0) {
+    const d = sepDist(a, L.b, P); L.sum += Math.log(d / L.d0); L.t += 50 * DT;
+    const f = L.d0 / d;
+    L.b[0] = a[0] + wrap(L.b[0] - a[0]) * f; L.b[1] = a[1] + wrap(L.b[1] - a[1]) * f;
+    L.b[2] = a[2] + (L.b[2] - a[2]) * f; L.b[3] = a[3] + (L.b[3] - a[3]) * f;
+  }
+}
+const lyapValue = L => L.t > 0 ? L.sum / L.t : NaN;
+
+/* =====================================================================
+   2. THEORY — periods for small swings
+   ===================================================================== */
+function agm(a, b) { for (let i = 0; i < 30; i++) { const a2 = (a + b) / 2; b = Math.sqrt(a * b); a = a2; } return a; }
+const ellipK = k => Math.PI / (2 * agm(1, Math.sqrt(1 - k * k)));
+const periodSmall = (L, g) => 2 * Math.PI * Math.sqrt(L / g);
+const periodExact = (L, g, amp) => 4 * Math.sqrt(L / g) * ellipK(Math.sin(Math.abs(amp) / 2));
+// Double pendulum, small swings: two normal-mode periods from det(K − ω²M) = 0
+function normalModes(P) {
+  const { m1, m2, L1, L2, g } = P;
+  const a = m1 * m2 * L1 * L1 * L2 * L2, b = -(m1 + m2) * m2 * g * L1 * L2 * (L1 + L2), c = (m1 + m2) * m2 * g * g * L1 * L2;
+  const disc = Math.sqrt(b * b - 4 * a * c), w2a = (-b - disc) / (2 * a), w2b = (-b + disc) / (2 * a);
+  return [2 * Math.PI / Math.sqrt(w2a), 2 * Math.PI / Math.sqrt(w2b)];
+}
+
+/* =====================================================================
+   3. HEADLESS RUNS for the batch mode: runOnce(params, seed, outcome)
+   ===================================================================== */
+function startState(p, rng) {
+  let t1 = p.th1, t2 = p.th2;
+  if (p.start === "random") { t1 = (90 + 90 * rng()) * (rng() < 0.5 ? -1 : 1); t2 = (90 + 90 * rng()) * (rng() < 0.5 ? -1 : 1); }
+  else if (p.start === "jitter") { t1 += (rng() * 2 - 1) * 2; t2 += (rng() * 2 - 1) * 2; }
+  return Float64Array.from([t1 * DEG, t2 * DEG, 0, 0]);
+}
+function runOnce(p, seed, out) {
+  const rng = mulberry32(seed), P = { mode: p.mode, m1: p.m1, m2: p.m2, L1: p.L1, L2: p.L2, g: p.g, b: out === "drift" ? 0 : p.b };
+  const a = startState(p, rng), res = { seed, th1: a[0] / DEG, th2: a[1] / DEG };
+  if (out === "horizon") {
+    // two pendulums δ apart: how long until either angle differs by more than X?
+    const b = Float64Array.from(a); b[0] += p.delta * DEG;
+    const L = makeLyap(a, P), X = p.X * DEG, tmax = 60;
+    let t = 0, hor = NaN;
+    while (t < tmax) { rk4(a, P, DT); rk4(b, P, DT); lyapStep(L, a, P); t += DT; if (isNaN(hor) && angleGap(a, b, P) > X) { hor = t; if (L.t >= 20) break; } if (!isNaN(hor) && L.t >= 20) break; }
+    res.value = isNaN(hor) ? tmax : hor; res.capped = isNaN(hor);
+    res.lambda = lyapValue(L);
+    res.theory = res.lambda > 0 ? Math.log(X / (p.delta * DEG)) / res.lambda : NaN;
+    return res;
+  }
+  if (out === "lambda") {          // long-run Lyapunov exponent over 40 s
+    const L = makeLyap(a, P);
+    for (let k = 0; k < 40000; k++) { rk4(a, P, DT); lyapStep(L, a, P); }
+    res.value = lyapValue(L); res.E = energy(Float64Array.from([p.th1 * DEG, p.th2 * DEG, 0, 0]), P) / energyScale(P);
+    return res;
+  }
+  if (out === "period") {          // time between upward zero crossings of θ1, averaged
+    const amp = Math.abs(a[0]); let t = 0, prev = a[0], crossings = [];
+    while (crossings.length < 9 && t < 200) { const o = a[0]; rk4(a, P, DT); t += DT; if (o < 0 && a[0] >= 0) crossings.push(t - DT * a[0] / (a[0] - o)); prev = a[0]; }
+    res.value = crossings.length > 1 ? (crossings[crossings.length - 1] - crossings[0]) / (crossings.length - 1) : NaN;
+    res.theory = periodSmall(P.L1, P.g); res.theory2 = periodExact(P.L1, P.g, amp);
+    return res;
+  }
+  if (out === "drift") {           // energy conservation check over 60 s
+    const E0 = energy(a, P);
+    for (let k = 0; k < 60000; k++) rk4(a, P, DT);
+    res.value = 100 * Math.abs(energy(a, P) - E0) / energyScale(P);
+    res.theory = 0;
+    return res;
+  }
+}
+
+/* =====================================================================
+   4. LIVE STATE
+   ===================================================================== */
+let P = null, pend = [], trails = [], lyap = null, E0 = 0, t = 0, running = true, speed = 1;
+let sepHist = [], angHist = [], phasePts = [], poinc = [], horizon = NaN, periodX = [], activePreset = -1;
+const COLS = ["#f1af28", "#00aec3", "#e83181", "#76b82a", "#a86dab", "#f18700", "#a4cbe6", "#de252a", "#a2c617", "#abb5b5"];
+const colourOf = (i, n) => n <= 10 ? COLS[i] : `hsl(${(40 + 300 * i / (n - 1)) % 360},85%,${60 - 8 * Math.sin(i)}%)`;
+
+function readParams() {
+  return { mode: el("mode").value, m1: +el("m1").value, m2: +el("m2").value, L1: +el("L1").value, L2: +el("L2").value, g: +el("g").value,
+           th1: +el("th1").value, th2: +el("th2").value, np: +el("np").value, delta: Math.pow(10, +el("delta").value), X: +el("X").value,
+           b: +el("damp").value, trail: +el("trail").value };
+}
+function restart() {
+  const p = readParams();
+  P = { mode: p.mode, m1: p.m1, m2: p.m2, L1: p.L1, L2: p.L2, g: p.g, b: p.b, delta: p.delta, X: p.X, np: p.np, th1: p.th1, th2: p.th2 };
+  pend = []; trails = [];
+  for (let i = 0; i < p.np; i++) { pend.push(Float64Array.from([(p.th1 + i * p.delta) * DEG, p.th2 * DEG, 0, 0])); trails.push([]); }
+  lyap = makeLyap(pend[0], P); E0 = energy(pend[0], P); t = 0;
+  sepHist = []; angHist = []; phasePts = []; poinc = []; horizon = NaN; periodX = [];
+  document.querySelectorAll(".dbl").forEach(d => d.style.display = P.mode === "single" ? "none" : "");
+  updateLegend();
+}
+function step() {
+  const prev0 = pend[0][0], prevT2 = pend[0][0];
+  for (const s of pend) rk4(s, P, DT);
+  lyapStep(lyap, pend[0], P);
+  t += DT;
+  const s = pend[0];
+  // upward zero crossing of θ1 → period measurement and Poincaré section (θ2, ω2 each time θ1 passes 0 moving right)
+  if (prev0 < 0 && s[0] >= 0 && Math.abs(prev0) < 1) {
+    periodX.push(t - DT * s[0] / (s[0] - prev0)); if (periodX.length > 40) periodX.shift();
+    if (P.mode === "double") { poinc.push([wrap(s[1]), s[3]]); if (poinc.length > 4000) poinc.shift(); }
+  }
+}
+function measuredPeriod() { const n = periodX.length; return n >= 3 ? (periodX[n - 1] - periodX[0]) / (n - 1) : NaN; }
+function record() {
+  const s = pend[0];
+  const last = angHist[angHist.length - 1];
+  if (!last || t - last[0] >= 0.02) {
+    angHist.push([t, wrap(s[0]) / DEG, wrap(s[1]) / DEG, pend[1] ? wrap(pend[1][0]) / DEG : NaN, pend[1] ? wrap(pend[1][1]) / DEG : NaN]); if (angHist.length > 3000) angHist.shift();
+    if (pend.length > 1) {
+      const d = sepDist(pend[0], pend[1], P); sepHist.push([t, d]); if (sepHist.length > 6000) sepHist.shift();
+      if (isNaN(horizon) && angleGap(pend[0], pend[1], P) > P.X * DEG) horizon = t;
+    }
+    phasePts.push([wrap(s[0]), s[2], P.mode === "double" ? wrap(s[1]) : 0, s[3]]); if (phasePts.length > 3000) phasePts.shift();
+  }
+  // trails of the lowest bob
+  const keep = +el("trail").value;
+  for (let i = 0; i < pend.length; i++) {
+    const [x, y] = bobPos(pend[i])[P.mode === "single" ? 0 : 1], tr = trails[i];
+    const lt = tr[tr.length - 1]; if (!lt || t - lt[2] >= 0.016) tr.push([x, y, t]);
+    while (tr.length && t - tr[0][2] > keep) tr.shift();
+  }
+}
+function bobPos(s) {
+  const x1 = P.L1 * Math.sin(s[0]), y1 = -P.L1 * Math.cos(s[0]);
+  if (P.mode === "single") return [[x1, y1]];
+  return [[x1, y1], [x1 + P.L2 * Math.sin(s[1]), y1 - P.L2 * Math.cos(s[1])]];
+}
+// Gradient of ln(separation) against time, using the part of the graph where it grows steadily
+function fitLambda() {
+  if (sepHist.length < 20) return NaN;
+  const d0 = sepHist[0][1], pts = sepHist.filter(([tt, d]) => tt > 0.3 && d > 10 * d0 && d < 0.1);
+  if (pts.length < 15 || pts[pts.length - 1][0] - pts[0][0] < 0.5) return NaN;
+  let n = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (const [x, d] of pts) { const y = Math.log(d); n++; sx += x; sy += y; sxx += x * x; sxy += x * y; }
+  const b = (n * sxy - sx * sy) / (n * sxx - sx * sx);
+  fitLambda.a = (sy - b * sx) / n; fitLambda.t0 = pts[0][0]; fitLambda.t1 = pts[pts.length - 1][0];
+  return b;
+}
+
+/* =====================================================================
+   5. PRESETS
+   ===================================================================== */
+const PRESETS = [
+  { name: "Small swings", desc: "Gentle start: stays predictable", chart: "angles",
+    s: { mode: "double", m1: 1, m2: 1, L1: 1, L2: 1, g: "9.81", th1: 10, th2: 15, np: 2, delta: -3, damp: 0 },
+    story: "Both pendulums start 0.001° apart with small swings. The motion is a steady mix of two rhythms (normal modes), and the gap between the pendulums stays tiny: it wobbles but does not grow exponentially. Small swings are predictable." },
+  { name: "Big swings: chaos", desc: "Released from high up", chart: "angles",
+    s: { mode: "double", m1: 1, m2: 1, L1: 1, L2: 1, g: "9.81", th1: 120, th2: 120, np: 2, delta: -3, damp: 0 },
+    story: "Released from high up, the lower arm flips over the top. The 0.001° difference grows roughly tenfold every second or so: a straight line on the log graph. After about 10 s the two pendulums are doing completely different things, even though both follow exactly the same laws." },
+  { name: "Fan of 30", desc: "30 copies, each 0.001° apart", chart: "angles",
+    s: { mode: "double", m1: 1, m2: 1, L1: 1, L2: 1, g: "9.81", th1: 150, th2: 150, np: 30, delta: -3, damp: 0, trail: 1.5 },
+    story: "Thirty pendulums, each started 0.001° further round than the last, all spanning just 0.03°. For a few seconds they move as one. Then the fan opens and they scatter all over the place. This is why weather forecasts become unreliable after about ten days." },
+  { name: "Moon gravity", desc: "Same swing, slower chaos", chart: "angles",
+    s: { mode: "double", m1: 1, m2: 1, L1: 1, L2: 1, g: "1.62", th1: 120, th2: 120, np: 2, delta: -3, damp: 0 },
+    story: "On the Moon gravity is 6 times weaker, so everything happens √6 ≈ 2.5 times more slowly. The motion is just as chaotic, but λ is 2.5 times smaller per second, so the prediction horizon is 2.5 times longer." },
+  { name: "Jupiter gravity", desc: "Same swing, fast chaos", chart: "angles",
+    s: { mode: "double", m1: 1, m2: 1, L1: 1, L2: 1, g: "24.79", th1: 120, th2: 120, np: 2, delta: -3, damp: 0 },
+    story: "Gravity 2.5 times stronger than on Earth speeds everything up by √2.5 ≈ 1.6. The pattern of chaos is identical; it just runs faster, so the pendulums part company sooner." },
+  { name: "Heavy upper bob", desc: "5 kg on top, 0.2 kg below", chart: "phase",
+    s: { mode: "double", m1: 5, m2: 0.2, L1: 1, L2: 1, g: "9.81", th1: 60, th2: 140, np: 2, delta: -3, damp: 0 },
+    story: "The heavy upper bob swings almost like a simple pendulum, hardly bothered by the light one below. The light lower bob is shaken about by it and can still tumble chaotically, but the upper arm stays fairly regular." },
+  { name: "Heavy lower bob", desc: "0.2 kg on top, 5 kg below", chart: "angles",
+    s: { mode: "double", m1: 0.2, m2: 5, L1: 1, L2: 1, g: "9.81", th1: 90, th2: 90, np: 2, delta: -3, damp: 0 },
+    story: "Now the heavy bob is at the bottom. The light upper bob is flung about by it, the arms keep kinking, and the motion is strongly chaotic." },
+  { name: "Single pendulum", desc: "Big swing, but never chaotic", chart: "phase",
+    s: { mode: "single", m1: 1, m2: 1, L1: 1, L2: 1, g: "9.81", th1: 170, th2: 0, np: 2, delta: -3, damp: 0 },
+    story: "A single pendulum cannot be chaotic, even when swung nearly upside down. The two copies have very slightly different periods, so the gap grows, but only steadily (in proportion to time), not exponentially. You could predict it far into the future." },
+  { name: "Small-angle period", desc: "Check T = 2π√(L/g)", chart: "angles",
+    s: { mode: "single", m1: 1, m2: 1, L1: 1, L2: 1, g: "9.81", th1: 5, th2: 0, np: 1, delta: -3, damp: 0 },
+    story: "A 1 m pendulum swinging through 5°. The measured period (time for one full swing, there and back) matches 2π√(L/g) = 2.006 s to better than 0.1%. Try a bigger angle: the period gets longer and the simple formula stops working." },
+  { name: "Damped chaos", desc: "Air resistance calms it down", chart: "angles",
+    s: { mode: "double", m1: 1, m2: 1, L1: 1, L2: 1, g: "9.81", th1: 150, th2: 150, np: 5, delta: -3, damp: 0.15 },
+    story: "With damping, energy drains away. At first the pendulums tumble chaotically and spread apart. Once they no longer have enough energy to flip over, the motion becomes regular, and all five settle to rest at the bottom: chaos switches off at low energy." },
+];
+function setPreset(k) {
+  const s = PRESETS[k].s; activePreset = k;
+  for (const id of ["mode", "m1", "m2", "L1", "L2", "g", "th1", "th2", "np", "delta", "damp"]) el(id).value = s[id];
+  el("trail").value = s.trail !== undefined ? s.trail : 3;
+  el("chartSel").value = PRESETS[k].chart;
+  updateLabels(); restart(); setRunning(true); setSpeed(1);
+  document.querySelectorAll("#presets button").forEach((b, i) => b.classList.toggle("on", i === k));
+}
+
+/* =====================================================================
+   6. DRAWING
+   ===================================================================== */
+function fitCanvas(cv) {
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const w = Math.max(10, Math.round(r.width * dpr)), h = Math.max(10, Math.round(r.height * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: r.width, h: r.height };
+}
+/* --- generic chart helpers (used by the live graphs and the batch results) --- */
+function niceStep(range, n) { const raw = range / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+function fmt(v, sig = 3) {
+  if (!isFinite(v)) return "–"; if (v === 0) return "0";
+  const a = Math.abs(v); if (a >= 1e5 || a < 1e-3) return v.toExponential(sig - 1).replace("e+", "e");
+  return (+v.toPrecision(sig)).toLocaleString("en-GB", { maximumFractionDigits: 6 });
+}
+function ticksFor(a, b, log) {
+  if (log) {
+    const out = [], lo = Math.floor(Math.log10(a)), hi = Math.ceil(Math.log10(b)), few = hi - lo <= 2;
+    for (let e = lo; e <= hi; e++) for (const m of few ? [1, 2, 5] : [1]) { const v = m * Math.pow(10, e); if (v >= a * 0.999 && v <= b * 1.001) out.push(v); }
+    return out;
+  }
+  const st = niceStep(b - a || 1, 5), out = []; for (let v = Math.ceil(a / st) * st; v <= b + st * 1e-6; v += st) out.push(Math.abs(v) < st * 1e-9 ? 0 : v); return out;
+}
+function axes(ctx, w, h, o) {
+  const L = o.L || 54, R = o.R || 10, T = o.T || 8, B = o.B || 34;
+  const fx = o.xlog ? Math.log10 : v => v, fy = o.ylog ? Math.log10 : v => v;
+  const X = v => L + (fx(v) - fx(o.x0)) / (fx(o.x1) - fx(o.x0)) * (w - L - R);
+  const Y = v => h - B - (fy(v) - fy(o.y0)) / (fy(o.y1) - fy(o.y0)) * (h - T - B);
+  ctx.font = "11px system-ui, sans-serif"; ctx.lineWidth = 1;
+  for (const v of ticksFor(o.x0, o.x1, o.xlog)) { const x = X(v); ctx.strokeStyle = "#232920"; ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, h - B); ctx.stroke(); ctx.fillStyle = "#a3ab96"; ctx.textAlign = "center"; ctx.fillText(fmt(v), x, h - B + 13); }
+  for (const v of ticksFor(o.y0, o.y1, o.ylog)) { const y = Y(v); ctx.strokeStyle = "#232920"; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke(); ctx.fillStyle = "#a3ab96"; ctx.textAlign = "right"; ctx.fillText(fmt(v), L - 4, y + 3.5); }
+  ctx.strokeStyle = "#5a6352"; ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, h - B); ctx.lineTo(w - R, h - B); ctx.stroke();
+  ctx.fillStyle = "#cfd5c4"; ctx.textAlign = "center"; ctx.fillText(o.xlabel || "", L + (w - L - R) / 2, h - 6);
+  ctx.save(); ctx.translate(11, T + (h - T - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(o.ylabel || "", 0, 0); ctx.restore();
+  return { X, Y, L, R, T, B, inside: (x, y) => x >= L - 1 && x <= w - R + 1 && y >= T - 1 && y <= h - B + 1 };
+}
+function line(ctx, pts, col, width = 2, dash) {
+  ctx.strokeStyle = col; ctx.lineWidth = width; ctx.setLineDash(dash || []); ctx.beginPath();
+  let started = false; for (const [x, y] of pts) { if (!isFinite(x) || !isFinite(y)) { started = false; continue; } if (started) ctx.lineTo(x, y); else { ctx.moveTo(x, y); started = true; } }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+function clip(ctx, ax, w, h) { ctx.save(); ctx.beginPath(); ctx.rect(ax.L, ax.T, w - ax.L - ax.R, h - ax.T - ax.B); ctx.clip(); }
+
+
+let view = { s: 1, cx: 0, cy: 0 };
+function drawScene() {
+  const { ctx, w, h } = fitCanvas(el("map"));
+  ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, w, h);
+  const reach = P.mode === "single" ? P.L1 : P.L1 + P.L2;
+  const s = Math.min(w, h) / 2 * 0.9 / reach, cx = w / 2, cy = h / 2;
+  view = { s, cx, cy };
+  const X = x => cx + x * s, Y = y => cy - y * s;
+  // reach circle and 1 m scale bar
+  ctx.strokeStyle = "#1b2019"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, reach * s, 0, 6.2832); ctx.stroke();
+  ctx.strokeStyle = "#a3ab96"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(14, h - 16); ctx.lineTo(14 + s * 0.5, h - 16); ctx.stroke();
+  ctx.fillStyle = "#a3ab96"; ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.fillText("0.5 m", 14, h - 22);
+  const n = pend.length;
+  // trails (fading)
+  for (let i = n - 1; i >= 0; i--) {
+    const tr = trails[i]; if (tr.length < 2) continue;
+    ctx.strokeStyle = colourOf(i, n); ctx.lineWidth = n > 10 ? 1 : 1.6;
+    for (let k = 1; k < tr.length; k++) { ctx.globalAlpha = 0.08 + 0.75 * k / tr.length; ctx.beginPath(); ctx.moveTo(X(tr[k - 1][0]), Y(tr[k - 1][1])); ctx.lineTo(X(tr[k][0]), Y(tr[k][1])); ctx.stroke(); }
+  }
+  ctx.globalAlpha = 1;
+  // rods and bobs (pendulum 0 drawn last, on top)
+  const massR = m => 5 + 5 * Math.sqrt(m);
+  for (let i = n - 1; i >= 0; i--) {
+    const b = bobPos(pend[i]), col = colourOf(i, n);
+    ctx.globalAlpha = i === 0 ? 1 : (n > 10 ? 0.55 : 0.85);
+    ctx.strokeStyle = i === 0 ? "#eef0e8" : col; ctx.lineWidth = i === 0 ? 3 : 2;
+    ctx.beginPath(); ctx.moveTo(cx, cy); b.forEach(q => ctx.lineTo(X(q[0]), Y(q[1]))); ctx.stroke();
+    b.forEach((q, k) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(X(q[0]), Y(q[1]), massR(k ? P.m2 : P.m1) * (i === 0 ? 1 : 0.8), 0, 6.2832); ctx.fill(); });
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#eef0e8"; ctx.beginPath(); ctx.arc(cx, cy, 4, 0, 6.2832); ctx.fill();
+  if (dragging) { ctx.fillStyle = "#f1af28"; ctx.textAlign = "center"; ctx.fillText(`θ₁ = ${el("th1").value}°${P.mode === "double" ? `,  θ₂ = ${el("th2").value}°` : ""}`, cx, 20); }
+  else if (!running) { ctx.fillStyle = "#a3ab96"; ctx.textAlign = "center"; ctx.fillText("Paused: drag a bob to set the starting angles", cx, 20); }
+}
+
+function drawSep() {
+  const { ctx, w, h } = fitCanvas(el("sepChart")); ctx.clearRect(0, 0, w, h);
+  const leg = el("sepLegend");
+  if (pend.length < 2) { ctx.fillStyle = "#a3ab96"; ctx.font = "12.5px system-ui"; ctx.textAlign = "center"; ctx.fillText("Use 2 or more pendulums to compare them.", w / 2, h / 2); leg.innerHTML = ""; return; }
+  const tmax = Math.max(10, t), d0 = P.delta * DEG;
+  const y0 = Math.min(d0 / 3, ...sepHist.map(q => q[1])), y1 = 10;
+  const ax = axes(ctx, w, h, { x0: Math.max(0, tmax - 60), x1: tmax, y0: Math.max(1e-14, y0), y1, ylog: true, xlabel: "time (s)", ylabel: "separation (rad)", L: 50 });
+  clip(ctx, ax, w, h);
+  const Xr = P.X * DEG;
+  line(ctx, [[ax.L, ax.Y(Xr)], [w, ax.Y(Xr)]], "#de252a", 1.2, [5, 4]);
+  // long-run Lyapunov line: δ·e^(λt)
+  const lam = lyapValue(lyap);
+  if (lam > 0.05) { const pts = []; for (let i = 0; i <= 60; i++) { const tt = tmax * i / 60; pts.push([ax.X(tt), ax.Y(d0 * Math.exp(lam * tt))]); } line(ctx, pts, "#a3ab96", 1.3, [3, 4]); }
+  line(ctx, sepHist.map(q => [ax.X(q[0]), ax.Y(q[1])]), "#00aec3", 1.8);
+  const lf = fitLambda();
+  if (isFinite(lf)) line(ctx, [[ax.X(fitLambda.t0), ax.Y(Math.exp(fitLambda.a + lf * fitLambda.t0))], [ax.X(fitLambda.t1), ax.Y(Math.exp(fitLambda.a + lf * fitLambda.t1))]], "#f1af28", 3);
+  if (isFinite(horizon)) { ctx.strokeStyle = "#de252a"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ax.X(horizon), ax.T); ctx.lineTo(ax.X(horizon), h - ax.B); ctx.stroke(); }
+  ctx.restore();
+  const dot = (c, txt) => `<span><i style="background:${c}"></i>${txt}</span>`;
+  leg.innerHTML = dot("#00aec3", "pendulums 1 and 2") + dot("#f1af28", isFinite(lf) ? `steady growth: gradient λ = ${lf.toFixed(2)} /s` : "fitted gradient (when it grows)") +
+    (lam > 0.05 ? dot("#a3ab96", `δe<sup>λt</sup> with long-run λ`) : "") + dot("#de252a", `"different" (${P.X}°)`);
+}
+function drawChart2() {
+  const { ctx, w, h } = fitCanvas(el("chart2")); ctx.clearRect(0, 0, w, h);
+  const kind = el("chartSel").value, leg = el("chart2Legend"), dot = (c, txt) => `<span><i style="background:${c}"></i>${txt}</span>`;
+  if (kind === "angles") {
+    if (angHist.length < 2) return;
+    const t1 = angHist[angHist.length - 1][0], t0 = Math.max(0, t1 - 15);
+    const ax = axes(ctx, w, h, { x0: t0, x1: Math.max(t1, t0 + 5), y0: -180, y1: 180, xlabel: "time (s)", ylabel: "angle (°)", L: 44 });
+    clip(ctx, ax, w, h);
+    const seg = (k, col, wd) => { const pts = []; let prev = null; for (const q of angHist) { if (q[0] < t0) continue; if (prev !== null && Math.abs(q[k] - prev) > 180) pts.push([NaN, NaN]); pts.push([ax.X(q[0]), ax.Y(q[k])]); prev = q[k]; } line(ctx, pts, col, wd); };
+    if (pend.length > 1) { seg(3, "#00aec3", 1.3); if (P.mode === "double") seg(4, "#a4cbe6", 1.3); }
+    seg(1, "#f1af28", 1.8); if (P.mode === "double") seg(2, "#e83181", 1.8);
+    ctx.restore();
+    leg.innerHTML = dot("#f1af28", "θ₁ pendulum 1") + (P.mode === "double" ? dot("#e83181", "θ₂ pendulum 1") : "") + (pend.length > 1 ? dot("#00aec3", "θ₁ pendulum 2") + (P.mode === "double" ? dot("#a4cbe6", "θ₂ pendulum 2") : "") : "");
+  } else if (kind === "phase") {
+    const wmax = Math.max(1, ...phasePts.map(q => Math.max(Math.abs(q[1]), Math.abs(q[3])))) * 1.1;
+    const ax = axes(ctx, w, h, { x0: -180, x1: 180, y0: -wmax, y1: wmax, xlabel: "angle (°)", ylabel: "angular speed ω (rad/s)", L: 44 });
+    clip(ctx, ax, w, h);
+    for (const [k, col] of P.mode === "double" ? [[2, "#e83181"], [0, "#f1af28"]] : [[0, "#f1af28"]]) {
+      ctx.fillStyle = col; phasePts.forEach((q, i) => { ctx.globalAlpha = 0.15 + 0.85 * i / phasePts.length; ctx.fillRect(ax.X(q[k] / DEG) - 1, ax.Y(q[k + 1]) - 1, 2, 2); });
+    }
+    ctx.globalAlpha = 1; ctx.restore();
+    leg.innerHTML = dot("#f1af28", "θ₁, ω₁") + (P.mode === "double" ? dot("#e83181", "θ₂, ω₂") : "") + `<span>Regular motion draws closed loops; chaos fills an area.</span>`;
+  } else {
+    if (P.mode !== "double") { ctx.fillStyle = "#a3ab96"; ctx.font = "12.5px system-ui"; ctx.textAlign = "center"; ctx.fillText("Poincaré sections need the double pendulum.", w / 2, h / 2); leg.innerHTML = ""; return; }
+    const wmax = Math.max(2, ...poinc.map(q => Math.abs(q[1]))) * 1.1;
+    const ax = axes(ctx, w, h, { x0: -180, x1: 180, y0: -wmax, y1: wmax, xlabel: "θ₂ (°)", ylabel: "ω₂ (rad/s)", L: 44 });
+    ctx.fillStyle = "#00aec3"; for (const q of poinc) ctx.fillRect(ax.X(q[0] / DEG) - 1.5, ax.Y(q[1]) - 1.5, 3, 3);
+    leg.innerHTML = `<span>A dot each time θ₁ passes through 0 moving right (${poinc.length} so far). Regular motion: dots on a smooth curve. Chaos: a scattered cloud.</span>`;
+  }
+}
+
+/* =====================================================================
+   7. READOUTS AND STORY
+   ===================================================================== */
+function tile(k, v, s) { return `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s || ""}</div></div>`; }
+function updateUI() {
+  el("clock").textContent = t.toFixed(2) + " s";
+  const E = energy(pend[0], P), drift = 100 * (E - E0) / energyScale(P);
+  const sep = pend.length > 1 ? sepDist(pend[0], pend[1], P) : NaN, gap = pend.length > 1 ? angleGap(pend[0], pend[1], P) / DEG : NaN;
+  el("s_sep").textContent = isFinite(gap) ? fmt(gap, 2) + "°" : "–";
+  el("s_drift").textContent = P.b > 0 ? "damped" : fmt(drift, 2) + "%";
+  el("s_hor").textContent = isFinite(horizon) ? horizon.toFixed(2) + " s" : pend.length > 1 ? "not yet" : "–";
+  const lf = fitLambda(), lam = lyapValue(lyap);
+  const d0 = P.delta * DEG, pred = lam > 0.05 ? Math.log(P.X * DEG / d0) / lam : NaN;
+  const Tm = measuredPeriod();
+  let html = "";
+  html += tile("Energy", E.toFixed(3) + " J", P.b > 0 ? "draining away (damping)" : `drift ${fmt(drift, 2)}% of ${energyScale(P).toFixed(1)} J`);
+  html += tile("Separation", isFinite(sep) ? fmt(sep, 2) + " rad" : "–", isFinite(gap) ? `largest angle gap ${fmt(gap, 2)}°` : "only one pendulum");
+  html += tile("λ from graph", isFinite(lf) ? lf.toFixed(2) + " /s" : "–", isFinite(lf) ? `gap doubles every ${(Math.LN2 / lf).toFixed(2)} s` : "gradient of the steady rise");
+  html += tile("λ long-run", isFinite(lam) && t > 2 ? lam.toFixed(2) + " /s" : "–", "Benettin average so far");
+  html += tile("Prediction lost", isFinite(horizon) ? horizon.toFixed(2) + " s" : "–", isFinite(pred) ? `theory ln(X/δ)/λ ≈ ${pred.toFixed(1)} s` : `when apart by ${P.X}°`);
+  if (P.mode === "single") {
+    html += tile("Period measured", isFinite(Tm) ? Tm.toFixed(4) + " s" : "–", `2π√(L/g) = ${periodSmall(P.L1, P.g).toFixed(4)} s`);
+    html += tile("Exact period", periodExact(P.L1, P.g, P.th1 * DEG).toFixed(4) + " s", `for a ${Math.abs(P.th1)}° swing`);
+  } else {
+    const nm = normalModes(P);
+    html += tile("Period of θ₁", isFinite(Tm) ? Tm.toFixed(3) + " s" : "–", "time between swings right");
+    html += tile("Small-swing modes", nm.map(v => v.toFixed(3)).join(" s, ") + " s", "normal-mode periods");
+  }
+  html += tile("Starting difference δ", fmt(P.delta, 2) + "°", `${pend.length} pendulum${pend.length > 1 ? "s" : ""}`);
+  el("tiles").innerHTML = html;
+  let live = "";
+  if (pend.length < 2) live = "Only one pendulum: add copies to compare.";
+  else if (isFinite(horizon)) live = `The pendulums became "different" after ${horizon.toFixed(1)} s. From then on, knowing one tells you nothing about the other.`;
+  else if (isFinite(lf) && lf > 0.3) live = `The gap is growing exponentially: it doubles about every ${(Math.LN2 / lf).toFixed(2)} s.`;
+  else if (t > 15 && gap < 1) live = `After ${t.toFixed(0)} s the pendulums are still within ${fmt(gap, 2)}° of each other: predictable.`;
+  else live = `The gap is ${fmt(gap, 2)}° so far.`;
+  el("story").innerHTML = `<p style="margin:0 0 6px">${activePreset >= 0 ? PRESETS[activePreset].story : "Your own set-up. Pick a preset to see one idea at a time."}</p><p style="margin:0;color:var(--accent)">${live}</p>`;
+}
+function updateLegend() {
+  const n = pend.length;
+  el("legend").innerHTML = (n <= 10 ? pend.map((_, i) => `<span><i style="background:${colourOf(i, n)}"></i>${i === 0 ? "Pendulum 1" : `+${fmt(i * P.delta, 2)}°`}</span>`).join("") :
+    `<span><i style="background:${colourOf(0, n)}"></i>Pendulum 1</span><span><i style="background:${colourOf(n - 1, n)}"></i>…to pendulum ${n} (+${fmt((n - 1) * P.delta, 2)}°)</span>`) +
+    `<span>Bob size shows mass. Drag a bob to set the start.</span>`;
+}
+
+/* =====================================================================
+   8. CONTROLS
+   ===================================================================== */
+function updateLabels() {
+  el("o_m1").textContent = (+el("m1").value).toFixed(1) + " kg"; el("o_m2").textContent = (+el("m2").value).toFixed(1) + " kg";
+  el("o_L1").textContent = (+el("L1").value).toFixed(2) + " m"; el("o_L2").textContent = (+el("L2").value).toFixed(2) + " m";
+  el("o_th1").textContent = el("th1").value + "°"; el("o_th2").textContent = el("th2").value + "°";
+  el("o_np").textContent = el("np").value; el("o_delta").textContent = fmt(Math.pow(10, +el("delta").value), 2) + "°";
+  el("o_X").textContent = el("X").value + "°"; el("o_damp").textContent = (+el("damp").value).toFixed(2) + " /s"; el("o_trail").textContent = el("trail").value + " s";
+}
+function setSpeed(s) { speed = s; document.querySelectorAll(".speed button").forEach(b => b.classList.toggle("on", +b.dataset.s === s)); }
+function setRunning(r) { running = r; el("btnPlay").textContent = r ? "⏸ Pause" : "▶ Play"; }
+(function initControls() {
+  el("presets").innerHTML = PRESETS.map((p, i) => `<button data-i="${i}">${p.name}<small>${p.desc}</small></button>`).join("");
+  document.querySelectorAll("#presets button").forEach(b => b.addEventListener("click", () => setPreset(+b.dataset.i)));
+  ["mode", "m1", "m2", "L1", "L2", "g", "th1", "th2", "np", "delta", "X"].forEach(id => el(id).addEventListener("input", () => {
+    updateLabels(); restart(); activePreset = -1; document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on"));
+  }));
+  el("damp").addEventListener("input", () => { updateLabels(); P.b = +el("damp").value; E0 = energy(pend[0], P); });
+  el("trail").addEventListener("input", updateLabels);
+  el("btnPlay").addEventListener("click", () => setRunning(!running));
+  el("btnReset").addEventListener("click", () => { restart(); setRunning(true); });
+  document.querySelectorAll(".speed button").forEach(b => b.addEventListener("click", () => setSpeed(+b.dataset.s)));
+  el("chartSel").addEventListener("input", drawChart2);
+  updateLabels();
+})();
+// Drag bob 1 or bob 2 to set the starting angles
+let dragging = 0;
+(function bobDrag() {
+  const cv = el("map");
+  const pos = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left - view.cx) / view.s, -(e.clientY - r.top - view.cy) / view.s]; };
+  cv.addEventListener("pointerdown", e => {
+    const [x, y] = pos(e), b = bobPos(pend[0]);
+    let best = 0, bd = 0.25 * (P.L1 + (P.mode === "double" ? P.L2 : 0));
+    b.forEach((q, k) => { const d = Math.hypot(q[0] - x, q[1] - y); if (d < bd) { bd = d; best = k + 1; } });
+    if (!best) return;
+    dragging = best; cv.setPointerCapture(e.pointerId); setRunning(false);
+  });
+  cv.addEventListener("pointermove", e => {
+    if (!dragging) { const [x, y] = pos(e), b = bobPos(pend[0]); cv.style.cursor = b.some(q => Math.hypot(q[0] - x, q[1] - y) < 0.15) ? "grab" : "default"; return; }
+    const [x, y] = pos(e);
+    if (dragging === 1) el("th1").value = Math.round(Math.atan2(x, -y) / DEG * 2) / 2;
+    else { const [b1] = bobPos(pend[0]); el("th2").value = Math.round(Math.atan2(x - b1[0], -(y - b1[1])) / DEG * 2) / 2; }
+    updateLabels(); restart();
+  });
+  const up = () => { if (dragging) { dragging = 0; activePreset = -1; document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); restart(); setRunning(true); } };
+  cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+})();
+
+/* =====================================================================
+   9. MAIN LOOP — 1× is real time; 1 ms steps
+   ===================================================================== */
+let lastT = performance.now(), acc = 0;
+function frame(now) {
+  const real = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  if (running && !batchBusy) {
+    acc += real * speed;
+    const t0 = performance.now();
+    while (acc >= DT && performance.now() - t0 < 25) { step(); acc -= DT; if (((t / DT) | 0) % 5 === 0) record(); }
+    if (acc > 0.1) acc = 0;     // computer too slow: drop time rather than lag behind
+    record();
+  }
+  drawScene(); drawSep(); drawChart2();
+  if (!frame.k || now - frame.k > 200) { updateUI(); frame.k = now; }
+  requestAnimationFrame(frame);
+}
+
+/* =====================================================================
+   10. BATCH RUN
+   ===================================================================== */
+const OUTCOMES = {
+  horizon: { label: "Prediction horizon", unit: "s", fromRows: true, theoryLabel: "ln(X/δ)/λ (λ measured in each run)" },
+  lambda:  { label: "Lyapunov exponent λ", unit: "per s", theory: () => 0, theoryLabel: "0 = regular (not chaotic)" },
+  period:  { label: "Period (single pendulum)", unit: "s", fromRows: true, theoryLabel: "2π√(L/g)", theory2Label: "exact, any amplitude" },
+  drift:   { label: "Energy drift after 60 s", unit: "%", fromRows: true, theoryLabel: "perfect = 0" },
+};
+const VARS = {
+  delta: { label: "Starting difference δ", unit: "°", set: (p, v) => { p.delta = v; }, min: 1e-12, max: 10 },
+  th:    { label: "Starting angle θ₁ (and θ₂)", unit: "°", set: (p, v) => { p.th1 = v; p.th2 = v; }, min: 0, max: 180 },
+  L:     { label: "Rod length (upper)", unit: "m", set: (p, v) => { p.L1 = v; }, min: 0.05, max: 50 },
+  g:     { label: "Gravity g", unit: "m/s²", set: (p, v) => { p.g = v; }, min: 0.1, max: 100 },
+  X:     { label: "\"Different\" threshold X", unit: "°", set: (p, v) => { p.X = v; }, min: 0.1, max: 90 },
+};
+const EXPERIMENTS = [
+  { q: "How far ahead can we predict a chaotic pendulum?", mode: "repeat", out: "horizon", runs: 100, start: "random", set: { mode: "double", m1: 1, m2: 1, L1: 1, L2: 1, g: 9.81, delta: 1e-3, X: 10, b: 0 },
+    note: "100 random big-swing starts, each with a twin 0.001° away. The time until they differ by 10° varies a lot from start to start, because some swings are more chaotic than others. Each run's own λ predicts its horizon reasonably well; the measured time is usually a little longer, because the gap first has to line up with the fastest-stretching direction before it grows exponentially." },
+  { q: "Does a 1000× smaller error give 1000× longer?", mode: "sweep", out: "horizon", v: "delta", from: 1e-9, to: 1e-1, steps: 9, reps: 12, start: "random", logx: true, set: { mode: "double", m1: 1, m2: 1, L1: 1, L2: 1, g: 9.81, X: 10, b: 0 },
+    note: "No! Each 10× smaller starting error adds only the same fixed amount of time, ln(10)/λ, so the points fall on a straight line against log δ. Making the measurement a billion times better only buys a few times longer. The same random starts are used at every step, so the scatter at each step comes from how chaotic each start is: less chaotic starts stay predictable for longer. (Runs are stopped at 60 s.)" },
+  { q: "When does chaos switch on?", mode: "sweep", out: "lambda", v: "th", from: 10, to: 170, steps: 9, reps: 3, start: "jitter", set: { mode: "double", m1: 1, m2: 1, L1: 1, L2: 1, g: 9.81, b: 0 },
+    note: "For small starting angles λ is close to 0 (the gap grows only slowly, so a 40 s run gives a small positive number rather than exactly 0). Somewhere between about 70° and 90° the pendulum gains enough energy for the lower arm to flip over and λ jumps up: chaos switches on. Near the boundary some starts are chaotic and some are not, so the scatter is large." },
+  { q: "Is the period 2π√(L/g)?", mode: "sweep", out: "period", v: "L", from: 0.25, to: 4, steps: 5, reps: 1, start: "exact", logx: true, logy: true, set: { mode: "single", th1: 5, th2: 0, g: 9.81, b: 0 },
+    note: "A single pendulum swinging through 5°. On log–log axes T ∝ √L is a straight line of gradient 0.5. The model is about 0.05% slower than 2π√(L/g) because 5° is not quite \"small\"; the exact formula (grey) matches." },
+  { q: "When does the small-angle formula fail?", mode: "sweep", out: "period", v: "th", from: 5, to: 170, steps: 9, reps: 1, start: "exact", set: { mode: "single", L1: 1, g: 9.81, b: 0 },
+    note: "2π√(L/g) assumes sin θ ≈ θ. That is within 1% up to about 20°, but a 90° swing takes 18% longer and a 170° swing more than twice as long, because the pendulum lingers near the top. The exact formula (grey dashed) fits every point." },
+  { q: "Can we trust the computer?", mode: "repeat", out: "drift", runs: 50, start: "random", set: { mode: "double", m1: 1, m2: 1, L1: 1, L2: 1, g: 9.81, b: 0 },
+    note: "With no damping, energy should stay exactly constant. After 60 s of wild chaotic motion (60,000 RK4 steps) the drift is around a millionth of a per cent or less. The chaos is not caused by rounding errors in the computer: the starting difference of 0.001° is millions of times bigger than the numerical error." },
+];
+let batchBusy = false, batchStop = false, batchRes = null, expSet = null, expNote = null;
+function batchCfg() {
+  return { mode: el("bMode").value, out: el("bOut").value, runs: +el("bRuns").value, start: el("bStart").value, v: el("bVar").value,
+           from: +el("bFrom").value, to: +el("bTo").value, steps: clamp(Math.round(+el("bSteps").value), 2, 15), reps: clamp(Math.round(+el("bReps").value), 1, 30) };
+}
+function loadExperiment(i) {
+  const E = EXPERIMENTS[i];
+  el("bMode").value = E.mode; el("bOut").value = E.out; el("bStart").value = E.start;
+  if (E.runs) el("bRuns").value = E.runs;
+  if (E.v) { el("bVar").value = E.v; el("bFrom").value = E.from; el("bTo").value = E.to; el("bSteps").value = E.steps; el("bReps").value = E.reps; }
+  el("bLogX").checked = !!E.logx; el("bLogY").checked = !!E.logy;
+  expSet = E.set; expNote = E.note;
+  document.querySelectorAll("#bexp button").forEach((b, k) => b.classList.toggle("on", k === i));
+  syncBatchUI();
+}
+function syncBatchUI() { const sweep = el("bMode").value === "sweep"; el("bRepeatOpts").style.display = sweep ? "none" : ""; el("bSweepOpts").style.display = sweep ? "" : "none"; }
+function baseParams() { const p = readParams(); return { ...p, ...(expSet || {}) }; }
+function runBatch() {
+  const c = batchCfg(), base = { ...baseParams(), start: c.start }, jobs = [];
+  if (c.mode === "repeat") for (let k = 0; k < c.runs; k++) jobs.push({ p: base, x: null, seed: 1000 + k * 7919 });
+  else {
+    const V = VARS[c.v], lg = el("bLogX").checked && c.from > 0 && c.to > 0;
+    for (let s = 0; s < c.steps; s++) {
+      let v = lg ? c.from * Math.pow(c.to / c.from, s / (c.steps - 1)) : c.from + (c.to - c.from) * s / (c.steps - 1);
+      v = clamp(v, V.min, V.max);
+      const p = { ...base }; V.set(p, v);
+      // the SAME set of random starts at every step ("common random numbers"), so only the swept setting changes
+      for (let r = 0; r < c.reps; r++) jobs.push({ p, x: v, seed: 2000 + r * 7919 });
+    }
+  }
+  batchRes = { cfg: c, base, rows: [] };
+  batchBusy = true; batchStop = false;
+  el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").disabled = true;
+  let k = 0; const t0 = performance.now(), O = OUTCOMES[c.out];
+  const chunk = () => {
+    const tc = performance.now();
+    while (k < jobs.length && performance.now() - tc < 60 && !batchStop) {
+      const j = jobs[k++], r = runOnce(j.p, j.seed, c.out);
+      batchRes.rows.push({ x: j.x, seed: j.seed, th1: r.th1, th2: r.th2, value: r.value, lambda: r.lambda, capped: r.capped,
+        theory: O.fromRows ? r.theory : O.theory(j.p), theory2: r.theory2 });
+    }
+    el("bProg").style.width = (100 * k / jobs.length) + "%";
+    el("bStatus").textContent = `${k} of ${jobs.length} runs · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+    drawBatch();
+    if (k < jobs.length && !batchStop) setTimeout(chunk, 0);
+    else { batchBusy = false; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").disabled = !batchRes.rows.length; el("bStatus").textContent += batchStop ? " · stopped" : " · done"; }
+  };
+  setTimeout(chunk, 20);
+}
+const stats = a => { const v = a.filter(isFinite), n = v.length; if (!n) return { n: 0 }; const mean = v.reduce((s, x) => s + x, 0) / n; const sd = n > 1 ? Math.sqrt(v.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1)) : 0; return { n, mean, sd, se: sd / Math.sqrt(n), min: Math.min(...v), max: Math.max(...v) }; };
+function linfit(xs, ys) { const n = xs.length; let sx = 0, sy = 0, sxx = 0, sxy = 0; for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; sxx += xs[i] ** 2; sxy += xs[i] * ys[i]; } const b = (n * sxy - sx * sy) / (n * sxx - sx * sx); return { b, a: (sy - b * sx) / n }; }
+
+function drawBatch() {
+  const { ctx, w, h } = fitCanvas(el("bchart"));
+  ctx.clearRect(0, 0, w, h);
+  if (!batchRes || !batchRes.rows.length) return;
+  const c = batchRes.cfg, O = OUTCOMES[c.out], unit = O.unit ? ` (${O.unit})` : "";
+  const leg = (col, t, dash) => `<span style="margin-right:10px;white-space:nowrap"><i style="display:inline-block;width:14px;height:${dash ? 2 : 10}px;background:${col};margin-right:4px;vertical-align:${dash ? 3 : -1}px"></i>${t}</span>`;
+  const logX = el("bLogX").checked, logY = el("bLogY").checked;
+  let html = "";
+  if (c.mode === "repeat") {
+    const vals = batchRes.rows.map(r => r.value).filter(isFinite); if (!vals.length) return;
+    const st = stats(vals), thv = stats(batchRes.rows.map(r => r.theory)).mean;
+    let lo = Math.min(st.min, isFinite(thv) ? thv : st.min), hi = Math.max(st.max, isFinite(thv) ? thv : st.max);
+    if (c.out === "horizon" || c.out === "drift") lo = 0;
+    if (hi - lo < 1e-12) { hi = lo + Math.abs(lo || 1) * 0.1; }
+    hi += (hi - lo) * 0.05;
+    const nb = clamp(Math.round(Math.sqrt(vals.length) * 1.6), 6, 30), bw = (hi - lo) / nb, cnt = new Array(nb).fill(0);
+    for (const v of vals) cnt[Math.min(nb - 1, Math.max(0, Math.floor((v - lo) / bw)))]++;
+    const ax = axes(ctx, w, h, { x0: lo, x1: hi, y0: 0, y1: Math.max(...cnt) * 1.12, xlabel: O.label + unit, ylabel: "number of runs", L: 52 });
+    ctx.fillStyle = "#00aec3cc";
+    for (let b = 0; b < nb; b++) { const x0 = ax.X(lo + b * bw), x1 = ax.X(lo + (b + 1) * bw); ctx.fillRect(x0 + 0.5, ax.Y(cnt[b]), Math.max(1, x1 - x0 - 1), ax.Y(0) - ax.Y(cnt[b])); }
+    // theory: the distribution of each run's own prediction, drawn as an outline, plus its mean
+    if (O.fromRows && c.out === "horizon") {
+      const tc = new Array(nb).fill(0); for (const r of batchRes.rows) if (isFinite(r.theory)) tc[Math.min(nb - 1, Math.max(0, Math.floor((r.theory - lo) / bw)))]++;
+      const pts = []; for (let b = 0; b < nb; b++) { pts.push([ax.X(lo + b * bw), ax.Y(tc[b])], [ax.X(lo + (b + 1) * bw), ax.Y(tc[b])]); } line(ctx, pts, "#f1af28", 1.6);
+    }
+    if (isFinite(thv)) line(ctx, [[ax.X(thv), ax.T], [ax.X(thv), ax.Y(0)]], "#f1af28", 2.5);
+    line(ctx, [[ax.X(st.mean), ax.T], [ax.X(st.mean), ax.Y(0)]], "#e83181", 2, [3, 3]);
+    const diffPct = thv ? 100 * (st.mean - thv) / thv : NaN, diffSE = st.se > 0 ? (st.mean - thv) / st.se : NaN;
+    html += `<div style="margin-bottom:6px">${leg("#00aec3cc", "runs")}${leg("#e83181", "mean", 1)}${leg("#f1af28", "theory: " + O.theoryLabel, 1)}</div>`;
+    html += `<table><tr><th>Runs (n)</th><td>${st.n}</td></tr><tr><th>Mean</th><td>${fmt(st.mean, 4)}</td></tr><tr><th>SD</th><td>${fmt(st.sd, 3)}</td></tr><tr><th>Standard error</th><td>${fmt(st.se, 2)}</td></tr>` +
+      `<tr><th>Min / max</th><td>${fmt(st.min, 3)} / ${fmt(st.max, 3)}</td></tr><tr><th>Theory (mean)</th><td>${fmt(thv, 4)}</td></tr>` +
+      (isFinite(diffPct) ? `<tr><th>Difference</th><td>${diffPct >= 0 ? "+" : ""}${diffPct.toFixed(1)}%</td></tr>` : "") +
+      `<tr><th>…in standard errors</th><td>${isFinite(diffSE) ? diffSE.toFixed(1) : "–"}</td></tr>`;
+    if (c.out === "horizon") {
+      const cap = batchRes.rows.filter(r => r.capped).length, lam = stats(batchRes.rows.map(r => r.lambda));
+      const med = vals.slice().sort((a, b) => a - b)[Math.floor(vals.length / 2)];
+      html += `<tr><th>Median</th><td>${fmt(med, 3)}</td></tr><tr><th>Mean λ of the starts</th><td>${fmt(lam.mean, 3)} /s</td></tr><tr><th>Still together at 60 s</th><td>${cap}</td></tr>`;
+    }
+    html += "</table>";
+  } else {
+    const V = VARS[c.v];
+    const groups = new Map(); for (const r of batchRes.rows) { if (!groups.has(r.x)) groups.set(r.x, { x: r.x, v: [], th: [], th2: [], lam: [] }); const g = groups.get(r.x); g.v.push(r.value); g.th.push(r.theory); g.th2.push(r.theory2); g.lam.push(r.lambda); }
+    const G = [...groups.values()].map(g => ({ ...g, ...stats(g.v), thm: stats(g.th).mean, th2m: stats(g.th2).mean })).filter(g => g.n);
+    if (!G.length) return;
+    const allY = batchRes.rows.map(r => r.value).filter(isFinite).concat(G.map(g => g.thm).filter(isFinite));
+    let x0 = Math.min(c.from, c.to), x1 = Math.max(c.from, c.to); if (x0 === x1) x1 = x0 + 1;
+    let y0 = Math.min(...allY), y1 = Math.max(...allY);
+    if (logY) { y0 = Math.max(y0 / 1.4, 1e-12); y1 *= 1.4; } else { const pd = (y1 - y0) * 0.12 || Math.abs(y1) * 0.1 || 1; y0 = Math.min(0, y0 - pd); y1 += pd; }
+    if (logX) { x0 /= 1.3; x1 *= 1.3; } else { const pd = (x1 - x0) * 0.05; x0 -= pd; x1 += pd; if (x0 < 0 && c.from >= 0) x0 = 0; }
+    const ax = axes(ctx, w, h, { x0, x1, y0, y1, xlog: logX, ylog: logY, xlabel: V.label + (V.unit ? ` (${V.unit})` : ""), ylabel: O.label + unit, L: 56 });
+    clip(ctx, ax, w, h);
+    // theory: analytic where it exists; otherwise join the mean prediction at each step
+    if (c.out === "period") {
+      const curve = f => { const pts = []; for (let i = 0; i <= 120; i++) { const xv = logX ? x0 * Math.pow(x1 / x0, i / 120) : x0 + (x1 - x0) * i / 120; if (xv < V.min || xv > V.max || xv <= 0) continue; const p = { ...batchRes.base }; V.set(p, xv); pts.push([ax.X(xv), ax.Y(f(p))]); } return pts; };
+      line(ctx, curve(p => periodSmall(p.L1, p.g)), "#f1af28", 2.2);
+      line(ctx, curve(p => periodExact(p.L1, p.g, p.th1 * DEG)), "#a3ab96", 1.6, [5, 4]);
+    } else if (c.out === "lambda") line(ctx, [[ax.L, ax.Y(0)], [w, ax.Y(0)]], "#f1af28", 2);
+    else line(ctx, G.filter(g => isFinite(g.thm)).map(g => [ax.X(g.x), ax.Y(g.thm)]), "#f1af28", 2.2);
+    ctx.fillStyle = "rgba(0,174,195,.4)"; for (const r of batchRes.rows) if (isFinite(r.value)) { ctx.beginPath(); ctx.arc(ax.X(r.x), ax.Y(r.value), 2.5, 0, 6.2832); ctx.fill(); }
+    ctx.strokeStyle = "#ffffff"; ctx.fillStyle = "#e83181"; ctx.lineWidth = 1.5;
+    for (const g of G) { const X = ax.X(g.x), lo = logY && g.mean - g.sd <= 0 ? g.mean * 0.5 : g.mean - g.sd; ctx.beginPath(); ctx.moveTo(X, ax.Y(lo)); ctx.lineTo(X, ax.Y(g.mean + g.sd)); ctx.stroke(); ctx.beginPath(); ctx.arc(X, ax.Y(g.mean), 4, 0, 6.2832); ctx.fill(); }
+    ctx.restore();
+    html += `<div style="margin-bottom:6px">${leg("rgba(0,174,195,.6)", "each run")}${leg("#e83181", "mean ± 1 SD")}${leg("#f1af28", "theory: " + O.theoryLabel, 1)}${O.theory2Label ? leg("#a3ab96", O.theory2Label, 1) : ""}</div>`;
+    html += `<table><tr><th>${V.label}</th><th>n</th><th>mean</th><th>SD</th><th>theory</th>${c.out === "period" ? "<th>exact</th>" : ""}</tr>` +
+      G.map(g => `<tr><td>${fmt(g.x, 3)}</td><td>${g.n}</td><td>${fmt(g.mean, 4)}</td><td>${fmt(g.sd, 2)}</td><td>${fmt(g.thm, 4)}</td>${c.out === "period" ? `<td>${fmt(g.th2m, 4)}</td>` : ""}</tr>`).join("") + "</table>";
+    const ok = G.filter(g => g.x > 0 && isFinite(g.mean));
+    if (ok.length >= 2) {
+      if (logX && logY) {
+        const f = linfit(ok.map(g => Math.log10(g.x)), ok.map(g => Math.log10(g.mean)));
+        html += `<p><b>Gradient of log–log graph:</b> ${f.b.toFixed(3)}${c.out === "period" && c.v === "L" ? " (theory 0.5)" : ""}.</p>`;
+      } else if (logX) {
+        const f = linfit(ok.map(g => Math.log10(g.x)), ok.map(g => g.mean)), okT = ok.filter(g => isFinite(g.thm)), ft = okT.length > 1 ? linfit(okT.map(g => Math.log10(g.x)), okT.map(g => g.thm)) : null;
+        html += `<p><b>Straight-line fit against log₁₀(${V.label.toLowerCase()}):</b> gradient ${fmt(f.b, 3)} ${O.unit} per factor of 10${ft ? `; theory ${fmt(ft.b, 3)}` : ""}.`;
+        if (c.out === "horizon") html += ` A gradient of −ln(10)/λ means λ ≈ ${fmt(-Math.LN10 / f.b, 3)} /s (mean long-run λ of these starts: ${fmt(stats(batchRes.rows.map(r => r.lambda)).mean, 3)} /s).`;
+        html += "</p>";
+      } else if (c.out !== "lambda" && c.out !== "period") {
+        const f = linfit(ok.map(g => g.x), ok.map(g => g.mean));
+        html += `<p><b>Straight-line fit:</b> gradient ${fmt(f.b, 3)}, intercept ${fmt(f.a, 3)}.</p>`;
+      }
+    }
+  }
+  el("bsum").innerHTML = html;
+  const note = el("bnote"); note.style.display = expNote ? "" : "none"; note.innerHTML = expNote ? `<b>What this shows.</b> ${expNote}` : "";
+}
+function downloadCSV() {
+  if (!batchRes) return;
+  const c = batchRes.cfg, O = OUTCOMES[c.out];
+  const csv = `${c.mode === "sweep" ? VARS[c.v].label.replace(/[\s"]+/g, "_") + "," : ""}seed,start_theta1_deg,start_theta2_deg,${O.label.replace(/[\s,]+/g, "_")}_${O.unit.replace(/\s/g, "")},theory,lambda_per_s\n` +
+    batchRes.rows.map(r => `${c.mode === "sweep" ? r.x + "," : ""}${r.seed},${r.th1},${r.th2},${r.value},${r.theory ?? ""},${r.lambda ?? ""}`).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = `double-pendulum-batch-${c.out}.csv`;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function placeBatch() {
+  const c = el("centre").getBoundingClientRect(), r = el("right").getBoundingClientRect(), b = el("batch");
+  b.style.left = c.left + "px"; b.style.top = c.top + "px"; b.style.width = (r.right - c.left) + "px"; b.style.height = c.height + "px";
+}
+(function initBatch() {
+  el("bOut").innerHTML = Object.entries(OUTCOMES).map(([k, o]) => `<option value="${k}">${o.label} (${o.unit})</option>`).join("");
+  el("bVar").innerHTML = Object.entries(VARS).map(([k, v]) => `<option value="${k}">${v.label} (${v.unit})</option>`).join("");
+  el("bexp").innerHTML = EXPERIMENTS.map((e, i) => `<button data-i="${i}">${e.q}</button>`).join("");
+  document.querySelectorAll("#bexp button").forEach(b => b.addEventListener("click", () => loadExperiment(+b.dataset.i)));
+  ["bMode", "bOut", "bVar", "bStart"].forEach(id => el(id).addEventListener("input", () => { expNote = null; expSet = null; syncBatchUI(); document.querySelectorAll("#bexp button").forEach(b => b.classList.remove("on")); }));
+  ["bLogX", "bLogY"].forEach(id => el(id).addEventListener("input", drawBatch));
+  el("btnBatch").addEventListener("click", () => { placeBatch(); el("batch").classList.add("open"); if (!batchRes) loadExperiment(0); drawBatch(); });
+  el("bClose").addEventListener("click", () => el("batch").classList.remove("open"));
+  el("bRun").addEventListener("click", runBatch);
+  el("bStop").addEventListener("click", () => { batchStop = true; });
+  el("bCsv").addEventListener("click", downloadCSV);
+  syncBatchUI();
+})();
+
+/* =====================================================================
+   11. PANEL LAYOUT — resize or hide the side panels
+   ===================================================================== */
+(function () {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const KEY = "double-pendulum-layout", STRIP = 30, MIN = 200, DEF = { lw: 290, rw: 340, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+    if (el("batch").classList.contains("open")) { placeBatch(); drawBatch(); }
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+})();
+
+setPreset(1);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

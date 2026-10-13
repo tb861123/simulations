@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sea Level Rise</title>
+<!--
+  SEA LEVEL RISE — a teaching model
+  ==================================
+  One self-contained file: no libraries, no internet needed.
+
+  Global mean sea level (GMSL) rises when
+    1. sea water warms and EXPANDS (thermal expansion),
+    2. LAND ice melts or slides into the sea: mountain glaciers, the Greenland
+       ice sheet and the Antarctic ice sheet,
+    3. water stored on land (groundwater, reservoirs) ends up in the sea.
+  Ice that is ALREADY FLOATING (sea ice, ice shelves) does not raise sea level
+  when it melts — it already displaces its own weight of water.
+
+  The model is driven by a pathway of global warming ΔT (°C above 1850–1900).
+  Each part is a simple equation of how fast it adds sea level (m per year):
+    thermal  = 0.065 m/K × Tupper + 0.22 m/K × Tdeep  (two ocean layers that
+               slowly warm towards ΔT: 25 years and 400 years)
+    glaciers = 0.00042 × (ΔT + 1.2) × (1 + 0.5 ΔT) × (ice left)^1.5   m/yr
+    Greenland= 0.00045 × (ΔT − 0.2 + 3 f) × (1 + 0.2(ΔT − 0.2)) × (1 − f)  (f = fraction lost)
+    Antarctica = 0.0009 × Tocean − 0.00005 × ΔT  (+ optional ice-cliff collapse)
+  Units: metres (m), centimetres (cm), millimetres per year (mm/yr).
+  Heights on the maps are metres above today's (2020) mean sea level.
+  Every simplification is listed in the app under "How the model works".
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 330px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: var(--ink-dark); }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select, input[type=number] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .chk { display: block; font-size: 13px; margin-bottom: 6px; }
+  .chk input { accent-color: var(--accent); }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; position: relative; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #mapWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .chartBox { position: relative; height: 150px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+  table.data { border-collapse: collapse; font-size: 12px; margin: 6px 0; }
+  table.data td, table.data th { border: 1px solid var(--line); padding: 2px 6px; text-align: right; font-variant-numeric: tabular-nums; }
+  table.data th { color: var(--text); font-weight: 600; }
+
+  #drawBox { position: relative; height: 130px; margin-top: 4px; display: none; }
+  #drawBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: ns-resize; border-radius: 6px; }
+
+  /* Batch-run overlay */
+  #batch { display: none; position: fixed; left: 10px; right: 10px; top: 56px; bottom: 10px; z-index: 20; background: var(--panel); border: 1px solid var(--accent);
+           border-radius: 10px; padding: 12px; grid-template-columns: 300px minmax(0, 1fr); gap: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.7); }
+  #batch.open { display: grid; }
+  #batch .bl { overflow-y: auto; min-height: 0; padding-right: 4px; }
+  #batch .br { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
+  #batch h3 { margin: 0 0 6px; font-size: 16px; color: var(--accent); }
+  .bexp { display: grid; gap: 4px; margin-bottom: 10px; }
+  .bexp button { text-align: left; font-size: 12px; padding: 5px 7px; line-height: 1.25; }
+  .seg { display: inline-flex; gap: 3px; margin-bottom: 8px; }
+  .seg button { padding: 3px 10px; font-size: 12.5px; }
+  .brow { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; font-size: 13px; flex-wrap: wrap; }
+  .brow select, .brow input { flex: 1; min-width: 0; }
+  .brow input[type=number] { width: 70px; flex: 0 0 70px; }
+  #bProg { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  #bProg span { display: block; height: 100%; width: 0; background: var(--accent); }
+  .bcharts { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .bcharts.one { grid-template-columns: 1fr; }
+  .bcharts.one > div:nth-child(2) { display: none; }
+  .bcharts > div { position: relative; min-height: 0; background: #10130e; border-radius: 6px; }
+  .bcharts canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bSummary { font-size: 12.5px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  #bSummary div { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+  #bSummary div b { display: block; font-variant-numeric: tabular-nums; }
+  #bSummary div span { color: var(--muted); font-size: 11px; }
+  #bNote { font-size: 12.5px; color: #dfe3d6; background: var(--panel-2); border-left: 3px solid var(--accent); padding: 6px 9px; border-radius: 4px; }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+  .tabs { display: inline-flex; gap: 3px; }
+  .tabs button { padding: 3px 10px; font-size: 12.5px; }
+  #coastView { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+  #secWrap { position: relative; height: 150px; background: #050604; border-radius: 8px; overflow: hidden; flex: none; }
+  #sec { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #iceView { flex: 1; min-height: 0; display: none; flex-direction: column; gap: 6px; }
+  #iceWrap { position: relative; flex: 1; min-height: 0; background: #0f1418; border-radius: 8px; overflow: hidden; }
+  #ice { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #tools { position: absolute; left: 8px; top: 8px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+  .trow { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+  #tools button { padding: 4px 9px; font-size: 12.5px; background: rgba(20,24,17,.88); }
+  #tools button.on { background: var(--accent); }
+  #drawOpts { background: rgba(20,24,17,.75); border-radius: 7px; padding: 2px 4px; }
+  #drawOpts button { padding: 2px 8px; font-size: 12px; }
+  .tlabel { font-size: 11.5px; color: var(--muted); margin: 0 2px 0 4px; }
+  #stormBanner { position: absolute; left: 8px; bottom: 40px; background: rgba(14,18,12,.9); border: 1px solid #5ab4e6; border-radius: 8px; padding: 5px 9px; font-size: 12.5px; display: none; max-width: 300px; }
+  .band { display: inline-block; width: 14px; height: 9px; border-radius: 2px; margin-right: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sea Level Rise</h1>
+  <span class="sub">Why the sea is rising, how fast, and what it means for a low-lying coast — from 1900 to 2300.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: PRESETS AND CONTROLS ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">Warming pathway</h2>
+    <div class="ctl">
+      <label>Scenario</label>
+      <select id="scenario">
+        <option value="ssp1">Low (like SSP1-2.6): about 1.8 °C in 2100</option>
+        <option value="ssp2">Medium (like SSP2-4.5): about 2.7 °C</option>
+        <option value="ssp5">High (like SSP5-8.5): about 4.4 °C</option>
+        <option value="custom">Choose with the slider</option>
+      </select>
+    </div>
+    <div class="ctl" id="customRow">
+      <label>Warming by 2100 <output id="o_w2100"></output></label>
+      <input type="range" id="w2100" min="1.3" max="6" step="0.1" value="3">
+      <div class="hint">Then it stays at that level. Measured from 1850–1900; we are at about 1.3 °C now.</div>
+    </div>
+    <div class="ctl">
+      <label>Run until</label>
+      <select id="endYear"><option value="2024">2024 (the past only)</option><option value="2100" selected>2100</option><option value="2200">2200</option><option value="2300">2300</option></select>
+    </div>
+
+    <h2 class="gap">The coast</h2>
+    <div class="ctl">
+      <label>Place</label>
+      <select id="place">
+        <option value="estuary">East-coast estuary town (UK-like)</option>
+        <option value="delta">Delta city</option>
+        <option value="island">Low-lying coral island</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <label>Storm size <output id="o_storm"></output></label>
+      <select id="stormRP"><option value="1">1-in-1-year storm</option><option value="10">1-in-10-year storm</option><option value="100" selected>1-in-100-year storm</option><option value="1000">1-in-1000-year storm</option></select>
+      <div class="hint" id="stormHint"></div>
+    </div>
+    <div class="ctl">
+      <label>New sea-wall height <output id="o_wallH"></output></label>
+      <input type="range" id="wallH" min="1" max="10" step="0.5" value="5">
+      <div class="hint">Height of the top of walls you draw, in metres above today's mean sea level. Draw them on the map with the <b>Sea wall</b> tool.</div>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:8px"><button id="btnRaise" style="flex:1">Raise all walls +0.5 m</button><button id="btnClearWalls">Remove walls</button></div>
+
+    <h2 class="gap">How sensitive is the ice? <span class="hint" style="text-transform:none;letter-spacing:0">(uncertain)</span></h2>
+    <div class="ctl"><label>Thermal expansion <output id="o_thf"></output></label><input type="range" id="thf" min="0.5" max="1.5" step="0.05" value="1"></div>
+    <div class="ctl"><label>Mountain glaciers <output id="o_glf"></output></label><input type="range" id="glf" min="0.5" max="1.5" step="0.05" value="1"></div>
+    <div class="ctl"><label>Greenland <output id="o_grf"></output></label><input type="range" id="grf" min="0.3" max="3" step="0.05" value="1"></div>
+    <div class="ctl"><label>Antarctica <output id="o_anf"></output></label><input type="range" id="anf" min="0.3" max="3" step="0.05" value="1"></div>
+    <label class="chk"><input type="checkbox" id="mici"> Antarctic ice-cliff collapse (possible tipping point)</label>
+    <div class="ctl" id="miciRow"><label>…starts above <output id="o_micT"></output></label><input type="range" id="micT" min="1.5" max="4" step="0.1" value="2.5"></div>
+    <label class="chk"><input type="checkbox" id="lws" checked> Include water pumped from the ground and stored behind dams</label>
+    <div class="ctl">
+      <label>What if… (instant extra melt)</label>
+      <select id="whatif"><option value="0">Nothing extra</option><option value="7.4">All of Greenland melts (+7.4 m)</option><option value="3.3">West Antarctica collapses (+3.3 m)</option></select>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">1900</span>
+      <span class="stat" title="since 1900">Sea <b id="s_rise">0 cm</b></span>
+      <span class="stat">Rising <b id="s_rate">0 mm/yr</b></span>
+      <span class="stat">Homes flooded <b id="s_homes">0</b></span>
+      <span style="flex:1"></span>
+      <span class="tabs"><button data-view="coast" class="on">🗺 Coast</button><button data-view="ice">🧊 Ice demo</button></span>
+    </div>
+    <div id="coastView">
+      <div id="mapWrap">
+        <canvas id="map" aria-label="Map of the coast and the flooded area"></canvas>
+        <div id="tools">
+          <div class="trow" role="group" aria-label="Tools">
+            <button data-tool="wall" class="on" title="Draw a sea wall">🧱 Sea wall</button>
+            <button data-tool="erase" title="Remove walls">Erase wall</button>
+            <button data-tool="section" title="Click to choose where the cross-section is taken">✂ Cross-section line</button>
+          </div>
+          <div class="trow" id="drawOpts" role="group" aria-label="How to draw">
+            <span class="tlabel">Draw</span>
+            <button data-mode="free" class="on" title="Paint freehand by dragging">✎ Freehand</button>
+            <button data-mode="area" title="Click and drag to fill a rectangle">▭ Area</button>
+            <span class="tlabel">Brush</span>
+            <button data-brush="0" class="on" title="1 cell (25 m)">S</button><button data-brush="1" title="3 cells">M</button><button data-brush="2" title="5 cells">L</button>
+          </div>
+        </div>
+        <div id="stormBanner"></div>
+      </div>
+      <div id="secWrap"><canvas id="sec" aria-label="Cross-section of the coast"></canvas></div>
+    </div>
+    <div id="iceView">
+      <div id="iceWrap"><canvas id="ice" aria-label="Two glasses: floating ice and ice on land"></canvas></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button id="iceMelt" class="primary">▶ Melt the ice</button><button id="iceReset">Reset glasses</button>
+        <span class="ctl" style="margin:0;min-width:240px;flex:1"><label>Melted <output id="o_melt"></output></label><input type="range" id="melt" min="0" max="100" step="1" value="0"></span>
+      </div>
+    </div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">▶ Start</button>
+      <button id="btnReset" title="Back to 1900">Reset</button>
+      <button id="btnStorm" title="A storm surge and high tide on top of the current sea level">🌊 Storm</button>
+      <span class="speed" title="1× = 2 years every second">Speed <button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="4">4×</button><button data-s="15">15×</button></span>
+      <span style="flex:1"></span>
+      <button id="btnBatch" title="Run the model many times">📊 Batch run</button>
+    </div>
+    <div class="legend" id="mapLegend">
+      <span><i style="background:#1d5d8f"></i>Sea</span><span><i style="background:#38b6c9"></i>Flooded at high tide</span><span><i style="background:#9ad8f0"></i>Flooded by the storm</span>
+      <span><i style="background:linear-gradient(90deg,#3f7d3a,#b9a46a,#e8e0d0)"></i>Land 0 → 20 m</span><span><i style="background:#d9d4c8"></i>Homes</span><span><i style="background:#e4572e"></i>Homes flooded</span><span><i style="background:#222"></i>Sea wall</span>
+      <span>Water is shown at high tide.</span>
+    </div>
+
+    <!-- Batch run overlay -->
+    <div id="batch">
+      <div class="bl">
+        <h3>Batch run</h3>
+        <div class="hint" style="margin-bottom:6px">Run the model many times. Each projection run picks the uncertain numbers (how much warming, and how sensitive the ocean and the ice are) at random from realistic ranges.</div>
+        <h2>Batch experiments</h2>
+        <div class="bexp" id="bExps"></div>
+        <h2>Set up your own</h2>
+        <div class="seg"><button data-bm="repeat" class="on">Repeat</button><button data-bm="sweep">Sweep</button></div>
+        <div class="brow">Experiment <select id="bKind"><option value="proj">Sea level projection</option><option value="surge">Storm floods (many years of storms)</option></select></div>
+        <div class="brow" id="bScenRow">Scenario <select id="bScen"><option value="ssp1">Low (SSP1-2.6)</option><option value="ssp2">Medium (SSP2-4.5)</option><option value="ssp5">High (SSP5-8.5)</option><option value="custom">Slider warming</option></select></div>
+        <div class="brow" id="bRiseRow">Sea level rise <input type="number" id="bRise" value="0.5" step="0.05" style="flex:0 0 70px"> m on <span id="bPlace" class="hint"></span></div>
+        <div class="brow">Record <select id="bOut"></select></div>
+        <div class="brow" id="bNRow">Runs <select id="bN"><option>20</option><option>100</option><option selected>500</option><option>1000</option></select></div>
+        <div id="bSweepRows" style="display:none">
+          <div class="brow">Vary <select id="bVar"></select></div>
+          <div class="brow">From <input type="number" id="bFrom" step="any"> to <input type="number" id="bTo" step="any"></div>
+          <div class="brow">Steps <input type="number" id="bSteps" value="8" min="2" max="30"> repeats <input type="number" id="bReps" value="20" min="1" max="200"></div>
+        </div>
+        <label class="chk" id="bVaryRow"><input type="checkbox" id="bVary" checked> Vary the uncertain numbers between runs</label>
+        <div class="brow"><button id="bRun" class="primary">▶ Run batch</button><button id="bStop" disabled>■ Stop</button><button id="bCsv" disabled>⬇ CSV</button></div>
+        <div id="bProg"><span></span></div>
+        <div class="hint" id="bStatus" style="margin-top:4px">Projection runs use a 0.5-year time step and no map (the live view uses 0.1 years).</div>
+      </div>
+      <div class="br">
+        <div style="display:flex;justify-content:space-between;align-items:center"><b id="bTitle">Results</b><button id="bClose">✕ Close</button></div>
+        <div class="bcharts" id="bCharts"><div><canvas id="bChart1"></canvas></div><div><canvas id="bChart2"></canvas></div></div>
+        <div id="bSummary"></div>
+        <div id="bNote">Pick a batch experiment on the left, or set up your own, then press <b>Run batch</b>.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readings</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">Readings</h2>
+    <div class="tiles" id="tiles"></div>
+    <h2 class="gap">Sea level since 1900 (m)</h2>
+    <div class="chartBox" style="height:190px"><canvas id="chSL"></canvas></div>
+    <div class="legend" style="margin-top:3px">
+      <span><i style="background:#e4572e"></i>Thermal expansion</span><span><i style="background:#9ad1d4"></i>Glaciers</span><span><i style="background:#f1af28"></i>Greenland</span>
+      <span><i style="background:#c9c3f0"></i>Antarctica</span><span><i style="background:#8fd694"></i>Land water</span><span><i style="background:#fff"></i>Measured (tide gauges, satellites)</span>
+    </div>
+    <h2 class="gap">Warming pathway (°C)</h2>
+    <div class="chartBox" style="height:110px"><canvas id="chT"></canvas></div>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Driver:</b> global warming ΔT (°C above 1850–1900). 1900–2024 follows the measured, smoothed record; after that a scenario path (like the IPCC's SSP1-2.6, SSP2-4.5 or SSP5-8.5, extended to 2300) or your slider.</li>
+        <li><b>Thermal expansion:</b> water expands when it warms (about 0.0002 of its volume per °C near the surface, less in cold deep water). The upper ocean warms towards ΔT over about 25 years, the deep ocean towards the upper ocean over about 400 years. Rise = 0.065 m per °C of upper-ocean warming + 0.22 m per °C of deep-ocean warming. Because the deep ocean is slow, expansion keeps going for centuries after warming stops.</li>
+        <li><b>Mountain glaciers:</b> hold about 0.32 m of sea level. Melt rate = 0.42 mm/yr × (ΔT + 1.2) × (1 + 0.5ΔT) × (fraction left)<sup>1.5</sup>. The "+1.2" is because glaciers were already shrinking in 1900 after the Little Ice Age. They run out, so this part slows down.</li>
+        <li><b>Greenland</b> (7.4 m): melt rate = 0.45 mm/yr × (ΔT − 0.2 + 3f) × (1 + 0.2(ΔT − 0.2)) × (1 − f), where f is the fraction already lost. The "3f" is the height–melt feedback: as the ice sheet gets thinner its surface sits in warmer air, so it melts faster. This is why there is a threshold beyond which Greenland would eventually all melt — over a thousand years or more.</li>
+        <li><b>Antarctica:</b> warm ocean water melts the ice shelves from below, letting glaciers flow faster: 0.9 mm/yr per °C of ocean warming (which lags ΔT by about 30 years). Warmer air also brings more snowfall, which takes 0.05 mm/yr per °C off.</li>
+        <li><b>Ice-cliff collapse (option):</b> if ΔT passes the threshold, tall ice cliffs could become unstable (marine ice-cliff instability). The extra loss ramps up over 50 years to 25 mm/yr, up to 15 m. Scientists disagree strongly about whether and when this could happen; the IPCC calls it low-likelihood but high-impact.</li>
+        <li><b>Land water:</b> dams held water back from 1950 to 1990 (−0.3 mm/yr); pumping groundwater adds +0.35 mm/yr from 2000 to 2100.</li>
+        <li><b>Floating ice</b> (sea ice and ice shelves) adds nothing when it melts, as the glass demo shows. (In salty sea water it adds a tiny bit — about 4 cm if all the world's floating ice melted.)</li>
+        <li><b>The maps</b> are made up but realistic. Each square is 25 m. Heights are in metres above today's (2020) mean sea level. Water spreads from the sea into every square lower than the water level that it can reach, unless a wall with a higher top is in the way. High tide is shown: +2.2 m (estuary), +0.8 m (delta), +0.5 m (island). Homes: 5 per built-up square, 2.3 people per home.</li>
+        <li><b>Storms:</b> the highest water level each year (tide + surge) follows a Gumbel distribution (estuary: mode 3.0 m, scale 0.25 m; delta: 1.6 m, 0.30 m; island: 1.0 m, 0.10 m). The surge is added on top of the new mean sea level.</li>
+        <li><b>Left out:</b> sea level is not the same everywhere (gravity changes near melting ice, land sinking or rising, ocean currents), erosion, wave run-up, rivers flooding at the same time, how long a flood lasts, and how people adapt. Ice-sheet behaviour is the most uncertain part.</li>
+        <li><b>Where the model and reality disagree:</b> the model gives about 0.16 m from 1900 to 2018. Tide gauges show about 0.20 m. The IPCC's own sum of the parts also comes out a little low for the early 1900s.</li>
+      </ul>
+    </details>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   1. REAL DATA AND SCENARIOS
+   ===================================================================== */
+const YEAR0 = 1900, DT_LIVE = 0.1, DT_BATCH = 0.5, YEARS_PER_SEC = 2;
+function interp(pts, x) {
+  if (x <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++) if (x <= pts[i][0]) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i]; return y0 + (y1 - y0) * (x - x0) / (x1 - x0); }
+  return pts[pts.length - 1][1];
+}
+// Measured global warming (°C above 1850–1900), smoothed
+const T_HIST = [[1900, 0.0], [1920, 0.05], [1940, 0.25], [1960, 0.25], [1980, 0.4], [2000, 0.75], [2010, 0.95], [2020, 1.2], [2024, 1.3]];
+const T_SCEN = {
+  ssp1: [[2024, 1.3], [2040, 1.6], [2060, 1.75], [2080, 1.8], [2100, 1.8], [2150, 1.7], [2300, 1.5]],
+  ssp2: [[2024, 1.3], [2050, 2.0], [2075, 2.4], [2100, 2.7], [2150, 3.1], [2200, 3.3], [2300, 3.5]],
+  ssp5: [[2024, 1.3], [2050, 2.4], [2075, 3.3], [2100, 4.4], [2150, 6.5], [2200, 8.0], [2300, 9.5]],
+};
+// Approximate measured global mean sea level since 1900 (m): tide-gauge reconstructions, then satellites from 1993
+const OBS = [[1900, 0], [1910, 0.01], [1920, 0.025], [1930, 0.04], [1940, 0.055], [1950, 0.07], [1960, 0.085], [1970, 0.10], [1980, 0.115], [1990, 0.13], [2000, 0.155], [2010, 0.185], [2020, 0.215]];
+// IPCC AR6 projections for 2100 (m, relative to 1995–2014): median and "likely" range
+const AR6 = { ssp1: { med: 0.44, lo: 0.32, hi: 0.62 }, ssp2: { med: 0.56, lo: 0.44, hi: 0.76 }, ssp5: { med: 0.77, lo: 0.63, hi: 1.01 } };
+const AR6_2300 = { ssp1: { lo: 0.3, hi: 3.1 }, ssp5: { lo: 1.7, hi: 6.8 } };   // medium confidence, AR6 SPM
+const WARM2100 = { ssp1: 1.8, ssp2: 2.7, ssp5: 4.4 };
+
+// warming at time t. P.tf stretches the future part (used for uncertainty in batch runs)
+function warming(t, P) {
+  if (t <= 2024) return interp(T_HIST, t);
+  let T;
+  if (P.scenario === "custom") { const u = Math.min(1, (t - 2024) / 76); T = 1.3 + (P.w2100 - 1.3) * (1 - (1 - u) * (1 - u)); }  // eases in, then holds
+  else T = interp(T_SCEN[P.scenario], t);
+  return 1.3 + (T - 1.3) * (P.tf || 1);
+}
+const landWater = (t, P) => !P.lws ? 0 : t < 1950 ? 0 : t < 1990 ? -0.0003 : t < 2000 ? 0 : t < 2100 ? 0.00035 : 0;   // m per year
+
+/* =====================================================================
+   2. THE SEA LEVEL MODEL — one step
+   ===================================================================== */
+const GLACIER_MAX = 0.32, GREENLAND_MAX = 7.4, MICI_MAX = 15;
+function newState() { return { t: YEAR0, Tu: 0, Td: 0, Ta: 0, th: 0, gl: 0, gr: 0, an: 0, lw: 0, mici: 0, trig: null, T: 0, rate: 0 }; }
+function step(s, P, dt) {
+  const T = warming(s.t, P); s.T = T;
+  // Thermal expansion: two ocean layers creep towards the surface warming
+  s.Tu += (T - s.Tu) / 25 * dt;
+  s.Td += (s.Tu - s.Td) / 400 * dt;
+  const thNew = P.thf * (0.065 * s.Tu + 0.22 * s.Td);
+  // Mountain glaciers (they run out, so melting slows as they shrink)
+  const left = Math.max(0, 1 - s.gl / GLACIER_MAX);
+  const glRate = Math.max(-0.0002, P.glf * 0.00042 * (T + 1.2) * (1 + 0.5 * T) * Math.pow(left, 1.5));
+  // Greenland (height–melt feedback: thinner ice sits in warmer air)
+  const f = s.gr / GREENLAND_MAX;
+  const grRate = Math.max(0, P.grf * 0.00045 * (T - 0.2 + 3 * f) * (1 + 0.2 * Math.max(0, T - 0.2))) * (1 - f);
+  // Antarctica: warm ocean water (which lags the air) melts ice shelves; more snow offsets a little
+  s.Ta += (T - s.Ta) / 30 * dt;
+  let anRate = P.anf * 0.0009 * s.Ta - 0.00005 * T;
+  // Optional marine ice-cliff instability
+  if (P.mici) {
+    if (s.trig === null && T >= P.micT) s.trig = s.t;
+    if (s.trig !== null && s.mici < MICI_MAX) { const r = 0.025 * Math.min(1, (s.t - s.trig) / 50); s.mici = Math.min(MICI_MAX, s.mici + r * dt); }
+  }
+  const lwRate = landWater(s.t, P);
+  const before = total(s);
+  s.th = thNew; s.gl += glRate * dt; s.gr += grRate * dt; s.an += anRate * dt; s.lw += lwRate * dt;
+  s.t += dt;
+  s.rate = (total(s) - before) / dt;              // m per year
+}
+const total = s => s.th + s.gl + s.gr + s.an + s.mici + s.lw;
+
+/* =====================================================================
+   3. HEADLESS RUNS FOR THE BATCH MODE
+   ===================================================================== */
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function gauss(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+// Uncertain inputs: future warming and the ocean's and ice's sensitivity
+function sampleParams(b, rng) {
+  return { ...b,
+    tf: Math.exp(0.22 * gauss(rng)),                          // future warming ×/÷ 1.25 (climate sensitivity)
+    thf: b.thf * Math.max(0.3, 1 + 0.2 * gauss(rng)),
+    glf: b.glf * Math.max(0.3, 1 + 0.25 * gauss(rng)),
+    grf: b.grf * Math.exp(0.4 * gauss(rng)),
+    anf: b.anf * Math.exp(0.6 * gauss(rng)) };
+}
+function runProjection(P) {
+  const s = newState(), dt = DT_BATCH, out = {}, series = [0], years = [YEAR0];
+  let ref = 0, nref = 0;
+  for (let y = YEAR0 + 1; y <= 2300; y++) {
+    const n = Math.round(1 / dt); for (let k = 0; k < n; k++) step(s, P, dt);
+    s.t = y; const L = total(s); series.push(L); years.push(y);
+    if (y >= 1995 && y < 2015) { ref += L; nref++; }
+    if (y === 2100) { out.slr2100 = L - ref / nref; out.rate2100 = s.rate * 1000; out.gr2100 = s.gr; out.an2100 = s.an + s.mici; }
+    if (y === 2300) out.slr2300 = L - ref / nref;
+  }
+  out.obs2020 = series[120];
+  return { out, series: series.map(v => v - ref / nref), years };
+}
+
+/* Storms: the highest water each year follows a Gumbel distribution.
+   x100 = today's 1-in-100-year level. With extra sea level Δ, a year floods past x100 if max + Δ > x100. */
+const PLACES = {
+  estuary: { name: "East-coast estuary town", tide: 2.2, mu: 3.0, beta: 0.25 },
+  delta:   { name: "Delta city", tide: 0.8, mu: 1.6, beta: 0.30 },
+  island:  { name: "Low-lying coral island", tide: 0.5, mu: 1.0, beta: 0.10 },
+};
+const gumbelLevel = (pl, rp) => pl.mu - pl.beta * Math.log(-Math.log(1 - 1 / rp));     // level with return period rp years
+const pExceed = (pl, rise) => 1 - Math.exp(-Math.exp(-(gumbelLevel(pl, 100) - rise - pl.mu) / pl.beta));
+function runSurge(pl, rise, years, rng) {
+  const x100 = gumbelLevel(pl, 100); let count = 0;
+  for (let y = 0; y < years; y++) { const m = pl.mu - pl.beta * Math.log(-Math.log(rng() || 1e-12)); if (m + rise > x100) count++; }
+  return { count, perCentury: 100 * count / years, returnPeriod: count ? years / count : Infinity };
+}
+
+/* =====================================================================
+   4. THE COAST MAP
+   ===================================================================== */
+const GW = 200, GH = 130, NC = GW * GH, CELL = 25;
+const elev = new Float32Array(NC);      // m above today's mean sea level
+const isSea = new Uint8Array(NC);       // open sea at the start
+const home = new Uint8Array(NC);        // 1 = built-up square (5 homes)
+const wall = new Float32Array(NC);      // top of a sea wall (m above today's MSL); 0 = no wall
+const flood = new Uint8Array(NC);       // 0 dry, 1 flooded at high tide, 2 flooded by the storm only
+const dryToday = new Uint8Array(NC);    // land that is dry at today's high tide
+let section = 0;                         // row used for the cross-section
+let mapPlace = "";
+function makeNoise(rng, scale) {
+  const LW = Math.ceil(GW / scale) + 2, LH = Math.ceil(GH / scale) + 2, v = new Float32Array(LW * LH).map(() => rng());
+  const sm = t => t * t * (3 - 2 * t);
+  return (x, y) => {
+    const gx = x / scale, gy = y / scale, x0 = Math.floor(gx), y0 = Math.floor(gy), fx = sm(gx - x0), fy = sm(gy - y0);
+    const X0 = ((x0 % LW) + LW) % LW, X1 = (X0 + 1) % LW, Y0 = ((y0 % LH) + LH) % LH, Y1 = (Y0 + 1) % LH;
+    const a = v[Y0 * LW + X0], b = v[Y0 * LW + X1], c = v[Y1 * LW + X0], d = v[Y1 * LW + X1];
+    return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+  };
+}
+function buildMap(place) {
+  mapPlace = place;
+  const rng = mulberry32(place === "estuary" ? 11 : place === "delta" ? 22 : 33);
+  const n1 = makeNoise(rng, 20), n2 = makeNoise(rng, 6), n3 = makeNoise(rng, 45);
+  wall.fill(0); home.fill(0);
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+    const i = y * GW + x; let h = 0, town = 0;
+    if (place === "estuary") {
+      // Sea to the east; land rises gently to the west; an estuary winds inland with salt marsh and reclaimed fields beside it
+      const coastX = GW * 0.84 + 6 * (n3(x, y) - 0.5) * 2;
+      const cy = GH * 0.56 + GH * 0.10 * Math.sin(x / 26) + GH * 0.03 * Math.sin(x / 9);
+      const w = 1.5 + 9 * Math.pow(Math.min(1, x / coastX), 2.2);
+      const d = Math.abs(y - cy);
+      h = 3.2 + 22 * Math.pow(Math.max(0, (coastX - x) / coastX), 1.7) * (0.6 + 0.8 * n3(x + 9, y)) + 2.5 * (n1(x, y) - 0.5);
+      if (d < w + 45) h = Math.min(h, 2.25 + 0.05 * Math.max(0, d - w) + 0.8 * n2(x, y) + 0.008 * (coastX - x));   // marsh and reclaimed land
+      if (d < w) h = -3 - 2 * (1 - d / w);                                   // the estuary channel
+      if (x > coastX) h = Math.min(h, -2 - (x - coastX) * 0.4);             // the sea
+      else if (x > coastX - 6) h = Math.min(h, 2.6 + 0.35 * (coastX - x) + 0.4 * n2(x, y));  // beach and dunes
+      // the town on the north bank, plus a village to the south
+      const tx = (x - GW * 0.55) / (GW * 0.16), ty = (y - GH * 0.33) / (GH * 0.16), vx = (x - GW * 0.42) / (GW * 0.07), vy = (y - GH * 0.83) / (GH * 0.08);
+      town = Math.max(Math.exp(-(tx * tx + ty * ty)), 0.8 * Math.exp(-(vx * vx + vy * vy)));
+    } else if (place === "delta") {
+      // Sea to the south; a low, flat delta fan with river channels; a big city in the middle
+      const coastY = GH * 0.80 + 5 * (n3(x, y) - 0.5) * 2 + 3 * Math.sin(x / 13);
+      h = 0.9 + 6.5 * Math.pow(Math.max(0, (coastY - y) / coastY), 1.3) + 1.2 * (n1(x, y) - 0.5) + 0.4 * (n2(x, y) - 0.5);
+      // land in the city centre has sunk (pumping groundwater)
+      const cx = (x - GW * 0.5) / (GW * 0.13), cy2 = (y - GH * 0.52) / (GH * 0.17);
+      h -= 1.3 * Math.exp(-(cx * cx + cy2 * cy2));
+      // distributary channels with natural levees
+      for (const [x0, dx] of [[0.5, -0.32], [0.5, 0.02], [0.5, 0.30]]) {
+        const u = y / coastY; if (u < 0) continue;
+        const ccx = GW * (x0 + dx * Math.pow(Math.min(1, Math.max(0, u)), 1.4)) + 4 * Math.sin(y / 7);
+        const dd = Math.abs(x - ccx), w = 1.2 + 2.5 * u;
+        if (dd < w) h = -2; else if (dd < w + 2.5) h += 0.6;
+      }
+      if (y > coastY) h = Math.min(h, -1.5 - (y - coastY) * 0.3);
+      const ux = (x - GW * 0.5) / (GW * 0.26), uy = (y - GH * 0.5) / (GH * 0.26);
+      town = Math.exp(-(ux * ux + uy * uy) * 1.2);
+    } else {
+      // A coral island: a ring of low land around a lagoon, open to the sea in the south-west
+      const ex = (x - GW * 0.5) / (GW * 0.40), ey = (y - GH * 0.5) / (GH * 0.40);
+      const r = Math.hypot(ex, ey), ang = Math.atan2(ey, ex);
+      const ringW = 0.11 + 0.10 * Math.max(0, Math.cos(ang - 0.1)) + 0.03 * (n1(x, y) - 0.5);
+      const dr = Math.abs(r - 0.95) / ringW;
+      h = dr < 1 ? 0.7 + 2.6 * (1 - dr * dr) * (0.5 + 0.7 * n1(x + 3, y)) + 0.4 * (n2(x, y) - 0.5) : (r < 0.95 ? -6 : -4 - 20 * (r - 1.1));
+      if (dr < 1 && Math.abs(ang - 2.3) < 0.09) h = -2;                      // channel into the lagoon
+      h = Math.min(h, 3.6);
+      town = dr < 0.8 ? Math.exp(-((ang - 0.1) ** 2) / 0.35) : 0;
+    }
+    elev[i] = h; isSea[i] = 0;
+    if (h > 0.2 && h < 25 && town > 0.3 && rng() < 0.9 * town) home[i] = 1;
+    else if (h > 0.5 && rng() < 0.0015) home[i] = 1;                         // scattered farms
+  }
+  // Open sea = connected to the edge and below today's mean sea level
+  const q = [];
+  for (let i = 0; i < NC; i++) { const x = i % GW, y = (i / GW) | 0; if ((x === 0 || y === 0 || x === GW - 1 || y === GH - 1) && elev[i] < 0) { isSea[i] = 1; q.push(i); } }
+  while (q.length) { const i = q.pop(), x = i % GW, y = (i / GW) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue; const j = Y * GW + X; if (!isSea[j] && elev[j] < 0) { isSea[j] = 1; q.push(j); } } }
+  section = place === "estuary" ? Math.round(GH * 0.30) : place === "delta" ? Math.round(GW * 0.5) : Math.round(GH * 0.5);
+  // land dry at today's high tide (used to count what is lost)
+  const pl = PLACES[place]; computeFlood(pl.tide, -1);
+  for (let i = 0; i < NC; i++) { dryToday[i] = flood[i] ? 0 : 1; if (!dryToday[i]) home[i] = 0; }   // nobody lives where it floods every tide
+  lastFloodKey = "";
+}
+// A ready-made defence for the "defended town" preset: a 5 m wall all along the edge of the land
+// that is dry at today's high tide (wherever that land is lower than 5 m)
+function buildDefences() {
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+    const i = y * GW + x; if (!dryToday[i] || elev[i] >= 5) continue;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < GW && Y < GH && !dryToday[Y * GW + X]) { wall[i] = 5; break; } }
+  }
+  lastFloodKey = "";
+}
+/* Flood fill from the sea: water reaches a square if it is lower than the water level and is not
+   protected by a wall whose top is higher than the water. level = high tide; stormLevel ≥ level or −1. */
+let lastFloodKey = "";
+function computeFlood(level, stormLevel) {
+  const key = `${level.toFixed(3)}|${stormLevel.toFixed(3)}|${wallVersion}`;
+  if (key === lastFloodKey) return; lastFloodKey = key;
+  flood.fill(0);
+  const fill = (L, mark) => {
+    const q = [];
+    for (let i = 0; i < NC; i++) if (isSea[i] && !flood[i]) { flood[i] = mark; q.push(i); }
+    for (let k = 0; k < q.length; k++) {
+      const i = q[k], x = i % GW, y = (i / GW) | 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue;
+        const j = Y * GW + X; if (flood[j]) continue;
+        if (elev[j] < L && (wall[j] === 0 || wall[j] < L)) { flood[j] = mark; q.push(j); }
+      }
+    }
+  };
+  fill(level, 1);
+  if (stormLevel > level) {
+    // second pass: squares reached only during the storm
+    const q = []; for (let i = 0; i < NC; i++) if (flood[i]) q.push(i);
+    for (let k = 0; k < q.length; k++) {
+      const i = q[k], x = i % GW, y = (i / GW) | 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue;
+        const j = Y * GW + X; if (flood[j]) continue;
+        if (elev[j] < stormLevel && (wall[j] === 0 || wall[j] < stormLevel)) { flood[j] = 2; q.push(j); }
+      }
+    }
+  }
+}
+let wallVersion = 0;
+
+/* =====================================================================
+   5. LIVE SIMULATION
+   ===================================================================== */
+const el = id => document.getElementById(id);
+let st = newState(), hist = [], running = false, speed = 1, view = "coast";
+let storm = null;               // { t0, peak } while a storm is happening (real seconds)
+let stormMax = { homes: 0, pct: 0 };
+function P() {
+  return { scenario: el("scenario").value, w2100: +el("w2100").value, thf: +el("thf").value, glf: +el("glf").value, grf: +el("grf").value,
+           anf: +el("anf").value, mici: el("mici").checked, micT: +el("micT").value, lws: el("lws").checked, tf: 1 };
+}
+const endYear = () => +el("endYear").value;
+let sl2020 = 0;   // model sea level in 2020 (the map's zero)
+function refLevel2020() { const s = newState(), p = P(); while (s.t < 2020 - 1e-9) step(s, p, 0.5); return total(s); }
+function resetSim() { st = newState(); st.T = 0; hist = [{ t: YEAR0, ...parts(st) }]; sl2020 = refLevel2020(); storm = null; stormMax = { homes: 0, pct: 0 }; el("stormBanner").style.display = "none"; setRunning(false); }
+function parts(s) { return { th: s.th, gl: s.gl, gr: s.gr, an: s.an + s.mici, lw: s.lw, T: s.T, tot: total(s) }; }
+function setRunning(on) { if (on && st.t >= endYear() - 1e-6) resetSim(); running = on; }
+// The water level on the map (m above today's MSL), at high tide
+const whatIf = () => +el("whatif").value;
+const seaRise = () => total(st) - sl2020 + whatIf();
+
+/* =====================================================================
+   6. PRESETS
+   ===================================================================== */
+const PRESETS = [
+  { name: "Past century", d: "1900–2024 vs tide gauges", s: { scenario: "ssp2", end: 2024 } },
+  { name: "Low emissions 2100", d: "SSP1-2.6 · estuary town", s: { scenario: "ssp1", end: 2100 } },
+  { name: "High emissions 2100", d: "SSP5-8.5 · estuary town", s: { scenario: "ssp5", end: 2100 } },
+  { name: "2300, high emissions", d: "It keeps rising for centuries", s: { scenario: "ssp5", end: 2300, place: "delta" } },
+  { name: "Antarctic instability", d: "Ice cliffs collapse above 2.5 °C", s: { scenario: "ssp5", end: 2300, mici: true, place: "delta" } },
+  { name: "All Greenland melts", d: "What if? +7.4 m", s: { scenario: "ssp2", end: 2100, whatif: "7.4" } },
+  { name: "Floating ice demo", d: "Why sea ice doesn't count", s: { scenario: "ssp2", end: 2100 }, ice: true },
+  { name: "Storm surge on top", d: "Delta city, 2100, big storm", s: { scenario: "ssp5", end: 2100, place: "delta", storm: true } },
+  { name: "Defended town", d: "5 m walls hold in 2100… try 2200", s: { scenario: "ssp5", end: 2100, defended: true, storm: true } },
+  { name: "Sinking island", d: "A coral island, high emissions", s: { scenario: "ssp5", end: 2200, place: "island" } },
+];
+const DEFAULTS = { scenario: "ssp2", end: 2100, place: "estuary", thf: 1, glf: 1, grf: 1, anf: 1, mici: false, micT: 2.5, lws: true, whatif: "0", stormRP: "100" };
+let presetStorm = false;
+function setPreset(i) {
+  const s = { ...DEFAULTS, ...PRESETS[i].s };
+  el("scenario").value = s.scenario; el("endYear").value = s.end;
+  for (const k of ["thf", "glf", "grf", "anf", "micT"]) el(k).value = s[k];
+  el("mici").checked = s.mici; el("lws").checked = s.lws; el("whatif").value = s.whatif; el("stormRP").value = s.stormRP;
+  if (el("place").value !== s.place || mapPlace !== s.place || s.defended || wallCount() > 0) { el("place").value = s.place; buildMap(s.place); }
+  if (s.defended) buildDefences();
+  wallVersion++;
+  presetStorm = !!s.storm;
+  document.querySelectorAll("#presets button").forEach((b, k) => b.classList.toggle("on", k === i));
+  syncOutputs(); resetSim(); setView(PRESETS[i].ice ? "ice" : "coast");
+  if (PRESETS[i].ice) { iceMelt = 0; el("melt").value = 0; iceAnim = true; } else setRunning(true);
+}
+const wallCount = () => { let n = 0; for (let i = 0; i < NC; i++) if (wall[i] > 0) n++; return n; };
+PRESETS.forEach((p, i) => { const b = document.createElement("button"); b.innerHTML = `${p.name}<small>${p.d}</small>`; b.onclick = () => setPreset(i); el("presets").appendChild(b); });
+
+/* =====================================================================
+   7. DRAWING THE MAP AND THE CROSS-SECTION
+   ===================================================================== */
+function fitCanvas(c) {
+  const dpr = window.devicePixelRatio || 1, W = Math.max(10, Math.round(c.clientWidth * dpr)), H = Math.max(10, Math.round(c.clientHeight * dpr));
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  return { ctx: c.getContext("2d"), W, H, dpr };
+}
+const off = document.createElement("canvas"); off.width = GW; off.height = GH;
+const offCtx = off.getContext("2d"), img = offCtx.createImageData(GW, GH);
+let mview = { s: 1, ox: 0, oy: 0 };
+function landColour(h) {
+  // green lowlands → tan → pale uplands
+  const u = Math.max(0, Math.min(1, h / 20));
+  if (u < 0.4) { const k = u / 0.4; return [63 + (185 - 63) * k, 125 + (164 - 125) * k, 58 + (106 - 58) * k]; }
+  const k = (u - 0.4) / 0.6; return [185 + (232 - 185) * k, 164 + (224 - 164) * k, 106 + (208 - 106) * k];
+}
+function currentLevels() {
+  const pl = PLACES[mapPlace], base = seaRise() + pl.tide;
+  let stormL = -1;
+  if (storm) { const k = Math.sin(Math.PI * Math.min(1, storm.age / storm.len)); stormL = seaRise() + pl.tide + (storm.peak - pl.tide) * k; }
+  return { base, stormL };
+}
+function drawMap() {
+  const { ctx, W, H, dpr } = fitCanvas(el("map"));
+  ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, W, H);
+  const s = Math.min(W / GW, H / GH); mview = { s, ox: (W - GW * s) / 2, oy: (H - GH * s) / 2, dpr };
+  const { base, stormL } = currentLevels();
+  computeFlood(base, stormL);
+  const d = img.data;
+  for (let i = 0; i < NC; i++) {
+    let r, g, b; const h = elev[i];
+    if (isSea[i] || (flood[i] && !dryToday[i])) {                    // sea (or already wet today)
+      const depth = Math.max(0, base - h); const k = Math.min(1, depth / 8);
+      r = 40 - 20 * k; g = 120 - 50 * k; b = 170 - 40 * k;
+    } else if (flood[i] === 1) { r = 56; g = 182; b = 201; }          // newly flooded at high tide
+    else if (flood[i] === 2) { r = 154; g = 216; b = 240; }           // storm flooding
+    else {
+      [r, g, b] = landColour(h);
+      // contour shading every 1 m (lighter) helps read the height
+      const frac = h - Math.floor(h); if (frac < 0.12 && h < 12) { r *= 0.9; g *= 0.9; b *= 0.9; }
+    }
+    if (home[i]) { if (flood[i]) { r = 228; g = 87; b = 46; } else { r = 217; g = 212; b = 200; } }
+    if (wall[i] > 0) { const over = wall[i] < Math.max(base, stormL); r = over ? 150 : 34; g = over ? 40 : 34; b = over ? 40 : 34; }
+    d[4 * i] = r; d[4 * i + 1] = g; d[4 * i + 2] = b; d[4 * i + 3] = 255;
+  }
+  offCtx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(off, mview.ox, mview.oy, GW * s, GH * s);
+  // cross-section line
+  ctx.setLineDash([6 * dpr, 4 * dpr]); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5 * dpr; ctx.beginPath();
+  if (mapPlace === "delta") { ctx.moveTo(mview.ox + (section + 0.5) * s, mview.oy); ctx.lineTo(mview.ox + (section + 0.5) * s, mview.oy + GH * s); }
+  else { ctx.moveTo(mview.ox, mview.oy + (section + 0.5) * s); ctx.lineTo(mview.ox + GW * s, mview.oy + (section + 0.5) * s); }
+  ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = "#fff"; ctx.font = `bold ${11 * dpr}px system-ui`;
+  if (mapPlace === "delta") { ctx.textAlign = "left"; ctx.fillText("A", mview.ox + (section + 1.5) * s, mview.oy + 14 * dpr); ctx.fillText("B", mview.ox + (section + 1.5) * s, mview.oy + GH * s - 6 * dpr); }
+  else { ctx.textAlign = "left"; ctx.fillText("A", mview.ox + 4 * dpr, mview.oy + (section - 1) * s); ctx.textAlign = "right"; ctx.fillText("B", mview.ox + GW * s - 4 * dpr, mview.oy + (section - 1) * s); }
+  // area preview
+  if (areaStart && areaEnd) { ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 2 * dpr; const x0 = Math.min(areaStart[0], areaEnd[0]), y0 = Math.min(areaStart[1], areaEnd[1]); ctx.strokeRect(mview.ox + x0 * s, mview.oy + y0 * s, (Math.abs(areaEnd[0] - areaStart[0]) + 1) * s, (Math.abs(areaEnd[1] - areaStart[1]) + 1) * s); }
+  // scale bar and place name
+  const bar = 1000 / CELL * s;
+  ctx.fillStyle = "rgba(10,12,9,0.75)"; ctx.fillRect(mview.ox + 8 * dpr, mview.oy + GH * s - 28 * dpr, bar + 16 * dpr, 22 * dpr);
+  ctx.fillStyle = "#eee"; ctx.fillRect(mview.ox + 16 * dpr, mview.oy + GH * s - 12 * dpr, bar, 3 * dpr);
+  ctx.textAlign = "left"; ctx.font = `${10.5 * dpr}px system-ui`; ctx.fillText("1 km", mview.ox + 16 * dpr, mview.oy + GH * s - 16 * dpr);
+  ctx.textAlign = "right"; ctx.font = `bold ${12 * dpr}px system-ui`; ctx.fillStyle = "rgba(255,255,255,0.9)";
+  ctx.fillText(PLACES[mapPlace].name + " (made-up map)", mview.ox + GW * s - 8 * dpr, mview.oy + GH * s - 10 * dpr);
+}
+function drawSection() {
+  const { ctx, W, H, dpr } = fitCanvas(el("sec"));
+  const prof = [];
+  if (mapPlace === "delta") for (let y = 0; y < GH; y++) prof.push(y * GW + section);
+  else for (let x = 0; x < GW; x++) prof.push(section * GW + x);
+  const { base, stormL } = currentLevels();
+  const top = Math.max(base, stormL);
+  const hs = prof.map(i => Math.max(elev[i], wall[i]));
+  const ymax = Math.max(8, Math.min(30, Math.max(...prof.map(i => elev[i])) + 1), top + 2), ymin = -6;
+  const L = 34 * dpr, R = 6 * dpr, T = 6 * dpr, B = 16 * dpr;
+  const X = k => L + k / (prof.length - 1) * (W - L - R), Y = h => H - B - (h - ymin) / (ymax - ymin) * (H - T - B);
+  const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, "#1b2c44"); sky.addColorStop(1, "#40607e");
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  // water: draw at the flood level wherever the square is wet
+  const t = performance.now() / 500;
+  for (let k = 0; k < prof.length; k++) {
+    const i = prof[k]; if (!flood[i] && !isSea[i]) continue;
+    const lev = flood[i] === 2 ? stormL : base;
+    ctx.fillStyle = flood[i] === 2 ? "rgba(154,216,240,0.85)" : (isSea[i] || !dryToday[i]) ? "#1f6fa8" : "#38b6c9";
+    const wv = 0.08 * Math.sin(k / 3 + t);
+    ctx.fillRect(X(k - 0.5), Y(lev + wv), X(1) - X(0) + 1, Y(ymin) - Y(lev + wv));
+  }
+  // ground
+  ctx.fillStyle = "#6b5233"; ctx.beginPath(); ctx.moveTo(X(0), Y(ymin));
+  for (let k = 0; k < prof.length; k++) ctx.lineTo(X(k), Y(Math.max(ymin, elev[prof[k]])));
+  ctx.lineTo(X(prof.length - 1), Y(ymin)); ctx.fill();
+  ctx.strokeStyle = "#5f9a4a"; ctx.lineWidth = 2 * dpr; ctx.beginPath();
+  for (let k = 0; k < prof.length; k++) { const h = elev[prof[k]]; if (h > 0) { ctx.moveTo(X(k - 0.5), Y(h)); ctx.lineTo(X(k + 0.5), Y(h)); } } ctx.stroke();
+  // walls and houses
+  for (let k = 0; k < prof.length; k++) {
+    const i = prof[k];
+    if (wall[i] > 0) { ctx.fillStyle = wall[i] < top ? "#963030" : "#bbb"; ctx.fillRect(X(k) - 2 * dpr, Y(wall[i]), 4 * dpr, Y(elev[i]) - Y(wall[i])); }
+    if (home[i]) {
+      const x = X(k), y = Y(elev[i]), w = 7 * dpr, h = 6 * dpr;
+      ctx.fillStyle = flood[i] ? "#e4572e" : "#e6dccb"; ctx.fillRect(x - w / 2, y - h, w, h);
+      ctx.fillStyle = "#7a2e22"; ctx.beginPath(); ctx.moveTo(x - w / 2 - 1 * dpr, y - h); ctx.lineTo(x, y - h - 4 * dpr); ctx.lineTo(x + w / 2 + 1 * dpr, y - h); ctx.fill();
+    }
+  }
+  // axis and labels
+  ctx.fillStyle = "#cfd5c6"; ctx.font = `${10 * dpr}px system-ui`; ctx.textAlign = "right";
+  for (let h = Math.ceil(ymin / 5) * 5; h <= ymax; h += 5) { ctx.fillText(h + " m", L - 4 * dpr, Y(h) + 3 * dpr); ctx.strokeStyle = "rgba(255,255,255,0.08)"; ctx.beginPath(); ctx.moveTo(L, Y(h)); ctx.lineTo(W - R, Y(h)); ctx.stroke(); }
+  ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.setLineDash([4 * dpr, 4 * dpr]); ctx.beginPath(); ctx.moveTo(L, Y(0)); ctx.lineTo(W - R, Y(0)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.textAlign = "left"; ctx.fillStyle = "#fff";
+  ctx.fillText(`Cross-section A → B (${((prof.length * CELL) / 1000).toFixed(1)} km, heights stretched) · dashes = today's mean sea level · high tide ${base >= 0 ? "+" : ""}${base.toFixed(2)} m${stormL > base ? ` · storm +${stormL.toFixed(2)} m` : ""}`, L + 4 * dpr, T + 10 * dpr);
+}
+
+/* =====================================================================
+   8. THE FLOATING-ICE DEMO (two glasses)
+   ---------------------------------------------------------------------
+   Glass A: an ice cube floating in water. Floating ice pushes aside
+   (displaces) its own WEIGHT of water. When it melts it turns into exactly
+   that much water, so the level does not change.
+   Glass B: the same ice sitting on a stone "land" block. It displaces
+   nothing until it melts — then all its meltwater is added.
+   ===================================================================== */
+let iceMelt = 0, iceAnim = false;
+const GLASS = { area: 40, water: 200, iceVol: 60, block: 12 };   // cm², cm³, cm³, cm² (block cross-section)
+const RHO_ICE = 0.917;
+function iceLevels(m) {
+  const g = GLASS, iceLeft = g.iceVol * (1 - m), melted = g.iceVol * m * RHO_ICE;
+  const A = (g.water + melted + iceLeft * RHO_ICE) / g.area;           // floating: displaced + meltwater
+  const B = (g.water + melted) / (g.area - g.block);                      // on land: only meltwater counts
+  return { A, B, iceLeft };
+}
+function drawIce() {
+  const { ctx, W, H, dpr } = fitCanvas(el("ice"));
+  ctx.fillStyle = "#0f1418"; ctx.fillRect(0, 0, W, H);
+  const lv = iceLevels(iceMelt), lv0 = iceLevels(0);
+  const gw = Math.min(W * 0.28, H * 0.45), gh = gw * 1.25, cmPx = gh / 14;    // a 14 cm tall glass
+  const baseY = H * 0.78;
+  const draw = (cx, title, level, level0, onLand) => {
+    const x0 = cx - gw / 2;
+    // water
+    const wg = ctx.createLinearGradient(0, baseY - level * cmPx, 0, baseY); wg.addColorStop(0, "rgba(90,180,230,0.75)"); wg.addColorStop(1, "rgba(30,90,150,0.85)");
+    ctx.fillStyle = wg; ctx.fillRect(x0, baseY - level * cmPx, gw, level * cmPx);
+    // the stone "land" block in glass B
+    let iceBaseY = baseY - level * cmPx, iceX = cx;
+    if (onLand) {
+      const bw = gw * GLASS.block / GLASS.area, bh = 9 * cmPx;
+      ctx.fillStyle = "#7d6a55"; ctx.fillRect(x0 + gw - bw, baseY - bh, bw, bh);
+      ctx.fillStyle = "#5f9a4a"; ctx.fillRect(x0 + gw - bw, baseY - bh, bw, 3 * dpr);
+      iceBaseY = baseY - bh; iceX = x0 + gw - bw / 2;
+    }
+    // the ice cube: side ∝ cube root of the volume left
+    const side = Math.cbrt(lv.iceLeft) * cmPx;
+    if (side > 0.5) {
+      ctx.fillStyle = "rgba(235,248,255,0.92)"; ctx.strokeStyle = "#bfe6ff"; ctx.lineWidth = 1.5 * dpr;
+      const top = onLand ? iceBaseY - side : iceBaseY - side * (1 - RHO_ICE);      // 91.7% of floating ice is under water
+      ctx.fillRect(iceX - side / 2, top, side, side); ctx.strokeRect(iceX - side / 2, top, side, side);
+      if (!onLand) { ctx.fillStyle = "rgba(90,180,230,0.35)"; ctx.fillRect(iceX - side / 2, iceBaseY, side, side * RHO_ICE); }
+      if (onLand && iceMelt > 0 && iceMelt < 1) { ctx.fillStyle = "rgba(120,200,240,0.9)"; for (let k = 0; k < 3; k++) { const yy = iceBaseY + ((performance.now() / 8 + k * 30) % (baseY - iceBaseY)) * 0.3; ctx.beginPath(); ctx.arc(iceX - gw * GLASS.block / GLASS.area / 2 - 3 * dpr, iceBaseY + 4 * dpr + yy - iceBaseY, 2 * dpr, 0, 7); ctx.fill(); } }
+    }
+    // glass outline
+    ctx.strokeStyle = "rgba(220,235,245,0.9)"; ctx.lineWidth = 3 * dpr; ctx.beginPath(); ctx.moveTo(x0, baseY - gh); ctx.lineTo(x0, baseY); ctx.lineTo(x0 + gw, baseY); ctx.lineTo(x0 + gw, baseY - gh); ctx.stroke();
+    // level marks
+    ctx.setLineDash([5 * dpr, 4 * dpr]); ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 1.5 * dpr;
+    ctx.beginPath(); ctx.moveTo(x0 - 30 * dpr, baseY - level0 * cmPx); ctx.lineTo(x0, baseY - level0 * cmPx); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = "#f1af28"; ctx.font = `${11 * dpr}px system-ui`; ctx.textAlign = "right"; ctx.fillText("start", x0 - 4 * dpr, baseY - level0 * cmPx - 4 * dpr);
+    ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.font = `bold ${15 * dpr}px system-ui`; ctx.fillText(title, cx, baseY - gh - 14 * dpr);
+    const change = (level - level0) * 10;
+    ctx.font = `${13 * dpr}px system-ui`;
+    ctx.fillText(`Water level ${level.toFixed(2)} cm`, cx, baseY + 22 * dpr);
+    ctx.fillStyle = Math.abs(change) < 0.05 ? "#8fd694" : "#e4572e";
+    ctx.font = `bold ${14 * dpr}px system-ui`; ctx.fillText(`Change: ${change >= 0 ? "+" : ""}${change.toFixed(1)} mm`, cx, baseY + 42 * dpr);
+  };
+  draw(W * 0.28, "A. Floating ice (like sea ice)", lv.A, lv0.A, false);
+  draw(W * 0.72, "B. Ice on land (like Greenland)", lv.B, lv0.B, true);
+  ctx.fillStyle = "#dfe3d6"; ctx.font = `${12.5 * dpr}px system-ui`; ctx.textAlign = "center";
+  ctx.font = `${Math.min(12.5, W / dpr / 52) * dpr}px system-ui`;
+  ctx.fillText(`Both glasses start with ${GLASS.water} cm³ of water and a ${GLASS.iceVol} cm³ ice cube (${(GLASS.iceVol * RHO_ICE).toFixed(0)} g).`, W / 2, 20 * dpr);
+  ctx.fillText("Ice is 8% less dense than water, so floating ice pushes aside its own weight of water.", W / 2, 37 * dpr);
+  ctx.fillStyle = iceMelt >= 1 ? "#f1af28" : "#dfe3d6";
+  ctx.fillText(iceMelt >= 1 ? "Floating ice: no change. Land ice: the level rises. Melting sea ice does NOT raise sea level; ice sheets do." : "Watch the water levels as the ice melts.", W / 2, 54 * dpr);
+}
+el("melt").addEventListener("input", () => { iceMelt = +el("melt").value / 100; iceAnim = false; });
+el("iceMelt").onclick = () => { if (iceMelt >= 1) iceMelt = 0; iceAnim = true; };
+el("iceReset").onclick = () => { iceMelt = 0; iceAnim = false; el("melt").value = 0; };
+function setView(v) {
+  view = v; document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === v));
+  el("coastView").style.display = v === "coast" ? "flex" : "none"; el("iceView").style.display = v === "ice" ? "flex" : "none";
+  el("mapLegend").style.visibility = v === "coast" ? "visible" : "hidden";
+}
+document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => setView(b.dataset.view));
+
+/* =====================================================================
+   9. CHARTS
+   ===================================================================== */
+const DIM = "#a3ab96";
+function niceTicks(a, b, n) {
+  const span = b - a; if (!(span > 0)) return [a];
+  const raw = span / n, mag = 10 ** Math.floor(Math.log10(raw)), f = raw / mag;
+  const stp = (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag;
+  const out = []; for (let v = Math.ceil(a / stp - 1e-9) * stp; v <= b + 1e-9; v += stp) out.push(Math.abs(v) < stp * 1e-6 ? 0 : v);
+  return out;
+}
+function axes(ctx, W, H, dpr, xr, yr, xlab, ylab, opts = {}) {
+  const L = (opts.L || 42) * dpr, R = (opts.R || 8) * dpr, T = (opts.T || 8) * dpr, Bm = 26 * dpr, logY = !!opts.logY;
+  const fy = v => logY ? Math.log10(v) : v;
+  const X = x => L + (x - xr[0]) / (xr[1] - xr[0]) * (W - L - R), Y = y => H - Bm - (fy(y) - fy(yr[0])) / (fy(yr[1]) - fy(yr[0])) * (H - T - Bm);
+  ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "rgba(160,170,150,0.15)"; ctx.fillStyle = DIM; ctx.font = `${10 * dpr}px system-ui`; ctx.lineWidth = 1;
+  const yt = logY ? (() => { const o = []; for (let e = Math.floor(Math.log10(yr[0])); e <= Math.ceil(Math.log10(yr[1])); e++) for (const m of [1, 2, 5]) { const v = m * 10 ** e; if (v >= yr[0] && v <= yr[1]) o.push(v); } return o; })() : niceTicks(yr[0], yr[1], opts.ny || 4);
+  for (const v of yt) { const y = Y(v); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); ctx.textAlign = "right"; ctx.fillText(opts.yfmt ? opts.yfmt(v) : +v.toFixed(3), L - 4 * dpr, y + 3 * dpr); }
+  const xt = opts.xticks || niceTicks(xr[0], xr[1], opts.nx || 5);
+  for (const v of xt) { ctx.textAlign = "center"; ctx.fillText(opts.xfmt ? opts.xfmt(v) : +v.toFixed(3), X(v), H - Bm + 12 * dpr); }
+  ctx.fillText(xlab, (L + W - R) / 2, H - 3 * dpr);
+  ctx.save(); ctx.translate(10 * dpr, (T + H - Bm) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(ylab, 0, 0); ctx.restore();
+  return { X, Y, L, R, T, B: Bm };
+}
+const COMP = [["th", "#e4572e"], ["gl", "#9ad1d4"], ["gr", "#f1af28"], ["an", "#c9c3f0"], ["lw", "#8fd694"]];
+function drawCharts() {
+  const xEnd = endYear() <= 2024 ? 2030 : endYear();
+  {
+    const { ctx, W, H, dpr } = fitCanvas(el("chSL"));
+    const maxV = Math.max(0.3, ...hist.map(h => h.tot + Math.max(0, -h.lw))) * 1.08;
+    const minV = Math.min(-0.02, ...hist.map(h => Math.min(h.lw, h.tot))) - 0.01;
+    const a = axes(ctx, W, H, dpr, [YEAR0, xEnd], [minV, maxV], "year", "rise since 1900 (m)", { yfmt: v => v.toFixed(maxV < 1 ? 1 : 0) });
+    // stacked areas, positive parts only (land water drawn as its own line if negative)
+    let baseArr = hist.map(() => 0);
+    for (const [k, col] of COMP) {
+      const topArr = hist.map((h, i) => baseArr[i] + Math.max(0, h[k]));
+      ctx.fillStyle = col; ctx.globalAlpha = 0.85; ctx.beginPath();
+      hist.forEach((h, i) => (i ? ctx.lineTo(a.X(h.t), a.Y(topArr[i])) : ctx.moveTo(a.X(h.t), a.Y(topArr[i]))));
+      for (let i = hist.length - 1; i >= 0; i--) ctx.lineTo(a.X(hist[i].t), a.Y(baseArr[i]));
+      ctx.fill(); ctx.globalAlpha = 1; baseArr = topArr;
+    }
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); hist.forEach((h, i) => (i ? ctx.lineTo(a.X(h.t), a.Y(h.tot)) : ctx.moveTo(a.X(h.t), a.Y(h.tot)))); ctx.stroke();
+    ctx.fillStyle = "#fff"; ctx.strokeStyle = "#000";
+    for (const [y, v] of OBS) { ctx.beginPath(); ctx.arc(a.X(y), a.Y(v), 3 * dpr, 0, 7); ctx.fill(); ctx.stroke(); }
+  }
+  {
+    const { ctx, W, H, dpr } = fitCanvas(el("chT"));
+    const p = P(), pts = []; for (let t = YEAR0; t <= xEnd; t += 2) pts.push([t, warming(t, p)]);
+    const a = axes(ctx, W, H, dpr, [YEAR0, xEnd], [-0.2, Math.max(2, ...pts.map(q => q[1])) * 1.1], "year", "°C", { ny: 3 });
+    ctx.strokeStyle = "rgba(228,87,46,0.5)"; ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); pts.forEach(([t, v], i) => (i ? ctx.lineTo(a.X(t), a.Y(v)) : ctx.moveTo(a.X(t), a.Y(v)))); ctx.stroke();
+    ctx.strokeStyle = "#e4572e"; ctx.lineWidth = 2.2 * dpr; ctx.beginPath(); hist.forEach((h, i) => (i ? ctx.lineTo(a.X(h.t), a.Y(h.T)) : ctx.moveTo(a.X(h.t), a.Y(h.T)))); ctx.stroke();
+    if (p.mici) { ctx.setLineDash([4 * dpr, 3 * dpr]); ctx.strokeStyle = "#c9c3f0"; ctx.beginPath(); ctx.moveTo(a.X(YEAR0), a.Y(p.micT)); ctx.lineTo(a.X(xEnd), a.Y(p.micT)); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "#c9c3f0"; ctx.textAlign = "left"; ctx.fillText("ice-cliff threshold", a.X(YEAR0) + 4 * dpr, a.Y(p.micT) - 3 * dpr); }
+  }
+}
+
+/* =====================================================================
+   10. READOUTS AND STORY
+   ===================================================================== */
+const cm = m => (m * 100).toFixed(0) + " cm";
+function floodStats() {
+  let land = 0, lost = 0, homes = 0, homesNow = 0, homesStorm = 0;
+  for (let i = 0; i < NC; i++) {
+    if (dryToday[i]) { land++; if (flood[i] === 1) lost++; }
+    if (home[i]) { homes++; if (flood[i] === 1) homesNow++; if (flood[i]) homesStorm++; }
+  }
+  return { pctLand: 100 * lost / Math.max(1, land), homes: homes * 5, homesNow: homesNow * 5, homesStorm: homesStorm * 5 };
+}
+function updateUI() {
+  { const lv = currentLevels(); computeFlood(lv.base, lv.stormL); }          // keep the flood map up to date even when it is not drawn
+  const yr = Math.min(Math.floor(st.t + 1e-6), endYear()), tot = total(st), fs = floodStats(), pl = PLACES[mapPlace];
+  el("clock").textContent = yr;
+  el("s_rise").textContent = `+${cm(tot)}`; el("s_rise").title = "since 1900";
+  el("s_rate").textContent = (st.rate * 1000).toFixed(1) + " mm/yr";
+  el("s_homes").textContent = (storm ? fs.homesStorm : fs.homesNow).toLocaleString("en-GB");
+  const tiles = [
+    ["Sea level rise", `${cm(tot)}`, `since 1900 · ${seaRise() >= 0 ? "+" : ""}${cm(seaRise())} since 2020${whatIf() ? " (incl. what-if)" : ""}`],
+    ["Rate", (st.rate * 1000).toFixed(1) + " mm/yr", "measured 2006–2018: 3.7 mm/yr"],
+    ["Thermal expansion", cm(st.th), "warmer water takes up more room"],
+    ["Mountain glaciers", cm(st.gl), `${Math.round(100 * st.gl / GLACIER_MAX)}% of all glacier ice gone`],
+    ["Greenland", cm(st.gr), `${(100 * st.gr / GREENLAND_MAX).toFixed(1)}% of its 7.4 m`],
+    ["Antarctica", cm(st.an + st.mici), st.mici > 0 ? `incl. ${cm(st.mici)} from ice-cliff collapse` : "ocean melts the ice shelves"],
+    ["Land flooded at high tide", fs.pctLand.toFixed(1) + "%", "of land that is dry today"],
+    ["Homes lost to the sea", fs.homesNow.toLocaleString("en-GB"), `≈ ${Math.round(fs.homesNow * 2.3).toLocaleString("en-GB")} people · ${fs.homes.toLocaleString("en-GB")} homes in all`],
+    ["Storm flooding", storm || stormMax.homes ? `${stormMax.homes.toLocaleString("en-GB")} homes` : "–", storm || stormMax.homes ? `≈ ${Math.round(stormMax.homes * 2.3).toLocaleString("en-GB")} people, ${stormMax.pct.toFixed(0)}% of land` : "press 🌊 Storm surge"],
+    ["Today's 100-year flood", (gumbelLevel(pl, 100)).toFixed(2) + " m", `happens every ~${returnNow().toFixed(returnNow() < 10 ? 1 : 0)} years now`],
+  ];
+  el("tiles").innerHTML = tiles.map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+  el("story").innerHTML = storyText(tot, fs);
+  el("btnPlay").textContent = running ? "❚❚ Pause" : (st.t >= endYear() - 1e-6 ? "↺ Run again" : st.t > YEAR0 + 0.01 ? "▶ Continue" : "▶ Start");
+}
+// how often today's 1-in-100-year level is reached, with the rise since 2020
+const returnNow = () => { const p = pExceed(PLACES[mapPlace], Math.max(-1, seaRise())); return 1 / Math.max(1e-9, p); };
+function storyText(tot, fs) {
+  const p = P(), m = [], t = st.t;
+  if (t < YEAR0 + 0.5) return "Press <b>Start</b>. The model starts in 1900, when the world had warmed very little. Watch the graph: the white dots are what tide gauges and satellites actually measured.";
+  if (t <= 2025) m.push(`Since 1900 the sea has risen about ${cm(tot)} (measured: about 20 cm by 2020). Glaciers and warming water did most of it early on; ice sheets matter more and more.`);
+  else {
+    const big = COMP.slice(0, 4).map(([k]) => [k, k === "an" ? st.an + st.mici : st[k]]).sort((a, b) => b[1] - a[1])[0][0];
+    const names = { th: "warming, expanding sea water", gl: "melting mountain glaciers", gr: "Greenland's ice", an: "Antarctic ice" };
+    m.push(`The sea is now ${cm(tot)} higher than in 1900, rising at ${(st.rate * 1000).toFixed(1)} mm a year. The biggest part is ${names[big]}.`);
+    if (st.T > 2 && st.th > 0.3) m.push("The deep ocean is still slowly warming, so thermal expansion will carry on for centuries even if warming stops.");
+    if (st.gl > 0.6 * GLACIER_MAX) m.push("Most mountain glaciers are gone, so they cannot add much more.");
+    if (st.gr > 0.5) m.push(`Greenland has lost ${(100 * st.gr / GREENLAND_MAX).toFixed(0)}% of its ice. As it thins, its surface sits in warmer air and melts faster.`);
+    if (p.mici && st.trig !== null) m.push(`<b>Ice cliffs in Antarctica are collapsing</b> (warming passed ${p.micT} °C in ${Math.round(st.trig)}). This is the most uncertain part of the science.`);
+  }
+  if (whatIf()) m.push(`<b>What if:</b> ${whatIf() === 7.4 ? "all of Greenland" : "West Antarctica"} has melted, adding ${whatIf()} m. In reality this would take centuries to thousands of years.`);
+  if (fs.homesNow > 0) m.push(`At high tide ${fs.pctLand.toFixed(1)}% of the land that is dry today is under water, and ${fs.homesNow.toLocaleString("en-GB")} homes are lost.`);
+  const rp = returnNow();
+  if (seaRise() > 0.05) m.push(`Today's 1-in-100-year flood level would now be reached about every <b>${rp < 1.05 ? "year (or more often)" : rp.toFixed(rp < 10 ? 1 : 0) + " years"}</b> on this coast.`);
+  { let nW = 0, over = 0; const { base, stormL } = currentLevels(), top = Math.max(base, stormL);
+    for (let i = 0; i < NC; i++) if (wall[i] > 0) { nW++; if (wall[i] < top) over++; }
+    if (nW) m.push(over ? `<b>The sea walls are being overtopped</b> in ${over} places (shown red): the water is higher than their tops. Raise them, or move back from the coast.` : `The sea walls' tops are above the water${storm ? ", even in this storm" : ""} — but water gets round any gap, so a wall only protects land if it joins up with high ground.`); }
+  if (storm) m.push("<b>Storm!</b> Low air pressure and strong winds pile the sea up on top of high tide. The same storm reaches much further inland when the sea is higher.");
+  return m.join(" ");
+}
+
+/* =====================================================================
+   11. CONTROLS AND MAP TOOLS
+   ===================================================================== */
+function syncOutputs() {
+  el("o_w2100").textContent = (+el("w2100").value).toFixed(1) + " °C";
+  for (const k of ["thf", "glf", "grf", "anf"]) el("o_" + k).textContent = "×" + (+el(k).value).toFixed(2);
+  el("o_micT").textContent = (+el("micT").value).toFixed(1) + " °C";
+  el("o_wallH").textContent = (+el("wallH").value).toFixed(1) + " m";
+  el("customRow").style.display = el("scenario").value === "custom" ? "block" : "none";
+  el("miciRow").style.display = el("mici").checked ? "block" : "none";
+  const pl = PLACES[el("place").value], rp = +el("stormRP").value;
+  el("o_storm").textContent = `+${gumbelLevel(pl, rp).toFixed(2)} m`;
+  el("stormHint").textContent = `Highest water (tide + surge) above mean sea level for this coast, before any rise. High tide alone is +${pl.tide} m.`;
+}
+for (const id of ["thf", "glf", "grf", "anf", "mici", "micT", "lws", "scenario", "w2100", "endYear"]) el(id).addEventListener("input", () => { syncOutputs(); sl2020 = refLevel2020(); unmark(); });
+for (const id of ["wallH", "stormRP", "whatif"]) el(id).addEventListener("input", () => { syncOutputs(); unmark(); });
+el("place").addEventListener("change", () => { buildMap(el("place").value); syncOutputs(); unmark(); });
+function unmark() { document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); }
+el("btnPlay").onclick = () => setRunning(!running);
+el("btnReset").onclick = () => resetSim();
+el("btnStorm").onclick = () => startStorm();
+el("btnRaise").onclick = () => { for (let i = 0; i < NC; i++) if (wall[i] > 0) wall[i] += 0.5; wallVersion++; };
+el("btnClearWalls").onclick = () => { wall.fill(0); wallVersion++; };
+document.querySelectorAll(".speed button").forEach(b => b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll(".speed button").forEach(x => x.classList.toggle("on", x === b)); });
+function startStorm() {
+  const pl = PLACES[mapPlace], rp = +el("stormRP").value;
+  storm = { age: 0, len: 5, peak: gumbelLevel(pl, rp) }; stormMax = { homes: 0, pct: 0 };
+  el("stormBanner").style.display = "block";
+}
+
+let tool = "wall", drawMode = "free", brush = 0, painting = false, lastCell = null, areaStart = null, areaEnd = null;
+document.querySelectorAll("[data-tool]").forEach(b => b.onclick = () => { tool = b.dataset.tool; document.querySelectorAll("[data-tool]").forEach(x => x.classList.toggle("on", x === b)); });
+document.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { drawMode = b.dataset.mode; document.querySelectorAll("[data-mode]").forEach(x => x.classList.toggle("on", x === b)); });
+document.querySelectorAll("[data-brush]").forEach(b => b.onclick = () => { brush = +b.dataset.brush; document.querySelectorAll("[data-brush]").forEach(x => x.classList.toggle("on", x === b)); });
+function applyTool(i) {
+  if (tool === "wall") { if (!isSea[i]) wall[i] = Math.max(+el("wallH").value, elev[i] + 0.5); }
+  else if (tool === "erase") wall[i] = 0;
+}
+function stamp(cx, cy) {
+  const r = [0, 1, 2][brush];
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const X = cx + dx, Y = cy + dy; if (X >= 0 && Y >= 0 && X < GW && Y < GH && dx * dx + dy * dy <= r * r + 0.5) applyTool(Y * GW + X); }
+  wallVersion++;
+}
+function strokeTo(c) {
+  if (!lastCell) { stamp(c[0], c[1]); lastCell = c; return; }
+  const [x0, y0] = lastCell, n = Math.max(1, Math.ceil(Math.hypot(c[0] - x0, c[1] - y0) * 2));
+  for (let k = 1; k <= n; k++) stamp(Math.round(x0 + (c[0] - x0) * k / n), Math.round(y0 + (c[1] - y0) * k / n));
+  lastCell = c;
+}
+function cellAt(e, clamp) {
+  const c = el("map"), r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  let x = Math.floor(((e.clientX - r.left) * dpr - mview.ox) / mview.s), y = Math.floor(((e.clientY - r.top) * dpr - mview.oy) / mview.s);
+  if (clamp) return [Math.max(0, Math.min(GW - 1, x)), Math.max(0, Math.min(GH - 1, y))];
+  return x >= 0 && y >= 0 && x < GW && y < GH ? [x, y] : null;
+}
+el("map").addEventListener("pointerdown", e => {
+  const c = cellAt(e); if (!c) return;
+  if (tool === "section") { section = mapPlace === "delta" ? c[0] : c[1]; return; }
+  el("map").setPointerCapture(e.pointerId); painting = true;
+  if (drawMode === "area") { areaStart = c; areaEnd = c; } else { lastCell = null; strokeTo(c); }
+});
+el("map").addEventListener("pointermove", e => { if (!painting) return; const c = cellAt(e, true); if (drawMode === "area") areaEnd = c; else strokeTo(c); });
+el("map").addEventListener("pointerup", () => {
+  if (painting && drawMode === "area" && areaStart) {
+    const x0 = Math.min(areaStart[0], areaEnd[0]), x1 = Math.max(areaStart[0], areaEnd[0]), y0 = Math.min(areaStart[1], areaEnd[1]), y1 = Math.max(areaStart[1], areaEnd[1]);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) applyTool(y * GW + x);
+    wallVersion++;
+  }
+  painting = false; lastCell = null; areaStart = areaEnd = null;
+});
+
+/* =====================================================================
+   12. BATCH RUN
+   ===================================================================== */
+const OUTCOMES = {
+  slr2100:  { name: "Sea level rise by 2100 (m, vs 1995–2014)", kind: "proj", d: 2, unit: "m" },
+  slr2300:  { name: "Sea level rise by 2300 (m, vs 1995–2014)", kind: "proj", d: 2, unit: "m" },
+  rate2100: { name: "Rate of rise in 2100 (mm/yr)", kind: "proj", d: 1, unit: "mm/yr" },
+  gr2100:   { name: "Greenland's part by 2100 (m since 1900)", kind: "proj", d: 3, unit: "m" },
+  an2100:   { name: "Antarctica's part by 2100 (m since 1900)", kind: "proj", d: 3, unit: "m" },
+  perCentury: { name: "Floods above today's 100-yr level, per century", kind: "surge", d: 1, unit: "per century" },
+  returnPeriod: { name: "Return period of today's 100-yr flood (years)", kind: "surge", d: 1, unit: "years" },
+};
+const SWEEPS = {
+  w2100: { name: "Warming by 2100 (°C)", kind: "proj", from: 1.5, to: 5 },
+  anf: { name: "Antarctic sensitivity (×)", kind: "proj", from: 0.3, to: 3 },
+  grf: { name: "Greenland sensitivity (×)", kind: "proj", from: 0.3, to: 3 },
+  rise: { name: "Sea level rise (m)", kind: "surge", from: 0, to: 1 },
+};
+const BEXPS = [
+  { q: "Low emissions (SSP1-2.6): does 2100 land in the IPCC range?", cfg: { mode: "repeat", kind: "proj", scen: "ssp1", out: "slr2100", n: 500 },
+    note: "Each run picks a different amount of future warming and different ice and ocean sensitivities. The shaded band is the IPCC AR6 'likely' range (a 66% chance of being inside it), the red line its median. Our runs scatter for the same reason the IPCC's do: we do not know exactly how sensitive the climate and the ice sheets are." },
+  { q: "High emissions (SSP5-8.5): does 2100 land in the IPCC range?", cfg: { mode: "repeat", kind: "proj", scen: "ssp5", out: "slr2100", n: 500 },
+    note: "With more warming the spread is wider, mainly because of the ice sheets. The IPCC range leaves out the possible Antarctic ice-cliff collapse; tick that option on the left to see the long upper tail it adds." },
+  { q: "How much higher by 2100 for each degree of warming?", cfg: { mode: "sweep", kind: "proj", scen: "custom", out: "slr2100", sweep: "w2100", from: 1.5, to: 5, steps: 8, reps: 25 },
+    note: "More warming means a higher sea, but by 2100 the difference is 'only' tens of centimetres, because the ocean and the ice sheets respond slowly. Red diamonds are the IPCC medians for SSP1-2.6, SSP2-4.5 and SSP5-8.5 at their 2100 warming." },
+  { q: "…and by 2300?", cfg: { mode: "sweep", kind: "proj", scen: "custom", out: "slr2300", sweep: "w2100", from: 1.5, to: 5, steps: 8, reps: 25 },
+    note: "By 2300 the choice matters far more: metres rather than centimetres. The red bars are the IPCC AR6 ranges for 2300 (SSP1-2.6: 0.3–3.1 m, SSP5-8.5: 1.7–6.8 m; their SSP5-8.5 warming by 2300 is much higher than the slider's value, which is held after 2100)." },
+  { q: "With 0.5 m more sea, how often is today's 1-in-100-year flood reached?", cfg: { mode: "repeat", kind: "surge", out: "perCentury", rise: 0.5, n: 1000 },
+    note: "Each run is 100 years of storms with random heights (a Gumbel distribution, used by coastal engineers). Count how many years beat today's 100-year flood level. With no rise you would expect about 1 per century. Runs scatter because storms are random; the average matches the theory value from the distribution." },
+  { q: "How does the return period shrink as the sea rises?", cfg: { mode: "sweep", kind: "surge", out: "returnPeriod", sweep: "rise", from: 0, to: 1, steps: 11, reps: 20 },
+    note: "Each run simulates 2,000 years of storms. A small rise turns a rare flood into a common one: the curve falls steeply on the log scale. The steepness depends on how much storms vary on this coast (the Gumbel scale): places with small storm variation, like coral islands, are hit hardest by a small rise." },
+];
+const B = { mode: "repeat", running: false, results: [], series: [], cfg: null, stop: false };
+el("bVar").innerHTML = Object.entries(SWEEPS).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join("");
+function fillOutcomes() {
+  const kind = el("bKind").value;
+  el("bOut").innerHTML = Object.entries(OUTCOMES).filter(([, o]) => o.kind === kind).map(([k, o]) => `<option value="${k}">${o.name}</option>`).join("");
+  el("bVar").innerHTML = Object.entries(SWEEPS).filter(([, s]) => s.kind === kind).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join("");
+  el("bVar").onchange();
+  el("bScenRow").style.display = kind === "proj" ? "flex" : "none";
+  el("bRiseRow").style.display = kind === "surge" ? "flex" : "none";
+  el("bVaryRow").style.display = kind === "proj" ? "block" : "none";
+  el("bPlace").textContent = PLACES[mapPlace].name.toLowerCase();
+}
+function setBMode(m) { B.mode = m; document.querySelectorAll("[data-bm]").forEach(b => b.classList.toggle("on", b.dataset.bm === m)); el("bSweepRows").style.display = m === "sweep" ? "block" : "none"; el("bNRow").style.display = m === "repeat" ? "flex" : "none"; }
+document.querySelectorAll("[data-bm]").forEach(b => b.onclick = () => setBMode(b.dataset.bm));
+el("bKind").onchange = fillOutcomes;
+el("bVar").onchange = () => { const s = SWEEPS[el("bVar").value]; if (s) { el("bFrom").value = s.from; el("bTo").value = s.to; } };
+BEXPS.forEach((x, i) => { const b = document.createElement("button"); b.textContent = x.q; b.onclick = () => applyBExp(i, true); el("bExps").appendChild(b); });
+let bNoteText = "";
+function applyBExp(i, run) {
+  const c = BEXPS[i].cfg; setBMode(c.mode); el("bKind").value = c.kind; fillOutcomes(); el("bOut").value = c.out;
+  if (c.scen) el("bScen").value = c.scen;
+  if (c.n) el("bN").value = c.n;
+  if (c.rise !== undefined) el("bRise").value = c.rise;
+  if (c.sweep) { el("bVar").value = c.sweep; el("bFrom").value = c.from; el("bTo").value = c.to; el("bSteps").value = c.steps; el("bReps").value = c.reps; }
+  el("bVary").checked = true; bNoteText = BEXPS[i].note;
+  document.querySelectorAll("#bExps button").forEach((b, k) => b.classList.toggle("on", k === i));
+  if (run) startBatch();
+}
+el("btnBatch").onclick = () => { el("batch").classList.add("open"); setRunning(false); fillOutcomes(); drawBatch(); };
+el("bClose").onclick = () => { el("batch").classList.remove("open"); B.stop = true; };
+el("bStop").onclick = () => { B.stop = true; };
+el("bRun").onclick = () => { bNoteText = ""; document.querySelectorAll("#bExps button").forEach(b => b.classList.remove("on")); startBatch(); };
+function theoryFor(c) {
+  const pl = PLACES[c.place];
+  if (c.kind === "surge" && c.outKey === "perCentury") return { v: 100 * pExceed(pl, c.rise), label: "theory (Gumbel)" };
+  if (c.kind === "surge" && c.outKey === "returnPeriod") return { v: 1 / pExceed(pl, c.rise), label: "theory (Gumbel)" };
+  if (c.outKey === "slr2100" && AR6[c.scen]) return { v: AR6[c.scen].med, lo: AR6[c.scen].lo, hi: AR6[c.scen].hi, label: "IPCC AR6 median & likely range" };
+  return null;
+}
+function startBatch() {
+  if (B.running) return;
+  const base = P(), kind = el("bKind").value, outKey = el("bOut").value, vary = el("bVary").checked;
+  const cfg = { mode: B.mode, kind, outKey, vary, scen: el("bScen").value, place: mapPlace, rise: +el("bRise").value };
+  const jobs = [];
+  if (B.mode === "repeat") { const n = +el("bN").value; for (let i = 0; i < n; i++) jobs.push({ x: null, seed: 1000 + i }); }
+  else {
+    cfg.sweep = el("bVar").value;
+    const a = +el("bFrom").value, b = +el("bTo").value, n = Math.max(2, +el("bSteps").value | 0), reps = Math.max(1, +el("bReps").value | 0);
+    for (let xi = 0; xi < n; xi++) { const x = a + (b - a) * xi / (n - 1); for (let r = 0; r < reps; r++) jobs.push({ x, seed: 5000 + xi * 1000 + r }); }
+  }
+  cfg.theory = B.mode === "repeat" ? theoryFor(cfg) : null;
+  B.cfg = cfg; B.results = []; B.series = []; B.running = true; B.stop = false;
+  el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").disabled = true; el("bNote").innerHTML = bNoteText || "Running…";
+  let idx = 0; const t0 = performance.now();
+  function chunk() {
+    const c0 = performance.now();
+    while (idx < jobs.length && performance.now() - c0 < 30 && !B.stop) {
+      const j = jobs[idx++], rng = mulberry32(j.seed);
+      if (kind === "surge") {
+        const rise = j.x !== null ? j.x : cfg.rise, years = cfg.outKey === "returnPeriod" ? 2000 : 100;
+        const r = runSurge(PLACES[cfg.place], rise, years, rng);
+        B.results.push({ run: B.results.length + 1, seed: j.seed, x: j.x, v: r[cfg.outKey], count: r.count, years });
+      } else {
+        let p = { ...base, scenario: cfg.scen };
+        if (vary) p = sampleParams(p, rng);
+        if (j.x !== null) { p[cfg.sweep] = j.x; if (cfg.sweep === "w2100") p.scenario = "custom"; }
+        const r = runProjection(p);
+        B.results.push({ run: B.results.length + 1, seed: j.seed, x: j.x, v: r.out[cfg.outKey], tf: p.tf, thf: p.thf, glf: p.glf, grf: p.grf, anf: p.anf });
+        if (B.mode === "repeat") { B.series.push(r.series); B.years = r.years; }
+      }
+    }
+    el("bProg").firstElementChild.style.width = (100 * idx / jobs.length) + "%";
+    el("bStatus").textContent = `${idx} of ${jobs.length} runs · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+    drawBatch();
+    if (idx < jobs.length && !B.stop) setTimeout(chunk, 0);
+    else { B.running = false; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").disabled = !B.results.length; if (B.stop) el("bStatus").textContent += " (stopped)"; }
+  }
+  setTimeout(chunk, 0);
+}
+el("bCsv").onclick = () => {
+  const c = B.cfg; let rows;
+  if (c.kind === "surge") { rows = [["run", "seed", "sea_level_rise_m", "years_simulated", "floods_above_old_100yr_level", c.outKey]]; for (const r of B.results) rows.push([r.run, r.seed, r.x ?? c.rise, r.years, r.count, r.v]); }
+  else { rows = [["run", "seed", c.sweep || "x", "warming_factor", "thermal", "glaciers", "greenland", "antarctica", c.outKey]]; for (const r of B.results) rows.push([r.run, r.seed, r.x ?? "", r.tf.toFixed(4), r.thf.toFixed(4), r.glf.toFixed(4), r.grf.toFixed(4), r.anf.toFixed(4), r.v]); }
+  const blob = new Blob([rows.map(r => r.join(",")).join("\n")], { type: "text/csv" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `sea-level-batch-${c.outKey}.csv`; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+};
+function stats(v) {
+  const n = v.length; if (!n) return null;
+  const mean = v.reduce((a, b) => a + b, 0) / n, sd = n > 1 ? Math.sqrt(v.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1)) : 0;
+  return { n, mean, sd, se: sd / Math.sqrt(n), min: Math.min(...v), max: Math.max(...v) };
+}
+function quant(s, q) { const i = (s.length - 1) * q, a = Math.floor(i), b = Math.ceil(i); return s[a] + (s[b] - s[a]) * (i - a); }
+function legend(ctx, dpr, W, items) {
+  ctx.font = `${10.5 * dpr}px system-ui`; ctx.textAlign = "left";
+  let x = W - 8 * dpr; const y = 12 * dpr;
+  for (let i = items.length - 1; i >= 0; i--) { const [col, t] = items[i]; const w = ctx.measureText(t).width; x -= w; ctx.fillStyle = "#dfe3d6"; ctx.fillText(t, x, y + 4 * dpr); x -= 14 * dpr; ctx.fillStyle = col; ctx.fillRect(x, y - 4 * dpr, 10 * dpr, 10 * dpr); x -= 12 * dpr; }
+}
+function drawBatch() {
+  const c = B.cfg;
+  if (!c) { for (const id of ["bChart1", "bChart2"]) { const { ctx, W, H } = fitCanvas(el(id)); ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H); } return; }
+  const O = OUTCOMES[c.outKey], vals = B.results.map(r => r.v).filter(isFinite);
+  const scenName = { ssp1: "SSP1-2.6", ssp2: "SSP2-4.5", ssp5: "SSP5-8.5", custom: "slider warming" }[c.scen];
+  el("bTitle").textContent = `${c.mode === "repeat" ? "Repeat" : "Sweep"}: ${O.name}${c.kind === "proj" && c.mode === "repeat" ? " — " + scenName : ""}${c.kind === "surge" ? " — " + PLACES[c.place].name + (c.mode === "repeat" ? `, +${c.rise} m` : "") : ""}`;
+  el("bCharts").classList.toggle("one", c.mode === "sweep" || c.kind === "surge");
+  if (c.mode === "repeat") { drawHist(vals, c, O); if (c.kind === "proj") drawFan(c); } else drawSweep(c, O);
+  const s = stats(vals); if (!s) { el("bSummary").innerHTML = ""; return; }
+  const f = v => isFinite(v) ? v.toFixed(O.d + 1) : "∞";
+  const cells = [["Runs (n)", s.n + (vals.length < B.results.length ? ` (+${B.results.length - vals.length} with no flood)` : "")], ["Mean", f(s.mean)], ["SD", f(s.sd)], ["Standard error", f(s.se)], ["Min – max", `${f(s.min)} – ${f(s.max)}`]];
+  const th = c.theory;
+  if (c.mode === "repeat" && th) {
+    const diff = s.mean - th.v;
+    cells.push([th.lo !== undefined ? "IPCC median (likely range)" : "Theory", th.lo !== undefined ? `${th.v} (${th.lo}–${th.hi})` : f(th.v)], ["Difference", `${diff >= 0 ? "+" : ""}${(100 * diff / th.v).toFixed(1)}%`], ["In standard errors", s.se > 0 ? (diff / s.se).toFixed(1) : "–"]);
+    const so = vals.slice().sort((a, b) => a - b);
+    if (th.lo !== undefined) { const inside = vals.filter(v => v >= th.lo && v <= th.hi).length; cells.push(["Model 17–83% range", `${f(quant(so, 0.17))} – ${f(quant(so, 0.83))}`], ["Runs inside IPCC range", `${(100 * inside / vals.length).toFixed(0)}%`]); }
+    else cells.push(["Middle 90% of runs", `${f(quant(so, 0.05))} – ${f(quant(so, 0.95))}`], ["Source", th.label]);
+  } else if (c.mode === "sweep") {
+    const pts = B.results.filter(r => isFinite(r.v));
+    if (c.kind === "surge") {
+      // fit ln(return period) = a − b·rise  →  return period shrinks by e^b for every metre
+      const xs = pts.map(r => r.x), ys = pts.map(r => Math.log(r.v)), mx = xs.reduce((a, b) => a + b, 0) / xs.length, my = ys.reduce((a, b) => a + b, 0) / ys.length;
+      const g = xs.reduce((a, x, i) => a + (x - mx) * (ys[i] - my), 0) / Math.max(1e-12, xs.reduce((a, x) => a + (x - mx) ** 2, 0));
+      cells.push(["Fitted: return period ÷ by", `${Math.exp(-g * 0.1).toFixed(2)} per 10 cm`], ["Theory (1/β per metre)", `÷ ${Math.exp(0.1 / PLACES[c.place].beta).toFixed(2)} per 10 cm (for rare floods)`]);
+    } else {
+      const mx = pts.reduce((a, r) => a + r.x, 0) / pts.length, my = pts.reduce((a, r) => a + r.v, 0) / pts.length;
+      const g = pts.reduce((a, r) => a + (r.x - mx) * (r.v - my), 0) / Math.max(1e-12, pts.reduce((a, r) => a + (r.x - mx) ** 2, 0));
+      cells.push(["Fitted gradient", `${g.toFixed(3)} ${O.unit} per ${c.sweep === "w2100" ? "°C" : "unit"}`]);
+    }
+  }
+  el("bSummary").innerHTML = cells.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+}
+function drawHist(vals, c, O) {
+  const { ctx, W, H, dpr } = fitCanvas(el("bChart1"));
+  if (!vals.length) { ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H); return; }
+  const th = c.theory, integer = c.outKey === "perCentury";
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (th) { lo = Math.min(lo, th.lo ?? th.v); hi = Math.max(hi, th.hi ?? th.v); }
+  let nb, bins;
+  if (integer) { lo = -0.5; hi = Math.max(hi, th ? th.v * 2 : 1) + 1.5; nb = Math.round(hi - lo); }
+  else { if (hi - lo < 1e-9) { lo -= 1; hi += 1; } const pad = (hi - lo) * 0.06; lo -= pad; hi += pad; nb = Math.max(8, Math.min(32, Math.round(Math.sqrt(vals.length) * 1.4))); }
+  bins = new Array(nb).fill(0); for (const v of vals) bins[Math.max(0, Math.min(nb - 1, Math.floor((v - lo) / (hi - lo) * nb)))]++;
+  const a = axes(ctx, W, H, dpr, [lo, hi], [0, Math.max(...bins) * 1.15], O.name, "number of runs", { L: 44, T: 24, R: 16 });
+  if (th && th.lo !== undefined) { ctx.fillStyle = "rgba(228,87,46,0.18)"; ctx.fillRect(a.X(th.lo), a.T, a.X(th.hi) - a.X(th.lo), a.Y(0) - a.T); }
+  ctx.fillStyle = "#5ab4e6";
+  bins.forEach((b, i) => { const x0 = a.X(lo + (hi - lo) * i / nb), x1 = a.X(lo + (hi - lo) * (i + 1) / nb); ctx.fillRect(x0 + 1, a.Y(b), x1 - x0 - 2, a.Y(0) - a.Y(b)); });
+  // Theory: for the flood count, the expected binomial distribution as dots
+  if (integer && th) {
+    const p = th.v / 100, n = 100; let pr = Math.pow(1 - p, n); ctx.fillStyle = "#e4572e";
+    for (let k = 0; k < nb; k++) { const y = a.Y(pr * vals.length); ctx.beginPath(); ctx.arc(a.X(k), y, 3.5 * dpr, 0, 7); ctx.fill(); pr = pr * (n - k) / (k + 1) * p / (1 - p); }
+  }
+  const s = stats(vals);
+  ctx.strokeStyle = "#fff"; ctx.setLineDash([4 * dpr, 3 * dpr]); ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.moveTo(a.X(s.mean), a.T); ctx.lineTo(a.X(s.mean), a.Y(0)); ctx.stroke(); ctx.setLineDash([]);
+  if (th) { ctx.strokeStyle = "#e4572e"; ctx.lineWidth = 2.5 * dpr; ctx.beginPath(); ctx.moveTo(a.X(th.v), a.T); ctx.lineTo(a.X(th.v), a.Y(0)); ctx.stroke(); }
+  legend(ctx, dpr, W, [["#5ab4e6", "model runs"], ["#fff", "model mean"], ...(th ? [["#e4572e", integer ? "theory: expected count (binomial)" : th.label]] : [])]);
+}
+function drawFan(c) {
+  const { ctx, W, H, dpr } = fitCanvas(el("bChart2"));
+  const S = B.series; if (!S.length) { ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H); return; }
+  const yrs = B.years, i0 = yrs.indexOf(1990), i1 = yrs.indexOf(2100), n = i1 + 1;
+  const qs = [0.05, 0.17, 0.5, 0.83, 0.95], Q = qs.map(() => new Array(n));
+  for (let i = i0; i < n; i++) { const col = S.map(s => s[i]).sort((a, b) => a - b); qs.forEach((q, k) => Q[k][i] = quant(col, q)); }
+  const ymax = Math.max(1.1, ...Q[4].slice(i0)) * 1.05;
+  const a = axes(ctx, W, H, dpr, [1990, 2100], [-0.1, ymax], "year", "sea level vs 1995–2014 (m)", { L: 44, T: 24, R: 16 });
+  const band = (lo, hi, col) => { ctx.fillStyle = col; ctx.beginPath(); for (let i = i0; i < n; i++) (i === i0 ? ctx.moveTo : ctx.lineTo).call(ctx, a.X(yrs[i]), a.Y(hi[i])); for (let i = n - 1; i >= i0; i--) ctx.lineTo(a.X(yrs[i]), a.Y(lo[i])); ctx.fill(); };
+  band(Q[0], Q[4], "rgba(90,180,230,0.22)"); band(Q[1], Q[3], "rgba(90,180,230,0.45)");
+  ctx.strokeStyle = "#5ab4e6"; ctx.lineWidth = 2 * dpr; ctx.beginPath(); for (let i = i0; i < n; i++) (i === i0 ? ctx.moveTo : ctx.lineTo).call(ctx, a.X(yrs[i]), a.Y(Q[2][i])); ctx.stroke();
+  // measured points (shifted to the 1995–2014 baseline ≈ 0.16 m since 1900)
+  ctx.fillStyle = "#fff"; for (const [y, v] of OBS) if (y >= 1990) { ctx.beginPath(); ctx.arc(a.X(y), a.Y(v - 0.165), 3 * dpr, 0, 7); ctx.fill(); }
+  const ar = AR6[c.scen];
+  if (ar) { ctx.strokeStyle = "#e4572e"; ctx.lineWidth = 3 * dpr; ctx.beginPath(); ctx.moveTo(a.X(2098), a.Y(ar.lo)); ctx.lineTo(a.X(2098), a.Y(ar.hi)); ctx.stroke(); ctx.fillStyle = "#e4572e"; ctx.beginPath(); ctx.arc(a.X(2098), a.Y(ar.med), 4.5 * dpr, 0, 7); ctx.fill(); }
+  legend(ctx, dpr, W, [["rgba(90,180,230,0.45)", "middle 66% / 90%"], ["#5ab4e6", "median"], ["#fff", "measured"], ...(ar ? [["#e4572e", "IPCC 2100"]] : [])]);
+}
+function drawSweep(c, O) {
+  const { ctx, W, H, dpr } = fitCanvas(el("bChart1"));
+  const groups = new Map(); for (const r of B.results) { const k = String(r.x); if (!groups.has(k)) groups.set(k, { x: r.x, v: [] }); if (isFinite(r.v)) groups.get(k).v.push(r.v); }
+  const G = [...groups.values()].filter(g => g.v.length).map(g => ({ ...g, s: stats(g.v) }));
+  if (!G.length) { ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H); return; }
+  const logY = c.kind === "surge";
+  const allV = B.results.map(r => r.v).filter(isFinite);
+  let th = [], curve = null, ranges = [];
+  if (c.kind === "surge") curve = x => 1 / pExceed(PLACES[c.place], x);
+  else if (c.sweep === "w2100" && c.outKey === "slr2100") th = ["ssp1", "ssp2", "ssp5"].map(k => ({ x: WARM2100[k], v: AR6[k].med, lo: AR6[k].lo, hi: AR6[k].hi }));
+  else if (c.sweep === "w2100" && c.outKey === "slr2300") ranges = [{ x: 1.8, ...AR6_2300.ssp1 }, { x: 4.4, ...AR6_2300.ssp5 }];
+  const xr0 = Math.min(...G.map(g => g.x)), xr1 = Math.max(...G.map(g => g.x)), px = (xr1 - xr0) * 0.05 || 1, xr = [xr0 - px, xr1 + px];
+  let lo = Math.min(...allV, ...th.map(t => t.lo), ...ranges.map(r => r.lo)), hi = Math.max(...allV, ...th.map(t => t.hi), ...ranges.map(r => r.hi));
+  if (curve) { for (let x = xr[0]; x <= xr[1]; x += (xr[1] - xr[0]) / 50) { const v = curve(Math.max(xr0, x)); lo = Math.min(lo, v); hi = Math.max(hi, v); } }
+  if (logY) { lo = Math.max(0.5, lo / 1.5); hi = hi * 1.5; } else { const p = (hi - lo) * 0.08 || 1; lo -= p; hi += p; }
+  const a = axes(ctx, W, H, dpr, xr, [lo, hi], SWEEPS[c.sweep].name, O.name, { L: 50, T: 24, R: 16, logY });
+  for (const r of ranges) { ctx.strokeStyle = "#e4572e"; ctx.lineWidth = 6 * dpr; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(a.X(r.x), a.Y(r.lo)); ctx.lineTo(a.X(r.x), a.Y(r.hi)); ctx.stroke(); ctx.globalAlpha = 1; }
+  if (curve) { ctx.strokeStyle = "#e4572e"; ctx.lineWidth = 2.5 * dpr; ctx.beginPath(); let first = true; for (let k = 0; k <= 100; k++) { const x = xr0 + (xr1 - xr0) * k / 100; const v = curve(x); if (!isFinite(v)) continue; first ? ctx.moveTo(a.X(x), a.Y(v)) : ctx.lineTo(a.X(x), a.Y(v)); first = false; } ctx.stroke(); }
+  ctx.fillStyle = "rgba(90,180,230,0.3)";
+  for (const r of B.results) if (isFinite(r.v)) { ctx.beginPath(); ctx.arc(a.X(r.x), a.Y(r.v), 2 * dpr, 0, 7); ctx.fill(); }
+  for (const g of G) {
+    const x = a.X(g.x), y1 = Math.max(lo, g.s.mean - g.s.sd), y2 = g.s.mean + g.s.sd;
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.moveTo(x, a.Y(y1)); ctx.lineTo(x, a.Y(y2)); ctx.stroke();
+    for (const yv of [y1, y2]) { ctx.beginPath(); ctx.moveTo(x - 5 * dpr, a.Y(yv)); ctx.lineTo(x + 5 * dpr, a.Y(yv)); ctx.stroke(); }
+    ctx.fillStyle = "#5ab4e6"; ctx.beginPath(); ctx.arc(x, a.Y(g.s.mean), 4 * dpr, 0, 7); ctx.fill();
+  }
+  for (const t of th) { ctx.fillStyle = "#e4572e"; const x = a.X(t.x), y = a.Y(t.v); ctx.beginPath(); ctx.moveTo(x, y - 7 * dpr); ctx.lineTo(x + 7 * dpr, y); ctx.lineTo(x, y + 7 * dpr); ctx.lineTo(x - 7 * dpr, y); ctx.fill(); }
+  legend(ctx, dpr, W, [["rgba(90,180,230,0.5)", "each run"], ["#5ab4e6", "mean ± 1 SD"], ...(curve ? [["#e4572e", "theory (Gumbel)"]] : th.length ? [["#e4572e", "IPCC medians"]] : ranges.length ? [["#e4572e", "IPCC 2300 ranges"]] : [])]);
+}
+
+/* =====================================================================
+   13. THE MAIN LOOP
+   ===================================================================== */
+let lastT = performance.now();
+function frame(now) {
+  const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  const batchOpen = el("batch").classList.contains("open");
+  if (running && !batchOpen) {
+    let years = real * YEARS_PER_SEC * speed; const p = P(), end = endYear();
+    while (years > 1e-9 && st.t < end - 1e-9) { const dt = Math.min(DT_LIVE, years, end - st.t); step(st, p, dt); years -= dt; hist.push({ t: st.t, ...parts(st) }); }
+    if (st.t >= end - 1e-9) { running = false; if (presetStorm) { presetStorm = false; startStorm(); } }
+  }
+  if (storm) {
+    storm.age += real;
+    const fs = floodStats(); stormMax.homes = Math.max(stormMax.homes, fs.homesStorm);
+    let wet = 0, land = 0; for (let i = 0; i < NC; i++) if (dryToday[i]) { land++; if (flood[i]) wet++; } stormMax.pct = Math.max(stormMax.pct, 100 * wet / Math.max(1, land));
+    el("stormBanner").innerHTML = `<b>🌊 ${el("stormRP").selectedOptions[0].text}</b><br>Water up to +${storm.peak.toFixed(2)} m above today's mean sea level, on top of a sea ${cm(Math.max(0, seaRise()))} higher than in 2020.`;
+    if (storm.age > storm.len) { storm = null; setTimeout(() => { if (!storm) el("stormBanner").style.display = "none"; }, 2500); }
+  }
+  if (view === "coast") { drawMap(); drawSection(); }
+  else { if (iceAnim) { iceMelt = Math.min(1, iceMelt + real / 6); el("melt").value = Math.round(iceMelt * 100); if (iceMelt >= 1) iceAnim = false; } drawIce(); }
+  el("o_melt").textContent = Math.round(iceMelt * 100) + "%";
+  drawCharts(); updateUI();
+  requestAnimationFrame(frame);
+}
+
+/* =====================================================================
+   14. PANEL LAYOUT — resize or hide the side panels
+   ===================================================================== */
+(function () {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const KEY = "sea-level-rise-layout", STRIP = 30, MIN = 200, DEF = { lw: 290, rw: 330, lc: false, rc: false };
+  let s = { ...DEF };
+  try { Object.assign(s, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    s.lw = Math.min(maxW(), Math.max(MIN, s.lw)); s.rw = Math.min(maxW(), Math.max(MIN, s.rw));
+    main.style.setProperty("--lw", (s.lc ? STRIP : s.lw) + "px"); main.style.setProperty("--rw", (s.rc ? STRIP : s.rw) + "px");
+    left.classList.toggle("collapsed", s.lc); right.classList.toggle("collapsed", s.rc);
+    document.querySelector("#splitL button").textContent = s.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = s.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {}
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) s[side + "c"] = true; else { s[side + "c"] = false; s[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { s = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { s[side + "c"] = !s[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { s.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { s.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+})();
+
+buildMap("estuary");
+syncOutputs(); fillOutcomes();
+setPreset(0); setRunning(false);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

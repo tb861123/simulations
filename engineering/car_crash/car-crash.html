@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Car Crash Safety</title>
+<!--
+  CAR CRASH SAFETY — a teaching model (GCSE momentum, impulse and forces)
+  ======================================================================
+  One self-contained file: no libraries, no internet needed.
+
+  A car hits a rigid wall or another vehicle. We follow, in tiny time steps
+  of 0.02 ms, the motion of:
+    • the car body, slowed by its CRUMPLE ZONE. The crumple zone is designed
+      to crush at a steady force F (its "crush force"), so it soaks up
+      kinetic energy:   work done = F × crush distance = ½ m v²
+    • the occupant (torso + head), held by the SEATBELT (a stretchy strap),
+      caught by the AIRBAG, or — with no restraint — flying on at the old
+      speed until they hit the steering wheel and dashboard.
+  Every part obeys Newton's second law F = m a, integrated step by step.
+
+  Key ideas:   impulse  F Δt = m Δv     (longer stopping time → smaller force)
+               energy   F d  = ½ m v²   (longer stopping distance → smaller force)
+               momentum is conserved in collisions between vehicles.
+  Units: metres, seconds, kilograms, newtons; speeds also in mph; forces in
+  kN; accelerations in g (1 g = 9.81 m/s²); time on screen in milliseconds.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; flex: 1; }
+  header button { flex: none; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 330px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  main > #left { grid-column: 1; grid-row: 1; } main > #splitL { grid-column: 2; grid-row: 1; } main > #centre { grid-column: 3; grid-row: 1; }
+  main > #splitR { grid-column: 4; grid-row: 1; } main > #right { grid-column: 5; grid-row: 1; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: #3a3550; }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  .chk { display: flex; gap: 6px; align-items: center; font-size: 13px; margin: 0 0 8px; cursor: pointer; }
+  .chk input { accent-color: var(--accent); }
+  select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  input[type=number] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 5px; width: 74px; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+  .sub2 { border-left: 2px solid var(--line); padding-left: 8px; margin: 0 0 8px 4px; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; position: relative; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .viewWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  .viewWrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .legend i.ln { height: 3px; width: 16px; border-radius: 1px; vertical-align: 3px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; min-width: 0; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .chartBox { position: relative; height: 170px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .tabs { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 4px; }
+  .tabs button { padding: 2px 8px; font-size: 12px; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+  .eq { font-family: Consolas, "Cambria Math", monospace; color: var(--text); }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+
+  /* Batch run overlay: covers the centre and right-hand panels */
+  #batch { grid-column: 3 / 6; grid-row: 1; z-index: 20; display: none; flex-direction: column; gap: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.7); border-color: #4a5540; }
+  #batch.open { display: flex; }
+  #batch .bhead { display: flex; gap: 10px; align-items: center; }
+  #batch .bhead h2 { margin: 0; font-size: 15px; color: var(--accent); }
+  #batch .bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 12px; }
+  #batch .bside { overflow-y: auto; padding-right: 4px; }
+  #batch .bmain { display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow-y: auto; }
+  #batch .bexp { display: grid; gap: 4px; }
+  #batch .bexp button { text-align: left; font-size: 12px; padding: 5px 7px; line-height: 1.25; font-weight: 600; }
+  #batch .bexp button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  #batch .bexp button.on small { color: #3a3550; }
+  #batch .brow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12.5px; margin-bottom: 6px; }
+  #batch .brow label { color: var(--muted); }
+  #batch .bchart { position: relative; flex: 0 0 auto; height: clamp(260px, 44vh, 480px); background: #0d100b; border-radius: 8px; }
+  #batch .bchart canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #batch .prog { flex: 1; min-width: 120px; height: 10px; border-radius: 5px; background: var(--panel-2); border: 1px solid var(--line); overflow: hidden; }
+  #batch .prog span { display: block; height: 100%; width: 0; background: var(--accent); }
+  #batch table { border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #batch td, #batch th { padding: 2px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  #batch th { color: var(--muted); font-weight: 600; }
+  #batch td:first-child, #batch th:first-child { text-align: left; }
+  #batch .note { font-size: 12.5px; color: #dfe3d6; background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; }
+  #batch .note b { color: var(--accent); }
+  #batch .tablewrap { overflow-x: auto; }
+  #batch .bnow { font-size: 12px; color: var(--muted); }
+  #batch select { max-width: 100%; min-width: 0; }
+
+  #gBox { position: relative; height: 150px; flex: none; }
+  #gBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #risk { font-weight: 700; font-size: 13px; border-radius: 999px; padding: 1px 10px; background: #2a3024; color: var(--muted); }
+  .gauge { height: 12px; border-radius: 6px; background: linear-gradient(90deg, #3a9d4a, #a2c617 18%, #f1af28 40%, #f18700 58%, #de252a 80%, #7a0f12); position: relative; margin: 6px 0 2px; }
+  .gauge span { position: absolute; top: -4px; width: 4px; height: 20px; background: #fff; border-radius: 2px; transform: translateX(-2px); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Car Crash Safety</h1>
+  <span class="sub">How crumple zones, seatbelts and airbags turn a deadly crash into one you can walk away from — momentum, impulse and energy in slow motion.</span>
+</header>
+
+<main>
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">The crash <span class="live">reruns at once</span></h2>
+    <div class="ctl"><label>Impact speed <output id="o_mph"></output></label><input type="range" id="mph" min="10" max="70" step="1" value="30"></div>
+    <div class="ctl"><label>Hits</label>
+      <select id="target"><option value="wall">A rigid concrete wall</option><option value="parked">A parked vehicle (head-on)</option><option value="headon">An oncoming vehicle at the same speed</option></select></div>
+    <div class="ctl"><label>Your car</label>
+      <select id="carType"><option value="small">Small car</option><option value="family">Family car</option><option value="suv">SUV</option></select></div>
+    <div class="ctl"><label>Your car's mass <output id="o_mass"></output></label><input type="range" id="mass" min="800" max="3000" step="50" value="1400"></div>
+    <div id="otherOpts">
+      <div class="ctl"><label>Other vehicle</label>
+        <select id="otherType"><option value="small">Small car</option><option value="family">Family car</option><option value="suv">SUV</option><option value="lorry">Lorry</option></select></div>
+      <div class="ctl"><label>Other vehicle's mass <output id="o_otherMass"></output></label><input type="range" id="otherMass" min="600" max="40000" step="100" value="1400"></div>
+    </div>
+
+    <h2 class="gap">Crumple zone</h2>
+    <div class="ctl"><label>Crumple zone length <output id="o_crL"></output></label><input type="range" id="crL" min="0.05" max="1" step="0.01" value="0.65"></div>
+    <div class="ctl"><label>Crush force (stiffness) <output id="o_crF"></output></label><input type="range" id="crF" min="50" max="1500" step="10" value="300">
+      <div class="hint">The steady force the front needs to crush it. Stiffer means a bigger force on the car; too soft and it crushes all the way and the car "bottoms out" on the solid passenger cell.</div></div>
+    <label class="chk"><input type="checkbox" id="auto"> Design the crush force for this speed</label>
+    <button id="btnRigid" style="font-size:12px;padding:3px 8px;margin-bottom:8px">Make the front rigid (no crumple zone)</button>
+
+    <h2 class="gap">Occupant (crash-test dummy)</h2>
+    <div class="ctl"><label>Occupant mass <output id="o_occ"></output></label><input type="range" id="occ" min="40" max="120" step="1" value="75"></div>
+    <div class="ctl"><label>Head to steering wheel <output id="o_seat"></output></label><input type="range" id="seat" min="0.35" max="0.75" step="0.01" value="0.42"></div>
+    <label class="chk"><input type="checkbox" id="belt" checked> <b>Seatbelt</b> worn</label>
+    <div class="sub2" id="beltOpts">
+      <div class="ctl"><label>Slack (loose belt) <output id="o_slack"></output></label><input type="range" id="slack" min="0" max="15" step="1" value="2"></div>
+      <div class="ctl"><label>Belt stretch <output id="o_stretch"></output></label><input type="range" id="stretch" min="5" max="25" step="1" value="10">
+        <div class="hint">Seatbelt webbing is designed to stretch a little, so the body stops over a longer distance.</div></div>
+      <label class="chk"><input type="checkbox" id="pretens" checked> Pretensioner (pulls slack out in 10 ms)</label>
+      <label class="chk"><input type="checkbox" id="limiter" checked> Load limiter (shoulder belt gives way above 4 kN)</label>
+    </div>
+    <label class="chk"><input type="checkbox" id="airbag" checked> <b>Airbag</b></label>
+    <div class="sub2" id="bagOpts">
+      <div class="ctl"><label>Airbag fires after <output id="o_bagT"></output></label><input type="range" id="bagT" min="10" max="90" step="1" value="15">
+        <div class="hint">The crash sensor decides in about 15–25 ms; the bag then fills in about 30 ms.</div></div>
+    </div>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Car body:</b> one solid mass. Its crumple zone pushes back with a force that rises over the first 3% of the zone and then stays at the crush force F. Once the zone is used up the car hits its solid passenger cell (very stiff: 30 MN per metre). Crushed metal stays crushed: only a little springs back, so cars bounce very little.</li>
+        <li><b>Crush distance theory:</b> the crumple zone does work F × d, which equals the car's kinetic energy ½mv², so <span class="eq">d ≈ ½mv² / F</span> (+ a small amount for the force build-up). Doubling speed quadruples d. The average deceleration of the car is <span class="eq">v² / 2d</span>.</li>
+        <li><b>Other vehicles:</b> both fronts crush, with the crush happening in the weaker one first. A 20 kg bumper beam joins the two crumple zones. Momentum is shared: if they stay together, <span class="eq">v<sub>final</sub> = (m<sub>1</sub>v<sub>1</sub> + m<sub>2</sub>v<sub>2</sub>) / (m<sub>1</sub>+m<sub>2</sub>)</span>.</li>
+        <li><b>Occupant:</b> a torso (body mass − 4.5 kg) and a 4.5 kg head joined by a springy neck. The head can swing up to about 25 cm ahead of the chest.</li>
+        <li><b>Seatbelt:</b> a stretchy strap on the torso. Stretch % = how much the belt and chest give under a 10 kN load per metre of belt. Slack must be taken up before it pulls. A pretensioner removes the slack 10–15 ms after impact. The lap belt and the shoulder belt each carry half the load; a load limiter lets the shoulder belt pay out above 4 kN so the force on the ribs cannot go higher.</li>
+        <li><b>Airbag:</b> fires at the chosen time and fills over 30 ms to 35 cm deep. It pushes on the head and chest like a soft, vented cushion (limited to about 2 kN on the head). A late airbag is still inflating when the occupant arrives — it punches them.</li>
+        <li><b>Hard contacts:</b> without a restraint (or if the airbag is used up) the chest hits the steering wheel rim and the head hits the wheel or windscreen — stiff, short contacts that give huge decelerations.</li>
+        <li><b>Head Injury Criterion (HIC<sub>15</sub>):</b> from the head's deceleration a (in g), find the time window t<sub>1</sub>–t<sub>2</sub> no longer than 15 ms that makes <span class="eq">(t<sub>2</sub>−t<sub>1</sub>) × [average a]<sup>2.5</sup></span> biggest. Risk of serious head injury (AIS 3+) uses the US safety regulator's curve: P = Φ((ln HIC − 7.45)/0.74). HIC 1000 ≈ 1 in 6 chance of serious injury; legal limit 700 (Euro NCAP aims below 650).</li>
+        <li><b>Not modelled:</b> the car rotating or pitching, offset or side impacts, the engine and wheels, steel strengthening with speed, the occupant's legs, neck injury, the dashboard collapsing into the cabin, glass breaking, and the person being thrown out of the car. Real dummies have dozens of parts; this one has two.</li>
+      </ul>
+    </details>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">−50.0 ms</span>
+      <span id="risk">–</span>
+      <span class="stat">Impact <b id="s_v">–</b></span>
+      <span class="stat">Car now <b id="s_car">–</b></span>
+      <span class="stat">Occupant now <b id="s_occ">–</b></span>
+    </div>
+    <div class="viewWrap"><canvas id="view" aria-label="Side view of the crash"></canvas></div>
+    <div id="gBox"><canvas id="gchart" aria-label="Deceleration against time"></canvas></div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">▶ Play</button>
+      <button id="btnReset">Rewind</button>
+      <span class="speed" title="1× = 50 times slower than real life (20 ms of crash per second)">Slow motion <button data-s="0.25">¼×</button><button data-s="1" class="on">1×</button><button data-s="4">4×</button><button data-s="50">real time</button></span>
+            <span style="flex:1"></span>
+      <button id="btnBatch">📊 Batch run</button>
+    </div>
+    <div class="legend"><span><i class="ln" style="background:#00aec3"></i>car</span><span><i class="ln" style="background:#f1af28"></i>occupant's chest</span><span><i class="ln" style="background:#e83181"></i>occupant's head</span><span>· arrows: forces (kN) · slow motion 1× = 1/50 of real speed</span></div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readouts</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">Head injury risk</h2>
+    <div class="gauge"><span id="gaugeMark" style="left:0%"></span></div>
+    <div class="hint" style="display:flex;justify-content:space-between"><span>HIC 0</span><span>250</span><span>700</span><span>1000</span><span>2000+</span></div>
+    <div id="riskText" style="font-size:12.5px;margin-top:4px"></div>
+    <h2 class="gap">Readouts <span class="hint" style="text-transform:none;letter-spacing:0">(whole crash)</span></h2>
+    <div class="tiles" id="tiles"></div>
+    <h2 class="gap">Graphs</h2>
+    <div class="tabs"><button data-g="vel" class="on">Velocity vs time</button><button data-g="fd">Force vs crush</button><button data-g="mom">Momentum</button></div>
+    <div class="chartBox" style="height:190px"><canvas id="chart"></canvas></div>
+    <div class="legend" id="chartLegend" style="margin-top:4px"></div>
+    <div class="hint" id="chartNote" style="margin-top:4px"></div>
+  </section>
+
+  <section class="panel" id="batch"></section>
+</main>
+
+<script>
+"use strict";
+/* =====================================================================
+   SHARED HELPERS: repeatable random numbers, statistics and graph drawing
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+// A seeded random number generator: the same seed always gives the same sequence,
+// so every run (and every batch) can be repeated exactly.
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function hashSeed(str) { str = String(str); let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } return h >>> 0; }
+// A normally distributed random number (mean 0, SD 1) from two uniform ones (Box–Muller)
+function gauss(rng) { return Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng()); }
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const fmt = (v, d = 2) => (v == null || !isFinite(v) ? "–" : Math.abs(v) >= 1e4 ? Math.round(v).toLocaleString("en-GB") : v.toFixed(d));
+function meanSD(a) {
+  const n = a.length; if (!n) return { n: 0, mean: NaN, sd: NaN, se: NaN, min: NaN, max: NaN };
+  let s = 0, mn = Infinity, mx = -Infinity; for (const v of a) { s += v; if (v < mn) mn = v; if (v > mx) mx = v; }
+  const m = s / n; let q = 0; for (const v of a) q += (v - m) * (v - m);
+  const sd = n > 1 ? Math.sqrt(q / (n - 1)) : 0;
+  return { n, mean: m, sd, se: sd / Math.sqrt(n), min: mn, max: mx };
+}
+// Least-squares straight line y = a + b x
+function linFit(xs, ys) {
+  const n = xs.length; if (n < 2) return null;
+  let sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0;
+  for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; sxx += xs[i] * xs[i]; sxy += xs[i] * ys[i]; syy += ys[i] * ys[i]; }
+  const d = n * sxx - sx * sx; if (Math.abs(d) < 1e-300) return null;
+  const b = (n * sxy - sx * sy) / d, a = (sy - b * sx) / n;
+  const r = (n * sxy - sx * sy) / Math.sqrt(d * Math.max(1e-300, n * syy - sy * sy));
+  return { a, b, r2: r * r };
+}
+// Make a canvas match its on-screen size (sharp on high-DPI screens). Returns [ctx, width, height, dpr].
+function fitCanvas(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(1, Math.round(c.clientWidth * dpr)), H = Math.max(1, Math.round(c.clientHeight * dpr));
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  const ctx = c.getContext("2d"); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  return [ctx, W, H, dpr];
+}
+function niceStep(range, n) { const raw = range / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+function tickLabel(v, step) { const d = Math.max(0, -Math.floor(Math.log10(step) + 1e-9)); return Math.abs(v) >= 1e4 ? Math.round(v).toLocaleString("en-GB") : v.toFixed(Math.min(4, d)); }
+/* Draw a line/scatter graph on a canvas.
+   opt: { xMin,xMax,yMin,yMax, xLabel,yLabel, logX, logY, series:[{pts:[[x,y]..], colour, width, dash, dots, r, err:[[x,lo,hi]]}],
+          vlines:[{x, colour, label, dash}], hlines:[{y, colour, label}], bg, fill:[{pts, colour}] } */
+function plotXY(c, opt) {
+  const [ctx, W, H, dpr] = fitCanvas(c);
+  ctx.fillStyle = opt.bg || "#10130e"; ctx.fillRect(0, 0, W, H);
+  const fs = (opt.font || 10.5) * dpr;
+  const L = (opt.left || 46) * dpr, R = (opt.right || 10) * dpr, T = (opt.top || 10) * dpr, B = (opt.bottom || 30) * dpr;
+  const tx = v => (opt.logX ? Math.log10(Math.max(1e-12, v)) : v), ty = v => (opt.logY ? Math.log10(Math.max(1e-12, v)) : v);
+  let x0 = tx(opt.xMin), x1 = tx(opt.xMax), y0 = ty(opt.yMin), y1 = ty(opt.yMax);
+  if (!(x1 > x0)) x1 = x0 + 1; if (!(y1 > y0)) y1 = y0 + 1;
+  const X = v => L + (tx(v) - x0) / (x1 - x0) * (W - L - R), Y = v => H - B - (ty(v) - y0) / (y1 - y0) * (H - T - B);
+  ctx.font = `${fs}px system-ui`; ctx.lineWidth = 1;
+  // grid and tick labels
+  const ticks = (a, b, log, n) => {
+    if (log) { const out = []; for (let e = Math.floor(a); e <= Math.ceil(b); e++) for (const m of [1, 2, 5]) { const v = Math.log10(m) + e; if (v >= a - 1e-9 && v <= b + 1e-9) out.push([Math.pow(10, v), v]); } return out; }
+    const s = niceStep(b - a, n), out = []; for (let v = Math.ceil(a / s - 1e-9) * s; v <= b + 1e-9 * s; v += s) out.push([v, v, s]); return out;
+  };
+  ctx.strokeStyle = "rgba(160,170,150,0.14)"; ctx.fillStyle = "#a3ab96";
+  for (const [v, tv, s] of ticks(y0, y1, opt.logY, Math.max(3, Math.round((H - T - B) / (34 * dpr))))) {
+    const y = H - B - (tv - y0) / (y1 - y0) * (H - T - B);
+    ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke();
+    ctx.textAlign = "right"; ctx.fillText(opt.logY ? (v >= 1 ? String(+v.toPrecision(2)) : v.toPrecision(1)) : tickLabel(v, s), L - 4 * dpr, y + 3.5 * dpr);
+  }
+  for (const [v, tv, s] of ticks(x0, x1, opt.logX, Math.max(2, Math.round((W - L - R) / (70 * dpr))))) {
+    const x = L + (tv - x0) / (x1 - x0) * (W - L - R);
+    ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - B); ctx.stroke();
+    ctx.textAlign = "center"; ctx.fillText(opt.logX ? String(+v.toPrecision(2)) : tickLabel(v, s), x, H - B + 12 * dpr);
+  }
+  if (opt.zeroLine && y0 < 0 && y1 > 0) { ctx.strokeStyle = "rgba(200,210,190,0.35)"; ctx.beginPath(); ctx.moveTo(L, Y(0)); ctx.lineTo(W - R, Y(0)); ctx.stroke(); }
+  ctx.fillStyle = "#c8cfbb"; ctx.textAlign = "center";
+  if (opt.xLabel) ctx.fillText(opt.xLabel, (L + W - R) / 2, H - 4 * dpr);
+  if (opt.yLabel) { ctx.save(); ctx.translate(11 * dpr, (T + H - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(opt.yLabel, 0, 0); ctx.restore(); }
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T, W - L - R, H - T - B); ctx.clip();
+  for (const f of opt.fill || []) {
+    if (f.pts.length < 2) continue;
+    ctx.fillStyle = f.colour; ctx.beginPath(); ctx.moveTo(X(f.pts[0][0]), Y(f.base || 0));
+    for (const p of f.pts) ctx.lineTo(X(p[0]), Y(p[1]));
+    ctx.lineTo(X(f.pts[f.pts.length - 1][0]), Y(f.base || 0)); ctx.closePath(); ctx.fill();
+  }
+  for (const h of opt.hlines || []) { ctx.strokeStyle = h.colour; ctx.setLineDash((h.dash || [5, 4]).map(v => v * dpr)); ctx.lineWidth = 1.3 * dpr; ctx.beginPath(); ctx.moveTo(L, Y(h.y)); ctx.lineTo(W - R, Y(h.y)); ctx.stroke(); }
+  for (const v of opt.vlines || []) { if (v.x < opt.xMin || v.x > opt.xMax) continue; ctx.strokeStyle = v.colour; ctx.setLineDash((v.dash || [5, 4]).map(q => q * dpr)); ctx.lineWidth = 1.3 * dpr; ctx.beginPath(); ctx.moveTo(X(v.x), T); ctx.lineTo(X(v.x), H - B); ctx.stroke(); }
+  ctx.setLineDash([]);
+  for (const s of opt.series || []) {
+    ctx.strokeStyle = s.colour; ctx.fillStyle = s.colour; ctx.lineWidth = (s.width || 1.8) * dpr;
+    if (s.err) for (const [x, lo, hi] of s.err) { const xx = X(x); ctx.beginPath(); ctx.moveTo(xx, Y(lo)); ctx.lineTo(xx, Y(hi)); ctx.moveTo(xx - 4 * dpr, Y(lo)); ctx.lineTo(xx + 4 * dpr, Y(lo)); ctx.moveTo(xx - 4 * dpr, Y(hi)); ctx.lineTo(xx + 4 * dpr, Y(hi)); ctx.stroke(); }
+    if (s.dots) { const r = (s.r || 2.2) * dpr; for (const p of s.pts) { if (!isFinite(p[1])) continue; ctx.beginPath(); ctx.arc(X(p[0]), Y(p[1]), r, 0, 2 * Math.PI); ctx.fill(); } }
+    if (!s.dots || s.line) {
+      ctx.setLineDash((s.dash || []).map(v => v * dpr)); ctx.beginPath(); let pen = false;
+      for (const p of s.pts) { if (!isFinite(p[1]) || !isFinite(p[0])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); if (pen) ctx.lineTo(x, y); else ctx.moveTo(x, y); pen = true; }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  ctx.restore();
+  // labels for vertical lines (staggered so they do not overlap)
+  let lab = 0;
+  for (const v of opt.vlines || []) {
+    if (!v.label || v.x < opt.xMin || v.x > opt.xMax) continue;
+    ctx.fillStyle = v.colour; ctx.textAlign = X(v.x) > W - 90 * dpr ? "right" : "left";
+    ctx.fillText(v.label, X(v.x) + (ctx.textAlign === "left" ? 3 : -3) * dpr, T + (10 + 12 * (lab++ % 3)) * dpr);
+  }
+  return { X, Y, L, R, T, B, W, H, dpr, ctx };
+}
+// Auto range helper: [min, max] of values with a margin, optionally forced to include zero
+function autoRange(vals, incZero = true, pad = 0.08) {
+  let a = Infinity, b = -Infinity; for (const v of vals) if (isFinite(v)) { if (v < a) a = v; if (v > b) b = v; }
+  if (!isFinite(a)) return [0, 1];
+  if (incZero) { a = Math.min(a, 0); b = Math.max(b, 0); }
+  if (b - a < 1e-12) { b = a + 1; }
+  const p = (b - a) * pad; return [a < 0 || !incZero ? a - p : a, b + p];
+}
+
+/* =====================================================================
+   PANEL LAYOUT — resize or hide the side panels (sizes remembered)
+   ===================================================================== */
+function setupPanels(KEY, DEF) {
+  const main = document.querySelector("main"), left = $("left"), right = $("right");
+  const STRIP = 30, MIN = 200; DEF = Object.assign({ lw: 290, rw: 330, lc: false, rc: false }, DEF || {});
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag($("splitL"), "l"); drag($("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+}
+
+/* =====================================================================
+   BATCH RUN — run the model many times with no drawing and compare with theory
+   ---------------------------------------------------------------------
+   The simulation supplies cfg:
+     outcomes   [{key,label,unit,dec,threshold:{v,label}}]  what each run measures
+     sweepVars  [{key,label,unit,min,max,from,to,steps,int}] what a sweep can change
+     compares   [{key,label,a:{..},b:{..},la,lb}]           optional "with vs without"
+     baseParams()           -> the current settings of the simulation
+     runOnce(params, seed)  -> {outcomeKey: number, ...}   one headless run
+     theory(ctx)            -> {curves:[{label,f}], vlines:[{x,label}], value, label}
+     experiments [{name,q,note,set:{mode,n,sweep,from,to,steps,reps,outcome,compare,vary,params}}]
+   Runs are done in small chunks with setTimeout so the page never freezes.
+   ===================================================================== */
+const GROUP_COL = ["#00aec3", "#f1af28"], THEORY_COL = ["#e83181", "#ff9ccc"], THRESH_COL = "#de252a";
+function setupBatch(cfg) {
+  const box = $("batch");
+  const S = { mode: "repeat", n: cfg.defaultN || 100, sweep: cfg.sweepVars[0].key, from: cfg.sweepVars[0].from, to: cfg.sweepVars[0].to,
+    steps: cfg.sweepVars[0].steps || 10, reps: cfg.defaultReps || 3, outcome: cfg.outcomes[0].key, compare: "none", vary: true, logX: false, logY: false,
+    over: {}, exp: -1, rows: [], running: false, stopFlag: false, total: 0, meta: null };
+  const optHTML = (arr, sel) => arr.map(o => `<option value="${o.key}"${o.key === sel ? " selected" : ""}>${o.label}${o.unit ? ` (${o.unit})` : ""}</option>`).join("");
+  box.innerHTML = `
+  <div class="bhead"><h2>Batch run</h2><span class="hint" style="flex:1">Run the model many times with no animation, then compare the results with theory.</span><button id="bClose">✕ Close</button></div>
+  <div class="bbody">
+    <div class="bside">
+      <h2>Batch experiments</h2>
+      <div class="bexp" id="bExp">${cfg.experiments.map((e, k) => `<button data-k="${k}">${e.name}<small>${e.q}</small></button>`).join("")}</div>
+      <h2 class="gap">Set up your own</h2>
+      <div class="brow"><button id="bmRepeat">Repeat</button><button id="bmSweep">Sweep</button></div>
+      <div id="bRepeatOpts">
+        <div class="brow"><label>Number of runs</label><select id="bN">${cfg.repeatN.map(v => `<option${v === S.n ? " selected" : ""}>${v}</option>`).join("")}</select></div>
+        ${cfg.varyLabel ? `<label class="chk"><input type="checkbox" id="bVary" checked> ${cfg.varyLabel}</label>` : ""}
+      </div>
+      <div id="bSweepOpts">
+        <div class="brow"><label>Change</label><select id="bVar" style="flex:1">${optHTML(cfg.sweepVars, S.sweep)}</select></div>
+        <div class="brow"><label>from</label><input type="number" id="bFrom" step="any"><label>to</label><input type="number" id="bTo" step="any"></div>
+        <div class="brow"><label>steps</label><input type="number" id="bSteps" min="2" max="60" style="width:56px"><label>repeats per step</label><input type="number" id="bReps" min="1" max="200" style="width:56px"></div>
+        <div class="brow"><label class="chk" style="margin:0"><input type="checkbox" id="bLogX"> log x</label><label class="chk" style="margin:0"><input type="checkbox" id="bLogY"> log y</label></div>
+      </div>
+      ${cfg.compares ? `<div class="brow"><label>Compare</label><select id="bCmp" style="flex:1">${[{ key: "none", label: "No comparison" }].concat(cfg.compares).map(o => `<option value="${o.key}">${o.label}</option>`).join("")}</select></div>` : ""}
+      <div class="brow"><label>Record</label><select id="bOut" style="flex:1">${optHTML(cfg.outcomes, S.outcome)}</select></div>
+      <div class="bnow" id="bNow"></div>
+      <div class="hint" style="margin-top:6px">${cfg.timeNote || ""}</div>
+    </div>
+    <div class="bmain">
+      <div class="brow" style="margin:0"><button class="primary" id="bRun">▶ Run batch</button><button id="bStop" disabled>■ Stop</button>
+        <div class="prog"><span id="bBar"></span></div><span class="hint" id="bProg">ready</span><button id="bCSV" disabled>⬇ Download CSV</button></div>
+      <div class="bchart"><canvas id="bChart"></canvas></div>
+      <div class="legend" id="bLegend"></div>
+      <div class="note" id="bNote">Choose a batch experiment on the left, or set up your own, then press <b>Run batch</b>.</div>
+      <div class="tablewrap" id="bSummary"></div>
+      <a id="bDl" style="display:none"></a>
+    </div>
+  </div>`;
+  const sv = () => cfg.sweepVars.find(v => v.key === S.sweep), oc = () => cfg.outcomes.find(o => o.key === S.outcome);
+  const cmp = () => (cfg.compares || []).find(c => c.key === S.compare);
+  function syncUI() {
+    $("bmRepeat").classList.toggle("on", S.mode === "repeat"); $("bmSweep").classList.toggle("on", S.mode === "sweep");
+    $("bRepeatOpts").style.display = S.mode === "repeat" ? "" : "none"; $("bSweepOpts").style.display = S.mode === "sweep" ? "" : "none";
+    $("bN").value = S.n; if ($("bVary")) $("bVary").checked = S.vary;
+    $("bVar").value = S.sweep; $("bFrom").value = S.from; $("bTo").value = S.to; $("bSteps").value = S.steps; $("bReps").value = S.reps;
+    $("bLogX").checked = S.logX; $("bLogY").checked = S.logY;
+    if ($("bCmp")) $("bCmp").value = S.compare; $("bOut").value = S.outcome;
+    document.querySelectorAll("#bExp button").forEach(b => b.classList.toggle("on", +b.dataset.k === S.exp));
+    const p = params();
+    $("bNow").innerHTML = `<b>Settings used:</b> ${cfg.describe ? cfg.describe(p) : ""}${Object.keys(S.over).length ? ' <span class="hint">(set by the experiment; the main controls are not changed)</span>' : ' <span class="hint">(your current settings)</span>'}`;
+  }
+  const custom = () => { S.exp = -1; syncUI(); };
+  $("bmRepeat").onclick = () => { S.mode = "repeat"; custom(); }; $("bmSweep").onclick = () => { S.mode = "sweep"; custom(); };
+  $("bN").onchange = e => { S.n = +e.target.value; custom(); };
+  if ($("bVary")) $("bVary").onchange = e => { S.vary = e.target.checked; custom(); };
+  $("bVar").onchange = e => { S.sweep = e.target.value; const v = sv(); S.from = v.from; S.to = v.to; S.steps = v.steps || 10; custom(); };
+  $("bFrom").onchange = e => { S.from = +e.target.value; custom(); }; $("bTo").onchange = e => { S.to = +e.target.value; custom(); };
+  $("bSteps").onchange = e => { S.steps = clamp(Math.round(+e.target.value), 2, 60); custom(); };
+  $("bReps").onchange = e => { S.reps = clamp(Math.round(+e.target.value), 1, 200); custom(); };
+  $("bLogX").onchange = e => { S.logX = e.target.checked; render(); }; $("bLogY").onchange = e => { S.logY = e.target.checked; render(); };
+  if ($("bCmp")) $("bCmp").onchange = e => { S.compare = e.target.value; custom(); };
+  $("bOut").onchange = e => { S.outcome = e.target.value; render(); };
+  document.querySelectorAll("#bExp button").forEach(b => (b.onclick = () => {
+    const e = cfg.experiments[+b.dataset.k], s = e.set;
+    Object.assign(S, { mode: s.mode, n: s.n || S.n, outcome: s.outcome || S.outcome, compare: s.compare || "none", vary: s.vary !== false, logX: !!s.logX, logY: !!s.logY, over: s.params || {}, exp: +b.dataset.k });
+    if (s.mode === "sweep") { S.sweep = s.sweep; const v = sv(); S.from = s.from ?? v.from; S.to = s.to ?? v.to; S.steps = s.steps || v.steps || 10; S.reps = s.reps || 1; }
+    S.rows = []; S.meta = null; syncUI(); render();
+    $("bNote").innerHTML = `<b>${e.q}</b> ${e.note}`;
+  }));
+  $("bClose").onclick = () => close();
+  function open() { box.classList.add("open"); if (cfg.onOpen) cfg.onOpen(); syncUI(); render(); }
+  function close() { S.stopFlag = true; box.classList.remove("open"); }
+  const params = () => Object.assign({}, cfg.baseParams(), S.over);
+
+  // ---- running ----
+  function run() {
+    if (S.running) return;
+    const base = params(), c = cmp();
+    const groups = c ? [{ label: c.la, p: c.a }, { label: c.lb, p: c.b }] : [{ label: "", p: {} }];
+    const jobs = [], v = sv();
+    groups.forEach((g, gi) => {
+      if (S.mode === "repeat") for (let r = 0; r < S.n; r++) jobs.push({ g: gi, x: r + 1, seed: 1000 + r });
+      else for (let i = 0; i < S.steps; i++) {
+        let x = S.from + (S.to - S.from) * i / (S.steps - 1);
+        if (S.logX && S.from > 0 && S.to > 0) x = S.from * Math.pow(S.to / S.from, i / (S.steps - 1));
+        if (v.int) x = Math.round(x);
+        for (let r = 0; r < S.reps; r++) jobs.push({ g: gi, x, seed: 1 + i * 997 + r });
+      }
+    });
+    S.rows = []; S.meta = { noFit: S.exp >= 0 && !!cfg.experiments[S.exp].set.noFit, mode: S.mode, sweep: S.sweep, groups, base, vary: S.vary }; S.running = true; S.stopFlag = false; S.total = jobs.length;
+    $("bRun").disabled = true; $("bStop").disabled = false; $("bCSV").disabled = true;
+    let k = 0, lastDraw = 0;
+    const t0 = performance.now();
+    function chunk() {
+      const tc = performance.now();
+      while (k < jobs.length && performance.now() - tc < 30 && !S.stopFlag) {
+        const j = jobs[k++], g = groups[j.g];
+        const p = Object.assign({}, base, g.p, { _batch: true, _vary: S.mode === "repeat" && S.vary });
+        if (S.mode === "sweep") p[S.sweep] = j.x;
+        if (cfg.fixParams) cfg.fixParams(p);
+        let out; try { out = cfg.runOnce(p, j.seed); } catch (err) { console.error(err); out = {}; }
+        S.rows.push(Object.assign({ group: j.g, x: j.x, seed: j.seed }, out));
+      }
+      $("bBar").style.width = `${100 * k / jobs.length}%`;
+      $("bProg").textContent = `${k} / ${jobs.length} runs · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+      if (performance.now() - lastDraw > 400 || k >= jobs.length || S.stopFlag) { render(); lastDraw = performance.now(); }
+      if (k < jobs.length && !S.stopFlag) setTimeout(chunk, 0);
+      else { S.running = false; $("bRun").disabled = false; $("bStop").disabled = true; $("bCSV").disabled = !S.rows.length; if (S.stopFlag) $("bProg").textContent += " (stopped)"; render(); }
+    }
+    setTimeout(chunk, 0);
+  }
+  $("bRun").onclick = run; $("bStop").onclick = () => { S.stopFlag = true; };
+  $("bCSV").onclick = () => {
+    const keys = cfg.outcomes.map(o => o.key), v = S.meta && S.meta.mode === "sweep" ? cfg.sweepVars.find(q => q.key === S.meta.sweep) : null;
+    const lines = [["group", v ? `${v.label}${v.unit ? ` (${v.unit})` : ""}` : "run", "seed", ...cfg.outcomes.map(o => `${o.label}${o.unit ? ` (${o.unit})` : ""}`)].map(s => `"${s}"`).join(",")];
+    for (const r of S.rows) lines.push([`"${S.meta.groups[r.group].label || "all"}"`, r.x, r.seed, ...keys.map(k => (r[k] == null ? "" : r[k]))].join(","));
+    const blob = new Blob([lines.join("\r\n")], { type: "text/csv" }), a = $("bDl");
+    a.href = URL.createObjectURL(blob); a.download = `${cfg.file || "batch"}-${S.meta.mode}.csv`; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  };
+
+  // ---- results ----
+  function theoryFor(gi) {
+    if (!S.meta) return null;
+    const p = Object.assign({}, S.meta.base, S.meta.groups[gi].p); if (cfg.fixParams) cfg.fixParams(p);
+    return cfg.theory({ mode: S.meta.mode, outcome: S.outcome, sweep: S.meta.sweep, params: p, group: gi }) || null;
+  }
+  function render() {
+    if (!box.classList.contains("open")) return;
+    const c = $("bChart"), o = oc(), M = S.meta;
+    if (!M || !S.rows.length) { const [ctx, W, H, dpr] = fitCanvas(c); ctx.fillStyle = "#0d100b"; ctx.fillRect(0, 0, W, H); ctx.fillStyle = "#a3ab96"; ctx.font = `${13 * dpr}px system-ui`; ctx.textAlign = "center"; ctx.fillText(S.running ? "Running…" : "No results yet — press Run batch", W / 2, H / 2); $("bLegend").innerHTML = ""; $("bSummary").innerHTML = ""; return; }
+    const G = M.groups, thr = typeof o.threshold === "function" ? o.threshold(M.base) : o.threshold, unit = o.unit ? ` (${o.unit})` : "", leg = [];
+    const val = r => r[o.key];
+    const th = G.map((g, gi) => theoryFor(gi));
+    let sumHTML = "";
+    if (M.mode === "repeat") {
+      const sets = G.map((g, gi) => S.rows.filter(r => r.group === gi).map(val).filter(v => v != null && isFinite(v)));
+      const all = sets.flat(); let [a, b] = autoRange(all, false, 0.02);
+      th.forEach(t => { if (t && isFinite(t.value)) { a = Math.min(a, t.value); b = Math.max(b, t.value); } });
+      if (thr) { a = Math.min(a, thr.v); b = Math.max(b, thr.v); }
+      if (b - a < 1e-9) { a -= 0.5; b += 0.5; }
+      const nb = clamp(Math.round(Math.sqrt(Math.max(...sets.map(s => s.length)) * 1.5)), 6, 40), w = (b - a) / nb;
+      a -= w * 0.5; b += w * 0.5; const nb2 = nb + 1;
+      const hists = sets.map(s => { const h = new Array(nb2).fill(0); for (const v of s) h[clamp(Math.floor((v - a) / w), 0, nb2 - 1)]++; return h; });
+      const ymax = Math.max(1, ...hists.flat()) * 1.12;
+      const series = [], vlines = [];
+      hists.forEach((h, gi) => {
+        const pts = []; for (let i = 0; i < nb2; i++) { pts.push([a + i * w, h[i]], [a + (i + 1) * w, h[i]]); }
+        series.push({ pts, colour: GROUP_COL[gi], width: 2 });
+        const ms = meanSD(sets[gi]); if (ms.n) vlines.push({ x: ms.mean, colour: GROUP_COL[gi], label: `mean ${fmt(ms.mean, o.dec ?? 2)}`, dash: [2, 2] });
+        leg.push(`<span><i style="background:${GROUP_COL[gi]}"></i>${G[gi].label ? G[gi].label + ": " : ""}results (${sets[gi].length} runs)</span>`);
+      });
+      th.forEach((t, gi) => { if (t && isFinite(t.value)) { vlines.push({ x: t.value, colour: THEORY_COL[gi], label: `theory ${fmt(t.value, o.dec ?? 2)}`, dash: [7, 4] }); leg.push(`<span><i class="ln" style="background:${THEORY_COL[gi]}"></i>${t.label || "Theory"}${G.length > 1 ? ` (${G[gi].label})` : ""}</span>`); } });
+      if (thr) { vlines.push({ x: thr.v, colour: THRESH_COL, label: thr.label, dash: [3, 3] }); leg.push(`<span><i class="ln" style="background:${THRESH_COL}"></i>${thr.label}</span>`); }
+      plotXY(c, { xMin: a, xMax: b, yMin: 0, yMax: ymax, xLabel: o.label + unit, yLabel: "number of runs", series, vlines, bg: "#0d100b", left: 50 });
+      // fill the bars lightly
+      const ctx = c.getContext("2d");
+      sumHTML = `<table><tr><th></th><th>n</th><th>mean</th><th>SD</th><th>std. error</th><th>min</th><th>max</th><th>theory</th><th>diff.</th><th>diff. ÷ SE</th>${thr ? `<th>${thr.label}</th>` : ""}</tr>` +
+        G.map((g, gi) => {
+          const s = meanSD(sets[gi]), t = th[gi] && isFinite(th[gi].value) ? th[gi].value : null, d = o.dec ?? 2;
+          const above = thr ? sets[gi].filter(v => v > thr.v).length : 0;
+          return `<tr><td style="color:${GROUP_COL[gi]}">${g.label || "Results"}</td><td>${s.n}</td><td>${fmt(s.mean, d)}</td><td>${fmt(s.sd, d)}</td><td>${fmt(s.se, d + 1)}</td><td>${fmt(s.min, d)}</td><td>${fmt(s.max, d)}</td>
+            <td>${t == null ? "–" : fmt(t, d)}</td><td>${t == null ? "–" : `${fmt(100 * (s.mean - t) / (Math.abs(t) || 1), 1)}%`}</td><td>${t == null || !s.se ? "–" : fmt((s.mean - t) / s.se, 1)}</td>
+            ${thr ? `<td>${s.n ? fmt(100 * above / s.n, 1) : "–"}%</td>` : ""}</tr>`;
+        }).join("") + `</table>`;
+    } else {
+      const v = cfg.sweepVars.find(q => q.key === M.sweep);
+      const xs = [...new Set(S.rows.map(r => r.x))].sort((p, q) => p - q);
+      const series = [], vlines = [], allY = [], tPts = [];
+      const stats = G.map((g, gi) => xs.map(x => ({ x, ...meanSD(S.rows.filter(r => r.group === gi && r.x === x).map(val).filter(q => q != null && isFinite(q))) })).filter(s => s.n));
+      let x0 = Math.min(...xs), x1 = Math.max(...xs); if (x1 - x0 < 1e-9) { x0 -= 1; x1 += 1; }
+      if (!S.logX) { const pad = (x1 - x0) * 0.03; x0 -= pad; x1 += pad; } else { x0 *= 0.95; x1 *= 1.05; }
+      th.forEach((t, gi) => {
+        if (!t) return;
+        for (const cv of t.curves || []) {
+          const pts = []; for (let i = 0; i <= 240; i++) { const x = S.logX ? x0 * Math.pow(x1 / x0, i / 240) : x0 + (x1 - x0) * i / 240; const y = cv.f(x); pts.push([x, y]); if (isFinite(y)) tPts.push(y); }
+          series.push({ pts, colour: cv.colour || THEORY_COL[gi], width: 2, dash: cv.dash || [7, 4] });
+          leg.push(`<span><i class="ln" style="background:${cv.colour || THEORY_COL[gi]}"></i>${cv.label}${G.length > 1 ? ` (${G[gi].label})` : ""}</span>`);
+        }
+        for (const vl of t.vlines || []) vlines.push({ x: vl.x, colour: vl.colour || "#a4cbe6", label: vl.label, dash: [3, 3] });
+      });
+      stats.forEach((st, gi) => {
+        const raw = S.rows.filter(r => r.group === gi).map(r => [r.x, val(r)]);
+        if (raw.length > st.length) series.push({ pts: raw, colour: GROUP_COL[gi] + "66", dots: true, r: 1.6 });
+        series.push({ pts: st.map(s => [s.x, s.mean]), colour: GROUP_COL[gi], dots: true, line: true, r: 3, width: 1.4, err: st.map(s => [s.x, s.mean - s.sd, s.mean + s.sd]) });
+        st.forEach(s => allY.push(s.mean - s.sd, s.mean + s.sd));
+        leg.push(`<span><i style="background:${GROUP_COL[gi]}"></i>${G[gi].label ? G[gi].label + ": " : ""}mean ± 1 SD${raw.length > st.length ? " (faint dots = single runs)" : ""}</span>`);
+      });
+      let [ya, yb] = autoRange(allY.concat(tPts.filter(y => y < Math.max(...allY, 0) * 3 + 1e-9)), !S.logY);
+      if (S.logY) { ya = Math.max(1e-6, Math.min(...allY.filter(y => y > 0)) * 0.7); yb = Math.max(...allY) * 1.4; }
+      plotXY(c, { xMin: x0, xMax: x1, yMin: ya, yMax: yb, logX: S.logX, logY: S.logY, xLabel: v.label + (v.unit ? ` (${v.unit})` : ""), yLabel: o.label + unit, series, vlines, bg: "#0d100b", left: 54, zeroLine: true });
+      const d = o.dec ?? 2;
+      sumHTML = G.map((g, gi) => {
+        const st = stats[gi], t = th[gi], f = t && t.curves && t.curves[0];
+        let fit = "";
+        const lf = linFit(st.map(s => s.x), st.map(s => s.mean));
+        if (lf && !M.noFit) fit += `Straight-line fit: ${o.label.toLowerCase()} = ${fmt(lf.a, 3)} + ${fmt(lf.b, 4)} × ${v.label.toLowerCase()} (R² = ${lf.r2.toFixed(3)}). `;
+        const pos = st.filter(s => s.x > 0 && s.mean > 0);
+        if (pos.length >= 3 && !M.noFit) { const ll = linFit(pos.map(s => Math.log10(s.x)), pos.map(s => Math.log10(s.mean))); if (ll) fit += `Log–log gradient: ${ll.b.toFixed(2)} (so roughly ∝ ${v.label.toLowerCase()}<sup>${ll.b.toFixed(2)}</sup>).`; }
+        let errs = [];
+        const rows = st.map(s => { const tv = f ? f.f(s.x) : null; if (tv != null && isFinite(tv) && Math.abs(tv) > 1e-12) errs.push(Math.abs(s.mean - tv) / Math.abs(tv)); return `<tr><td>${fmt(s.x, v.int ? 0 : 3)}</td><td>${s.n}</td><td>${fmt(s.mean, d)}</td><td>${fmt(s.sd, d)}</td><td>${fmt(s.se, d + 1)}</td><td>${tv == null || !isFinite(tv) ? "–" : fmt(tv, d)}</td><td>${tv == null || !isFinite(tv) ? "–" : fmt(100 * (s.mean - tv) / (Math.abs(tv) || 1), 1) + "%"}</td><td>${tv == null || !isFinite(tv) || !s.se ? "–" : fmt((s.mean - tv) / s.se, 1)}</td></tr>`; });
+        const avgErr = errs.length ? `Mean difference from ${f.label.toLowerCase()}: <b>${(100 * errs.reduce((p, q) => p + q, 0) / errs.length).toFixed(1)}%</b>. ` : "";
+        return `${G.length > 1 ? `<div style="color:${GROUP_COL[gi]};font-weight:600;margin-top:6px">${g.label}</div>` : ""}<div class="hint" style="font-size:12px;margin:4px 0">${avgErr}${fit}</div>
+          <table><tr><th>${v.label}${v.unit ? ` (${v.unit})` : ""}</th><th>n</th><th>mean</th><th>SD</th><th>std. error</th><th>theory</th><th>diff.</th><th>diff. ÷ SE</th></tr>${rows.join("")}</table>`;
+      }).join("");
+    }
+    $("bLegend").innerHTML = leg.join("");
+    $("bSummary").innerHTML = sumHTML;
+  }
+  window.addEventListener("resize", () => render());
+  syncUI();
+  return { open, close, render, state: S };
+}
+
+
+/* =====================================================================
+   1. VEHICLES AND CONSTANTS
+   ===================================================================== */
+const G = 9.81, MPH = 0.44704;                   // 1 mph = 0.44704 m/s
+const VEH = {
+  small:  { name: "small car",  mass: 1000,  L: 0.55, F: 220,  len: 3.8, h: 1.45, colour: "#00aec3" },
+  family: { name: "family car", mass: 1400,  L: 0.65, F: 300,  len: 4.5, h: 1.45, colour: "#00aec3" },
+  suv:    { name: "SUV",        mass: 2200,  L: 0.75, F: 450,  len: 4.8, h: 1.75, colour: "#00aec3" },
+  lorry:  { name: "lorry",      mass: 18000, L: 0.40, F: 2000, len: 9.0, h: 3.6,  colour: "#a86dab" },
+};
+const K_CELL = 30e6;                             // passenger cell stiffness once the crumple zone is used up (N/m)
+const HEAD = 4.5, NODE = 20;                     // head mass (kg); bumper beam joining two crumple zones (kg)
+const DT = 2e-5, T0 = -0.05, T1 = 0.30, REC = 2.5e-4;   // time step 0.02 ms; record every 0.25 ms
+const BAG = { depth: 0.35, fill: 0.030, kH: 15e3, cH: 200, capH: 2000, kT: 60e3, cT: 600, capT: 5000 };
+const LIMITER = 4000;                            // load limiter force (N)
+
+/* =====================================================================
+   2. CRUMPLE ZONE: force for a given crush distance
+   ---------------------------------------------------------------------
+   Loading: rises over the first 3% of the zone to the crush force F, stays
+   at F, then the stiff passenger cell. Unloading: crushed metal only springs
+   back a tiny amount (steep elastic line), so very little energy comes back.
+   ===================================================================== */
+function makeCrumple(L, F) { return { L, F, kr: F / (0.03 * L), dmax: 0, Fmax: 0, kun: Math.max(10 * F / (0.03 * L), 2 * K_CELL) }; }
+function crushLoad(c, d) { if (d <= 0) return 0; if (d < 0.03 * c.L) return c.kr * d; if (d <= c.L) return c.F; return c.F + K_CELL * (d - c.L); }
+function crushForce(c, d) {
+  if (d >= c.dmax) { c.dmax = d; c.Fmax = crushLoad(c, d); return c.Fmax; }
+  return Math.max(0, c.Fmax - Math.max(c.kun, c.Fmax / 0.003) * (c.dmax - d));   // springs back at most 3 mm
+}
+
+/* =====================================================================
+   3. ONE CRASH, START TO FINISH
+   ===================================================================== */
+// standard normal cumulative distribution (for the injury risk curve)
+function Phi(z) { const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989423 * Math.exp(-z * z / 2); const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - p : p; }
+const hicRisk = hic => (hic <= 1 ? 0 : 100 * Phi((Math.log(hic) - 7.45231) / 0.73998));
+// HIC15 from head deceleration samples (g) taken every dt seconds
+function HIC15(a, dt) {
+  const n = a.length, V = new Float64Array(n + 1); for (let i = 0; i < n; i++) V[i + 1] = V[i] + Math.abs(a[i]) * dt;
+  const w = Math.round(0.015 / dt); let best = 0;
+  for (let i = 0; i < n; i++) for (let j = i + 1; j <= Math.min(n, i + w); j++) { const T = (j - i) * dt, avg = (V[j] - V[i]) / T; const h = T * Math.pow(avg, 2.5); if (h > best) best = h; }
+  return best;
+}
+// Fill in derived settings (vehicle masses, auto crush force)
+function prepare(p) {
+  const q = Object.assign({}, p);
+  q.v0 = q.mph * MPH;
+  if (q.auto) { const KE = 0.5 * (q.mass + q.occ) * q.v0 * q.v0; q.crF = KE / (0.885 * q.crL) / 1000; }   // designed to crush 90% of the zone
+  return q;
+}
+function simulate(p, record) {
+  p = prepare(p);
+  const mA = p.mass, mo = p.occ, mt = mo - HEAD, mh = HEAD, v0 = p.v0;
+  const wall = p.target === "wall", O = VEH[p.otherType];
+  const mB = p.otherMass, vB0 = p.target === "headon" ? -v0 : 0;
+  const cA = makeCrumple(p.crL, p.crF * 1000), cB = makeCrumple(O.L, O.F * 1000 * Math.sqrt(mB / O.mass));
+  // positions: x = front of car A (relative to where it hits), xn = contact point, xB = front of B
+  // an oncoming vehicle starts as far away as your car, so they meet at x = 0 at time 0; the bumper beam starts on B's front
+  let xA = v0 * T0, vA = v0, xB = Math.abs(vB0 * T0), vB = vB0, xn = xB, vn = vB0;
+  let xt = xA, vt = v0, xh = xA, vh = v0;                       // torso and head, measured from the same point as the car front
+  const DH = p.seat, DT_ = p.seat - 0.12;                        // distance head → wheel hub, chest → wheel rim
+  const kb = 10000 / (p.stretch / 100), cb = 0.15 * 2 * Math.sqrt(kb * mt);
+  const kn = mh * Math.pow(2 * Math.PI * 9, 2), cn = 2 * 0.35 * Math.sqrt(kn * mh);
+  let slack = p.belt ? p.slack / 100 : 0, payout = 0;
+  const rec = record ? { t: [], aA: [], aT: [], aH: [], vA: [], vT: [], vH: [], vB: [], xA: [], xB: [], xn: [], sT: [], sH: [], dA: [], dB: [], FA: [], Fbelt: [], Fbag: [], Fhard: [], bag: [], pA: [], pB: [] } : null;
+  const headA = [];
+  let t = T0, nextRec = T0, peakT = 0, peakH = 0, peakF = 0, peakCarG = 0, tContactEnd = null, tLoadStart = null, tLoadEnd = null, firstContact = null;
+  let maxCrushSum = -1, vTogether = null, tTogether = null, tStopped = null;
+  const vCommon = (wall ? 0 : ((mA + mo) * v0 + mB * vB0) / (mA + mo + mB));
+  while (t < T1 - 1e-12) {
+    // --- crumple zones
+    const dA = xA - xn, dB = wall ? 0 : xn - xB;
+    const FA = crushForce(cA, dA), FB = wall ? 0 : crushForce(cB, dB);
+    if (FA > 0 && firstContact == null) firstContact = t;
+    // --- occupant relative to the car (positive = moved forward in the car)
+    const sT = xt - xA, sH = xh - xA, uT = vt - vA, uH = vh - vA;
+    // seatbelt (pretensioner removes slack between 10 and 15 ms after impact)
+    let Fb = 0;
+    if (p.belt) {
+      let sl = slack; if (p.pretens && firstContact != null) sl = slack * clamp(1 - (t - firstContact - 0.010) / 0.005, 0, 1);
+      // lap belt (holds the hips; no limiter) and shoulder belt (with the load limiter) each have half the stiffness
+      const sLap = sT - sl, sSh = sT - sl - payout;
+      const Flap = sLap > 0 ? 0.5 * (kb * sLap + cb * Math.max(0, uT)) : 0;
+      let Fsh = sSh > 0 ? 0.5 * (kb * sSh + cb * Math.max(0, uT)) : 0;
+      if (p.limiter && Fsh > LIMITER) { payout += (Fsh - LIMITER) / (0.5 * kb); Fsh = LIMITER; }
+      Fb = Flap + Fsh;
+    }
+    // airbag: fires at bagT after first contact, fills over 30 ms
+    let depth = 0, filling = false;
+    if (p.airbag && firstContact != null) { const f = (t - firstContact - p.bagT / 1000) / BAG.fill; if (f > 0) { depth = BAG.depth * (f >= 1 ? 1 : f * f * (3 - 2 * f)); filling = f < 1; } }
+    let Fbh = 0, Fbt = 0;
+    if (depth > 0) {
+      const bagRate = filling ? BAG.depth / BAG.fill * 0.5 : 0;       // the bag's surface rushes towards the occupant while filling
+      const penH = sH - (DH - depth), penT = sT - (DT_ - depth * 0.8);
+      if (penH > 0) Fbh = Math.min(filling ? 2 * BAG.capH : BAG.capH, BAG.kH * penH + BAG.cH * Math.max(0, uH + bagRate));
+      if (penT > 0) Fbt = Math.min(filling ? 2 * BAG.capT : BAG.capT, BAG.kT * penT + BAG.cT * Math.max(0, uT + bagRate * 0.8));
+    }
+    // hard contacts: head on the wheel / windscreen, chest on the wheel rim (padding is thin and stiff)
+    let Fhh = 0, Fht = 0;
+    if (sH > DH - (depth > 0 ? 0.07 : 0)) { const pp = sH - (DH - (depth > 0 ? 0.07 : 0)); Fhh = 3e5 * pp + 800 * Math.max(0, uH); }
+    if (sT > DT_ - (depth > 0 ? 0.06 : 0)) { const pp = sT - (DT_ - (depth > 0 ? 0.06 : 0)); Fht = 3e5 * pp + 2000 * Math.max(0, uT); }
+    // neck: pulls the head back towards the chest; stiffens beyond 15 cm
+    const hrel = sH - sT, Fn = kn * hrel + cn * (vh - vt) + (hrel > 0.15 ? 4e5 * (hrel - 0.15) : 0) + (hrel < -0.05 ? 4e5 * (hrel + 0.05) : 0);
+    // --- Newton's second law for each part (forward = positive)
+    const onOcc = Fb + Fbt + Fht;                                  // forces from car on torso (backwards on the torso)
+    const dampA = !wall && dA > 0 ? 9000 * (vA - vn) : 0;          // bumper-beam damping (stops it rattling)
+    const aA = (-FA - dampA + onOcc + Fbh + Fhh) / mA;
+    const aT = (-onOcc + Fn) / mt;
+    const aH = (-Fbh - Fhh - Fn) / mh;
+    let an = 0, aB = 0;
+    if (!wall) { const cdamp = dampA + 9000 * (vB - vn) * (dB > 0 ? 1 : 0); an = (FA - FB + cdamp) / NODE; aB = (FB - 9000 * (vB - vn) * (dB > 0 ? 1 : 0)) / mB; }
+    // semi-implicit Euler step
+    vA += aA * DT; xA += vA * DT; vt += aT * DT; xt += vt * DT; vh += aH * DT; xh += vh * DT;
+    if (!wall) { vn += an * DT; xn += vn * DT; vB += aB * DT; xB += vB * DT; }
+    t += DT;
+    // --- measurements
+    if (firstContact != null) {
+      const gA = -aA / G, gT = -aT / G, gH = -aH / G, Fo = Fb + Fbt + Fht + Fbh + Fhh;
+      if (gT > peakT) peakT = gT; if (gH > peakH) peakH = gH; if (Fo > peakF) peakF = Fo; if (gA > peakCarG) peakCarG = gA;
+      if (tLoadStart == null && Fo > 300) tLoadStart = t;
+      if (FA > 0) tContactEnd = t;
+      if (!wall && dA + dB > maxCrushSum) { maxCrushSum = dA + dB; vTogether = vA; tTogether = t; }
+      if (wall && tStopped == null && vA <= 0) tStopped = t;   // at maximum crush the two vehicles move at the same speed
+    }
+    if (t >= nextRec - 1e-12) {
+      nextRec += REC;
+      if (t >= 0) headA.push(-aH / G);
+      if (rec) {
+        rec.t.push(t * 1000); rec.aA.push(-aA / G); rec.aT.push(-aT / G); rec.aH.push(-aH / G); rec.vA.push(vA); rec.vT.push(vt); rec.vH.push(vh); rec.vB.push(vB);
+        rec.xA.push(xA); rec.xB.push(xB); rec.xn.push(xn); rec.sT.push(xt - xA); rec.sH.push(xh - xA); rec.dA.push(xA - xn); rec.dB.push(wall ? 0 : xn - xB);
+        rec.FA.push(FA / 1000); rec.Fbelt.push(Fb / 1000); rec.Fbag.push((Fbh + Fbt) / 1000); rec.Fhard.push((Fhh + Fht) / 1000); rec.bag.push(depth);
+        rec.pA.push(mA * vA + mt * vt + mh * vh); rec.pB.push(wall ? 0 : mB * vB + NODE * vn);
+      }
+    }
+  }
+  const hic = HIC15(headA, REC);
+  const tEnd = wall ? (tStopped ?? t) : (tTogether ?? t), vEndC = wall ? 0 : (vTogether ?? vA);
+  const crush = cA.dmax, avgCarForce = mA * (v0 - vEndC) / Math.max(1e-4, tEnd - (firstContact || 0));
+  const res = {
+    v0, KE: 0.5 * (mA + mo) * v0 * v0, crush, crushB: wall ? 0 : cB.dmax, tc: tEnd - (firstContact || 0),
+    peakT, peakH, peakF, peakCarG, hic, risk: hicRisk(hic), vA, vB, vCommon, crF: p.crF, crL: p.crL, mA, mB, mo,
+    avgCarG: (v0 - vEndC) / Math.max(1e-4, tEnd - (firstContact || 0)) / G, avgCarForce: avgCarForce / 1000,
+    vTogether, tLoadStart, bottomed: cA.dmax > p.crL + 0.002, rec, wall,
+    pBefore: (mA + mo) * v0 + (wall ? 0 : (mB + NODE) * vB0), pAfter: mA * vA + mt * vt + mh * vh + (wall ? 0 : mB * vB + NODE * vn),
+  };
+  return res;
+}
+// average force on the occupant = m Δv / Δt, using the recorded torso speed
+function occupantStop(r, p) {
+  const R = r.rec; if (!R) return null;
+  const v0 = r.v0, vEnd = r.vA; let i0 = -1, i1 = -1;
+  for (let i = 0; i < R.t.length; i++) { const f = R.Fbelt[i] + R.Fbag[i] + R.Fhard[i]; if (i0 < 0 && f > 0.3) i0 = i; if (i0 >= 0 && R.vT[i] - vEnd <= 0.05 * Math.abs(v0 - vEnd)) { i1 = i; break; } }
+  if (i0 < 0 || i1 < 0) return null;
+  const dt = (R.t[i1] - R.t[i0]) / 1000;
+  return { dt, F: r.mo * (R.vT[i0] - R.vT[i1]) / dt / 1000, g: (R.vT[i0] - R.vT[i1]) / dt / G };
+}
+
+/* =====================================================================
+   4. ONE HEADLESS RUN (used by the batch runner)
+   ===================================================================== */
+function runOnce(p, seed) {
+  p = Object.assign({}, p);
+  const rng = mulberry32(hashSeed("crash" + seed));
+  if (p._vary) {
+    // real crashes vary: people's size, where they sit, how the belt is worn, and the exact speed
+    p.occ = clamp(p.occ * (1 + 0.18 * gauss(rng)), 45, 130);
+    p.seat = clamp(p.seat + 0.05 * gauss(rng), 0.33, 0.8);
+    if (p.belt) p.slack = clamp(p.slack + 6 * rng(), 0, 20);
+    p.mph = clamp(p.mph + 3 * gauss(rng), 5, 90);
+  }
+  if (p.randMass) { p.mass = Math.round(800 + 2200 * rng()); p.otherMass = Math.round(Math.exp(Math.log(700) + rng() * Math.log(40000 / 700))); }
+  const r = simulate(p, true), st = occupantStop(r, p);
+  const theoryV = (p.target === "wall") ? 0 : ((r.mA + r.mo) * r.v0 + r.mB * (p.target === "headon" ? -r.v0 : 0)) / (r.mA + r.mo + r.mB);
+  return { chestG: r.peakT, headG: r.peakH, avgOcc: st ? st.g : NaN, hic: r.hic, risk: r.risk, crush: r.crush, avgCarG: r.avgCarG, avgForce: r.avgCarForce,
+    occForce: r.peakF / 1000, vFinal: r.wall ? r.vA : r.vTogether, pErr: 100 * (r.pAfter - r.pBefore) / ((r.mA + r.mo) * r.v0), vRatio: Math.abs(theoryV) > 0.05 && r.vTogether != null ? r.vTogether / theoryV : NaN, mass: p.mass, otherMass: p.otherMass };
+}
+
+/* =====================================================================
+   5. LIVE VIEW: run the crash once, then play it back in slow motion
+   ===================================================================== */
+const el = $;
+function params() {
+  const v = id => +el(id).value;
+  return { mph: v("mph"), target: el("target").value, carType: el("carType").value, mass: v("mass"), otherType: el("otherType").value, otherMass: v("otherMass"),
+    crL: v("crL"), crF: v("crF"), auto: el("auto").checked, occ: v("occ"), seat: v("seat"), belt: el("belt").checked, slack: v("slack"), stretch: v("stretch"),
+    pretens: el("pretens").checked, limiter: el("limiter").checked, airbag: el("airbag").checked, bagT: v("bagT") };
+}
+let R = null, P = null, play = { t: T0 * 1000, running: false }, stopInfo = null;
+function rerun(keepTime) {
+  P = prepare(params()); R = simulate(params(), true); stopInfo = occupantStop(R, P);
+  if (!keepTime) { play.t = T0 * 1000; setRunning(false); }
+  if (params().auto) { el("crF").value = Math.round(P.crF); updateLabels(); }
+  lastUI = 0;
+}
+function idxAt(tms) { const R2 = R.rec; let i = Math.round((tms - R2.t[0]) / (REC * 1000)); return clamp(i, 0, R2.t.length - 1); }
+
+// ---- drawing a car in side view, with its front crushed by d metres ----
+function drawCar(ctx, X, groundY, s, frontX, dir, V, crush, crL, colour, dpr, label) {
+  // frontX: screen x of the (crushed) front; dir = +1 car faces right, −1 faces left
+  const len = V.len, h = V.h, Lz = Math.max(0.05, crL);
+  const shape = V === VEH.lorry
+    ? [[0, 0.35], [len, 0.35], [len, h], [len - 2.2, h], [len - 2.2, h * 0.98], [0, h * 0.98]]
+    : [[0, 0.25], [len, 0.25], [len, 0.62], [len - 0.75, 0.82], [len - 1.6, h], [len - 3.0, h], [0.25, 0.95], [0, 0.8]];
+  // map car-local x (0 = rear, len = front) to screen x, squashing the crumple zone
+  const map = x => {
+    let xx;
+    const zStart = len - Lz;
+    if (x <= zStart) xx = x; else xx = zStart + (x - zStart) * Math.max(0, (Lz - crush)) / Lz;
+    if (crush > Lz) xx -= Math.max(0, crush - Lz) * (x / len);       // passenger cell squashed too
+    const fromFront = (len - crush) - xx;
+    return frontX - dir * fromFront * s;
+  };
+  ctx.fillStyle = colour; ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 1.5 * dpr;
+  ctx.beginPath(); shape.forEach(([x, y], i) => { const sx = map(x), sy = groundY - y * s; i ? ctx.lineTo(sx, sy) : ctx.moveTo(sx, sy); }); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // crumple zone hatching
+  const z0 = map(len - Lz), z1 = map(len);
+  ctx.save(); ctx.beginPath(); ctx.rect(Math.min(z0, z1), groundY - 0.85 * s, Math.abs(z1 - z0), 0.6 * s); ctx.clip();
+  ctx.strokeStyle = crush > 0.01 ? "rgba(20,19,59,0.75)" : "rgba(20,19,59,0.35)"; ctx.lineWidth = 1.2 * dpr;
+  const folds = Math.max(3, Math.round(Lz / 0.07));
+  for (let k = 0; k <= folds; k++) { const xx = z0 + (z1 - z0) * k / folds; ctx.beginPath(); ctx.moveTo(xx, groundY - 0.85 * s); ctx.lineTo(xx + (k % 2 ? 4 : -4) * dpr * (crush > 0.01 ? 1 : 0.3), groundY - 0.25 * s); ctx.stroke(); }
+  ctx.restore();
+  // windows and wheels
+  if (V !== VEH.lorry) { ctx.fillStyle = "rgba(200,225,240,0.55)"; ctx.beginPath(); ctx.moveTo(map(len - 1.65), groundY - (h - 0.07) * s); ctx.lineTo(map(len - 0.85), groundY - 0.84 * s); ctx.lineTo(map(len - 3.0), groundY - 0.84 * s); ctx.lineTo(map(len - 2.95), groundY - (h - 0.07) * s); ctx.closePath(); ctx.fill(); }
+  ctx.fillStyle = "#151515"; for (const wx of V === VEH.lorry ? [1.2, 2.6, len - 1.2] : [0.85, len - 0.95]) { ctx.beginPath(); ctx.arc(map(wx), groundY - 0.3 * s, 0.3 * s, 0, 2 * Math.PI); ctx.fill(); ctx.fillStyle = "#666"; ctx.beginPath(); ctx.arc(map(wx), groundY - 0.3 * s, 0.13 * s, 0, 2 * Math.PI); ctx.fill(); ctx.fillStyle = "#151515"; }
+  if (label) { ctx.fillStyle = "#eef0e8"; ctx.font = `${11.5 * dpr}px system-ui`; ctx.textAlign = "center"; ctx.fillText(label, map(len / 2), groundY - h * s - 8 * dpr); }
+  return map;
+}
+function arrow(ctx, x, y, dx, colour, label, dpr) {
+  if (Math.abs(dx) < 3 * dpr) return;
+  ctx.strokeStyle = ctx.fillStyle = colour; ctx.lineWidth = 3 * dpr;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx, y); ctx.stroke();
+  const sg = Math.sign(dx); ctx.beginPath(); ctx.moveTo(x + dx + sg * 7 * dpr, y); ctx.lineTo(x + dx - sg * 2 * dpr, y - 6 * dpr); ctx.lineTo(x + dx - sg * 2 * dpr, y + 6 * dpr); ctx.fill();
+  if (label) { ctx.font = `bold ${11 * dpr}px system-ui`; ctx.textAlign = "center"; ctx.fillText(label, x + dx / 2, y - 8 * dpr); }
+}
+const forceLen = (kN, dpr) => Math.sign(kN) * Math.min(140, 22 * Math.log10(1 + Math.abs(kN))) * dpr * 1.6;
+function drawView() {
+  const c = el("view"), [ctx, W, H, dpr] = fitCanvas(c);
+  const p = P, i = idxAt(play.t), rr = R.rec, V = VEH[p.carType], O = VEH[p.otherType];
+  const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, "#111a22"); sky.addColorStop(1, "#1c252e"); ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  const span = p.target === "wall" ? V.len + 2.6 : V.len + O.len + 2.5, s = Math.min(W / span, (H - 60 * dpr) / Math.max(2.6, p.target === "wall" ? 2.6 : O.h + 0.9)), groundY = H - 34 * dpr;
+  // camera: contact point at 62% across
+  const cxp = p.target === "wall" ? W - 1.6 * s : (V.len + 1.2) * s + (W - span * s) / 2, xn = rr.xn[i];
+  const sx = x => cxp + (x - xn) * s;
+  ctx.fillStyle = "#2b2f33"; ctx.fillRect(0, groundY, W, H - groundY);
+  ctx.fillStyle = "#e6e2d0"; for (let m = -30; m < 30; m += 3) { const x = sx(m) ; ctx.fillRect(x, groundY + 10 * dpr, 1.5 * s, 3 * dpr); }
+  // the car A (front at xA, crushed by dA)
+  const dA = rr.dA[i], frontA = sx(rr.xA[i]);
+  const mapA = drawCar(ctx, null, groundY, s, frontA, 1, V, Math.max(0, dA), p.crL, "#00aec3", dpr, `your ${V.name} · ${p.mass.toLocaleString("en-GB")} kg`);
+  if (p.target === "wall") {
+    ctx.fillStyle = "#8a8f96"; ctx.fillRect(sx(0), groundY - 2.4 * s, 0.9 * s, 2.4 * s);
+    ctx.strokeStyle = "#6b6f75"; ctx.lineWidth = 1 * dpr; for (let y = 0; y < 2.4; y += 0.3) { ctx.beginPath(); ctx.moveTo(sx(0), groundY - y * s); ctx.lineTo(sx(0.9), groundY - y * s); ctx.stroke(); }
+    ctx.fillStyle = "#cfd5c4"; ctx.font = `${11 * dpr}px system-ui`; ctx.textAlign = "center"; ctx.fillText("rigid wall", sx(0.45), groundY - 2.5 * s);
+  } else {
+    drawCar(ctx, null, groundY, s, sx(rr.xB[i]), -1, O, Math.max(0, rr.dB[i]), O.L, O === VEH.lorry ? "#a86dab" : "#a4cbe6", dpr, `${O.name} · ${p.otherMass.toLocaleString("en-GB")} kg`);
+  }
+  // occupant: seat position in car-local coordinates (driver's hip about 2.3 m behind the front for a car)
+  const hipLocal = V.len - 2.35, hip0 = mapA(hipLocal);
+  const sT = rr.sT[i], sH = rr.sH[i], seatH = 0.55;
+  const hipX = hip0 + sT * 0.35 * s, shX = hip0 + (0.12 + sT) * s, shY = groundY - (seatH + 0.55) * s;
+  const headX = hip0 + (0.17 + sH) * s, headY = groundY - (seatH + 0.78) * s - Math.max(0, 0.1 - Math.abs(sH - sT)) * 0;
+  // seat
+  ctx.strokeStyle = "#3a3a3a"; ctx.lineWidth = 6 * dpr; ctx.beginPath(); ctx.moveTo(hip0 - 0.25 * s, groundY - seatH * s); ctx.lineTo(hip0 + 0.15 * s, groundY - seatH * s); ctx.moveTo(hip0 - 0.22 * s, groundY - seatH * s); ctx.lineTo(hip0 - 0.32 * s, groundY - (seatH + 0.65) * s); ctx.stroke();
+  // steering wheel (head-height hub, DH in front of the head)
+  const wheelX = hip0 + (0.17 + p.seat) * s, wheelY = groundY - (seatH + 0.62) * s;
+  ctx.strokeStyle = "#222"; ctx.lineWidth = 4 * dpr; ctx.beginPath(); ctx.moveTo(wheelX - 0.03 * s, wheelY - 0.17 * s); ctx.lineTo(wheelX + 0.05 * s, wheelY + 0.17 * s); ctx.stroke();
+  ctx.lineWidth = 3 * dpr; ctx.beginPath(); ctx.moveTo(wheelX + 0.02 * s, wheelY); ctx.lineTo(wheelX + 0.35 * s, wheelY + 0.25 * s); ctx.stroke();
+  // airbag
+  const bag = rr.bag[i];
+  if (bag > 0.005) { ctx.fillStyle = "rgba(245,245,240,0.9)"; ctx.beginPath(); ctx.ellipse(wheelX - bag * s * 0.5, wheelY - 0.02 * s, bag * s * 0.55, (0.12 + bag * 0.6) * s, 0, 0, 2 * Math.PI); ctx.fill(); }
+  // dummy (yellow and black crash-test colours)
+  ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 9 * dpr; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(hipX, groundY - (seatH + 0.08) * s); ctx.lineTo(shX, shY); ctx.stroke();
+  ctx.lineWidth = 6 * dpr; ctx.beginPath(); ctx.moveTo(hipX, groundY - (seatH + 0.08) * s); ctx.lineTo(hipX + 0.45 * s, groundY - (seatH + 0.05) * s); ctx.lineTo(hipX + 0.55 * s, groundY - 0.2 * s); ctx.stroke();
+  ctx.lineWidth = 5 * dpr; ctx.beginPath(); ctx.moveTo(shX, shY); ctx.lineTo(shX + 0.3 * s, shY + 0.15 * s); ctx.lineTo(Math.min(wheelX, shX + 0.5 * s), wheelY + 0.05 * s); ctx.stroke();
+  ctx.lineCap = "butt";
+  ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 3 * dpr; ctx.beginPath(); ctx.moveTo(shX, shY); ctx.lineTo(headX, headY + 0.08 * s); ctx.stroke();
+  ctx.fillStyle = "#f1af28"; ctx.beginPath(); ctx.arc(headX, headY, 0.11 * s, 0, 2 * Math.PI); ctx.fill();
+  ctx.fillStyle = "#14133b"; ctx.beginPath(); ctx.arc(headX, headY, 0.11 * s, -Math.PI / 2, 0); ctx.lineTo(headX, headY); ctx.fill(); ctx.beginPath(); ctx.arc(headX, headY, 0.11 * s, Math.PI / 2, Math.PI); ctx.lineTo(headX, headY); ctx.fill();
+  // seatbelt
+  if (p.belt) { ctx.strokeStyle = "#5a5f66"; ctx.lineWidth = 3 * dpr; ctx.beginPath(); ctx.moveTo(hip0 - 0.3 * s, groundY - (seatH + 0.7) * s); ctx.lineTo(shX + 0.05 * s, shY + 0.05 * s); ctx.lineTo(hipX + 0.08 * s, groundY - (seatH + 0.12) * s); ctx.stroke(); }
+  // force arrows (lengths grow with the logarithm of the force)
+  const FA = rr.FA[i], Fo = rr.Fbelt[i] + rr.Fbag[i] + rr.Fhard[i];
+  if (FA > 0.5) arrow(ctx, frontA, groundY - (V.h + 0.45) * s, -forceLen(FA, dpr), "#de252a", `${Math.round(FA)} kN on car`, dpr);
+  if (Fo > 0.2) arrow(ctx, headX, groundY - (V.h + 1.0) * s, -forceLen(Fo, dpr), "#e83181", `${Fo.toFixed(1)} kN on occupant`, dpr);
+  // velocity labels
+  ctx.fillStyle = "#cfd5c4"; ctx.font = `${11 * dpr}px system-ui`; ctx.textAlign = "left";
+  ctx.fillText(`car ${(rr.vA[i] / MPH).toFixed(1)} mph · occupant ${(rr.vT[i] / MPH).toFixed(1)} mph`, 10 * dpr, 18 * dpr);
+  ctx.fillText(`crush ${(Math.max(0, dA) * 100).toFixed(0)} cm of ${(p.crL * 100).toFixed(0)} cm`, 10 * dpr, 34 * dpr);
+  const bar = 1 * s; ctx.fillRect(10 * dpr, groundY + 16 * dpr, bar, 2 * dpr); ctx.fillText("1 m", 14 * dpr + bar, groundY + 21 * dpr);
+}
+function drawG() {
+  const rr = R.rec, c = el("gchart");
+  const pts = k => rr.t.map((t, i) => [t, rr[k][i]]);
+  const ym = Math.min(400, Math.max(10, ...rr.aA.map(Math.abs), ...rr.aT.map(Math.abs), ...rr.aH.map(Math.abs))) * 1.08;
+  plotXY(c, { xMin: T0 * 1000, xMax: T1 * 1000, yMin: -ym * 0.15, yMax: ym, xLabel: "time after impact (ms)", yLabel: "deceleration (g)", zeroLine: true,
+    series: [{ pts: pts("aA"), colour: "#00aec3", width: 1.4 }, { pts: pts("aT"), colour: "#f1af28", width: 1.6 }, { pts: pts("aH"), colour: "#e83181", width: 1.2 }],
+    vlines: [{ x: play.t, colour: "#eef0e8", dash: [1, 0] }], bottom: 26, top: 6, left: 48 });
+}
+let chartMode = "vel";
+function drawChart() {
+  const rr = R.rec, c = el("chart"), p = P;
+  if (chartMode === "vel") {
+    const pts = k => rr.t.map((t, i) => [t, rr[k][i] / MPH]);
+    const series = [{ pts: pts("vA"), colour: "#00aec3" }, { pts: pts("vT"), colour: "#f1af28" }, { pts: pts("vH"), colour: "#e83181", width: 1.2 }];
+    if (!R.wall) series.push({ pts: pts("vB"), colour: "#a4cbe6", dash: [5, 3] });
+    const all = series.flatMap(s => s.pts.map(q => q[1]));
+    const [a, b] = autoRange(all, true);
+    plotXY(c, { xMin: T0 * 1000, xMax: T1 * 1000, yMin: a, yMax: b, xLabel: "time after impact (ms)", yLabel: "velocity (mph)", series, zeroLine: true, vlines: [{ x: play.t, colour: "#eef0e8", dash: [1, 0] }],
+      hlines: R.wall ? [] : [{ y: R.vCommon / MPH, colour: "#76b82a", dash: [2, 3] }] });
+    el("chartLegend").innerHTML = `<span><i class="ln" style="background:#00aec3"></i>car</span><span><i class="ln" style="background:#f1af28"></i>chest</span><span><i class="ln" style="background:#e83181"></i>head</span>` + (R.wall ? "" : `<span><i class="ln" style="background:#a4cbe6"></i>other vehicle</span><span><i class="ln" style="background:#76b82a"></i>theory: shared final velocity</span>`);
+    el("chartNote").textContent = "The slope of each line is the deceleration. The occupant keeps going until the belt or airbag catches them.";
+  } else if (chartMode === "fd") {
+    const pts = []; let peakI = 0; for (let i = 0; i < rr.t.length; i++) { if (rr.dA[i] > 0 || rr.FA[i] > 0) pts.push([Math.max(0, rr.dA[i]) * 100, rr.FA[i]]); }
+    const upto = pts.slice(0, Math.max(1, rr.t.filter(t => t <= play.t).length - rr.t.filter(t => t < 0).length));
+    const E = upto.reduce((acc, q, k) => k ? acc + (q[0] - upto[k - 1][0]) / 100 * (q[1] + upto[k - 1][1]) / 2 : 0, 0);
+    const ym = Math.max(50, ...pts.map(q => q[1])) * 1.1;
+    plotXY(c, { xMin: 0, xMax: Math.max(p.crL * 100 * 1.15, ...pts.map(q => q[0])) , yMin: 0, yMax: Math.min(ym, 6000), xLabel: "crush distance (cm)", yLabel: "force on car (kN)",
+      fill: [{ pts: upto, colour: "rgba(0,174,195,0.25)" }], series: [{ pts, colour: "#00aec3", width: 1.6 }, { pts: upto.slice(-1), colour: "#f1af28", dots: true, r: 4 }],
+      vlines: [{ x: p.crL * 100, colour: "#de252a", label: "end of crumple zone", dash: [3, 3] }] });
+    el("chartLegend").innerHTML = `<span><i style="background:rgba(0,174,195,0.5)"></i>area = energy absorbed so far: <b style="color:var(--text)">${Math.max(0, E).toFixed(0)} kJ</b> of ${(0.5 * R.mA * R.v0 * R.v0 / 1000).toFixed(0)} kJ</span>`;
+    el("chartNote").textContent = "Work done = force × distance, so the shaded area under the line is the energy the crumple zone soaks up.";
+  } else {
+    const series = [{ pts: rr.t.map((t, i) => [t, rr.pA[i] / 1000]), colour: "#00aec3" }];
+    if (!R.wall) { series.push({ pts: rr.t.map((t, i) => [t, rr.pB[i] / 1000]), colour: "#a4cbe6" }); series.push({ pts: rr.t.map((t, i) => [t, (rr.pA[i] + rr.pB[i]) / 1000]), colour: "#76b82a", width: 2.4 }); }
+    const all = series.flatMap(s => s.pts.map(q => q[1])); const [a, b] = autoRange(all, true);
+    plotXY(c, { xMin: T0 * 1000, xMax: T1 * 1000, yMin: a, yMax: b, xLabel: "time after impact (ms)", yLabel: "momentum (thousand kg m/s)", series, zeroLine: true, vlines: [{ x: play.t, colour: "#eef0e8", dash: [1, 0] }] });
+    el("chartLegend").innerHTML = `<span><i class="ln" style="background:#00aec3"></i>your car + occupant</span>` + (R.wall ? "" : `<span><i class="ln" style="background:#a4cbe6"></i>other vehicle</span><span><i class="ln" style="background:#76b82a"></i>total</span>`);
+    el("chartNote").textContent = R.wall ? "Hitting a wall, the car's momentum goes into the wall and the Earth (far too massive to move noticeably)." : "Momentum is conserved: the total (green) stays the same while momentum passes from one vehicle to the other.";
+  }
+}
+const tile = (k, v, s = "") => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ""}</div>`;
+function riskBand(h) { return h < 250 ? ["Low", "#3a9d4a"] : h < 700 ? ["Moderate", "#a2c617"] : h < 1000 ? ["Serious", "#f18700"] : h < 1700 ? ["Severe", "#de252a"] : ["Very likely fatal", "#7a0f12"]; }
+let lastUI = 0;
+function updateUI(now) {
+  const i = idxAt(play.t), rr = R.rec;
+  el("clock").textContent = `${play.t >= 0 ? "" : "−"}${Math.abs(play.t).toFixed(1)} ms`;
+  el("s_car").textContent = `${(rr.vA[i] / MPH).toFixed(1)} mph, ${Math.max(0, rr.aA[i]).toFixed(0)} g`;
+  el("s_occ").textContent = `${(rr.vT[i] / MPH).toFixed(1)} mph, ${Math.max(0, rr.aT[i]).toFixed(0)} g`;
+  if (now - lastUI < 250) return; lastUI = now;
+  const p = P, r = R, [band, col] = riskBand(r.hic), rk = el("risk");
+  rk.textContent = `HIC ${Math.round(r.hic)} · ${band}`; rk.style.background = col; rk.style.color = r.hic < 700 ? "#14133b" : "#fff";
+  el("s_v").textContent = `${p.mph} mph (${r.v0.toFixed(1)} m/s)`;
+  el("gaugeMark").style.left = `${clamp(100 * Math.log10(1 + r.hic) / Math.log10(2500), 0, 100)}%`;
+  el("riskText").innerHTML = `<b>HIC ${Math.round(r.hic)}</b> — ${band}. Chance of a serious head injury (AIS 3+): <b>${r.risk.toFixed(r.risk < 1 ? 1 : 0)}%</b>.`;
+  const st = stopInfo, pA = (r.mA + r.mo) * r.v0;
+  el("tiles").innerHTML =
+    tile("Impact speed", `${p.mph} mph`, `${r.v0.toFixed(1)} m/s`) +
+    tile("Kinetic energy", `${(r.KE / 1000).toFixed(0)} kJ`, `½mv² for car + occupant`) +
+    tile("Crumple distance", `${(r.crush * 100).toFixed(0)} cm`, r.bottomed ? "crumple zone used up!" : !r.wall ? `of ${(p.crL * 100).toFixed(0)} cm` : `of ${(p.crL * 100).toFixed(0)} cm · theory ${(Math.min(100 * (r.KE / (p.crF * 1000) + 0.015 * p.crL), 999)).toFixed(0)} cm`) +
+    tile("Collision time", `${(r.tc * 1000).toFixed(0)} ms`, `car average ${r.avgCarG.toFixed(0)} g, peak ${r.peakCarG.toFixed(0)} g`) +
+    tile("Peak force on occupant", `${(r.peakF / 1000).toFixed(1)} kN`, st ? `average ${st.F.toFixed(1)} kN over ${(st.dt * 1000).toFixed(0)} ms` : "") +
+    tile("Peak occupant g", `chest ${r.peakT.toFixed(0)} g`, `head ${r.peakH.toFixed(0)} g${r.peakT > 60 ? " · chest injury likely" : ""}`) +
+    tile("Momentum before", `${Math.round(r.pBefore).toLocaleString("en-GB")} kg m/s`, r.wall ? "your car + occupant" : "both vehicles") +
+    tile("Momentum after", `${Math.round(r.pAfter).toLocaleString("en-GB")} kg m/s`, r.wall ? "the wall (and Earth) took it" : `moving together at ${(r.vTogether ?? 0).toFixed(2)} m/s; theory ${r.vCommon.toFixed(2)} m/s`);
+  el("story").innerHTML = story();
+}
+function story() {
+  const p = P, r = R, t = play.t, msgs = [];
+  if (t < 0) return `The car is about to hit ${p.target === "wall" ? "a rigid wall" : `a ${VEH[p.otherType].name}`} at ${p.mph} mph (${r.v0.toFixed(1)} m/s). It has ${(r.KE / 1000).toFixed(0)} kJ of kinetic energy that must go somewhere in the next tenth of a second. Press <b>Play</b>.`;
+  const i = idxAt(t), rr = R.rec;
+  if (rr.FA[i] > 0.5) msgs.push(`The front is crumpling (${(rr.dA[i] * 100).toFixed(0)} cm so far), pushing back on the car with ${Math.round(rr.FA[i])} kN.`);
+  if (r.bottomed && rr.dA[i] > p.crL) msgs.push("<b>The crumple zone is used up</b> — the solid passenger cell takes the impact and the force shoots up.");
+  if (!p.belt && !p.airbag) msgs.push(rr.Fhard[i] > 0.1 ? "<b>The unbelted occupant has hit the steering wheel and windscreen</b> — still moving at nearly the impact speed, so they stop in a few centimetres." : rr.sT[i] > 0.05 ? "The car is slowing but nothing is holding the occupant: they carry on at the old speed (Newton's first law)." : "");
+  else if (rr.Fbelt[i] > 0.1) msgs.push(`The seatbelt is stretching and pulling the occupant back with ${rr.Fbelt[i].toFixed(1)} kN.`);
+  if (rr.bag[i] > 0.01 && rr.bag[i] < BAG.depth * 0.99) msgs.push("The airbag is inflating.");
+  if (rr.Fbag[i] > 0.1) msgs.push("The airbag is cushioning the head and chest, spreading the force over a larger area and a longer time.");
+  if (p.airbag && p.bagT > 45 && rr.Fbag[i] > 0.1 && t < p.bagT + 35) msgs.push("<b>The airbag is late</b> — it is still filling as the occupant reaches it, so it hits them hard.");
+  if (Math.abs(rr.aA[i]) < 0.5 && t > 60 && msgs.length === 0) msgs.push(`It is over. The occupant's speed changed by ${(r.v0 - r.vA).toFixed(1)} m/s; how hurt they are depends on how long that took: F = mΔv/Δt.`);
+  return msgs.join(" ") || "Watch the force arrows and the graph below.";
+}
+
+/* =====================================================================
+   6. PRESETS AND CONTROLS
+   ===================================================================== */
+const base = { mph: 30, target: "wall", carType: "family", mass: 1400, otherType: "family", otherMass: 1400, crL: 0.65, crF: 300, auto: false, occ: 75, seat: 0.42, belt: true, slack: 2, stretch: 10, pretens: true, limiter: true, airbag: true, bagT: 15 };
+const PRESETS = [
+  { name: "30 mph, rigid front", note: "no crumple zone", s: { crL: 0.05, crF: 1500 } },
+  { name: "30 mph, crumple zone", note: "same crash, modern car", s: {} },
+  { name: "No seatbelt", note: "no belt, no airbag", s: { belt: false, airbag: false } },
+  { name: "Seatbelt only", note: "no airbag", s: { airbag: false } },
+  { name: "Airbag fires late", note: "70 ms instead of 15", s: { bagT: 70 } },
+  { name: "Small car vs SUV", note: "head-on, both at 30 mph", s: { target: "headon", carType: "small", mass: 1000, crL: 0.55, crF: 220, otherType: "suv", otherMass: 2200 } },
+  { name: "SUV vs small car", note: "same crash, from the SUV", s: { target: "headon", carType: "suv", mass: 2200, crL: 0.75, crF: 450, otherType: "small", otherMass: 1000 } },
+  { name: "20 mph", note: "energy ∝ v²", s: { mph: 20 } },
+  { name: "40 mph", note: "(4/2)² = 4× the energy of 20", s: { mph: 40 } },
+  { name: "70 mph motorway", note: "into a wall", s: { mph: 70 } },
+  { name: "Car into a lorry", note: "30 mph, parked lorry", s: { target: "parked", otherType: "lorry", otherMass: 18000 } },
+  { name: "Loose belt", note: "15 cm slack, no pretensioner", s: { slack: 15, pretens: false, airbag: false } },
+];
+function applySettings(s) { for (const [k, v] of Object.entries(s)) { const e = el(k); if (!e) continue; if (e.type === "checkbox") e.checked = v; else e.value = v; } }
+function setPreset(k) { applySettings(Object.assign({}, base, PRESETS[k].s)); document.querySelectorAll("#presets button").forEach((b, j) => b.classList.toggle("on", j === k)); updateLabels(); rerun(); }
+function updateLabels() {
+  const p = params();
+  el("o_mph").textContent = `${p.mph} mph (${(p.mph * MPH).toFixed(1)} m/s)`;
+  el("o_mass").textContent = `${p.mass.toLocaleString("en-GB")} kg`; el("o_otherMass").textContent = `${p.otherMass.toLocaleString("en-GB")} kg`;
+  el("o_crL").textContent = `${Math.round(p.crL * 100)} cm`; el("o_crF").textContent = `${p.crF} kN`;
+  el("o_occ").textContent = `${p.occ} kg`; el("o_seat").textContent = `${Math.round(p.seat * 100)} cm`;
+  el("o_slack").textContent = `${p.slack} cm`; el("o_stretch").textContent = `${p.stretch}%`; el("o_bagT").textContent = `${p.bagT} ms`;
+  el("otherOpts").style.display = p.target === "wall" ? "none" : ""; el("beltOpts").style.display = p.belt ? "" : "none"; el("bagOpts").style.display = p.airbag ? "" : "none";
+  el("crF").disabled = p.auto;
+}
+el("presets").innerHTML = PRESETS.map((p, k) => `<button data-k="${k}">${p.name}<small>${p.note}</small></button>`).join("");
+document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.k)));
+document.querySelectorAll("#left input, #left select").forEach(e => e.addEventListener(e.type === "range" ? "input" : "change", () => {
+  document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on"));
+  if (e.id === "carType") { const V = VEH[e.value]; el("mass").value = V.mass; el("crL").value = V.L; el("crF").value = V.F; }
+  if (e.id === "otherType") el("otherMass").value = VEH[e.value].mass;
+  updateLabels(); rerun(true);
+}));
+el("btnRigid").onclick = () => { el("crL").value = 0.05; el("crF").value = 1500; el("auto").checked = false; updateLabels(); rerun(true); };
+function setRunning(r) { play.running = r; el("btnPlay").textContent = r ? "⏸ Pause" : play.t >= T1 * 1000 - 0.3 ? "▶ Replay" : play.t > T0 * 1000 ? "▶ Resume" : "▶ Play"; }
+el("btnPlay").onclick = () => { if (play.t >= T1 * 1000 - 0.3) play.t = T0 * 1000; setRunning(!play.running); };
+el("btnReset").onclick = () => { play.t = T0 * 1000; setRunning(false); };
+let speed = 1;
+document.querySelectorAll("[data-s]").forEach(b => (b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", x === b)); }));
+document.querySelectorAll("[data-g]").forEach(b => (b.onclick = () => { chartMode = b.dataset.g; document.querySelectorAll("[data-g]").forEach(x => x.classList.toggle("on", x === b)); }));
+// click or drag on the deceleration graph to jump to a moment
+el("gchart").addEventListener("pointerdown", e => { const r = el("gchart").getBoundingClientRect(), L = 48, Rr = 10, f = (e.clientX - r.left - L) / (r.width - L - Rr); play.t = clamp(T0 * 1000 + f * (T1 - T0) * 1000, T0 * 1000, T1 * 1000); setRunning(false); });
+
+/* =====================================================================
+   7. BATCH RUN SET-UP
+   ===================================================================== */
+function theory(ctx) {
+  const p = prepare(ctx.params), m = p.mass + p.occ, sw = ctx.sweep;
+  const crushTh = mph => { const v = mph * MPH, KE = 0.5 * m * v * v, d = KE / (p.crF * 1000) + 0.015 * p.crL; return d <= p.crL ? d : NaN; };
+  if (ctx.mode === "sweep" && sw === "mph" && ctx.outcome === "crush") return { curves: [{ label: "Theory: d = ½mv²/F (+ build-up)", f: crushTh }] };
+  if (ctx.mode === "sweep" && sw === "mph" && ctx.outcome === "avgCarG") return { curves: [{ label: "Theory: v² / 2d", f: mph => { const v = mph * MPH, d = crushTh(mph); return v * v / (2 * d) / G; } }] };
+  if (ctx.mode === "sweep" && sw === "crL" && ctx.outcome === "avgForce" && p.auto) return { curves: [{ label: "Theory: F = mv² / 2d (d = 90% of zone)", f: L => p.mass * p.v0 * p.v0 / (2 * 0.9 * L) / 1000 }] };
+  if (ctx.mode === "sweep" && sw === "otherMass" && ctx.outcome === "vFinal" && p.target !== "wall") { const vB = p.target === "headon" ? -p.v0 : 0; return { curves: [{ label: "Theory: v = (m₁v₁ + m₂v₂)/(m₁ + m₂)", f: M => (m * p.v0 + M * vB) / (m + M) }] }; }
+  if (ctx.mode === "sweep" && sw === "mass" && ctx.outcome === "vFinal" && p.target !== "wall") { const vB = p.target === "headon" ? -p.v0 : 0; return { curves: [{ label: "Theory: v = (m₁v₁ + m₂v₂)/(m₁ + m₂)", f: M => ((M + p.occ) * p.v0 + p.otherMass * vB) / (M + p.occ + p.otherMass) }] }; }
+  if (ctx.outcome === "vRatio") return { value: 1, label: "Theory: momentum conserved (ratio 1)" };
+  if (ctx.outcome === "pErr") return { value: 0, label: "Theory: no change (momentum conserved)" };
+  return null;
+}
+const BATCH = setupBatch({
+  file: "car-crash",
+  outcomes: [
+    { key: "hic", label: "Head Injury Criterion HIC15", unit: "", dec: 0, threshold: { v: 1000, label: "HIC 1000 (serious)" } },
+    { key: "risk", label: "Chance of serious head injury", unit: "%", dec: 1 },
+    { key: "chestG", label: "Peak chest deceleration", unit: "g", dec: 1, threshold: { v: 60, label: "60 g chest limit" } },
+    { key: "avgOcc", label: "Average occupant deceleration", unit: "g", dec: 1 },
+    { key: "crush", label: "Crumple distance", unit: "m", dec: 3 },
+    { key: "avgCarG", label: "Average car deceleration", unit: "g", dec: 1 },
+    { key: "avgForce", label: "Average force on car (Δp/Δt)", unit: "kN", dec: 0 },
+    { key: "vFinal", label: "Speed when the vehicles move together", unit: "m/s", dec: 2 },
+    { key: "pErr", label: "Change in total momentum (% of your car's)", unit: "%", dec: 4 },
+    { key: "vRatio", label: "Shared speed ÷ momentum theory", unit: "", dec: 3 },
+  ],
+  sweepVars: [
+    { key: "mph", label: "Impact speed", unit: "mph", from: 10, to: 70, steps: 13, int: true },
+    { key: "crL", label: "Crumple zone length", unit: "m", from: 0.2, to: 1.0, steps: 9 },
+    { key: "crF", label: "Crush force", unit: "kN", from: 100, to: 1000, steps: 10, int: true },
+    { key: "otherMass", label: "Other vehicle's mass", unit: "kg", from: 600, to: 40000, steps: 14, int: true },
+    { key: "mass", label: "Your car's mass", unit: "kg", from: 800, to: 3000, steps: 12, int: true },
+    { key: "bagT", label: "Airbag firing time", unit: "ms", from: 10, to: 90, steps: 9, int: true },
+    { key: "slack", label: "Belt slack", unit: "cm", from: 0, to: 15, steps: 8, int: true },
+  ],
+  repeatN: [50, 100, 200, 500, 1000], defaultN: 200,
+  varyLabel: "Random variation: occupant mass (±18%), seat position (±5 cm), belt slack (+0–6 cm), speed (±3 mph)",
+  compares: [
+    { key: "airbag", label: "Without vs with airbag", a: { airbag: false }, b: { airbag: true }, la: "No airbag", lb: "Airbag" },
+    { key: "belt", label: "Without vs with seatbelt", a: { belt: false }, b: { belt: true }, la: "No belt", lb: "Seatbelt" },
+    { key: "pretens", label: "Without vs with pretensioner", a: { pretens: false }, b: { pretens: true }, la: "No pretensioner", lb: "Pretensioner" },
+    { key: "crumple", label: "Rigid front vs crumple zone", a: { crL: 0.05, crF: 1500, auto: false }, b: {}, la: "Rigid front", lb: "Crumple zone" },
+  ],
+  baseParams: () => params(), runOnce, theory,
+  describe: p => `${p.mph} mph into ${p.target === "wall" ? "a wall" : `${p.target === "headon" ? "an oncoming" : "a parked"} ${p.otherMass} kg vehicle`}, ${p.mass} kg car, crumple ${Math.round(p.crL * 100)} cm at ${p.auto ? "auto" : p.crF + " kN"}, ${p.occ} kg occupant, ${p.belt ? `belt (${p.slack} cm slack${p.pretens ? ", pretensioner" : ""})` : "no belt"}, ${p.airbag ? `airbag at ${p.bagT} ms` : "no airbag"}`,
+  timeNote: "Each run is the full crash (350 ms at 0.02 ms steps, the same equations as the animation). A run takes a few milliseconds.",
+  experiments: [
+    { name: "Crush distance ∝ v²?", q: "Does the crumple distance follow d = ½mv²/F?",
+      note: "With a steady crush force, the work done F × d equals the kinetic energy ½mv², so doubling the speed should quadruple the crush (log–log gradient 2; the short force build-up at the start pulls it slightly below 2). A long, 1 m crumple zone is used so it never runs out in this range. The tiny differences come from the force build-up and the occupant's own momentum arriving later through the seatbelt.",
+      set: { mode: "sweep", sweep: "mph", from: 10, to: 44, steps: 18, reps: 1, outcome: "crush", logX: true, logY: true, params: { target: "wall", mass: 1400, crL: 1.0, crF: 300, auto: false } } },
+    { name: "Speed and deceleration", q: "Does the car's average deceleration follow v²/2d — and what happens when the crumple zone runs out?",
+      note: "While the crumple zone lasts, the crush distance d grows as v², so v²/2d stays the same: a well-designed crumple zone gives the same steady deceleration at any speed (about 20 g here). Above about 37 mph this 65 cm zone is used up (the theory line stops), d cannot grow any more, and the deceleration climbs steeply — which is why 70 mph crashes are so much worse than 30 mph ones. Switch 'Record' to peak chest deceleration or HIC to see the effect on the occupant.",
+      set: { mode: "sweep", sweep: "mph", from: 10, to: 70, steps: 13, reps: 1, outcome: "avgCarG", params: { target: "wall", mass: 1400, crL: 0.65, crF: 300, auto: false, belt: true, airbag: true, bagT: 15 } } },
+    { name: "Longer crumple zone, smaller force?", q: "Does a longer crumple zone reduce the average force as F = mv²/2d?",
+      note: "Each car's crush force is designed so it uses 90% of its crumple zone at 30 mph. The measured average force (change in momentum ÷ collision time) falls as 1/d, as the theory says. It sits a few per cent off because the force takes time to build up and the car bounces back slightly.",
+      set: { mode: "sweep", sweep: "crL", from: 0.2, to: 1.0, steps: 9, reps: 1, outcome: "avgForce", logX: true, logY: true, params: { target: "wall", mph: 30, mass: 1400, auto: true } } },
+    { name: "Airbags and head injuries", q: "In 200 slightly different 35 mph crashes, how much does an airbag cut head injuries?",
+      note: "Every pair of runs uses the same person, seat position, belt slack and speed, with and without an airbag. Without one, the belted occupant's head swings forward and often strikes the steering wheel; with one, it is caught. The scatter comes from the random variation of people and crashes.",
+      set: { mode: "repeat", n: 200, outcome: "hic", compare: "airbag", vary: true, params: { target: "wall", mph: 35, mass: 1400, crL: 0.65, crF: 300, auto: false, belt: true, pretens: true, limiter: true, bagT: 15 } } },
+    { name: "Seatbelts save lives", q: "In 200 varied 30 mph crashes, what is the chance of serious head injury with and without a seatbelt (no airbag)?",
+      note: "Without a belt the occupant flies forward at almost 30 mph and hits the wheel and windscreen after the car has already stopped. Look at the % of runs above HIC 1000 for each group.",
+      set: { mode: "repeat", n: 200, outcome: "hic", compare: "belt", vary: true, params: { target: "wall", mph: 30, mass: 1400, crL: 0.65, crF: 300, auto: false, airbag: false } } },
+    { name: "Momentum: hitting a parked vehicle", q: "Does the final speed follow v = m₁v₁/(m₁ + m₂) for different target masses?",
+      note: "A 1,400 kg car at 30 mph hits parked vehicles from 600 kg to 40 tonnes. At the moment of greatest crush the two vehicles move at the same speed, and momentum conservation predicts it. The measured value is a little lower because the occupant (75 kg) is still moving forward in the seat at that instant, carrying some of the momentum. Afterwards the metal springs back slightly, so the vehicles separate a little.",
+      set: { noFit: true, mode: "sweep", sweep: "otherMass", from: 600, to: 40000, steps: 14, reps: 1, outcome: "vFinal", logX: true, params: { target: "parked", mph: 30, mass: 1400, crL: 0.65, crF: 300, auto: false } } },
+    { name: "Momentum: random pairs", q: "Across 200 crashes between random pairs of vehicles, does momentum predict the shared speed?",
+      note: "Each run picks random masses for your car (800–3,000 kg) and a parked vehicle (700 kg to 40 t), hit at 30 mph. The speed at which the two vehicles move together, divided by the momentum theory (m₁v₁ + m₂v₂)/(m₁ + m₂), clusters close to 1. It is a little off because at that instant the occupant is still sliding forward in the seat, carrying some momentum of their own. Switch 'Record' to 'change in total momentum': it is 0% every time, because the forces between the vehicles are equal and opposite (Newton's third law).",
+      set: { mode: "repeat", n: 200, outcome: "vRatio", vary: false, params: { target: "parked", mph: 30, randMass: true, crL: 0.65, crF: 300, auto: false } } },
+  ],
+});
+el("btnBatch").onclick = () => BATCH.open();
+
+/* =====================================================================
+   8. THE MAIN LOOP
+   ===================================================================== */
+let lastT = performance.now();
+function frame(now) {
+  const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (play.running) { play.t += real * speed * 20; if (play.t >= T1 * 1000) { play.t = T1 * 1000; setRunning(false); } }   // 1× = 20 ms of crash per second
+  drawView(); drawG(); drawChart(); updateUI(now);
+  requestAnimationFrame(frame);
+}
+setupPanels("car-crash-layout");
+setPreset(1);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

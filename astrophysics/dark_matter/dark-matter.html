@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dark Matter and Rotation Curves</title>
+<!--
+  DARK MATTER: EVIDENCE FROM GALAXY ROTATION CURVES — a teaching model
+  =====================================================================
+  One self-contained file: no libraries, no internet needed.
+
+  Stars and gas clouds in a spiral galaxy move in (nearly) circular orbits.
+  For a circular orbit, gravity provides the centripetal force:
+
+      G M(<r) m / r² = m v² / r     so     v = √(G M(<r) / r)
+
+  M(<r) is the mass inside the orbit. If most of the mass were the stars
+  we can see (concentrated near the centre), speeds far out should FALL as
+  v ∝ 1/√r, like the planets round the Sun (Kepler). Instead, measured
+  rotation curves stay FLAT — so there must be extra, unseen mass: a halo
+  of dark matter.
+
+  Units: radius in kiloparsecs (1 kpc = 3,260 light years), speed in km/s,
+  mass in solar masses (M☉), time in millions of years (Myr).
+  G = 4.30 × 10⁻⁶ kpc (km/s)² / M☉. Speeds are measured with the Doppler
+  shift: Δλ / λ = v / c.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; --theory:#00aec3; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 330px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: #3b3a5c; }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select, input[type=number], input[type=text] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .chk { display: flex; gap: 6px; align-items: center; font-size: 13px; margin: 4px 0 8px; }
+  .chk input { accent-color: var(--accent); }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+  .seg { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 8px; }
+  .seg button { padding: 3px 8px; font-size: 12px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #viewWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; min-width: 0; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; overflow-wrap: anywhere; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .tile.hl { border-color: var(--accent); }
+  .chartBox { position: relative; height: 170px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+  table.mini { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  table.mini td, table.mini th { padding: 2px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+  table.mini td:first-child, table.mini th:first-child { text-align: left; }
+
+  /* Batch run overlay (covers the centre and right panels) */
+  #batch { display: none; position: fixed; z-index: 30; background: var(--panel); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px;
+           flex-direction: column; gap: 7px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+  #batch.open { display: flex; }
+  #batch .bhead { display: flex; align-items: center; gap: 10px; }
+  #batch .bhead h3 { margin: 0; font-size: 17px; color: var(--accent); white-space: nowrap; }
+  #batch .brow { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; }
+  #batch .brow label { display: inline-flex; gap: 5px; align-items: center; }
+  #batch input[type=number] { width: 82px; }
+  #bexp { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 5px; }
+  #bexp button { text-align: left; font-size: 12px; padding: 5px 7px; line-height: 1.25; }
+  #bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, 31%); gap: 10px; }
+  #bchartBox { position: relative; min-height: 0; background: #050604; border-radius: 8px; }
+  #bchart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bside { overflow-y: auto; font-size: 12.5px; min-height: 0; }
+  #bsum table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #bsum td, #bsum th { padding: 1px 4px; border-bottom: 1px solid var(--line); text-align: right; font-size: 12px; }
+  #bsum td:first-child, #bsum th:first-child { text-align: left; }
+  #bnote { margin-top: 8px; padding: 7px 9px; background: var(--panel-2); border-left: 3px solid var(--accent); border-radius: 5px; color: #dfe3d6; }
+  .prog { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; flex: 1; min-width: 120px; }
+  .prog span { display: block; height: 100%; width: 0; background: var(--accent); }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+
+  .grp { border-top: 1px solid var(--line); padding-top: 6px; margin-top: 6px; }
+  .grp h3 { font-size: 12.5px; margin: 0 0 6px; display: flex; align-items: center; gap: 6px; }
+  .grp h3 i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Dark Matter and Rotation Curves</h1>
+  <span class="sub">Why galaxies spin too fast for the matter we can see: build a galaxy from a bulge, disc, gas and a dark matter halo, and fit real rotation curves.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: PRESETS AND MASS MODEL ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">Observed data</h2>
+    <div class="ctl"><select id="dataset">
+      <option value="mw">Milky Way</option><option value="m31">Andromeda (M31)</option><option value="rubin">Andromeda — Rubin &amp; Ford 1970</option>
+      <option value="n3198">NGC 3198 (spiral)</option><option value="ddo154">DDO 154 (dwarf galaxy)</option><option value="synth">Mystery galaxy (made by the computer)</option>
+      <option value="solar">Solar System planets</option></select>
+      <div class="hint" id="dataSrc"></div></div>
+
+    <h2 class="gap">Visible matter <span class="live">changes at once</span></h2>
+    <div class="grp"><h3><i style="background:#f1af28"></i>Central bulge (Hernquist)</h3>
+      <div class="ctl"><label>Mass <output id="o_Mb"></output></label><input type="range" id="Mb" min="7" max="11.5" step="0.01" value="10"></div>
+      <div class="ctl"><label>Size (scale radius) <output id="o_ab"></output></label><input type="range" id="ab" min="0.1" max="3" step="0.05" value="0.6"></div></div>
+    <div class="grp"><h3><i style="background:#a4cbe6"></i>Star disc (exponential)</h3>
+      <div class="ctl"><label>Mass <output id="o_Md"></output></label><input type="range" id="Md" min="7" max="11.5" step="0.01" value="10.6"></div>
+      <div class="ctl"><label>Scale length <output id="o_Rd"></output></label><input type="range" id="Rd" min="0.3" max="8" step="0.05" value="2.6"></div></div>
+    <div class="grp"><h3><i style="background:#76b82a"></i>Gas disc (hydrogen)</h3>
+      <div class="ctl"><label>Mass <output id="o_Mg"></output></label><input type="range" id="Mg" min="7" max="11" step="0.01" value="10"></div>
+      <div class="ctl"><label>Scale length <output id="o_Rg"></output></label><input type="range" id="Rg" min="0.5" max="15" step="0.1" value="5"></div></div>
+    <div class="grp"><h3><i style="background:#abb5b5"></i>Central black hole / star</h3>
+      <div class="ctl"><label>Mass <output id="o_Mbh"></output></label><input type="range" id="Mbh" min="0" max="10" step="0.01" value="6.6"></div></div>
+
+    <h2 class="gap">Dark matter <span class="live">changes at once</span></h2>
+    <label class="chk"><input type="checkbox" id="haloOn" checked> Include a dark matter halo</label>
+    <div class="ctl"><label>Halo shape</label><select id="htype"><option value="nfw">NFW (cusp: from computer simulations)</option><option value="iso">Pseudo-isothermal (flat core)</option></select></div>
+    <div class="ctl"><label>Halo mass (out to r₂₀₀) <output id="o_Mh"></output></label><input type="range" id="Mh" min="8" max="13.5" step="0.01" value="12"></div>
+    <div class="ctl"><label>Scale / core radius <output id="o_rs"></output></label><input type="range" id="rs" min="0.3" max="80" step="0.1" value="20"></div>
+    <label class="chk"><input type="checkbox" id="mond"> Use MOND instead of dark matter</label>
+    <div class="hint" style="margin-top:-4px">MOND (Modified Newtonian Dynamics) changes the law of gravity at tiny accelerations below a₀ = 1.2 × 10⁻¹⁰ m/s², instead of adding dark matter.</div>
+
+    <h2 class="gap">Mystery galaxy and batch data</h2>
+    <div class="ctl"><label>Observed points <output id="o_Np"></output></label><input type="range" id="Np" min="5" max="100" step="1" value="25"></div>
+    <div class="ctl"><label>Measurement error <output id="o_sig"></output></label><input type="range" id="sig" min="1" max="40" step="0.5" value="8"></div>
+    <div class="ctl"><label>Furthest point <output id="o_rmax"></output></label><input type="range" id="rmax" min="3" max="80" step="1" value="30"></div>
+    <div class="ctl"><label>Random seed</label><input type="text" id="seed" value="1" style="width:100%"></div>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Circular orbits:</b> v² = G M(&lt;r) / r for a sphere. The speeds from each part add as squares: v² = v<sub>bulge</sub>² + v<sub>disc</sub>² + v<sub>gas</sub>² + v<sub>hole</sub>² + v<sub>halo</sub>². G = 4.30 × 10⁻⁶ kpc (km/s)²/M☉ (887 AU (km/s)²/M☉ for the Solar System).</li>
+        <li><b>Bulge (Hernquist 1990):</b> M(&lt;r) = M r² / (r + a)².</li>
+        <li><b>Star and gas discs (Freeman 1970):</b> a thin disc with surface density Σ<sub>0</sub> e<sup>−R/R<sub>d</sub></sup>. v² = 4πGΣ<sub>0</sub>R<sub>d</sub> y² [I<sub>0</sub>(y)K<sub>0</sub>(y) − I<sub>1</sub>(y)K<sub>1</sub>(y)] with y = R / 2R<sub>d</sub>, using modified Bessel functions (polynomial approximations from Abramowitz &amp; Stegun). A disc pulls a little harder than a sphere of the same mass, so its curve peaks at 2.2 R<sub>d</sub>. Real gas discs are not exactly exponential.</li>
+        <li><b>Dark matter halo:</b> NFW: ρ ∝ 1/[(r/r<sub>s</sub>)(1 + r/r<sub>s</sub>)²], M(&lt;r) ∝ ln(1 + x) − x/(1 + x). Pseudo-isothermal: ρ = ρ<sub>0</sub>/(1 + (r/r<sub>c</sub>)²), M(&lt;r) ∝ x − arctan x. The "halo mass" is the mass inside r₂₀₀, the radius where the halo's average density is 200 times the critical density of the universe (136 M☉/kpc³).</li>
+        <li><b>Kepler expectation:</b> √(G M<sub>visible</sub>(&lt;r) / r), treating the visible mass as a sphere. Far outside the stars it falls as 1/√r.</li>
+        <li><b>MOND:</b> the Newtonian pull of the visible matter g<sub>N</sub> = v<sub>visible</sub>²/r is boosted: g = g<sub>N</sub> [½ + √(¼ + a₀/g<sub>N</sub>)] (the "simple" interpolating function), a₀ = 1.2 × 10⁻¹⁰ m/s².</li>
+        <li><b>Fitting:</b> χ² = Σ ((v<sub>observed</sub> − v<sub>model</sub>) / error)². For a good fit χ² is about the number of points. The automatic fit changes only the halo (its mass, and the radius if ticked), keeping the visible matter fixed: a coarse search, then a golden-section search.</li>
+        <li><b>Mystery galaxy and batch data:</b> made from the model on the left: speeds at evenly spaced radii, plus random errors (normal distribution, chosen SD).</li>
+        <li><b>The animation:</b> stars and gas clouds on circular orbits at the model speed, with 2-armed spirals drawn in at the start (they wind up, because the inner parts go round faster — real spiral arms are density waves that don't wind up). "Observed speeds, visible gravity only" gives each star its observed speed but only the visible matter's pull (treated as a sphere), stepped forward with the leapfrog method.</li>
+        <li><b>Edge-on view and slit:</b> colours show the speed along our line of sight: blue coming towards us, red going away. The slit spectrum plots the Hα line (656.3 nm) shifted by Δλ = λ v/c for stars along the slit.</li>
+        <li><b>Not modelled:</b> non-circular motions, warps, the thickness of discs, pressure support in gas, the bar of the Milky Way, how mass-to-light ratios are measured, adiabatic contraction of halos, and other evidence for dark matter (lensing, the cosmic microwave background, galaxy clusters). The observed curves are approximate, rounded re-creations for teaching.</li>
+      </ul>
+    </details>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE: THE GALAXY AND ITS ROTATION CURVE ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">0 Myr</span>
+      <span class="stat">χ² <b id="s_chi">–</b></span>
+      <span class="stat">Dark ÷ visible (inside last point) <b id="s_ratio">–</b></span>
+      <span class="stat">Speed at last point <b id="s_v">–</b></span>
+    </div>
+    <div id="viewWrap"><canvas id="view" aria-label="Galaxy face-on and edge-on, slit spectrum and rotation curve"></canvas></div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">⏸ Pause</button>
+      <button id="btnReset" title="Put the stars back at the start">Reset stars</button>
+      <span class="speed">Speed <button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="4">4×</button><button data-s="15">15×</button></span>
+      <label class="hint">Stars move with <select id="amode"><option value="full">the model's gravity (with any dark matter)</option><option value="vis">visible matter's gravity only (slow outside)</option><option value="fly">observed speeds, visible gravity only</option></select></label>
+      <button id="btnBatch" style="margin-left:auto">📊 Batch run</button>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT: READOUTS ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Results</button>
+    <h2>Weighing the galaxy</h2>
+    <div class="tiles" id="tiles"></div>
+    <div class="row" style="margin-top:8px"><button id="btnFit" class="primary">Fit the halo for me</button><label class="chk" style="margin:0"><input type="checkbox" id="fitRs"> radius too</label><button id="btnReveal" title="Show the hidden halo of the mystery galaxy">Reveal</button></div>
+    <div id="fitMsg" class="hint" style="margin-top:4px"></div>
+    <h2 class="gap">Mass inside radius r</h2>
+    <div class="chartBox"><canvas id="chart"></canvas></div>
+    <div class="legend" style="margin-top:4px"><span><i style="background:#f18700"></i>visible matter</span><span><i style="background:#a86dab"></i>dark matter</span><span><i style="background:#eef0e8"></i>total</span></div>
+    <h2 class="gap">What's happening</h2>
+    <div id="story"></div>
+  </section>
+</main>
+
+<!-- ======================= BATCH RUN OVERLAY ======================= -->
+<div id="batch" role="dialog" aria-label="Batch run">
+  <div class="bhead">
+    <h3>📊 Batch run</h3>
+    <span class="hint" id="bIntro"></span>
+    <button id="bClose" style="margin-left:auto">✕ Close</button>
+  </div>
+  <div id="bexp"></div>
+  <div class="brow">
+    <label>Mode <select id="bMode"><option value="repeat">Repeat (same settings, different random seeds)</option><option value="sweep">Sweep (change one setting in steps)</option></select></label>
+    <label>Record <select id="bOut"></select></label>
+    <span id="bRepeatOpts"><label>Runs <select id="bRuns"></select></label></span>
+    <span id="bSweepOpts" class="brow">
+      <label>Change <select id="bVar"></select></label>
+      <label>from <input type="number" id="bFrom" step="any"></label>
+      <label>to <input type="number" id="bTo" step="any"></label>
+      <label>steps <input type="number" id="bSteps" min="2" max="25" value="8" style="width:56px"></label>
+      <label>repeats <input type="number" id="bReps" min="1" max="500" value="20" style="width:64px"></label>
+    </span>
+  </div>
+  <div class="brow">
+    <button id="bRun" class="primary">▶ Run batch</button>
+    <button id="bStop" disabled>■ Stop</button>
+    <div class="prog"><span id="bProg"></span></div>
+    <span id="bStatus" class="hint">Ready</span>
+    <label id="bShowWrap">Show <select id="bShow"><option value="mean">mean ± error bar</option><option value="sd">spread (SD) only</option></select></label>
+    <label>Error bars <select id="bErr"><option value="sd">± 1 SD</option><option value="se">± 1 standard error</option></select></label>
+    <label><input type="checkbox" id="bLogX"> log x</label>
+    <label><input type="checkbox" id="bLogY"> log y</label>
+    <button id="bCsv" disabled>⬇ Download CSV</button>
+  </div>
+  <div id="bbody">
+    <div id="bchartBox"><canvas id="bchart"></canvas></div>
+    <div id="bside"><div id="bsum" class="hint">Pick an experiment above, or set up your own, then press <b>Run batch</b>.</div><div id="bnote" style="display:none"></div></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   SHARED HELPERS: random numbers, formatting, graphs
+   ===================================================================== */
+const el = id => document.getElementById(id);
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+// Repeatable random numbers: the same seed always gives the same "random" run.
+function hashSeed(str) { str = String(str); let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } return h >>> 0; }
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+// A normally distributed random number (mean 0, SD 1), by the Box–Muller method.
+function gauss(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+// The normal cumulative distribution Φ(z): the chance a normal variable is below z.
+function normCdf(z) { const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989423 * Math.exp(-z * z / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - p : p; }
+// Format a number to about `sig` significant figures, with thousands separators.
+function fmt(v, sig = 3) {
+  if (v == null || !isFinite(v)) return "–";
+  const a = Math.abs(v);
+  if (a === 0) return "0";
+  if (a >= 1e6 || a < 1e-3) { const e = Math.floor(Math.log10(a)), m = v / Math.pow(10, e); return `${m.toFixed(Math.max(0, sig - 1))}×10<sup>${e}</sup>`; }
+  if (a >= Math.pow(10, sig - 1)) return Math.round(v).toLocaleString("en-GB");
+  return Number(v.toPrecision(sig)).toString();
+}
+const fmtPlain = (v, sig = 3) => fmt(v, sig).replace(/×10<sup>(-?\d+)<\/sup>/, "e$1");
+const tile = (k, v, s = "", cls = "") => `<div class="tile ${cls}"><div class="k">${k}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ""}</div>`;
+
+// Make a canvas sharp on high-resolution screens and match its on-screen size.
+function fitCanvas(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(2, Math.round(c.clientWidth * dpr)), H = Math.max(2, Math.round(c.clientHeight * dpr));
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  return { ctx: c.getContext("2d"), W, H, dpr };
+}
+// "Nice" tick marks for an axis (1, 2, 5 × a power of ten)
+function niceTicks(lo, hi, n = 5) {
+  if (!(hi > lo)) return [lo];
+  const raw = (hi - lo) / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  const step = (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p, out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+  return out;
+}
+function logTicks(lo, hi) {
+  const out = [], a = Math.floor(Math.log10(lo)), b = Math.ceil(Math.log10(hi));
+  const mult = b - a <= 2 ? [1, 2, 5] : b - a <= 4 ? [1, 3] : [1];
+  for (let e = a; e <= b; e++) for (const m of mult) { const v = m * Math.pow(10, e); if (v >= lo * 0.999 && v <= hi * 1.001) out.push(v); }
+  return out;
+}
+const tickLabel = v => { const a = Math.abs(v); if (a !== 0 && (a >= 1e5 || a < 1e-3)) { const e = Math.floor(Math.log10(a) + 1e-9), m = v / Math.pow(10, e); return (Math.abs(m - 1) < 1e-6 ? "" : +m.toFixed(1) + "×") + "1e" + e; } return +v.toPrecision(4) + ""; };
+
+/* Draw axes, grid and labels inside rectangle r = {x, y, w, h} (device pixels).
+   Returns functions X(value) and Y(value) that turn data values into pixels. */
+function plotFrame(ctx, r, o) {
+  const d = o.dpr || 1, L = r.x + (o.padL ?? 50) * d, R = r.x + r.w - (o.padR ?? 10) * d, T = r.y + (o.title ? 20 : 8) * d, B = r.y + r.h - (o.xlabel ? 32 : 18) * d;
+  const lx = o.logX, ly = o.logY;
+  const fx = v => (lx ? Math.log10(v) : v), fy = v => (ly ? Math.log10(v) : v);
+  const X = v => L + (fx(v) - fx(o.x0)) / (fx(o.x1) - fx(o.x0)) * (R - L);
+  const Y = v => B - (fy(v) - fy(o.y0)) / (fy(o.y1) - fy(o.y0)) * (B - T);
+  ctx.save();
+  ctx.fillStyle = o.bg || "#0d100b"; ctx.fillRect(r.x, r.y, r.w, r.h);
+  ctx.font = `${10.5 * d}px system-ui`; ctx.lineWidth = 1;
+  const xt = o.xticks || (lx ? logTicks(o.x0, o.x1) : niceTicks(o.x0, o.x1, Math.max(2, Math.floor((R - L) / (70 * d)))));
+  const yt = o.yticks || (ly ? logTicks(o.y0, o.y1) : niceTicks(o.y0, o.y1, Math.max(2, Math.floor((B - T) / (34 * d)))));
+  for (const v of xt) { const x = X(v); if (x < L - 1 || x > R + 1) continue; ctx.strokeStyle = "rgba(160,170,150,0.13)"; ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, B); ctx.stroke();
+    ctx.fillStyle = "#a3ab96"; ctx.textAlign = "center"; ctx.fillText((o.xfmt || tickLabel)(v), x, B + 12 * d); }
+  for (const v of yt) { const y = Y(v); if (y < T - 1 || y > B + 1) continue; ctx.strokeStyle = "rgba(160,170,150,0.13)"; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(R, y); ctx.stroke();
+    ctx.fillStyle = "#a3ab96"; ctx.textAlign = "right"; ctx.fillText((o.yfmt || tickLabel)(v), L - 4 * d, y + 3.5 * d); }
+  ctx.strokeStyle = "rgba(200,205,190,0.45)"; ctx.strokeRect(L, T, R - L, B - T);
+  ctx.fillStyle = "#cfd4c5"; ctx.font = `${11 * d}px system-ui`;
+  if (o.xlabel) { ctx.textAlign = "center"; ctx.fillText(o.xlabel, (L + R) / 2, r.y + r.h - 6 * d); }
+  if (o.ylabel) { ctx.save(); ctx.translate(r.x + 11 * d, (T + B) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText(o.ylabel, 0, 0); ctx.restore(); }
+  if (o.title) { ctx.textAlign = "left"; ctx.fillStyle = "#eef0e8"; ctx.font = `600 ${11.5 * d}px system-ui`; ctx.fillText(o.title, L, r.y + 13 * d); }
+  ctx.restore();
+  return { X, Y, L, R, T, B, clip() { ctx.save(); ctx.beginPath(); ctx.rect(L, T, R - L, B - T); ctx.clip(); } };
+}
+function polyline(ctx, pts, col, w = 2, dash = null) {
+  ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = w; if (dash) ctx.setLineDash(dash); ctx.beginPath();
+  let started = false;
+  for (const p of pts) { if (!p || !isFinite(p[0]) || !isFinite(p[1])) { started = false; continue; } if (!started) { ctx.moveTo(p[0], p[1]); started = true; } else ctx.lineTo(p[0], p[1]); }
+  ctx.stroke(); ctx.restore();
+}
+function legendBox(ctx, items, x, y, d) {
+  ctx.save(); ctx.font = `${11 * d}px system-ui`;
+  const w = Math.max(...items.map(i => ctx.measureText(i[1]).width)) + 30 * d, h = items.length * 15 * d + 6 * d;
+  ctx.fillStyle = "rgba(10,12,9,0.82)"; ctx.fillRect(x - w, y, w, h);
+  items.forEach(([col, txt, dash], k) => {
+    const yy = y + 12 * d + k * 15 * d;
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2.5 * d; ctx.setLineDash(dash ? [5 * d, 4 * d] : []);
+    if (dash === "dot") { ctx.beginPath(); ctx.arc(x - w + 13 * d, yy - 3.5 * d, 3 * d, 0, 7); ctx.fill(); }
+    else { ctx.beginPath(); ctx.moveTo(x - w + 5 * d, yy - 4 * d); ctx.lineTo(x - w + 21 * d, yy - 4 * d); ctx.stroke(); }
+    ctx.setLineDash([]); ctx.fillStyle = "#dfe3d6"; ctx.textAlign = "left"; ctx.fillText(txt, x - w + 25 * d, yy);
+  });
+  ctx.restore();
+}
+function basicStats(v) {
+  const n = v.length; if (!n) return { n: 0 };
+  let s = 0, mn = Infinity, mx = -Infinity; for (const x of v) { s += x; if (x < mn) mn = x; if (x > mx) mx = x; }
+  const mean = s / n; let ss = 0; for (const x of v) ss += (x - mean) ** 2;
+  const sd = n > 1 ? Math.sqrt(ss / (n - 1)) : 0;
+  return { n, mean, sd, se: sd / Math.sqrt(n), min: mn, max: mx };
+}
+// Least-squares straight line y = a + b x, with the standard error of the gradient
+function linFit(xs, ys) {
+  const n = xs.length; if (n < 2) return null;
+  let sx = 0, sy = 0; for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; }
+  const mx = sx / n, my = sy / n; let sxx = 0, sxy = 0; for (let i = 0; i < n; i++) { sxx += (xs[i] - mx) ** 2; sxy += (xs[i] - mx) * (ys[i] - my); }
+  if (!sxx) return null;
+  const b = sxy / sxx, a = my - b * mx; let ss = 0; for (let i = 0; i < n; i++) ss += (ys[i] - a - b * xs[i]) ** 2;
+  return { a, b, seB: n > 2 ? Math.sqrt(ss / (n - 2) / sxx) : 0 };
+}
+
+/* =====================================================================
+   BATCH RUN — run the model many times with no drawing, compare with theory.
+   The simulation supplies a SPEC:
+     outcomes   : [{key, label, unit, binary}]   things a run can measure
+     vars       : [{key, label, unit, min, max, log, int}]  settings a sweep can change
+     runs       : choices for the number of repeats
+     base()     : the current settings (from the controls)
+     run(p, seed, outKey) → {key: value, ...}  ONE headless run
+     theory(p, outKey) → {y, sd, label} or null  the theory prediction
+     experiments: [{q, note, setup(), cfg}]   one-click questions
+   ===================================================================== */
+function setupBatch(S) {
+  let busy = false, stop = false, res = null, expNote = null;
+  const O = k => S.outcomes.find(o => o.key === k), V = k => S.vars.find(v => v.key === k);
+  el("bIntro").innerHTML = S.intro;
+  el("bOut").innerHTML = S.outcomes.map(o => `<option value="${o.key}">${o.label}${o.unit ? " (" + o.unit + ")" : ""}</option>`).join("");
+  el("bVar").innerHTML = S.vars.map(v => `<option value="${v.key}">${v.label}${v.unit ? " (" + v.unit + ")" : ""}</option>`).join("");
+  el("bRuns").innerHTML = S.runs.map(n => `<option>${n}</option>`).join("");
+  el("bRuns").value = S.runs[1] ?? S.runs[0];
+  el("bexp").innerHTML = S.experiments.map((e, i) => `<button data-i="${i}">${e.q}</button>`).join("");
+  const sync = () => {
+    const sw = el("bMode").value === "sweep";
+    el("bRepeatOpts").style.display = sw ? "none" : ""; el("bSweepOpts").style.display = sw ? "" : "none"; el("bShowWrap").style.display = sw ? "" : "none";
+  };
+  const setVarDefaults = () => { const v = V(el("bVar").value); el("bFrom").value = v.from ?? v.min; el("bTo").value = v.to ?? v.max; el("bLogX").checked = !!v.log; };
+  function loadExperiment(i) {
+    const e = S.experiments[i], c = e.cfg;
+    if (e.setup) e.setup();
+    el("bMode").value = c.mode; el("bOut").value = c.outcome;
+    if (c.mode === "repeat") el("bRuns").value = c.n;
+    else { el("bVar").value = c.var; setVarDefaults(); el("bFrom").value = c.from; el("bTo").value = c.to; el("bSteps").value = c.steps; el("bReps").value = c.reps; }
+    el("bShow").value = c.show || "mean"; el("bErr").value = c.err || "sd"; el("bLogY").checked = !!c.logY; if (c.logX != null) el("bLogX").checked = c.logX;
+    document.querySelectorAll("#bexp button").forEach((b, j) => b.classList.toggle("on", j === i));
+    expNote = e; sync(); el("bnote").style.display = "none";
+    el("bsum").innerHTML = `<b>${e.q}</b><br>Press <b>Run batch</b>.`;
+  }
+  function xs(c) {
+    const v = V(c.var), out = [];
+    for (let k = 0; k < c.steps; k++) {
+      const f = c.steps === 1 ? 0 : k / (c.steps - 1);
+      let x = v.log && c.from > 0 && c.to > 0 ? c.from * Math.pow(c.to / c.from, f) : c.from + (c.to - c.from) * f;
+      x = clamp(x, v.min, v.max); if (v.int) x = Math.round(x);
+      if (!out.includes(x)) out.push(x);
+    }
+    return out;
+  }
+  function run() {
+    if (busy) return;
+    const c = { mode: el("bMode").value, outcome: el("bOut").value, n: +el("bRuns").value, var: el("bVar").value,
+                from: +el("bFrom").value, to: +el("bTo").value, steps: clamp(+el("bSteps").value | 0, 2, 25), reps: clamp(+el("bReps").value | 0, 1, 500) };
+    const base = S.base(), jobs = [], tag = String(base.seed ?? "batch");
+    if (c.mode === "repeat") for (let k = 0; k < c.n; k++) jobs.push({ p: base, seed: hashSeed(tag + "|r" + k), x: null });
+    else for (const x of xs(c)) for (let k = 0; k < c.reps; k++) jobs.push({ p: Object.assign({}, base, { [c.var]: x }), seed: hashSeed(tag + "|" + x + "|" + k), x });
+    res = { c, base, rows: [], note: expNote };
+    busy = true; stop = false; el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").disabled = true;
+    const t0 = performance.now(); let k = 0;
+    (function chunk() {
+      const tc = performance.now();
+      while (k < jobs.length && performance.now() - tc < 40 && !stop) {
+        const j = jobs[k++], r = S.run(j.p, j.seed, c.outcome);
+        res.rows.push(Object.assign({ seed: j.seed, x: j.x }, r));
+      }
+      el("bProg").style.width = (100 * k / jobs.length) + "%";
+      el("bStatus").textContent = `${k} / ${jobs.length} runs · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+      draw();
+      if (k < jobs.length && !stop) setTimeout(chunk, 0);
+      else { busy = false; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").disabled = !res.rows.length; el("bStatus").textContent += stop ? " · stopped" : " · done"; }
+    })();
+  }
+  function theoryAt(p, key) { try { const t = S.theory(p, key); return t && isFinite(t.y) ? t : null; } catch (e) { return null; } }
+  function draw() {
+    const cv = el("bchart"), { ctx, W, H, dpr: d } = fitCanvas(cv);
+    ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, W, H);
+    if (!res || !res.rows.length) return;
+    const c = res.c, key = el("bOut").value, o = O(key), unit = o.unit ? ` (${o.unit})` : "";
+    const logY = el("bLogY").checked, useSE = el("bErr").value === "se";
+    const note = res.note && res.note.note ? `<b>What this shows.</b> ${res.note.note}` : "";
+    el("bnote").innerHTML = note; el("bnote").style.display = note ? "" : "none";
+    if (c.mode === "repeat") {
+      const vals = res.rows.map(r => r[key]).filter(v => v != null && isFinite(v));
+      const st = basicStats(vals), th = theoryAt(res.base, key);
+      if (!st.n) { el("bsum").innerHTML = "No valid results for this measure yet."; return; }
+      let lo = st.min, hi = st.max;
+      if (o.binary) { lo = -0.5; hi = 1.5; }
+      else { if (th) { lo = Math.min(lo, th.y - (th.sd || 0) * 2.5); hi = Math.max(hi, th.y + (th.sd || 0) * 2.5); } if (hi - lo < 1e-12) { lo -= 1; hi += 1; } const pad = (hi - lo) * 0.06; lo -= pad; hi += pad; }
+      const nb = o.binary ? 2 : clamp(Math.round(Math.sqrt(st.n) * 1.3), 8, 40), bw = o.binary ? 1 : (hi - lo) / nb, bins = new Array(nb).fill(0);
+      for (const v of vals) bins[o.binary ? (v >= 0.5 ? 1 : 0) : clamp(Math.floor((v - lo) / bw), 0, nb - 1)]++;
+      let ymax = Math.max(...bins);
+      const curve = th && th.sd > 0 && !o.binary ? x => st.n * bw * Math.exp(-0.5 * ((x - th.y) / th.sd) ** 2) / (th.sd * Math.sqrt(2 * Math.PI)) : null;
+      if (curve) ymax = Math.max(ymax, curve(th.y));
+      const ax = plotFrame(ctx, { x: 0, y: 0, w: W, h: H }, { dpr: d, x0: lo, x1: hi, y0: 0, y1: ymax * 1.12, xlabel: o.label + unit, ylabel: "Number of runs",
+        title: `Repeat: ${st.n} runs`, xticks: o.binary ? [0, 1] : null, xfmt: o.binary ? (v => (v ? "yes (1)" : "no (0)")) : null });
+      ax.clip();
+      ctx.fillStyle = "rgba(241,175,40,0.55)"; ctx.strokeStyle = "#f1af28";
+      bins.forEach((b, i) => { const x0 = o.binary ? ax.X(i - 0.35) : ax.X(lo + i * bw), x1 = o.binary ? ax.X(i + 0.35) : ax.X(lo + (i + 1) * bw); ctx.fillRect(x0 + d, ax.Y(b), x1 - x0 - 2 * d, ax.Y(0) - ax.Y(b)); });
+      const leg = [["#f1af28", "simulated runs"]];
+      if (curve) { const pts = []; for (let i = 0; i <= 120; i++) { const x = lo + (hi - lo) * i / 120; pts.push([ax.X(x), ax.Y(curve(x))]); } polyline(ctx, pts, "#00aec3", 2.5 * d); leg.push(["#00aec3", "theory spread (normal curve)"]); }
+      if (th && !o.binary) { polyline(ctx, [[ax.X(th.y), ax.T], [ax.X(th.y), ax.B]], "#00aec3", 2.5 * d, [7 * d, 5 * d]); leg.push(["#00aec3", (th.label || "theory value"), true]); }
+      if (!o.binary) { polyline(ctx, [[ax.X(st.mean), ax.T], [ax.X(st.mean), ax.B]], "#ffffff", 2 * d); leg.push(["#ffffff", "mean of runs"]); }
+      ctx.restore();
+      legendBox(ctx, leg, W - 12 * d, 24 * d, d);
+      const diff = th ? st.mean - th.y : null;
+      let rows = `<tr><th>Runs (valid)</th><td>${st.n}${vals.length < res.rows.length ? ` of ${res.rows.length}` : ""}</td></tr>` +
+        (o.binary ? `<tr><th>Fraction “yes”</th><td>${fmt(st.mean, 3)} ± ${fmt(Math.sqrt(st.mean * (1 - st.mean) / st.n), 2)}</td></tr>` :
+        `<tr><th>Mean</th><td>${fmt(st.mean, 4)}</td></tr><tr><th>SD</th><td>${fmt(st.sd, 3)}</td></tr><tr><th>Standard error</th><td>${fmt(st.se, 3)}</td></tr><tr><th>Min / max</th><td>${fmt(st.min, 3)} / ${fmt(st.max, 3)}</td></tr>`);
+      if (th) {
+        const se = o.binary ? Math.sqrt(Math.max(th.y * (1 - th.y), 1e-9) / st.n) : st.se;
+        rows += `<tr><th>${th.label || "Theory"}</th><td>${fmt(th.y, 4)}</td></tr>` + (th.sd && !o.binary ? `<tr><th>Theory SD</th><td>${fmt(th.sd, 3)}</td></tr>` : "") +
+          `<tr><th>Difference</th><td>${th.y ? fmt(100 * diff / Math.abs(th.y), 2) + "%" : fmt(diff, 3)}</td></tr><tr><th>…in standard errors</th><td>${se > 0 ? (diff / se).toFixed(1) : "–"}</td></tr>`;
+      }
+      el("bsum").innerHTML = `<table>${rows}</table>` + (S.extraSummary ? S.extraSummary(res.rows, key, res.base) : "");
+    } else {
+      const v = V(c.var), logX = el("bLogX").checked, showSD = el("bShow").value === "sd";
+      const groups = new Map();
+      for (const r of res.rows) { if (!groups.has(r.x)) groups.set(r.x, []); const y = r[key]; if (y != null && isFinite(y)) groups.get(r.x).push(y); }
+      const G = [...groups.entries()].map(([x, ys]) => { const s = basicStats(ys); const p = Object.assign({}, res.base, { [c.var]: x }); return { x, s, th: theoryAt(p, key) }; }).filter(g => g.s.n);
+      if (!G.length) { el("bsum").innerHTML = "No valid results for this measure yet."; return; }
+      const err = g => (o.binary ? Math.sqrt(g.s.mean * (1 - g.s.mean) / g.s.n) * (useSE ? 1 : Math.sqrt(g.s.n)) : useSE ? g.s.se : g.s.sd);
+      const yv = g => (showSD ? g.s.sd : g.s.mean), tv = g => (g.th ? (showSD ? g.th.sd : g.th.y) : null);
+      let x0 = Math.min(...G.map(g => g.x)), x1 = Math.max(...G.map(g => g.x));
+      if (x1 === x0) { x0 -= 1; x1 += 1; }
+      if (!logX) { const p = (x1 - x0) * 0.05; x0 -= p; x1 += p; } else { x0 = Math.max(x0 / 1.15, 1e-12); x1 *= 1.15; }
+      const tcurve = []; for (let i = 0; i <= 100; i++) { const x = logX ? x0 * Math.pow(x1 / x0, i / 100) : x0 + (x1 - x0) * i / 100; const xc = clamp(x, v.min, v.max); const t = theoryAt(Object.assign({}, res.base, { [c.var]: v.int ? xc : xc }), key); if (t) tcurve.push([x, showSD ? t.sd : t.y]); }
+      let ys = [];
+      G.forEach(g => { ys.push(yv(g)); if (!showSD) { ys.push(g.s.mean - err(g), g.s.mean + err(g)); } });
+      if (!showSD) res.rows.forEach(r => { const y = r[key]; if (y != null && isFinite(y)) ys.push(y); });
+      tcurve.forEach(p => ys.push(p[1]));
+      ys = ys.filter(y => y != null && isFinite(y) && (!logY || y > 0));
+      let y0 = Math.min(...ys), y1 = Math.max(...ys);
+      if (o.binary && !showSD) { y0 = Math.min(0, y0); y1 = Math.max(1, y1); }
+      if (logY) { y0 = Math.max(y0 / 1.3, 1e-12); y1 *= 1.3; } else { if (y1 - y0 < 1e-12) { y0 -= 1; y1 += 1; } const p = (y1 - y0) * 0.08; y0 -= p; y1 += p; if (!o.binary && y0 < 0 && Math.min(...ys) >= 0) y0 = 0; }
+      const ax = plotFrame(ctx, { x: 0, y: 0, w: W, h: H }, { dpr: d, x0, x1, y0, y1, logX, logY, xlabel: v.label + (v.unit ? ` (${v.unit})` : ""),
+        ylabel: (showSD ? "Spread (SD) of " : "") + o.label + unit, title: `Sweep: ${G.length} steps × ${c.reps} runs` });
+      ax.clip();
+      if (!showSD && !o.binary) { ctx.fillStyle = "rgba(0,174,195,0.0)"; ctx.fillStyle = "rgba(241,175,40,0.22)"; for (const r of res.rows) { const y = r[key]; if (y == null || !isFinite(y) || (logY && y <= 0)) continue; ctx.beginPath(); ctx.arc(ax.X(r.x), ax.Y(y), 2 * d, 0, 7); ctx.fill(); } }
+      const leg = [];
+      if (tcurve.length) {
+        polyline(ctx, tcurve.map(p => [ax.X(p[0]), ax.Y(p[1])]), "#00aec3", 2.5 * d);
+        leg.push(["#00aec3", showSD ? "theory spread" : "theory"]);
+        if (!showSD && tcurve.length && G.some(g => g.th && g.th.sd)) {
+          const band = s => { const pts = []; for (let i = 0; i <= 100; i++) { const x = logX ? x0 * Math.pow(x1 / x0, i / 100) : x0 + (x1 - x0) * i / 100; const t = theoryAt(Object.assign({}, res.base, { [c.var]: clamp(x, v.min, v.max) }), key); if (t && t.sd) pts.push([ax.X(x), ax.Y(t.y + s * t.sd)]); } return pts; };
+          polyline(ctx, band(1), "rgba(0,174,195,0.6)", 1.3 * d, [5 * d, 4 * d]); polyline(ctx, band(-1), "rgba(0,174,195,0.6)", 1.3 * d, [5 * d, 4 * d]);
+          leg.push(["rgba(0,174,195,0.8)", "theory ± 1 SD of one run", true]);
+        }
+      }
+      ctx.strokeStyle = "#ffffff"; ctx.fillStyle = "#f1af28"; ctx.lineWidth = 1.6 * d;
+      for (const g of G) {
+        const X = ax.X(g.x), y = yv(g); if (!(isFinite(y)) || (logY && y <= 0)) continue;
+        if (!showSD) { const e = err(g), ya = ax.Y(Math.max(logY ? y0 : -Infinity, y - e)), yb = ax.Y(y + e); ctx.beginPath(); ctx.moveTo(X, ya); ctx.lineTo(X, yb); ctx.moveTo(X - 5 * d, ya); ctx.lineTo(X + 5 * d, ya); ctx.moveTo(X - 5 * d, yb); ctx.lineTo(X + 5 * d, yb); ctx.stroke(); }
+        ctx.beginPath(); ctx.arc(X, ax.Y(y), 4.5 * d, 0, 7); ctx.fill(); ctx.stroke();
+      }
+      ctx.restore();
+      leg.unshift(["#f1af28", showSD ? "SD of the runs at each step" : `mean ± ${o.binary ? (useSE ? "standard error" : "1 SD") : useSE ? "standard error" : "1 SD"}`, "dot"]);
+      if (!showSD && !o.binary) leg.push(["rgba(241,175,40,0.6)", "individual runs", "dot"]);
+      legendBox(ctx, leg, W - 12 * d, 24 * d, d);
+      // summary table and fitted relationships
+      let rows = `<tr><th>${v.label}</th><th>n</th><th>${showSD ? "SD" : "mean"}</th><th>${showSD ? "mean" : o.binary ? "SE" : "SD"}</th><th>theory</th></tr>`;
+      let within = 0, cnt = 0;
+      for (const g of G) {
+        const se = o.binary ? Math.sqrt(Math.max(g.s.mean * (1 - g.s.mean), 0.25 / g.s.n) / g.s.n) : g.s.se;
+        if (g.th && !showSD) { cnt++; if (Math.abs(g.s.mean - g.th.y) <= 2 * Math.max(se, 1e-12)) within++; }
+        rows += `<tr><td>${fmt(g.x, 3)}</td><td>${g.s.n}</td><td>${fmt(yv(g), 3)}</td><td>${fmt(showSD ? g.s.mean : o.binary ? se : g.s.sd, showSD ? 3 : 2)}</td><td>${tv(g) != null ? fmt(tv(g), 3) : "–"}</td></tr>`;
+      }
+      let fits = "";
+      const pos = G.filter(g => g.x > 0 && yv(g) > 0);
+      if (pos.length >= 3) { const f = linFit(pos.map(g => Math.log10(g.x)), pos.map(g => Math.log10(yv(g)))); if (f) fits += `<div>Log–log gradient of ${showSD ? "SD" : "mean"} against ${v.label}: <b>${f.b.toFixed(2)} ± ${f.seB.toFixed(2)}</b>${S.slopeHint ? S.slopeHint(c.var, key, showSD) : ""}</div>`; }
+      if (!showSD) { const f = linFit(G.map(g => g.x), G.map(g => g.s.mean)); if (f) fits += `<div>Straight-line fit: ${o.label} = ${fmt(f.a, 3)} + ${fmt(f.b, 3)} × ${v.label}</div>`; }
+      if (cnt) fits += `<div>Steps within 2 standard errors of theory: <b>${within} of ${cnt}</b></div>`;
+      el("bsum").innerHTML = `<table>${rows}</table><div style="margin-top:6px">${fits}</div>` + (S.extraSummary ? S.extraSummary(res.rows, key, res.base, c) : "");
+    }
+  }
+  function csv() {
+    if (!res) return;
+    const keys = [...new Set(res.rows.flatMap(r => Object.keys(r)))].filter(k => k !== "seed" && k !== "x");
+    const head = ["run", "seed", res.c.mode === "sweep" ? res.c.var : null, ...keys].filter(Boolean);
+    const lines = [head.join(",")].concat(res.rows.map((r, i) => [i + 1, r.seed, res.c.mode === "sweep" ? r.x : null, ...keys.map(k => (r[k] == null || !isFinite(r[k]) ? "" : +(+r[k]).toPrecision(8)))].filter(v => v !== null).join(",")));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" })); a.download = `${S.file}-batch-${res.c.mode}.csv`;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+  function place() {
+    const c = el("centre").getBoundingClientRect(), r = el("right").getBoundingClientRect(), b = el("batch");
+    b.style.left = c.left + "px"; b.style.top = c.top + "px"; b.style.width = (r.right - c.left) + "px"; b.style.height = c.height + "px";
+  }
+  document.querySelectorAll("#bexp button").forEach(b => b.addEventListener("click", () => loadExperiment(+b.dataset.i)));
+  el("bMode").addEventListener("input", () => { expNote = null; document.querySelectorAll("#bexp button").forEach(b => b.classList.remove("on")); sync(); });
+  el("bVar").addEventListener("input", () => { setVarDefaults(); expNote = null; });
+  ["bOut", "bShow", "bErr", "bLogX", "bLogY"].forEach(id => el(id).addEventListener("input", draw));
+  el("btnBatch").addEventListener("click", () => { place(); el("batch").classList.add("open"); if (!res && !expNote) loadExperiment(0); draw(); });
+  el("bClose").addEventListener("click", () => el("batch").classList.remove("open"));
+  el("bRun").addEventListener("click", run);
+  el("bStop").addEventListener("click", () => { stop = true; });
+  el("bCsv").addEventListener("click", csv);
+  window.addEventListener("resize", () => { if (el("batch").classList.contains("open")) { place(); draw(); } });
+  setVarDefaults(); sync();
+  return { place, draw, isBusy: () => busy, isOpen: () => el("batch").classList.contains("open"), loadExperiment, run, result: () => res };
+}
+
+/* =====================================================================
+   PANEL LAYOUT — resize or hide the side panels
+   ===================================================================== */
+function setupPanels(KEY, onChange) {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const STRIP = 30, MIN = 200, DEF = { lw: 290, rw: 330, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+    if (onChange) onChange();
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+}
+
+/* =====================================================================
+   1. THE MASS MODEL
+   ---------------------------------------------------------------------
+   Units: radius in kiloparsecs (kpc; 1 kpc = 3,260 light years), speed in
+   km/s, mass in solar masses (M☉). For the solar system: radius in AU.
+   Circular orbit speed: v² = G M(<r) / r for a sphere. v² from each part
+   of the galaxy adds up: v_total² = v_bulge² + v_disc² + v_gas² + v_hole² + v_halo².
+   ===================================================================== */
+const G_KPC = 4.30091e-6;           // G in kpc (km/s)² / M☉
+const G_AU = 887.13;                // G in AU (km/s)² / M☉
+const RHO_CRIT = 136.0;             // critical density of the universe, M☉ per kpc³ (H0 = 70)
+const A0_MOND = 1.2e-10 / 3.2408e-14; // MOND a0 = 1.2×10⁻¹⁰ m/s² in (km/s)² per kpc (= 3,703)
+const COSMIC_RATIO = 0.2607 / 0.0490; // Planck 2018: dark matter ÷ ordinary matter ≈ 5.3
+
+/* Modified Bessel functions I0, I1, K0, K1 (polynomial approximations from
+   Abramowitz & Stegun). The "scaled" versions leave out e^x or e^−x so that
+   very large arguments don't overflow. */
+function i0s(x) { if (x < 3.75) { const y = (x / 3.75) ** 2; return Math.exp(-x) * (1 + y * (3.5156229 + y * (3.0899424 + y * (1.2067492 + y * (0.2659732 + y * (0.0360768 + y * 0.0045813)))))); }
+  const y = 3.75 / x; return (0.39894228 + y * (0.01328592 + y * (0.00225319 + y * (-0.00157565 + y * (0.00916281 + y * (-0.02057706 + y * (0.02635537 + y * (-0.01647633 + y * 0.00392377)))))))) / Math.sqrt(x); }
+function i1s(x) { if (x < 3.75) { const y = (x / 3.75) ** 2; return Math.exp(-x) * x * (0.5 + y * (0.87890594 + y * (0.51498869 + y * (0.15084934 + y * (0.02658733 + y * (0.00301532 + y * 0.00032411)))))); }
+  const y = 3.75 / x; let a = 0.02282967 + y * (-0.02895312 + y * (0.01787654 - y * 0.00420059)); a = 0.39894228 + y * (-0.03988024 + y * (-0.00362018 + y * (0.00163801 + y * (-0.01031555 + y * a)))); return a / Math.sqrt(x); }
+function k0s(x) { if (x <= 2) { const y = x * x / 4; return Math.exp(x) * (-Math.log(x / 2) * i0s(x) * Math.exp(x) + (-0.57721566 + y * (0.4227842 + y * (0.23069756 + y * (0.0348859 + y * (0.00262698 + y * (0.0001075 + y * 0.0000074))))))); }
+  const y = 2 / x; return (1.25331414 + y * (-0.07832358 + y * (0.02189568 + y * (-0.01062446 + y * (0.00587872 + y * (-0.0025154 + y * 0.00053208)))))) / Math.sqrt(x); }
+function k1s(x) { if (x <= 2) { const y = x * x / 4; return Math.exp(x) * (Math.log(x / 2) * i1s(x) * Math.exp(x) + (1 / x) * (1 + y * (0.15443144 + y * (-0.67278579 + y * (-0.18156897 + y * (-0.01919402 + y * (-0.00110404 + y * -0.00004686))))))); }
+  const y = 2 / x; return (1.25331414 + y * (0.23498619 + y * (-0.0365562 + y * (0.01504268 + y * (-0.00780353 + y * (0.00325614 + y * -0.00068245)))))) / Math.sqrt(x); }
+
+/* Thin exponential disc (Freeman 1970): surface density Σ = Σ0 e^(−R/Rd).
+   v² = 4πGΣ0 Rd y² [I0(y)K0(y) − I1(y)K1(y)],  y = R/(2Rd),  Σ0 = M/(2πRd²).
+   Far outside the disc this becomes G M / R, like a point mass. */
+function v2Disc(R, M, Rd, G) {
+  if (M <= 0 || R <= 0) return 0;
+  const y = R / (2 * Rd);
+  if (y > 40) return G * M / R;
+  return 2 * G * M / Rd * y * y * (i0s(y) * k0s(y) - i1s(y) * k1s(y));
+}
+const mDisc = (R, M, Rd) => M * (1 - Math.exp(-R / Rd) * (1 + R / Rd));          // mass inside radius R
+// Hernquist bulge: M(<r) = M r² / (r + a)²
+const mBulge = (r, M, a) => M * r * r / ((r + a) * (r + a));
+// Dark matter halo: NFW (Navarro–Frenk–White) or pseudo-isothermal sphere with a core.
+// The halo mass Mh is the mass inside r200, where the mean density is 200 × critical.
+const r200Of = Mh => Math.cbrt(3 * Mh / (4 * Math.PI * 200 * RHO_CRIT));
+const nfwM = x => Math.log(1 + x) - x / (1 + x);
+const isoM = x => x - Math.atan(x);
+function mHalo(r, h) {
+  if (!h.on || h.M <= 0) return 0;
+  const c = r200Of(h.M) / h.rs;
+  return h.type === "iso" ? h.M * isoM(r / h.rs) / isoM(c) : h.M * nfwM(r / h.rs) / nfwM(c);
+}
+// The speed contributed by each part at radius r. Returns v² (km/s)² for each.
+function parts(r, m) {
+  const G = m.unit === "AU" ? G_AU : G_KPC;
+  const o = {
+    bulge: m.Mb > 0 ? G * mBulge(r, m.Mb, m.ab) / r : 0,
+    disc: v2Disc(r, m.Md, m.Rd, G),
+    gas: v2Disc(r, m.Mg, m.Rg, G),
+    hole: m.Mbh > 0 ? G * m.Mbh / r : 0,
+  };
+  o.vis = o.bulge + o.disc + o.gas + o.hole;
+  o.halo = G * mHalo(r, m.halo) / r;
+  // MOND: no dark matter; gravity is boosted where the Newtonian pull g_N is weaker than a0.
+  const gN = o.vis / r;
+  o.mond = gN > 0 ? gN * (0.5 + Math.sqrt(0.25 + (m.unit === "AU" ? A0_MOND / 2.0627e8 : A0_MOND) / gN)) * r : 0;
+  o.total = m.mond ? o.mond : o.vis + o.halo;
+  return o;
+}
+const vModel = (r, m) => Math.sqrt(Math.max(0, parts(r, m).total));
+function massVisible(r, m) { return mBulge(r, m.Mb, m.ab) + mDisc(r, m.Md, m.Rd) + mDisc(r, m.Mg, m.Rg) + m.Mbh; }
+const totalVisible = m => m.Mb + m.Md + m.Mg + m.Mbh;
+
+/* χ² = Σ ((v_observed − v_model) / error)² — how badly the model misses the data */
+function chi2(data, m) { let c = 0; for (const [r, v, e] of data) c += ((v - vModel(r, m)) / e) ** 2; return c; }
+
+/* AUTOMATIC FIT: find the halo mass (and, if asked, scale radius) with the
+   smallest χ². Visible matter is kept fixed. Uses the speeds from the
+   visible parts worked out once, then a coarse search and a golden-section search. */
+function fitHalo(data, m, fitRs) {
+  const G = m.unit === "AU" ? G_AU : G_KPC;
+  const vis = data.map(([r]) => parts(r, Object.assign({}, m, { halo: { on: false } })).vis);
+  const halo = { on: true, type: m.halo.type, M: m.halo.M, rs: m.halo.rs };
+  const c2 = (lm, rs) => { halo.M = Math.pow(10, lm); halo.rs = rs; let c = 0; for (let i = 0; i < data.length; i++) { const [r, v, e] = data[i]; c += ((v - Math.sqrt(vis[i] + G * mHalo(r, halo) / r)) / e) ** 2; } return c; };
+  const best1D = rs => {
+    let bl = 8, bc = Infinity;
+    for (let lm = 7; lm <= 14.5; lm += 0.125) { const c = c2(lm, rs); if (c < bc) { bc = c; bl = lm; } }
+    let a = bl - 0.125, b = bl + 0.125; const g = 0.618034;
+    for (let k = 0; k < 40; k++) { const x1 = b - g * (b - a), x2 = a + g * (b - a); if (c2(x1, rs) < c2(x2, rs)) b = x2; else a = x1; }
+    const lm = (a + b) / 2; return { lm, c: c2(lm, rs) };
+  };
+  let best = { ...best1D(m.halo.rs), rs: m.halo.rs };
+  if (fitRs) {
+    for (let k = 0; k <= 30; k++) { const rs = 0.3 * Math.pow(100 / 0.3, k / 30); const b = best1D(rs); if (b.c < best.c) best = { ...b, rs }; }
+    let a = Math.log(best.rs) - 0.2, b = Math.log(best.rs) + 0.2; const g = 0.618034;
+    for (let k = 0; k < 30; k++) { const x1 = b - g * (b - a), x2 = a + g * (b - a); if (best1D(Math.exp(x1)).c < best1D(Math.exp(x2)).c) b = x2; else a = x1; }
+    const rs = Math.exp((a + b) / 2), b1 = best1D(rs); if (b1.c <= best.c) best = { ...b1, rs };
+  }
+  return { M: Math.pow(10, best.lm), rs: best.rs, chi2: best.c };
+}
+
+/* Synthetic observations: N points evenly spread out to rmax, each with a
+   random error of SD sig (km/s). */
+function synthData(m, N, rmax, sig, rng) {
+  const out = [];
+  for (let i = 0; i < N; i++) { const r = rmax * (i + 1) / N; out.push([r, vModel(r, m) + sig * gauss(rng), sig]); }
+  return out;
+}
+/* =====================================================================
+   2. OBSERVED ROTATION CURVES (approximate values, smoothed and rounded from
+      published curves, for teaching — not the original data tables)
+      Each point: [radius, speed (km/s), error (km/s)]
+   ===================================================================== */
+const DATA = {
+  mw: { name: "Milky Way", src: "approximate, after Sofue (2013) and Eilers et al. (2019); beyond 25 kpc from halo stars", pts:
+    [[2,198,10],[3,212,8],[4,220,7],[5,226,6],[6,229,5],[7,230,4],[8,229,4],[9,228,4],[10,226,4],[11,224,4],[12,222,5],[13,220,5],[14,218,5],[15,216,6],[16,214,6],[18,210,7],[20,206,8],[22,202,9],[25,198,10],[30,190,14],[35,185,18],[40,180,20],[50,175,25]] },
+  m31: { name: "Andromeda (M31)", src: "approximate, after Chemin et al. (2009) and Corbelli et al. (2010)", pts:
+    [[3,215,15],[4,232,12],[5,240,10],[6,247,8],[8,252,6],[10,255,5],[12,256,5],[14,252,5],[16,248,6],[18,243,6],[20,238,7],[22,234,8],[24,231,9],[26,229,10],[28,228,12],[30,226,14],[33,225,16],[36,224,18]] },
+  rubin: { name: "Andromeda, Rubin & Ford 1970", src: "re-created to look like Rubin and Ford's 1970 measurements of glowing gas clouds in M31 (approximate)", pts:
+    [[3,225,25],[5,235,20],[7,245,20],[9,250,18],[11,255,18],[13,250,18],[15,240,20],[17,235,20],[19,230,22],[21,228,25],[24,225,30]] },
+  n3198: { name: "NGC 3198", src: "approximate, after Begeman (1989), radio (21 cm hydrogen) measurements", pts:
+    [[1,55,8],[2,92,5],[3,115,4],[4,130,3],[5,140,3],[6,146,3],[8,150,2],[10,152,2],[12,154,2],[14,155,2],[16,153,2],[18,151,2],[20,150,2],[22,149,3],[25,148,3],[28,149,3],[30,150,4]] },
+  ddo154: { name: "DDO 154 (dwarf)", src: "approximate, after Carignan & Purton (1998) and THINGS (de Blok et al. 2008)", pts:
+    [[0.5,12,3],[1,19,2.5],[1.5,25,2],[2,30,2],[2.5,34,2],[3,37,2],[3.5,40,2],[4,42,2],[5,45,2],[6,46,2],[7,47,2.5],[8,47,3]] },
+  solar: { name: "Solar System planets", src: "orbital speeds of the eight planets (NASA fact sheets)", unit: "AU", pts:
+    [[0.387,47.4,0.3],[0.723,35.0,0.3],[1.0,29.8,0.3],[1.524,24.1,0.3],[5.20,13.1,0.3],[9.58,9.7,0.3],[19.2,6.8,0.3],[30.1,5.4,0.3]] },
+};
+
+/* =====================================================================
+   3. READ THE CONTROLS
+   ===================================================================== */
+let dataKey = "mw";
+const isSolar = () => dataKey === "solar";
+function readModel() {
+  const v = id => +el(id).value, solar = isSolar();
+  return {
+    unit: solar ? "AU" : "kpc",
+    Mb: solar ? 0 : Math.pow(10, v("Mb")), ab: v("ab"),
+    Md: solar ? 0 : Math.pow(10, v("Md")), Rd: v("Rd"),
+    Mg: solar ? 0 : Math.pow(10, v("Mg")), Rg: v("Rg"),
+    Mbh: solar ? Math.pow(10, v("Mbh") - 6.6) : v("Mbh") <= 0.01 ? 0 : Math.pow(10, v("Mbh")),   // Solar System: the Sun (slider 6.6 = 1 M☉)
+    halo: { on: !solar && el("haloOn").checked, type: el("htype").value, M: Math.pow(10, v("Mh")), rs: v("rs") },
+    mond: !solar && el("mond").checked,
+  };
+}
+const synthCfg = () => ({ Np: +el("Np").value, sig: +el("sig").value, rmax: +el("rmax").value, seed: el("seed").value || "1" });
+// The hidden "true" halo of the mystery galaxy (changes with the seed)
+function mysteryTruth() {
+  const r = mulberry32(hashSeed(synthCfg().seed + "|mystery")), m = readModel();
+  m.halo = { on: true, type: "nfw", M: Math.pow(10, 11.2 + 1.1 * r()), rs: 6 + 24 * r() }; m.mond = false;
+  return m;
+}
+let mysteryData = null, revealed = false;
+function currentData() {
+  if (dataKey === "synth") {
+    if (!mysteryData) { const c = synthCfg(); mysteryData = synthData(mysteryTruth(), c.Np, c.rmax, c.sig, mulberry32(hashSeed(c.seed + "|data"))); }
+    return mysteryData;
+  }
+  return DATA[dataKey].pts;
+}
+
+/* =====================================================================
+   4. STARS FOR THE ANIMATION
+   ===================================================================== */
+const KPC_PER_MYR = 1.0227e-3;     // 1 km/s = 1.0227 × 10⁻³ kpc per million years
+const AU_PER_YR = 0.2108;          // 1 km/s = 0.2108 AU per year
+const stars = [];
+const sim = { t: 0, running: true, Rv: 30, vt: null, vtVis: null, mode: "full", model: null, flown: 0 };
+const PLANETS = [["Mercury", 0.387, "#b9b2a6"], ["Venus", 0.723, "#e8cf9a"], ["Earth", 1, "#5aa0e8"], ["Mars", 1.524, "#d0643c"], ["Jupiter", 5.2, "#d8b088"], ["Saturn", 9.58, "#e6d39a"], ["Uranus", 19.2, "#9fd8e0"], ["Neptune", 30.1, "#5b7fe0"]];
+function viewRadius() { const d = currentData(); return Math.max(...d.map(p => p[0])) * 1.08; }
+function initStars() {
+  stars.length = 0; sim.t = 0; sim.flown = 0;
+  const m = readModel(), rng = mulberry32(hashSeed((el("seed").value || "1") + "|stars"));
+  sim.Rv = viewRadius();
+  const Rv = sim.Rv, add = (r, phi, kind, col, size = 1) => stars.push({ r, phi, kind, col, size, z: 0, x: 0, y: 0, vx: 0, vy: 0, gone: false });
+  if (isSolar()) {
+    for (const [name, a, col] of PLANETS) { const s = add(a, rng() * 6.283, "planet", col, 3.2); stars[stars.length - 1].name = name; }
+    for (let i = 0; i < 160; i++) add(2.1 + 1.2 * rng(), rng() * 6.283, "rock", "#8c8070", 0.8);
+    for (let i = 0; i < 120; i++) add(31 + 15 * rng(), rng() * 6.283, "rock", "#7f93a8", 0.8);
+  } else {
+    const pitch = Math.tan(18 * Math.PI / 180);
+    const nB = m.Mb > 0 ? Math.round(1800 * clamp(m.Mb / (m.Mb + m.Md + 1), 0.05, 0.25)) : 0;
+    for (let i = 0; i < nB; i++) { const u = Math.sqrt(rng() * 0.98); const r = Math.min(Rv, m.ab * u / (1 - u)); add(r, rng() * 6.283, "bulge", rng() < 0.5 ? "#ffd27a" : "#ffe6b0"); }
+    const disc = (n, Rd, kind, cols) => {
+      for (let i = 0; i < n; i++) {
+        let R = -Rd * Math.log(rng() * rng() + 1e-9); if (R > Rv) R = Rv * rng();
+        let phi = rng() < 0.7 ? (rng() < 0.5 ? 0 : Math.PI) + Math.log(Math.max(R, 0.2 * Rd) / Rd) / pitch + 0.35 * gauss(rng) : rng() * 6.283;
+        add(R, phi, kind, cols[Math.floor(rng() * cols.length)]);
+      }
+    };
+    disc(1100, m.Rd, "disc", ["#cfe0ff", "#ffffff", "#a4cbe6", "#fff1d6"]);
+    disc(420, m.Rg, "gas", ["#76b82a", "#ff6f9a", "#6fb3ff"]);
+    for (let i = 0; i < 160; i++) add(Rv * (0.35 + 0.65 * Math.sqrt(rng())), rng() * 6.283, "gas", "#5a8fd0");      // faint outer hydrogen clouds
+  }
+  for (const s of stars) { s.z = (s.kind === "bulge" ? 0.5 : 0.06) * gauss(rng) * (s.kind === "bulge" ? Math.max(0.3, s.r) : Rv * 0.05 + s.r * 0.03); s.x = s.r * Math.cos(s.phi); s.y = s.r * Math.sin(s.phi); }
+  startFly();
+}
+// Speed tables (much quicker than working out Bessel functions for every star every frame)
+function buildTables() {
+  const m = readModel(); sim.model = m;
+  const n = 400, rmax = sim.Rv * 1.6;
+  sim.vt = new Float64Array(n + 1); sim.vtVis = new Float64Array(n + 1); sim.tr = rmax / n;
+  for (let i = 0; i <= n; i++) { const r = Math.max(i, 0.05) * sim.tr, p = parts(r, m); sim.vt[i] = Math.sqrt(Math.max(0, p.total)); sim.vtVis[i] = Math.sqrt(Math.max(0, p.vis)); }
+}
+function lookup(t, r) { const f = r / sim.tr, i = Math.floor(f); if (i >= t.length - 1) return t[t.length - 1] * Math.sqrt((t.length - 1) * sim.tr / r) ; return t[i] + (t[i + 1] - t[i]) * (f - i); }
+// "Observed speeds, visible gravity only": give every star its observed (model) speed
+function startFly() { for (const s of stars) { const v = lookup(sim.vt, s.r) * (isSolar() ? AU_PER_YR : KPC_PER_MYR); s.x = s.r * Math.cos(s.phi); s.y = s.r * Math.sin(s.phi); s.vx = -v * Math.sin(s.phi); s.vy = v * Math.cos(s.phi); s.gone = false; } }
+function step(dt) {
+  const K = isSolar() ? AU_PER_YR : KPC_PER_MYR;
+  if (sim.mode === "fly") {
+    // Leapfrog: velocity half-step, position step, velocity half-step. Gravity of visible matter only.
+    const acc = s => { const r = Math.hypot(s.x, s.y) || 1e-3, v = lookup(sim.vtVis, r) * K, a = v * v / r; return [-a * s.x / r, -a * s.y / r]; };
+    let gone = 0;
+    for (const s of stars) {
+      if (s.gone) { gone++; continue; }
+      let n = Math.max(1, Math.ceil(dt / (0.02 * 2 * Math.PI * Math.hypot(s.x, s.y) / Math.max(1e-6, Math.hypot(s.vx, s.vy)))));
+      n = Math.min(n, 200); const h = dt / n;
+      for (let k = 0; k < n; k++) { let [ax, ay] = acc(s); s.vx += ax * h / 2; s.vy += ay * h / 2; s.x += s.vx * h; s.y += s.vy * h; [ax, ay] = acc(s); s.vx += ax * h / 2; s.vy += ay * h / 2; }
+      s.r = Math.hypot(s.x, s.y); s.phi = Math.atan2(s.y, s.x);
+      if (s.r > sim.Rv * 1.5) { s.gone = true; gone++; }
+    }
+    sim.flown = gone;
+  } else {
+    const tab = sim.mode === "vis" ? sim.vtVis : sim.vt;
+    for (const s of stars) { const v = lookup(tab, s.r); s.phi += v * K / Math.max(s.r, 1e-3) * dt; s.x = s.r * Math.cos(s.phi); s.y = s.r * Math.sin(s.phi); s.vx = -v * K * Math.sin(s.phi); s.vy = v * K * Math.cos(s.phi); }
+  }
+  sim.t += dt;
+}
+
+/* =====================================================================
+   5. DRAWING
+   ===================================================================== */
+const COL = { total: "#f1af28", bulge: "#f18700", disc: "#a4cbe6", gas: "#76b82a", hole: "#abb5b5", halo: "#a86dab", vis: "#de252a", kepler: "#e83181", mond: "#00aec3" };
+// Doppler colour: blue = coming towards us, red = going away
+function dopplerCol(vlos, vmax) { const f = clamp(vlos / (vmax || 1), -1, 1); return f < 0 ? `rgb(${Math.round(255 * (1 + f))},${Math.round(150 + 105 * (1 + f))},255)` : `rgb(255,${Math.round(150 + 105 * (1 - f))},${Math.round(255 * (1 - f))})`; }
+function drawFaceOn(ctx, R, d) {
+  ctx.save(); ctx.beginPath(); ctx.rect(R.x, R.y, R.w, R.h); ctx.clip();
+  ctx.fillStyle = "#03040a"; ctx.fillRect(R.x, R.y, R.w, R.h);
+  const cx = R.x + R.w / 2, cy = R.y + R.h / 2, s = (Math.min(R.w, R.h) / 2 - 14 * d) / sim.Rv, solar = isSolar(), unit = solar ? "AU" : "kpc";
+  // rings at the data radii
+  ctx.strokeStyle = "rgba(160,170,150,0.12)"; ctx.lineWidth = 1;
+  for (const r of niceTicks(0, sim.Rv, 4)) if (r > 0) { ctx.beginPath(); ctx.arc(cx, cy, r * s, 0, 7); ctx.stroke(); }
+  if (sim.model.halo.on && !sim.model.mond) {     // the invisible halo, drawn faintly
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, sim.Rv * s * 1.4); g.addColorStop(0, "rgba(168,109,171,0.22)"); g.addColorStop(1, "rgba(168,109,171,0)");
+    ctx.fillStyle = g; ctx.fillRect(R.x, R.y, R.w, R.h);
+  }
+  if (!solar) {   // soft glow of starlight from the disc and bulge
+    const m = sim.model, gR = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(4, 4 * m.Rd * s));
+    gR.addColorStop(0, "rgba(255,235,200,0.55)"); gR.addColorStop(0.25, "rgba(190,205,255,0.18)"); gR.addColorStop(1, "rgba(150,170,255,0)");
+    ctx.fillStyle = gR; ctx.beginPath(); ctx.arc(cx, cy, Math.max(4, 4 * m.Rd * s), 0, 7); ctx.fill();
+  }
+  ctx.globalCompositeOperation = "lighter";
+  for (const st of stars) {
+    if (st.gone) continue;
+    const X = cx + st.x * s, Y = cy - st.y * s;
+    if (X < R.x - 5 || X > R.x + R.w + 5 || Y < R.y - 5 || Y > R.y + R.h + 5) continue;
+    ctx.fillStyle = st.col; ctx.globalAlpha = st.kind === "gas" ? 0.6 : 0.85;
+    const z = st.size * d * (st.kind === "bulge" ? 1.7 : st.kind === "gas" ? 2 : 1.6);
+    if (st.kind === "planet") { ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(X, Y, z, 0, 7); ctx.fill(); }
+    else ctx.fillRect(X - z / 2, Y - z / 2, z, z);
+  }
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+  if (solar) {
+    ctx.fillStyle = "#ffe08a"; ctx.beginPath(); ctx.arc(cx, cy, 5 * d, 0, 7); ctx.fill();
+    ctx.font = `${10 * d}px system-ui`; ctx.fillStyle = "#cfd4c5"; ctx.textAlign = "left";
+    for (const st of stars) if (st.name && st.r > 4) ctx.fillText(st.name, cx + st.x * s + 5 * d, cy - st.y * s - 4 * d);
+  } else if (sim.model.Mbh > 0) { ctx.fillStyle = "#000"; ctx.strokeStyle = "#abb5b5"; ctx.beginPath(); ctx.arc(cx, cy, 2.5 * d, 0, 7); ctx.fill(); ctx.stroke(); }
+  // title, scale and the direction to Earth
+  ctx.font = `600 ${11.5 * d}px system-ui`; ctx.fillStyle = "#eef0e8"; ctx.textAlign = "left";
+  ctx.fillText(solar ? "Solar System from above" : "Face-on (from above)", R.x + 8 * d, R.y + 16 * d);
+  ctx.font = `${10.5 * d}px system-ui`; ctx.fillStyle = "#a3ab96";
+  const modeTxt = { full: "gravity: full model", vis: "gravity: visible matter only", fly: `observed speeds, visible gravity${sim.flown ? ` · ${Math.round(100 * sim.flown / stars.length)}% have left the picture` : ""}` }[sim.mode];
+  ctx.fillText(modeTxt, R.x + 8 * d, R.y + 30 * d);
+  const bar = niceTicks(0, sim.Rv * 0.4, 1).pop() || 1;
+  ctx.fillStyle = "#ddd"; ctx.fillRect(R.x + 10 * d, R.y + R.h - 12 * d, bar * s, 2.5 * d); ctx.fillText(`${bar} ${unit}`, R.x + 10 * d, R.y + R.h - 17 * d);
+  ctx.textAlign = "right"; ctx.fillText("↓ towards Earth", R.x + R.w - 8 * d, R.y + R.h - 10 * d);
+  ctx.restore();
+  return s;
+}
+function drawEdgeOn(ctx, R, d, sc) {
+  ctx.save(); ctx.beginPath(); ctx.rect(R.x, R.y, R.w, R.h); ctx.clip();
+  ctx.fillStyle = "#03040a"; ctx.fillRect(R.x, R.y, R.w, R.h);
+  const cx = R.x + R.w / 2, cy = R.y + R.h / 2 + 6 * d, s = (R.w / 2 - 10 * d) / sim.Rv, vmax = Math.max(...sim.vt) || 1, K = isSolar() ? AU_PER_YR : KPC_PER_MYR;
+  // the spectrograph slit along the long axis
+  ctx.strokeStyle = "rgba(241,175,40,0.7)"; ctx.setLineDash([4 * d, 3 * d]); ctx.strokeRect(R.x + 6 * d, cy - 4 * d, R.w - 12 * d, 8 * d); ctx.setLineDash([]);
+  ctx.globalCompositeOperation = "lighter";
+  const zs = Math.min(s, (R.h * 0.4) / (sim.Rv * 0.12 + 0.5));
+  for (const st of stars) {
+    if (st.gone) continue;
+    const X = cx + st.x * s, Y = cy - st.z * zs * 0.8;
+    if (X < R.x || X > R.x + R.w) continue;
+    ctx.fillStyle = dopplerCol(st.vy / K, vmax); ctx.globalAlpha = 0.7;
+    const z = (st.kind === "planet" ? 3 : 1.2) * d; ctx.fillRect(X - z / 2, Y - z / 2, z, z);
+  }
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+  ctx.font = `600 ${11.5 * d}px system-ui`; ctx.fillStyle = "#eef0e8"; ctx.textAlign = "left";
+  ctx.fillText("Edge-on, as seen from Earth", R.x + 8 * d, R.y + 15 * d);
+  ctx.font = `${10.5 * d}px system-ui`; ctx.textAlign = "right"; ctx.fillStyle = "#8fb8ff"; ctx.fillText("blue: coming towards us", R.x + R.w - 8 * d, R.y + 13 * d);
+  ctx.fillStyle = "#ff9a9a"; ctx.fillText("red: going away", R.x + R.w - 8 * d, R.y + 26 * d);
+  ctx.restore();
+}
+// Position–velocity diagram: what a spectrograph slit records (Hα line shifted by the Doppler effect)
+function drawSlit(ctx, R, d) {
+  const K = isSolar() ? AU_PER_YR : KPC_PER_MYR, vmax = Math.max(...sim.vt, 1) * 1.25, lam0 = 656.28, c = 299792.458;
+  const dl = lam0 * vmax / c;
+  const ax = plotFrame(ctx, R, { dpr: d, x0: -sim.Rv, x1: sim.Rv, y0: lam0 - dl, y1: lam0 + dl, padL: 60, padR: 10,
+    xlabel: `Position along the slit (${isSolar() ? "AU" : "kpc"})`, ylabel: "Hα (nm)", title: "Spectrum through the slit", yfmt: v => v.toFixed(dl < 0.5 ? 2 : 1) });
+  ax.clip();
+  polyline(ctx, [[ax.L, ax.Y(lam0)], [ax.R, ax.Y(lam0)]], "rgba(255,255,255,0.25)", 1 * d, [4 * d, 3 * d]);
+  ctx.globalCompositeOperation = "lighter";
+  for (const st of stars) {
+    if (st.gone || Math.abs(st.x) > sim.Rv) continue;
+    const v = st.vy / K, X = ax.X(st.x), Y = ax.Y(lam0 * (1 + v / c));
+    ctx.fillStyle = dopplerCol(v, vmax / 1.25); ctx.globalAlpha = 0.55; ctx.fillRect(X - d, Y - d, 2 * d, 2 * d);
+  }
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+  ctx.restore();
+}
+function drawCurve(ctx, R, d) {
+  const m = sim.model, data = currentData(), solar = isSolar(), unit = solar ? "AU" : "kpc", Rv = sim.Rv;
+  const rs = []; for (let i = 1; i <= 160; i++) rs.push(Rv * i / 160);
+  const P = rs.map(r => parts(r, m));
+  const vtop = Math.max(...data.map(p => p[1] + p[2]), ...P.map(p => Math.sqrt(p.total)), ...P.slice(8).map(p => Math.sqrt(p.vis))) * 1.12;
+  const ax = plotFrame(ctx, R, { dpr: d, x0: 0, x1: Rv, y0: 0, y1: solar ? Math.min(vtop, 60) : vtop, xlabel: `Distance from the centre r (${unit})`, ylabel: "Orbital speed v (km/s)", title: `Rotation curve — ${dataKey === "synth" ? "mystery galaxy" : DATA[dataKey].name}` });
+  ax.clip();
+  const line = (key, col, w, dash) => polyline(ctx, rs.map((r, i) => [ax.X(r), ax.Y(Math.sqrt(Math.max(0, P[i][key])))]), col, w * d, dash);
+  const leg = [];
+  if (!solar) {
+    if (m.Mb > 0) { line("bulge", COL.bulge, 1.6); leg.push([COL.bulge, "bulge"]); }
+    if (m.Md > 0) { line("disc", COL.disc, 1.6); leg.push([COL.disc, "star disc"]); }
+    if (m.Mg > 0) { line("gas", COL.gas, 1.6); leg.push([COL.gas, "gas"]); }
+    if (m.Mbh > 1e8) { line("hole", COL.hole, 1.4); leg.push([COL.hole, "black hole"]); }
+    if (m.halo.on && !m.mond) { line("halo", COL.halo, 2, [7 * d, 4 * d]); leg.push([COL.halo, "dark matter halo", true]); }
+    line("vis", COL.vis, 2.2, [3 * d, 3 * d]); leg.push([COL.vis, "all visible matter", true]);
+    polyline(ctx, rs.map(r => [ax.X(r), ax.Y(Math.sqrt((solar ? G_AU : G_KPC) * massVisible(r, m) / r))]), COL.kepler, 1.4 * d, [1.5 * d, 3 * d]); leg.push([COL.kepler, "Kepler: visible mass as a sphere", true]);
+    if (m.mond) { line("mond", COL.mond, 3); leg.push([COL.mond, "MOND (no dark matter)"]); }
+  } else { leg.push([COL.total, "Kepler: v = √(GM/r)"]); }
+  if (!m.mond) { line("total", COL.total, 3); if (!solar) leg.push([COL.total, "total model"]); }
+  // observed points
+  ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.fillStyle = "#ffffff"; ctx.lineWidth = 1.2 * d;
+  for (const [r, v, e] of data) { const X = ax.X(r); ctx.beginPath(); ctx.moveTo(X, ax.Y(v - e)); ctx.lineTo(X, ax.Y(v + e)); ctx.stroke(); ctx.beginPath(); ctx.arc(X, ax.Y(v), 2.8 * d, 0, 7); ctx.fill(); }
+  leg.unshift(["#ffffff", "observed (± error)", "dot"]);
+  if (dataKey === "synth" && revealed) { const t = mysteryTruth(); polyline(ctx, rs.map(r => [ax.X(r), ax.Y(vModel(r, t))]), "#e83181", 2 * d, [8 * d, 4 * d]); leg.push(["#e83181", "hidden true model", true]); }
+  ctx.restore();
+  // legend in the bottom-right corner (out of the way of the data points)
+  legendBox(ctx, leg, ax.R - 4 * d, solar ? ax.T + 4 * d : ax.B - (leg.length * 15 + 10) * d, d);
+}
+function drawView() {
+  const { ctx, W, H, dpr: d } = fitCanvas(el("view"));
+  ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, W, H);
+  const g = 6 * d;
+  if (W > H * 1.3) {
+    const cw = Math.min(W * 0.48, H * 0.82), f = Math.min(cw, H * 0.6), rest = H - f - 2 * g;
+    const s = drawFaceOn(ctx, { x: 0, y: 0, w: cw, h: f }, d);
+    drawEdgeOn(ctx, { x: 0, y: f + g, w: cw, h: rest * 0.36 }, d, s);
+    drawSlit(ctx, { x: 0, y: f + 2 * g + rest * 0.36, w: cw, h: rest * 0.64 }, d);
+    drawCurve(ctx, { x: cw + g, y: 0, w: W - cw - g, h: H }, d);
+  } else {
+    const t = Math.round(H * 0.5), f = Math.min(t, W * 0.5), rw = W - f - g;
+    const s = drawFaceOn(ctx, { x: 0, y: 0, w: f, h: t }, d);
+    drawEdgeOn(ctx, { x: f + g, y: 0, w: rw, h: t * 0.36 }, d, s);
+    drawSlit(ctx, { x: f + g, y: t * 0.36 + g, w: rw, h: t * 0.64 - g }, d);
+    drawCurve(ctx, { x: 0, y: t + g, w: W, h: H - t - g }, d);
+  }
+}
+// Mass inside radius r: visible and dark (right panel)
+function drawMassChart() {
+  const { ctx, W, H, dpr: d } = fitCanvas(el("chart"));
+  const m = sim.model, Rv = sim.Rv, rs = []; for (let i = 1; i <= 80; i++) rs.push(Rv * i / 80);
+  const solar = isSolar(), G = solar ? G_AU : G_KPC;
+  const vis = rs.map(r => massVisible(r, m)), dark = rs.map(r => m.mond ? 0 : mHalo(r, m.halo));
+  const tot = rs.map((r, i) => vis[i] + dark[i]);
+  const top = Math.max(...tot) * 1.1, e = Math.floor(Math.log10(top)), u = Math.pow(10, e);
+  const ax = plotFrame(ctx, { x: 0, y: 0, w: W, h: H }, { dpr: d, x0: 0, x1: Rv, y0: 0, y1: top / u, xlabel: `r (${solar ? "AU" : "kpc"})`, ylabel: e ? `Mass (10^${e} M☉)` : "Mass (M☉)", padL: 42 });
+  ax.clip();
+  polyline(ctx, rs.map((r, i) => [ax.X(r), ax.Y(vis[i] / u)]), "#f18700", 2 * d);
+  polyline(ctx, rs.map((r, i) => [ax.X(r), ax.Y(dark[i] / u)]), "#a86dab", 2 * d);
+  polyline(ctx, rs.map((r, i) => [ax.X(r), ax.Y(tot[i] / u)]), "#eef0e8", 1.5 * d, [4 * d, 3 * d]);
+  ctx.restore();
+}
+
+/* =====================================================================
+   6. READOUTS AND STORY
+   ===================================================================== */
+const fmtM = M => (M <= 0 ? "0" : `${fmt(M, 2)} M☉`);
+function storyText(m, data, c2) {
+  const solar = isSolar(), msgs = [], rl = data[data.length - 1][0];
+  if (solar) return "The planets follow Kepler's law exactly: almost all the mass is in the Sun, so v = √(GM/r) and the speed falls as 1/√r. Neptune, 78 times further out than Mercury, moves almost 9 times slower. This is what astronomers expected for galaxies too — the stars are concentrated near the centre.";
+  const vVis = Math.sqrt(parts(rl, m).vis), vObs = data[data.length - 1][1];
+  msgs.push(`At ${fmt(rl, 3)} kpc stars orbit at about <b>${Math.round(vObs)} km/s</b>, but the visible matter alone could only hold them at <b>${Math.round(vVis)} km/s</b>.`);
+  if (m.mond) msgs.push(c2 / data.length < 2 ? "MOND fits these data without any dark matter — this is why some physicists take it seriously. But MOND struggles with galaxy clusters, gravitational lensing and the cosmic microwave background." : "MOND does not fit well with these visible masses. Try changing the star disc's mass (its mass-to-light ratio is uncertain).");
+  else if (!m.halo.on) msgs.push("With no dark matter the model curve falls away like the planets' speeds. Stars moving as fast as observed would escape — try <i>observed speeds, visible gravity only</i> under the picture.");
+  else if (c2 / data.length < 1.6) msgs.push(`The model with a dark halo fits well (χ² ≈ number of points). Inside the last point there is about <b>${(mHalo(rl, m.halo) / massVisible(rl, m)).toFixed(1)} times</b> as much dark matter as visible matter.`);
+  else msgs.push("The model does not fit yet: adjust the halo mass and radius until χ² is close to the number of points, or press <b>Fit the halo for me</b>.");
+  if (sim.mode === "fly" && sim.flown) msgs.push(`${Math.round(100 * sim.flown / stars.length)}% of the stars have already flown out of the picture: without dark matter the galaxy would fly apart.`);
+  if (dataKey === "ddo154") msgs.push("Dwarf galaxies are almost all dark matter: the stars and gas are just a sprinkle on top.");
+  if (dataKey === "rubin") msgs.push("In 1970 Vera Rubin and Kent Ford measured the Doppler shifts of glowing gas clouds in Andromeda with a spectrograph. The speeds stayed high far out — some of the first strong evidence for dark matter.");
+  return msgs.join(" ");
+}
+function updateUI() {
+  const m = sim.model, data = currentData(), c2 = chi2(data, m), rl = data[data.length - 1][0], solar = isSolar();
+  const mv = massVisible(rl, m), md = m.mond ? 0 : mHalo(rl, m.halo), unit = solar ? "AU" : "kpc";
+  const vObs = data[data.length - 1][1];
+  el("clock").textContent = solar ? `${sim.t.toFixed(1)} years` : sim.t < 1000 ? `${Math.round(sim.t)} Myr` : `${(sim.t / 1000).toFixed(2)} billion years`;
+  el("s_chi").textContent = `${c2.toFixed(1)} for ${data.length} points`;
+  el("s_ratio").textContent = solar ? "–" : (md / mv).toFixed(2);
+  el("s_v").textContent = `${Math.round(vObs)} km/s observed, ${Math.round(vModel(rl, m))} model`;
+  const ratioAll = m.halo.on && !m.mond ? m.halo.M / totalVisible(m) : 0;
+  el("tiles").innerHTML =
+    tile(`Visible mass inside ${fmt(rl, 3)} ${unit}`, fmtM(mv), solar ? "the Sun" : "bulge + stars + gas + black hole") +
+    tile(`Dark mass inside ${fmt(rl, 3)} ${unit}`, fmtM(md), m.mond ? "none: MOND" : m.halo.on ? `halo ${m.halo.type === "nfw" ? "NFW" : "isothermal"}` : "no halo") +
+    tile("Dark ÷ visible", solar ? "–" : (md / mv).toFixed(2), `inside ${fmt(rl, 3)} ${unit}`, "hl") +
+    tile("χ² (goodness of fit)", c2.toFixed(1), `${data.length} points: χ²/point = ${(c2 / data.length).toFixed(2)}`, "hl") +
+    tile("Mass from speed", fmtM(vObs * vObs * rl / (solar ? G_AU : G_KPC)), `v²r/G at the last point`) +
+    tile("Whole halo ÷ visible", solar || !ratioAll ? "–" : ratioAll.toFixed(1), `universe average: ${COSMIC_RATIO.toFixed(1)} (Planck)`);
+  el("story").innerHTML = storyText(m, data, c2);
+  el("btnReveal").style.display = dataKey === "synth" ? "" : "none";
+}
+
+/* =====================================================================
+   7. PRESETS AND CONTROLS
+   ===================================================================== */
+const MW = { Mb: 1.5e10, ab: 0.6, Md: 4.5e10, Rd: 2.6, Mg: 1.0e10, Rg: 5, Mbh: 4.1e6, haloOn: true, htype: "nfw", Mh: 1.05e12, rs: 22.5, mond: false, Np: 25, sig: 8, rmax: 30 };
+const M31 = { Mb: 3.5e10, ab: 1.0, Md: 8e10, Rd: 5.3, Mg: 6e9, Rg: 10, Mbh: 1.4e8, haloOn: true, htype: "nfw", Mh: 6.96e11, rs: 11.1, mond: false, Np: 25, sig: 8, rmax: 35 };
+const N3198 = { Mb: 1e7, ab: 0.5, Md: 1.7e10, Rd: 2.7, Mg: 6e9, Rg: 8, Mbh: 0, haloOn: true, htype: "iso", Mh: 1.05e12, rs: 2.9, mond: false, Np: 25, sig: 4, rmax: 30 };
+const DDO = { Mb: 1e7, ab: 0.5, Md: 3e7, Rd: 0.8, Mg: 3.6e8, Rg: 2.5, Mbh: 0, haloOn: true, htype: "iso", Mh: 5.4e10, rs: 1.9, mond: false, Np: 20, sig: 3, rmax: 8 };
+const PRESETS = [
+  { name: "Solar System", note: "Keplerian: v ∝ 1/√r", data: "solar", s: { Mbh: 1, haloOn: false, mond: false }, mode: "full" },
+  { name: "Milky Way", note: "flat curve, NFW halo", data: "mw", s: MW, mode: "full" },
+  { name: "Andromeda (M31)", note: "our big neighbour", data: "m31", s: M31, mode: "full" },
+  { name: "NGC 3198", note: "the classic flat curve", data: "n3198", s: N3198, mode: "full" },
+  { name: "Dwarf galaxy", note: "DDO 154: almost all dark", data: "ddo154", s: DDO, mode: "full" },
+  { name: "No dark matter", note: "stars would fly off", data: "mw", s: Object.assign({}, MW, { haloOn: false }), mode: "fly" },
+  { name: "Vera Rubin, 1970", note: "Andromeda's gas clouds", data: "rubin", s: Object.assign({}, M31, { Mh: 4.9e11, rs: 8.8 }), mode: "full" },
+  { name: "Mystery galaxy", note: "fit the hidden halo", data: "synth", s: Object.assign({}, MW, { Mh: 1e11, rs: 10 }), mode: "full" },
+  { name: "MOND instead", note: "NGC 3198, no dark matter", data: "n3198", s: Object.assign({}, N3198, { haloOn: false, mond: true }), mode: "full" },
+];
+function applySettings(s) {
+  const lg = v => (v > 0 ? Math.log10(v) : 0);
+  for (const [k, v] of Object.entries(s)) {
+    const e = el(k); if (!e) continue;
+    if (e.type === "checkbox") e.checked = v;
+    else if (["Mb", "Md", "Mg", "Mh"].includes(k)) e.value = lg(v);
+    else if (k === "Mbh") e.value = dataKey === "solar" ? 6.6 + lg(v) : lg(v);
+    else e.value = v;
+  }
+}
+function setPreset(k) {
+  const pr = PRESETS[k];
+  dataKey = pr.data; el("dataset").value = dataKey; mysteryData = null; revealed = false;
+  applySettings(pr.s);
+  el("amode").value = pr.mode; sim.mode = pr.mode;
+  document.querySelectorAll("#presets button").forEach((b, j) => b.classList.toggle("on", j === k));
+  changed(true);
+}
+function updateLabels() {
+  const m = readModel(), solar = isSolar(), d = DATA[dataKey];
+  el("o_Mb").textContent = fmtPlain(m.Mb, 2) + " M☉"; el("o_ab").textContent = `${(+el("ab").value).toFixed(2)} kpc`;
+  el("o_Md").textContent = fmtPlain(m.Md, 2) + " M☉"; el("o_Rd").textContent = `${(+el("Rd").value).toFixed(2)} kpc`;
+  el("o_Mg").textContent = fmtPlain(m.Mg, 2) + " M☉"; el("o_Rg").textContent = `${(+el("Rg").value).toFixed(1)} kpc`;
+  el("o_Mbh").textContent = m.Mbh > 0 ? fmtPlain(m.Mbh, 2) + " M☉" + (solar ? " (the Sun)" : "") : "none";
+  el("o_Mh").textContent = fmtPlain(Math.pow(10, +el("Mh").value), 2) + " M☉"; el("o_rs").textContent = `${(+el("rs").value).toFixed(1)} kpc`;
+  el("o_Np").textContent = el("Np").value; el("o_sig").textContent = `±${el("sig").value} km/s`; el("o_rmax").textContent = `${el("rmax").value} kpc`;
+  el("dataSrc").textContent = dataKey === "synth" ? "Made from your visible matter plus a hidden dark matter halo, with the number of points, errors and furthest point set below. Try to find the halo, then press Reveal." : d.src;
+  for (const g of document.querySelectorAll("#left .grp, #haloOn, #htype, #Mh, #rs, #mond")) (g.closest(".grp") || g.closest(".ctl") || g.parentElement).style.opacity = solar && !(g.id === "" && g.querySelector("#Mbh")) ? 0.4 : 1;
+  if (solar) el("Mbh").closest(".grp").style.opacity = 1;
+}
+function changed(restart) {
+  updateLabels();
+  const Rv = viewRadius();
+  if (restart || Math.abs(Rv - sim.Rv) > 1e-9) { sim.Rv = Rv; buildTables(); initStars(); }
+  buildTables();
+  if (sim.mode === "fly" && restart) startFly();
+}
+el("presets").innerHTML = PRESETS.map((p, k) => `<button data-k="${k}">${p.name}<small>${p.note}</small></button>`).join("");
+document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.k)));
+const clearPreset = () => document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on"));
+["Mb", "ab", "Md", "Rd", "Mg", "Rg", "Mbh", "Mh", "rs"].forEach(id => el(id).addEventListener("input", () => { clearPreset(); changed(false); }));
+["haloOn", "htype", "mond"].forEach(id => el(id).addEventListener("change", () => { clearPreset(); changed(false); }));
+["Np", "sig", "rmax", "seed"].forEach(id => el(id).addEventListener("input", () => { if (dataKey === "synth") { mysteryData = null; revealed = false; changed(true); } else updateLabels(); }));
+el("dataset").addEventListener("change", () => {
+  const was = isSolar(); dataKey = el("dataset").value; mysteryData = null; revealed = false; clearPreset();
+  if (was !== isSolar()) { applySettings(isSolar() ? { Mbh: 1 } : MW); }
+  changed(true);
+});
+el("amode").addEventListener("change", () => { const old = sim.mode; sim.mode = el("amode").value; if (sim.mode === "fly") startFly(); else if (old === "fly") initStars(); });
+el("btnPlay").onclick = () => { sim.running = !sim.running; el("btnPlay").textContent = sim.running ? "⏸ Pause" : "▶ Play"; };
+el("btnReset").onclick = () => initStars();
+let speed = 1;
+document.querySelectorAll("[data-s]").forEach(b => (b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", x === b)); }));
+el("btnFit").onclick = () => {
+  if (isSolar()) { el("fitMsg").textContent = "The Solar System needs no dark matter: the Sun's gravity explains every planet."; return; }
+  el("haloOn").checked = true; el("mond").checked = false;
+  const m = readModel(), f = fitHalo(currentData(), m, el("fitRs").checked);
+  el("Mh").value = Math.log10(f.M); el("rs").value = clamp(f.rs, 0.3, 80); clearPreset(); changed(false);
+  el("fitMsg").innerHTML = `Best fit: halo mass ${fmt(f.M, 3)} M☉, radius ${f.rs.toFixed(1)} kpc, χ² = ${f.chi2.toFixed(1)} for ${currentData().length} points.`;
+};
+el("btnReveal").onclick = () => { revealed = true; const t = mysteryTruth(); el("fitMsg").innerHTML = `Hidden halo (NFW): mass <b>${fmt(t.halo.M, 3)} M☉</b>, scale radius <b>${t.halo.rs.toFixed(1)} kpc</b>. Pink dashed line on the graph.`; };
+
+/* =====================================================================
+   8. BATCH RUN: fit noisy synthetic observations many times
+   ===================================================================== */
+function batchBase() {
+  const m = readModel(); m.unit = "kpc"; m.mond = false; m.halo.on = true;
+  const c = synthCfg();
+  return { m, Mh: m.halo.M, Np: c.Np, sig: c.sig, rmax: c.rmax, Mtest: 1, fitRs: el("fitRs").checked, seed: c.seed };
+}
+function truthOf(p) { const m = JSON.parse(JSON.stringify(p.m)); m.halo.M = p.Mh; return m; }
+function runOnce(p, seed) {
+  const m = truthOf(p), data = synthData(m, Math.round(p.Np), p.rmax, p.sig, mulberry32(seed));
+  const f = fitHalo(data, m, p.fitRs);
+  const fm = JSON.parse(JSON.stringify(m)); fm.halo.M = f.M; fm.halo.rs = f.rs;
+  const tm = JSON.parse(JSON.stringify(m)); tm.halo.M = p.Mh * p.Mtest;
+  return { Mfit: f.M / 1e10, Mdark: mHalo(p.rmax, fm.halo) / 1e10, chi2min: f.chi2, chi2trial: chi2(data, tm), ratio: f.M / totalVisible(m) };
+}
+// Theory: the Fisher information. For a straight-line-like fit the spread of the fitted value is
+// σ_M = σ_v / √(Σ (∂v/∂M)²); with the radius fitted too, a 2 × 2 version is used.
+function fisher(p) {
+  const m = truthOf(p), N = Math.round(p.Np), rs = []; for (let i = 0; i < N; i++) rs.push(p.rmax * (i + 1) / N);
+  const v0 = rs.map(r => vModel(r, m));
+  const dv = (key, h) => { const mm = JSON.parse(JSON.stringify(m)); mm.halo[key] *= 1 + h; return rs.map((r, i) => (vModel(r, mm) - v0[i]) / (m.halo[key] * h)); };
+  const a = dv("M", 1e-4), b = dv("rs", 1e-4);
+  let F11 = 0, F12 = 0, F22 = 0; for (let i = 0; i < N; i++) { F11 += a[i] * a[i]; F12 += a[i] * b[i]; F22 += b[i] * b[i]; }
+  F11 /= p.sig ** 2; F12 /= p.sig ** 2; F22 /= p.sig ** 2;
+  let C11, C12, C22;
+  if (p.fitRs) { const det = F11 * F22 - F12 * F12; C11 = F22 / det; C12 = -F12 / det; C22 = F11 / det; } else { C11 = 1 / F11; C12 = 0; C22 = 0; }
+  // dark mass inside rmax depends on M and rs
+  const h0 = mHalo(p.rmax, m.halo), g = k => { const mm = JSON.parse(JSON.stringify(m.halo)); mm[k] *= 1.0001; return (mHalo(p.rmax, mm) - h0) / (m.halo[k] * 1e-4); };
+  const gM = g("M"), gR = g("rs");
+  return { m, rs, v0, sdM: Math.sqrt(C11), sdDark: Math.sqrt(gM * gM * C11 + 2 * gM * gR * C12 + gR * gR * C22), dark: h0, N };
+}
+const batch = setupBatch({
+  file: "dark-matter",
+  intro: "Each run makes new noisy observations from the model on the left (the 'true' galaxy, with its halo switched on), then fits the halo mass automatically. Uses the points, error and furthest point under 'Mystery galaxy and batch data'.",
+  runs: [20, 100, 500, 1000],
+  outcomes: [
+    { key: "Mfit", label: "Fitted halo mass", unit: "10¹⁰ M☉" },
+    { key: "Mdark", label: "Fitted dark mass inside the furthest point", unit: "10¹⁰ M☉" },
+    { key: "chi2min", label: "χ² of the best fit", unit: "" },
+    { key: "chi2trial", label: "χ² of a trial halo mass", unit: "" },
+    { key: "ratio", label: "Whole halo ÷ visible mass", unit: "" },
+  ],
+  vars: [
+    { key: "Mtest", label: "Trial halo mass ÷ true mass", unit: "", min: 0.01, max: 100, from: 0.3, to: 3, log: true },
+    { key: "Np", label: "Number of observed points", unit: "", min: 3, max: 400, from: 5, to: 200, log: true, int: true },
+    { key: "sig", label: "Measurement error", unit: "km/s", min: 0.5, max: 100, from: 2, to: 40, log: true },
+    { key: "rmax", label: "Furthest observed point", unit: "kpc", min: 2, max: 150, from: 5, to: 60, log: true },
+    { key: "Mh", label: "True halo mass", unit: "M☉", min: 1e9, max: 1e14, from: 1e11, to: 1e13, log: true },
+  ],
+  base: batchBase,
+  run: runOnce,
+  theory: (p, key) => {
+    const F = fisher(p), k = p.fitRs ? 2 : 1;
+    if (key === "Mfit") return { y: p.Mh / 1e10, sd: F.sdM / 1e10, label: "true halo mass" };
+    if (key === "Mdark") return { y: F.dark / 1e10, sd: F.sdDark / 1e10, label: "true dark mass inside" };
+    if (key === "chi2min") return { y: F.N - k, sd: Math.sqrt(2 * (F.N - k)), label: `theory: N − ${k} = ${F.N - k}` };
+    if (key === "chi2trial") { const tm = JSON.parse(JSON.stringify(F.m)); tm.halo.M = p.Mh * p.Mtest; let lam = 0; F.rs.forEach((r, i) => { lam += ((vModel(r, tm) - F.v0[i]) / p.sig) ** 2; }); return { y: F.N + lam, sd: Math.sqrt(2 * (F.N + 2 * lam)), label: "theory: N + misfit" }; }
+    if (key === "ratio") return { y: p.Mh / totalVisible(F.m), sd: F.sdM / totalVisible(F.m), label: "true ratio" };
+    return null;
+  },
+  slopeHint: (v, key, sd) => (sd && v === "Np" ? " (theory −0.5: error ∝ 1/√N)" : sd && v === "sig" ? " (theory +1: error ∝ measurement error)" : ""),
+  extraSummary: (rows, key, p) => key === "ratio" ? `<div style="margin-top:6px">The universe as a whole has <b>${COSMIC_RATIO.toFixed(2)}</b> times as much dark matter as ordinary matter (Planck satellite). Galaxies like this one have a higher ratio: much of their ordinary matter was blown out or is hot gas we did not count.</div>` : "",
+  experiments: [
+    { q: "Which halo mass fits best? (χ² against trial mass)", setup: () => { setPreset(1); }, cfg: { mode: "sweep", var: "Mtest", from: 0.3, to: 3, steps: 13, reps: 20, outcome: "chi2trial", logY: true },
+      note: "χ² is smallest when the trial halo mass equals the true mass (ratio 1). There the minimum is about the number of points (25), because each point is off by about one error bar. Heavier or lighter halos miss the data and χ² climbs steeply. The runs scatter because every run has new random errors." },
+    { q: "How well can we weigh the halo? (repeat the fit)", setup: () => { setPreset(1); }, cfg: { mode: "repeat", n: 500, outcome: "Mfit" },
+      note: "The fitted halo masses scatter around the true value, with a spread close to the theory (from how sensitive the speeds are to the halo mass). The halo's total mass out to r₂₀₀ (about 200 kpc) is an extrapolation from data that stop at 30 kpc." },
+    { q: "More data points → smaller uncertainty?", setup: () => { setPreset(1); }, cfg: { mode: "sweep", var: "Np", from: 5, to: 200, steps: 8, reps: 40, outcome: "Mfit", show: "sd", logY: true },
+      note: "The spread in the fitted mass falls as 1/√N: on log–log axes the gradient is about −0.5. Each SD comes from 40 runs, so the points wobble by about ±11% around the line." },
+    { q: "Noisier measurements → bigger uncertainty?", setup: () => { setPreset(1); }, cfg: { mode: "sweep", var: "sig", from: 2, to: 40, steps: 8, reps: 40, outcome: "Mfit", show: "sd", logY: true },
+      note: "The spread is proportional to the measurement error (gradient +1 on log–log axes) while the errors are small. At large errors the fitted masses become skewed (they cannot go below zero), so the simple theory starts to fail." },
+    { q: "How far out must we look?", setup: () => { setPreset(1); }, cfg: { mode: "sweep", var: "rmax", from: 5, to: 60, steps: 8, reps: 40, outcome: "Mfit", show: "sd", logY: true, logX: true },
+      note: "Close to the centre the visible matter dominates, so the halo hardly changes the speeds and its mass is badly measured. Far out the halo dominates and the mass is pinned down. This is why measuring hydrogen gas far beyond the stars (with radio telescopes) was so important." },
+    { q: "Is the best fit as good as it should be? (χ² distribution)", setup: () => { setPreset(1); }, cfg: { mode: "repeat", n: 500, outcome: "chi2min" },
+      note: "For a correct model, the best-fit χ² is about N − 1 (25 points, 1 fitted number), with a spread of √(2(N − 1)) ≈ 7. A much bigger χ² would mean the model is wrong — like the no-dark-matter model." },
+    { q: "Dark-to-visible ratio vs the cosmic 5.3", setup: () => { setPreset(1); }, cfg: { mode: "repeat", n: 500, outcome: "ratio" },
+      note: "The Milky Way's halo is about 14 times as massive as its stars and gas, more than the cosmic average of 5.3. Galaxies have lost (or never collected) much of their share of ordinary matter. Dwarf galaxies have ratios in the hundreds." },
+  ],
+});
+
+/* =====================================================================
+   9. MAIN LOOP
+   ===================================================================== */
+let lastT = performance.now();
+function frame(now) {
+  const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (sim.running && !batch.isBusy()) step(real * speed * (isSolar() ? 0.2 : 10));   // 1× = 10 million years per second (0.2 years for the Solar System)
+  if (!batch.isOpen()) { drawView(); }
+  if (now - (frame.ui || 0) > 250) { frame.ui = now; updateUI(); drawMassChart(); }
+  requestAnimationFrame(frame);
+}
+setupPanels("dark-matter-layout", () => {});
+setPreset(1);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

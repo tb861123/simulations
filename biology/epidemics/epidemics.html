@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Epidemics and Vaccination</title>
+<!--
+  EPIDEMICS AND VACCINATION — a teaching model
+  ============================================
+  One self-contained file: no libraries, no internet needed.
+
+  Every dot is a person. A person is
+     S  susceptible (can catch the disease)
+     E  exposed (infected but not yet infectious: the "latent" period)
+     I  infectious (can pass it on; symptoms may start part-way through)
+     R  recovered and immune (or V: protected by a vaccine)
+     D  died
+  Each day an infectious person meets on average C people (10 a day,
+  fewer with social distancing). Each meeting with a susceptible person
+  passes the infection on with chance τ (lower with masks; a vaccine
+  protects a share of the vaccinated completely).
+     Basic reproduction number  R0 = C × τ × (mean infectious period, days)
+  so the model sets τ = R0 / (C × infectious period).
+
+  The dashed curves are the deterministic SEIR equations (the "average"
+  epidemic in a huge, well-mixed population with the same settings):
+     dS/dt = −β S I / N + ω R      dE/dt = β S I / N − σ E
+     dI/dt = σ E − γ I             dR/dt = γ I − ω R      (β = R γ)
+  (with the latent and infectious periods each split into 3 stages so the
+  times are as regular as in the agent model).
+  Theory used in the batch lab:
+     Final size equation  z = 1 − e^(−R0 z)        (z: share ever infected)
+     Chance of a major outbreak from one case ≈ 1 − 1/R0
+     Herd immunity threshold  1 − 1/R0
+
+  Units: time in days; numbers of people.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 330px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; }
+  #pending { display: none; background: #3a2a07; color: #ffd98a; border: 1px solid #6b4e10; border-radius: 6px; padding: 6px 8px; font-size: 12.5px; margin: 6px 0; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #viewWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  #chartBox { position: relative; height: 170px; }
+  #chart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+  #centre { position: relative; }
+  .graphBox { position: relative; height: 160px; }
+  .graphBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .chk { display: block; font-size: 13px; margin: 2px 0 8px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: 4px 10px; }
+  table.mini { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+  table.mini th, table.mini td { padding: 2px 4px; text-align: right; border-bottom: 1px solid var(--line); }
+  table.mini th:first-child, table.mini td:first-child { text-align: left; }
+  table.mini th { color: var(--muted); font-weight: 600; }
+  #story p { margin: 0 0 6px; }
+
+  /* Batch run overlay (covers the three panels) */
+  #batch { display: none; position: fixed; left: 10px; right: 10px; top: 52px; bottom: 10px; z-index: 50; background: var(--panel);
+           border: 2px solid var(--accent); border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.7); padding: 10px 12px;
+           grid-template-columns: 330px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 8px 14px; }
+  #batch.open { display: grid; }
+  #batch .bhead { grid-column: 1 / 3; display: flex; align-items: baseline; gap: 14px; }
+  #batch .bhead h2 { font-size: 16px; text-transform: none; letter-spacing: 0; color: var(--accent); margin: 0; }
+  #batch .bhead .hint { flex: 1; }
+  #bLeft { overflow-y: auto; min-height: 0; padding-right: 4px; }
+  #bRight { display: flex; flex-direction: column; gap: 6px; min-height: 0; min-width: 0; }
+  #bChartBox { position: relative; flex: 1; min-height: 200px; background: #10130e; border-radius: 8px; }
+  #bChart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bSummary { font-size: 12.5px; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 10px; max-height: 38%; overflow-y: auto; }
+  #bSummary table td:last-child { white-space: nowrap; }
+  .bctl { margin-bottom: 7px; }
+  .bctl label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 2px; }
+  .bctl select, .bctl input { width: 100%; }
+  .bctl input { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+  .b3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  #bProg { height: 8px; border-radius: 4px; background: var(--panel-2); overflow: hidden; margin: 6px 0 2px; }
+  #bProg span { display: block; height: 100%; width: 0; background: var(--accent); }
+  #bExps { display: flex; flex-direction: column; gap: 5px; }
+  #bExps button { text-align: left; font-size: 12.5px; padding: 5px 8px; line-height: 1.3; }
+  #bNote { font-size: 12.5px; color: #dfe3d6; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; }
+  #bNote:empty { display: none; }
+  .bstat b { color: var(--accent); }
+
+  .key { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .key i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+  #phase { font-weight: 700; font-size: 13px; border-radius: 999px; padding: 1px 10px; background: #2a3024; color: var(--muted); }
+  #phase.grow { background: #8b1e1e; color: #ffd2d2; }
+  #phase.fall { background: #7a5a10; color: #ffe9b8; }
+  #phase.over { background: #3c5a33; color: #d9f5cf; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Epidemics and Vaccination</h1>
+  <span class="sub">How diseases spread from person to person, and how vaccination, distancing, masks and isolation slow them down.</span>
+</header>
+
+<main>
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">The disease</h2>
+    <div class="ctl"><label>Disease</label><select id="disease"></select></div>
+    <div class="hint" id="disInfo" style="margin:-4px 0 8px"></div>
+    <div class="ctl"><label>R0 (basic reproduction number) <output id="o_R0"></output></label><input type="range" id="R0" min="0.5" max="20" step="0.1" value="3"></div>
+    <div class="ctl"><label>Incubation (latent) period <output id="o_lat"></output></label><input type="range" id="lat" min="0.5" max="21" step="0.5" value="3"></div>
+    <div class="ctl"><label>Infectious period <output id="o_inf"></output></label><input type="range" id="inf" min="1" max="21" step="0.5" value="7"></div>
+    <div class="ctl"><label>Infectious before symptoms show <output id="o_pre"></output></label><input type="range" id="pre" min="0" max="6" step="0.5" value="2"></div>
+    <div class="ctl"><label>Cases with no symptoms <output id="o_asym"></output></label><input type="range" id="asym" min="0" max="0.8" step="0.05" value="0.3"></div>
+    <div class="ctl"><label>Death rate (of cases) <output id="o_cfr"></output></label><input type="range" id="cfr" min="0" max="0.6" step="0.001" value="0.01"></div>
+
+    <h2 class="gap">The population <span class="hint" style="text-transform:none;letter-spacing:0">(press Reset)</span></h2>
+    <div class="ctl"><label>Population <output id="o_N"></output></label><input type="range" id="N" min="50" max="5000" step="50" value="1000"></div>
+    <div class="ctl"><label>How people mix</label><select id="mix">
+      <option value="mixed">Random mixing (anyone can meet anyone)</option>
+      <option value="local">Local: people meet those near them</option>
+      <option value="network">Households, school/work and community</option></select></div>
+    <div class="ctl"><label>Starting infected <output id="o_I0"></output></label><input type="range" id="I0" min="1" max="50" step="1" value="1"></div>
+    <div class="ctl"><label>Vaccinated <output id="o_vax"></output></label><input type="range" id="vax" min="0" max="100" step="1" value="0"></div>
+    <div class="ctl"><label>Vaccine efficacy <output id="o_ve"></output></label><input type="range" id="ve" min="0" max="100" step="1" value="90">
+      <div class="hint">Share of vaccinated people who are fully protected.</div></div>
+    <div class="ctl"><label>Random seed</label><input id="seed" value="1" style="width:100%;font:inherit;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
+
+    <h2 class="gap">Measures <span class="live">take effect at once</span></h2>
+    <div class="ctl"><label>Social distancing <output id="o_dist"></output></label><input type="range" id="dist" min="0" max="90" step="1" value="0">
+      <div class="hint">Cuts contacts outside the home (and how far people move).</div></div>
+    <div class="ctl"><label>Masks cut transmission by <output id="o_mask"></output></label><input type="range" id="mask" min="0" max="70" step="1" value="0"></div>
+    <div class="ctl"><label>Cases who isolate when symptoms start <output id="o_iso"></output></label><input type="range" id="iso" min="0" max="100" step="1" value="0">
+      <div class="hint">Isolating cuts their contacts by 90%. People with no symptoms never isolate.</div></div>
+    <div class="ctl"><label>Immunity lasts <output id="o_wane"></output></label><input type="range" id="wane" min="0" max="730" step="10" value="0">
+      <div class="hint">0 = for life. Otherwise recovered and vaccinated people become susceptible again after this many days on average.</div></div>
+    <div class="ctl"><label>Days to simulate (graphs and batch) <output id="o_days"></output></label><input type="range" id="days" min="30" max="1000" step="10" value="200"></div>
+    <button id="btnBatch" class="primary" style="width:100%">📊 Batch run…</button>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>People:</b> each person is S, E, I, R (or V) or D. Latent and infectious periods vary from person to person (gamma distribution, shape 3: most people are close to the average).</li>
+        <li><b>Contacts:</b> an infectious person makes on average 10 contacts a day (random, Poisson). Each contact with a susceptible person infects them with chance τ = R0 ÷ (10 × infectious period). So in a fully susceptible population each case infects R0 others on average.</li>
+        <li><b>Mixing:</b> "random" means any two people are equally likely to meet (the assumption behind the SEIR equations). "Local" means people only meet those within a short distance as they wander about. "Households…" puts people in homes of 1–5, school or work groups of about 25 and the wider community: 30% of contacts are at home, 40% at school/work and 30% in the community. Clustered contacts waste infections on people who already have it, so spread is slower than the equations predict.</li>
+        <li><b>Vaccination:</b> "all-or-nothing": with 90% efficacy, 90% of vaccinated people are fully immune and 10% are not protected at all.</li>
+        <li><b>Distancing</b> cuts contacts outside the home by the percentage shown. <b>Masks</b> cut the chance of passing it on in each contact. <b>Isolation:</b> people with symptoms who isolate have 90% fewer contacts from when symptoms start. Diseases that spread before symptoms (flu, COVID) or with no symptoms are hard to stop this way; Ebola and SARS spread mainly after symptoms.</li>
+        <li><b>Effective R:</b> R at the start = R0 × (1 − distancing) × (1 − mask effect) × (isolation factor) × (share not immune). R<sub>t</sub> (measured) is the average number of people infected by those who caught it on day t.</li>
+        <li><b>Theory:</b> the dashed lines solve the SEIR equations for the same settings. The final size equation z = 1 − e<sup>−R z</sup> gives the share infected in a big outbreak (starting with some immune: z = s<sub>0</sub>(1 − e<sup>−R z</sup>)). The chance that one case starts a big outbreak is 1 − 1/R0 if illness lengths are very variable (exponential); with this model's more regular illness lengths it is a little higher.</li>
+        <li><b>Deaths</b> happen at the end of the infectious period, with the chosen chance.</li>
+        <li><b>Not modelled:</b> age groups, hospitals running out of beds, people changing behaviour by themselves, seasons, travel in and out, new variants, partial (leaky) vaccine protection, births and other deaths.</li>
+      </ul>
+    </details>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">Day 0</span>
+      <span id="phase">Ready</span>
+      <span class="stat">Infectious now <b id="s_I">0</b></span>
+      <span class="stat">Ever infected <b id="s_tot">0</b></span>
+      <span class="stat">R<sub>t</sub> <b id="s_Rt">–</b></span>
+      <span class="stat">Deaths <b id="s_D">0</b></span>
+    </div>
+    <div id="viewWrap"><canvas id="view" aria-label="People in the population, coloured by state"></canvas></div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">▶ Start</button>
+      <button id="btnReset" title="New population with these settings">Reset</button>
+      <span class="speed">Speed <button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="4">4×</button><button data-s="15">15×</button></span>
+      <span class="hint">1× = 1 day per second</span>
+      <button id="btnBatch2" style="margin-left:auto">📊 Batch</button>
+    </div>
+    <div class="key"><span><i style="background:#a4cbe6"></i>Susceptible</span><span><i style="background:#f1af28"></i>Exposed (not yet infectious)</span><span><i style="background:#de252a"></i>Infectious</span><span><i style="background:#ff9ec4"></i>Infectious, isolating</span><span><i style="background:#76b82a"></i>Recovered (immune)</span><span><i style="background:#a86dab"></i>Vaccinated and protected</span><span><i style="background:#555"></i>Died</span><span>Lines: who infected whom</span></div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Results</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">Numbers</h2>
+    <div class="tiles" id="tiles"></div>
+    <h2 class="gap">S, E, I, R over time</h2>
+    <div class="graphBox" style="height:180px"><canvas id="g1"></canvas></div>
+    <label class="chk" style="font-size:12px"><input type="checkbox" id="showNoMeasures" checked> Also show the equations with no distancing, masks or isolation</label>
+    <h2 class="gap">Reproduction number R<sub>t</sub></h2>
+    <div class="graphBox" style="height:140px"><canvas id="g2"></canvas></div>
+  </section>
+</main>
+<div id="batch"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   SHARED HELPERS: random numbers, maths, drawing graphs, panel layout
+   and the "Batch run" laboratory. (The same helpers are copied into each
+   biology simulation so every file works on its own.)
+   ===================================================================== */
+const el = id => document.getElementById(id);
+
+// Repeatable random numbers: the same seed always gives the same run.
+function hashSeed(str) { str = String(str); let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } return h >>> 0; }
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+// A normally distributed random number (mean 0, SD 1), Box–Muller method
+function randn(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+// A Poisson random number: how many events happen when lam are expected on average
+function poisson(rng, lam) {
+  if (lam <= 0) return 0;
+  if (lam > 40) return Math.max(0, Math.round(lam + Math.sqrt(lam) * randn(rng)));
+  const L = Math.exp(-lam); let k = 0, p = 1;
+  do { k++; p *= rng(); } while (p > L);
+  return k - 1;
+}
+// A gamma-distributed waiting time with a given mean and shape (shape 1 = exponential)
+function gammaTime(rng, mean, shape) { let s = 0; for (let k = 0; k < shape; k++) s -= Math.log(1 - rng()); return s * mean / shape; }
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const finite = v => typeof v === "number" && isFinite(v);
+const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : NaN;
+function sd(a) { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); }
+function fmtNum(v, d) {
+  if (!finite(v)) return "–";
+  if (d === undefined) d = Math.abs(v) >= 100 ? 0 : Math.abs(v) >= 10 ? 1 : Math.abs(v) >= 1 ? 2 : 3;
+  return v.toLocaleString("en-GB", { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+const pct = (v, d = 0) => finite(v) ? (100 * v).toFixed(d) + "%" : "–";
+// Least-squares straight line through points (x, y): returns gradient, intercept, r²
+function linFit(xs, ys) {
+  const n = xs.length; if (n < 2) return null;
+  const mx = mean(xs), my = mean(ys); let sxy = 0, sxx = 0, syy = 0;
+  for (let i = 0; i < n; i++) { sxy += (xs[i] - mx) * (ys[i] - my); sxx += (xs[i] - mx) ** 2; syy += (ys[i] - my) ** 2; }
+  if (sxx === 0) return null;
+  const m = sxy / sxx; return { m, c: my - m * mx, r2: syy > 0 ? sxy * sxy / (sxx * syy) : 1 };
+}
+
+/* ---------- Canvas helpers (sharp on high-resolution screens) ---------- */
+function fitCanvas(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(1, Math.round(c.clientWidth * dpr)), H = Math.max(1, Math.round(c.clientHeight * dpr));
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  return { ctx: c.getContext("2d"), W, H, dpr };
+}
+function niceStep(range, n) {
+  const raw = range / Math.max(1, n), mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag;
+}
+function tickLabel(v, step) { if (Math.abs(v) < step * 1e-6) v = 0; const d = step >= 1 ? 0 : Math.min(4, Math.ceil(-Math.log10(step))); return v.toLocaleString("en-GB", { minimumFractionDigits: d, maximumFractionDigits: d }); }
+
+/* A small general-purpose graph drawer.
+   o = { x:[min,max], y:[min,max], xLabel, yLabel, logX, title,
+         series:[{ type:"line"|"pts"|"bars"|"err"|"band"|"vline"|"hline"|"step", data, col, w, dash, alpha, label, r, barW }] }
+   line/pts/step: data = [[x,y],...]   err: [[x, y, lo, hi],...]   band: [[x, lo, hi],...]
+   bars: [[x0, x1, y],...]   vline/hline: data = value                                                */
+function plot(canvas, o) {
+  const { ctx, W, H, dpr } = fitCanvas(canvas);
+  ctx.fillStyle = o.bg || "#10130e"; ctx.fillRect(0, 0, W, H);
+  const fs = (o.font || 10.5) * dpr;
+  const L = (o.left || 46) * dpr, R = (o.right || 10) * dpr, T = (o.top || (o.title ? 18 : 8)) * dpr, B = (o.bottom || 30) * dpr;
+  let [x0, x1] = o.x, [y0, y1] = o.y;
+  if (!(x1 > x0)) x1 = x0 + 1; if (!(y1 > y0)) y1 = y0 + 1;
+  const lx = v => o.logX ? Math.log10(Math.max(v, 1e-12)) : v;
+  const X = v => L + (lx(v) - lx(x0)) / (lx(x1) - lx(x0)) * (W - L - R);
+  const Y = v => H - B - (v - y0) / (y1 - y0) * (H - T - B);
+  ctx.font = `${fs}px system-ui, sans-serif`; ctx.lineWidth = 1;
+  // grid and tick labels
+  ctx.strokeStyle = "rgba(160,170,150,0.14)"; ctx.fillStyle = "#a3ab96";
+  const ys = niceStep(y1 - y0, Math.max(2, Math.floor((H - T - B) / (26 * dpr))));
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  for (let v = Math.ceil(y0 / ys - 1e-9) * ys; v <= y1 + 1e-9 * ys; v += ys) { const y = Y(v); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); ctx.fillText(tickLabel(v, ys), L - 4 * dpr, y); }
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  if (o.logX) {
+    for (let e = Math.floor(Math.log10(x0)); e <= Math.ceil(Math.log10(x1)); e++) for (const m of [1, 2, 5]) {
+      const v = m * Math.pow(10, e); if (v < x0 * 0.999 || v > x1 * 1.001) continue;
+      const x = X(v); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - B); ctx.stroke(); ctx.fillText(v.toLocaleString("en-GB"), x, H - B + 3 * dpr);
+    }
+  } else {
+    const xs = niceStep(x1 - x0, Math.max(2, Math.floor((W - L - R) / (60 * dpr))));
+    for (let v = Math.ceil(x0 / xs - 1e-9) * xs; v <= x1 + 1e-9 * xs; v += xs) { const x = X(v); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - B); ctx.stroke(); ctx.fillText(o.xTick ? o.xTick(v) : tickLabel(v, xs), x, H - B + 3 * dpr); }
+  }
+  ctx.strokeStyle = "rgba(200,205,190,0.45)"; ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, H - B); ctx.lineTo(W - R, H - B); ctx.stroke();
+  // axis labels
+  ctx.fillStyle = "#c9cfbd"; ctx.textBaseline = "bottom"; ctx.fillText(o.xLabel || "", (L + W - R) / 2, H - 2 * dpr);
+  ctx.save(); ctx.translate(11 * dpr, (T + H - B) / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = "middle"; ctx.fillText(o.yLabel || "", 0, 0); ctx.restore();
+  if (o.title) { ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillStyle = "#dfe3d6"; ctx.fillText(o.title, L, 3 * dpr); }
+  // data, clipped to the plot area
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T - 2 * dpr, W - L - R, H - T - B + 4 * dpr); ctx.clip();
+  for (const s of o.series || []) {
+    ctx.globalAlpha = s.alpha == null ? 1 : s.alpha;
+    ctx.strokeStyle = ctx.fillStyle = s.col || "#f1af28"; ctx.lineWidth = (s.w || 2) * dpr;
+    ctx.setLineDash(s.dash ? s.dash.map(d => d * dpr) : []);
+    const d = s.data;
+    if (s.type === "line" || s.type === "step") {
+      ctx.beginPath(); let first = true, py = 0;
+      for (const p of d) { if (!finite(p[1]) || !finite(p[0])) { first = true; continue; } const x = X(p[0]), y = Y(p[1]);
+        if (first) ctx.moveTo(x, y); else if (s.type === "step") { ctx.lineTo(x, py); ctx.lineTo(x, y); } else ctx.lineTo(x, y); first = false; py = y; }
+      ctx.stroke();
+    } else if (s.type === "pts") {
+      const r = (s.r || 2.2) * dpr;
+      for (const p of d) if (finite(p[0]) && finite(p[1])) { ctx.beginPath(); ctx.arc(X(p[0]), Y(p[1]), r, 0, 7); ctx.fill(); }
+    } else if (s.type === "err") {
+      const r = (s.r || 3.5) * dpr, cap = 4 * dpr;
+      for (const p of d) { if (!finite(p[1])) continue; const x = X(p[0]);
+        if (finite(p[2]) && finite(p[3])) { ctx.beginPath(); ctx.moveTo(x, Y(p[2])); ctx.lineTo(x, Y(p[3])); ctx.moveTo(x - cap, Y(p[2])); ctx.lineTo(x + cap, Y(p[2])); ctx.moveTo(x - cap, Y(p[3])); ctx.lineTo(x + cap, Y(p[3])); ctx.stroke(); }
+        ctx.beginPath(); ctx.arc(x, Y(p[1]), r, 0, 7); ctx.fill(); }
+    } else if (s.type === "band") {
+      ctx.beginPath(); let started = false;
+      for (const p of d) { if (!finite(p[1])) continue; const x = X(p[0]), y = Y(p[2]); if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y); }
+      for (let k = d.length - 1; k >= 0; k--) { const p = d[k]; if (!finite(p[1])) continue; ctx.lineTo(X(p[0]), Y(p[1])); }
+      ctx.closePath(); ctx.fill();
+    } else if (s.type === "bars") {
+      for (const p of d) { const xa = X(p[0]), xb = X(p[1]); const g = Math.min(1.5 * dpr, (xb - xa) * 0.1); ctx.fillRect(xa + g, Y(p[2]), Math.max(1, xb - xa - 2 * g), Y(y0) - Y(p[2])); }
+    } else if (s.type === "vline") {
+      if (finite(d)) { const x = X(d); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - B); ctx.stroke(); }
+    } else if (s.type === "hline") {
+      if (finite(d)) { const y = Y(d); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); }
+    }
+  }
+  ctx.restore(); ctx.globalAlpha = 1; ctx.setLineDash([]);
+  // legend
+  const leg = (o.series || []).filter(s => s.label);
+  if (leg.length && o.legend !== false) {
+    ctx.font = `${fs}px system-ui, sans-serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    const lw = Math.max(...leg.map(s => ctx.measureText(s.label).width)) + 30 * dpr, lh = 14 * dpr;
+    const lxp = o.legendLeft ? L + 6 * dpr : W - R - lw - 6 * dpr, lyp = T + 4 * dpr;
+    ctx.fillStyle = "rgba(16,19,14,0.82)"; ctx.fillRect(lxp - 4 * dpr, lyp - 3 * dpr, lw + 6 * dpr, leg.length * lh + 6 * dpr);
+    leg.forEach((s, k) => {
+      const y = lyp + k * lh + lh / 2; ctx.strokeStyle = ctx.fillStyle = s.col; ctx.lineWidth = 2 * dpr; ctx.setLineDash(s.dash ? s.dash.map(d => d * dpr) : []);
+      if (s.type === "bars" || s.type === "band") { ctx.globalAlpha = s.type === "band" ? 0.5 : 1; ctx.fillRect(lxp, y - 4 * dpr, 18 * dpr, 8 * dpr); ctx.globalAlpha = 1; }
+      else if (s.type === "pts" || s.type === "err") { ctx.beginPath(); ctx.arc(lxp + 9 * dpr, y, 3 * dpr, 0, 7); ctx.fill(); }
+      else { ctx.beginPath(); ctx.moveTo(lxp, y); ctx.lineTo(lxp + 18 * dpr, y); ctx.stroke(); }
+      ctx.setLineDash([]); ctx.fillStyle = "#dfe3d6"; ctx.fillText(s.label, lxp + 24 * dpr, y);
+    });
+  }
+  return { X, Y, L, R, T, B, W, H, dpr, ctx };
+}
+
+/* ---------- Resizable, hideable side panels (as in the other simulations) ---------- */
+function setupPanels(KEY) {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const STRIP = 30, MIN = 200, DEF = { lw: 300, rw: 340, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+}
+
+/* =====================================================================
+   THE BATCH RUN LABORATORY
+   ---------------------------------------------------------------------
+   Science is about repeating experiments. Chance plays a big part in
+   biology, so one run of the model can be misleading. The batch lab runs
+   the model many times with different random seeds and with no drawing
+   ("headless"), then compares the spread of results with theory.
+     Repeat: the same settings N times  -> histogram of one outcome
+     Sweep : change one setting in steps -> mean ± SD at each step
+   cfg (supplied by each simulation):
+     getParams()            current settings from the controls
+     runOnce(p, seed)       one complete run with no drawing -> {outcome values}
+     outcomes[]             { key, label, unit, kind:"num"|"bin"|"cat"|"series",
+                              theory(p), theoryLabel, marks(p) -> [{x,label}], cats[],
+                              catTheory(p), seriesTheory(p, results), xLabel, extra(vals, p, results) }
+     sweepVars[]            { key, label, unit, min, max, int, log }
+     experiments[]          { q, note, apply(), set:{ mode, n, outcome, v, from, to, steps, reps, logX } }
+   ===================================================================== */
+function setupBatch(cfg) {
+  const box = el("batch");
+  box.innerHTML = `
+    <div class="bhead"><h2>Batch run: repeat the experiment many times</h2>
+      <span class="hint">${cfg.note || ""}</span><button id="bClose">✕ Close</button></div>
+    <div id="bLeft">
+      <h2>Batch experiments</h2>
+      <div id="bExps"></div>
+      <h2 class="gap">Set up your own</h2>
+      <div class="bctl"><div class="seg"><button id="bModeR" class="on">Repeat</button><button id="bModeS">Sweep</button></div></div>
+      <div class="bctl"><label>Outcome to record</label><select id="bOut"></select></div>
+      <div id="bRep" class="bctl"><label>Number of runs</label><select id="bN">${cfg.repeatNs.map(n => `<option value="${n}">${n}</option>`).join("")}</select></div>
+      <div id="bSw" style="display:none">
+        <div class="bctl"><label>Setting to change</label><select id="bVar">${cfg.sweepVars.map(v => `<option value="${v.key}">${v.label}${v.unit ? " (" + v.unit + ")" : ""}</option>`).join("")}</select></div>
+        <div class="b3 bctl"><div><label>From</label><input id="bFrom" type="number"></div><div><label>To</label><input id="bTo" type="number"></div><div><label>Steps</label><input id="bSteps" type="number" min="2" max="40" value="8"></div></div>
+        <div class="bctl"><label>Runs at each step</label><select id="bReps">${cfg.sweepReps.map(n => `<option value="${n}">${n}</option>`).join("")}</select></div>
+        <label class="chk"><input type="checkbox" id="bLog"> Logarithmic steps and axis</label>
+      </div>
+      <div class="hint" style="margin-bottom:6px">Other settings are taken from the main controls. ${cfg.costNote || ""}</div>
+      <div class="row"><button id="bRun" class="primary">▶ Run batch</button><button id="bStop">■ Stop</button><button id="bCsv">⬇ Download CSV</button></div>
+      <div id="bProg"><span></span></div><div class="hint" id="bProgT">Ready.</div>
+    </div>
+    <div id="bRight">
+      <div id="bNote"></div>
+      <div id="bChartBox"><canvas id="bChart"></canvas></div>
+      <div id="bSummary"></div>
+    </div>`;
+  let mode = "repeat", results = [], job = null, lastSet = null, csvUrl = null, activeExp = -1;
+  const outSel = el("bOut");
+  function fillOutcomes() {
+    const cur = outSel.value;
+    outSel.innerHTML = cfg.outcomes.filter(o => mode === "repeat" || o.kind !== "series").map(o => `<option value="${o.key}">${o.label}</option>`).join("");
+    if ([...outSel.options].some(x => x.value === cur)) outSel.value = cur;
+  }
+  function setMode(m) { mode = m; el("bModeR").classList.toggle("on", m === "repeat"); el("bModeS").classList.toggle("on", m === "sweep"); el("bRep").style.display = m === "repeat" ? "" : "none"; el("bSw").style.display = m === "sweep" ? "" : "none"; fillOutcomes(); }
+  function varDefaults() { const v = cfg.sweepVars.find(v => v.key === el("bVar").value); if (v) { el("bFrom").value = v.min; el("bTo").value = v.max; el("bLog").checked = !!v.log; } }
+  el("bModeR").onclick = () => { setMode("repeat"); activeExp = -1; markExp(); };
+  el("bModeS").onclick = () => { setMode("sweep"); activeExp = -1; markExp(); };
+  el("bVar").onchange = varDefaults;
+  el("bClose").onclick = () => { stop(); box.classList.remove("open"); };
+  el("bStop").onclick = () => stop();
+  el("bRun").onclick = () => start();
+  el("bCsv").onclick = () => downloadCsv();
+  outSel.onchange = () => draw();
+  el("bExps").innerHTML = cfg.experiments.map((e, k) => `<button data-e="${k}">${e.q}</button>`).join("");
+  function markExp() { document.querySelectorAll("#bExps button").forEach((b, j) => b.classList.toggle("on", j === activeExp)); if (activeExp < 0) el("bNote").innerHTML = ""; }
+  document.querySelectorAll("#bExps button").forEach(b => (b.onclick = () => {
+    const k = +b.dataset.e, e = cfg.experiments[k]; activeExp = k; markExp();
+    if (e.apply) e.apply();
+    const s = e.set; setMode(s.mode);
+    outSel.value = s.outcome;
+    // choose a value in a drop-down list, adding it to the list if it isn't there
+    const setSel = (id, v) => { const e = el(id); if (![...e.options].some(o => +o.value === +v)) e.add(new Option(String(v), v)); e.value = v; };
+    if (s.mode === "repeat") setSel("bN", s.n);
+    else { el("bVar").value = s.v; varDefaults(); el("bFrom").value = s.from; el("bTo").value = s.to; el("bSteps").value = s.steps; setSel("bReps", s.reps); el("bLog").checked = !!s.logX; }
+    el("bNote").innerHTML = `<b>${e.q}</b> ${e.note}`;
+    start();
+  }));
+  setMode("repeat"); varDefaults();
+
+  function stop() { if (job) { job.stopped = true; job = null; el("bProgT").textContent = `Stopped after ${results.length} runs.`; } }
+  function start() {
+    stop();
+    const base = cfg.getParams(), outKey = outSel.value;
+    const set = { mode, outKey, base, seedBase: String(base.seed ?? "1") };
+    const list = [];
+    if (mode === "repeat") { const n = +el("bN").value; for (let i = 0; i < n; i++) list.push({ i, x: null }); }
+    else {
+      const v = cfg.sweepVars.find(v => v.key === el("bVar").value), steps = clamp(Math.round(+el("bSteps").value || 8), 2, 40), reps = +el("bReps").value;
+      let a = +el("bFrom").value, b = +el("bTo").value; const lg = el("bLog").checked && a > 0 && b > 0;
+      if (!finite(a)) a = v.min; if (!finite(b)) b = v.max;
+      set.v = v; set.logX = lg; set.from = a; set.to = b;
+      const xs = [];
+      for (let k = 0; k < steps; k++) { let x = lg ? a * Math.pow(b / a, k / (steps - 1)) : a + (b - a) * k / (steps - 1); if (v.int) x = Math.round(x); else x = +x.toPrecision(4); if (!xs.includes(x)) xs.push(x); }
+      set.xs = xs; xs.forEach(x => { for (let r = 0; r < reps; r++) list.push({ i: list.length, x }); });
+    }
+    results = []; lastSet = set;
+    const me = { stopped: false, k: 0, list, t0: performance.now() }; job = me;
+    function chunk() {
+      if (me.stopped) return;
+      const t = performance.now();
+      while (me.k < list.length && performance.now() - t < 30) {
+        const it = list[me.k++], p = { ...base };
+        if (it.x !== null) p[set.v.key] = it.x;
+        const seed = hashSeed(set.seedBase + "#batch" + it.i);
+        const r = cfg.runOnce(p, seed);
+        r._run = it.i + 1; r._seed = seed; if (it.x !== null) r._x = it.x;
+        results.push(r);
+      }
+      el("bProg").firstElementChild.style.width = (100 * me.k / list.length) + "%";
+      const secs = (performance.now() - me.t0) / 1000;
+      el("bProgT").textContent = me.k < list.length ? `Run ${me.k} of ${list.length} (${secs.toFixed(1)} s)…` : `Finished ${list.length} runs in ${secs.toFixed(1)} s.`;
+      draw();
+      if (me.k < list.length) setTimeout(chunk, 0); else if (job === me) job = null;
+    }
+    setTimeout(chunk, 0);
+  }
+
+  const TH = "#5fd4e8", DATA = "#f1af28";
+  function statsRows(vals, theory, isBin, unit) {
+    const n = vals.length, m = mean(vals), s = sd(vals), se = isBin ? Math.sqrt(Math.max(m * (1 - m), 0) / Math.max(1, n)) : s / Math.sqrt(Math.max(1, n));
+    const u = unit ? " " + unit : "";
+    const rows = [["Runs (n)", n], [isBin ? "Proportion (mean)" : "Mean", fmtNum(m) + u]];
+    if (!isBin) rows.push(["Standard deviation", fmtNum(s) + u]);
+    rows.push(["Standard error", fmtNum(se) + u]);
+    if (!isBin) rows.push(["Smallest – largest", fmtNum(Math.min(...vals)) + " – " + fmtNum(Math.max(...vals)) + u]);
+    if (finite(theory)) {
+      rows.push(["Theory", fmtNum(theory) + u]);
+      const diff = m - theory;
+      rows.push(["Difference from theory", (theory !== 0 ? (diff >= 0 ? "+" : "") + fmtNum(100 * diff / Math.abs(theory), 1) + "%, " : "") + (se > 0 ? fmtNum(diff / se, 1) + " SE" : "–")]);
+    }
+    return rows;
+  }
+  const table = rows => `<table class="mini">${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</table>`;
+
+  function draw() {
+    const cv = el("bChart");
+    const set = lastSet;
+    if (!set || !results.length) { plot(cv, { x: [0, 1], y: [0, 1], xLabel: "", yLabel: "", series: [] }); el("bSummary").innerHTML = `<div class="hint">Pick a batch experiment on the left, or set up your own and press <b>Run batch</b>. Each run uses a different random seed but the same settings.</div>`; return; }
+    const o = cfg.outcomes.find(o => o.key === outSel.value) || cfg.outcomes[0];
+    const p = set.base, u = o.unit || "";
+    const label = o.label + (u ? ` (${u})` : "");
+    let html = "";
+    if (set.mode === "repeat" && o.kind === "series") {
+      const runs = results.map(r => r[o.key]).filter(a => Array.isArray(a) && a.length);
+      const len = Math.max(...runs.map(a => a.length));
+      const ser = [], band = [], lines = [];
+      for (let t = 0; t < len; t++) { const v = runs.map(a => a[Math.min(t, a.length - 1)]).filter(finite); if (!v.length) continue; const m = mean(v), s = sd(v); ser.push([t, m]); band.push([t, m - s, m + s]); }
+      runs.slice(0, 25).forEach(a => lines.push({ type: "line", data: a.map((v, t) => [t, v]), col: "#a3ab96", w: 0.8, alpha: 0.35 }));
+      const th = o.seriesTheory ? o.seriesTheory(p, results, ser) : null;
+      let ymax = Math.max(...band.map(b => b[2]), ...(th ? th.map(q => q[1]) : [0])); if (o.yMax) ymax = o.yMax;
+      plot(cv, { x: [0, Math.max(1, len - 1)], y: [0, ymax * (o.yMax ? 1 : 1.08) || 1], xLabel: o.xLabel || "time", yLabel: label, series: [
+        ...lines, { type: "band", data: band, col: DATA, alpha: 0.25, label: "mean ± 1 SD of the runs" }, { type: "line", data: ser, col: DATA, w: 2.5, label: "mean of the runs" },
+        ...(th ? [{ type: "line", data: th, col: TH, w: 2.5, dash: [7, 4], label: o.theoryLabel || "theory" }] : [])] });
+      const last = ser[ser.length - 1], lastB = band[band.length - 1];
+      const rows = [["Runs (n)", runs.length], ["Mean at the end", fmtNum(last[1]) + " " + u], ["SD at the end", fmtNum(lastB[2] - last[1]) + " " + u]];
+      if (th && th.length) { const tl = th.find(q => q[0] >= last[0]) || th[th.length - 1]; rows.push([(o.theoryLabel || "Theory") + " at the end", fmtNum(tl[1]) + " " + u]); }
+      html = table(rows) + `<div>${o.extra ? o.extra(results, p, ser, th) : ""}</div>`;
+    } else if (set.mode === "repeat" && o.kind === "cat") {
+      const counts = o.cats.map((c, k) => results.filter(r => r[o.key] === k).length), n = results.length;
+      const th = o.catTheory ? o.catTheory(p) : null;
+      const series = [{ type: "bars", data: counts.map((c, k) => [k - 0.4, k + 0.4, c / n]), col: DATA, label: "proportion of runs" }];
+      if (th) series.push({ type: "err", data: th.map((t, k) => [k, t, NaN, NaN]), col: TH, r: 5, label: o.theoryLabel || "theory" });
+      series.push({ type: "err", data: counts.map((c, k) => { const q = c / n, se = Math.sqrt(q * (1 - q) / n); return [k, q, q - se, q + se]; }), col: "#fff", r: 0.1, w: 1.5 });
+      plot(cv, { x: [-0.6, o.cats.length - 0.4], y: [0, 1], xLabel: o.label, yLabel: "proportion of runs", xTick: v => Number.isInteger(v) && o.cats[v] ? o.cats[v] : "", series });
+      html = table(o.cats.map((c, k) => [c, `${counts[k]} (${pct(counts[k] / n)}) ± ${pct(Math.sqrt(counts[k] / n * (1 - counts[k] / n) / n), 1)}` + (th ? ` · theory ${pct(th[k])}` : "")]).concat([["Runs (n)", n]])) + `<div>${o.extra ? o.extra(results, p) : ""}</div>`;
+    } else if (set.mode === "repeat") {
+      const all = results.map(r => r[o.key]), vals = all.filter(finite), miss = all.length - vals.length;
+      const thRuns = results.map(r => r[o.key + "_th"]).filter(finite);
+      const theory = thRuns.length ? mean(thRuns) : (o.theory ? o.theory(p) : null);
+      const marks = o.marks ? o.marks(p, results) : [];
+      if (!vals.length) { plot(cv, { x: [0, 1], y: [0, 1], series: [] }); el("bSummary").innerHTML = `<div class="hint">No run produced a value for this outcome (${miss} runs gave none).</div>`; return; }
+      let lo = Math.min(...vals), hi = Math.max(...vals);
+      if (finite(theory)) { lo = Math.min(lo, theory); hi = Math.max(hi, theory); }
+      marks.forEach(m => { if (finite(m.x)) { lo = Math.min(lo, m.x); hi = Math.max(hi, m.x); } });
+      if (o.range) { lo = Math.min(lo, o.range[0]); hi = Math.max(hi, o.range[1]); }
+      let bins;
+      if (o.kind === "bin") { lo = -0.5; hi = 1.5; bins = 2; }
+      else if (o.integer && hi - lo <= 40) { lo = Math.floor(lo) - 0.5; hi = Math.ceil(hi) + 0.5; bins = Math.round(hi - lo); }
+      else { bins = clamp(Math.round(Math.sqrt(vals.length) * 1.5), 8, 40); if (hi === lo) { lo -= 0.5; hi += 0.5; } const pad = (hi - lo) * 0.04; lo -= pad; hi += pad; }
+      const wdt = (hi - lo) / bins, cnt = new Array(bins).fill(0);
+      vals.forEach(v => cnt[clamp(Math.floor((v - lo) / wdt), 0, bins - 1)]++);
+      const series = [{ type: "bars", data: cnt.map((c, k) => [lo + k * wdt, lo + (k + 1) * wdt, c / vals.length]), col: DATA, label: "proportion of runs" }];
+      const m = mean(vals);
+      series.push({ type: "vline", data: m, col: "#ffffff", w: 1.5, dash: [3, 3], label: `mean of runs = ${fmtNum(m)}` });
+      if (finite(theory) && o.kind !== "bin") series.push({ type: "vline", data: theory, col: TH, w: 2.5, label: (o.theoryLabel || "theory") + ` = ${fmtNum(theory)}` });
+      marks.forEach(mk => series.push({ type: "vline", data: mk.x, col: mk.col || "#e83181", w: 2, dash: [6, 4], label: mk.label }));
+      if (o.kind === "bin" && finite(theory)) series.push({ type: "err", data: [[1, theory, NaN, NaN]], col: TH, r: 6, label: (o.theoryLabel || "theory") + ` = ${pct(theory, 1)}` });
+      const ymax = Math.max(...cnt) / vals.length;
+      plot(cv, { x: [lo, hi], y: [0, Math.min(1, Math.max(ymax, o.kind === "bin" && finite(theory) ? theory : 0) * 1.15 + 0.02)], xLabel: label, yLabel: "proportion of runs", xTick: o.kind === "bin" ? (v => v === 0 ? (o.binNames ? o.binNames[0] : "no (0)") : v === 1 ? (o.binNames ? o.binNames[1] : "yes (1)") : "") : null, series });
+      const rows = statsRows(vals, theory, o.kind === "bin", u);
+      if (miss) rows.splice(1, 0, ["Runs with no value", `${miss} (${o.missNote || "not reached"})`]);
+      html = table(rows) + `<div>${o.extra ? o.extra(vals, p, results) : ""}</div>`;
+    } else {
+      // SWEEP
+      const xs = set.xs, isBin = o.kind === "bin" || o.kind === "cat";
+      const groups = xs.map(x => results.filter(r => r._x === x));
+      const series = [], pts = [], errs = [], tablerows = [];
+      let ymin = Infinity, ymax = -Infinity;
+      const catList = o.kind === "cat" ? o.cats.map((c, k) => k) : [null];
+      const cols = ["#f1af28", "#e83181", "#a2c617", "#a4cbe6"];
+      const meansForFit = [];
+      catList.forEach((ck, ci) => {
+        const e = [];
+        groups.forEach((g, gi) => {
+          if (!g.length) return;
+          const v = g.map(r => ck === null ? r[o.key] : (r[o.key] === ck ? 1 : 0)).filter(finite);
+          if (!v.length) return;
+          const m = mean(v), s = sd(v), se = isBin ? Math.sqrt(m * (1 - m) / v.length) : s / Math.sqrt(v.length);
+          const bar = isBin ? se : s;
+          e.push([xs[gi], m, m - bar, m + bar]); ymin = Math.min(ymin, m - bar); ymax = Math.max(ymax, m + bar);
+          if (ck === null) { v.forEach(val => pts.push([xs[gi], val])); meansForFit.push([xs[gi], m]); tablerows.push([fmtNum(xs[gi]), v.length, fmtNum(m), fmtNum(s), fmtNum(se)]); }
+          else if (ci === 0) tablerows.push([fmtNum(xs[gi]), v.length, ...o.cats.map((c, k) => pct(mean(g.map(r => r[o.key] === k ? 1 : 0))))]);
+        });
+        if (ck === null && !isBin) { series.push({ type: "pts", data: pts, col: "#a3ab96", alpha: 0.35, r: 1.8 }); pts.forEach(q => { ymin = Math.min(ymin, q[1]); ymax = Math.max(ymax, q[1]); }); }
+        series.push({ type: "line", data: e.map(q => [q[0], q[1]]), col: ck === null ? DATA : cols[ci % 4], w: 1.2, alpha: 0.7 });
+        series.push({ type: "err", data: e, col: ck === null ? DATA : cols[ci % 4], label: ck === null ? (isBin ? "proportion ± 1 SE" : "mean ± 1 SD") : o.cats[ck] + " (± 1 SE)" });
+      });
+      // theory: the outcome's own formula evaluated along the sweep, or values computed in each run
+      let thPts = [];
+      const thRunKey = o.key + "_th";
+      if (results.some(r => finite(r[thRunKey]))) thPts = groups.map((g, gi) => [xs[gi], mean(g.map(r => r[thRunKey]).filter(finite))]).filter(q => finite(q[1]));
+      else if (o.theory) {
+        const a = set.from, b = set.to, M = 80;
+        for (let k = 0; k <= M; k++) { let x = set.logX ? a * Math.pow(b / a, k / M) : a + (b - a) * k / M; if (set.v.int) x = Math.round(x); const q = { ...p, [set.v.key]: x }; const t = o.theory(q); if (finite(t)) thPts.push([x, t]); }
+      }
+      if (thPts.length) { series.push({ type: "line", data: thPts, col: TH, w: 2.5, dash: [7, 4], label: o.theoryLabel || "theory" }); thPts.forEach(q => { ymin = Math.min(ymin, q[1]); ymax = Math.max(ymax, q[1]); }); }
+      const marks = (o.sweepMarks ? o.sweepMarks(p, set.v.key) : []) || [];
+      marks.forEach(mk => series.push({ type: "vline", data: mk.x, col: mk.col || "#e83181", w: 2, dash: [6, 4], label: mk.label }));
+      if (isBin) { ymin = 0; ymax = Math.max(ymax, 1); }
+      if (!finite(ymin)) { ymin = 0; ymax = 1; }
+      if (o.kind !== "cat" && ymin > 0 && ymin < 0.5 * ymax) ymin = 0;
+      const padY = (ymax - ymin) * 0.08 || 1;
+      const xa = Math.min(...xs), xb = Math.max(...xs), padX = set.logX ? 1 : 0.03 * (xb - xa || 1);
+      plot(cv, { x: set.logX ? [xa / 1.15, xb * 1.15] : [xa - padX, xb + padX], logX: set.logX, y: [isBin ? 0 : ymin - padY, isBin ? 1.02 : ymax + padY], xLabel: set.v.label + (set.v.unit ? ` (${set.v.unit})` : ""), yLabel: o.kind === "cat" ? "proportion of runs" : label, series, legendLeft: !!o.legendLeft });
+      let fitTxt = "";
+      if (meansForFit.length >= 3 && o.kind !== "cat") {
+        const f = linFit(meansForFit.map(q => q[0]), meansForFit.map(q => q[1]));
+        if (f) fitTxt += `<div class="bstat">Straight-line fit to the means: gradient <b>${fmtNum(f.m, 4)}</b> ${u ? u + " per " + (set.v.unit || "unit") : ""}, r² = ${f.r2.toFixed(3)}.</div>`;
+        const pos = meansForFit.filter(q => q[0] > 0 && q[1] > 0);
+        if (pos.length >= 3 && Math.max(...pos.map(q => q[0])) / Math.min(...pos.map(q => q[0])) > 3) {
+          const g = linFit(pos.map(q => Math.log10(q[0])), pos.map(q => Math.log10(q[1])));
+          if (g) fitTxt += `<div class="bstat">Log–log gradient <b>${g.m.toFixed(2)}</b> (outcome ∝ setting<sup>${g.m.toFixed(2)}</sup>), r² = ${g.r2.toFixed(3)}.</div>`;
+        }
+      }
+      const head = o.kind === "cat" ? `<tr><th>${set.v.label}</th><th>n</th>${o.cats.map(c => `<th>${c}</th>`).join("")}</tr>` : `<tr><th>${set.v.label}</th><th>n</th><th>${isBin ? "proportion" : "mean"}</th><th>SD</th><th>SE</th>${thPts.length ? "<th>theory</th>" : ""}</tr>`;
+      const thAt = x => { if (!thPts.length) return ""; let best = thPts[0]; thPts.forEach(q => { if (Math.abs(q[0] - x) < Math.abs(best[0] - x)) best = q; }); return `<td>${fmtNum(best[1])}</td>`; };
+      html = `<div><table class="mini">${head}${tablerows.map((r, k) => `<tr>${r.map(c => `<td>${c}</td>`).join("")}${o.kind === "cat" ? "" : thAt(xs[k])}</tr>`).join("")}</table></div><div>${fitTxt}${o.extra && o.sweepExtra ? o.sweepExtra(results, p, set) : ""}</div>`;
+    }
+    el("bSummary").innerHTML = html;
+  }
+  window.addEventListener("resize", () => { if (box.classList.contains("open")) draw(); });
+
+  function downloadCsv() {
+    if (!results.length) return;
+    const keys = [], seriesKeys = [];
+    results.forEach(r => Object.keys(r).forEach(k => { if (k.startsWith("_")) return; if (Array.isArray(r[k])) { if (!seriesKeys.includes(k)) seriesKeys.push(k); } else if (!keys.includes(k)) keys.push(k); }));
+    const xname = lastSet.mode === "sweep" ? [lastSet.v.key] : [];
+    let lines = [["run", "seed", ...xname, ...keys].join(",")];
+    results.forEach(r => lines.push([r._run, r._seed, ...(xname.length ? [r._x] : []), ...keys.map(k => finite(r[k]) ? +r[k].toPrecision(6) : (r[k] ?? ""))].join(",")));
+    seriesKeys.forEach(sk => { lines.push(""); lines.push(`run,${sk} at time 0,1,2,...`); results.forEach(r => { if (Array.isArray(r[sk])) lines.push([r._run, ...r[sk].map(v => finite(v) ? +v.toPrecision(5) : "")].join(",")); }); });
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    if (csvUrl) URL.revokeObjectURL(csvUrl);
+    csvUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = csvUrl; a.download = (cfg.csvName || "batch") + "-results.csv"; document.body.appendChild(a); a.click(); a.remove();
+  }
+  const api = { open() { box.classList.add("open"); draw(); }, results: () => results, isRunning: () => !!job, draw };
+  return api;
+}
+
+
+/* =====================================================================
+   1. DISEASES (typical values; real outbreaks vary a lot)
+   ===================================================================== */
+const DISEASES = {
+  flu:     { name: "Seasonal flu", R0: 1.4, lat: 2, inf: 5, pre: 1, asym: 0.3, cfr: 0.001, info: "R0 about 1.3–1.8. Infectious from about a day before symptoms." },
+  measles: { name: "Measles", R0: 15, lat: 10, inf: 8, pre: 4, asym: 0, cfr: 0.002, info: "One of the most infectious diseases: R0 12–18. Infectious about 4 days before the rash." },
+  covid:   { name: "COVID-like", R0: 3, lat: 3, inf: 8, pre: 2, asym: 0.35, cfr: 0.01, info: "Like the original 2020 virus: R0 about 3, much spread before symptoms or with no symptoms." },
+  cold:    { name: "Common cold", R0: 2, lat: 2, inf: 7, pre: 1, asym: 0.4, cfr: 0, info: "Mild. Immunity to a cold virus fades within months to a few years." },
+  ebola:   { name: "Ebola-like", R0: 1.8, lat: 9, inf: 8, pre: 0, asym: 0, cfr: 0.5, info: "Spreads by close contact with sick people's body fluids, only after symptoms start. Very deadly." },
+  custom:  { name: "Custom", info: "Set your own values with the sliders." },
+};
+const C0 = 10;                 // contacts per day for an infectious person with no measures
+const SHAPE = 3;               // gamma shape for latent and infectious periods
+const ISO_CUT = 0.9;           // isolation removes 90% of contacts
+const HOME = 0.3, WORK = 0.4;  // share of contacts at home and at school/work (network mode)
+const S_ = 0, E_ = 1, I_ = 2, R_ = 3, D_ = 4, V_ = 5;
+
+/* =====================================================================
+   2. THE AGENT MODEL (used for the animation and for batch runs)
+   ===================================================================== */
+function contactRate(p) { return Math.max(C0, 1.25 * p.R0 / p.inf); }
+function tau(p) { return Math.min(1, p.R0 / (contactRate(p) * p.inf)); }
+// Average share of the infectious period that comes after symptoms start (gamma shape 3)
+function postSymptomShare(p) {
+  if (p.pre <= 0) return 1;
+  let num = 0, den = 0; const r = mulberry32(5);
+  for (let k = 0; k < 4000; k++) { const D = gammaTime(r, p.inf, SHAPE); num += Math.max(0, D - p.pre); den += D; }
+  return num / den;
+}
+// R with the measures in place (ignoring immunity)
+function Rmeasures(p) {
+  const outside = p.mix === "network" ? (HOME + (1 - HOME) * (1 - p.dist / 100)) : (1 - p.dist / 100);
+  const isoF = 1 - ISO_CUT * (p.iso / 100) * (1 - p.asym) * postSymptomShare(p);
+  return p.R0 * outside * (1 - p.mask / 100) * isoF;
+}
+const immuneShare = p => (p.vax / 100) * (p.ve / 100);
+
+function makeEpi(p, seed, live) {
+  const N = Math.round(p.N), rng = mulberry32(seed);
+  const m = { p, N, rng, t: 0, live, state: new Uint8Array(N), next: new Float64Array(N).fill(Infinity), sym: new Float64Array(N).fill(Infinity),
+    isoFlag: new Uint8Array(N), tInf: new Float32Array(N).fill(-1), sec: new Uint16Array(N), vaxd: new Uint8Array(N),
+    x: new Float32Array(N), y: new Float32Array(N), vx: new Float32Array(N), vy: new Float32Array(N), hh: new Int32Array(N), grp: new Int32Array(N),
+    active: [], waning: [], hist: [], ever: 0, deaths: 0, peakI: 0, peakDay: 0, links: [] };
+  for (let i = 0; i < N; i++) { m.x[i] = rng(); m.y[i] = rng(); const a = rng() * 6.283; m.vx[i] = Math.cos(a); m.vy[i] = Math.sin(a); }
+  // households (1–5 people) and school/work groups of about 25, laid out as a little town
+  if (p.mix === "network") {
+    const hhList = []; let i = 0;
+    while (i < N) { const size = 1 + Math.min(4, Math.floor(-Math.log(1 - rng()) * 1.6)); const h = []; for (let k = 0; k < size && i < N; k++, i++) { m.hh[i] = hhList.length; h.push(i); } hhList.push(h); }
+    m.hhList = hhList;
+    const order = [...Array(N).keys()]; for (let k = N - 1; k > 0; k--) { const j = Math.floor(rng() * (k + 1)); [order[k], order[j]] = [order[j], order[k]]; }
+    const nG = Math.max(1, Math.round(N / 25)); m.groups = Array.from({ length: nG }, () => []);
+    order.forEach((pp, k) => { m.grp[pp] = k % nG; m.groups[k % nG].push(pp); });
+    const cols = Math.ceil(Math.sqrt(hhList.length * 1.6)), rows = Math.ceil(hhList.length / cols);
+    hhList.forEach((h, k) => { const cx = (k % cols + 0.5) / cols, cy = (Math.floor(k / cols) + 0.5) / rows; h.forEach((pp, j) => { const a = j * 2.4; m.x[pp] = cx + Math.cos(a) * 0.32 / cols * (j ? 1 : 0.2); m.y[pp] = cy + Math.sin(a) * 0.32 / rows * (j ? 1 : 0.2); }); });
+    m.cols = cols; m.rows = rows;
+  }
+  // vaccination: all-or-nothing protection
+  for (let i = 0; i < N; i++) if (rng() < p.vax / 100) { m.vaxd[i] = 1; if (rng() < p.ve / 100) { m.state[i] = V_; if (p.wane > 0) { m.next[i] = gammaTime(rng, p.wane, 1); m.waning.push(i); } } }
+  // the first cases (chosen from people who are not immune)
+  const sus = []; for (let i = 0; i < N; i++) if (m.state[i] === S_) sus.push(i);
+  for (let k = 0; k < Math.min(p.I0, sus.length); k++) { const j = k + Math.floor(rng() * (sus.length - k)); [sus[k], sus[j]] = [sus[j], sus[k]]; becomeInfectious(m, sus[k], 0, true); m.tInf[sus[k]] = 0; m.ever++; }
+  m.grid = null;
+  record(m);
+  return m;
+}
+function becomeInfectious(m, i, t, add) {
+  const p = m.p;
+  m.state[i] = I_; m.next[i] = t + gammaTime(m.rng, p.inf, SHAPE);
+  m.sym[i] = m.rng() < p.asym ? Infinity : t + p.pre;              // asymptomatic cases never get symptoms
+  m.isoFlag[i] = m.rng() < p.iso / 100 ? 1 : 0;                      // will this person isolate?
+  if (add) m.active.push(i);
+}
+function infect(m, j, from, t) {
+  m.state[j] = E_; m.next[j] = t + gammaTime(m.rng, m.p.lat, SHAPE); m.tInf[j] = t; m.ever++;
+  if (from >= 0) m.sec[from]++;
+  m.active.push(j);
+  if (m.live) m.links.push({ a: from, b: j, t });
+}
+// Spatial grid for "local" mixing: people only meet others in nearby squares
+const GRID = 16;
+function buildGrid(m) {
+  const cells = Array.from({ length: GRID * GRID }, () => []);
+  for (let i = 0; i < m.N; i++) if (m.state[i] !== D_) cells[Math.min(GRID - 1, Math.floor(m.y[i] * GRID)) * GRID + Math.min(GRID - 1, Math.floor(m.x[i] * GRID))].push(i);
+  m.grid = cells;
+}
+function pickPartner(m, i) {
+  const p = m.p, rng = m.rng, N = m.N;
+  if (p.mix === "local") {
+    const gx = Math.min(GRID - 1, Math.floor(m.x[i] * GRID)), gy = Math.min(GRID - 1, Math.floor(m.y[i] * GRID));
+    for (let tries = 0; tries < 4; tries++) {
+      const cx = gx + Math.floor(rng() * 3) - 1, cy = gy + Math.floor(rng() * 3) - 1;
+      if (cx < 0 || cy < 0 || cx >= GRID || cy >= GRID) continue;
+      const c = m.grid[cy * GRID + cx]; if (!c.length) continue;
+      const j = c[Math.floor(rng() * c.length)]; if (j !== i) return j;
+    }
+    return -1;
+  }
+  if (p.mix === "network") {
+    const r = rng(), out = 1 - p.dist / 100;
+    // distancing removes school/work and community contacts but not those at home
+    const wH = HOME, wW = WORK * out, wC = (1 - HOME - WORK) * out, u = r;
+    if (u < wH) { const h = m.hhList[m.hh[i]]; if (h.length < 2) return -1; let j; do { j = h[Math.floor(rng() * h.length)]; } while (j === i); return j; }
+    if (u < wH + wW) { const g = m.groups[m.grp[i]]; const j = g[Math.floor(rng() * g.length)]; return j === i ? -1 : j; }
+    if (u >= wH + wW + wC) return -1;     // a contact that distancing prevented
+  }
+  const j = Math.floor(rng() * N); return j === i ? -1 : j;
+}
+// One time step of length dt days
+function stepEpi(m, dt) {
+  const p = m.p, rng = m.rng, t = m.t;
+  if (p.mix === "local") {
+    // people wander about; distancing makes them travel less
+    const sp = 0.02 * (1 - 0.8 * p.dist / 100) * dt;
+    for (let i = 0; i < m.N; i++) {
+      if (m.state[i] === D_) continue;
+      const slow = (m.state[i] === I_ && m.isoFlag[i] && t >= m.sym[i]) ? 0.1 : 1;
+      const a = (rng() - 0.5) * 0.8 * Math.sqrt(dt); const c = Math.cos(a), s = Math.sin(a), vx = m.vx[i] * c - m.vy[i] * s, vy = m.vx[i] * s + m.vy[i] * c; m.vx[i] = vx; m.vy[i] = vy;
+      m.x[i] += vx * sp * slow; m.y[i] += vy * sp * slow;
+      if (m.x[i] < 0) { m.x[i] = -m.x[i]; m.vx[i] *= -1; } if (m.x[i] > 1) { m.x[i] = 2 - m.x[i]; m.vx[i] *= -1; }
+      if (m.y[i] < 0) { m.y[i] = -m.y[i]; m.vy[i] *= -1; } if (m.y[i] > 1) { m.y[i] = 2 - m.y[i]; m.vy[i] *= -1; }
+    }
+    buildGrid(m);
+  }
+  // transmission: each infectious person makes a random number of contacts
+  const C = contactRate(p), T = tau(p) * (1 - p.mask / 100), out = p.mix === "network" ? 1 : (1 - p.dist / 100);
+  const list = m.active.slice();
+  for (const i of list) {
+    if (m.state[i] !== I_) continue;
+    let c = C * out; if (m.isoFlag[i] && t >= m.sym[i]) c *= 1 - ISO_CUT;
+    const n = poisson(rng, c * dt);
+    for (let k = 0; k < n; k++) { const j = pickPartner(m, i); if (j >= 0 && m.state[j] === S_ && rng() < T) infect(m, j, i, t + rng() * dt); }
+  }
+  // moving on: E → I, I → R or D, R/V → S (waning)
+  const nt = t + dt, keep = [];
+  for (const i of m.active) {
+    if (m.state[i] === E_ && m.next[i] <= nt) becomeInfectious(m, i, m.next[i]);
+    if (m.state[i] === I_ && m.next[i] <= nt) {
+      if (rng() < p.cfr) { m.state[i] = D_; m.deaths++; }
+      else { m.state[i] = R_; if (p.wane > 0) { m.next[i] = m.next[i] + gammaTime(rng, p.wane, 1); m.waning.push(i); } }
+    }
+    if (m.state[i] === E_ || m.state[i] === I_) keep.push(i);
+  }
+  m.active = keep;
+  if (m.waning.length) { const w2 = []; for (const i of m.waning) { if ((m.state[i] === R_ || m.state[i] === V_) && m.next[i] <= nt) { m.state[i] = S_; m.next[i] = Infinity; } else if (m.state[i] === R_ || m.state[i] === V_) w2.push(i); } m.waning = w2; }
+  m.t = nt;
+  if (m.live) m.links = m.links.filter(l => nt - l.t < 1.5);
+}
+function counts(m) { const c = [0, 0, 0, 0, 0, 0]; for (let i = 0; i < m.N; i++) c[m.state[i]]++; return c; }
+function record(m) {
+  const c = counts(m), day = Math.round(m.t * 100) / 100;
+  m.hist.push({ t: day, S: c[S_], E: c[E_], I: c[I_], R: c[R_] + c[V_], V: c[V_], D: c[D_], ever: m.ever });
+  if (c[I_] > m.peakI) { m.peakI = c[I_]; m.peakDay = day; }
+}
+const over = m => m.active.length === 0;
+// Measured R_t: mean number infected by people who caught it in each 2-day window (only finished cohorts)
+function measuredRt(m) {
+  const W = 2, sum = {}, n = {}, open = {};
+  for (let i = 0; i < m.N; i++) if (m.tInf[i] >= 0) { const b = Math.floor(m.tInf[i] / W); sum[b] = (sum[b] || 0) + m.sec[i]; n[b] = (n[b] || 0) + 1; if (m.state[i] === E_ || m.state[i] === I_) open[b] = 1; }
+  return Object.keys(n).map(Number).sort((a, b) => a - b).filter(b => n[b] >= 3).map(b => ({ t: (b + 0.5) * W, R: sum[b] / n[b], n: n[b], done: !open[b] }));
+}
+
+/* =====================================================================
+   3. THEORY: the SEIR equations, the final size equation, outbreak chance
+   ===================================================================== */
+function odeRun(p, days, withMeasures) {
+  const N = p.N, k = SHAPE, R = withMeasures ? Rmeasures(p) : p.R0, gamma = 1 / p.inf, beta = R * gamma, sig = k / p.lat, gk = k * gamma, om = p.wane > 0 ? 1 / p.wane : 0;
+  // state: S, E1..Ek, I1..Ik, R, D
+  let y = new Array(2 * k + 3).fill(0);
+  const imm = immuneShare(p) * N, I0 = Math.min(p.I0, N - imm);
+  y[0] = N - imm - I0; y[k + 1] = I0; y[2 * k + 1] = imm;
+  const f = (y) => {
+    const d = new Array(y.length).fill(0); let I = 0; for (let j = 0; j < k; j++) I += y[k + 1 + j];
+    const inf = beta * y[0] * I / N;
+    d[0] = -inf + om * y[2 * k + 1];
+    d[1] = inf - sig * y[1]; for (let j = 1; j < k; j++) d[1 + j] = sig * (y[j] - y[1 + j]);
+    d[k + 1] = sig * y[k] - gk * y[k + 1]; for (let j = 1; j < k; j++) d[k + 1 + j] = gk * (y[k + j] - y[k + 1 + j]);
+    d[2 * k + 1] = gk * y[2 * k] * (1 - p.cfr) - om * y[2 * k + 1]; d[2 * k + 2] = gk * y[2 * k] * p.cfr;
+    return d;
+  };
+  const out = [], h = 0.05; let t = 0, peak = 0, peakDay = 0;
+  const push = () => { let E = 0, I = 0; for (let j = 0; j < k; j++) { E += y[1 + j]; I += y[k + 1 + j]; } out.push({ t, S: y[0], E, I, R: y[2 * k + 1], D: y[2 * k + 2] }); if (I > peak) { peak = I; peakDay = t; } };
+  push();
+  for (let s = 1; s <= days / h; s++) {
+    const a = f(y), b = f(y.map((v, i) => v + h / 2 * a[i])), c = f(y.map((v, i) => v + h / 2 * b[i])), d = f(y.map((v, i) => v + h * c[i]));
+    y = y.map((v, i) => v + h / 6 * (a[i] + 2 * b[i] + 2 * c[i] + d[i])); t = s * h;
+    if (s % 20 === 0) push();
+  }
+  return { series: out, peak, peakDay };
+}
+// Final size: share of the whole population infected in a big outbreak. z = s0 (1 − e^(−R z / ... ))
+function finalSize(p) {
+  const R = Rmeasures(p), s0 = 1 - immuneShare(p);
+  if (R * s0 <= 1) return 0;
+  let z = s0 * 0.99; for (let k = 0; k < 500; k++) z = s0 * (1 - Math.exp(-R * z));
+  return z;
+}
+// Chance one case dies out: q = (1 + R(1−q)/k)^(−k)  (gamma-distributed infectious periods, shape k)
+function fadeChance(p, k = SHAPE) {
+  const R = Rmeasures(p) * (1 - immuneShare(p));
+  if (R <= 1) return 1;
+  let q = 0; for (let n = 0; n < 2000; n++) q = Math.pow(1 + R * (1 - q) / k, -k);
+  return q;
+}
+const majorChance = p => 1 - Math.pow(fadeChance(p), p.I0);
+
+/* =====================================================================
+   4. ONE HEADLESS RUN (for the batch lab)
+   ===================================================================== */
+function runOnce(p, seed) {
+  const m = makeEpi(p, seed, false), dt = 0.25;
+  while (m.t < p.days && !over(m)) { stepEpi(m, dt); if (Math.round(m.t / dt) % 4 === 0) record(m); }
+  record(m);
+  const fin = m.ever / m.N;
+  return { final: fin, major: m.ever >= Math.max(20, 0.05 * m.N) ? 1 : 0, peak: m.peakI / m.N, peakDay: m.peakDay, deaths: m.deaths, length: m.t };
+}
+</script>
+<script>
+"use strict";
+/* =====================================================================
+   5. CONTROLS AND PRESETS
+   ===================================================================== */
+const NUMS = ["R0", "lat", "inf", "pre", "asym", "cfr", "N", "I0", "vax", "ve", "dist", "mask", "iso", "wane", "days"];
+function params() { const p = { disease: el("disease").value, mix: el("mix").value, seed: el("seed").value }; NUMS.forEach(k => p[k] = +el(k).value); return p; }
+el("disease").innerHTML = Object.entries(DISEASES).map(([k, d]) => `<option value="${k}">${d.name}</option>`).join("");
+function setDisease(k) {
+  const d = DISEASES[k]; el("disInfo").textContent = d.info;
+  if (k !== "custom") ["R0", "lat", "inf", "pre", "asym", "cfr"].forEach(q => (el(q).value = d[q]));
+}
+function updateLabels() {
+  const p = params();
+  el("o_R0").textContent = p.R0.toFixed(1); el("o_lat").textContent = p.lat + " days"; el("o_inf").textContent = p.inf + " days";
+  el("o_pre").textContent = p.pre + " days"; el("o_asym").textContent = pct(p.asym); el("o_cfr").textContent = (100 * p.cfr).toFixed(p.cfr < 0.01 ? 1 : 0) + "%";
+  el("o_N").textContent = p.N.toLocaleString("en-GB") + " people"; el("o_I0").textContent = p.I0; el("o_vax").textContent = p.vax + "%"; el("o_ve").textContent = p.ve + "%";
+  el("o_dist").textContent = p.dist ? `${p.dist}% fewer contacts` : "none"; el("o_mask").textContent = p.mask + "%"; el("o_iso").textContent = p.iso + "%";
+  el("o_wane").textContent = p.wane ? `about ${p.wane} days` : "for life"; el("o_days").textContent = p.days + " days";
+}
+const PRESETS = [
+  { name: "Measles in a school", note: "nobody vaccinated", s: { disease: "measles", N: 600, mix: "network", I0: 1, vax: 0, ve: 97, dist: 0, mask: 0, iso: 0, wane: 0, days: 120 },
+    story: "One child with measles arrives at a school where nobody is vaccinated. Measles is so infectious that almost everyone catches it." },
+  { name: "Measles, 95% vaccinated", note: "herd immunity", s: { disease: "measles", N: 600, mix: "network", I0: 1, vax: 95, ve: 97, dist: 0, mask: 0, iso: 0, wane: 0, days: 120 },
+    story: "The same school, but 95% of children have had the MMR vaccine (97% effective). The herd immunity threshold for measles is about 93%, so the few unprotected children are shielded too." },
+  { name: "Flu season", note: "R0 1.4, 30% vaccinated", s: { disease: "flu", N: 2000, mix: "mixed", I0: 20, vax: 30, ve: 50, dist: 0, mask: 0, iso: 0, wane: 0, days: 200 },
+    story: "Seasonal flu has a low R0, and the flu vaccine is only about 50% effective. Even so, vaccinating 30% of people brings R down to about 1.2: a slow, fairly small epidemic." },
+  { name: "Flattening the curve", note: "distancing and masks", s: { disease: "covid", N: 2000, mix: "mixed", I0: 10, vax: 0, ve: 90, dist: 35, mask: 20, iso: 0, wane: 0, days: 250 },
+    story: "Distancing and masks lower R. The epidemic peak is lower and later (compare with the faint 'no measures' curve), so hospitals are less overwhelmed and fewer people are infected in total." },
+  { name: "Isolation: Ebola-like", note: "isolation works", s: { disease: "ebola", N: 1000, mix: "mixed", I0: 5, vax: 0, ve: 90, dist: 0, mask: 0, iso: 70, wane: 0, days: 250 },
+    story: "Ebola spreads only after symptoms start, so if 70% of cases isolate as soon as they feel ill, most of the infectious period is spent in isolation. R falls below 1." },
+  { name: "Isolation: COVID-like", note: "spreads before symptoms", s: { disease: "covid", N: 1000, mix: "mixed", I0: 5, vax: 0, ve: 90, dist: 0, mask: 0, iso: 70, wane: 0, days: 200 },
+    story: "The same 70% isolation, but this disease spreads for 2 days before symptoms and 35% of cases never feel ill. Isolation helps, but not enough to stop it." },
+  { name: "Waning immunity: waves", note: "colds come back", s: { disease: "cold", N: 2000, mix: "mixed", I0: 5, vax: 0, ve: 90, dist: 0, mask: 0, iso: 0, wane: 150, days: 900, R0: 2.5 },
+    story: "Immunity fades after about 150 days, so recovered people become susceptible again. The disease never quite goes away and comes back in waves." },
+  { name: "One case in a village", note: "chance fade-out", s: { disease: "flu", N: 150, mix: "mixed", I0: 1, vax: 0, ve: 50, dist: 0, mask: 0, iso: 0, wane: 0, days: 150, R0: 1.8 },
+    story: "A single flu case in a village of 150. With R0 = 1.8 there is roughly a 40% chance the first few cases recover before passing it on, and it simply fades out. Try different random seeds." },
+  { name: "Local contacts only", note: "slower than the equations", s: { disease: "covid", N: 2000, mix: "local", I0: 3, vax: 0, ve: 90, dist: 0, mask: 0, iso: 0, wane: 0, days: 250 },
+    story: "People only meet those nearby. The infection spreads as a wave across the map, more slowly than the equations (which assume everyone mixes) predict, because infections are wasted on neighbours who already had it." },
+];
+let presetStory = "";
+function applySettings(s) {
+  el("disease").value = s.disease; setDisease(s.disease);
+  for (const [k, v] of Object.entries(s)) { if (k === "disease") continue; const e = el(k); if (e) e.value = v; }
+  el("seed").value = "1";
+  updateLabels();
+}
+function setPreset(k) { applySettings(PRESETS[k].s); presetStory = PRESETS[k].story; document.querySelectorAll("#presets button").forEach((b, j) => b.classList.toggle("on", j === k)); reset(); }
+el("presets").innerHTML = PRESETS.map((p, k) => `<button data-k="${k}">${p.name}<small>${p.note}</small></button>`).join("");
+document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.k)));
+const unPreset = () => { document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); presetStory = ""; };
+el("disease").addEventListener("change", () => { setDisease(el("disease").value); unPreset(); updateLabels(); reset(); });
+["R0", "lat", "inf", "pre", "asym", "cfr"].forEach(id => el(id).addEventListener("input", () => { el("disease").value = "custom"; el("disInfo").textContent = DISEASES.custom.info; unPreset(); updateLabels(); live.dirty = true; }));
+["N", "I0", "vax", "ve"].forEach(id => { el(id).addEventListener("input", () => { unPreset(); updateLabels(); }); el(id).addEventListener("change", () => reset()); });
+el("mix").addEventListener("change", () => { unPreset(); reset(); });
+el("seed").addEventListener("change", () => reset());
+["dist", "mask", "iso", "wane", "days"].forEach(id => el(id).addEventListener("input", () => { unPreset(); updateLabels(); live.dirty = true; }));
+el("showNoMeasures").addEventListener("change", () => (live.dirty = true));
+
+/* =====================================================================
+   6. ANIMATION
+   ===================================================================== */
+const live = { m: null, running: false, acc: 0, dirty: true, ode: null, ode0: null };
+let speed = 1;
+const LIVE_DT = 0.1;
+function reset() {
+  const p = params();
+  live.m = makeEpi(p, hashSeed(p.seed), true); live.dirty = true; live.acc = 0;
+  setRunning(false);
+}
+function setRunning(r) { live.running = r; el("btnPlay").textContent = r ? "⏸ Pause" : live.m && live.m.t > 0 ? "▶ Resume" : "▶ Start"; }
+el("btnPlay").onclick = () => { if (over(live.m) && live.m.t > 0) reset(); setRunning(!live.running); };
+el("btnReset").onclick = () => reset();
+document.querySelectorAll("[data-s]").forEach(b => (b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", x === b)); }));
+
+function advance(real) {
+  const m = live.m; if (!live.running) return;
+  m.p = { ...params(), N: m.p.N, I0: m.p.I0, vax: m.p.vax, ve: m.p.ve, mix: m.p.mix };   // measures apply at once
+  live.acc += real * speed;
+  const t0 = performance.now();
+  while (live.acc >= LIVE_DT && performance.now() - t0 < 30) {
+    stepEpi(m, LIVE_DT); live.acc -= LIVE_DT;
+    if (Math.abs(m.t * 2 - Math.round(m.t * 2)) < 1e-6) record(m);   // record every half day
+    if (over(m) || m.t >= m.p.days) { record(m); setRunning(false); live.acc = 0; break; }
+  }
+}
+const COL = ["#a4cbe6", "#f1af28", "#de252a", "#76b82a", "#555555", "#a86dab"];
+function drawView() {
+  const { ctx: g, W, H, dpr } = fitCanvas(el("view")), m = live.m;
+  g.fillStyle = "#0e120d"; g.fillRect(0, 0, W, H);
+  const pad = 10 * dpr, X = x => pad + x * (W - 2 * pad), Y = y => pad + y * (H - 2 * pad);
+  if (m.p.mix === "network") {   // houses
+    g.strokeStyle = "rgba(160,170,150,0.18)"; g.lineWidth = 1;
+    const cw = (W - 2 * pad) / m.cols, ch = (H - 2 * pad) / m.rows;
+    m.hhList.forEach((h, k) => { const cx = pad + (k % m.cols) * cw, cy = pad + Math.floor(k / m.cols) * ch; g.strokeRect(cx + 2, cy + 2, cw - 4, ch - 4); });
+  }
+  // infection lines from the last day and a half
+  g.lineWidth = 1.2 * dpr;
+  for (const l of m.links) { if (l.a < 0) continue; const a = 1 - (m.t - l.t) / 1.5; g.strokeStyle = `rgba(255,120,100,${0.7 * a})`; g.beginPath(); g.moveTo(X(m.x[l.a]), Y(m.y[l.a])); g.lineTo(X(m.x[l.b]), Y(m.y[l.b])); g.stroke(); }
+  const r = clamp(Math.sqrt((W * H) / m.N) * 0.16, 1.8 * dpr, 6 * dpr);
+  const jig = m.p.mix === "mixed" ? 1 : 0, ts = m.t;
+  for (let s of [S_, R_, V_, D_, E_, I_]) {
+    for (let i = 0; i < m.N; i++) {
+      if (m.state[i] !== s) continue;
+      let x = m.x[i], y = m.y[i];
+      if (jig) { x = (x + 0.004 * Math.sin(ts * 3 + i)) ; y = (y + 0.004 * Math.cos(ts * 2.3 + i * 1.3)); }
+      const isoNow = s === I_ && m.isoFlag[i] && ts >= m.sym[i];
+      g.fillStyle = isoNow ? "#ff9ec4" : COL[s];
+      g.beginPath(); g.arc(X(x), Y(y), s === I_ ? r * 1.3 : r, 0, 7); g.fill();
+      if (isoNow) { g.strokeStyle = "#fff"; g.lineWidth = 1 * dpr; g.stroke(); }
+    }
+  }
+}
+function drawGraphs() {
+  const m = live.m, p = { ...m.p }, h = m.hist, days = p.days;
+  if (live.dirty || !live.ode) { live.ode = odeRun(p, days, true); live.ode0 = el("showNoMeasures").checked ? odeRun(p, days, false) : null; live.dirty = false; }
+  const N = p.N, tMax = days;
+  const series = [
+    { type: "line", data: h.map(q => [q.t, q.S]), col: COL[0], label: "S" },
+    { type: "line", data: h.map(q => [q.t, q.E]), col: COL[1], label: "E" },
+    { type: "line", data: h.map(q => [q.t, q.I]), col: COL[2], w: 2.5, label: "I" },
+    { type: "line", data: h.map(q => [q.t, q.R + q.D]), col: COL[3], label: "R (+ died)" },
+    { type: "line", data: live.ode.series.map(q => [q.t, q.I]), col: "#ffffff", w: 1.4, dash: [5, 4], label: "I: SEIR equations" },
+    { type: "line", data: live.ode.series.map(q => [q.t, q.R + q.D]), col: "#ffffff", w: 1, dash: [2, 3], alpha: 0.6 },
+  ];
+  if (live.ode0 && (p.dist || p.mask || p.iso)) series.push({ type: "line", data: live.ode0.series.map(q => [q.t, q.I]), col: "#e83181", w: 1.4, dash: [5, 4], alpha: 0.8, label: "I: no measures" });
+  plot(el("g1"), { x: [0, tMax], y: [0, N], xLabel: "time (days)", yLabel: "people", series, font: 10 });
+  const rt = measuredRt(m), R0e = Rmeasures(p);
+  const th = h.map(q => [q.t, R0e * q.S / N]);
+  const rmax = Math.max(2, R0e * 1.1, ...rt.map(q => q.R));
+  plot(el("g2"), { x: [0, tMax], y: [0, Math.min(rmax, 25)], xLabel: "day infected", yLabel: "R", font: 10, series: [
+    { type: "hline", data: 1, col: "#a3ab96", w: 1, dash: [3, 3] },
+    { type: "line", data: th, col: "#5fd4e8", w: 1.5, label: "R × S/N (theory)" },
+    { type: "pts", data: rt.filter(q => q.done).map(q => [q.t, q.R]), col: "#f1af28", r: 2.5, label: "measured (finished cases)" },
+    { type: "pts", data: rt.filter(q => !q.done).map(q => [q.t, q.R]), col: "#f1af28", alpha: 0.35, r: 2 }] });
+}
+function updateUI() {
+  const m = live.m, p = m.p, h = m.hist[m.hist.length - 1], N = m.N;
+  el("clock").textContent = `Day ${Math.floor(m.t)}`;
+  const rt = measuredRt(m).filter(q => q.done), Rnow = Rmeasures(p) * h.S / N;
+  const ph = el("phase");
+  const done = over(m) && m.t > 0;
+  ph.className = done ? "over" : h.I === 0 && m.t === 0 ? "" : Rnow > 1 ? "grow" : "fall";
+  ph.textContent = done ? "Epidemic over" : m.t === 0 ? "Ready" : Rnow > 1 ? "Growing (R > 1)" : "Shrinking (R < 1)";
+  el("s_I").textContent = h.I; el("s_tot").textContent = `${m.ever} (${pct(m.ever / N)})`; el("s_Rt").textContent = Rnow.toFixed(2); el("s_D").textContent = m.deaths;
+  const R0 = p.R0, HIT = 1 - 1 / R0, Rs = Rmeasures(p), Rstart = Rs * (1 - immuneShare(p)), z = finalSize(p);
+  const tiles = [
+    ["R0 of the disease", R0.toFixed(1), "cases from one case, nobody immune, no measures"],
+    ["R at the start", Rstart.toFixed(2), `with measures and ${pct(immuneShare(p))} immune`],
+    ["R now (R × S/N)", Rnow.toFixed(2), rt.length ? `measured lately: ${rt[rt.length - 1].R.toFixed(2)}` : "measured once cases finish"],
+    ["Herd immunity threshold", pct(HIT), p.ve > 0 ? (HIT / (p.ve / 100) <= 1 ? `vaccinate ${pct(HIT / (p.ve / 100))} at ${p.ve}% efficacy` : `can't reach it at ${p.ve}% efficacy`) : "needs an effective vaccine"],
+    ["Peak infectious", `${m.peakI} (${pct(m.peakI / N)})`, `on day ${Math.round(m.peakDay)} · equations: ${Math.round(live.ode ? live.ode.peak : 0)} on day ${Math.round(live.ode ? live.ode.peakDay : 0)}`],
+    ["Total infected", pct(m.ever / N), `final size equation: ${pct(z)} if it takes off`],
+    ["Chance of a big outbreak", pct(majorChance(p)), `from ${p.I0} case${p.I0 > 1 ? "s" : ""} (1 − 1/R = ${pct(Math.max(0, 1 - 1 / Math.max(1e-9, Rstart)))} for one)`],
+    ["Deaths", m.deaths, `${pct(p.cfr, 1)} of cases`],
+  ];
+  el("tiles").innerHTML = tiles.map(t => `<div class="tile"><div class="k">${t[0]}</div><div class="v">${t[1]}</div><div class="s">${t[2]}</div></div>`).join("");
+  let st = presetStory ? `<p>${presetStory}</p>` : `<p>${DISEASES[p.disease].info}</p>`;
+  if (m.t === 0) st += `<p>Press <b>Start</b>. Red dots are infectious; lines show who infected whom.</p>`;
+  else if (done) {
+    if (m.ever <= Math.max(5, p.I0 * 3) && Rstart > 1) st += `<p><b>It faded out by chance.</b> The first cases happened to recover before passing it on, even though R was above 1. Press Reset with another seed to try again.</p>`;
+    else if (Rstart <= 1) st += `<p><b>It died out.</b> R was below 1 from the start, so each generation of cases was smaller than the last.</p>`;
+    else st += `<p><b>The epidemic is over.</b> ${pct(m.ever / N)} of people caught it (the final size equation predicts ${pct(z)}). It stopped because too few susceptible people were left, not because everyone caught it.</p>`;
+  } else st += Rnow > 1 ? `<p>Each case is infecting more than one other person on average (R = ${Rnow.toFixed(2)}), so cases are rising.</p>` : `<p>So many people are now immune that R = ${Rnow.toFixed(2)} is below 1: cases are falling. That point is herd immunity.</p>`;
+  if (p.wane > 0 && m.t > 0) st += `<p>Immunity fades, so recovered people slowly return to S, letting new waves start.</p>`;
+  el("story").innerHTML = st;
+}
+let lastNow = performance.now();
+function frame(now) {
+  const real = Math.min(0.1, (now - lastNow) / 1000); lastNow = now;
+  advance(real); drawView(); drawGraphs(); updateUI();
+  requestAnimationFrame(frame);
+}
+
+/* =====================================================================
+   7. BATCH LAB
+   ===================================================================== */
+const batch = setupBatch({
+  csvName: "epidemics",
+  note: "Each run: a new population and new random contacts with the same settings, until the disease dies out or the day limit.",
+  costNote: "Batch runs use 6-hour time steps (the animation uses 2.4-hour steps).",
+  getParams: params, runOnce, repeatNs: [20, 100, 500, 1000], sweepReps: [5, 10, 20, 50],
+  outcomes: [
+    { key: "final", kind: "num", label: "Final size (share of people ever infected)", range: [0, 1], theoryLabel: "expected: P(big outbreak) × final size",
+      theory: p => majorChance(p) * finalSize(p) + (1 - majorChance(p)) * p.I0 / p.N,
+      marks: p => [{ x: finalSize(p), label: `final size equation z = ${pct(finalSize(p), 1)}`, col: "#e83181" }],
+      extra: (v, p) => { const big = v.filter(x => x * p.N >= Math.max(20, 0.05 * p.N)); return `Big outbreaks: <b>${big.length}</b> of ${v.length} (${pct(big.length / v.length)}); theory ${pct(majorChance(p))}. Mean size of big outbreaks <b>${pct(mean(big), 1)}</b>; final size equation ${pct(finalSize(p), 1)}. The results split into two groups: early fade-outs near 0, and big outbreaks near z.`; },
+      sweepMarks: (p, v) => v === "vax" ? [{ x: 100 * (1 - 1 / p.R0) / Math.max(0.01, p.ve / 100), label: "herd immunity threshold ÷ efficacy", col: "#e83181" }] : [] },
+    { key: "major", kind: "bin", label: "A big outbreak happened (more than 5% or 20 people)", binNames: ["faded out", "big outbreak"], theoryLabel: "branching theory", theory: p => majorChance(p),
+      extra: (v, p) => { const R = Rmeasures(p) * (1 - immuneShare(p)); return `Effective R = ${R.toFixed(2)}. With very variable illness lengths theory says 1 − (1/R)<sup>${p.I0}</sup> = ${pct(1 - Math.pow(1 / Math.max(R, 1), p.I0), 1)}. This model's illness lengths are more regular (gamma, shape 3), giving ${pct(majorChance(p), 1)}.`; } },
+    { key: "peak", kind: "num", label: "Peak share infectious at once", range: [0, 0.05], theoryLabel: "SEIR equations", theory: p => odeRun(p, p.days, true).peak / p.N },
+    { key: "peakDay", kind: "num", label: "Day of the peak", unit: "days", theoryLabel: "SEIR equations", theory: p => odeRun(p, p.days, true).peakDay },
+    { key: "deaths", kind: "num", integer: true, label: "Deaths", unit: "people", theoryLabel: "expected", theory: p => p.cfr * p.N * (majorChance(p) * finalSize(p) + (1 - majorChance(p)) * p.I0 / p.N) },
+  ],
+  sweepVars: [
+    { key: "vax", label: "Vaccinated", unit: "%", min: 0, max: 100, int: true },
+    { key: "R0", label: "R0", min: 1.1, max: 6 },
+    { key: "N", label: "Population", unit: "people", min: 100, max: 5000, int: true, log: true },
+    { key: "dist", label: "Social distancing", unit: "%", min: 0, max: 80, int: true },
+    { key: "mask", label: "Mask effect", unit: "%", min: 0, max: 70, int: true },
+    { key: "iso", label: "Cases isolating", unit: "%", min: 0, max: 100, int: true },
+    { key: "I0", label: "Starting infected", min: 1, max: 20, int: true },
+  ],
+  experiments: [
+    { q: "One case: fade-out or big outbreak?", note: "500 runs, one flu-like case (R0 = 2) in 1,000 people. The histogram has two humps: many runs fade out almost at once; the rest infect close to the final-size-equation value (pink line). The white line is the mean of all runs, which matches no single run.",
+      apply: () => { setPreset(7); el("N").value = 1000; el("R0").value = 2; el("days").value = 300; updateLabels(); reset(); }, set: { mode: "repeat", n: 500, outcome: "final" } },
+    { q: "How likely is one case to start a big outbreak?", note: "1,000 runs. Theory from branching processes: about 1 − 1/R0 = 50% for R0 = 2 if illness length is very variable, about 58% for this model's more regular illness lengths. The rest die out by chance while numbers are tiny.",
+      apply: () => { setPreset(7); el("N").value = 1000; el("R0").value = 2; el("days").value = 300; updateLabels(); reset(); }, set: { mode: "repeat", n: 1000, outcome: "major" } },
+    { q: "Does the final size equation z = 1 − e^(−R0 z) hold?", note: "Sweep R0 with 10 starting cases (so fade-outs are rare). The share infected rises steeply once R0 passes 1, but never reaches 100%: the epidemic runs out of susceptible people first.",
+      apply: () => { setPreset(7); el("N").value = 1000; el("I0").value = 10; el("days").value = 400; updateLabels(); reset(); }, set: { mode: "sweep", outcome: "final", v: "R0", from: 0.6, to: 4, steps: 9, reps: 20 } },
+    { q: "How much vaccination stops measles?", note: "Measles (R0 = 15) in 1,000 randomly mixing people, 5 starting cases, vaccine 97% effective. The outbreak shrinks as coverage rises and stops once the herd immunity threshold (1 − 1/15 = 93%, ÷ 0.97 = 96% coverage) is passed.",
+      apply: () => { setPreset(0); el("mix").value = "mixed"; el("N").value = 1000; el("I0").value = 5; el("days").value = 200; updateLabels(); reset(); }, set: { mode: "sweep", outcome: "final", v: "vax", from: 0, to: 100, steps: 11, reps: 10 } },
+    { q: "Do bigger populations peak later?", note: "COVID-like disease starting from 5 cases. In a bigger population it takes more doublings to infect a large share, so the peak comes later: the time grows with the logarithm of N.",
+      apply: () => { setPreset(3); el("dist").value = 0; el("mask").value = 0; el("days").value = 300; updateLabels(); reset(); }, set: { mode: "sweep", outcome: "peakDay", v: "N", from: 100, to: 5000, steps: 7, reps: 10, logX: true } },
+    { q: "Isolating cases: how much does it help against a COVID-like disease?", note: "Sweep the share of cases who isolate when symptoms start. Because much spread happens before symptoms or from people with none, even 100% isolation cannot push R below 1 here. Try the same sweep with the Ebola-like disease: isolation alone can stop it.",
+      apply: () => { setPreset(5); el("I0").value = 10; updateLabels(); reset(); }, set: { mode: "sweep", outcome: "final", v: "iso", from: 0, to: 100, steps: 6, reps: 10 } },
+  ],
+});
+el("btnBatch").onclick = el("btnBatch2").onclick = () => batch.open();
+window.__check = () => { const m = live.m, h = m.hist[m.hist.length - 1]; const tot = h.S + h.E + h.I + h.R + h.D; return { day: +m.t.toFixed(1), S: h.S, E: h.E, I: h.I, R: h.R, D: h.D, ever: m.ever, ok: tot === m.N && [h.S, h.E, h.I, h.R, h.D].every(v => v >= 0) && finite(Rmeasures(m.p)) }; };
+window.__pause = () => setRunning(false);
+setupPanels("epidemics-layout");
+setPreset(3);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

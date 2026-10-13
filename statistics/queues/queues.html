@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supermarket Queues</title>
+<!--
+  SUPERMARKET QUEUES — queueing theory, a teaching model
+  =======================================================
+  One self-contained file: no libraries, no internet needed.
+
+  Customers arrive at random: a POISSON process with rate λ customers per
+  minute, so the gaps between arrivals are exponential with mean 1/λ.
+  Each customer joins a queue, waits, is served at a till, and leaves.
+  A till serves on average μ = 1 / (mean service time) customers per minute.
+  With c tills the UTILISATION (how busy the tills are) is
+
+        ρ = λ / (c μ)        (must be below 1, or the queue grows for ever)
+
+  Theory for a steady shop (all times in minutes):
+   • M/M/c, one shared queue, exponential service (Erlang C):
+        a = λ/μ,  C = P(you have to wait) from the Erlang C formula,
+        mean wait Wq = C / (cμ − λ),  P(wait > t) = C e^(−(cμ − λ)t)
+   • M/G/1, one till, any service-time spread (Pollaczek–Khinchine):
+        Wq = ρ/(1 − ρ) × (1 + CV²)/2 × (mean service time)
+     CV = SD ÷ mean of the service time: variability makes queues longer.
+   • M/G/c: Erlang C × (1 + CV²)/2 (the Allen–Cunneen approximation).
+   • Lq = λ Wq  (Little's law: mean number waiting).
+
+  The model itself is a DISCRETE-EVENT SIMULATION: it jumps from one event
+  (an arrival or the end of a service) to the next. The animation draws
+  that same model; the batch run uses it with no drawing.
+
+  Units: time in minutes (the clock shows the time of day), rates per minute.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; --sim:#a4cbe6; --theory:#f1af28; --norm:#00aec3; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 290px) 10px minmax(0, 1fr) 10px var(--rw, 330px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: var(--ink-dark); }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  input[type=number], input.txt { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; width: 100%; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+  .tabs button { flex: 1; font-size: 12.5px; padding: 5px 6px; }
+  .check { display: block; font-size: 13px; margin: 2px 0 8px; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #viewWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .legend i.line { height: 3px; vertical-align: 3px; width: 16px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .chartBox { position: relative; height: 160px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  #story p { margin: 0 0 6px; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+
+  /* Batch run overlay: covers the centre and right-hand columns */
+  #left { grid-column: 1; grid-row: 1; } #splitL { grid-column: 2; grid-row: 1; } #centre { grid-column: 3; grid-row: 1; } #splitR { grid-column: 4; grid-row: 1; } #right { grid-column: 5; grid-row: 1; }
+  #batch { grid-column: 3 / 6; grid-row: 1; z-index: 5; position: relative; display: none; box-shadow: 0 8px 40px rgba(0,0,0,.6); }
+  #batch.open { display: grid; grid-template-columns: 272px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 12px; height: 100%; align-self: stretch; }
+  #bLeft { overflow-y: auto; padding-right: 4px; min-height: 0; }
+  #bRight { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
+  #bChartBox { position: relative; flex: 1 1 55%; min-height: 220px; background: #050604; border-radius: 8px; }
+  #bChart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bInfo { flex: 0 1 auto; max-height: 45%; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 12px; font-size: 12.5px; }
+  #bExps button { display: block; width: 100%; text-align: left; margin-bottom: 5px; font-size: 12.5px; padding: 5px 8px; font-weight: 600; }
+  #bExps button.on { background: var(--accent); color: var(--ink-dark); }
+  .row2 { display: flex; gap: 6px; align-items: center; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .row3 label { font-size: 11.5px; color: var(--muted); display: block; }
+  .progress { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; margin: 8px 0 3px; }
+  .progress span { display: block; height: 100%; width: 0; background: var(--accent); }
+  table.sum { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  table.sum td, table.sum th { padding: 2px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+  table.sum td:first-child, table.sum th:first-child { text-align: left; color: var(--muted); font-weight: 400; }
+  #bNote { color: #dfe3d6; }
+  #bNote b { color: var(--accent); }
+  .good { color: #8fd694; } .bad { color: #ff8a7a; }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+  #status { font-weight: 700; font-size: 13px; border-radius: 999px; padding: 1px 10px; }
+  #status.open { background: #76b82a; color: #10200c; }
+  #status.closing { background: #f18700; color: #14133b; }
+  #status.idle { background: #2a3024; color: var(--muted); }
+  .warn { background: #3a1410; color: #ffc2b8; border: 1px solid #7a2a20; border-radius: 7px; padding: 6px 8px; font-size: 12.5px; }
+  #theory table.sum { font-size: 12px; }
+  #theory table.sum td, #theory table.sum th { padding: 2px 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Supermarket Queues</h1>
+  <span class="sub">Random arrivals, random service times and the maths of waiting: why queues explode as the tills get busy, and which queue layout is fairest.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: PRESETS AND CONTROLS ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">Customers <span class="live">change at once</span></h2>
+    <div class="ctl">
+      <label>Arrival rate λ <output id="o_lam"></output></label>
+      <input type="range" id="lam" min="0.1" max="5" step="0.05" value="1.2">
+    </div>
+    <div class="ctl">
+      <label>Time-of-day pattern</label>
+      <select id="pattern"><option value="steady">Steady all day</option><option value="lunch">Lunchtime rush (peak 12:30, 2.5× busier)</option></select>
+    </div>
+    <div class="ctl">
+      <label>Customers with big trolleys <output id="o_trolley"></output></label>
+      <input type="range" id="trolley" min="0" max="100" step="5" value="0">
+      <div class="hint">A trolley takes 4 times as long to scan as a basket. The overall mean service time stays the same.</div>
+    </div>
+    <label class="check"><input type="checkbox" id="balk"> Customers give up if the queue is too long</label>
+    <div class="ctl" id="balkBox">
+      <label>Give up if people ahead per till ≥ <output id="o_balkK"></output></label>
+      <input type="range" id="balkK" min="1" max="15" step="1" value="6">
+    </div>
+
+    <h2 class="gap">Service <span class="live">change at once</span></h2>
+    <div class="ctl">
+      <label>Mean service time <output id="o_meanS"></output></label>
+      <input type="range" id="meanS" min="0.5" max="8" step="0.1" value="2">
+    </div>
+    <div class="ctl">
+      <label>Service-time distribution</label>
+      <select id="dist"><option value="exp">Exponential (CV = 1, the textbook case)</option><option value="gamma">Gamma (choose the variability)</option><option value="lognorm">Log-normal (realistic, long tail)</option><option value="fixed">Fixed: every customer takes the same time</option></select>
+    </div>
+    <div class="ctl" id="cvBox">
+      <label>Variability, CV = SD ÷ mean <output id="o_cv"></output></label>
+      <input type="range" id="cv" min="0" max="2.5" step="0.05" value="1">
+    </div>
+
+    <h2 class="gap">Tills <span class="hint" style="text-transform:none;letter-spacing:0">(changes restart the day)</span></h2>
+    <div class="ctl">
+      <label>Staffed tills c <output id="o_tills"></output></label>
+      <input type="range" id="tills" min="1" max="12" step="1" value="3">
+    </div>
+    <div class="ctl">
+      <label>Queue layout</label>
+      <select id="layout"><option value="separate">A queue for each till (choose the shortest)</option><option value="snake">One shared "snake" queue (like a post office)</option></select>
+    </div>
+    <label class="check"><input type="checkbox" id="jockey"> Jockeying: people switch to a shorter queue</label>
+    <label class="check"><input type="checkbox" id="express"> Till 1 is an express till (baskets only)</label>
+    <div class="ctl">
+      <label>Self-checkouts <output id="o_selfN"></output></label>
+      <input type="range" id="selfN" min="0" max="8" step="1" value="0">
+    </div>
+    <div class="ctl" id="selfBox">
+      <label>Self-checkout speed <output id="o_selfF"></output></label>
+      <input type="range" id="selfF" min="0.6" max="2" step="0.05" value="1.4">
+      <div class="hint">Time taken compared with a staffed till. Trolleys can't use them. They share one queue.</div>
+    </div>
+    <div class="ctl">
+      <label>Spare tills staff can open <output id="o_reserve"></output></label>
+      <input type="range" id="reserve" min="0" max="4" step="1" value="0">
+    </div>
+    <div class="ctl" id="openBox">
+      <label>Open one when a queue is longer than <output id="o_openK"></output></label>
+      <input type="range" id="openK" min="1" max="10" step="1" value="3">
+    </div>
+    <div class="ctl">
+      <label>Opening hours</label>
+      <select id="dayLen"><option value="120">09:00 – 11:00 (2 h)</option><option value="240">09:00 – 13:00 (4 h)</option><option value="480" selected>09:00 – 17:00 (8 h)</option><option value="720">09:00 – 21:00 (12 h)</option></select>
+    </div>
+    <div class="ctl">
+      <label>Random seed</label>
+      <input class="txt" id="seed" value="1">
+    </div>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Arrivals:</b> a Poisson process. In each tiny moment a customer turns up with the same small chance, independently of everyone else, so the gaps between arrivals are exponential with mean 1/λ. With the lunchtime pattern, λ rises smoothly to 2.5 times its base value at 12:30 and drops to 0.6 times it early and late (generated by "thinning").</li>
+        <li><b>Service time</b> = mean service time × (trolley or basket factor) × a random "work" amount with mean 1. Exponential work has CV = 1; gamma and log-normal let you choose the CV; fixed has CV = 0. A trolley takes 4 times as long as a basket; the factors are set so the overall mean stays as chosen (mixing trolleys and baskets adds variability).</li>
+        <li><b>Choosing a queue:</b> customers count the people ahead of them per till (waiting plus being served) and join the line with the fewest, breaking ties at random. They can't see how full the trolleys are.</li>
+        <li><b>Separate queues:</b> once in a queue you stay, unless jockeying is on: then the last person in a queue moves if another queue is at least 2 people shorter. In a single snake, the person at the front goes to the next free till.</li>
+        <li><b>Express till:</b> till 1 takes baskets only. <b>Self-checkouts</b> share one queue, take baskets only, and are faster or slower than a staffed till by the factor you set.</li>
+        <li><b>Spare tills:</b> a member of staff opens one (instantly) when a queue is longer than the limit, and people at the back of the longest queues move over. It closes when nobody is waiting for a staffed till and it is idle.</li>
+        <li><b>Giving up (balking):</b> a customer who sees at least the set number of people ahead per till walks out and is counted as lost. Real people also give up after joining ("reneging"); that is not modelled.</li>
+        <li><b>The day:</b> the doors close at closing time, but everyone already inside is served. The shop opens empty, so the first part of the day is quieter than the long-run theory; batch runs can ignore customers who arrive in the first hour ("warm-up").</li>
+        <li><b>Waiting time</b> = time from arriving to starting to be served. <b>Unfairness</b> = % of customers who saw someone who arrived after them get served first.</li>
+        <li><b>Theory:</b> Erlang C (M/M/c), Pollaczek–Khinchine (M/G/1) and Allen–Cunneen (M/G/c ≈ Erlang C × (1 + CV²)/2) all assume a steady arrival rate, one shared queue, identical tills, nobody leaving and a shop that has been open for ever. "c separate M/G/1" assumes each customer picks a queue at random and never moves; choosing the shortest queue does much better than that, but not as well as a snake.</li>
+        <li><b>Not modelled:</b> walking time, packing time, staff breaks, groups shopping together, people abandoning a queue after joining, and tills of different speeds.</li>
+      </ul>
+    </details>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE: THE SHOP ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">09:00</span>
+      <span id="status" class="idle">Open</span>
+      <span class="stat">ρ now <b id="s_rho">–</b></span>
+      <span class="stat">Waiting <b id="s_wait">0</b></span>
+      <span class="stat">Served <b id="s_served">0</b></span>
+      <span class="stat">Lost <b id="s_lost">0</b></span>
+    </div>
+    <div id="viewWrap"><canvas id="view" aria-label="The shop floor: customers, queues and tills"></canvas></div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">⏸ Pause</button>
+      <button id="btnReset" title="Start the day again">Reset day</button>
+      <span class="speed">Speed <button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="4">4×</button><button data-s="15">15×</button><button data-s="60">60×</button></span>
+      <span class="hint">1× = one shop minute per second</span>
+      <button id="btnBatch" style="margin-left:auto">📊 Batch run</button>
+    </div>
+    <div class="legend">
+      <span><i style="background:#76b82a;border-radius:50%"></i>Just arrived</span><span><i style="background:#f1af28;border-radius:50%"></i>Waited 3 min</span><span><i style="background:#de252a;border-radius:50%"></i>Waited 8+ min</span>
+      <span><i style="background:none;border:1.5px solid #c9cfbd"></i>Trolley</span><span><i style="background:#3d5a80"></i>Till open</span><span><i style="background:#2a2f26"></i>Till closed</span><span><i style="background:#f1af28"></i>Express</span><span><i style="background:#00aec3"></i>Self-checkout</span>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT: READOUTS ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readouts</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">Today so far</h2>
+    <div class="tiles" id="tiles"></div>
+    <h2 class="gap">Queueing theory vs simulation</h2>
+    <div id="theory"></div>
+    <h2 class="gap">People waiting through the day</h2>
+    <div class="chartBox"><canvas id="chart1"></canvas></div>
+    <div class="legend" style="margin-top:4px"><span><i class="line" style="background:var(--sim)"></i>people waiting</span><span><i class="line" style="background:#76b82a"></i>tills open</span><span><i class="line" style="background:var(--theory)"></i>theory Lq</span></div>
+    <h2 class="gap">Waiting times</h2>
+    <div class="chartBox"><canvas id="chart2"></canvas></div>
+    <div class="legend" style="margin-top:4px"><span><i style="background:var(--sim)"></i>customers served</span><span><i class="line" style="background:var(--theory)"></i>theory (M/G/c, steady)</span></div>
+  </section>
+
+  <!-- ======================= BATCH RUN OVERLAY ======================= -->
+  <section class="panel" id="batch" aria-label="Batch run">
+    <div id="bLeft">
+      <div class="row2" style="justify-content:space-between"><h2 style="margin:0">Batch run</h2><button id="bClose" title="Back to the animation">✕ Close</button></div>
+      <div class="hint" style="margin:4px 0 8px">Runs whole days with no animation, using the settings in the left panel (except anything you sweep). Each day gets its own random arrivals.</div>
+      <h2>Batch experiments</h2>
+      <div id="bExps"></div>
+      <h2 class="gap">Set up your own</h2>
+      <div class="ctl"><label>Mode</label><select id="bMode"><option value="repeat">Repeat: many days, same settings</option><option value="sweep">Sweep: change one setting in steps</option><option value="paired">Compare: separate queues vs one snake (same customers)</option></select></div>
+      <div id="bRepeatBox" class="ctl"><label>Number of days</label><select id="bN"><option>20</option><option selected>100</option><option>200</option><option>500</option><option>1000</option></select></div>
+      <div id="bSweepBox">
+        <div class="ctl"><label>Setting to sweep</label><select id="bVar"></select></div>
+        <div class="row3 ctl"><div><label>From</label><input type="number" id="bFrom" step="any"></div><div><label>To</label><input type="number" id="bTo" step="any"></div><div><label>Steps</label><input type="number" id="bSteps" min="2" max="40"></div></div>
+        <div class="ctl"><label>Days per step</label><select id="bReps"><option>1</option><option>3</option><option>5</option><option selected>10</option><option>20</option><option>40</option></select></div>
+      </div>
+      <div class="ctl"><label>Outcome to record</label><select id="bOut"></select></div>
+      <label class="check"><input type="checkbox" id="bWarm" checked> Ignore customers who arrive in the first hour (warm-up)</label>
+      <div class="hint" id="bBase"></div>
+      <div class="row2" style="margin-top:8px"><button id="bGo" class="primary">▶ Run batch</button><button id="bStop" disabled>■ Stop</button><button id="bCsv" disabled>⤓ CSV</button></div>
+      <div class="progress"><span id="bBar"></span></div>
+      <div class="hint" id="bProg">Not run yet.</div>
+    </div>
+    <div id="bRight">
+      <div id="bChartBox"><canvas id="bChart"></canvas></div>
+      <div id="bInfo"><div id="bSummary"></div><div id="bNote"></div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const el = id => document.getElementById(id);
+
+/* =====================================================================
+   1. RANDOM NUMBERS (seeded, so every day can be repeated exactly)
+   ===================================================================== */
+function hashSeed(str) { str = String(str); let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } h = Math.imul(h ^ (h >>> 16), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return (h ^ (h >>> 16)) >>> 0; }
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function randn(rng) { let u = rng(); while (u <= 1e-300) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+// Gamma-distributed number with shape k and mean k (Marsaglia–Tsang method)
+function gammaSample(k, rng) {
+  if (k < 1) return gammaSample(k + 1, rng) * Math.pow(Math.max(1e-300, rng()), 1 / k);
+  const d = k - 1 / 3, c = 1 / Math.sqrt(9 * d);
+  for (;;) { let x, v; do { x = randn(rng); v = 1 + c * x; } while (v <= 0); v = v * v * v; const u = rng();
+    if (u < 1 - 0.0331 * x ** 4 || Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v; }
+}
+
+/* =====================================================================
+   2. THE MODEL: arrivals, service times, queues and tills
+   ===================================================================== */
+// Lunchtime pattern: how many times busier than the base rate at time t (minutes after 09:00)
+const lunchMult = t => 0.6 + 1.9 * Math.exp(-(((t - 210) / 50) ** 2));
+const lamAt = (P, t) => P.lam * (P.pattern === "lunch" ? lunchMult(t) : 1);
+function avgMult(P) { if (P.pattern !== "lunch") return 1; let s = 0; for (let i = 0; i < 480; i++) s += lunchMult((i + 0.5) * P.dayLen / 480); return s / 480; }
+// A random amount of "work" with mean 1 and the chosen spread
+function workSample(P, rng) {
+  switch (P.dist) {
+    case "exp": return -Math.log(1 - rng());
+    case "fixed": return 1;
+    case "gamma": { if (P.cv < 0.03) return 1; const k = 1 / (P.cv * P.cv); return gammaSample(k, rng) / k; }
+    case "lognorm": { if (P.cv < 0.03) return 1; const s2 = Math.log(1 + P.cv * P.cv); return Math.exp(-s2 / 2 + Math.sqrt(s2) * randn(rng)); }
+  }
+  return 1;
+}
+const workCV = P => (P.dist === "exp" ? 1 : P.dist === "fixed" ? 0 : P.cv);
+// Basket and trolley factors: a trolley takes 4× as long, and the overall mean stays 1
+function typeFactors(P) { const f = P.trolleyPct / 100, b = 1 / (1 + 3 * f); return { b, t: 4 * b, f }; }
+
+/* The shop. A discrete-event simulation: the clock jumps from one event
+   (a customer arriving, or a till finishing a customer) to the next. */
+class Shop {
+  constructor(P, seed, live) {
+    this.P = P; this.live = live; this.t = 0;
+    this.ar = mulberry32(hashSeed(seed + "|arrivals"));   // arrivals and shopping: the same for any queue layout
+    this.cr = mulberry32(hashSeed(seed + "|choices"));    // tie-breaks when choosing a queue
+    this.tills = []; this.lines = []; this.nId = 0;
+    const snake = P.layout === "snake" ? this.addLine("snake") : null;
+    for (let i = 0; i < P.tills; i++) { const exp = P.express && i === 0 && P.tills > 1;
+      this.addTill(exp ? "express" : "staff", exp ? this.addLine("express") : snake || this.addLine("single"), true); }
+    for (let i = 0; i < P.reserve; i++) this.addTill("reserve", snake || this.addLine("single"), false);
+    if (P.selfN > 0) { const sl = this.addLine("self"); for (let i = 0; i < P.selfN; i++) this.addTill("self", sl, true); }
+    this.nextArr = this.nextArrivalAfter(0);
+    // statistics
+    this.arrived = 0; this.served = 0; this.lost = 0; this.waiting = 0; this.jockeys = 0; this.opened = 0;
+    this.waits = []; this.sumW = 0; this.sumW2 = 0; this.maxW = 0; this.under5 = 0; this.unfair = 0; this.waited = 0;
+    this.areaQ = 0; this.areaBusy = 0; this.areaOpen = 0; this.hist = [];
+    this.leavers = []; this.balkers = []; this.lastArr = 0;
+  }
+  addLine(kind) { const L = { id: this.lines.length, kind, q: [], tills: [] }; this.lines.push(L); return L; }
+  addTill(kind, line, open) { const T = { id: this.tills.length, kind, line, open, cust: null, end: Infinity, start: 0 }; line.tills.push(T); this.tills.push(T); }
+  // Next arrival after time t. With a time-of-day pattern we use "thinning": generate at the peak
+  // rate and keep each candidate with probability (rate now ÷ peak rate).
+  nextArrivalAfter(t) {
+    const P = this.P, lmax = P.lam * (P.pattern === "lunch" ? 2.5 : 1);
+    if (!(lmax > 0)) return Infinity;
+    for (;;) { t += -Math.log(1 - this.ar()) / lmax; if (t >= P.dayLen) return Infinity;
+      if (P.pattern !== "lunch" || this.ar() * lmax <= lamAt(P, t)) return t; }
+  }
+  nextEventTime() { let tn = this.nextArr; for (const T of this.tills) if (T.end < tn) tn = T.end; return tn; }
+  // Add up queue length, busy tills and open tills over time (for averages)
+  accrue(t2) { const dt = t2 - this.t; if (dt <= 0) return; let busy = 0, open = 0; for (const T of this.tills) { if (T.open) open++; if (T.cust) busy++; }
+    this.areaQ += this.waiting * dt; this.areaBusy += busy * dt; this.areaOpen += open * dt; }
+  advance(tEnd) {
+    for (let guard = 0; guard < 500000; guard++) {
+      const tn = this.nextEventTime();
+      if (tn > tEnd || tn === Infinity) { if (isFinite(tEnd)) { this.accrue(tEnd); this.t = tEnd; } break; }
+      this.accrue(tn); this.t = tn;
+      if (this.live) this.sample();
+      if (this.nextArr <= tn) this.arrival(); else { const T = this.tills.find(x => x.end === tn); this.complete(T); }
+    }
+    if (this.live) this.sample();
+  }
+  sample() { const h = this.hist, open = this.tills.filter(T => T.open).length;
+    if (!h.length || this.t - h[h.length - 1].t >= 0.5) h.push({ t: this.t, q: this.waiting, open }); }
+  get done() { return this.nextArr === Infinity && this.waiting === 0 && this.tills.every(T => !T.cust); }
+  canUse(c, L) { return !(c.trolley && (L.kind === "express" || L.kind === "self")); }
+  // People ahead per open till: what a customer looks at when choosing
+  load(L) { let open = 0, busy = 0; for (const T of L.tills) if (T.open) { open++; if (T.cust) busy++; } return open ? (L.q.length + busy) / open : Infinity; }
+  arrival() {
+    const P = this.P, c = { id: this.nId++, arr: this.t, trolley: this.ar() * 100 < P.trolleyPct, work: workSample(P, this.ar), overtaken: false };
+    this.nextArr = this.nextArrivalAfter(this.t); this.arrived++;
+    let best = null, bs = Infinity, ties = 0;
+    for (const L of this.lines) { if (!this.canUse(c, L)) continue; const s = this.load(L); if (!isFinite(s)) continue;
+      if (s < bs - 1e-9) { best = L; bs = s; ties = 1; } else if (Math.abs(s - bs) < 1e-9 && this.cr() * ++ties < 1) best = L; }
+    if (!best || (P.balk && bs >= P.balkK)) { this.lost++; if (this.live) this.balkers.push({ c, t0: this.t }); this.afterEvent(); return; }
+    best.q.push(c); c.line = best; this.waiting++;
+    this.tryStart(best); this.afterEvent();
+  }
+  tryStart(L) {
+    while (L.q.length) { const T = L.tills.find(x => x.open && !x.cust); if (!T) break; const c = L.q.shift(); this.waiting--; this.startService(T, c); }
+  }
+  startService(T, c) {
+    const P = this.P, tf = typeFactors(P);
+    c.start = this.t; c.till = T; T.cust = c; T.start = this.t;
+    c.service = P.meanS * (c.trolley ? tf.t : tf.b) * c.work * (T.kind === "self" ? P.selfF : 1);
+    T.end = this.t + c.service;
+    // anyone still waiting who arrived before c has just been overtaken
+    for (const L of this.lines) for (const w of L.q) if (w.arr < c.arr) w.overtaken = true;
+    if (c.arr >= (P.warmup || 0)) { const w = this.t - c.arr; this.waits.push(w); this.sumW += w; this.sumW2 += w * w;
+      if (w > this.maxW) this.maxW = w; if (w <= 5) this.under5++; if (w > 1e-9) this.waited++; if (c.overtaken) this.unfair++; }
+  }
+  complete(T) {
+    const c = T.cust; T.cust = null; T.end = Infinity; this.served++;
+    if (this.live) { c.leaveT = this.t; this.leavers.push(c); }
+    this.tryStart(T.line); this.afterEvent();
+  }
+  // Move people at the back of long queues into shorter ones (separate queues only)
+  rebalance() {
+    const singles = this.lines.filter(L => L.kind === "single" && L.tills[0].open);
+    for (let k = 0; k < 60; k++) {
+      let A = null, B = null, la = -1, lb = Infinity;
+      for (const L of singles) { const n = L.q.length + (L.tills[0].cust ? 1 : 0); if (L.q.length && n > la) { la = n; A = L; } if (n < lb) { lb = n; B = L; } }
+      if (!A || !B || A === B || la - lb < 2) break;
+      const c = A.q.pop(); B.q.push(c); c.line = B; this.jockeys++; this.tryStart(B);
+    }
+  }
+  afterEvent() {
+    const P = this.P;
+    if (P.reserve > 0) {
+      const staffLines = this.lines.filter(L => L.kind === "single" || L.kind === "snake");
+      let pressure = 0;
+      for (const L of staffLines) { const open = L.tills.filter(T => T.open).length; if (open) pressure = Math.max(pressure, L.kind === "snake" ? L.q.length / open : L.q.length); }
+      if (pressure > P.openK) { const R = this.tills.find(T => T.kind === "reserve" && !T.open); if (R) { R.open = true; this.opened++; if (P.layout === "separate") this.rebalance(); else this.tryStart(R.line); } }
+      const staffWaiting = staffLines.reduce((s, L) => s + L.q.length, 0);
+      if (staffWaiting === 0) for (const T of this.tills) if (T.kind === "reserve" && T.open && !T.cust && !T.line.q.length) T.open = false;
+    }
+    if (P.jockey && P.layout === "separate") this.rebalance();
+  }
+  // Summary of the day so far
+  results() {
+    const n = this.waits.length, s = Float64Array.from(this.waits).sort(), mean = n ? this.sumW / n : NaN;
+    const q = f => (n ? s[Math.min(n - 1, Math.floor(f * n))] : NaN), T = Math.max(this.t, 1e-9);
+    return { meanWait: mean, sdWait: n > 1 ? Math.sqrt(Math.max(0, (this.sumW2 - n * mean * mean) / (n - 1))) : NaN, p95: q(0.95), maxWait: n ? this.maxW : NaN,
+      pctUnder5: n ? 100 * this.under5 / n : NaN, pctWaited: n ? 100 * this.waited / n : NaN, meanQ: this.areaQ / T, util: this.areaOpen > 0 ? 100 * this.areaBusy / this.areaOpen : NaN,
+      lostPct: this.arrived ? 100 * this.lost / this.arrived : 0, lost: this.lost, unfair: n ? 100 * this.unfair / n : NaN, served: this.served, n };
+  }
+}
+// HEADLESS RUN (for batch runs): one whole day, no drawing
+function runOnce(P, seed) { const s = new Shop(P, seed, false); s.advance(Infinity); return s.results(); }
+
+/* =====================================================================
+   3. QUEUEING THEORY (steady state)
+   ===================================================================== */
+function theory(P) {
+  const lam = P.lam * avgMult(P), mu = 1 / P.meanS, c = P.tills, a = lam / mu;
+  // capacity in "staffed-till equivalents": a self-checkout counts as 1/selfF of a till
+  const cap = c + (P.selfN ? P.selfN / P.selfF : 0), rho = a / cap;
+  const tf = typeFactors(P), cv = workCV(P), Ef2 = tf.f * tf.t ** 2 + (1 - tf.f) * tf.b ** 2;
+  const cv2 = (1 + cv * cv) * Ef2 - 1;     // squared CV of the whole service time (trolley mix adds spread)
+  const r = { lam, mu, c, cap, a, rho, cv2, cvEff: Math.sqrt(Math.max(0, cv2)), stable: rho < 1,
+    simple: P.pattern === "steady" && !P.selfN && !P.express && !P.reserve && !P.balk };
+  if (!r.stable) return r;
+  if (a >= c) { r.noErlang = true; return r; }   // staffed tills alone could not cope: the formulas need them to
+  let B = 1; for (let k = 1; k <= c; k++) B = a * B / (k + a * B);          // Erlang B, step by step
+  const C = c * B / (c - a * (1 - B));                                       // Erlang C = P(you wait)
+  const theta = (c * mu - lam) * 2 / (1 + cv2);                              // decay rate of the wait tail
+  r.C = C; r.WqMMc = C / (c * mu - lam); r.Wq = r.WqMMc * (1 + cv2) / 2; r.Lq = lam * r.Wq;
+  r.theta = theta; r.pOver = t => C * Math.exp(-theta * t);
+  r.p95 = C > 0.05 ? Math.log(C / 0.05) / theta : 0;
+  r.sd = Math.sqrt(Math.max(0, 2 * C / (theta * theta) - (C / theta) ** 2));
+  r.WqSep = (lam / c) * P.meanS ** 2 * (1 + cv2) / (2 * (1 - rho));        // c separate M/G/1 queues, random choice
+  return r;
+}
+
+/* =====================================================================
+   4. LIVE STATE AND CONTROLS
+   ===================================================================== */
+const STRUCT = ["tills", "layout", "express", "selfN", "reserve", "dayLen", "seed"];
+let shop = null, running = true, speed = 1;
+function params() {
+  const v = id => el(id).value, n = id => +el(id).value, b = id => el(id).checked;
+  return { lam: n("lam"), pattern: v("pattern"), trolleyPct: n("trolley"), balk: b("balk"), balkK: n("balkK"), meanS: n("meanS"), dist: v("dist"), cv: n("cv"),
+           tills: n("tills"), layout: v("layout"), jockey: b("jockey"), express: b("express"), selfN: n("selfN"), selfF: n("selfF"), reserve: n("reserve"), openK: n("openK"),
+           dayLen: n("dayLen"), warmup: 0 };
+}
+function resetDay() { shop = new Shop(params(), el("seed").value, true); setRunning(true); }
+function updateLabels() {
+  const P = params(), th = theory(P);
+  el("o_lam").textContent = `${P.lam.toFixed(2)} per min (${Math.round(P.lam * 60)} an hour)`;
+  el("o_trolley").textContent = `${P.trolleyPct}%`;
+  el("o_balkK").textContent = P.balkK;
+  el("o_meanS").textContent = `${P.meanS.toFixed(1)} min (μ = ${(1 / P.meanS).toFixed(2)} per min)`;
+  el("o_cv").textContent = P.dist === "exp" ? "1 (fixed by exponential)" : P.dist === "fixed" ? "0" : P.cv.toFixed(2);
+  el("cv").disabled = P.dist === "exp" || P.dist === "fixed"; el("cvBox").style.opacity = el("cv").disabled ? 0.5 : 1;
+  el("o_tills").textContent = `${P.tills}  (ρ = ${th.rho.toFixed(2)})`;
+  el("o_selfN").textContent = P.selfN || "none"; el("selfBox").style.display = P.selfN ? "" : "none";
+  el("o_selfF").textContent = `${P.selfF.toFixed(2)}× ${P.selfF < 1 ? "(faster)" : P.selfF > 1 ? "(slower)" : ""}`;
+  el("o_reserve").textContent = P.reserve || "none"; el("openBox").style.display = P.reserve ? "" : "none";
+  el("o_openK").textContent = `${P.openK} people`; el("balkBox").style.display = P.balk ? "" : "none";
+  el("jockey").disabled = P.layout !== "separate"; el("jockey").parentElement.style.opacity = P.layout === "separate" ? 1 : 0.5;
+}
+function setRunning(r) { running = r; el("btnPlay").textContent = shop && shop.done && shop.t >= shop.P.dayLen ? "▶ New day" : r ? "⏸ Pause" : "▶ Play"; }
+
+/* =====================================================================
+   5. DRAWING THE SHOP
+   Geometry is worked out in CSS pixels; customers glide towards the
+   spot their state says they should be in.
+   ===================================================================== */
+function fitCanvas(c) { const dpr = window.devicePixelRatio || 1; const W = Math.max(1, Math.round(c.clientWidth * dpr)), H = Math.max(1, Math.round(c.clientHeight * dpr));
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; } return { ctx: c.getContext("2d"), W, H, dpr }; }
+const clock = t => { const m = Math.floor(540 + t); return `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
+function fmt(v, d = 1) { if (v === null || v === undefined || !isFinite(v)) return "–"; const a = Math.abs(v); if (a >= 1000) return Math.round(v).toLocaleString("en-GB"); if (a >= 100) return v.toFixed(0); return v.toFixed(d); }
+const fmtMin = v => (isFinite(v) ? (v < 1 ? `${Math.round(v * 60)} s` : `${fmt(v, 1)} min`) : "–");
+// colour by waiting time: green → gold → red
+function waitColour(w) { const k = Math.max(0, Math.min(1, w / 8)), A = [118, 184, 42], Bc = [241, 175, 40], R = [222, 37, 42];
+  const [p, q, f] = k < 0.375 ? [A, Bc, k / 0.375] : [Bc, R, (k - 0.375) / 0.625]; return `rgb(${p.map((x, i) => Math.round(x + (q[i] - x) * f)).join(",")})`; }
+
+let geo = null;
+function layoutGeo(Wc, Hc) {   // CSS-pixel geometry of the shop for the current set-up
+  const P = shop.P, selfTills = shop.tills.filter(T => T.kind === "self"), main = shop.tills.filter(T => T.kind !== "self");
+  const x1 = selfTills.length ? Wc * 0.70 : Wc - 20, x0 = 92, tillY = Hc - 64, sx = (x1 - x0) / main.length;
+  const r = Math.max(4, Math.min(8, sx * 0.17, Hc / 70));
+  const pos = new Map();
+  main.forEach((T, i) => pos.set(T, { x: x0 + (i + 0.5) * sx, y: tillY }));
+  const sx0 = Wc * 0.74, sx1 = Wc - 20, perRow = Math.min(4, selfTills.length), sw = (sx1 - sx0) / Math.max(1, perRow);
+  selfTills.forEach((T, i) => pos.set(T, { x: sx0 + ((i % perRow) + 0.5) * sw, y: tillY - Math.floor(i / perRow) * 46 }));
+  const selfTop = selfTills.length ? tillY - Math.floor((selfTills.length - 1) / perRow) * 46 : tillY;
+  const g = { Wc, Hc, x0, x1, tillY, sx, r, pos, door: { x: 26, y: 34 }, paths: new Map() };
+  // serpentine paths for shared queues: the head is nearest the tills
+  for (const L of shop.lines) {
+    if (L.kind === "snake") { const xs = L.tills.map(T => pos.get(T).x); g.paths.set(L, snakePath(Math.max(x0 - 30, Math.min(...xs) - sx * 0.4), Math.max(...xs) + sx * 0.4, 70, tillY - 46, r)); }
+    if (L.kind === "self") g.paths.set(L, snakePath(sx0, sx1, 70, selfTop - 46, r));
+  }
+  return g;
+}
+function snakePath(xa, xb, ytop, ybot, r) {
+  // lanes run left and right, starting at the bottom (the head of the queue) and climbing upwards
+  const lane = Math.max(3 * r, 16), pts = [], lanes = [], L = xa + 8, R = xb - 8, xm = (xa + xb) / 2;
+  pts.push([xm, ybot + 18], [xm, ybot]);
+  let y = ybot, k = 0, x = xm;
+  while (y >= ytop && k < 60) { const to = k % 2 === 0 ? L : R; if (k) pts.push([x, y]); pts.push([to, y]); lanes.push({ y, end: to }); x = to; y -= lane; k++; }
+  const seg = []; let len = 0; for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); seg.push(d); len += d; }
+  return { pts, seg, len, lane, lanes, L, R, xm };
+}
+function along(path, s) { s = Math.max(0, Math.min(path.len, s)); for (let i = 0; i < path.seg.length; i++) { if (s <= path.seg[i] || i === path.seg.length - 1) { const f = path.seg[i] ? Math.min(1, s / path.seg[i]) : 0, a = path.pts[i], b = path.pts[i + 1]; return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]; } s -= path.seg[i]; } return path.pts[0]; }
+// where each customer should be now
+function targets() {
+  const g = geo, out = new Map();
+  for (const L of shop.lines) {
+    const n = L.q.length;
+    if (L.kind === "single" || L.kind === "express") {
+      const p = g.pos.get(L.tills[0]), room = p.y - 40 - 70, gap = Math.min(2.5 * g.r, room / Math.max(1, n));
+      L.q.forEach((c, i) => out.set(c, [p.x, p.y - 40 - (i + 0.5) * gap]));
+    } else {
+      const path = g.paths.get(L), gap = Math.min(2.5 * g.r, path.len / Math.max(1, n));
+      L.q.forEach((c, i) => out.set(c, along(path, i * gap)));
+    }
+  }
+  for (const T of shop.tills) if (T.cust) { const p = g.pos.get(T); out.set(T.cust, [p.x, p.y - 20]); }
+  return out;
+}
+let lastReal = performance.now();
+function drawShop(dtReal) {
+  const { ctx, W, H, dpr } = fitCanvas(el("view")), Wc = W / dpr, Hc = H / dpr;
+  if (!geo || geo.Wc !== Wc || geo.Hc !== Hc || geo.shop !== shop) { geo = layoutGeo(Wc, Hc); geo.shop = shop; }
+  const g = geo, P = shop.P;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = "#0a0c09"; ctx.fillRect(0, 0, Wc, Hc);
+  // floor: aisles hint, door, exit
+  ctx.fillStyle = "#11150f"; for (let x = g.x0 - 60; x < Wc; x += 60) ctx.fillRect(x, 0, 30, 46);
+  ctx.fillStyle = "#3a6ea5"; ctx.fillRect(4, 18, 8, 34); ctx.fillStyle = "#a3ab96"; ctx.font = "11px system-ui"; ctx.textAlign = "left"; ctx.fillText("Entrance", 16, 14);
+  ctx.textAlign = "center"; ctx.fillText("Way out ↓", Wc / 2, Hc - 6);
+  // snake barriers: a rope between each pair of lanes, with a gap where the queue turns
+  ctx.strokeStyle = "#3a4532"; ctx.lineWidth = 2;
+  for (const [L, path] of g.paths) path.lanes.slice(0, -1).forEach(ln => { const y = ln.y - path.lane / 2, gap = path.lane * 1.1;
+    ctx.beginPath(); if (ln.end === path.L) { ctx.moveTo(path.L + gap, y); ctx.lineTo(path.R + 6, y); } else { ctx.moveTo(path.L - 6, y); ctx.lineTo(path.R - gap, y); } ctx.stroke(); });
+  // tills
+  for (const T of shop.tills) {
+    const p = g.pos.get(T), w = Math.min(g.sx * 0.62, 44, T.kind === "self" ? 30 : 44), h = 16;
+    ctx.fillStyle = !T.open ? "#2a2f26" : T.kind === "express" ? "#f1af28" : T.kind === "self" ? "#00aec3" : T.kind === "reserve" ? "#5577a8" : "#3d5a80";
+    ctx.fillRect(p.x - w / 2, p.y - h / 2, w, h);
+    if (T.cust) { const f = Math.min(1, (shop.t - T.start) / Math.max(1e-6, T.end - T.start)); ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.fillRect(p.x - w / 2, p.y + h / 2 + 2, w * f, 3); }
+    ctx.fillStyle = T.kind === "express" ? "#14133b" : "#eef0e8"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
+    ctx.fillText(T.kind === "self" ? "S" : String(shop.tills.filter(x => x.kind !== "self").indexOf(T) + 1), p.x, p.y + 3.5);
+    if (!T.open) { ctx.fillStyle = "#6b7562"; ctx.font = "10px system-ui"; ctx.fillText("closed", p.x, p.y + 22); }
+    else if (T.kind === "express") { ctx.fillStyle = "#f1af28"; ctx.font = "10px system-ui"; ctx.fillText("express", p.x, p.y + 22); }
+    else if (T.kind === "reserve") { ctx.fillStyle = "#8fb0dd"; ctx.font = "10px system-ui"; ctx.fillText("opened", p.x, p.y + 22); }
+  }
+  if (g.paths.size) { ctx.fillStyle = "#a3ab96"; ctx.font = "11px system-ui"; ctx.textAlign = "center";
+    for (const [L, path] of g.paths) ctx.fillText((L.kind === "self" ? "Self-checkouts: one queue" : "One shared queue") + (L.q.length ? ` · ${L.q.length} waiting` : ""), path.xm, 60); }
+  // move customers towards their targets
+  const tg = targets(), k = 1 - Math.exp(-dtReal * (6 + speed * 0.6));
+  const drawC = (c, x, y, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, g.r, 0, 7); ctx.fill();
+    if (c.trolley) { ctx.strokeStyle = "#c9cfbd"; ctx.lineWidth = 1.3; ctx.strokeRect(x + g.r * 0.6, y - g.r * 0.2, g.r * 1.5, g.r * 1.2); } };
+  for (const [c, [tx, ty]] of tg) {
+    if (c.x === undefined) { c.x = g.door.x + 10; c.y = g.door.y; }
+    c.x += (tx - c.x) * k; c.y += (ty - c.y) * k;
+    drawC(c, c.x, c.y, waitColour((c.start !== undefined ? c.start : shop.t) - c.arr));
+  }
+  // leaving customers walk out; customers who give up turn round at the door
+  shop.leavers = shop.leavers.filter(c => shop.t - c.leaveT < 3 && c.y < Hc + 10);
+  for (const c of shop.leavers) { if (c.x === undefined) { const p = g.pos.get(c.till); c.x = p.x; c.y = p.y - 20; } c.y += dtReal * (80 + 10 * speed); c.x += (c.x < Wc / 2 ? 1 : -1) * dtReal * 6; ctx.globalAlpha = 0.6; drawC(c, c.x, c.y, waitColour(c.start - c.arr)); ctx.globalAlpha = 1; }
+  shop.balkers = shop.balkers.filter(b => shop.t - b.t0 < 2.5);
+  for (const b of shop.balkers) { const f = (shop.t - b.t0) / 2.5, d = f < 0.5 ? f * 2 : 2 - f * 2, x = g.door.x + 10 + 90 * d, y = g.door.y + 30 * d;
+    ctx.fillStyle = "#de252a"; ctx.beginPath(); ctx.arc(x, y, g.r, 0, 7); ctx.fill(); ctx.fillStyle = "#fff"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center"; ctx.fillText("✕", x, y + 3.5); }
+  // long separate queues: show how many
+  ctx.font = "bold 11px system-ui"; ctx.textAlign = "center";
+  for (const L of shop.lines) if (L.q.length > 6) { if (L.kind === "single" || L.kind === "express") { const p = g.pos.get(L.tills[0]); ctx.fillStyle = "#eef0e8"; ctx.fillText(L.q.length, p.x, 64); } }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/* =====================================================================
+   6. CHARTS AND READOUTS
+   ===================================================================== */
+function niceTicks(a, b, n) { const span = b - a; if (!(span > 0)) return [a]; const raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p, st = (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p;
+  const out = []; for (let t = Math.ceil(a / st) * st; t <= b + st * 1e-6; t += st) out.push(Math.abs(t) < st * 1e-9 ? 0 : t); return out; }
+function fmtTick(t) { const a = Math.abs(t); if (a === 0) return "0"; if (a >= 1e5 || a < 1e-3) return t.toExponential(0); return String(+t.toPrecision(4)); }
+function drawChart1(th) {
+  const { ctx, W, H, dpr } = fitCanvas(el("chart1"));
+  ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H);
+  const h = shop.hist, L = 34 * dpr, Rr = 8 * dpr, T = 8 * dpr, B = 22 * dpr, tMax = Math.max(shop.P.dayLen, shop.t);
+  let yMax = 4; h.forEach(p => (yMax = Math.max(yMax, p.q * 1.1, p.open * 1.1))); if (th.stable && th.simple) yMax = Math.max(yMax, th.Lq * 1.3);
+  const X = t => L + t / tMax * (W - L - Rr), Y = v => H - B - v / yMax * (H - T - B);
+  ctx.strokeStyle = "rgba(160,170,150,0.15)"; ctx.fillStyle = "#a3ab96"; ctx.font = `${10 * dpr}px system-ui`; ctx.textAlign = "right";
+  for (const t of niceTicks(0, yMax, 4)) { const y = Y(t); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - Rr, y); ctx.stroke(); ctx.fillText(fmtTick(t), L - 4 * dpr, y + 3 * dpr); }
+  ctx.textAlign = "center"; for (let m = 0; m <= tMax; m += tMax > 500 ? 120 : 60) ctx.fillText(clock(m), X(m), H - 6 * dpr);
+  if (th.stable && th.simple) { ctx.strokeStyle = "#f1af28"; ctx.setLineDash([6 * dpr, 4 * dpr]); ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.moveTo(L, Y(th.Lq)); ctx.lineTo(W - Rr, Y(th.Lq)); ctx.stroke(); ctx.setLineDash([]); }
+  for (const [key, col] of [["open", "#76b82a"], ["q", "#a4cbe6"]]) { ctx.strokeStyle = col; ctx.lineWidth = (key === "q" ? 2 : 1.5) * dpr; ctx.beginPath(); h.forEach((p, i) => (i ? ctx.lineTo(X(p.t), Y(p[key])) : ctx.moveTo(X(p.t), Y(p[key])))); ctx.stroke(); }
+}
+function drawChart2(th) {
+  const { ctx, W, H, dpr } = fitCanvas(el("chart2"));
+  ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H);
+  const w = shop.waits, n = w.length, L = 34 * dpr, Rr = 8 * dpr, T = 8 * dpr, B = 22 * dpr;
+  let xMax = 10; for (const v of w) if (v > xMax) xMax = v; xMax = Math.min(Math.ceil(xMax / 5) * 5, 120);
+  const nb = Math.max(10, Math.min(40, Math.round(xMax / 0.5))), bw = xMax / nb, counts = new Array(nb).fill(0);
+  for (const v of w) counts[Math.min(nb - 1, Math.floor(v / bw))]++;
+  // expected customers per bin: n × P(i·bw ≤ W < (i+1)·bw); the first bin also holds everyone served at once
+  const expB = th.pOver && n ? counts.map((_, i) => n * ((i === 0 ? 1 : th.pOver(i * bw)) - th.pOver((i + 1) * bw))) : null;
+  let yMax = Math.max(1, ...counts) * 1.1; if (expB) yMax = Math.max(yMax, Math.min(...[expB[0] * 1.1, yMax * 3]));
+  const X = v => L + v / xMax * (W - L - Rr), Y = v => H - B - Math.min(v, yMax) / yMax * (H - T - B);
+  ctx.strokeStyle = "rgba(160,170,150,0.15)"; ctx.fillStyle = "#a3ab96"; ctx.font = `${10 * dpr}px system-ui`; ctx.textAlign = "right";
+  for (const t of niceTicks(0, yMax, 4)) { const y = Y(t); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - Rr, y); ctx.stroke(); ctx.fillText(fmtTick(t), L - 4 * dpr, y + 3 * dpr); }
+  ctx.textAlign = "center"; for (const t of niceTicks(0, xMax, 6)) ctx.fillText(t, X(t), H - 8 * dpr);
+  ctx.fillText("wait (min)", W - 30 * dpr, H - 8 * dpr + 0);
+  ctx.fillStyle = "#a4cbe6"; counts.forEach((c, i) => { if (c) ctx.fillRect(X(i * bw) + 0.5, Y(c), X(bw) - X(0) - 1, Y(0) - Y(c)); });
+  if (expB && th.simple) { ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 2 * dpr; ctx.beginPath(); expB.forEach((e, i) => { const x = X((i + 0.5) * bw); i ? ctx.lineTo(x, Y(e)) : ctx.moveTo(x, Y(e)); }); ctx.stroke(); }
+}
+const tile = (k, v, s) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+function updateUI() {
+  const P = shop.P, R = shop.results(), th = theory(P), now = shop.t;
+  el("clock").textContent = clock(now);
+  const closed = now >= P.dayLen, st = el("status");
+  st.textContent = !closed ? "Open" : shop.done ? "Closed" : "Doors shut: serving the last customers"; st.className = !closed ? "open" : shop.done ? "idle" : "closing";
+  const lamNow = lamAt(P, Math.min(now, P.dayLen - 1e-6)), rhoNow = lamNow * P.meanS / th.cap;
+  el("s_rho").textContent = rhoNow.toFixed(2); el("s_wait").textContent = shop.waiting; el("s_served").textContent = shop.served; el("s_lost").textContent = shop.lost;
+  const ok = th.stable && th.simple, tv = (v, f) => (ok ? f(v) : "–");
+  el("tiles").innerHTML =
+    tile("Tills busy", fmt(R.util, 0) + "%", th.stable ? `theory ρ = ${(100 * th.rho).toFixed(0)}%` : `theory ρ = ${th.rho.toFixed(2)} > 1!`) +
+    tile("Mean wait", fmtMin(R.meanWait), ok ? `theory ${fmtMin(th.Wq)}` : th.stable ? "no simple theory here" : "theory: grows for ever") +
+    tile("Longest wait", fmtMin(R.maxWait), `${R.n} customers served`) +
+    tile("95% waited less than", fmtMin(R.p95), ok ? `theory ${fmtMin(th.p95)}` : "") +
+    tile("Mean queue length", fmt(R.meanQ, 1), ok ? `theory Lq = λWq = ${fmt(th.Lq, 1)}` : "people waiting, averaged over time") +
+    tile("Served within 5 min", fmt(R.pctUnder5, 0) + "%", ok ? `theory ${fmt(100 * (1 - th.pOver(5)), 0)}%` : "") +
+    tile("Customers lost", `${shop.lost}`, shop.arrived ? `${fmt(R.lostPct, 1)}% gave up` : "") +
+    tile("Unfairness", fmt(R.unfair, 0) + "%", "overtaken by a later arrival");
+  // theory table
+  const col = v => (v === null ? "–" : v);
+  if (!th.stable) el("theory").innerHTML = `<div class="warn">ρ = λ/(cμ) = ${fmt(th.lam, 2)} ÷ (${fmt(th.cap, 2)} × ${fmt(th.mu, 2)}) = <b>${th.rho.toFixed(2)}</b>${th.cap !== P.tills ? " (self-checkouts counted as part-tills)" : ""}. Customers arrive faster than the tills can serve them, so in theory the queue grows without limit. No steady state exists.</div>`;
+  else if (th.noErlang) el("theory").innerHTML = `<div class="hint">The staffed tills alone could not keep up (λ/μ = ${fmt(th.a, 2)} ≥ ${P.tills}); only the self-checkouts make the shop cope (ρ = ${th.rho.toFixed(2)} overall). The textbook formulas do not cover a mix like this, so watch the simulation.</div>`;
+  else el("theory").innerHTML = `<table class="sum"><tr><th></th><th>sim</th><th>M/M/c</th><th>M/G/c</th><th>${P.tills} sep.</th></tr>
+    <tr><td>Utilisation ρ</td><td>${fmt(R.util, 0)}%</td><td colspan="3" style="text-align:center">${(100 * th.rho).toFixed(1)}%</td></tr>
+    <tr><td>P(have to wait)</td><td>${fmt(R.pctWaited, 0)}%</td><td>${fmt(100 * th.C, 0)}%</td><td>${fmt(100 * th.C, 0)}%</td><td>${fmt(100 * th.rho, 0)}%</td></tr>
+    <tr><td>Mean wait Wq</td><td>${fmtMin(R.meanWait)}</td><td>${fmtMin(th.WqMMc)}</td><td>${fmtMin(th.Wq)}</td><td>${fmtMin(th.WqSep)}</td></tr>
+    <tr><td>Mean queue Lq</td><td>${fmt(R.meanQ, 2)}</td><td>${fmt(th.lam * th.WqMMc, 2)}</td><td>${fmt(th.Lq, 2)}</td><td>${fmt(th.lam * th.WqSep, 2)}</td></tr></table>
+    <div class="hint" style="margin-top:4px">M/M/c: Erlang C, one shared queue, exponential service. M/G/c: corrected for your service variability (CV = ${fmt(th.cvEff, 2)}): × (1 + CV²)/2, exact for one till (Pollaczek–Khinchine). "${P.tills} sep.": ${P.tills} separate queues, each customer picks one at random and stays.${th.simple ? "" : ` <b style="color:#ffd98a">Your set-up (${[P.pattern !== "steady" ? "rush hour" : "", P.selfN ? "self-checkouts" : "", P.express ? "express till" : "", P.reserve ? "spare tills" : "", P.balk ? "giving up" : ""].filter(Boolean).join(", ")}) is beyond these formulas: treat them as a rough guide${P.pattern !== "steady" ? " (they use the day's average arrival rate)" : ""}.</b>`}</div>`;
+  // story
+  const msgs = [];
+  if (!th.stable) msgs.push(`<p><b>Overloaded.</b> ${fmt(th.lam * 60, 0)} customers an hour arrive but the tills can only serve ${fmt(60 * th.cap / P.meanS, 0)} an hour. The queue grows all day${P.balk ? ", until people start giving up" : ""}.</p>`);
+  else if (th.rho > 0.85) msgs.push(`<p>The tills are busy ${(100 * th.rho).toFixed(0)}% of the time. Near ρ = 1 a small rise in customers makes waits <b>explode</b>: waiting time grows like 1/(1 − ρ).</p>`);
+  else if (th.rho < 0.5) msgs.push(`<p>A quiet shop: tills are busy only ${(100 * th.rho).toFixed(0)}% of the time, so most customers walk straight up to a till.</p>`);
+  else msgs.push(`<p>Customers arrive at random, so even though the tills could keep up on average (ρ = ${th.rho.toFixed(2)}), short bursts of arrivals build queues that then take time to clear.</p>`);
+  if (P.pattern === "lunch") msgs.push(`<p>Lunchtime rush: right now about ${fmt(lamNow * 60, 0)} customers an hour (ρ now ${rhoNow.toFixed(2)}). ${rhoNow > 1 ? "Busier than the tills can handle: the queue builds until the rush passes." : ""}</p>`);
+  if (P.layout === "snake") msgs.push(`<p>One snake queue: first come, first served, and nobody gets stuck behind a slow customer while other tills are free. Unfairness is zero.</p>`);
+  else msgs.push(`<p>Separate queues: pick the wrong one and you can be stuck behind a big trolley while people who came later sail through (unfairness ${fmt(R.unfair, 0)}%).${P.jockey ? ` People have switched queues ${shop.jockeys} times.` : ""}</p>`);
+  if (workCV(P) > 1.3 || th.cvEff > 1.3) msgs.push(`<p>Service times vary a lot (CV ${fmt(th.cvEff, 2)}). Pollaczek–Khinchine says the mean wait grows with (1 + CV²)/2, so waits here are ${fmt((1 + th.cv2) / 2, 1)}× the textbook exponential case and ${fmt(1 + th.cv2, 1)}× what they would be if every service took the same time.</p>`);
+  if (P.reserve) msgs.push(`<p>Spare tills: ${shop.tills.filter(T => T.kind === "reserve" && T.open).length} open now; staff have opened one ${shop.opened} time${shop.opened === 1 ? "" : "s"} today.</p>`);
+  if (P.balk && shop.lost) msgs.push(`<p>${shop.lost} customer${shop.lost > 1 ? "s have" : " has"} walked out: lost sales, but it keeps the queue from growing for ever.</p>`);
+  el("story").innerHTML = msgs.join("");
+  drawChart1(th); drawChart2(th);
+}
+
+/* =====================================================================
+   7. PRESETS
+   ===================================================================== */
+const BASE = { lam: 1.2, pattern: "steady", trolley: 0, balk: false, balkK: 6, meanS: 2, dist: "exp", cv: 1, tills: 3, layout: "separate", jockey: false, express: false, selfN: 0, selfF: 1.4, reserve: 0, openK: 3, dayLen: 480 };
+const PRESETS = [
+  { name: "Quiet morning", note: "ρ = 0.4: hardly any queue", s: { lam: 0.6, meanS: 2, tills: 3 } },
+  { name: "Lunchtime rush", note: "peak 150 an hour at 12:30", s: { lam: 1.0, pattern: "lunch", meanS: 1.8, tills: 4, jockey: true } },
+  { name: "One snake queue", note: "ρ = 0.85, post-office style", s: { lam: 1.7, meanS: 2, tills: 4, layout: "snake" } },
+  { name: "Separate queues", note: "same shop, a queue per till", s: { lam: 1.7, meanS: 2, tills: 4, layout: "separate" } },
+  { name: "Express till", note: "40% trolleys, till 1 baskets only", s: { lam: 1.7, meanS: 2, tills: 4, trolley: 40, express: true } },
+  { name: "Near overload", note: "ρ = 0.97: now add a 4th till", s: { lam: 1.45, meanS: 2, tills: 3, layout: "snake" } },
+  { name: "Highly variable service", note: "one till, CV = 2 (P–K)", s: { lam: 0.4, meanS: 2, tills: 1, dist: "lognorm", cv: 2, dayLen: 720 } },
+  { name: "Staff open tills", note: "rush hour, 3 spare tills", s: { lam: 1.0, pattern: "lunch", meanS: 1.8, tills: 2, reserve: 3, openK: 3 } },
+  { name: "Self-checkouts", note: "3 staffed + 6 slower self", s: { lam: 1.7, meanS: 2, tills: 3, selfN: 6, selfF: 1.5, trolley: 30 } },
+  { name: "Overloaded (ρ > 1)", note: "the queue grows for ever", s: { lam: 1.8, meanS: 2, tills: 3, layout: "snake" } },
+  { name: "Customers give up", note: "overloaded, but people balk", s: { lam: 1.8, meanS: 2, tills: 3, layout: "snake", balk: true, balkK: 5 } },
+];
+function applySettings(s) { for (const [k, v] of Object.entries(s)) { const e = el(k); if (!e) continue; if (e.type === "checkbox") e.checked = v; else e.value = v; } updateLabels(); }
+function setPreset(k) { applySettings({ ...BASE, ...PRESETS[k].s }); resetDay(); document.querySelectorAll("#presets button").forEach((b, j) => b.classList.toggle("on", j === k)); }
+el("presets").innerHTML = PRESETS.map((p, k) => `<button data-k="${k}">${p.name}<small>${p.note}</small></button>`).join("");
+document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.k)));
+const clearPreset = () => document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on"));
+
+/* =====================================================================
+   8. CONTROLS
+   ===================================================================== */
+document.querySelectorAll("#left input, #left select").forEach(e => e.addEventListener(e.id === "seed" ? "change" : "input", () => {
+  clearPreset(); updateLabels();
+  if (STRUCT.includes(e.id)) resetDay();
+  else if (shop) { const P = params(); Object.assign(shop.P, P, { warmup: 0 }); }   // live change: affects customers from now on
+}));
+el("btnPlay").onclick = () => { if (shop.done && shop.t >= shop.P.dayLen) resetDay(); else setRunning(!running); };
+el("btnReset").onclick = resetDay;
+document.querySelectorAll("[data-s]").forEach(b => (b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", x === b)); }));
+
+/* =====================================================================
+   9. BATCH RUN
+   One run = runOnce(params, seed): a whole day of the same model, no drawing.
+   ===================================================================== */
+const BVARS = [
+  { key: "lam", label: "Arrival rate λ (per min)", min: 0.02, max: 10 }, { key: "tills", label: "Staffed tills c", int: true, min: 1, max: 30 },
+  { key: "meanS", label: "Mean service time (min)", min: 0.2, max: 20 }, { key: "cv", label: "Service variability CV", min: 0, max: 4 },
+  { key: "trolleyPct", label: "Trolleys (%)", min: 0, max: 100 }, { key: "selfN", label: "Self-checkouts", int: true, min: 0, max: 12 },
+  { key: "balkK", label: "Give-up limit (people per till)", int: true, min: 1, max: 30 }, { key: "openK", label: "Open a spare till above (people)", int: true, min: 1, max: 30 },
+];
+const BOUTS = [
+  { key: "meanWait", label: "Mean wait (min)" }, { key: "p95", label: "95th percentile wait (min)" }, { key: "maxWait", label: "Longest wait of the day (min)" },
+  { key: "pctUnder5", label: "% served within 5 min" }, { key: "sdWait", label: "SD of waits (min)" }, { key: "meanQ", label: "Mean queue length (people)" },
+  { key: "util", label: "Tills busy (%)" }, { key: "unfair", label: "Unfairness (% overtaken)" }, { key: "lostPct", label: "Customers lost (%)" },
+];
+// Theory for an outcome (null when there is no simple formula)
+function theoryFor(out, P) {
+  const th = theory(P);
+  if (out === "util") return th.simple ? Math.min(100, 100 * th.rho) : null;
+  if (out === "unfair" && P.layout === "snake" && th.simple) return 0;
+  if (!th.stable || !th.simple) return null;
+  switch (out) { case "meanWait": return th.Wq; case "p95": return th.p95; case "pctUnder5": return 100 * (1 - th.pOver(5)); case "sdWait": return th.sd; case "meanQ": return th.Lq; case "lostPct": return 0; }
+  return null;
+}
+function theory2For(out, P) { const th = theory(P); if (out !== "meanWait" || P.layout !== "separate" || !th.stable || !th.simple) return null; return th.WqSep; }
+const B = { running: false, stop: false, rows: [], cfg: null, jobs: [], i: 0, exp: -1 };
+function bParams() { return { ...params(), trolleyPct: +el("trolley").value, warmup: el("bWarm").checked ? 60 : 0 }; }
+function describeBase() {
+  const P = bParams(), m = el("bMode").value, sw = m === "sweep" ? el("bVar").value : null, th = theory(P);
+  const part = (k, s) => (k === sw ? `<b>${s.replace(/[\d.]+/, "swept")}</b>` : s);
+  el("bBase").innerHTML = "Base settings (from the left panel): " + [part("lam", `λ = ${P.lam}/min`), part("tills", `${P.tills} tills`), part("meanS", `service ${P.meanS} min`), P.dist === "exp" ? "exponential" : P.dist === "fixed" ? "fixed service" : part("cv", `${P.dist} CV ${P.cv}`),
+    m === "paired" ? "<b>both layouts</b>" : P.layout === "snake" ? "one snake queue" : "separate queues", P.pattern === "lunch" ? "lunchtime rush" : "", P.trolleyPct ? part("trolleyPct", `${P.trolleyPct}% trolleys`) : "",
+    P.selfN ? part("selfN", `${P.selfN} self-checkouts`) : "", P.express ? "express till" : "", P.reserve ? `${P.reserve} spare tills` : "", P.balk ? part("balkK", `give up at ${P.balkK}`) : "", `${P.dayLen / 60} h days`].filter(Boolean).join(", ") +
+    `. ρ = ${th.rho.toFixed(2)}.`;
+}
+function bModeUI() { const m = el("bMode").value; el("bSweepBox").style.display = m === "sweep" ? "" : "none"; el("bRepeatBox").style.display = m === "sweep" ? "none" : ""; describeBase(); }
+function setSweepDefaults() { const k = el("bVar").value, P = params(), d = { lam: [0.2, +(0.97 * P.tills / P.meanS).toFixed(2), 12], tills: [1, 8, 8], meanS: [0.5, 4, 8], cv: [0, 2, 9], trolleyPct: [0, 100, 6], selfN: [0, 8, 9], balkK: [1, 15, 8], openK: [1, 10, 10] }[k];
+  if (d) { el("bFrom").value = d[0]; el("bTo").value = d[1]; el("bSteps").value = d[2]; } }
+function startBatch() {
+  if (B.running) return;
+  const mode = el("bMode").value, base = bParams(), seed0 = el("seed").value, cfg = { mode, base, out: el("bOut").value };
+  B.jobs = [];
+  if (mode !== "sweep") { const N = +el("bN").value; for (let r = 0; r < N; r++) B.jobs.push({ step: 0, x: null, rep: r, P: base }); }
+  else { const v = BVARS.find(q => q.key === el("bVar").value), from = +el("bFrom").value, to = +el("bTo").value, steps = Math.max(2, Math.min(40, +el("bSteps").value || 2));
+    const xs = []; for (let i = 0; i < steps; i++) { let x = from + (to - from) * i / (steps - 1); x = Math.max(v.min, Math.min(v.max, x)); x = v.int ? Math.round(x) : +x.toPrecision(3); if (!xs.includes(x)) xs.push(x); }
+    cfg.v = v; cfg.xs = xs; cfg.reps = +el("bReps").value;
+    xs.forEach((x, s) => { for (let r = 0; r < cfg.reps; r++) B.jobs.push({ step: s, x, rep: r, P: { ...base, [v.key]: x, ...(v.key === "cv" && base.dist === "exp" ? { dist: "gamma" } : {}) } }); }); }
+  B.jobs.forEach((j, i) => (j.seed = hashSeed(`batch|${seed0}|${mode === "sweep" ? j.rep : i}|${mode === "sweep" ? j.step : 0}`)));
+  B.cfg = cfg; B.rows = []; B.i = 0; B.running = true; B.stop = false; B.t0 = performance.now();
+  el("bGo").disabled = true; el("bStop").disabled = false; el("bCsv").disabled = true;
+  setTimeout(batchTick, 0);
+}
+function batchTick() {
+  const t0 = performance.now();
+  while (B.i < B.jobs.length && !B.stop && performance.now() - t0 < 40) {
+    const j = B.jobs[B.i++];
+    if (B.cfg.mode === "paired") B.rows.push({ ...j, o: runOnce({ ...j.P, layout: "separate" }, j.seed), o2: runOnce({ ...j.P, layout: "snake" }, j.seed) });
+    else B.rows.push({ ...j, o: runOnce(j.P, j.seed) });
+  }
+  el("bBar").style.width = (100 * B.i / B.jobs.length) + "%";
+  el("bProg").textContent = `${B.i} of ${B.jobs.length} days` + (B.stop ? " — stopped" : B.i >= B.jobs.length ? ` — done in ${((performance.now() - B.t0) / 1000).toFixed(1)} s` : "…");
+  drawBatch();
+  if (B.i < B.jobs.length && !B.stop) setTimeout(batchTick, 0);
+  else { B.running = false; el("bGo").disabled = false; el("bStop").disabled = true; el("bCsv").disabled = !B.rows.length; }
+}
+function statsOf(v) { const n = v.length; if (!n) return null; const m = v.reduce((a, b) => a + b, 0) / n; const sd = n > 1 ? Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / (n - 1)) : 0;
+  return { n, mean: m, sd, se: sd / Math.sqrt(n), min: Math.min(...v), max: Math.max(...v) }; }
+function drawBatch() {
+  const { ctx, W, H, dpr } = fitCanvas(el("bChart")), f = s => `${s * dpr}px system-ui`;
+  ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, W, H);
+  if (!B.cfg || !B.rows.length) { ctx.fillStyle = "#a3ab96"; ctx.font = f(14); ctx.textAlign = "center"; ctx.fillText("Pick a batch experiment on the left, or set up your own and press Run batch.", W / 2, H / 2); el("bSummary").innerHTML = ""; return; }
+  const cfg = B.cfg, out = el("bOut").value, oDef = BOUTS.find(o => o.key === out);
+  const L = 62 * dpr, Rr = 16 * dpr, T = 46 * dpr, Bm = 44 * dpr;
+  const axes = (xr, yr, xl, yl) => {
+    const X = v => L + (v - xr[0]) / (xr[1] - xr[0]) * (W - L - Rr), Y = v => H - Bm - (v - yr[0]) / (yr[1] - yr[0]) * (H - T - Bm);
+    ctx.font = f(11); ctx.fillStyle = "#a3ab96"; ctx.strokeStyle = "rgba(160,170,150,0.15)"; ctx.lineWidth = 1;
+    ctx.textAlign = "right"; for (const t of niceTicks(yr[0], yr[1], 6)) { const y = Y(t); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - Rr, y); ctx.stroke(); ctx.fillText(fmtTick(t), L - 5 * dpr, y + 4 * dpr); }
+    ctx.textAlign = "center"; for (const t of niceTicks(xr[0], xr[1], 8)) { const x = X(t); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - Bm); ctx.stroke(); ctx.fillText(fmtTick(t), x, H - Bm + 15 * dpr); }
+    ctx.fillStyle = "#dfe3d6"; ctx.font = f(12); ctx.fillText(xl, (L + W - Rr) / 2, H - 10 * dpr);
+    ctx.save(); ctx.translate(16 * dpr, (T + H - Bm) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(yl, 0, 0); ctx.restore();
+    return { X, Y };
+  };
+  const legend = items => { let x = L + 4 * dpr, yl = 14 * dpr; ctx.font = f(12); ctx.textAlign = "left";
+    for (const [col, txt, dash, box] of items) { if (x + ctx.measureText(txt).width + 30 * dpr > W - Rr && x > L + 10 * dpr) { x = L + 4 * dpr; yl += 17 * dpr; }
+      if (box) { ctx.fillStyle = col; ctx.fillRect(x, yl - 6 * dpr, 18 * dpr, 12 * dpr); } else { ctx.strokeStyle = col; ctx.lineWidth = 3 * dpr; ctx.setLineDash(dash ? [6 * dpr, 4 * dpr] : []); ctx.beginPath(); ctx.moveTo(x, yl); ctx.lineTo(x + 18 * dpr, yl); ctx.stroke(); ctx.setLineDash([]); }
+      ctx.fillStyle = "#dfe3d6"; ctx.fillText(txt, x + 23 * dpr, yl + 4 * dpr); x += ctx.measureText(txt).width + 46 * dpr; } };
+  const histo = (sets, th) => {   // sets: [{vals, col, label}]
+    const allv = sets.flatMap(s => s.vals); let lo = Math.min(...allv), hi = Math.max(...allv);
+    if (th !== null && isFinite(th)) { lo = Math.min(lo, th); hi = Math.max(hi, th); } if (hi - lo < 1e-9) { lo -= 0.5; hi += 0.5; } const pad = (hi - lo) * 0.06; lo -= pad; hi += pad; if (Math.min(...allv) >= 0) lo = Math.max(0, lo);
+    const nb = Math.max(8, Math.min(40, Math.round(Math.sqrt(allv.length / sets.length) * 1.4))), bw = (hi - lo) / nb;
+    const cs = sets.map(s => { const c = new Array(nb).fill(0); s.vals.forEach(v => c[Math.min(nb - 1, Math.max(0, Math.floor((v - lo) / bw)))]++); return c; });
+    const { X, Y } = axes([lo, hi], [0, Math.max(...cs.flat()) * 1.12], oDef.label, "number of days");
+    sets.forEach((s, j) => { ctx.fillStyle = s.col; cs[j].forEach((c, i) => { if (c) ctx.fillRect(X(lo + i * bw) + 1, Y(c), X(lo + (i + 1) * bw) - X(lo + i * bw) - 2, Y(0) - Y(c)); }); });
+    return { X, Y };
+  };
+  const vline = (X, x, col, dash) => { ctx.strokeStyle = col; ctx.lineWidth = 2.2 * dpr; ctx.setLineDash(dash ? [6 * dpr, 4 * dpr] : []); ctx.beginPath(); ctx.moveTo(X(x), T); ctx.lineTo(X(x), H - Bm); ctx.stroke(); ctx.setLineDash([]); };
+  let html = "";
+  const sumTable = (s, th) => { const diff = th !== null && isFinite(th) ? s.mean - th : null;
+    return `<table class="sum"><tr><td>Days</td><td>${s.n}</td></tr><tr><td>Mean</td><td>${fmt(s.mean, 3)}</td></tr><tr><td>SD (day to day)</td><td>${fmt(s.sd, 3)}</td></tr><tr><td>Standard error of the mean</td><td>${fmt(s.se, 3)}</td></tr><tr><td>Min – max</td><td>${fmt(s.min, 2)} – ${fmt(s.max, 2)}</td></tr>` +
+      `<tr><td>Theory</td><td>${th === null ? "no simple formula" : fmt(th, 3)}</td></tr>` +
+      (diff !== null ? `<tr><td>Difference</td><td>${fmt(diff, 3)} (${th ? fmt(100 * diff / th, 1) + "%, " : ""}<span class="${Math.abs(diff / (s.se || 1e-9)) < 2 ? "good" : "bad"}">${fmt(diff / (s.se || 1e-9), 1)} SE</span>)</td></tr>` : "") + `</table>`; };
+  if (cfg.mode === "repeat") {
+    const vals = B.rows.map(r => r.o[out]).filter(isFinite), s = statsOf(vals), th = theoryFor(out, cfg.base); if (!s) return;
+    const { X } = histo([{ vals, col: "rgba(164,203,230,0.85)" }], th);
+    const leg = [["#a4cbe6", `simulation (${vals.length} days)`, false, true]];
+    if (th !== null) { vline(X, th, "#f1af28", true); leg.push(["#f1af28", `theory ${fmt(th, 2)}`, true]); }
+    vline(X, s.mean, "#ffffff"); leg.push(["#ffffff", `simulated mean ${fmt(s.mean, 2)}`]); legend(leg);
+    html = sumTable(s, th) + (th !== null ? `<p class="hint">Within about 2 standard errors of the theory counts as agreement.</p>` : "");
+  } else if (cfg.mode === "paired") {
+    const a = B.rows.map(r => r.o[out]).filter(isFinite), b = B.rows.map(r => r.o2[out]).filter(isFinite); if (!a.length) return;
+    const th = theoryFor(out, { ...cfg.base, layout: "snake" });
+    const { X } = histo([{ vals: a, col: "rgba(164,203,230,0.7)" }, { vals: b, col: "rgba(241,135,0,0.6)" }], th);
+    if (th !== null) vline(X, th, "#f1af28", true);
+    legend([["rgba(164,203,230,0.9)", "separate queues", false, true], ["rgba(241,135,0,0.85)", "one snake queue", false, true], ...(th !== null ? [["#f1af28", `theory for the snake (M/G/c) ${fmt(th, 2)}`, true]] : [])]);
+    const row = (k, lab) => { const d = B.rows.map(r => r.o[k] - r.o2[k]).filter(isFinite), sa = statsOf(B.rows.map(r => r.o[k]).filter(isFinite)), sb = statsOf(B.rows.map(r => r.o2[k]).filter(isFinite)), sd = statsOf(d);
+      if (!sd) return ""; const better = d.filter(x => x > 1e-9).length;
+      return `<tr><td>${lab}</td><td>${fmt(sa.mean, 2)}</td><td>${fmt(sb.mean, 2)}</td><td>${fmt(sd.mean, 2)} ± ${fmt(sd.se, 2)}</td><td>${(100 * better / d.length).toFixed(0)}%</td></tr>`; };
+    html = `<table class="sum"><tr><th>${B.rows.length} days</th><th>separate</th><th>snake</th><th>difference ± SE</th><th>snake lower</th></tr>` +
+      row("meanWait", "Mean wait (min)") + row("sdWait", "SD of waits (min)") + row("p95", "95th percentile (min)") + row("maxWait", "Longest wait (min)") + row("unfair", "Unfairness (%)") + `</table>` +
+      `<p class="hint">Paired comparison: each day the same customers arrive at the same moments with the same shopping, once with separate queues and once with a snake, so the difference is due to the layout alone.</p>`;
+  } else {
+    const xs = cfg.xs, per = xs.map((x, s) => { const v = B.rows.filter(r => r.step === s).map(r => r.o[out]).filter(isFinite); return { x, v, st: statsOf(v) }; }).filter(p => p.st);
+    if (!per.length) return;
+    const thAt = x => theoryFor(out, { ...cfg.base, [cfg.v.key]: x, ...(cfg.v.key === "cv" && cfg.base.dist === "exp" ? { dist: "gamma" } : {}) }), th2At = x => theory2For(out, { ...cfg.base, [cfg.v.key]: x });
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), txs = [];
+    if (cfg.v.int) for (let x = x0; x <= x1; x++) txs.push(x); else for (let i = 0; i <= 200; i++) txs.push(x0 + (x1 - x0) * i / 200);
+    const tp = txs.map(x => [x, thAt(x)]).filter(p => p[1] !== null && isFinite(p[1])), tp2 = txs.map(x => [x, th2At(x)]).filter(p => p[1] !== null && isFinite(p[1]));
+    const data = []; per.forEach(p => data.push(...p.v, p.st.mean + p.st.sd, p.st.mean - p.st.sd));
+    let ylo = Math.min(...data), yhi = Math.max(...data); const dmax = yhi;
+    tp.concat(tp2).forEach(p => { if (p[1] <= Math.max(dmax * 1.6, 1e-9)) { ylo = Math.min(ylo, p[1]); yhi = Math.max(yhi, p[1]); } });
+    const pad = (yhi - ylo || 1) * 0.08; ylo -= pad; yhi += pad; if (Math.min(...data) >= 0 && ylo < 0) ylo = 0;
+    const xr = [x0 - (x1 - x0) * 0.04, x1 + (x1 - x0) * 0.04];
+    const { X, Y } = axes(xr, [ylo, yhi], cfg.v.label, oDef.label);
+    ctx.save(); ctx.beginPath(); ctx.rect(L, T, W - L - Rr, H - T - Bm); ctx.clip();
+    if (out === "pctUnder5") { ctx.strokeStyle = "#de252a"; ctx.setLineDash([4 * dpr, 4 * dpr]); ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.moveTo(L, Y(95)); ctx.lineTo(W - Rr, Y(95)); ctx.stroke(); ctx.setLineDash([]); }
+    const line = (pts, col, dash) => { if (!pts.length) return; ctx.strokeStyle = col; ctx.lineWidth = 2.5 * dpr; ctx.setLineDash(dash ? [7 * dpr, 5 * dpr] : []); ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(X(p[0]), Y(Math.min(p[1], yhi * 3))) : ctx.moveTo(X(p[0]), Y(Math.min(p[1], yhi * 3))))); ctx.stroke(); ctx.setLineDash([]); };
+    line(tp, "#f1af28"); line(tp2, "#e83181", true);
+    ctx.fillStyle = "rgba(164,203,230,0.35)"; per.forEach(p => p.v.forEach(v => { ctx.beginPath(); ctx.arc(X(p.x), Y(v), 2.2 * dpr, 0, 7); ctx.fill(); }));
+    ctx.strokeStyle = "#a4cbe6"; ctx.fillStyle = "#a4cbe6"; ctx.lineWidth = 2 * dpr;
+    per.forEach(p => { const a = Y(p.st.mean - p.st.sd), b = Y(p.st.mean + p.st.sd), x = X(p.x);
+      ctx.beginPath(); ctx.moveTo(x, a); ctx.lineTo(x, b); ctx.moveTo(x - 5 * dpr, a); ctx.lineTo(x + 5 * dpr, a); ctx.moveTo(x - 5 * dpr, b); ctx.lineTo(x + 5 * dpr, b); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, Y(p.st.mean), 4.5 * dpr, 0, 7); ctx.fill(); });
+    ctx.restore();
+    const thLabel = out === "meanWait" ? (cfg.base.dist === "exp" && cfg.v.key !== "cv" && !cfg.base.trolleyPct ? "theory: M/M/c (Erlang C)" : "theory: M/G/c (Pollaczek–Khinchine for 1 till)") : "theory (steady state)";
+    legend([["#a4cbe6", "simulation: mean ± 1 SD of the days"], ...(tp.length ? [["#f1af28", thLabel]] : []), ...(tp2.length ? [["#e83181", "separate queues, random choice (M/G/1 each)", true]] : []), ...(out === "pctUnder5" ? [["#de252a", "target 95%", true]] : [])]);
+    html = `<table class="sum"><tr><th>${cfg.v.label}</th><th>days</th><th>mean</th><th>SD</th><th>theory</th><th>diff (SE)</th></tr>` +
+      per.map(p => { const th = thAt(p.x), d = th !== null && isFinite(th) && p.st.se > 0 ? (p.st.mean - th) / p.st.se : null;
+        return `<tr><td>${fmtTick(p.x)}</td><td>${p.st.n}</td><td>${fmt(p.st.mean, 2)}</td><td>${fmt(p.st.sd, 2)}</td><td>${th === null ? "–" : fmt(th, 2)}</td><td>${d === null ? "–" : `<span class="${Math.abs(d) < 2.5 ? "good" : "bad"}">${fmt(d, 1)}</span>`}</td></tr>`; }).join("") + `</table>`;
+  }
+  el("bSummary").innerHTML = html;
+}
+function downloadCSV() {
+  if (!B.rows.length) return;
+  const cfg = B.cfg, outs = BOUTS.map(o => o.key), pk = Object.keys(cfg.base).filter(k => typeof cfg.base[k] !== "object");
+  const head = ["run", "step", "repeat", "seed", ...pk, ...(cfg.mode === "paired" ? [...outs.map(o => "separate_" + o), ...outs.map(o => "snake_" + o)] : outs)];
+  const lines = [head.join(",")], val = v => (typeof v === "number" ? (isFinite(v) ? +v.toPrecision(8) : "") : v);
+  B.rows.forEach((r, i) => lines.push([i + 1, r.step + 1, r.rep + 1, r.seed, ...pk.map(k => val(r.P[k])), ...outs.map(k => val(r.o[k])), ...(cfg.mode === "paired" ? outs.map(k => val(r.o2[k])) : [])].join(",")));
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" }), a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = `queues-batch-${cfg.mode}.csv`; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+const EXPS = [
+  { q: "Why do queues explode as ρ → 1?", live: { lam: 1.2, meanS: 2, tills: 3, layout: "snake" }, b: { mode: "sweep", var: "lam", from: 0.3, to: 1.44, steps: 12, reps: 10, out: "meanWait" },
+    note: "3 tills, 2-minute services, one snake queue: the tills can serve at most 1.5 customers a minute. As λ creeps towards 1.5 (ρ → 1) the Erlang C mean wait shoots up like 1/(1 − ρ): going from ρ = 0.8 to 0.96 multiplies the wait by about six. Days scatter more and more near overload, and the last points fall <b>below</b> theory: the shop opens empty and an 8-hour day is not long enough for such a busy queue to reach its long-run average." },
+  { q: "How much does one day vary?", live: { lam: 1.2, meanS: 2, tills: 3, layout: "snake" }, b: { mode: "repeat", N: 500, out: "meanWait" },
+    note: "500 separate days with ρ = 0.8. The <b>average</b> of the daily mean waits matches Erlang C closely, but single days range from about half to double that. A manager who judges a shop on one day is mostly measuring luck. Switch the outcome to <b>Longest wait of the day</b>: there is no simple formula for that, and it varies even more." },
+  { q: "Is one snake queue faster and fairer than separate queues?", live: { lam: 1.7, meanS: 2, tills: 4, layout: "separate" }, b: { mode: "paired", N: 200, out: "meanWait" },
+    note: "Each day is run twice with exactly the same customers: once with a queue per till (customers pick the shortest, no switching), once with one snake. The snake wins on almost every day: its <b>mean</b> wait is lower, and the <b>spread</b> of waits (SD, 95th percentile, longest wait) is much smaller, because nobody gets stuck behind a slow customer while another till sits idle. Unfairness drops to zero." },
+  { q: "Does variability matter? (Pollaczek–Khinchine)", live: { lam: 0.4, meanS: 2, tills: 1, layout: "snake", dist: "gamma", cv: 1, dayLen: 720 }, b: { mode: "sweep", var: "cv", from: 0, to: 2, steps: 9, reps: 40, out: "meanWait" },
+    note: "One till, ρ = 0.8, the same average service time, only the <b>spread</b> of service times changes. Pollaczek–Khinchine: Wq = ρ/(1 − ρ) × (1 + CV²)/2 × 2 min, so CV = 2 waits 5 times longer than fixed service times (CV = 0). The days scatter a lot at high CV: a few very long services cause most of the waiting, so most days come in a little <b>under</b> the formula and a few unlucky days far over it. With only 40 days the high-CV averages usually sit slightly below theory; the shape (wait growing with 1 + CV²) is the point." },
+  { q: "How many tills so 95% wait under 5 minutes?", live: { lam: 2, meanS: 3, tills: 8, layout: "snake" }, b: { mode: "sweep", var: "tills", from: 7, to: 12, steps: 6, reps: 10, out: "pctUnder5" },
+    note: "120 customers an hour, 3 minutes each: that is 6 tills' worth of work (6 erlangs), but with 7 tills (ρ = 0.86) far too many people wait over 5 minutes. Erlang C says P(wait > 5) = C e<sup>−(cμ − λ)×5</sup>. The red line is the 95% target: read off the smallest number of tills that reaches it. Each extra till helps less than the one before." },
+];
+function loadExperiment(k) {
+  const e = EXPS[k]; if (B.running) B.stop = true;
+  B.rows = []; B.cfg = null; el("bProg").textContent = "Starting…"; el("bBar").style.width = "0";
+  applySettings({ ...BASE, ...e.live }); resetDay(); setRunning(false); clearPreset();
+  el("bMode").value = e.b.mode; if (e.b.N) el("bN").value = e.b.N;
+  if (e.b.var) { el("bVar").value = e.b.var; el("bFrom").value = e.b.from; el("bTo").value = e.b.to; el("bSteps").value = e.b.steps; el("bReps").value = e.b.reps; }
+  el("bOut").value = e.b.out; el("bWarm").checked = true; bModeUI();
+  el("bNote").innerHTML = `<h3 style="margin:0 0 6px;font-size:14px;color:var(--accent)">${e.q}</h3>${e.note}`; B.exp = k;
+  document.querySelectorAll("#bExps button").forEach((b, j) => b.classList.toggle("on", j === k));
+  setTimeout(() => startBatch(), B.running ? 120 : 0);
+}
+el("bExps").innerHTML = EXPS.map((e, k) => `<button data-k="${k}">${e.q}</button>`).join("");
+document.querySelectorAll("#bExps button").forEach(b => (b.onclick = () => loadExperiment(+b.dataset.k)));
+el("bVar").innerHTML = BVARS.map(v => `<option value="${v.key}">${v.label}</option>`).join("");
+el("bOut").innerHTML = BOUTS.map(o => `<option value="${o.key}">${o.label}</option>`).join("");
+el("bMode").onchange = bModeUI; el("bVar").onchange = () => { setSweepDefaults(); describeBase(); };
+el("bOut").onchange = () => drawBatch(); el("bWarm").onchange = describeBase;
+el("bGo").onclick = startBatch; el("bStop").onclick = () => (B.stop = true); el("bCsv").onclick = downloadCSV;
+el("btnBatch").onclick = () => { el("batch").classList.add("open"); setRunning(false); bModeUI(); drawBatch(); };
+el("bClose").onclick = () => el("batch").classList.remove("open");
+el("left").addEventListener("input", () => { if (el("batch").classList.contains("open")) describeBase(); });
+
+/* =====================================================================
+   10. MAIN LOOP — 1× speed = one shop minute every real second
+   ===================================================================== */
+let lastT = performance.now();
+function frame(now) {
+  const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  const batchOpen = el("batch").classList.contains("open");
+  if (running && !batchOpen) {
+    shop.advance(shop.t + real * speed);
+    if (shop.done && shop.t >= shop.P.dayLen) setRunning(false);
+  }
+  if (!batchOpen) { drawShop(running ? real : 0.05); updateUI(); }
+  requestAnimationFrame(frame);
+}
+
+/* =====================================================================
+   11. PANEL LAYOUT — resize or hide the side panels
+   ===================================================================== */
+(function () {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const KEY = "queues-layout", STRIP = 30, MIN = 200, DEF = { lw: 290, rw: 340, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+    if (el("batch").classList.contains("open")) drawBatch();
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+})();
+
+setPreset(3);
+setSweepDefaults(); bModeUI();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
