@@ -267,7 +267,7 @@
       <summary>How the model works (and what it leaves out)</summary>
       <ul>
         <li><b>Steady state:</b> the model works out the levels the body settles at for the settings chosen. The animation shows that state; it does not model the minutes it takes to get there.</li>
-        <li><b>Air pressure</b> falls with altitude (standard atmosphere): 101 kPa at sea level, 70 kPa at 3000 m, 34 kPa on Everest. Air is always 20.9% oxygen. Inhaled air is warmed and saturated with water vapour (6.3 kPa), so inspired PO₂ = 0.209 × (P<sub>air</sub> − 6.3).</li>
+        <li><b>Air pressure</b> falls with altitude (West's formula, fitted to pressures measured on high mountains): 101 kPa at sea level, 72 kPa at 3000 m, 33.7 kPa on the summit of Everest, as measured there. (The 'standard atmosphere' gives 31.4 kPa there; it underestimates pressure near the equator.) Air is always 20.9% oxygen. Inhaled air is warmed and saturated with water vapour (6.3 kPa), so inspired PO₂ = 0.209 × (P<sub>air</sub> − 6.3).</li>
         <li><b>Ventilation:</b> minute ventilation = rate × tidal volume. The first 0.15 L of each breath stays in the airways (dead space), so alveolar ventilation = rate × (tidal volume − 0.15 L).</li>
         <li><b>Alveolar gas:</b> P<sub>A</sub>CO₂ = 0.115 × CO₂ made (mL/min) ÷ alveolar ventilation (L/min). P<sub>A</sub>O₂ = inspired PO₂ − P<sub>A</sub>CO₂ × (0.209 + 0.791 ÷ R), where R (0.8 at rest, up to 1.1) is CO₂ made ÷ O₂ used.</li>
         <li><b>Automatic control:</b> the brain sets breathing to keep CO₂ near 5.3 kPa, a little lower in very hard exercise, and breathes more when arterial PO₂ falls below about 9 kPa (stronger after acclimatisation). Breaths get deeper first, then faster. Cardiac output rises with oxygen use (5 L/min at rest, up to 22, or 35 for an athlete), and a little in anaemia.</li>
@@ -307,8 +307,11 @@ const K_DIFF = 3.0;          // Fick's law constant: diffusing capacity (mL O2/m
 const CO2_SLOPE = 5;         // CO2 dissociation curve slope: mL CO2 per dL per kPa
 const CO2_FASTER = 20;       // CO2 crosses the membrane about 20× faster than O2 (much more soluble)
 
-// Air pressure falls with altitude (International Standard Atmosphere), kPa
-const baro = h => 101.325 * Math.pow(1 - 2.25577e-5 * h, 5.25588);
+// Air pressure falls with altitude. West's formula (1996), fitted to pressures measured on high mountains:
+// P (mmHg) = exp(6.63268 − 0.1112 h − 0.00149 h²), h in km. It gives 33.7 kPa (253 mmHg) on the summit of
+// Everest, as measured there. The 'standard atmosphere' gives only 31.4 kPa, because near the equator and in
+// summer the air is warmer and the pressure higher than the world average.
+const baro = h => Math.exp(6.63268 - 0.1112 * h / 1000 - 0.00149 * (h / 1000) ** 2) / 7.50062;
 
 // Severinghaus (1979) equation for the oxygen dissociation curve; P in kPa.
 // A shift of the curve (different P50) is handled by scaling P: the same S-shape, slid sideways.
@@ -371,7 +374,8 @@ function solve(pIn) {
   // Ventilation limits: narrow airways (resistance ∝ 1/r⁴, Poiseuille) cut the most air you can move
   const VEmax = (p.athlete ? 180 : 150) * Math.pow(1 - p.narrow, 4);
   const VTmax = 0.55 * VC * Math.pow(1 - p.narrow, 1.5);
-  const hvrGain = (p.acclim ? 0.3 : 0.15) * (vary.hvr || 1), hvrT = 9, hvrN = 1.3;   // hypoxic drive: extra breathing when arterial PO2 falls below 9 kPa
+  const hvrGain = (p.acclim ? 0.22 : 0.1) * (vary.hvr || 1), hvrT = 9, hvrN = 1.3;   // hypoxic drive: extra breathing when arterial PO2 falls below 9 kPa;
+  // more than twice as strong after weeks at altitude, which drives CO2 right down and so raises alveolar PO2
   const vdEff = VD * (vary.vd || 1);
 
   let VA = 4.2, Cv = 15, PaO2 = 13, VE = 6, VT = 0.5, f = 12, prof = null;
@@ -832,7 +836,7 @@ function showOutputs() {
 const PRESETS = [
   { name: "Resting at sea level", d: "A healthy adult sitting still", set: {} },
   { name: "Hard exercise", d: "Running at 80% of maximum", set: { exercise: 80 } },
-  { name: "Top of Everest", d: "8848 m, acclimatised climber", set: { altitude: 8848, acclim: true, hb: 19 } },
+  { name: "High on Everest", d: "8400 m, acclimatised climber", set: { altitude: 8400, acclim: true, hb: 19 } },
   { name: "Emphysema", d: "Alveolar walls destroyed", set: { area: 25 } },
   { name: "Fibrosis", d: "Scarred, thick membrane", set: { thick: 2.5 } },
   { name: "Anaemia", d: "Too little haemoglobin", set: { hb: 8 } },
@@ -1153,6 +1157,7 @@ function story() {
   else if (eqFrac !== null) out.push(`Blood only catches up with the air after ${r.tEq.toFixed(2)} s of its ${r.transit.toFixed(2)} s. The safety margin is nearly used up.`);
   else out.push(`<b>Blood leaves the capillary before it has caught up with the air</b> (${r.prof[r.prof.length - 1].P.toFixed(1)} kPa vs ${r.PAO2.toFixed(1)} kPa in the alveolus). Gas exchange is now limited by diffusion.`);
   if (p.altitude > 1500) out.push(`At ${p.altitude} m the air pressure is ${r.PB.toFixed(0)} kPa, so the air you breathe in has a PO₂ of only ${r.PIO2.toFixed(1)} kPa (21.2 at sea level). The smaller difference means slower diffusion. ${p.acclim ? "Acclimatised: breathing more and extra red blood cells help a lot." : "You breathe faster to make up for it."}`);
+  if (p.altitude > 3000 && r.PaCO2 < 4.5) out.push(`Breathing hard blows off carbon dioxide (PaCO₂ ${r.PaCO2.toFixed(1)} kPa instead of 5.3). By the alveolar gas equation, less CO₂ in the alveoli leaves room for more O₂: alveolar PO₂ = ${r.PIO2.toFixed(1)} − ${r.PACO2.toFixed(1)} × ${(FIO2 + (1 - FIO2) / r.RER).toFixed(2)} = ${r.PAO2.toFixed(1)} kPa.`);
   if (p.exercise > 0.05) out.push(`Exercising muscles need ${Math.round(r.demand)} mL of O₂ a minute (${(r.demand / 250).toFixed(1)}× resting). Breathing rises to ${r.VE.toFixed(0)} L/min and the heart pumps ${r.Q.toFixed(0)} L/min, so blood rushes through the capillaries in ${r.transit.toFixed(2)} s.`);
   if (p.area < 50) out.push(`Emphysema has destroyed alveolar walls: only ${p.area} m² of surface is left, so diffusion is slower (Fick's law: rate ∝ area).`);
   if (p.thick > 1) out.push(`The membrane is ${p.thick.toFixed(1)} µm thick instead of 0.5 µm, so oxygen diffuses ${(p.thick / 0.5).toFixed(1)}× more slowly (rate ∝ 1 ÷ thickness).`);
@@ -1203,8 +1208,8 @@ Batch.init({
     { id: "thick", label: "Membrane thickness", unit: "µm", min: 0.1, max: 10, defaults: () => ({ from: 0.3, to: 4, steps: 12 }), apply: (p, x) => { p.thick = x; }, fit: "loglog", fitOutcomes: ["entry", "vo2"], fitNote: "Fick's law predicts −1" },
     { id: "area", label: "Alveolar surface area", unit: "m²", min: 5, max: 150, defaults: () => ({ from: 10, to: 100, steps: 10 }), apply: (p, x) => { p.area = x; }, fit: "loglog", fitOutcomes: ["entry", "vo2"], fitNote: "Fick's law predicts +1" },
     { id: "altitude", label: "Altitude", unit: "m", min: 0, max: 8848, defaults: () => ({ from: 0, to: 6000, steps: 13 }), apply: (p, x) => { p.altitude = x; },
-      ref: { spo2: { name: "typical measured SpO₂ (healthy lowlanders at rest)", short: "measured", pts: [[0, 97.5, 1], [1500, 95.5, 1.5], [2500, 92.5, 2], [3000, 90.5, 2], [4000, 86.5, 3], [4500, 84, 3], [5500, 80, 4]],
-        note: "Measured values are approximate averages from published surveys of healthy visitors (± about 1 SD), not one study. The brief's targets: about 90% at 3000 m and 80% at 5500 m." } } },
+      ref: { spo2: { name: "typical measured SpO₂ (healthy visitors at rest)", short: "measured", pts: [[0, 97.5, 1], [1500, 95.5, 1.5], [2500, 92.5, 2], [3000, 90.5, 2], [4000, 86.5, 3], [4500, 84, 3], [5500, 80, 4]],
+        note: "Measured values are approximate averages from published surveys of healthy, unacclimatised visitors (± about 1 SD), not one study. For a check much higher up, see the Everest experiment (Grocott et al. 2009)." } } },
     { id: "exercise", label: "Exercise", unit: "% of max", min: 0, max: 100, defaults: () => ({ from: 0, to: 100, steps: 11 }), apply: (p, x) => { p.exercise = x / 100; } },
     { id: "hb", label: "Haemoglobin", unit: "g/dL", min: 4, max: 22, defaults: () => ({ from: 6, to: 20, steps: 8 }), apply: (p, x) => { p.hb = x; } },
     { id: "co", label: "Carbon monoxide (COHb)", unit: "%", min: 0, max: 60, defaults: () => ({ from: 0, to: 50, steps: 11 }), apply: (p, x) => { p.co = x / 100; } },
@@ -1219,6 +1224,8 @@ Batch.init({
       note: "During moderate exercise. If uptake were set by diffusion alone it would rise in proportion to area (gold line). It doesn't: above about 40 m² uptake equals what the muscles need, because the blood is already full (perfusion-limited). Only when emphysema removes most of the surface does diffusion become the limit and uptake falls." },
     { q: "SpO₂ at altitude: does the model match real measurements?", mode: "sweep", var: "altitude", from: 0, to: 6000, steps: 13, reps: 20, out: "spo2", setup: () => setPreset(0),
       note: "Air pressure falls with height, so less O₂ is pushed into the alveoli. Saturation holds up at first (flat top of the curve), then falls faster above about 3000 m. Pink diamonds: typical values measured in healthy visitors at rest. The model is within a few % of them; real people vary more, partly because some breathe much harder than others at altitude." },
+    { q: "Everest check: do we match blood taken from climbers at 8400 m?", mode: "repeat", n: 500, out: "pao2", setup: () => setPreset(2),
+      note: "In 2009 Grocott and colleagues took arterial blood from four acclimatised climbers at 8400 m on Everest (air pressure 36.3 kPa), on their way down from the summit, breathing air. Mean PaO₂ was <b>3.28 kPa</b> (range 2.55–3.93), PaCO₂ <b>1.77 kPa</b> and SaO₂ about <b>54%</b> (34–70%). The model's climbers breathe so hard that CO₂ falls to about 1.7 kPa; by the alveolar gas equation that raises the alveolar PO₂ to about 4.2 kPa, and the arterial PO₂ comes out about 3.2 kPa (switch Record to SpO₂ or PaCO₂ to compare those too). On the summit itself (33.7 kPa) the model predicts about 45%: no blood has ever been taken there." },
     { q: "How much do people vary? SpO₂ at rest", mode: "repeat", n: 500, out: "spo2", setup: () => setPreset(0),
       note: "500 healthy people at rest at sea level, each slightly different. Nearly all read 96–98%, matching the normal range doctors use (95–99%). The gold line is the average person with no variation. The crowd's mean sits a little below it, by many standard errors: that is real, not chance. Saturation can rise only a little (the curve is flat near 100%) but can fall more, so differences between people pull the average down." },
     { q: "…and during hard exercise", mode: "repeat", n: 500, out: "spo2", setup: () => setPreset(1),

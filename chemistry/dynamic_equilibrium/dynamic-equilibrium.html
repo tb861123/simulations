@@ -445,7 +445,7 @@ function plot(c, o) {
      experiments – one-click questions;  describe(params) – text listing the settings used
    ===================================================================== */
 const Batch = (function () {
-  let cfg = null, overrides = {}, expIdx = -1, mode = "repeat", running = false, stopFlag = false, last = null;
+  let cfg = null, overrides = {}, expIdx = -1, useMine = false, mode = "repeat", running = false, stopFlag = false, last = null;
   const varOf = k => cfg.vars.find(v => v.key === k), outOf = k => cfg.outcomes.find(o => o.key === k);
   function init(c) {
     cfg = c;
@@ -473,7 +473,12 @@ const Batch = (function () {
   function applyExp(i, quiet) {
     const ex = cfg.experiments[i]; expIdx = i;
     [...el("bExps").children].forEach((b, k) => b.classList.toggle("on", k === i));
-    overrides = { ...(ex.params || {}) };
+    // An experiment is self-contained: it starts from a complete set of default settings, not from
+    // whatever happens to be in the left panel or was left over from the last experiment.
+    overrides = { ...(ex.params || {}) }; useMine = false;
+    el("bSeed").value = 1;
+    last = null; el("bSummary").innerHTML = '<span class="hint">Results will appear here.</span>'; el("bCsv").style.display = "none";
+    el("bProg").firstElementChild.style.width = "0%"; plot(el("bChart"), { series: [], xLabel: "", yLabel: "" });
     setMode(ex.mode);
     if (ex.mode === "repeat") { if (![...el("bN").options].some(o => +o.value === ex.n)) el("bN").insertAdjacentHTML("beforeend", `<option value="${ex.n}">${ex.n}</option>`); el("bN").value = ex.n; }
     else { el("bVar").value = ex.var; el("bFrom").value = ex.from; el("bTo").value = ex.to; el("bSteps").value = ex.steps; el("bReps").value = ex.reps; el("bX").value = ex.x || "lin"; el("bY").value = ex.y || "lin"; el("bStat").value = ex.stat || "mean"; }
@@ -482,11 +487,11 @@ const Batch = (function () {
     showFixed();
     if (!quiet) { el("bStatus").textContent = "Ready: press Run."; }
   }
-  function params() { return { ...cfg.baseParams(), ...overrides }; }
+  function params() { return useMine || expIdx < 0 ? cfg.baseParams() : { ...cfg.defaults, ...overrides }; }
   function showFixed() {
-    const ov = Object.keys(overrides).length;
+    const ov = !useMine && expIdx >= 0;
     el("bFixed").innerHTML = `Settings for every run${ov ? " (set by this experiment)" : " (from the left panel)"}: ${cfg.describe(params())}${ov ? ` · <a href="#" id="bUseMine" class="dl">use my own settings instead</a>` : ""}${cfg.headlessNote ? "<br>" + cfg.headlessNote : ""}`;
-    const u = el("bUseMine"); if (u) u.onclick = e => { e.preventDefault(); overrides = {}; showFixed(); };
+    const u = el("bUseMine"); if (u) u.onclick = e => { e.preventDefault(); useMine = true; showFixed(); };
   }
   function readSpec() {
     const s = { mode, out: el("bOut").value, x: el("bX").value, y: el("bY").value, stat: el("bStat").value, seed: Math.round(+el("bSeed").value || 1), params: params() };
@@ -509,6 +514,7 @@ const Batch = (function () {
     else { let k = 0; for (const x of spec.xs) for (let r = 0; r < spec.reps; r++) jobs.push({ x, seed: spec.seed + k++ }); }
     last = { spec, rows: [], total: jobs.length, done: false };
     running = true; stopFlag = false; el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").style.display = "none";
+    lockForm(true);
     const t0 = performance.now(); let j = 0, lastDraw = 0;
     function chunk() {
       const tc = performance.now();
@@ -524,12 +530,14 @@ const Batch = (function () {
       if (performance.now() - lastDraw > 400) { render(); lastDraw = performance.now(); }
       if (j < jobs.length && !stopFlag) setTimeout(chunk, 0);
       else {
-        running = false; last.done = true; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").style.display = "";
+        running = false; last.done = true; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").style.display = ""; lockForm(false);
         el("bStatus").textContent = `${stopFlag ? "Stopped after" : "Finished"} ${j} runs in ${secs.toFixed(1)} s.`; render();
       }
     }
     setTimeout(chunk, 10);
   }
+  // while a batch is running, the experiment buttons and settings cannot be changed
+  function lockForm(on) { document.querySelectorAll("#bExps button, #bLeft .bform select, #bLeft .bform input, #bLeft .seg button").forEach(e => e.disabled = on); }
   const outVals = (row, key, multi) => { const v = row.out[key]; return multi ? (Array.isArray(v) ? v : []) : [v]; };
   function render() {
     if (!last) return;
@@ -1245,6 +1253,7 @@ Batch.init({
     { key: "frate", label: "Forward rate at equilibrium", unit: "per ns" },
   ],
   baseParams: () => { const p = params(); delete p.seed; return { ...p, tRun: 1500, tMeas: 800 }; },
+  defaults: { sys: "AB", T: 400, vol: 100, cat: 0, amount: 100, startFrom: "reactants", tRun: 1500, tMeas: 800, N: 0, P: 0 },
   describe: p => { const q = prepBatch(p); return `${SYS[q.sys].eq}, ${Math.round(q.T)} K, ${q.P ? `start ${Math.round(q.P)} atm` : `volume ${Math.round(q.vol)}%`}, ${Math.round(startCounts(q).reduce((a, b) => a + b, 0))} particles${q.cat ? ", catalyst" : ""}, starting from ${q.startFrom === "eq" ? "the equilibrium mixture" : q.startFrom}. Each run lasts ${q.tRun} ps; averages over the last ${q.tMeas} ps.`; },
   runOnce: (p, seed) => runOnce(prepBatch(p), seed),
   theory(key, p0, stat) {
@@ -1282,7 +1291,7 @@ Batch.init({
       params: { sys: "AB", T: 400, vol: 100, cat: 0, startFrom: "eq", tRun: 2500, tMeas: 2000 },
       note: "<p>For each number of particles, 30 runs measure Kc, and we plot how much they disagree (the SD). Random fluctuations shrink as 1/√N, so the log–log graph has gradient −½.</p><p>A real flask holds about 10²³ molecules: the scatter is about 10⁻¹¹ of the value, far too small to see. That is why real equilibria look perfectly steady.</p>" },
     { q: "van 't Hoff: how does K change with T?", sub: "A ⇌ B from 300 to 700 K → ln K against 1/T", mode: "sweep", var: "T", from: 300, to: 700, steps: 6, reps: 5, out: "Kc", x: "inv", y: "ln",
-      params: { sys: "AB", vol: 100, cat: 0, amount: 100, startFrom: "reactants", tRun: 5000, tMeas: 2500 },
+      params: { sys: "AB", vol: 100, cat: 0, amount: 400, startFrom: "reactants", tRun: 8000, tMeas: 5000 },
       note: "<p>The forward reaction is exothermic (ΔH = −6 kJ/mol), so K falls as the temperature rises. ln K against 1/T is a straight line with gradient −ΔH/R: measuring K at different temperatures tells you ΔH.</p><p>This is Le Chatelier in numbers: heating favours the endothermic direction.</p>" },
     { q: "Haber: how does pressure change the yield?", sub: "100 to 600 atm at 450 °C", mode: "sweep", var: "P", from: 100, to: 600, steps: 6, reps: 3, out: "yield", x: "lin", y: "lin",
       params: { sys: "NH3", T: 723, cat: 0, amount: 100, startFrom: "reactants", tRun: 1300, tMeas: 500 },

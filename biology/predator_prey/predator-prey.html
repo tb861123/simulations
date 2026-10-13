@@ -159,10 +159,12 @@
     <h2 class="gap">Starting out <span class="hint" style="text-transform:none;letter-spacing:0">(press Reset)</span></h2>
     <div class="ctl"><label>Field size <output id="o_side"></output></label><input type="range" id="side" min="10" max="80" step="2" value="30"></div>
     <div class="ctl"><label>Starting rabbits <output id="o_R0"></output></label><input type="range" id="R0" min="0" max="1000" step="10" value="300"></div>
-    <div class="ctl"><label>Starting foxes <output id="o_F0"></output></label><input type="range" id="F0" min="0" max="60" step="1" value="10"></div>
+    <div class="ctl"><label>Starting foxes <output id="o_F0"></output></label><input type="range" id="F0" min="0" max="150" step="1" value="10"></div>
     <div class="ctl"><label>Starting voles (second prey) <output id="o_V0"></output></label><input type="range" id="V0" min="0" max="1000" step="10" value="0"></div>
     <div class="ctl"><label>Refuges (warrens) <output id="o_ref"></output></label><input type="range" id="ref" min="0" max="20" step="1" value="0">
       <div class="hint">Share of patches with burrows where rabbits can hide.</div></div>
+    <div class="ctl"><label>Rules</label><select id="simple"><option value="0">Realistic: grass, energy, ageing, starving</option><option value="1">Lotka–Volterra-like: the equations' assumptions</option></select>
+      <div class="hint">Lotka–Volterra-like: unlimited grass, rabbits breed at a fixed rate, foxes catch in proportion to the rabbits near them, every rabbit eaten gives a fixed chance of a cub, and foxes die at a fixed rate.</div></div>
     <div class="ctl"><label>Random seed</label><input id="seed" value="1" style="width:100%;font:inherit;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
 
     <h2 class="gap">Nature <span class="live">changes take effect at once</span></h2>
@@ -171,7 +173,9 @@
       <div class="hint">Chance per week that a well-fed adult doe has a litter (about 3 young survive to leave the nest).</div></div>
     <div class="ctl"><label>Fox hunting success <output id="o_hunt"></output></label><input type="range" id="hunt" min="0.05" max="0.8" step="0.01" value="0.3"></div>
     <div class="ctl"><label>Fox energy needs <output id="o_need"></output></label><input type="range" id="need" min="0.3" max="2" step="0.05" value="0.8">
-      <div class="hint">Rabbits a fox must eat each week to stay healthy.</div></div>
+      <div class="hint">Rabbits a fox must eat each week to stay healthy (realistic rules only).</div></div>
+    <div class="ctl"><label>Age when young foxes can breed <output id="o_mature"></output></label><input type="range" id="mature" min="0" max="52" step="1" value="26">
+      <div class="hint">Real foxes breed in their first spring, at about 6 months (26 weeks). This delay slows the cycles.</div></div>
     <div class="ctl"><label>Fox culling <output id="o_cull"></output></label><input type="range" id="cull" min="0" max="90" step="1" value="0"></div>
     <div class="ctl"><label>Years to simulate (graphs and batch) <output id="o_years"></output></label><input type="range" id="years" min="2" max="40" step="1" value="15"></div>
 
@@ -194,7 +198,9 @@
         <li><b>Refuges:</b> rabbits like to hop towards warren patches. In a warren patch up to 6 rabbits are safe from foxes; if more crowd in, the extras can be caught.</li>
         <li><b>Voles</b> (optional) eat less grass, breed faster and give a fox less food. Foxes eat whichever prey they meet, so voles can keep foxes alive when rabbits are scarce.</li>
         <li><b>Culling:</b> the chosen share of foxes is removed spread evenly through the year.</li>
-        <li><b>Lotka–Volterra fit:</b> the per-head growth rate of rabbits, (1/R)dR/dt, is fitted as a − bF and that of foxes as cR − d, using weekly numbers (straight-line fits). The fitted equations give the theory period 2π/√(ad).</li>
+        <li><b>Lotka–Volterra rates from the counts:</b> after the first year the model counts every birth and death. a = (rabbit births − rabbit deaths not caused by foxes) ÷ (rabbits summed over the weeks); b = rabbits eaten ÷ (rabbits × foxes summed over the weeks); c = fox births ÷ the same sum; d = fox deaths ÷ (foxes summed over the weeks). These give the theory period 2π/√(ad) and the equilibrium (d/c rabbits, a/b foxes). (The batch lab also reports an older fit from the shape of the cycles.)</li>
+        <li><b>Lotka–Volterra-like rules</b> (choose under Rules) strip out the extra realism: grass is unlimited, rabbits don't starve, age or die except when caught, every doe breeds at the same rate from birth, each rabbit within 2 patches of a fox is caught with chance (hunting success ÷ 5) a week, each rabbit eaten gives a 10% chance of a cub, and foxes die with a fixed 4% chance a week. Then a = breeding rate × 3 ÷ 2 and d = 0.04 follow from the rules. Only the fox maturity delay (if you set one) and chance remain.</li>
+        <li><b>Why realistic cycles are slower:</b> the equations assume a fox's birth rate responds instantly to food. Real foxes take months to grow up before they can breed, and starve only after their reserves run out; rabbits also need time to mature and are held back by grass. These delays stretch each cycle.</li>
         <li><b>Differences from the equations:</b> the equations have no grass limit, no ages, no space and no chance. Real cycles are more irregular, populations can die out by chance (the equations never reach zero), and crowding limits rabbits even without foxes.</li>
         <li><b>Not modelled:</b> seasons (all breeding happens year round), other predators (buzzards, stoats), hunting by people other than culling, rabbits digging new warrens, and movement into or out of the field.</li>
       </ul>
@@ -695,6 +701,8 @@ const PATCH_M = 50;                       // metres per patch
 const RAB = { hop: 1.5, bite: 0.3, gain: 8, cost: 1, maxE: 8, adult: 12, breedE: 4, litter: 3, die: 0.01, babyE: 2 };
 const VOLE = { hop: 0.8, bite: 0.12, gain: 4, cost: 0.25, maxE: 2, adult: 5, breedE: 1, litter: 3, die: 0.03, babyE: 0.5, breed: 0.25, food: 0.25 };
 const FOX = { roam: 3, reach: 2, attacks: 5, maxE: 6, adult: 26, breedE: 3, breed: 0.04, litter: 2.5, die: 0.004, startE: 3, babyE: 1.5 };
+const LV_CONV = 0.1, LV_DIE = 0.04;      // LV-like mode: cubs per rabbit eaten; fox death chance per week
+const newCounts = () => ({ rB: 0, rD: 0, rE: 0, fB: 0, fD: 0, sR: 0, sF: 0, sRF: 0, w: 0 });
 const SAFE = 6;                           // rabbits safe in one warren
 
 /* =====================================================================
@@ -713,10 +721,10 @@ function remove(h, i) { const j = --h.n; if (i !== j) for (const k of ["x", "y",
 
 function makeField(p, seed, live) {
   const S = Math.round(p.side), rng = mulberry32(seed);
-  const m = { p, S, rng, live, week: 0, grass: new Float32Array(S * S), refuge: new Uint8Array(S * S), R: herd(1024), F: herd(64), V: herd(256), hist: [], caught: 0, kills: [] };
+  const m = { p, S, rng, live, week: 0, counts: newCounts(), grass: new Float32Array(S * S), refuge: new Uint8Array(S * S), R: herd(1024), F: herd(64), V: herd(256), hist: [], caught: 0, kills: [] };
   for (let i = 0; i < S * S; i++) { m.grass[i] = 0.5 + 0.5 * rng(); if (rng() < p.ref / 100) m.refuge[i] = 1; }
   for (let k = 0; k < p.R0; k++) add(m, "R", rng() * S, rng() * S, 2 + 4 * rng(), RAB.adult + rng() * 60, rng);
-  for (let k = 0; k < p.F0; k++) add(m, "F", rng() * S, rng() * S, FOX.startE, FOX.adult + rng() * 100, rng);
+  for (let k = 0; k < p.F0; k++) add(m, "F", rng() * S, rng() * S, FOX.startE, p.mature + rng() * 100, rng);
   for (let k = 0; k < p.V0; k++) add(m, "V", rng() * S, rng() * S, 1, VOLE.adult + rng() * 20, rng);
   record(m);
   return m;
@@ -726,18 +734,28 @@ const wrapIn = (v, S) => v < 0 ? -v : v >= S ? 2 * S - v - 0.001 : v;   // bounc
 
 // Grazers (rabbits and voles): move, eat, use energy, breed, die
 function grazers(m, key, T, breedRate) {
-  const h = m[key], S = m.S, rng = m.rng, g = m.grass;
+  const h = m[key], S = m.S, rng = m.rng, g = m.grass, lv = m.p.simple && key === "R", C = m.counts;
   for (let i = h.n - 1; i >= 0; i--) {
     h.px[i] = h.x[i]; h.py[i] = h.y[i];
     // hop: try two spots and go to the grassier one
     let bx = h.x[i], by = h.y[i], bg = -1;
     for (let k = 0; k < 2; k++) { const a = rng() * 6.283, d = rng() * T.hop; const x = wrapIn(h.x[i] + Math.cos(a) * d, S), y = wrapIn(h.y[i] + Math.sin(a) * d, S); const cc = cellOf(m, x, y), gg = g[cc] + (key === "R" && m.refuge[cc] ? 0.3 : 0); if (gg > bg) { bg = gg; bx = x; by = y; } }
     h.x[i] = bx; h.y[i] = by;
+    h.age[i]++;
+    if (lv) {
+      // LOTKA–VOLTERRA-LIKE RULES: unlimited food, no other deaths, every doe breeds at the same rate from birth.
+      // (A crowding cap of 6 rabbits per patch only stops a runaway if all the foxes die.)
+      if (h.sex[i] === 0 && h.n < 6 * S * S && rng() < breedRate) {
+        const kids = poisson(rng, T.litter); if (key === "R") C.rB += kids;
+        for (let k = 0; k < kids; k++) add(m, key, wrapIn(bx + rng() - 0.5, S), wrapIn(by + rng() - 0.5, S), T.babyE, 0, rng);
+      }
+      continue;
+    }
     const c = cellOf(m, bx, by), eat = Math.min(g[c], T.bite);
-    g[c] -= eat; h.e[i] = Math.min(T.maxE, h.e[i] + eat * T.gain - T.cost); h.age[i]++;
-    if (h.e[i] <= 0 || rng() < T.die) { remove(h, i); continue; }
+    g[c] -= eat; h.e[i] = Math.min(T.maxE, h.e[i] + eat * T.gain - T.cost);
+    if (h.e[i] <= 0 || rng() < T.die) { if (key === "R") C.rD++; remove(h, i); continue; }
     if (h.sex[i] === 0 && h.age[i] >= T.adult && h.e[i] >= T.breedE && rng() < breedRate) {
-      const kids = poisson(rng, T.litter);
+      const kids = poisson(rng, T.litter); if (key === "R") C.rB += kids;
       for (let k = 0; k < kids; k++) add(m, key, wrapIn(bx + rng() - 0.5, S), wrapIn(by + rng() - 0.5, S), T.babyE, 0, rng);
       h.e[i] -= 0.5 * kids;
     }
@@ -752,10 +770,16 @@ function preyIndex(m, h, slot) {
   for (let i = 0; i < h.n; i++) { const c = cellOf(m, h.x[i], h.y[i]); next[i] = head[c]; head[c] = i; cnt[c]++; }
   return b;
 }
+// Make sure each herd has room for this week's births, so its arrays are never swapped mid-loop
+function roomFor(m, key) { const h = m[key]; if (h.x.length < 3 * h.n + 256) { let n = h; while (n.x.length < 3 * h.n + 256) n = grow(n); m[key] = n; } }
 function stepField(m) {
   const p = m.p, S = m.S, rng = m.rng, g = m.grass;
+  roomFor(m, "R"); roomFor(m, "F"); roomFor(m, "V");
+  // running totals for the Lotka–Volterra rates "from the counts" (after the first year)
+  if (m.week === 52) m.counts = newCounts();
+  const C = m.counts; C.sR += m.R.n; C.sF += m.F.n; C.sRF += m.R.n * m.F.n; C.w++;
   // 1. grass regrows (logistic)
-  for (let i = 0; i < S * S; i++) g[i] += p.grow * (1 - g[i]);
+  if (p.simple) g.fill(1); else for (let i = 0; i < S * S; i++) g[i] += p.grow * (1 - g[i]);
   // 2. rabbits and voles
   grazers(m, "R", RAB, p.breed);
   if (m.V.n) grazers(m, "V", VOLE, VOLE.breed);
@@ -768,7 +792,8 @@ function stepField(m) {
   for (let i = F.n - 1; i >= 0; i--) {
     F.px[i] = F.x[i]; F.py[i] = F.y[i];
     const a = rng() * 6.283, d = rng() * FOX.roam;
-    F.x[i] = wrapIn(F.x[i] + Math.cos(a) * d, S); F.y[i] = wrapIn(F.y[i] + Math.sin(a) * d, S);
+    if (p.simple) { F.x[i] = rng() * S; F.y[i] = rng() * S; }   // LV-like: foxes hunt anywhere (a well-mixed field)
+    else { F.x[i] = wrapIn(F.x[i] + Math.cos(a) * d, S); F.y[i] = wrapIn(F.y[i] + Math.sin(a) * d, S); }
     const cx = Math.floor(F.x[i]), cy = Math.floor(F.y[i]);
     // list the prey in this patch and the 8 around it
     const near = [];
@@ -777,22 +802,39 @@ function stepField(m) {
       for (let j = iR.head[c]; j >= 0; j = iR.next[j]) if (!deadR[j]) near.push(j);
       if (iV) for (let j = iV.head[c]; j >= 0; j = iV.next[j]) if (!deadV[j]) near.push(-1 - j);
     }
+    if (p.simple) {
+      // LOTKA–VOLTERRA-LIKE RULES: each prey within reach is caught with a small fixed chance (hunt ÷ 5),
+      // so catches are proportional to prey numbers (the "bRF" term). Each rabbit eaten gives a cub with
+      // chance LV_CONV (the "cRF" term); foxes die at a fixed rate LV_DIE (the "dF" term), whatever they ate.
+      let caught = 0;
+      for (const j of near) {
+        if (j < 0 || rng() >= p.hunt / 5) continue;
+        const c = cellOf(m, R.x[j], R.y[j]);
+        if (m.refuge[c] && rng() < Math.min(1, SAFE / iR.cnt[c])) continue;
+        deadR[j] = 1; iR.cnt[c]--; caught++; m.caught++; m.counts.rE++;
+        if (m.live) m.kills.push([R.x[j], R.y[j]]);
+      }
+      F.age[i]++;
+      if (rng() < LV_DIE || rng() < cullP) { m.counts.fD++; remove(F, i); continue; }
+      if (F.age[i] >= p.mature) { const kids = poisson(rng, LV_CONV * caught); m.counts.fB += kids; for (let k = 0; k < kids; k++) add(m, "F", F.x[i], F.y[i], 1, 0, rng); }
+      continue;
+    }
     for (let k = 0; k < FOX.attacks && near.length && F.e[i] < FOX.maxE; k++) {
       const pick = Math.floor(rng() * near.length), j = near[pick];
       if (rng() >= p.hunt) continue;                           // it got away
       if (j >= 0) {
         const c = cellOf(m, R.x[j], R.y[j]);
         if (m.refuge[c] && rng() < Math.min(1, SAFE / iR.cnt[c])) continue;   // safe down a burrow
-        deadR[j] = 1; F.e[i] += 1; iR.cnt[c]--;
+        deadR[j] = 1; F.e[i] += 1; iR.cnt[c]--; m.counts.rE++;
         if (m.live) m.kills.push([R.x[j], R.y[j]]);
       } else { deadV[-1 - j] = 1; F.e[i] += VOLE.food; if (m.live) m.kills.push([V.x[-1 - j], V.y[-1 - j]]); }
       m.caught++;
       near[pick] = near[near.length - 1]; near.pop();
     }
     F.e[i] = Math.min(FOX.maxE, F.e[i] - p.need); F.age[i]++;
-    if (F.e[i] <= 0 || rng() < FOX.die || rng() < cullP) { remove(F, i); continue; }
-    if (F.age[i] >= FOX.adult && F.e[i] >= FOX.breedE && rng() < FOX.breed / 2) {   // breed / 2: half the foxes are vixens
-      const kids = poisson(rng, FOX.litter);
+    if (F.e[i] <= 0 || rng() < FOX.die || rng() < cullP) { m.counts.fD++; remove(F, i); continue; }
+    if (F.age[i] >= p.mature && F.e[i] >= FOX.breedE && rng() < FOX.breed / 2) {   // breed / 2: half the foxes are vixens
+      const kids = poisson(rng, FOX.litter); m.counts.fB += kids;
       for (let k = 0; k < kids; k++) add(m, "F", F.x[i], F.y[i], FOX.babyE, 0, rng);
       F.e[i] -= 0.5 * kids;
     }
@@ -836,6 +878,19 @@ function fitLV(hist, skip = 26) {
   if (!(a > 0 && b > 0 && c > 0 && d > 0)) return { a, b, c, d, period: NaN };
   return { a, b, c, d, period: 2 * Math.PI / Math.sqrt(a * d), Req: d / c, Feq: a / b };
 }
+// A fairer fit: the Lotka–Volterra rates worked out from what actually happened in the run (after year 1):
+//   a = (rabbit births − rabbit deaths not caused by foxes) ÷ (sum over weeks of R)
+//   b = rabbits eaten ÷ (sum of R × F)     c = fox births ÷ (sum of R × F)     d = fox deaths ÷ (sum of F)
+function lvFromCounts(C) {
+  if (!C || C.w < 52 || C.sR <= 0 || C.sF <= 0 || C.sRF <= 0) return null;
+  const a = (C.rB - C.rD) / C.sR, b = C.rE / C.sRF, c = C.fB / C.sRF, d = C.fD / C.sF;
+  return { a, b, c, d, period: a > 0 && d > 0 ? 2 * Math.PI / Math.sqrt(a * d) : NaN, Req: d / c, Feq: a / b };
+}
+// In LV-like mode the rates follow straight from the rules: a = breeding chance × litter ÷ 2 (half are does), d = fox death chance
+function lvFromRules(p) {
+  const a = Math.log(1 + p.breed * RAB.litter / 2), d = -Math.log(1 - LV_DIE);
+  return { a, d, period: 2 * Math.PI / Math.sqrt(a * d) };
+}
 // Integrate the Lotka–Volterra equations from (R, F)
 function lvCurve(fit, R, F, weeks) {
   const out = [[R, F]], h = 0.05; let r = R, f = F;
@@ -869,10 +924,11 @@ function runOnce(p, seed) {
   for (let w = 0; w < weeks; w++) { stepField(m); if (m.F.n === 0 && !finite(foxGoneAt) && p.F0 > 0) foxGoneAt = m.week; if (m.R.n === 0 && m.F.n === 0 && m.V.n === 0) break; }
   while (m.hist.length <= weeks) m.hist.push({ ...m.hist[m.hist.length - 1], t: m.hist.length });
   const Rs = m.hist.map(q => q.R), Fs = m.hist.map(q => q.F);
-  const fit = fitLV(m.hist), per = m.F.n > 0 ? cyclePeriod(Rs) : NaN;
+  const shape = fitLV(m.hist), fit = lvFromCounts(m.counts), per = m.F.n > 0 ? cyclePeriod(Rs) : NaN;
   const out = m.R.n === 0 ? 2 : (m.F.n === 0 ? 1 : 0);
   const half = Rs.slice(Math.floor(Rs.length / 2));
   return { outcome: out, foxExt: m.F.n === 0 ? 1 : 0, period: finite(per) ? per / 52 : NaN, period_th: fit && finite(fit.period) && finite(per) ? fit.period / 52 : NaN,
+    period_shape: shape && finite(shape.period) && finite(per) ? shape.period / 52 : NaN, period_rules: p.simple ? lvFromRules(p).period / 52 : NaN,
     lag: finite(per) ? peakLag(Rs, Fs, per) : NaN, meanR: mean(half), meanF: mean(Fs.slice(Math.floor(Fs.length / 2))),
     cv: mean(half) > 0 ? sd(half) / mean(half) : NaN, minR: Math.min(...Rs.slice(52)), rabbits: Rs.filter((v, i) => i % 2 === 0), foxGoneYear: finite(foxGoneAt) ? foxGoneAt / 52 : NaN };
 }
@@ -882,16 +938,18 @@ function runOnce(p, seed) {
 /* =====================================================================
    5. CONTROLS AND PRESETS
    ===================================================================== */
-const NUMS = ["side", "R0", "F0", "V0", "ref", "grow", "breed", "hunt", "need", "cull", "years"];
+const NUMS = ["side", "R0", "F0", "V0", "ref", "simple", "grow", "breed", "hunt", "need", "mature", "cull", "years"];
 function params() { const p = { seed: el("seed").value }; NUMS.forEach(k => p[k] = +el(k).value); return p; }
 function updateLabels() {
   const p = params(), ha = (p.side * PATCH_M) ** 2 / 10000;
   el("o_side").textContent = `${p.side} × ${p.side} patches (${fmtNum(ha, ha < 10 ? 1 : 0)} ha)`;
   el("o_R0").textContent = p.R0; el("o_F0").textContent = p.F0; el("o_V0").textContent = p.V0 || "none"; el("o_ref").textContent = p.ref ? p.ref + "% of patches" : "none";
   el("o_grow").textContent = p.grow.toFixed(2) + " per week"; el("o_breed").textContent = pct(p.breed) + " per week"; el("o_hunt").textContent = pct(p.hunt) + " per attack";
-  el("o_need").textContent = p.need.toFixed(2) + " rabbits/week"; el("o_cull").textContent = p.cull ? p.cull + "% of foxes per year" : "none"; el("o_years").textContent = p.years + " years";
+  el("o_need").textContent = p.need.toFixed(2) + " rabbits/week"; el("o_mature").textContent = p.mature ? `${p.mature} weeks (${(p.mature / 4.35).toFixed(1)} months)` : "straight away";
+  el("need").disabled = el("grow").disabled = p.simple === 1;
+  el("o_cull").textContent = p.cull ? p.cull + "% of foxes per year" : "none"; el("o_years").textContent = p.years + " years";
 }
-const BASE = { side: 30, R0: 300, F0: 10, V0: 0, ref: 0, grow: 0.1, breed: 0.12, hunt: 0.3, need: 0.8, cull: 0, years: 15 };
+const BASE = { side: 30, R0: 300, F0: 10, V0: 0, ref: 0, simple: 0, grow: 0.1, breed: 0.12, hunt: 0.3, need: 0.8, mature: 26, cull: 0, years: 15 };
 const PRESETS = [
   { name: "Classic cycles", note: "rabbits boom, foxes follow", s: {}, story: "Rabbits multiply; foxes then have plenty to eat and multiply too; rabbits crash; foxes starve; the rabbits recover. The fox peaks come after the rabbit peaks." },
   { name: "Too many foxes", note: "boom and crash", s: { F0: 40, hunt: 0.5, need: 0.6, R0: 200 }, story: "Many skilled foxes eat the rabbits faster than they can breed. The rabbits nearly vanish, and then the foxes starve." },
@@ -901,9 +959,12 @@ const PRESETS = [
   { name: "Invasive predator", note: "foxes arrive later", s: { F0: 2, R0: 600, years: 15 }, story: "Like foxes brought to Australia: just two foxes reach a field full of rabbits. They multiply fast on the easy food and then cut the rabbit numbers right down." },
   { name: "Culling foxes", note: "40% shot each year", s: { cull: 40 }, story: "Gamekeepers remove 40% of foxes a year. There are fewer foxes, so more rabbits survive. Culling acts like a higher fox death rate." },
   { name: "Voles as a second prey", note: "foxes switch prey", s: { V0: 400, F0: 10 }, story: "Foxes also eat field voles. When rabbits are scarce, foxes survive on voles, so they keep pressure on the rabbits and the pattern changes." },
+  { name: "Lotka–Volterra-like", note: "the equations' assumptions", s: { simple: 1, breed: 0.05, side: 40, R0: 430, F0: 80, mature: 0, years: 12 },
+    story: "The rules are stripped down to the Lotka–Volterra assumptions: unlimited grass, rabbits breed at a fixed rate, foxes catch rabbits in proportion to how many there are, get cubs in proportion to what they eat, and die at a fixed rate. The cycles now repeat about every 2.2 years, as 2π/√(ad) predicts. Try raising the age when young foxes can breed." },
   { name: "Fast-growing grass", note: "paradox of enrichment", s: { grow: 0.3 }, story: "More food for rabbits should help everyone, but it can make the cycles swing harder and risk crashes (the 'paradox of enrichment')." },
 ];
 let presetStory = "";
+const LV_PRESET = PRESETS.findIndex(q => q.name === "Lotka–Volterra-like");
 function setPreset(k) {
   const s = { ...BASE, ...PRESETS[k].s };
   for (const [key, v] of Object.entries(s)) el(key).value = v;
@@ -914,9 +975,9 @@ function setPreset(k) {
 el("presets").innerHTML = PRESETS.map((p, k) => `<button data-k="${k}">${p.name}<small>${p.note}</small></button>`).join("");
 document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.k)));
 const unPreset = () => { document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); presetStory = ""; };
-["side", "R0", "F0", "V0", "ref"].forEach(id => { el(id).addEventListener("input", () => { unPreset(); updateLabels(); }); el(id).addEventListener("change", () => reset()); });
+["side", "R0", "F0", "V0", "ref", "simple"].forEach(id => { el(id).addEventListener("input", () => { unPreset(); updateLabels(); }); el(id).addEventListener("change", () => reset()); });
 el("seed").addEventListener("change", () => reset());
-["grow", "breed", "hunt", "need", "cull", "years"].forEach(id => el(id).addEventListener("input", () => { unPreset(); updateLabels(); }));
+["grow", "breed", "hunt", "need", "mature", "cull", "years"].forEach(id => el(id).addEventListener("input", () => { unPreset(); updateLabels(); }));
 
 /* =====================================================================
    6. ANIMATION
@@ -932,10 +993,10 @@ document.querySelectorAll("[data-s]").forEach(b => (b.onclick = () => { speed = 
 // Events
 el("evDisease").onclick = () => { const m = live.m, R = m.R; for (let i = R.n - 1; i >= 0; i--) if (m.rng() < 0.8) remove(R, i); m.hist[m.hist.length - 1].R = R.n; };
 el("evCull").onclick = () => { const m = live.m, F = m.F; for (let i = F.n - 1; i >= 0; i--) if (m.rng() < 0.5) remove(F, i); m.hist[m.hist.length - 1].F = F.n; };
-el("evAddF").onclick = () => { const m = live.m; for (let k = 0; k < 10; k++) add(m, "F", m.rng() * m.S, m.rng() * m.S, FOX.startE, FOX.adult, m.rng); };
+el("evAddF").onclick = () => { const m = live.m; for (let k = 0; k < 10; k++) add(m, "F", m.rng() * m.S, m.rng() * m.S, FOX.startE, m.p.mature, m.rng); };
 el("evAddR").onclick = () => { const m = live.m; for (let k = 0; k < 50; k++) add(m, "R", m.rng() * m.S, m.rng() * m.S, 4, RAB.adult, m.rng); };
 el("btnLV").onclick = () => {
-  const m = live.m, fit = fitLV(m.hist), h = m.hist[m.hist.length - 1];
+  const m = live.m, fit = lvFromCounts(m.counts) || fitLV(m.hist), h = m.hist[m.hist.length - 1];
   if (!fit || !finite(fit.period) || !h.R || !h.F) { live.lv = null; el("lvNote").textContent = "Not enough cycling yet to fit the equations: run for a few years with both species alive."; return; }
   live.lv = lvCurve(fit, h.R, h.F, 2.2 * fit.period);
   el("lvNote").innerHTML = `Fitted: a = ${fit.a.toFixed(3)}, b = ${fit.b.toExponential(2)}, c = ${fit.c.toExponential(2)}, d = ${fit.d.toFixed(3)} per week. Equilibrium ${Math.round(fit.Req)} rabbits, ${Math.round(fit.Feq)} foxes. The equations go round a closed loop for ever; the real populations spiral, wobble and can die out.`;
@@ -943,7 +1004,7 @@ el("btnLV").onclick = () => {
 
 function advance(real) {
   const m = live.m; if (!live.running) return;
-  m.p = { ...params(), side: m.p.side, R0: m.p.R0, F0: m.p.F0, V0: m.p.V0, ref: m.p.ref };
+  m.p = { ...params(), side: m.p.side, R0: m.p.R0, F0: m.p.F0, V0: m.p.V0, ref: m.p.ref, simple: m.p.simple };
   live.acc += real * speed * WEEKS_PER_SEC;
   const t0 = performance.now();
   while (live.acc >= 1 && performance.now() - t0 < 35) {
@@ -1010,14 +1071,14 @@ function updateUI() {
   // cycle measurements (updated a few times a second is plenty)
   if (!live.an || live.an.w !== m.week) {
     const Rs = m.hist.map(q => q.R), Fs = m.hist.map(q => q.F);
-    const per = cyclePeriod(Rs), fit = fitLV(m.hist), lag = peakLag(Rs, Fs, per);
+    const per = cyclePeriod(Rs), fit = lvFromCounts(m.counts), lag = peakLag(Rs, Fs, per);
     const tail = m.hist.slice(Math.max(26, m.hist.length - 260));
     live.an = { w: m.week, per, fit, lag, pR: tail.length ? Math.max(...tail.map(q => q.R)) : NaN, pF: tail.length ? Math.max(...tail.map(q => q.F)) : NaN, logi: (p.F0 === 0 && m.hist.length > 30 && !h.F) ? fitLogistic(Rs) : null };
   }
   const a = live.an;
   const tiles = [
     ["Cycle period (measured)", finite(a.per) ? `${(a.per / 52).toFixed(1)} years` : "–", finite(a.per) ? `${a.per} weeks, from the rabbit numbers` : "needs a few cycles"],
-    ["Lotka–Volterra period", a.fit && finite(a.fit.period) ? `${(a.fit.period / 52).toFixed(1)} years` : "–", "2π/√(ad), from the fitted equations"],
+    ["Lotka–Volterra period", a.fit && finite(a.fit.period) ? `${(a.fit.period / 52).toFixed(1)} years` : "–", p.simple ? `2π/√(ad) from births/deaths counted; from the rules: ${(lvFromRules(p).period / 52).toFixed(1)} years` : "2π/√(ad), a and d from births and deaths counted after year 1"],
     ["Fox peaks lag behind", finite(a.lag) ? `${a.lag} weeks` : "–", finite(a.lag) && finite(a.per) ? `${pct(a.lag / a.per)} of a cycle (theory about 25%)` : "rabbit peaks"],
     ["Recent peaks", finite(a.pR) ? `${a.pR} rabbits` : "–", finite(a.pF) ? `${a.pF} foxes (last 5 years)` : ""],
     ["Rabbits per hectare", fmtNum(h.R / ((m.S * PATCH_M) ** 2 / 10000), 1), `field ${fmtNum((m.S * PATCH_M) ** 2 / 10000, 0)} ha`],
@@ -1051,8 +1112,11 @@ const batch = setupBatch({
   outcomes: [
     { key: "outcome", kind: "cat", label: "Outcome at the end", cats: ["both survive", "foxes died out", "rabbits died out"], catTheory: () => [1, 0, 0], theoryLabel: "Lotka–Volterra (never die out)",
       extra: () => "The Lotka–Volterra equations never reach zero, so they predict coexistence every time. Real (and simulated) populations are whole animals and chance matters when numbers are low." },
-    { key: "period", kind: "num", label: "Cycle period (rabbits)", unit: "years", theoryLabel: "Lotka–Volterra 2π/√(ad), mean of fits", missNote: "no regular cycle (or foxes died out)",
-      extra: (v, p, res) => { const th = res.map(r => r.period_th).filter(finite); return `Each run's own numbers are fitted to the Lotka–Volterra equations; the fitted period is 2π/√(ad) (mean ${fmtNum(mean(th), 2)} years, SD ${fmtNum(sd(th), 2)}). Measured periods come from the repeat time of the rabbit numbers.`; } },
+    { key: "period", kind: "num", label: "Cycle period (rabbits)", unit: "years", theoryLabel: "Lotka–Volterra 2π/√(ad), a and d from counts", missNote: "no regular cycle (or foxes died out)",
+      extra: (v, p, res) => { const th = res.map(r => r.period_th).filter(finite), sh = res.map(r => r.period_shape).filter(finite);
+        return `Theory: a and d are worked out from the births and deaths counted in each run (after year 1), then period = 2π/√(ad): mean <b>${fmtNum(mean(th), 2)}</b> years (SD ${fmtNum(sd(th), 2)}).` +
+          (p.simple ? ` With Lotka–Volterra-like rules a and d also follow straight from the rules: <b>${fmtNum(lvFromRules(p).period / 52, 2)}</b> years.` : "") +
+          ` An older method, fitting the equations to the shape of the cycles, gives ${fmtNum(mean(sh), 2)} years. Measured periods come from the repeat time of the rabbit numbers.`; } },
     { key: "lag", kind: "num", label: "Fox peaks lag behind rabbit peaks", unit: "weeks", missNote: "no regular cycle", theoryLabel: "LV: quarter of the mean period",
       theory: null, extra: (v, p, res) => { const per = res.map(r => r.period).filter(finite); return `A quarter of the mean measured period is ${fmtNum(mean(per) * 52 / 4, 0)} weeks (Lotka–Volterra cycles near equilibrium have foxes peaking a quarter-cycle after rabbits).`; } },
     { key: "foxExt", kind: "bin", label: "Foxes died out by the end", binNames: ["foxes survive", "foxes died out"] },
@@ -1065,6 +1129,7 @@ const batch = setupBatch({
   ],
   sweepVars: [
     { key: "side", label: "Field size (patches along each side)", min: 10, max: 50, int: true },
+    { key: "mature", label: "Age when young foxes can breed", unit: "weeks", min: 0, max: 39, int: true },
     { key: "ref", label: "Refuges", unit: "% of patches", min: 0, max: 20, int: true },
     { key: "cull", label: "Fox culling", unit: "% per year", min: 0, max: 80, int: true },
     { key: "hunt", label: "Fox hunting success", min: 0.1, max: 0.7 },
@@ -1074,8 +1139,12 @@ const batch = setupBatch({
   experiments: [
     { q: "How often do foxes and rabbits both survive?", note: "100 runs of the classic cycles for 15 years. The equations predict both survive every time. In the model, a deep rabbit crash sometimes starves every fox, purely by chance.",
       apply: () => { setPreset(0); el("years").value = 12; updateLabels(); }, set: { mode: "repeat", n: 100, outcome: "outcome" } },
-    { q: "Is the cycle period what Lotka–Volterra predicts?", note: "Each run's numbers are fitted to the Lotka–Volterra equations and the period 2π/√(ad) compared with the measured repeat time. Expect the measured cycles to be longer than the fitted equations say (often by a third or more): young foxes take 6 months to breed and rabbits are also limited by grass, and both delays slow the cycle, which the equations leave out. A second hump at about twice the period comes from runs where big and small cycles alternate, so the pattern only repeats every two cycles. Runs with no clear repeating cycle are left out.",
+    { q: "Is the cycle period what Lotka–Volterra predicts?", note: "Realistic rules. For each run, a (rabbit growth) and d (fox death) are worked out from the births and deaths it actually had, and the Lotka–Volterra period 2π/√(ad) is compared with the measured repeat time. Counted this way the two agree to within about 10–15% on average, though single runs scatter widely. Grass is the main reason realistic cycles are slow: it holds the rabbits' net growth rate a down, and the counted a includes that. (Fitting the equations to the shape of the cycles instead gives a period about 25–30% too short.) A second hump at about twice the period comes from runs where big and small cycles alternate, so the pattern only repeats every two cycles. Runs with no clear repeating cycle are left out.",
       apply: () => { setPreset(0); el("years").value = 20; updateLabels(); }, set: { mode: "repeat", n: 100, outcome: "period" } },
+    { q: "With Lotka–Volterra-like rules, is the period 2π/√(ad)?", note: "50 runs with the equations' own assumptions (unlimited grass, fixed birth and death rates, well-mixed hunting, no maturity delay) in a bigger field. Here a = 0.05 × 3 ÷ 2 per week and d = 0.04 per week straight from the rules, so the period should be 2π/√(ad) ≈ 2.2 years. The measured period comes out about 5–10% longer. The small excess is because chance pushes the cycles to large swings, and big Lotka–Volterra cycles are slower than the small-swing formula; it shrinks in bigger fields.",
+      apply: () => { setPreset(LV_PRESET); el("side").value = 50; el("R0").value = 670; el("F0").value = 125; updateLabels(); reset(); }, set: { mode: "repeat", n: 50, outcome: "period" } },
+    { q: "Why are real cycles slower than Lotka–Volterra?", note: "Lotka–Volterra-like rules, but now young foxes must wait before they can breed. The equations assume births respond to food at once, so their period (dashed line, from counted births and deaths) stays at about 2.2 years. The measured period rises with the delay, from about 2.4 years with no delay to about 3 years at 6 months and about 4 years at 9 months (with a lot of scatter): a delay in the predator's response stretches every cycle. Realistic foxes also live off fat reserves for weeks, which adds more delay.",
+      apply: () => { setPreset(LV_PRESET); el("years").value = 12; updateLabels(); }, set: { mode: "sweep", outcome: "period", v: "mature", from: 0, to: 39, steps: 4, reps: 10 } },
     { q: "Do small fields lose their foxes by chance?", note: "Sweep the field size. Small fields hold few foxes, so a short run of bad luck can wipe them out. The chance of extinction falls steeply as the field (and population) grows.",
       apply: () => { setPreset(0); el("years").value = 15; updateLabels(); }, set: { mode: "sweep", outcome: "foxExt", v: "side", from: 10, to: 40, steps: 7, reps: 20 } },
     { q: "With no foxes, do rabbits grow logistically?", note: "50 runs with no foxes, starting from 20 rabbits. The mean follows an S-shaped curve; the dashed line is the best-fitting logistic curve and gives the carrying capacity K.",

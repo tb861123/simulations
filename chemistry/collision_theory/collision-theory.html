@@ -443,7 +443,7 @@ function plot(c, o) {
      experiments – one-click questions;  describe(params) – text listing the settings used
    ===================================================================== */
 const Batch = (function () {
-  let cfg = null, overrides = {}, expIdx = -1, mode = "repeat", running = false, stopFlag = false, last = null;
+  let cfg = null, overrides = {}, expIdx = -1, useMine = false, mode = "repeat", running = false, stopFlag = false, last = null;
   const varOf = k => cfg.vars.find(v => v.key === k), outOf = k => cfg.outcomes.find(o => o.key === k);
   function init(c) {
     cfg = c;
@@ -471,7 +471,12 @@ const Batch = (function () {
   function applyExp(i, quiet) {
     const ex = cfg.experiments[i]; expIdx = i;
     [...el("bExps").children].forEach((b, k) => b.classList.toggle("on", k === i));
-    overrides = { ...(ex.params || {}) };
+    // An experiment is self-contained: it starts from a complete set of default settings, not from
+    // whatever happens to be in the left panel or was left over from the last experiment.
+    overrides = { ...(ex.params || {}) }; useMine = false;
+    el("bSeed").value = 1;
+    last = null; el("bSummary").innerHTML = '<span class="hint">Results will appear here.</span>'; el("bCsv").style.display = "none";
+    el("bProg").firstElementChild.style.width = "0%"; plot(el("bChart"), { series: [], xLabel: "", yLabel: "" });
     setMode(ex.mode);
     if (ex.mode === "repeat") { if (![...el("bN").options].some(o => +o.value === ex.n)) el("bN").insertAdjacentHTML("beforeend", `<option value="${ex.n}">${ex.n}</option>`); el("bN").value = ex.n; }
     else { el("bVar").value = ex.var; el("bFrom").value = ex.from; el("bTo").value = ex.to; el("bSteps").value = ex.steps; el("bReps").value = ex.reps; el("bX").value = ex.x || "lin"; el("bY").value = ex.y || "lin"; el("bStat").value = ex.stat || "mean"; }
@@ -480,11 +485,11 @@ const Batch = (function () {
     showFixed();
     if (!quiet) { el("bStatus").textContent = "Ready: press Run."; }
   }
-  function params() { return { ...cfg.baseParams(), ...overrides }; }
+  function params() { return useMine || expIdx < 0 ? cfg.baseParams() : { ...cfg.defaults, ...overrides }; }
   function showFixed() {
-    const ov = Object.keys(overrides).length;
+    const ov = !useMine && expIdx >= 0;
     el("bFixed").innerHTML = `Settings for every run${ov ? " (set by this experiment)" : " (from the left panel)"}: ${cfg.describe(params())}${ov ? ` · <a href="#" id="bUseMine" class="dl">use my own settings instead</a>` : ""}${cfg.headlessNote ? "<br>" + cfg.headlessNote : ""}`;
-    const u = el("bUseMine"); if (u) u.onclick = e => { e.preventDefault(); overrides = {}; showFixed(); };
+    const u = el("bUseMine"); if (u) u.onclick = e => { e.preventDefault(); useMine = true; showFixed(); };
   }
   function readSpec() {
     const s = { mode, out: el("bOut").value, x: el("bX").value, y: el("bY").value, stat: el("bStat").value, seed: Math.round(+el("bSeed").value || 1), params: params() };
@@ -507,6 +512,7 @@ const Batch = (function () {
     else { let k = 0; for (const x of spec.xs) for (let r = 0; r < spec.reps; r++) jobs.push({ x, seed: spec.seed + k++ }); }
     last = { spec, rows: [], total: jobs.length, done: false };
     running = true; stopFlag = false; el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").style.display = "none";
+    lockForm(true);
     const t0 = performance.now(); let j = 0, lastDraw = 0;
     function chunk() {
       const tc = performance.now();
@@ -522,12 +528,14 @@ const Batch = (function () {
       if (performance.now() - lastDraw > 400) { render(); lastDraw = performance.now(); }
       if (j < jobs.length && !stopFlag) setTimeout(chunk, 0);
       else {
-        running = false; last.done = true; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").style.display = "";
+        running = false; last.done = true; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").style.display = ""; lockForm(false);
         el("bStatus").textContent = `${stopFlag ? "Stopped after" : "Finished"} ${j} runs in ${secs.toFixed(1)} s.`; render();
       }
     }
     setTimeout(chunk, 10);
   }
+  // while a batch is running, the experiment buttons and settings cannot be changed
+  function lockForm(on) { document.querySelectorAll("#bExps button, #bLeft .bform select, #bLeft .bform input, #bLeft .seg button").forEach(e => e.disabled = on); }
   const outVals = (row, key, multi) => { const v = row.out[key]; return multi ? (Array.isArray(v) ? v : []) : [v]; };
   function render() {
     if (!last) return;
@@ -1188,6 +1196,7 @@ Batch.init({
     { key: "z", label: "Collision frequency", unit: "per ns" },
   ],
   baseParams: () => { const p = params(); delete p.seed; return p; },
+  defaults: { T: 400, nA: 60, nB: 60, vol: 100, Ea: 10, cat: 0, orient: 0, surface: 0, rxn: "CD", pieces: 1, quick: 0, minColl: 0, noConsume: 0, tMax: 6000 },
   describe: p => `${p.surface ? `A + solid (${validPieces(p.pieces)} piece${p.pieces > 1 ? "s" : ""}), ${p.nA} A` : `${p.rxn === "C" ? "A + B → C" : "A + B → C + D"}, ${p.nA} A + ${p.nB} B`}, ${Math.round(p.T)} K, volume ${Math.round(p.vol)}%, Ea ${p.Ea} kJ/mol${p.cat ? " (catalyst: halved)" : ""}${p.orient ? ", must hit the right way round" : ""}.`,
   runOnce: (p, seed) => runOnce({ ...p, pieces: validPieces(p.pieces), nA: Math.round(p.nA), nB: Math.round(p.nB) }, seed),
   theory(key, p0) {

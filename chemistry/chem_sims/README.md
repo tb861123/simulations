@@ -50,31 +50,20 @@ Each simulation includes:
 
 ---
 
-## Going Fully Offline
+## Works Offline
 
-By default every simulation loads p5.js from:
+Every simulation loads p5.js (v1.9.4) from the `vendor/` folder in this
+directory, so the suite needs no internet connection:
 
 ```
-https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js
+chem_sims/
+└── vendor/
+    ├── p5.min.js        (p5.js 1.9.4, unmodified)
+    └── p5-LICENSE.txt   (p5.js is LGPL-2.1)
 ```
 
-To make the suite work with **no internet connection at all**:
-
-1. Download `p5.min.js` from the CDN above while you have internet access.
-2. Create a `vendor/` folder inside this directory and save the file there:
-   ```
-   chem_sims/
-   └── vendor/
-       └── p5.min.js
-   ```
-3. In each `0N_*.html` file, replace the CDN `<script>` tag:
-   ```html
-   <!-- change this -->
-   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
-   <!-- to this -->
-   <script src="vendor/p5.min.js"></script>
-   ```
-4. All six simulations and `index.html` share the same folder, so one copy of the file covers everything.
+Keep `vendor/` next to the HTML files when copying the suite to another
+machine or a USB stick.
 
 ---
 

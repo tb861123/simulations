@@ -40,7 +40,7 @@ airway narrowing (asthma), haemoglobin (5–21 g/dL), carbon monoxide (COHb
 
 ## Presets
 
-Resting at sea level · Hard exercise · Top of Everest (acclimatised climber) ·
+Resting at sea level · Hard exercise · High on Everest (8400 m, acclimatised climber) ·
 Emphysema · Fibrosis · Anaemia · Carbon monoxide · Asthma attack · Trained
 athlete · Acclimatised at altitude · Shallow breathing (dead space) · Smoker.
 
@@ -49,15 +49,18 @@ athlete · Acclimatised at altitude · Shallow breathing (dead space) · Smoker.
 The model finds the steady state for the chosen settings (60 rounds of
 calculation until everything agrees):
 
-- **Air pressure:** P = 101.3 × (1 − 2.256 × 10⁻⁵ h)^5.256 kPa (standard
-  atmosphere). Inspired PO₂ = 0.2093 × (P − 6.3 kPa water vapour).
+- **Air pressure:** West's formula, P (mmHg) = exp(6.63268 − 0.1112 h − 0.00149 h²)
+  with h in km, fitted to pressures measured on high mountains. It gives 33.7 kPa
+  (253 mmHg) on the summit of Everest, as measured there. (The standard atmosphere
+  gives only 31.4 kPa, because near the equator the air is warmer.)
+  Inspired PO₂ = 0.2093 × (P − 6.3 kPa water vapour).
 - **Ventilation:** minute ventilation = rate × tidal volume. Alveolar
   ventilation = rate × (tidal volume − 0.15 L dead space).
 - **Alveolar gas equations:** PACO₂ = 0.115 × VCO₂ (mL/min) ÷ alveolar
   ventilation (L/min); PAO₂ = PIO₂ − PACO₂ × (0.2093 + 0.7907 ÷ R).
 - **Automatic breathing:** keeps PaCO₂ near 5.3 kPa (lower above 60%
-  exercise), plus a hypoxic drive below PaO₂ ≈ 9 kPa (twice as strong when
-  acclimatised). Narrow airways limit the most air you can move (∝ (1 −
+  exercise), plus a hypoxic drive below PaO₂ ≈ 9 kPa (2.2 times as strong when
+  acclimatised, which drives CO₂ right down and so raises alveolar PO₂). Narrow airways limit the most air you can move (∝ (1 −
   narrowing)⁴, Poiseuille).
 - **Fick's law:** diffusing capacity D = 3.0 × area ÷ thickness (mL O₂/min/kPa,
   area in m², thickness in µm). 45% of capillaries are in use at rest and 100%
@@ -79,9 +82,7 @@ calculation until everything agrees):
 Assumptions are listed in full in the app. The main ones: a steady state only
 (no time to adapt), one average alveolus and capillary for the whole lung,
 haemoglobin reacts instantly, a simple version of the kidneys' adaptation at
-altitude, and simple lung-volume rules for disease. The standard atmosphere
-gives 31.5 kPa at the top of Everest; the real summit pressure is about 33.7
-kPa.
+altitude, and simple lung-volume rules for disease.
 
 ## Batch experiments
 
@@ -93,14 +94,19 @@ seed.
 | Question | Result |
 |---|---|
 | Does diffusion follow Fick's law? (sweep thickness 0.3–4 µm, rate where blood enters) | Matches Fick's law (∝ 1/thickness) within 1–3% up to 1.6 µm. Fitted log–log gradient −0.85 (theory −1). Above about 2 µm the model is higher, because blood returns from the body with less oxygen, so the pressure difference is bigger. |
-| Why does SpO₂ stay normal until the membrane is badly damaged? (50% exercise) | 96.6% at 0.3 µm, 96.0% at 0.64 µm, then 90.8% at 0.97, 78% at 1.3 and 64% at 1.65 µm. This threshold comes from the safety margin in transit time and the flat top of the S-curve. |
-| Does O₂ uptake follow Fick's law? (sweep area 10–100 m², 50% exercise) | Uptake is flat at about 1650 mL/min (what the muscles need) from 40 to 100 m² (perfusion-limited). It falls only below 40 m² (526 mL/min at 10 m²). Fitted gradient 0.44 vs Fick's 1. |
-| SpO₂ at altitude vs real measurements | Model (mean of 20 people) vs typical measured: sea level 97.2 vs 97.5; 1500 m 94.3 vs 95.5; 3000 m 91.4 vs 90.5; 4000 m 87.9 vs 86.5; 4500 m 85.7 vs 84; 5500 m 79.7 vs 80. |
+| Why does SpO₂ stay normal until the membrane is badly damaged? (50% exercise) | 96.6% at 0.3 µm, 96.0% at 0.64 µm, then 89.5% at 0.97, 74% at 1.3 and 61% at 1.65 µm. This threshold comes from the safety margin in transit time and the flat top of the S-curve. |
+| Does O₂ uptake follow Fick's law? (sweep area 10–100 m², 50% exercise) | Uptake is flat at about 1650 mL/min (what the muscles need) from 40 to 100 m² (perfusion-limited). It falls only below 40 m² (510 mL/min at 10 m²). Fitted gradient 0.46 vs Fick's 1. |
+| SpO₂ at altitude vs real measurements (unacclimatised) | Model (mean of 20 people) vs typical measured: sea level 97.2 vs 97.5; 1500 m 94.5 vs 95.5; 2500 m 91.9 vs 92.5; 3000 m 91.1 vs 90.5; 4000 m 86.8 vs 86.5; 4500 m 84.1 vs 84; 5500 m 76.9 vs 80 (the average person: 79.1). |
+| Everest check: blood from climbers at 8400 m (500 acclimatised people, Hb 19 g/dL) | Model mean PaO₂ 3.16 kPa (SD 0.40, range 2.2–4.2), PaCO₂ 1.75 kPa, SaO₂ 50.8% (range 30–71%). Grocott et al. 2009 (NEJM), four climbers breathing air at 8400 m on the way down from the summit: PaO₂ 3.28 kPa (range 2.55–3.93), PaCO₂ 1.77 kPa, SaO₂ about 54% (34–70%). The average person in the model gives 3.21 kPa, 1.69 kPa and 52.3%. |
 | How much do people vary? SpO₂ at rest (500 people) | Mean 97.2%, SD 0.38, range 96.0–98.1. The average person reads 97.4%. The crowd's mean is lower by 12 SE: this is real (variation pulls the mean down where the curve is flat), not chance. |
-| …and during hard exercise (80%, 500 people) | Mean 96.7%, SD 1.0, range 92–98: a wider spread than at rest. |
+| …and during hard exercise (80%, 500 people) | Mean 96.7%, SD 1.05, range 91–98: a wider spread than at rest. |
 | How much air do you need for exercise? (sweep 0–100%) | Follows the alveolar ventilation equation (CO₂ held at 5.3 kPa) within about 7% up to 80% exercise. Above that, the model rises above it (102 vs 76 L/min at 100%): the ventilatory threshold. |
 
-**Known limitations:** the acclimatised climber on Everest reads about 45%
-(arterial PO₂ 2.8 kPa); blood samples taken on the summit (2007) gave about
-54% and 3.3 kPa. The variation between people in the batch is smaller than
-real variation. Values are for teaching, not for clinical use.
+**Known limitations:** Grocott's samples were taken at 8400 m (36.3 kPa), so
+the Everest preset uses that height. On the summit itself (33.7 kPa) the model
+predicts SpO₂ about 45%, PaO₂ 2.85 kPa and PaCO₂ 1.61 kPa; no blood has been
+taken there. Above about 5000 m the model's average for unacclimatised
+visitors is 2–3% below the survey values, because random variation pulls the
+mean down on the steep part of the curve. The variation between people in the
+batch is smaller than real variation. Values are for teaching, not for
+clinical use.

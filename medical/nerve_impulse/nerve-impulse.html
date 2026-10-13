@@ -1076,7 +1076,13 @@ function setupBatch(cfg) {
     start(ex);
   });
 
-  $("bRun").addEventListener("click", () => { for (const x of $("bExps").children) x.classList.remove("on"); $("bNote").innerHTML = ""; start(null); });
+  // "Run batch" re-runs the chosen experiment (keeping its set-up and note) unless the
+  // user has since edited the form, in which case it runs their own set-up.
+  let chosen = -1;
+  $("bExps").addEventListener("click", e => { const b = e.target.closest("button"); if (b) chosen = +b.dataset.i; });
+  for (const id of ["bMode", "bVar", "bFrom", "bTo", "bSteps", "bReps", "bN", "bVary"])
+    for (const ev of ["input", "change"]) $(id).addEventListener(ev, () => { if (chosen < 0) return; chosen = -1; for (const x of $("bExps").children) x.classList.remove("on"); $("bNote").innerHTML = ""; });
+  $("bRun").addEventListener("click", () => start(chosen >= 0 ? cfg.experiments[chosen] : null));
   $("bStop").addEventListener("click", () => { st.stop = true; });
 
   function start(ex) {
@@ -1395,8 +1401,9 @@ setupBatch({
         const n = gg.length, xs = gg.map(q => q.x), ys = gg.map(q => Math.log(q.mean)), mx = xs.reduce((a, b) => a + b) / n, my = ys.reduce((a, b) => a + b) / n;
         let sxy = 0, sxx = 0; for (let i = 0; i < n; i++) { sxy += (xs[i] - mx) * (ys[i] - my); sxx += (xs[i] - mx) ** 2; }
         const q10 = Math.exp(10 * sxy / sxx);
-        const block = g.find(q => q.mean === 0 && q.x > p.temp);
-        return `Fitted Q10 of conduction speed (up to 30 °C): <b>${q10.toFixed(2)}</b> — speed is multiplied by this for every 10 °C warmer (theory √3 = 1.73; real nerves about 1.5–1.9).${block ? ` The impulse fails at ${block.x} °C (heat block).` : ""}`; } });
+        const zero = g.filter(q => q.mean === 0);
+        const block = zero.length ? ` No impulse at ${zero.map(q => +q.x.toFixed(1)).join(", ")} °C: the threshold rises when warm, so this stimulus (${p.stim} µA/cm²) is too weak there. Use a stronger stimulus.` : "";
+        return `Fitted Q10 of conduction speed (up to 30 °C): <b>${q10.toFixed(2)}</b> — speed is multiplied by this for every 10 °C warmer (theory √3 = 1.73; real nerves about 1.5–1.9).${block}`; } });
     }
     return out;
   },

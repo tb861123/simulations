@@ -24,7 +24,12 @@ or Edge.
 The old repos (`Fluid_dynamics`, `chem_sims`, `physics-sims`) are retired.
 Never commit to them; make every change here. A new simulation goes in its
 own folder inside the right subject folder and gets a row in the root
-`README.md`.
+`README.md`, a line in the `SIMS` list in the front page `index.html`, and a
+thumbnail `thumbs/<folder>.jpg` (a 640×360 screenshot).
+
+`tools/worksheets/` holds the teacher-side scripts that run every batch
+experiment and generate each simulation's `worksheets.html`. Re-run them for
+any simulation whose batch experiments change (see its README).
 
 Each folder is self-contained: its scripts use paths relative to their own
 folder, and commands run from inside that folder. Keep it that way. Don't

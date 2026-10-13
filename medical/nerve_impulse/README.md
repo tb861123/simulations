@@ -87,7 +87,7 @@ illustrations, not to scale. The full list is inside the simulation under
 
 ## Batch run
 
-**📊 Batch run** opens a panel over the centre view. Mode A repeats a set-up
+**📊 Batch run** opens a panel over the centre view. Clicking an experiment runs it; **▶ Run batch** repeats the chosen experiment until you change the set-up yourself. Mode A repeats a set-up
 with random channel noise. Mode B sweeps one input (stimulus strength,
 diameter, temperature, gap between pulses, Na⁺ block, myelin damage,
 internode length or pulse length). Results show as a histogram or a scatter
@@ -96,9 +96,9 @@ download.
 
 | Experiment | Theory | Result |
 |---|---|---|
-| Is the impulse all-or-nothing? | Step at threshold | Nothing below 27.6 µA/cm²; above it the amplitude is 95.9–96.0 mV every time (within 0.1%) |
-| Unmyelinated: does speed ∝ √diameter? | log–log gradient 0.5 | Gradient 0.500, R² = 1.0000 (1 µm: 0.90 m/s, 1 mm: 28.5 m/s at 18.5 °C) |
+| Is the impulse all-or-nothing? | Step at threshold | Nothing below about 27.6 µA/cm²; above it the amplitude is 95.75–95.81 mV every time (within 0.1%) |
+| Unmyelinated: does speed ∝ √diameter? | log–log gradient 0.5 | Gradient 0.500, R² = 1.0000 (1 µm: 0.93 m/s, 1 mm: 29.3 m/s at 18.5 °C) |
 | Myelinated: does speed ∝ diameter? | log–log gradient 1 | Gradient 0.999 (2 µm: 11.5 m/s, 20 µm: 115 m/s) |
-| How does temperature change the speed? | v ∝ √(gate rate), Q10 = 1.73 | Fitted Q10 = 1.53: lower, because channel currents speed up less than the gates |
-| Do noisy channels make firing a matter of chance? | Sharp step (no noise) at 83.7 µA/cm² | S-curve: 50% firing at about 82 µA/cm², SD about 2 µA/cm² (10–90% range about 79–85) |
-| How soon can a second impulse follow? | (no simple formula) | No second impulse below about 3.2 ms; full-size second impulse above it |
+| How does temperature change the speed? | v ∝ √(gate rate), Q10 = 1.73 | Conducts at every step from 0 to 42 °C (9.0 → 46.5 m/s). Fitted Q10 = 1.53: lower, because channel currents speed up less than the gates |
+| Do noisy channels make firing a matter of chance? | Sharp step (no noise) at 83.7 µA/cm² | S-curve: 50% firing at about 82–85 µA/cm², SD about 2–5 µA/cm² (it varies from batch to batch because the noise is random) |
+| How soon can a second impulse follow? | (no simple formula) | No second impulse at gaps of 2.5 ms or less; full-size (96–98 mV) second impulse from 3 ms |

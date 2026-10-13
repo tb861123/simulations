@@ -60,13 +60,13 @@ offline.
 ## Batch experiments
 
 A ⇌ B runs as numbers only (same chances, no positions), so it is very fast. The others run
-the full particle model with no drawing. Results from testing (seed 1):
+the full particle model with no drawing. Each experiment sets every input itself, so its result is the same whatever is in the left panel or was run before. Results from testing (seed 1):
 
 | Experiment | Result | Theory |
 |---|---|---|
 | Kc from 50 repeat runs (HI, 700 K) | mean 56.4, SD 14.9, SE 2.1 | 50.3 (+12%, 2.9 SE) |
 | SD of Kc against number of particles (A ⇌ B, 25–1600) | log–log gradient −0.53 ± 0.05 | −0.5 |
-| van 't Hoff, A ⇌ B 300–700 K | ΔH = −5.6 ± 0.1 kJ/mol | −6.0 |
+| van 't Hoff, A ⇌ B 300–700 K (800 particles) | ΔH = −6.2 ± 0.1 kJ/mol; every row within 2.7 SE | −6.0 |
 | Haber yield against pressure, 100–600 atm (723 K) | 38% → 64%, every point within 2 SE | 40% → 64% |
 | Haber yield against temperature, 550–900 K (200 atm) | 58% → 37% | 61% → 37% |
 | Time to equilibrium, A ⇌ B, without and with catalyst | 238 ps and 28.7 ps | 243 and 27.9 ps |
