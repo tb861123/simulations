@@ -1,7 +1,7 @@
 # Nuclear Fusion Barrier
 
 How much energy and pressure two nuclei need to fuse, shown on a
-potential-energy diagram. An incoming nucleus climbs the Coulomb barrier (the
+potential-energy diagram. An incoming nucleus rolls up the Coulomb barrier (the
 electric repulsion between two positive nuclei). It bounces back, tunnels
 through, or goes over the top. If it gets through, it drops into the
 strong-force well and fuses.

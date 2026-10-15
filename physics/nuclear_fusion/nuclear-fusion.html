@@ -637,11 +637,21 @@ function drawWell() {
   drawIncoming(ctx, g);
 }
 function niceStep(x) { const e = 10 ** Math.floor(Math.log10(x)), f = x / e; return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * e; }
-function drawNucleus(ctx, x, y, nuc, scale = 1) {
+const ballRadius = nuc => (6 + 3.2 * Math.cbrt(nuc.A)) * 1.05;
+function drawNucleus(ctx, x, y, nuc, scale = 1, ang = null) {
   const r = (6 + 3.2 * Math.cbrt(nuc.A)) * scale;
   const gr = ctx.createRadialGradient(x - r * .3, y - r * .3, r * .2, x, y, r); gr.addColorStop(0, "#ffd6a0"); gr.addColorStop(1, "#e4572e");
   ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  if (ang !== null) {                 // a spot on the rim shows it rolling
+    ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.beginPath(); ctx.arc(x - Math.sin(ang) * r * 0.72, y - Math.cos(ang) * r * 0.72, Math.max(1.6, r * 0.16), 0, 7); ctx.fill();
+  }
   ctx.fillStyle = "#14133b"; ctx.font = `bold ${Math.round(9 * scale + 2)}px system-ui`; ctx.textAlign = "center"; ctx.fillText(nuc.sym, x, y + 4);
+}
+// Where the inner wall of the well is at height E (for E below the barrier top): solve Udraw(r) = E
+function rInner(E) {
+  const pi = PI; if (E >= pi.Ec) return pi.R;
+  let a = pi.R * 0.82, b = pi.R; for (let k = 0; k < 40; k++) { const m = (a + b) / 2; if (Udraw(m) > E) b = m; else a = m; }
+  return (a + b) / 2;
 }
 // The incoming nucleus rides along its energy line. The gap between the line and the curve is its kinetic energy.
 function drawIncoming(ctx, g) {
@@ -652,7 +662,7 @@ function drawIncoming(ctx, g) {
   ctx.strokeStyle = "rgba(241,175,40,.9)"; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
   ctx.beginPath(); ctx.moveTo(g.R, Math.max(yE, g.T)); ctx.lineTo(n.E >= pi.Ec ? X(pi.R, g) : xtp, Math.max(yE, g.T)); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle = "#f1af28"; ctx.textAlign = "right"; ctx.font = "bold 12px system-ui";
-  ctx.fillText(`energy of incoming nucleus E = ${fmtE(n.E)}`, g.R - 4, Math.max(yE, g.T + 10) - 6);
+  ctx.fillText(`energy of incoming nucleus E = ${fmtE(n.E)}`, g.R - 4, yE < g.T + 16 ? Math.max(yE, g.T) + 15 : yE - 6);
   // the forbidden zone under the barrier (where classical physics says it cannot be)
   if (n.E < pi.Ec && visibleE) {
     ctx.fillStyle = "rgba(168,109,171,.18)"; ctx.fillRect(X(pi.R, g), yE - 7, xtp - X(pi.R, g), 14);
@@ -663,20 +673,27 @@ function drawIncoming(ctx, g) {
     ctx.strokeStyle = "rgba(201,164,255,.8)"; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(xtp, yE - 12); ctx.lineTo(xtp, yE + 12); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillText("turning point", xtp, yE + 24);
   }
-  // kinetic energy arrow at the nucleus
-  let x = X(n.r, g), y = n.phase === "drop" || n.phase === "done" ? n.y : yE;
-  if (n.phase === "tunnel") {           // a decaying wave inside the barrier
-    const x0 = xtp, x1 = X(pi.R, g); ctx.strokeStyle = "rgba(201,164,255,.9)"; ctx.lineWidth = 1.5; ctx.beginPath();
-    for (let xx = x0; xx >= Math.max(x, x1); xx -= 1) { const f = (x0 - xx) / Math.max(1, x0 - x1), amp = 9 * Math.exp(-3 * f); const yy = yE + amp * Math.sin((x0 - xx) * 0.35); xx === x0 ? ctx.moveTo(xx, yy) : ctx.lineTo(xx, yy); }
-    ctx.stroke(); ctx.globalAlpha = 0.55;
+  // where the nucleus is: rolling ON the potential curve (its height is its potential energy),
+  // except while tunnelling, when it passes through the barrier at the height of its total energy
+  const rad = ballRadius(pi.B), ghost = n.phase === "tunnel" || n.phase === "tunnelBack";
+  const x = X(n.r, g) + (n.phase === "touch" ? (n.wob || 0) : 0), yCurve = Y(Udraw(n.r), g);
+  let y = (ghost ? yE : yCurve) - rad;
+  if (ghost) {                          // a decaying wave inside the barrier
+    const x0 = xtp, x1 = X(rInner(n.E), g); ctx.strokeStyle = "rgba(201,164,255,.9)"; ctx.lineWidth = 1.5; ctx.beginPath();
+    for (let xx = x0; xx >= x1; xx -= 1) { const f = (x0 - xx) / Math.max(1, x0 - x1), amp = 9 * Math.exp(-3 * f); const yy = yE + amp * Math.sin((x0 - xx) * 0.35); xx === x0 ? ctx.moveTo(xx, yy) : ctx.lineTo(xx, yy); }
+    ctx.stroke(); ctx.globalAlpha = 0.6;
   }
-  if (n.phase === "in" || n.phase === "out") {
-    const U = Udraw(n.r), yU = Y(U, g);
-    if (yU > yE + 6 && visibleE) { ctx.strokeStyle = "#5fd3e6"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 14, yE); ctx.lineTo(x + 14, yU); ctx.stroke();
-      ctx.fillStyle = "#5fd3e6"; ctx.textAlign = "left"; ctx.font = "11px system-ui"; ctx.fillText(`KE ${fmtE(n.E - U)}`, x + 18, (yE + yU) / 2 + 4); }
+  // kinetic energy = the gap between the energy line and the curve under the nucleus
+  if ((n.phase === "in" || n.phase === "out") && visibleE && yCurve > yE + 8) {
+    const U = Udraw(n.r);
+    ctx.strokeStyle = "#5fd3e6"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y - rad - 2); ctx.lineTo(x, yE + 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - 4, yE + 7); ctx.lineTo(x, yE + 1); ctx.lineTo(x + 4, yE + 7); ctx.stroke();
+    ctx.fillStyle = "#5fd3e6"; const nearR = x > g.R - 90; ctx.textAlign = nearR ? "right" : "left"; ctx.font = "11px system-ui"; ctx.fillText(`KE ${fmtE(n.E - U)}`, nearR ? x - 8 : x + 8, Math.max(yE + 14, (yE + y - rad) / 2 + 4));
   }
-  if (y < g.T) y = g.T + 8;
-  drawNucleus(ctx, x, y, pi.B, 1.05); ctx.globalAlpha = 1;
+  if (y < g.T + rad) y = g.T + rad;
+  if (n.lastX !== undefined && !ghost) n.ang += (x - n.lastX) / rad;      // rolling: turn by distance ÷ radius
+  n.lastX = x;
+  drawNucleus(ctx, x, y, pi.B, 1.05, n.ang); ctx.globalAlpha = 1;
   if (n.phase === "done" && n.result === "fused") {   // a flash and the energy released
     const a = Math.max(0, 1 - n.t / 1.4); ctx.fillStyle = `rgba(255,240,160,${a})`; ctx.beginPath(); ctx.arc(x, y, 18 + 60 * (1 - a), 0, 7); ctx.fill();
   }
@@ -705,7 +722,7 @@ function sampleEnergy() {
 const count = { sent: 0, bounce: 0, over: 0, tun: 0, fused: 0, apart: 0 };
 function sendOne() {
   setView();
-  NUCL.E = sampleEnergy(); NUCL.r = view.xmax; NUCL.phase = "in"; NUCL.t = 0; NUCL.result = ""; NUCL.lnPt = lnP(NUCL.E, PI, S.tunnel); NUCL.lucky = S.mode === "gamow";
+  NUCL.E = sampleEnergy(); NUCL.r = view.xmax; NUCL.ang = 0; NUCL.lastX = undefined; NUCL.phase = "in"; NUCL.t = 0; NUCL.result = ""; NUCL.lnPt = lnP(NUCL.E, PI, S.tunnel); NUCL.lucky = S.mode === "gamow";
   count.sent++; setStatus("", "Approaching"); el("msg").textContent = `Incoming ${PI.B.sym} with E = ${fmtE(NUCL.E)} (${fmt(NUCL.E / kT_())}× kT)`;
 }
 function setStatus(cls, txt) { const s = el("status"); s.className = cls; s.textContent = txt; }
@@ -726,28 +743,35 @@ function step(dt) {
       if (n.lucky || rng() < Math.exp(n.lnPt)) { n.phase = "tunnel"; n.t = 0; count.tun++; setStatus("tunnel", "Tunnelling!"); el("msg").textContent = `It tunnelled through: a ${oneIn(n.lnPt)} chance at this energy${n.lucky ? " (this mode shows only the nuclei that make it)" : ""}.`; }
       else { n.phase = "out"; count.bounce++; setStatus("bounce", "Bounced back"); el("msg").textContent = `Stopped ${fmtFm(rtp)} away: ${fmtFm(rtp - pi.R)} short of touching. Bounced back.`; }
     }
-  } else if (n.phase === "tunnel") {
-    const rtp = rTurn(n.E, pi); const f = Math.min(1, n.t / 1.2);
-    n.r = S.xMode === "log" ? Math.exp(Math.log(rtp) + f * (Math.log(pi.R) - Math.log(rtp))) : rtp + f * (pi.R - rtp);
-    if (f >= 1) arrive("tunnel");
+  } else if (n.phase === "tunnel" || n.phase === "tunnelBack") {
+    // straight through the barrier at the height of its energy, from the turning point to the inner wall
+    const rA = rTurn(n.E, pi), rB = rInner(n.E), f = Math.min(1, n.t / 1.2), [r0, r1] = n.phase === "tunnel" ? [rA, rB] : [rB, rA];
+    n.r = S.xMode === "log" ? Math.exp(Math.log(r0) + f * (Math.log(r1) - Math.log(r0))) : r0 + f * (r1 - r0);
+    if (f >= 1) { if (n.phase === "tunnel") arrive("tunnel"); else { n.phase = "out"; n.t = 0; } }
   } else if (n.phase === "out") {
     move(1); if (n.r >= view.xmax) done(1.0);
   } else if (n.phase === "drop") {
-    const f = Math.min(1, n.t / 0.8); n.r = pi.R * (1 - 0.35 * f);
-    n.y = n.y0 + (n.y1 - n.y0) * f * f; if (f >= 1) { n.phase = "done"; n.t = 0; }
+    // over the top (or out of the tunnel): it rolls down the inside wall into the well, speeding up as it falls
+    const f = Math.min(1, n.t / 0.9), rEnd = pi.R * 0.5;
+    n.r = S.xMode === "log" ? Math.exp(Math.log(n.r0) + f * f * (Math.log(rEnd) - Math.log(n.r0))) : n.r0 + f * f * (rEnd - n.r0);
+    if (f >= 1) { n.phase = "done"; n.t = 0; }
+  } else if (n.phase === "touch") {
+    // weak / unbound reactions: they touch, wobble, then come apart
+    n.r = n.r0; n.wob = 3 * Math.sin(n.t * 30);
+    if (n.t > 0.7) { n.wob = 0; }
+    if (n.t > 0.7) { n.r = n.r0; if (n.how === "tunnel") { n.phase = "tunnelBack"; n.t = 0; } else { n.phase = "out"; n.t = 0; } }
   } else if (n.phase === "done") {
-    if (n.result === "apart") { n.phase = "out"; n.r = pi.R; return; }
     if (n.t > 1.6) done(0);
   } else if (n.phase === "wait") { if (n.t > n.hold) { n.phase = "idle"; if (S.running) sendOne(); } }
 }
 // The nuclei touch: they fuse, or (weak / unbound reactions) fall apart again
 function arrive(how) {
-  const n = NUCL, pi = PI, c = el("well"), g = geom(c.clientWidth, c.clientHeight);
+  const n = NUCL, pi = PI;
   if (pi.kind === "strong") {
-    n.phase = "drop"; n.t = 0; n.y0 = Y(n.E, g); n.y1 = Y(view.well, g) - 14; n.result = "fused"; count.fused++;
+    n.phase = "drop"; n.t = 0; n.r0 = how === "over" ? pi.R : rInner(n.E); n.result = "fused"; count.fused++;
     setStatus("fused", "Fused!"); el("msg").innerHTML = `${how === "over" ? "Over the top" : "Through the barrier"}: the strong force pulls them together. <b>${pi.A.sym} + ${pi.B.sym} → ${pi.prod}</b>, releasing ${fmtE(pi.Q * 1000)}.`;
   } else {
-    n.phase = "done"; n.t = 0; n.result = "apart"; count.apart++; setStatus("apart", "Fell apart");
+    n.phase = "touch"; n.t = 0; n.how = how; n.r0 = how === "over" ? pi.R : rInner(n.E); n.result = "apart"; count.apart++; setStatus("apart", "Fell apart");
     el("msg").textContent = pi.kind === "weak" ? "They touched, but the weak force did not turn a proton into a neutron in time, so they flew apart (this almost always happens)." : `They touched, but ${pi.prod.replace(/ \(.*/, "")} is not stable and falls straight apart.`;
   }
 }
