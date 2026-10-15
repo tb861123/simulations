@@ -4,7 +4,9 @@ How much energy and pressure two nuclei need to fuse, shown on a
 potential-energy diagram. An incoming nucleus rolls up the Coulomb barrier (the
 electric repulsion between two positive nuclei). It bounces back, tunnels
 through, or goes over the top. If it gets through, it drops into the
-strong-force well and fuses.
+strong-force well, rolls across to the target nucleus at r = 0 and fuses. The
+new nucleus is shown on the left-hand side, and any neutron, proton, gamma ray
+or positron flies away.
 
 Open `nuclear-fusion.html` in Chrome or Edge, with no install and no internet
 needed.

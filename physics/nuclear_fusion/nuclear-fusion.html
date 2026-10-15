@@ -321,6 +321,13 @@ const PAIRS = {
   pc12:   { a: "p", b: "c12", S: 1.34, Q: 1.944, prod: "¹³N + γ", kind: "strong", note: "the first step of the CNO cycle in stars heavier than the Sun" },
   c12c12: { a: "c12", b: "c12", S: 8.83e19, Q: 4.62, prod: "²⁰Ne + ⁴He  or  ²³Na + p", kind: "strong", note: "carbon burning in the cores of very massive stars" },
 };
+// What the animation shows after fusing: the nucleus that stays at r = 0, and what flies away.
+// (For reactions with two outcomes one is picked at random each time.)
+const FUSE = {
+  pp: [["²H", 2, "e⁺ + ν"]], pd: [["³He", 3, "γ"]], phe3: [["⁴He", 4, "e⁺ + ν"]],
+  dd: [["³H", 3, "p"], ["³He", 3, "n"]], dt: [["⁴He", 4, "n"]], dhe3: [["⁴He", 4, "p"]], he3he3: [["⁴He", 4, "2 p"]],
+  he3he4: [["⁷Be", 7, "γ"]], pli7: [["⁴He", 4, "⁴He"]], pc12: [["¹³N", 13, "γ"]], c12c12: [["²⁰Ne", 20, "⁴He"], ["²³Na", 23, "p"]],
+};
 const PAIR_ORDER = ["pp", "pd", "phe3", "phe4", "dd", "dt", "dhe3", "he3he3", "he3he4", "he4he4", "pli7", "pc12", "c12c12"];
 
 /* =====================================================================
@@ -628,13 +635,36 @@ function drawWell() {
   ctx.strokeStyle = "rgba(143,214,148,.6)"; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(xR, g.T); ctx.lineTo(xR, g.B); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle = "#8fd694"; ctx.textAlign = "center"; ctx.font = "11px system-ui"; ctx.fillText(`R = ${fmtFm(pi.R)}`, xR, g.T + 26);
   // the fixed nucleus, drawn at the left edge
-  const yT = Math.min(g.B - 18, Math.max(g.T + 20, Y(view.well, g) - 22));
-  drawNucleus(ctx, g.L + 20, yT, pi.A, 1.25); ctx.fillStyle = "#a3ab96"; ctx.textAlign = "left"; ctx.font = "11px system-ui"; ctx.fillText("target (r = 0)", g.L + 4, yT - 18);
+  const { x: xT, y: yT } = targetXY(g), fusedNow = NUCL.phase === "done" && NUCL.result === "fused";
+  if (fusedNow) drawProduct(ctx, g);
+  else { drawNucleus(ctx, xT, yT, pi.A, 1.25); ctx.fillStyle = "#a3ab96"; ctx.textAlign = "left"; ctx.font = "11px system-ui"; ctx.fillText("target (r = 0)", g.L + 4, yT - 18); }
   // thermal energy reference line
   const ykT = Y(kT_(), g);
   if (ykT > g.T && ykT < g.B) { ctx.strokeStyle = "rgba(95,211,230,.55)"; ctx.setLineDash([2, 5]); ctx.beginPath(); ctx.moveTo(g.L, ykT); ctx.lineTo(g.R, ykT); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = "#5fd3e6"; ctx.textAlign = "left"; ctx.font = "11px system-ui"; ctx.fillText(`kT = ${fmtE(kT_())} (typical energy)`, X(pi.R, g) + 8, ykT + 13); }
   drawIncoming(ctx, g);
+}
+// where the target nucleus sits on the diagram: at r = 0, on the floor of the well, at the left-hand side
+function targetXY(g) { return { x: g.L + 20, y: Math.min(g.B - 18, Math.max(g.T + 20, Y(view.well, g) - 22)) }; }
+// After fusing: one new nucleus at r = 0 (the left-hand side), a flash, and the particle that flies away
+function drawProduct(ctx, g) {
+  const n = NUCL, { x, y } = targetXY(g), f = n.fuse || ["?", 4, ""];
+  const a = Math.max(0, 1 - n.t / 1.2);
+  ctx.fillStyle = `rgba(255,240,160,${0.85 * a})`; ctx.beginPath(); ctx.arc(x, y, 16 + 70 * (1 - a), 0, 7); ctx.fill();
+  ctx.strokeStyle = "rgba(143,214,148,.9)"; ctx.lineWidth = 2.5; const rr = (6 + 3.2 * Math.cbrt(f[1])) * 1.3 + 4;
+  ctx.beginPath(); ctx.arc(x, y, rr, 0, 7); ctx.stroke();
+  drawNucleus(ctx, x, y, { sym: f[0], A: f[1] }, 1.3);
+  ctx.fillStyle = "#8fd694"; ctx.textAlign = "left"; ctx.font = "bold 12px system-ui"; ctx.fillText(`fused: ${f[0]}`, g.L + 4, y - rr - 20);
+  ctx.fillStyle = "#dfe3d6"; ctx.font = "11px system-ui"; ctx.fillText(`${fmtE(PI.Q * 1000)} released`, g.L + 4, y - rr - 6);
+  if (f[2]) {                            // the particle carrying most of the energy away
+    const d = 30 + 260 * Math.min(1, n.t / 1.6), px = x + d * 0.9, py = y - d * 0.55;
+    if (py > g.T) {
+      const photon = f[2] === "γ";
+      ctx.fillStyle = photon ? "#fff59a" : "#5fd3e6"; ctx.beginPath(); ctx.arc(px, py, photon ? 4 : 6, 0, 7); ctx.fill();
+      if (photon) { ctx.strokeStyle = "#fff59a"; ctx.lineWidth = 1.5; ctx.beginPath(); for (let k = 0; k <= 30; k++) { const q = k / 30, xx = px - q * 40 * 0.9, yy = py + q * 40 * 0.55 + 4 * Math.sin(q * 18); k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke(); }
+      ctx.fillStyle = photon ? "#fff59a" : "#5fd3e6"; ctx.font = "bold 12px system-ui"; ctx.fillText(f[2], px + 9, py + 4);
+    }
+  }
 }
 function niceStep(x) { const e = 10 ** Math.floor(Math.log10(x)), f = x / e; return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * e; }
 const ballRadius = nuc => (6 + 3.2 * Math.cbrt(nuc.A)) * 1.05;
@@ -691,12 +721,15 @@ function drawIncoming(ctx, g) {
     ctx.fillStyle = "#5fd3e6"; const nearR = x > g.R - 90; ctx.textAlign = nearR ? "right" : "left"; ctx.font = "11px system-ui"; ctx.fillText(`KE ${fmtE(n.E - U)}`, nearR ? x - 8 : x + 8, Math.max(yE + 14, (yE + y - rad) / 2 + 4));
   }
   if (y < g.T + rad) y = g.T + rad;
-  if (n.lastX !== undefined && !ghost) n.ang += (x - n.lastX) / rad;      // rolling: turn by distance ÷ radius
-  n.lastX = x;
-  drawNucleus(ctx, x, y, pi.B, 1.05, n.ang); ctx.globalAlpha = 1;
-  if (n.phase === "done" && n.result === "fused") {   // a flash and the energy released
-    const a = Math.max(0, 1 - n.t / 1.4); ctx.fillStyle = `rgba(255,240,160,${a})`; ctx.beginPath(); ctx.arc(x, y, 18 + 60 * (1 - a), 0, 7); ctx.fill();
+  if (n.phase === "done" && n.result === "fused") { ctx.globalAlpha = 1; return; }   // now part of the new nucleus on the left
+  let bx = x, by = y;
+  if (n.phase === "merge") {             // along the floor of the well to the target at r = 0, pulled ever faster by the strong force
+    const T = targetXY(g), f = Math.min(1, n.t / 0.7) ** 2, x0 = X(pi.R * 0.5, g), y0 = Y(view.well, g) - rad;
+    bx = x0 + (T.x + rad * 0.6 - x0) * f; by = y0 + (T.y - y0) * f;
   }
+  if (n.lastX !== undefined && !ghost) n.ang += (bx - n.lastX) / rad;      // rolling: turn by distance ÷ radius
+  n.lastX = bx;
+  drawNucleus(ctx, bx, by, pi.B, 1.05, n.ang); ctx.globalAlpha = 1;
 }
 
 /* =====================================================================
@@ -754,14 +787,19 @@ function step(dt) {
     // over the top (or out of the tunnel): it rolls down the inside wall into the well, speeding up as it falls
     const f = Math.min(1, n.t / 0.9), rEnd = pi.R * 0.5;
     n.r = S.xMode === "log" ? Math.exp(Math.log(n.r0) + f * f * (Math.log(rEnd) - Math.log(n.r0))) : n.r0 + f * f * (rEnd - n.r0);
-    if (f >= 1) { n.phase = "done"; n.t = 0; }
+    if (f >= 1) { n.phase = "merge"; n.t = 0; }
+  } else if (n.phase === "merge") {
+    if (n.t >= 0.7) {                    // they have fused: one new nucleus at the left-hand side
+      n.phase = "done"; n.t = 0; const opts = FUSE[pi.key] || [["?", pi.A.A + pi.B.A, ""]]; n.fuse = opts[Math.floor(rng() * opts.length)];
+      el("msg").innerHTML = `<b>Fused!</b> ${pi.A.sym} + ${pi.B.sym} → <b>${n.fuse[0]}</b>${n.fuse[2] ? " + " + n.fuse[2] : ""}, releasing ${fmtE(pi.Q * 1000)}. The new nucleus sits at the bottom of the well${n.fuse[2] ? `; the ${n.fuse[2] === "γ" ? "gamma ray" : n.fuse[2]} carries energy away` : ""}.`;
+    }
   } else if (n.phase === "touch") {
     // weak / unbound reactions: they touch, wobble, then come apart
     n.r = n.r0; n.wob = 3 * Math.sin(n.t * 30);
     if (n.t > 0.7) { n.wob = 0; }
     if (n.t > 0.7) { n.r = n.r0; if (n.how === "tunnel") { n.phase = "tunnelBack"; n.t = 0; } else { n.phase = "out"; n.t = 0; } }
   } else if (n.phase === "done") {
-    if (n.t > 1.6) done(0);
+    if (n.t > 2.4) done(0);
   } else if (n.phase === "wait") { if (n.t > n.hold) { n.phase = "idle"; if (S.running) sendOne(); } }
 }
 // The nuclei touch: they fuse, or (weak / unbound reactions) fall apart again
@@ -769,7 +807,7 @@ function arrive(how) {
   const n = NUCL, pi = PI;
   if (pi.kind === "strong") {
     n.phase = "drop"; n.t = 0; n.r0 = how === "over" ? pi.R : rInner(n.E); n.result = "fused"; count.fused++;
-    setStatus("fused", "Fused!"); el("msg").innerHTML = `${how === "over" ? "Over the top" : "Through the barrier"}: the strong force pulls them together. <b>${pi.A.sym} + ${pi.B.sym} → ${pi.prod}</b>, releasing ${fmtE(pi.Q * 1000)}.`;
+    setStatus("fused", "Fused!"); el("msg").innerHTML = `${how === "over" ? "Over the top" : "Through the barrier"}: it drops into the well and the strong force pulls the two nuclei together…`;
   } else {
     n.phase = "touch"; n.t = 0; n.how = how; n.r0 = how === "over" ? pi.R : rInner(n.E); n.result = "apart"; count.apart++; setStatus("apart", "Fell apart");
     el("msg").textContent = pi.kind === "weak" ? "They touched, but the weak force did not turn a proton into a neutron in time, so they flew apart (this almost always happens)." : `They touched, but ${pi.prod.replace(/ \(.*/, "")} is not stable and falls straight apart.`;
