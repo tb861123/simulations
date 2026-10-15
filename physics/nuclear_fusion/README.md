@@ -24,9 +24,13 @@ needed.
   10 billion K and pressure from 1 Pa to 10²⁴ Pa, both on logarithmic sliders.
 - **Switch quantum tunnelling on or off** to see why the Sun could not shine
   without it.
-- **Watch nuclei come in.** You can draw their energies at random from the hot
-  gas (the true chances), show only the rare ones that fuse, or set the energy
-  yourself.
+- **Watch nuclei come in.** The default, *fast-forward to the next fusion*,
+  keeps the true odds but skips ahead. It draws at random how many collisions
+  bounce back before the next one gets through, adds them to the counters,
+  shows one bounce, then shows the collision that gets through. In a tokamak
+  that means a fusion every few seconds. The other modes show every collision
+  in real time (true chances, so you may wait a long time), show only the rare
+  ones that get through, or use an energy you choose.
 - **Change the axes.** Distance can be logarithmic or linear. Energy can show
   the whole barrier at true proportions, or zoom in on the incoming nucleus.
 

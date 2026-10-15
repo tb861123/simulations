@@ -164,11 +164,13 @@
     <h2 class="gap">The animation</h2>
     <div class="ctl"><label>Energies of the incoming nuclei</label>
       <select id="mode">
-        <option value="thermal">Random, from the hot gas (true chances)</option>
-        <option value="gamow">Only the lucky ones that fuse</option>
+        <option value="fastfwd">Fast-forward to the next fusion (true odds)</option>
+        <option value="thermal">Random, from the hot gas (true chances, real time)</option>
+        <option value="gamow">Only the lucky ones that get through</option>
         <option value="manual">I choose the energy</option>
       </select>
     </div>
+    <div class="hint" id="modeHint" style="margin:-4px 0 9px"></div>
     <div class="ctl" id="manualBox" style="display:none">
       <label>Energy of the incoming nucleus <output id="o_E"></output></label>
       <input type="range" id="logE" min="-2" max="4.5" step="0.01" value="1.5">
@@ -391,7 +393,7 @@ function plasma(T, P, pi) {
 /* =====================================================================
    3. STATE
    ===================================================================== */
-const S = { pair: "pp", logT: 7.2, logP: 16.4, tunnel: true, mode: "thermal", logE: 1.5, xMode: "log", yMode: "full", speed: 1, running: false };
+const S = { pair: "pp", logT: 7.2, logP: 16.4, tunnel: true, mode: "fastfwd", logE: 1.5, xMode: "log", yMode: "full", speed: 1, running: false };
 let PI = pairInfo("pp");
 const kTof = T => K_B * T / KEV;                       // keV
 const T_ = () => 10 ** S.logT, P_ = () => 10 ** S.logP, kT_ = () => kTof(T_());
@@ -743,25 +745,59 @@ function buildSampler() {
   let s = 0; for (let i = 0; i <= n; i++) { s += Math.exp(lv[i] - m); c[i] = s; }
   sampler = { E, c, tot: s };
 }
-function sampleEnergy() {
+function sampleEnergy(lucky = S.mode === "gamow") {
   const kT = kT_();
   if (S.mode === "manual") return 10 ** S.logE;
-  if (S.mode === "gamow" && sampler && sampler.tot > 0) {
+  if (lucky && sampler && sampler.tot > 0) {
     const u = rng() * sampler.tot; let a = 0, b = sampler.c.length - 1; while (a < b) { const m = (a + b) >> 1; if (sampler.c[m] < u) a = m + 1; else b = m; }
     return sampler.E[a] * (0.98 + 0.04 * rng());
   }
   return -kT * Math.log(1 - rng());                        // Boltzmann factor e^(−E/kT)
 }
 const count = { sent: 0, bounce: 0, over: 0, tun: 0, fused: 0, apart: 0 };
+/* FAST-FORWARD: real fusion is rare (e.g. 1 collision in 1,400 in a tokamak, 1 in 160 000 in the Sun's core),
+   so watching collisions one by one, you might wait a long time. Fast-forward keeps the TRUE odds but skips ahead:
+   it draws at random how many collisions bounce back before the next one gets through (a geometric
+   distribution with the real chance p per collision), adds them to the counters, shows one of those bounces
+   quickly, then shows the collision that gets through. */
+let ffQueue = [];
+function lnChanceNow() { return S.tunnel ? G.lnQ : G.lnC; }
+function planFastForward() {
+  const lp = lnChanceNow();
+  // number of failures before the first success: k = ln(u)/ln(1 − p); for tiny p, k ≈ −ln(u)/p. Kept as a log for huge numbers.
+  const u = Math.max(1e-300, rng()), p = Math.exp(lp);
+  const lnK = p > 1e-6 ? Math.log(Math.max(0, Math.floor(Math.log(u) / Math.log1p(-p)))) : Math.log(-Math.log(u)) - lp;
+  ffQueue = [];
+  if (lnK > 0 || (lnK === 0)) ffQueue.push({ kind: "bounce", lnK });
+  ffQueue.push({ kind: "through", lnK });
+}
+function addCount(key, lnN) {           // add e^lnN to a counter (counts can be astronomically large)
+  if (!isFinite(lnN)) return; const v = Math.exp(lnN); count[key] = isFinite(v) ? count[key] + v : Infinity; count[key + "Ln"] = lse(count[key + "Ln"] ?? -Infinity, lnN);
+}
 function sendOne() {
   setView();
-  NUCL.E = sampleEnergy(); NUCL.r = view.xmax; NUCL.ang = 0; NUCL.lastX = undefined; NUCL.phase = "in"; NUCL.t = 0; NUCL.result = ""; NUCL.lnPt = lnP(NUCL.E, PI, S.tunnel); NUCL.lucky = S.mode === "gamow";
-  count.sent++; setStatus("", "Approaching"); el("msg").textContent = `Incoming ${PI.B.sym} with E = ${fmtE(NUCL.E)} (${fmt(NUCL.E / kT_())}× kT)`;
+  let lucky = S.mode === "gamow", fast = 1, job = null;
+  if (S.mode === "fastfwd") { if (!ffQueue.length) planFastForward(); job = ffQueue.shift(); lucky = job.kind === "through"; fast = job.kind === "bounce" ? 2.5 : 1; }
+  let E = sampleEnergy(lucky);
+  if (job && job.kind === "bounce") { for (let k = 0; k < 20 && E >= PI.Ec; k++) E = sampleEnergy(false); }   // a typical one that bounces
+  NUCL.E = E; NUCL.r = view.xmax; NUCL.ang = 0; NUCL.lastX = undefined; NUCL.phase = "in"; NUCL.t = 0; NUCL.result = ""; NUCL.lnPt = lnP(E, PI, S.tunnel);
+  NUCL.lucky = lucky; NUCL.forceBounce = !!(job && job.kind === "bounce"); NUCL.fast = fast;
+  setStatus("", "Approaching");
+  if (job && job.kind === "bounce") {
+    // all the skipped collisions bounced back; this animation is one of them
+    const lnRest = job.lnK > 20 ? job.lnK : Math.log(Math.max(0, Math.exp(job.lnK) - 1));   // the others; this one is counted as it bounces
+    addCount("sent", lnRest); addCount("bounce", lnRest); count.sent++;
+    el("msg").innerHTML = `⏩ Fast-forward: <b>${bigNum(job.lnK)}</b> nuclei bounced back before the next one got through (true odds here: ${oneIn(lnChanceNow())} per collision). Here is one of them…`;
+  } else if (job) {
+    count.sent++;
+    el("msg").innerHTML = `⏩ …and here is the one that gets through, with E = ${fmtE(E)} (${fmt(E / kT_())}× kT).`;
+  } else { count.sent++; el("msg").textContent = `Incoming ${PI.B.sym} with E = ${fmtE(E)} (${fmt(E / kT_())}× kT)`; }
 }
+function bigNum(ln) { if (!isFinite(ln)) return "infinitely many"; const v = Math.exp(ln); return v < 1e9 ? Math.round(v).toLocaleString("en-GB") : sciLn(ln, 1); }
 function setStatus(cls, txt) { const s = el("status"); s.className = cls; s.textContent = txt; }
 function step(dt) {
   const n = NUCL, pi = PI; if (n.phase === "idle") return;
-  const sp = S.speed;
+  const sp = S.speed * (n.fast || 1);
   n.t += dt * sp;
   const lnMin = Math.log(view.xmin), lnMax = Math.log(view.xmax), span = S.xMode === "log" ? lnMax - lnMin : view.xmax - view.xmin;
   // speed along r: proportional to √(KE), never quite zero so the nucleus visibly reaches the turning point
@@ -773,7 +809,7 @@ function step(dt) {
     if (n.E >= pi.Ec) { if (n.r <= pi.R) { n.r = pi.R; count.over++; arrive("over"); } }
     else if (n.r <= rtp) {
       n.r = rtp;
-      if (n.lucky || rng() < Math.exp(n.lnPt)) { n.phase = "tunnel"; n.t = 0; count.tun++; setStatus("tunnel", "Tunnelling!"); el("msg").textContent = `It tunnelled through: a ${oneIn(n.lnPt)} chance at this energy${n.lucky ? " (this mode shows only the nuclei that make it)" : ""}.`; }
+      if (!n.forceBounce && (n.lucky || rng() < Math.exp(n.lnPt))) { n.phase = "tunnel"; n.t = 0; count.tun++; setStatus("tunnel", "Tunnelling!"); el("msg").textContent = `It tunnelled through: a ${oneIn(n.lnPt)} chance at this energy${n.lucky ? " (this mode shows only the nuclei that make it)" : ""}.`; }
       else { n.phase = "out"; count.bounce++; setStatus("bounce", "Bounced back"); el("msg").textContent = `Stopped ${fmtFm(rtp)} away: ${fmtFm(rtp - pi.R)} short of touching. Bounced back.`; }
     }
   } else if (n.phase === "tunnel" || n.phase === "tunnelBack") {
@@ -814,7 +850,9 @@ function arrive(how) {
   }
 }
 function done(hold) { NUCL.phase = "wait"; NUCL.t = 0; NUCL.hold = hold; }
-function updateCounters() { for (const k in count) el("c" + k[0].toUpperCase() + k.slice(1)).textContent = count[k].toLocaleString("en-GB"); }
+function updateCounters() {
+  for (const k of ["sent", "bounce", "over", "tun", "fused", "apart"]) { const v = count[k]; el("c" + k[0].toUpperCase() + k.slice(1)).textContent = v < 1e9 ? Math.round(v).toLocaleString("en-GB") : sciLn(count[k + "Ln"] ?? Math.log(v), 1); }
+}
 function setRunning(on) { S.running = on; el("btnPlay").textContent = on ? "❚❚ Pause" : "▶ Play"; if (on && (NUCL.phase === "idle")) sendOne(); }
 
 /* =====================================================================
@@ -866,7 +904,11 @@ function drawLadder() {
    ===================================================================== */
 function changed() {
   S.pair = el("pair").value; S.logT = +el("logT").value; S.logP = +el("logP").value; S.tunnel = el("tunnel").checked; S.mode = el("mode").value; S.logE = +el("logE").value;
-  el("manualBox").style.display = S.mode === "manual" ? "" : "none";
+  el("manualBox").style.display = S.mode === "manual" ? "" : "none"; ffQueue = [];
+  el("modeHint").textContent = { fastfwd: "Keeps the real odds but skips the boring part: the counters add all the nuclei that bounced back, then you watch the one that gets through.",
+    thermal: "Every nucleus is shown, one at a time. Most bounce back: at real temperatures you may wait a very long time for one to fuse.",
+    gamow: "Shows only nuclei that get through, with the energies those nuclei really have. The counters do not include the ones that bounced.",
+    manual: "Every nucleus has the energy you choose; each one gets through with the tunnelling chance for that energy." }[S.mode];
   compute(); updateReadouts(); setView(); drawGamow(); drawLadder();
 }
 function hookControls() {
@@ -878,7 +920,7 @@ function hookControls() {
   document.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { S.speed = +b.dataset.s; document.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", x === b)); });
   el("btnPlay").onclick = () => setRunning(!S.running);
   el("btnOne").onclick = () => { if (NUCL.phase === "idle" || NUCL.phase === "wait") sendOne(); };
-  el("btnReset").onclick = () => { for (const k in count) count[k] = 0; updateCounters(); };
+  el("btnReset").onclick = () => { for (const k in count) delete count[k]; Object.assign(count, { sent: 0, bounce: 0, over: 0, tun: 0, fused: 0, apart: 0 }); ffQueue = []; updateCounters(); };
 }
 let last = performance.now();
 function frame(now) {
@@ -1111,7 +1153,7 @@ function summary() {
    START
    ===================================================================== */
 buildPresets(); hookControls(); bInit();
-setPreset(0);
+setPreset(5);          // D + T in a tokamak: the reaction fusion reactors use
 requestAnimationFrame(frame);
 </script>
 </body>
