@@ -9,7 +9,7 @@ holds one folder per simulation:
 
 | Subject folder | Simulations |
 |---|---|
-| `physics/` | `gas_in_a_box`, `double_pendulum`, `physics_sims` (WJEC Streamlit app: `python setup_env.py`, then `streamlit run Home.py`) |
+| `physics/` | `gas_in_a_box`, `double_pendulum`, `nuclear_fusion`, `physics_sims` (WJEC Streamlit app: `python setup_env.py`, then `streamlit run Home.py`) |
 | `chemistry/` | `collision_theory`, `dynamic_equilibrium`, `crystallisation`, `chem_sims` (Edexcel iGCSE: `run.bat` / `index.html`) |
 | `biology/` | `natural_selection`, `epidemics`, `predator_prey` |
 | `engineering/` | `earthquake_buildings`, `traffic_flow`, `car_crash`, `fluid_dynamics` (Python, Pygame, Numba: `python main.py`) |

@@ -38,6 +38,7 @@ changing a simulation's batch experiments.
 |---|---|---|
 | [`physics/gas_in_a_box/`](physics/gas_in_a_box/) | Kinetic theory: speeds settling into the Maxwell–Boltzmann curve, gas laws, Brownian motion, mixing | Open `gas-in-a-box.html` |
 | [`physics/double_pendulum/`](physics/double_pendulum/) | Chaos: two pendulums starting a hair apart drift apart exponentially | Open `double-pendulum.html` |
+| [`physics/nuclear_fusion/`](physics/nuclear_fusion/) | Fusion on a potential-energy diagram: the Coulomb barrier, quantum tunnelling, the Gamow peak, and the temperature and pressure needed in stars and reactors | Open `nuclear-fusion.html` |
 | [`physics/physics_sims/`](physics/physics_sims/) | 28 WJEC Physics simulations (Streamlit app) | `python setup_env.py` once, then `streamlit run Home.py` |
 
 ## Chemistry

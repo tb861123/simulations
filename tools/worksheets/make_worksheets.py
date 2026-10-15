@@ -41,7 +41,8 @@ def student_page(sim, o, k, n):
     sweep = 'sweep' in (o.get('mode') or '').lower() or any(lab.lower() == 'from' for lab, _ in rows)
     rec = get(rows, 'record', 'outcome', 'measure') or 'the outcome'
     var = get(rows, 'change', 'setting to change', 'variable', 'vary')
-    lo, hi = get(rows, 'from'), get(rows, 'to')
+    exact = lambda k: next((v for lab, v in rows if lab.strip().lower() == k), None)   # 'to' must not match 'Outcome to record'
+    lo, hi = exact('from'), exact('to')
     tab = table_lines(o.get('text', ''))
     out = [f'<section class="sheet"><div class="top"><span>{E(sim["title"])} · Batch experiment {k} of {n}</span><span>Name ____________________ &nbsp; Date __________</span></div>']
     out.append(f'<h2>{E(o["qline"])}</h2>')
@@ -60,13 +61,16 @@ def student_page(sim, o, k, n):
     else:
         out.append(f'<p>What average do you expect for <b>{E(rec)}</b>? Will every run give the same answer? Explain your reason.</p><div class="lines tall"></div>')
     out.append('<h3>3 · Record the results</h3>')
+    if sweep:   # use the step-by-step table (the first row with several columns), not any summary rows above it
+        start = next((k for k, r in enumerate(tab) if len(r) >= 4), None)
+        if start is not None: tab = tab[start:]
     if tab and len(tab) > 1 and sweep:
         head = tab[0]
-        body = tab[1:13]
+        body = tab[1:14]
         out.append(f'<table class="res{" dense" if len(body) > 10 else ""}"><tr>' + ''.join(f'<th>{E(h)}</th>' for h in head) + '</tr>' +
                    ''.join('<tr><td>' + E(r[0]) + '</td>' + '<td></td>' * (len(head) - 1) + '</tr>' for r in body) + '</table>')
-        if len(tab) - 1 > 12:
-            out.append('<p class="hint">Only the first 12 steps are listed; carry on in the space below if you need to.</p>')
+        if len(tab) - 1 > 13:
+            out.append('<p class="hint">Only the first 13 steps are listed; carry on in the space below if you need to.</p>')
     elif tab:
         out.append('<table class="res two">' + ''.join(f'<tr><th>{E(r[0])}</th><td></td></tr>' for r in tab[:9]) + '</table>')
     else:
@@ -78,7 +82,7 @@ def student_page(sim, o, k, n):
     else:
         out.append('<li>Why don\'t all the runs give the same answer? What would happen to the standard error with four times as many runs?</li>')
     out.append('<li>Open <i>How the model works</i>. Name one simplification that could make the model differ from real life.</li></ol>'
-               '<div class="lines"></div></section>')
+               f'<div class="lines{" short" if sweep and len(tab) > 11 else ""}"></div></section>')
     return ''.join(out)
 
 
@@ -121,7 +125,7 @@ table { border-collapse: collapse; margin: 4px 0; }
 .res.small td { height: auto; font-size: 8.5pt; padding: 1px 5px; } .res.small tr:first-child td { font-weight: 600; background: #eef0e8; }
 .predict { display: flex; gap: 10px; } .axes { width: 56mm; height: 34mm; border-left: 2px solid #333; border-bottom: 2px solid #333; margin: 4px 0 4px 8px; flex: none; }
 .lines { flex: 1; min-height: 18mm; background: repeating-linear-gradient(#fff 0 7.5mm, #bbb 7.5mm calc(7.5mm + 1px)); }
-.lines.tall { min-height: 30mm; }
+.lines.tall { min-height: 30mm; } .lines.short { min-height: 9mm; }
 .hint { font-size: 9pt; color: #555; margin: 2px 0; }
 .teacher .tn { break-inside: avoid; margin-bottom: 8px; } .teacher p { margin: 2px 0 4px; font-size: 10pt; }
 @media print { body { background: #fff; } .bar { display: none; } .sheet { margin: 0; box-shadow: none; width: auto; min-height: 0; padding: 0; break-after: page; } }
