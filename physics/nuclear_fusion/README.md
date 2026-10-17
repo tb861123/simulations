@@ -24,14 +24,31 @@ needed.
   10 billion K and pressure from 1 Pa to 10²⁴ Pa, both on logarithmic sliders.
 - **Switch quantum tunnelling on or off** to see why the Sun could not shine
   without it.
-- **Watch nuclei come in.** The default, *fast-forward to the next fusion*,
-  keeps the true odds but skips ahead. It draws at random how many collisions
-  bounce back before the next one gets through, adds them to the counters,
-  shows one bounce, then shows the collision that gets through. In a tokamak
-  that means a fusion every few seconds. The other modes show every collision
-  in real time (true chances, so you may wait a long time), show only the rare
-  ones that get through, or use an energy you choose.
-- **Change the axes.** Distance can be logarithmic or linear. Energy can show
+- **Watch nuclei come in.** The default is *demonstration odds*. Every
+  collision is shown, but the real chance of getting through the barrier is
+  multiplied by a fixed boost (×1 up to ×10⁶⁰, in 1-2-5 steps). The boost is
+  picked automatically for each reaction, so about 1 collision in 10 gets
+  through. It does **not** change when you move the temperature or pressure,
+  so the ratios between settings stay true and runs can be compared fairly.
+  If a setting would push the chance above 100%, a warning says so. A note
+  under the diagram gives the demonstration odds and the real odds per million
+  collisions. It also shows what you have seen so far divided by the boost: an
+  estimate of the real rate.
+- **Compare runs.** Press 📌 *Record this run* to add the counts to a table in
+  the right panel: through / sent, the boost, your estimate of the real number
+  per million collisions, and the model's exact value. Counts restart whenever
+  a setting changes, so each row belongs to one set of settings.
+- **Other modes.** *Fast-forward to the next fusion* keeps the true odds but
+  skips ahead. It draws at random how many collisions bounce back before the
+  next one gets through, adds them to the counters, shows one bounce, then
+  shows the collision that gets through. The other modes show every collision
+  at the true odds in real time (so you may wait a long time), show only the
+  rare ones that get through, or use an energy you choose.
+- **Change the axes.** The distance axis is fixed, so it does not jump about
+  when the temperature or reaction changes. On the logarithmic scale it runs
+  from 0.5 fm to 10⁵ fm (10⁻¹⁰ m, about the width of an atom); on the linear
+  scale it runs from 0 to 200 fm. A nucleus that turns back further out than
+  that is reported as turning back off the right-hand edge. Energy can show
   the whole barrier at true proportions, or zoom in on the incoming nucleus.
 
 ## Readouts

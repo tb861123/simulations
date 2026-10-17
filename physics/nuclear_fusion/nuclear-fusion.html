@@ -73,7 +73,7 @@
   #status { font-weight: 700; font-size: 13px; border-radius: 999px; padding: 1px 10px; background: #2a3024; color: var(--muted); }
   #status.bounce { background: #2c4a63; color: #cfe9ff; } #status.tunnel { background: #6d3fa8; color: #f0e3ff; }
   #status.fused { background: var(--good); color: #10200c; } #status.apart { background: #7a1e0c; color: #ffd2c2; } #status.over { background: var(--hot); color: #fff; }
-  #wellWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #wellWrap { position: relative; flex: 1; min-height: 260px; background: #050604; border-radius: 8px; overflow: hidden; }
   #well { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   #msg { min-height: 2.9em; font-size: 13px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 5px 12px; }
   #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
@@ -81,6 +81,12 @@
   .speed button { padding: 2px 8px; font-size: 12px; }
   .counters { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
   .counters b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #oddsNote { font-size: 12.5px; background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid #f1af28; border-radius: 8px; padding: 5px 12px; line-height: 1.5; }
+  #oddsNote b { color: var(--text); }
+  #runLog { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #runLog th, #runLog td { border-bottom: 1px solid var(--line); padding: 2px 4px; text-align: right; }
+  #runLog th:first-child, #runLog td:first-child { text-align: left; }
+  #runLog th { color: var(--muted); font-weight: 600; }
 
   .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; min-width: 0; }
@@ -164,6 +170,7 @@
     <h2 class="gap">The animation</h2>
     <div class="ctl"><label>Energies of the incoming nuclei</label>
       <select id="mode">
+        <option value="demo">Demonstration odds (boosted, fair to compare)</option>
         <option value="fastfwd">Fast-forward to the next fusion (true odds)</option>
         <option value="thermal">Random, from the hot gas (true chances, real time)</option>
         <option value="gamow">Only the lucky ones that get through</option>
@@ -171,6 +178,12 @@
       </select>
     </div>
     <div class="hint" id="modeHint" style="margin:-4px 0 9px"></div>
+    <div class="ctl" id="boostBox">
+      <label>Demonstration boost <output id="o_boost"></output></label>
+      <input type="range" id="boost" min="0" max="180" step="1" value="6">
+      <div style="display:flex;gap:6px;align-items:center;margin-top:4px"><button id="btnAutoBoost" title="Pick a boost so about 1 collision in 10 gets through, at the current settings">Auto</button>
+      <span class="hint" style="margin:0">Every chance is multiplied by the same boost. It stays fixed when you change the temperature or pressure, so you can compare them fairly.</span></div>
+    </div>
     <div class="ctl" id="manualBox" style="display:none">
       <label>Energy of the incoming nucleus <output id="o_E"></output></label>
       <input type="range" id="logE" min="-2" max="4.5" step="0.01" value="1.5">
@@ -195,6 +208,7 @@
         <li><b>Pressure → density.</b> Ideal gas: n = P/kT counts every particle, nuclei and electrons, so the number of nuclei is P / ((1 + Z) kT). A 50:50 mix of the two nuclei is assumed. Real star cores also contain helium and other elements, have radiation pressure, and (in dense stars) degenerate electrons.</li>
         <li><b>Weak-force reactions.</b> For p + p (and p + ³He) the nuclei touch far more often than they fuse: a proton must turn into a neutron during the brief contact, which the weak force rarely manages. The tiny S-factor accounts for this in the rates; the animation shows them falling apart.</li>
         <li><b>No product.</b> ¹H + ⁴He makes lithium-5 and ⁴He + ⁴He makes beryllium-8. Both fall apart almost at once (in stars a third helium nucleus must arrive within 10⁻¹⁶ s to make carbon: the triple-alpha process), so no rate is given.</li>
+        <li><b>Demonstration odds</b> (the default animation) multiply every real chance of getting through by the same fixed boost, capped at 100%. Because the boost is the same for every temperature and pressure, the ratios between settings stay true; divide what you see by the boost to get the real rate. The readouts and batch runs always use the real odds.</li>
         <li><b>The animation is slowed down</b> enormously: a real close approach lasts about 10⁻²¹ s.</li>
       </ul>
     </details>
@@ -216,6 +230,7 @@
       <button id="btnPlay" class="primary">▶ Play</button>
       <button id="btnOne">Send one nucleus</button>
       <button id="btnReset">Reset counts</button>
+      <button id="btnRecord" title="Add the counts so far to the 'Compare runs' table on the right, then start counting again">📌 Record this run</button>
       <span class="speed">Speed <button data-s="0.25">¼×</button><button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="4">4×</button></span>
       <span style="flex:1"></span>
       <button id="btnBatch">📊 Batch run</button>
@@ -225,6 +240,7 @@
       <span>Went over the top <b id="cOver">0</b></span><span>Tunnelled through <b id="cTun">0</b></span>
       <span>Fused <b id="cFused">0</b></span><span>Touched but fell apart <b id="cApart">0</b></span>
     </div>
+    <div id="oddsNote"></div>
   </section>
 
   <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
@@ -232,7 +248,14 @@
   <!-- ======================= RIGHT: READOUTS ======================= -->
   <section class="panel side" id="right">
     <button class="reopen" title="Show this panel">‹ Readouts</button>
-    <h2>What's happening</h2>
+    <h2>Compare runs</h2>
+    <div class="hint" id="logHint">Run for a while, press 📌 <b>Record this run</b>, change the temperature or pressure, and run again. The boost stays the same, so the rows compare fairly.</div>
+    <div id="logWrap" style="display:none;overflow-x:auto">
+      <table id="runLog"><thead><tr><th>Run</th><th>Temp.</th><th>Boost</th><th>Through / sent</th><th>Real per 10⁶</th><th>Theory per 10⁶</th></tr></thead><tbody></tbody></table>
+      <div class="hint" style="margin-top:3px">Real per 10⁶ = (through ÷ sent) ÷ boost × 1,000,000: your estimate of the real number per million collisions. Theory is the model's exact value. Hover over a row for its full settings.</div>
+      <button id="btnClearLog" style="margin-top:4px">Clear table</button>
+    </div>
+    <h2 class="gap">What's happening</h2>
     <div id="story"></div>
     <h2 class="gap">Energies</h2>
     <div class="tiles" id="tilesE"></div>
@@ -393,7 +416,7 @@ function plasma(T, P, pi) {
 /* =====================================================================
    3. STATE
    ===================================================================== */
-const S = { pair: "pp", logT: 7.2, logP: 16.4, tunnel: true, mode: "fastfwd", logE: 1.5, xMode: "log", yMode: "full", speed: 1, running: false };
+const S = { pair: "pp", logT: 7.2, logP: 16.4, tunnel: true, mode: "demo", boost: 6, logE: 1.5, xMode: "log", yMode: "full", speed: 1, running: false };
 let PI = pairInfo("pp");
 const kTof = T => K_B * T / KEV;                       // keV
 const T_ = () => 10 ** S.logT, P_ = () => 10 ** S.logP, kT_ = () => kTof(T_());
@@ -476,10 +499,10 @@ function markPresets(pi, pl) {
 function setPreset(i) {
   const p = PRESETS[i]; S.pair = p.pair;
   if (p.place !== null) { S.logT = PLACES[p.place].logT; S.logP = PLACES[p.place].logP; } else { S.logT = p.logT; S.logP = p.logP; }
-  activePreset = i; syncInputs(); changed(); markPresets(i, p.place);
+  activePreset = i; syncInputs(); compute(); autoBoost(); changed(); markPresets(i, p.place);
 }
 function setPlace(i) { S.logT = PLACES[i].logT; S.logP = PLACES[i].logP; syncInputs(); changed(); markPresets(-1, i); }
-function syncInputs() { el("pair").value = S.pair; el("logT").value = S.logT; el("logP").value = S.logP; el("tunnel").checked = S.tunnel; el("mode").value = S.mode; el("logE").value = S.logE; }
+function syncInputs() { el("pair").value = S.pair; el("logT").value = S.logT; el("logP").value = S.logP; el("tunnel").checked = S.tunnel; el("mode").value = S.mode; el("logE").value = S.logE; el("boost").value = S.boost; }
 
 /* =====================================================================
    5. READOUTS
@@ -552,13 +575,15 @@ function fitCanvas(c) {
    ===================================================================== */
 // The incoming nucleus: its energy, where it is, and what it is doing
 const NUCL = { E: 10, r: 0, phase: "idle", t: 0, result: "", y: 0, lnPt: 0 };
-let view = null;        // axis ranges, fixed for the length of one approach
+let view = null;        // axis ranges
+const X_LOG = [0.5, 1e5], X_LIN = 200;   // fm: log axis from 0.5 fm to 10⁵ fm (= 10⁻¹⁰ m, about the width of an atom); linear axis 0–200 fm
 const rng = Math.random;
 function setView() {
   const pi = PI, kT = kT_();
   const Eref = S.mode === "manual" ? 10 ** S.logE : S.mode === "gamow" ? G.E0 : kT;
-  const rFar = Math.max(rTurn(Math.min(Eref, pi.Ec * 0.9), pi) * 2.2, pi.R * 8);
-  const xmin = S.xMode === "log" ? pi.R * 0.25 : 0, xmax = S.xMode === "log" ? rFar : Math.max(pi.R * 6, rTurn(Math.min(Eref, pi.Ec * 0.9), pi) * 1.6);
+  // The distance axis is FIXED (the same for every reaction, temperature and mode) so changes are easy to compare.
+  // Nuclei that turn back further away than the right-hand edge are reported as "off the diagram".
+  const xmin = S.xMode === "log" ? X_LOG[0] : 0, xmax = S.xMode === "log" ? X_LOG[1] : X_LIN;
   let ymax, ymin;
   if (S.yMode === "full") { ymax = pi.Ec * 1.18; ymin = -pi.Ec * 0.55; }
   else { ymax = Math.max(Eref * 3.5, kT * 4); ymin = -ymax * 0.45; }
@@ -635,7 +660,7 @@ function drawWell() {
   }
   // touching distance marker
   ctx.strokeStyle = "rgba(143,214,148,.6)"; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(xR, g.T); ctx.lineTo(xR, g.B); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = "#8fd694"; ctx.textAlign = "center"; ctx.font = "11px system-ui"; ctx.fillText(`R = ${fmtFm(pi.R)}`, xR, g.T + 26);
+  ctx.fillStyle = "#8fd694"; ctx.textAlign = "left"; ctx.font = "11px system-ui"; ctx.fillText(`R = ${fmtFm(pi.R)}`, xR + 4, g.B - 5);
   // the fixed nucleus, drawn at the left edge
   const { x: xT, y: yT } = targetXY(g), fusedNow = NUCL.phase === "done" && NUCL.result === "fused";
   if (fusedNow) drawProduct(ctx, g);
@@ -699,11 +724,11 @@ function drawIncoming(ctx, g) {
   if (n.E < pi.Ec && visibleE) {
     ctx.fillStyle = "rgba(168,109,171,.18)"; ctx.fillRect(X(pi.R, g), yE - 7, xtp - X(pi.R, g), 14);
     ctx.fillStyle = "#c9a4ff"; ctx.textAlign = "center"; ctx.font = "11px system-ui";
-    const mid = (X(pi.R, g) + xtp) / 2, yt = Math.max(g.T + 30, yE - 14);
+    const mid = (X(pi.R, g) + xtp) / 2, yt = Math.max(g.T + 30, yE - 26);
     ctx.fillText(`tunnelling chance ${oneIn(lnP(n.E, pi, S.tunnel))}`, Math.min(Math.max(mid, g.L + 90), g.R - 90), yt);
-    if (xtp - X(pi.R, g) > 90) ctx.fillText(`barrier ${fmtFm(rtp - pi.R)} thick`, mid, yt - 14);
+    if (xtp - X(pi.R, g) > 90) ctx.fillText(`barrier ${fmtFm(rtp - pi.R)} thick`, Math.min(Math.max(mid, g.L + 90), g.R - 90), yt - 14);
     ctx.strokeStyle = "rgba(201,164,255,.8)"; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(xtp, yE - 12); ctx.lineTo(xtp, yE + 12); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillText("turning point", xtp, yE + 24);
+    if (xtp < g.R - 34) ctx.fillText("turning point", xtp, yE + 24);
   }
   // where the nucleus is: rolling ON the potential curve (its height is its potential energy),
   // except while tunnelling, when it passes through the barrier at the height of its total energy
@@ -771,6 +796,21 @@ function planFastForward() {
   if (lnK > 0 || (lnK === 0)) ffQueue.push({ kind: "bounce", lnK });
   ffQueue.push({ kind: "through", lnK });
 }
+/* DEMONSTRATION ODDS: the real chance per collision multiplied by a fixed boost (capped at 1).
+   Every setting gets the SAME boost, so ratios stay true: if heating doubles the real chance, it doubles the
+   demonstration chance too. Divide what you see by the boost to get back to the real rate. */
+const boostOf = i => [1, 2, 5][i % 3] * 10 ** Math.floor(i / 3);
+const lnBoost = () => Math.log(boostOf(S.boost));
+function lnDemo() { return Math.min(0, lnChanceNow() + lnBoost()); }
+function fmtBoost(i) { const b = boostOf(i); return b < 1e6 ? "×" + b.toLocaleString("en-GB") : "×" + sci(b, 0); }
+function autoBoost() {            // the biggest boost that keeps the demonstration chance at or below about 1 in 10
+  const lp = lnChanceNow(); let i = 0; while (i < 180 && lp + Math.log(boostOf(i + 1)) <= Math.log(0.1)) i++;
+  S.boost = i; el("boost").value = i;
+}
+function perMillion(ln) {         // "720 per million collisions" or, for tiny chances, "1 in 3.1 × 10¹⁹ collisions"
+  if (ln === -Infinity) return "none"; if (ln >= 0) return "every collision";
+  const v = Math.exp(ln) * 1e6; return v >= 0.01 ? `${fmt(v)} per million collisions` : `1 in ${sciLn(-ln, 1)} collisions`;
+}
 function addCount(key, lnN) {           // add e^lnN to a counter (counts can be astronomically large)
   if (!isFinite(lnN)) return; const v = Math.exp(lnN); count[key] = isFinite(v) ? count[key] + v : Infinity; count[key + "Ln"] = lse(count[key + "Ln"] ?? -Infinity, lnN);
 }
@@ -778,10 +818,14 @@ function sendOne() {
   setView();
   let lucky = S.mode === "gamow", fast = 1, job = null;
   if (S.mode === "fastfwd") { if (!ffQueue.length) planFastForward(); job = ffQueue.shift(); lucky = job.kind === "through"; fast = job.kind === "bounce" ? 2.5 : 1; }
+  let demo = null;
+  if (S.mode === "demo") {          // decide first, with the boosted chance, whether this one gets through
+    demo = rng() < Math.exp(lnDemo()) ? "through" : "bounce"; lucky = demo === "through"; fast = demo === "bounce" ? 3 : 1;
+  }
   let E = sampleEnergy(lucky);
-  if (job && job.kind === "bounce") { for (let k = 0; k < 20 && E >= PI.Ec; k++) E = sampleEnergy(false); }   // a typical one that bounces
+  if ((job && job.kind === "bounce") || demo === "bounce") { for (let k = 0; k < 20 && E >= PI.Ec; k++) E = sampleEnergy(false); }   // a typical one that bounces
   NUCL.E = E; NUCL.r = view.xmax; NUCL.ang = 0; NUCL.lastX = undefined; NUCL.phase = "in"; NUCL.t = 0; NUCL.result = ""; NUCL.lnPt = lnP(E, PI, S.tunnel);
-  NUCL.lucky = lucky; NUCL.forceBounce = !!(job && job.kind === "bounce"); NUCL.fast = fast;
+  NUCL.lucky = lucky; NUCL.forceBounce = !!(job && job.kind === "bounce") || demo === "bounce"; NUCL.fast = fast;
   setStatus("", "Approaching");
   if (job && job.kind === "bounce") {
     // all the skipped collisions bounced back; this animation is one of them
@@ -791,6 +835,9 @@ function sendOne() {
   } else if (job) {
     count.sent++;
     el("msg").innerHTML = `⏩ …and here is the one that gets through, with E = ${fmtE(E)} (${fmt(E / kT_())}× kT).`;
+  } else if (demo) {
+    count.sent++;
+    el("msg").innerHTML = `Incoming ${PI.B.sym} with E = ${fmtE(E)} (${fmt(E / kT_())}× kT). Demonstration odds: <b>${oneIn(lnDemo())}</b> get through; real odds ${oneIn(lnChanceNow())}.`;
   } else { count.sent++; el("msg").textContent = `Incoming ${PI.B.sym} with E = ${fmtE(E)} (${fmt(E / kT_())}× kT)`; }
 }
 function bigNum(ln) { if (!isFinite(ln)) return "infinitely many"; const v = Math.exp(ln); return v < 1e9 ? Math.round(v).toLocaleString("en-GB") : sciLn(ln, 1); }
@@ -808,8 +855,9 @@ function step(dt) {
     const rtp = rTurn(n.E, pi);
     if (n.E >= pi.Ec) { if (n.r <= pi.R) { n.r = pi.R; count.over++; arrive("over"); } }
     else if (n.r <= rtp) {
-      n.r = rtp;
-      if (!n.forceBounce && (n.lucky || rng() < Math.exp(n.lnPt))) { n.phase = "tunnel"; n.t = 0; count.tun++; setStatus("tunnel", "Tunnelling!"); el("msg").textContent = `It tunnelled through: a ${oneIn(n.lnPt)} chance at this energy${n.lucky ? " (this mode shows only the nuclei that make it)" : ""}.`; }
+      n.r = Math.min(rtp, view.xmax);
+      if (rtp >= view.xmax && !n.lucky) { n.phase = "out"; count.bounce++; setStatus("bounce", "Bounced back"); el("msg").textContent = `Turned back ${fmtFm(rtp)} away, off the right-hand edge of the diagram: with only ${fmtE(n.E)} it never got close.`; return; }
+      if (!n.forceBounce && (n.lucky || rng() < Math.exp(n.lnPt))) { n.phase = "tunnel"; n.t = 0; count.tun++; setStatus("tunnel", "Tunnelling!"); el("msg").textContent = `It tunnelled through: a ${oneIn(n.lnPt)} chance at this energy${n.lucky && S.mode === "gamow" ? " (this mode shows only the nuclei that make it)" : ""}.`; }
       else { n.phase = "out"; count.bounce++; setStatus("bounce", "Bounced back"); el("msg").textContent = `Stopped ${fmtFm(rtp)} away: ${fmtFm(rtp - pi.R)} short of touching. Bounced back.`; }
     }
   } else if (n.phase === "tunnel" || n.phase === "tunnelBack") {
@@ -852,7 +900,29 @@ function arrive(how) {
 function done(hold) { NUCL.phase = "wait"; NUCL.t = 0; NUCL.hold = hold; }
 function updateCounters() {
   for (const k of ["sent", "bounce", "over", "tun", "fused", "apart"]) { const v = count[k]; el("c" + k[0].toUpperCase() + k.slice(1)).textContent = v < 1e9 ? Math.round(v).toLocaleString("en-GB") : sciLn(count[k + "Ln"] ?? Math.log(v), 1); }
+  const thr = count.tun + count.over, sent = count.sent, real = `Real odds here: <b>${perMillion(lnChanceNow())}</b> get through the barrier`;
+  let html;
+  if (S.mode === "demo") {
+    html = `<b>Demonstration</b>: real chances ${fmtBoost(S.boost)}, so <b>${lnDemo() > Math.log(1e-3) ? fmt(100 * Math.exp(lnDemo())) + "%" : "1 in " + sciLn(-lnDemo(), 1)}</b> of collisions get through. ${real}.`;
+    if (lnChanceNow() + lnBoost() > 0) html += ` <span style="color:#e4572e">The boost is too big for these settings (the chance is capped at 100%), so comparisons are not fair: lower it or press Auto.</span>`;
+    if (sent >= 1) html += `<br>Seen so far: <b>${thr}</b> of <b>${Math.round(sent)}</b> got through (${fmt(100 * thr / sent)}%). Divide by the boost: about <b>${fmt(thr / sent / boostOf(S.boost) * 1e6)}</b> per million in reality.`;
+  } else html = real + (S.mode === "fastfwd" || S.mode === "thermal" ? ", and the counters use these real odds." : ".");
+  if (PI.kind !== "strong") html += ` For ${PI.A.sym} + ${PI.B.sym}, getting through is not enough: ${PI.kind === "weak" ? "the weak force must also act, so almost all of them fall apart" : "the product falls apart at once"}.`;
+  if (el("oddsNote").innerHTML !== html) el("oddsNote").innerHTML = html;
 }
+function recordRun() {
+  if (count.sent < 1) return;
+  const thr = count.tun + count.over, sent = count.sent, demo = S.mode === "demo", b = demo ? boostOf(S.boost) : 1;
+  const tr = document.createElement("tr");
+  const n = el("runLog").tBodies[0].rows.length + 1, capped = demo && lnChanceNow() + lnBoost() > 0;
+  tr.title = `${PI.A.sym} + ${PI.B.sym}, ${fmtT(T_())}, ${fmtP(P_())}, ${el("mode").selectedOptions[0].text}${S.tunnel ? "" : ", no tunnelling"}`;
+  tr.innerHTML = `<td>${n}. ${PI.A.sym}+${PI.B.sym}${S.tunnel ? "" : " (no tunnel)"}</td><td>${T_() >= 1e6 ? fmt(T_() / 1e6) + "M K" : sci(T_(), 1) + " K"}</td><td>${demo ? fmtBoost(S.boost) + (capped ? " capped" : "") : "real"}</td>`
+    + `<td>${Math.round(thr).toLocaleString("en-GB")} / ${sent < 1e9 ? Math.round(sent).toLocaleString("en-GB") : sciLn(count.sentLn, 1)}</td>`
+    + `<td>${S.mode === "gamow" || S.mode === "manual" ? "–" : thr ? sci(thr / sent / b * 1e6, 1) : "0"}</td><td>${sciLn(lnChanceNow() + Math.log(1e6), 1)}</td>`;
+  el("runLog").tBodies[0].appendChild(tr); el("logWrap").style.display = ""; el("logHint").style.display = "none";
+  resetCounts();
+}
+function resetCounts() { for (const k in count) delete count[k]; Object.assign(count, { sent: 0, bounce: 0, over: 0, tun: 0, fused: 0, apart: 0 }); ffQueue = []; updateCounters(); }
 function setRunning(on) { S.running = on; el("btnPlay").textContent = on ? "❚❚ Pause" : "▶ Play"; if (on && (NUCL.phase === "idle")) sendOne(); }
 
 /* =====================================================================
@@ -904,15 +974,25 @@ function drawLadder() {
    ===================================================================== */
 function changed() {
   S.pair = el("pair").value; S.logT = +el("logT").value; S.logP = +el("logP").value; S.tunnel = el("tunnel").checked; S.mode = el("mode").value; S.logE = +el("logE").value;
-  el("manualBox").style.display = S.mode === "manual" ? "" : "none"; ffQueue = [];
-  el("modeHint").textContent = { fastfwd: "Keeps the real odds but skips the boring part: the counters add all the nuclei that bounced back, then you watch the one that gets through.",
+  S.boost = +el("boost").value; el("o_boost").textContent = fmtBoost(S.boost);
+  el("manualBox").style.display = S.mode === "manual" ? "" : "none"; el("boostBox").style.display = S.mode === "demo" ? "" : "none";
+  el("modeHint").textContent = { demo: "Every collision is shown, but the real chance of getting through is multiplied by a fixed boost so you see enough to compare. The note under the diagram gives the real odds.",
+    fastfwd: "Keeps the real odds but skips the boring part: the counters add all the nuclei that bounced back, then you watch the one that gets through.",
     thermal: "Every nucleus is shown, one at a time. Most bounce back: at real temperatures you may wait a very long time for one to fuse.",
     gamow: "Shows only nuclei that get through, with the energies those nuclei really have. The counters do not include the ones that bounced.",
     manual: "Every nucleus has the energy you choose; each one gets through with the tunnelling chance for that energy." }[S.mode];
   compute(); updateReadouts(); setView(); drawGamow(); drawLadder();
+  if (NUCL.phase !== "idle" && NUCL.phase !== "wait") { NUCL.phase = "wait"; NUCL.t = 0; NUCL.hold = 0.3; setStatus("", "Settings changed"); }   // start afresh
+  resetCounts();                   // the counts always belong to the current settings (use 📌 Record to keep them)
 }
 function hookControls() {
-  ["pair", "logT", "logP", "tunnel", "mode", "logE"].forEach(id => el(id).addEventListener("input", () => { if (id !== "mode" && id !== "logE") markPresets(-1, -1); changed(); }));
+  ["pair", "logT", "logP", "tunnel", "mode", "logE", "boost"].forEach(id => el(id).addEventListener("input", () => {
+    if (id !== "mode" && id !== "logE" && id !== "boost") markPresets(-1, -1);
+    if (id === "pair") { S.pair = el("pair").value; compute(); autoBoost(); }       // a new reaction gets its own boost; temperature and pressure keep it
+    changed(); }));
+  el("btnAutoBoost").onclick = () => { autoBoost(); changed(); };
+  el("btnRecord").onclick = recordRun;
+  el("btnClearLog").onclick = () => { el("runLog").tBodies[0].innerHTML = ""; el("logWrap").style.display = "none"; el("logHint").style.display = ""; };
   el("gLog").addEventListener("change", drawGamow);
   for (const [id, key] of [["xMode", "xMode"], ["yMode", "yMode"]]) el(id).querySelectorAll("button").forEach(b => b.onclick = () => {
     S[key] = b.dataset.v; el(id).querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); setView(); if (NUCL.phase !== "idle" && NUCL.phase !== "wait") NUCL.r = Math.min(Math.max(NUCL.r, view.xmin), view.xmax);
@@ -920,7 +1000,7 @@ function hookControls() {
   document.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { S.speed = +b.dataset.s; document.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", x === b)); });
   el("btnPlay").onclick = () => setRunning(!S.running);
   el("btnOne").onclick = () => { if (NUCL.phase === "idle" || NUCL.phase === "wait") sendOne(); };
-  el("btnReset").onclick = () => { for (const k in count) delete count[k]; Object.assign(count, { sent: 0, bounce: 0, over: 0, tun: 0, fused: 0, apart: 0 }); ffQueue = []; updateCounters(); };
+  el("btnReset").onclick = resetCounts;
 }
 let last = performance.now();
 function frame(now) {
