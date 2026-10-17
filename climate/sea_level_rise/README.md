@@ -58,9 +58,15 @@ SSP5-8.5-like pathways extended to 2300, or a slider.
   25 mm/yr, to a maximum of 15 m.
 - **Land water:** dams −0.3 mm/yr (1950–1990); groundwater +0.35 mm/yr
   (2000–2100).
-- **Maps:** each grid square is 25 m. Water floods every square below the water
-  level that it can reach from the sea, unless a higher wall blocks the way. Each
-  built-up square holds 5 homes, with 2.3 people per home.
+- **Maps:** 5 km × 3.25 km. A **Map detail** setting picks the square size:
+  Low 50 m (100 × 65), Medium 25 m (200 × 130, the default), High 12.5 m or
+  Ultra 6.25 m (800 × 520, may be slow). The terrain and heights are the same
+  at every setting, and homes are counted per area, so totals agree within a
+  few per cent. Walls you draw are kept when you change it. Batch runs never
+  use the map, so their results do not depend on this setting.
+  Each grid square is 25 m at Medium. Water floods every square below the water
+  level that it can reach from the sea, unless a higher wall blocks the way. There
+  are 5 homes per 25 m × 25 m of built-up land, with 2.3 people per home.
 - **Storms:** the annual maximum water level (tide + surge) follows a Gumbel
   distribution for each coast (estuary: mode 3.0 m, scale 0.25 m; delta: 1.6,
   0.30; island: 1.0, 0.10).

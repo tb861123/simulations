@@ -192,6 +192,16 @@
       </select>
     </div>
     <div class="ctl">
+      <label>Map detail <output id="o_detail"></output></label>
+      <select id="detail">
+        <option value="low">Low — 50 m squares (fastest)</option>
+        <option value="medium" selected>Medium — 25 m squares</option>
+        <option value="high">High — 12.5 m squares</option>
+        <option value="ultra">Ultra — 6.25 m squares (may be slow)</option>
+      </select>
+      <div class="hint">Same 5 km × 3.25 km coast and the same heights; finer squares just draw it more sharply. Batch runs do not use the map, so they are unaffected.</div>
+    </div>
+    <div class="ctl">
       <label>Storm size <output id="o_storm"></output></label>
       <select id="stormRP"><option value="1">1-in-1-year storm</option><option value="10">1-in-10-year storm</option><option value="100" selected>1-in-100-year storm</option><option value="1000">1-in-1000-year storm</option></select>
       <div class="hint" id="stormHint"></div>
@@ -243,7 +253,7 @@
             <button data-mode="free" class="on" title="Paint freehand by dragging">✎ Freehand</button>
             <button data-mode="area" title="Click and drag to fill a rectangle">▭ Area</button>
             <span class="tlabel">Brush</span>
-            <button data-brush="0" class="on" title="1 cell (25 m)">S</button><button data-brush="1" title="3 cells">M</button><button data-brush="2" title="5 cells">L</button>
+            <button data-brush="0" class="on" title="One square wide">S</button><button data-brush="1" title="About 75 m wide">M</button><button data-brush="2" title="About 125 m wide">L</button>
           </div>
         </div>
         <div id="stormBanner"></div>
@@ -293,7 +303,7 @@
         <label class="chk" id="bVaryRow"><input type="checkbox" id="bVary" checked> Vary the uncertain numbers between runs</label>
         <div class="brow"><button id="bRun" class="primary">▶ Run batch</button><button id="bStop" disabled>■ Stop</button><button id="bCsv" disabled>⬇ CSV</button></div>
         <div id="bProg"><span></span></div>
-        <div class="hint" id="bStatus" style="margin-top:4px">Projection runs use a 0.5-year time step and no map (the live view uses 0.1 years).</div>
+        <div class="hint" id="bStatus" style="margin-top:4px">Projection runs use a 0.5-year time step and no map (the live view uses 0.1 years), so results do not depend on the map detail setting.</div>
       </div>
       <div class="br">
         <div style="display:flex;justify-content:space-between;align-items:center"><b id="bTitle">Results</b><button id="bClose">✕ Close</button></div>
@@ -333,7 +343,7 @@
         <li><b>Ice-cliff collapse (option):</b> if ΔT passes the threshold, tall ice cliffs could become unstable (marine ice-cliff instability). The extra loss ramps up over 50 years to 25 mm/yr, up to 15 m. Scientists disagree strongly about whether and when this could happen; the IPCC calls it low-likelihood but high-impact.</li>
         <li><b>Land water:</b> dams held water back from 1950 to 1990 (−0.3 mm/yr); pumping groundwater adds +0.35 mm/yr from 2000 to 2100.</li>
         <li><b>Floating ice</b> (sea ice and ice shelves) adds nothing when it melts, as the glass demo shows. (In salty sea water it adds a tiny bit — about 4 cm if all the world's floating ice melted.)</li>
-        <li><b>The maps</b> are made up but realistic. Each square is 25 m. Heights are in metres above today's (2020) mean sea level. Water spreads from the sea into every square lower than the water level that it can reach, unless a wall with a higher top is in the way. High tide is shown: +2.2 m (estuary), +0.8 m (delta), +0.5 m (island). Homes: 5 per built-up square, 2.3 people per home.</li>
+        <li><b>The maps</b> are made up but realistic: 5 km × 3.25 km. Each square is 25 m at Medium detail (50 m Low, 12.5 m High, 6.25 m Ultra); the land is the same at every setting. Heights are in metres above today's (2020) mean sea level. Water spreads from the sea into every square lower than the water level that it can reach, unless a wall with a higher top is in the way. High tide is shown: +2.2 m (estuary), +0.8 m (delta), +0.5 m (island). Homes: 5 per 25 m × 25 m of built-up land, 2.3 people per home.</li>
         <li><b>Storms:</b> the highest water level each year (tide + surge) follows a Gumbel distribution (estuary: mode 3.0 m, scale 0.25 m; delta: 1.6 m, 0.30 m; island: 1.0 m, 0.10 m). The surge is added on top of the new mean sea level.</li>
         <li><b>Left out:</b> sea level is not the same everywhere (gravity changes near melting ice, land sinking or rising, ocean currents), erosion, wave run-up, rivers flooding at the same time, how long a flood lasts, and how people adapt. Ice-sheet behaviour is the most uncertain part.</li>
         <li><b>Where the model and reality disagree:</b> the model gives about 0.16 m from 1900 to 2018. Tide gauges show about 0.20 m. The IPCC's own sum of the parts also comes out a little low for the early 1900s.</li>
@@ -457,17 +467,43 @@ function runSurge(pl, rise, years, rng) {
 /* =====================================================================
    4. THE COAST MAP
    ===================================================================== */
-const GW = 200, GH = 130, NC = GW * GH, CELL = 25;
-const elev = new Float32Array(NC);      // m above today's mean sea level
-const isSea = new Uint8Array(NC);       // open sea at the start
-const home = new Uint8Array(NC);        // 1 = built-up square (5 homes)
-const wall = new Float32Array(NC);      // top of a sea wall (m above today's MSL); 0 = no wall
-const flood = new Uint8Array(NC);       // 0 dry, 1 flooded at high tide, 2 flooded by the storm only
-const dryToday = new Uint8Array(NC);    // land that is dry at today's high tide
+/* The map always covers the same real area: 5 km × 3.25 km. The "Map detail" setting only changes
+   the size of each grid square (CELL, in metres), so heights, distances and homes per hectare stay the
+   same — finer squares just draw the coast more sharply. The terrain formulas below are written in
+   "base units" of 25 m (the Medium setting). Batch runs do not use the map at all, so they give the
+   same results at every detail setting. */
+const MAP_W = 5000, MAP_H = 3250, BASE = 25, GW0 = MAP_W / BASE, GH0 = MAP_H / BASE;
+const DETAIL = { low: 50, medium: 25, high: 12.5, ultra: 6.25 };   // metres per square
+let CELL = 25, GW = 200, GH = 130, NC = GW * GH;
+let elev, isSea, home, wall, flood, dryToday;
+// elev: m above today's mean sea level · isSea: open sea at the start · home: built-up square
+// wall: top of a sea wall (m above today's MSL), 0 = none · flood: 0 dry, 1 high tide, 2 storm only
+// dryToday: land that is dry at today's high tide
+const homesPerSquare = () => 5 * (CELL / BASE) ** 2;   // 5 homes per 25 m × 25 m of built-up land
+function setDetail(cell) {
+  const old = wall ? { w: wall, GW, GH } : null;
+  CELL = cell; GW = Math.round(MAP_W / cell); GH = Math.round(MAP_H / cell); NC = GW * GH;
+  elev = new Float32Array(NC); isSea = new Uint8Array(NC); home = new Uint8Array(NC);
+  wall = new Float32Array(NC); flood = new Uint8Array(NC); dryToday = new Uint8Array(NC);
+  off.width = GW; off.height = GH; img = offCtx.createImageData(GW, GH);
+  const place = mapPlace || "estuary", frac = mapPlace ? section / (mapPlace === "delta" ? old.GW : old.GH) : null;
+  buildMap(place);
+  if (old) {   // keep any walls the user drew, re-drawn on the new grid
+    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+      // look at every old square this new square overlaps and keep the highest wall (so thin walls survive)
+      const ox0 = Math.floor(x * old.GW / GW), ox1 = Math.max(ox0, Math.ceil((x + 1) * old.GW / GW) - 1);
+      const oy0 = Math.floor(y * old.GH / GH), oy1 = Math.max(oy0, Math.ceil((y + 1) * old.GH / GH) - 1);
+      let v = 0; for (let oy = oy0; oy <= Math.min(old.GH - 1, oy1); oy++) for (let ox = ox0; ox <= Math.min(old.GW - 1, ox1); ox++) v = Math.max(v, old.w[oy * old.GW + ox]);
+      if (v > 0 && !isSea[y * GW + x]) wall[y * GW + x] = v;
+    }
+    if (frac !== null) section = Math.min((mapPlace === "delta" ? GW : GH) - 1, Math.round(frac * (mapPlace === "delta" ? GW : GH)));
+  }
+  wallVersion++; lastFloodKey = "";
+}
 let section = 0;                         // row used for the cross-section
 let mapPlace = "";
 function makeNoise(rng, scale) {
-  const LW = Math.ceil(GW / scale) + 2, LH = Math.ceil(GH / scale) + 2, v = new Float32Array(LW * LH).map(() => rng());
+  const LW = Math.ceil(GW0 / scale) + 2, LH = Math.ceil(GH0 / scale) + 2, v = new Float32Array(LW * LH).map(() => rng());
   const sm = t => t * t * (3 - 2 * t);
   return (x, y) => {
     const gx = x / scale, gy = y / scale, x0 = Math.floor(gx), y0 = Math.floor(gy), fx = sm(gx - x0), fy = sm(gy - y0);
@@ -481,12 +517,13 @@ function buildMap(place) {
   const rng = mulberry32(place === "estuary" ? 11 : place === "delta" ? 22 : 33);
   const n1 = makeNoise(rng, 20), n2 = makeNoise(rng, 6), n3 = makeNoise(rng, 45);
   wall.fill(0); home.fill(0);
-  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
-    const i = y * GW + x; let h = 0, town = 0;
+  const K = CELL / BASE;                     // grid squares → 25 m base units
+  for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
+    const i = gy * GW + gx, x = (gx + 0.5) * K - 0.5, y = (gy + 0.5) * K - 0.5; let h = 0, town = 0;
     if (place === "estuary") {
       // Sea to the east; land rises gently to the west; an estuary winds inland with salt marsh and reclaimed fields beside it
-      const coastX = GW * 0.84 + 6 * (n3(x, y) - 0.5) * 2;
-      const cy = GH * 0.56 + GH * 0.10 * Math.sin(x / 26) + GH * 0.03 * Math.sin(x / 9);
+      const coastX = GW0 * 0.84 + 6 * (n3(x, y) - 0.5) * 2;
+      const cy = GH0 * 0.56 + GH0 * 0.10 * Math.sin(x / 26) + GH0 * 0.03 * Math.sin(x / 9);
       const w = 1.5 + 9 * Math.pow(Math.min(1, x / coastX), 2.2);
       const d = Math.abs(y - cy);
       h = 3.2 + 22 * Math.pow(Math.max(0, (coastX - x) / coastX), 1.7) * (0.6 + 0.8 * n3(x + 9, y)) + 2.5 * (n1(x, y) - 0.5);
@@ -495,28 +532,28 @@ function buildMap(place) {
       if (x > coastX) h = Math.min(h, -2 - (x - coastX) * 0.4);             // the sea
       else if (x > coastX - 6) h = Math.min(h, 2.6 + 0.35 * (coastX - x) + 0.4 * n2(x, y));  // beach and dunes
       // the town on the north bank, plus a village to the south
-      const tx = (x - GW * 0.55) / (GW * 0.16), ty = (y - GH * 0.33) / (GH * 0.16), vx = (x - GW * 0.42) / (GW * 0.07), vy = (y - GH * 0.83) / (GH * 0.08);
+      const tx = (x - GW0 * 0.55) / (GW0 * 0.16), ty = (y - GH0 * 0.33) / (GH0 * 0.16), vx = (x - GW0 * 0.42) / (GW0 * 0.07), vy = (y - GH0 * 0.83) / (GH0 * 0.08);
       town = Math.max(Math.exp(-(tx * tx + ty * ty)), 0.8 * Math.exp(-(vx * vx + vy * vy)));
     } else if (place === "delta") {
       // Sea to the south; a low, flat delta fan with river channels; a big city in the middle
-      const coastY = GH * 0.80 + 5 * (n3(x, y) - 0.5) * 2 + 3 * Math.sin(x / 13);
+      const coastY = GH0 * 0.80 + 5 * (n3(x, y) - 0.5) * 2 + 3 * Math.sin(x / 13);
       h = 0.9 + 6.5 * Math.pow(Math.max(0, (coastY - y) / coastY), 1.3) + 1.2 * (n1(x, y) - 0.5) + 0.4 * (n2(x, y) - 0.5);
       // land in the city centre has sunk (pumping groundwater)
-      const cx = (x - GW * 0.5) / (GW * 0.13), cy2 = (y - GH * 0.52) / (GH * 0.17);
+      const cx = (x - GW0 * 0.5) / (GW0 * 0.13), cy2 = (y - GH0 * 0.52) / (GH0 * 0.17);
       h -= 1.3 * Math.exp(-(cx * cx + cy2 * cy2));
       // distributary channels with natural levees
       for (const [x0, dx] of [[0.5, -0.32], [0.5, 0.02], [0.5, 0.30]]) {
         const u = y / coastY; if (u < 0) continue;
-        const ccx = GW * (x0 + dx * Math.pow(Math.min(1, Math.max(0, u)), 1.4)) + 4 * Math.sin(y / 7);
+        const ccx = GW0 * (x0 + dx * Math.pow(Math.min(1, Math.max(0, u)), 1.4)) + 4 * Math.sin(y / 7);
         const dd = Math.abs(x - ccx), w = 1.2 + 2.5 * u;
         if (dd < w) h = -2; else if (dd < w + 2.5) h += 0.6;
       }
       if (y > coastY) h = Math.min(h, -1.5 - (y - coastY) * 0.3);
-      const ux = (x - GW * 0.5) / (GW * 0.26), uy = (y - GH * 0.5) / (GH * 0.26);
+      const ux = (x - GW0 * 0.5) / (GW0 * 0.26), uy = (y - GH0 * 0.5) / (GH0 * 0.26);
       town = Math.exp(-(ux * ux + uy * uy) * 1.2);
     } else {
       // A coral island: a ring of low land around a lagoon, open to the sea in the south-west
-      const ex = (x - GW * 0.5) / (GW * 0.40), ey = (y - GH * 0.5) / (GH * 0.40);
+      const ex = (x - GW0 * 0.5) / (GW0 * 0.40), ey = (y - GH0 * 0.5) / (GH0 * 0.40);
       const r = Math.hypot(ex, ey), ang = Math.atan2(ey, ex);
       const ringW = 0.11 + 0.10 * Math.max(0, Math.cos(ang - 0.1)) + 0.03 * (n1(x, y) - 0.5);
       const dr = Math.abs(r - 0.95) / ringW;
@@ -527,7 +564,7 @@ function buildMap(place) {
     }
     elev[i] = h; isSea[i] = 0;
     if (h > 0.2 && h < 25 && town > 0.3 && rng() < 0.9 * town) home[i] = 1;
-    else if (h > 0.5 && rng() < 0.0015) home[i] = 1;                         // scattered farms
+    else if (h > 0.5 && rng() < 0.0015 * K * K) home[i] = 1;                         // scattered farms
   }
   // Open sea = connected to the edge and below today's mean sea level
   const q = [];
@@ -646,7 +683,7 @@ function fitCanvas(c) {
   return { ctx: c.getContext("2d"), W, H, dpr };
 }
 const off = document.createElement("canvas"); off.width = GW; off.height = GH;
-const offCtx = off.getContext("2d"), img = offCtx.createImageData(GW, GH);
+const offCtx = off.getContext("2d"); let img = offCtx.createImageData(GW, GH);
 let mview = { s: 1, ox: 0, oy: 0 };
 function landColour(h) {
   // green lowlands → tan → pale uplands
@@ -889,12 +926,13 @@ function drawCharts() {
    ===================================================================== */
 const cm = m => (m * 100).toFixed(0) + " cm";
 function floodStats() {
+  const hps = homesPerSquare();
   let land = 0, lost = 0, homes = 0, homesNow = 0, homesStorm = 0;
   for (let i = 0; i < NC; i++) {
     if (dryToday[i]) { land++; if (flood[i] === 1) lost++; }
     if (home[i]) { homes++; if (flood[i] === 1) homesNow++; if (flood[i]) homesStorm++; }
   }
-  return { pctLand: 100 * lost / Math.max(1, land), homes: homes * 5, homesNow: homesNow * 5, homesStorm: homesStorm * 5 };
+  return { pctLand: 100 * lost / Math.max(1, land), homes: Math.round(homes * hps), homesNow: Math.round(homesNow * hps), homesStorm: Math.round(homesStorm * hps) };
 }
 function updateUI() {
   { const lv = currentLevels(); computeFlood(lv.base, lv.stormL); }          // keep the flood map up to date even when it is not drawn
@@ -952,6 +990,7 @@ function syncOutputs() {
   el("o_w2100").textContent = (+el("w2100").value).toFixed(1) + " °C";
   for (const k of ["thf", "glf", "grf", "anf"]) el("o_" + k).textContent = "×" + (+el(k).value).toFixed(2);
   el("o_micT").textContent = (+el("micT").value).toFixed(1) + " °C";
+  el("o_detail").textContent = `${GW} × ${GH} squares`;
   el("o_wallH").textContent = (+el("wallH").value).toFixed(1) + " m";
   el("customRow").style.display = el("scenario").value === "custom" ? "block" : "none";
   el("miciRow").style.display = el("mici").checked ? "block" : "none";
@@ -962,6 +1001,7 @@ function syncOutputs() {
 for (const id of ["thf", "glf", "grf", "anf", "mici", "micT", "lws", "scenario", "w2100", "endYear"]) el(id).addEventListener("input", () => { syncOutputs(); sl2020 = refLevel2020(); unmark(); });
 for (const id of ["wallH", "stormRP", "whatif"]) el(id).addEventListener("input", () => { syncOutputs(); unmark(); });
 el("place").addEventListener("change", () => { buildMap(el("place").value); syncOutputs(); unmark(); });
+el("detail").addEventListener("change", () => { setDetail(DETAIL[el("detail").value]); syncOutputs(); });
 function unmark() { document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); }
 el("btnPlay").onclick = () => setRunning(!running);
 el("btnReset").onclick = () => resetSim();
@@ -984,7 +1024,7 @@ function applyTool(i) {
   else if (tool === "erase") wall[i] = 0;
 }
 function stamp(cx, cy) {
-  const r = [0, 1, 2][brush];
+  const r = Math.round([0, 25, 50][brush] / CELL);   // brush radius in metres → squares
   for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const X = cx + dx, Y = cy + dy; if (X >= 0 && Y >= 0 && X < GW && Y < GH && dx * dx + dy * dy <= r * r + 0.5) applyTool(Y * GW + X); }
   wallVersion++;
 }
@@ -1317,7 +1357,7 @@ function frame(now) {
   apply();
 })();
 
-buildMap("estuary");
+setDetail(DETAIL[el("detail").value]);
 syncOutputs(); fillOutcomes();
 setPreset(0); setRunning(false);
 requestAnimationFrame(frame);
