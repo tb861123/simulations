@@ -30,6 +30,16 @@ and slip-road traffic (straight), % lorries, road works (lane closure from
 speed limits, random seed. **🛑 Brake** makes one driver brake for 2 s.
 Speeds ½× to 60× (1× = real time).
 
+**Picture quality** (Low / Medium / High / Ultra, default Medium, remembered in
+this browser) changes only the picture: the space–time diagram uses 15, 7.5,
+3.75 or 1.5 m of road per pixel column and 2, 1.2, 1 or 0.75 screen pixels per
+second of history, and vehicles are drawn with more detail (lane lines,
+windscreens, outlines) at higher settings. Low also skips the smoothing of
+cell-model cars between 1 s steps. All canvases are sized for the screen's
+pixel density, so they stay sharp at 200% scaling. The traffic model and the
+batch runs never use this setting, so batch results are the same at every
+quality.
+
 ## Presets
 
 Free flow · Phantom jam · One driver brakes · Too many cars · Smart motorway ·

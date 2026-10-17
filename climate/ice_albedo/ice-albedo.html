@@ -193,6 +193,16 @@
       <button id="btnWarm" style="flex:1" title="Restart from a warm climate like today's">☀ Warm start</button>
       <button id="btnSnow" style="flex:1" title="Restart from a frozen planet">❄ Snowball start</button>
     </div>
+    <div class="ctl" style="margin-top:10px">
+      <label>Display quality</label>
+      <select id="quality">
+        <option value="low">Low (fastest)</option>
+        <option value="medium">Medium</option>
+        <option value="high">High (default)</option>
+        <option value="ultra">Ultra (sharpest)</option>
+      </select>
+      <div class="hint">How finely the globe is drawn. It does not change the climate model, which always uses 90 bands of 2° latitude (batch runs too).</div>
+    </div>
   </section>
 
   <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
@@ -515,21 +525,41 @@ function fitCanvas(cv) {
   const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return { ctx, w: r.width, h: r.height, dpr };
 }
-// A made-up land map (smooth random blobs), 120 × 60 cells in longitude × latitude
-const LANDMAP = (function () {
-  const rng = mulberry32(2024), LW = 12, LH = 7, v = Array.from({ length: LW * LH }, () => rng());
-  const m = new Uint8Array(120 * 60), sm = t => t * t * (3 - 2 * t);
-  for (let y = 0; y < 60; y++) for (let x = 0; x < 120; x++) {
-    const gx = x / 10, gy = y / 10, x0 = Math.floor(gx), y0 = Math.floor(gy), fx = sm(gx - x0), fy = sm(gy - y0);
+// A made-up land map (smooth random blobs). The same smooth noise is sampled finer at
+// higher display quality, so coastlines get sharper but the continents stay in the same places.
+const LAND_NOISE = (function () { const rng = mulberry32(2024); return Array.from({ length: 12 * 7 }, () => rng()); })();
+const landCache = new Map();
+function landMap(cellDeg) {
+  if (landCache.has(cellDeg)) return landCache.get(cellDeg);
+  const NX = Math.round(360 / cellDeg), NY = Math.round(180 / cellDeg), LW = 12, LH = 7, v = LAND_NOISE;
+  const m = new Uint8Array(NX * NY), sm = t => t * t * (3 - 2 * t);
+  for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+    // position in the noise lattice (one lattice step = 30° of longitude or latitude)
+    const gx = (x + 0.5) * cellDeg / 30, gy = (y + 0.5) * cellDeg / 30, x0 = Math.floor(gx), y0 = Math.floor(gy), fx = sm(gx - x0), fy = sm(gy - y0);
     const g = (X, Y) => v[(Y % LH) * LW + (X % LW)];
     const val = g(x0, y0) * (1 - fx) * (1 - fy) + g(x0 + 1, y0) * fx * (1 - fy) + g(x0, y0 + 1) * (1 - fx) * fy + g(x0 + 1, y0 + 1) * fx * fy;
-    m[y * 120 + x] = val > 0.62 ? 1 : 0;
+    m[y * NX + x] = val > 0.62 ? 1 : 0;
   }
-  return m;
-})();
+  const out = { m, NX, NY, cellDeg };
+  landCache.set(cellDeg, out);
+  return out;
+}
+/* DISPLAY QUALITY (drawing only — the climate model always uses 90 bands of 2°, live and in batch runs)
+     pix:    globe pixels per CSS pixel (× devicePixelRatio for High and Ultra, so it is crisp on 200% screens)
+     land:   size of a land-map cell in degrees
+     smooth: blend temperatures between neighbouring bands, so the ice edge is a smooth line, not 2° steps */
+const QUALITY = {
+  low:    { name: "Low",    pix: () => 0.5, land: 3, smooth: false },
+  medium: { name: "Medium", pix: () => 1, land: 2, smooth: false },
+  high:   { name: "High",   pix: () => Math.min(2, window.devicePixelRatio || 1), land: 1, smooth: true },
+  ultra:  { name: "Ultra",  pix: () => Math.min(3, 1.5 * (window.devicePixelRatio || 1)), land: 0.5, smooth: true },
+};
+let quality = "high";
+try { const q = localStorage.getItem("ice-albedo-quality"); if (QUALITY[q]) quality = q; } catch (e) {}
 let globeCache = null;
-function globeImage(Rpx, rot, T, surf) {
-  const size = Math.max(20, Math.round(2 * Rpx));
+function globeImage(Rcss, rot, T, surf) {
+  const Q = QUALITY[quality], LM = landMap(Q.land);
+  const size = Math.max(20, Math.round(2 * Rcss * Q.pix()));
   if (!globeCache || globeCache.size !== size) {
     // pre-compute latitude and longitude of every pixel (tilted 20° towards us)
     const lat = new Float32Array(size * size), lon = new Float32Array(size * size), lit = new Float32Array(size * size), on = new Uint8Array(size * size);
@@ -548,9 +578,14 @@ function globeImage(Rpx, rot, T, surf) {
   const G = globeCache, d = G.img.data;
   for (let k = 0; k < size * size; k++) {
     if (!G.on[k]) { d[4 * k + 3] = 0; continue; }
-    const la = G.lat[k], bi = clamp(Math.floor((la + 90) / DLAT), 0, NB - 1), t = T[bi];
+    const la = G.lat[k];
+    let t;
+    if (Q.smooth) {           // straight-line blend between the two nearest band centres
+      const fb = clamp((la + 90) / DLAT - 0.5, 0, NB - 1), i0 = Math.floor(fb), i1 = Math.min(NB - 1, i0 + 1), f = fb - i0;
+      t = T[i0] * (1 - f) + T[i1] * f;
+    } else t = T[clamp(Math.floor((la + 90) / DLAT), 0, NB - 1)];
     let lo = G.lon[k] + rot; lo = ((lo % 360) + 540) % 360;
-    const land = surf === "ocean" ? false : surf === "land" ? true : LANDMAP[clamp(Math.floor((la + 90) / 3), 0, 59) * 120 + Math.floor(lo / 3)] === 1;
+    const land = surf === "ocean" ? false : surf === "land" ? true : LM.m[clamp(Math.floor((la + 90) / LM.cellDeg), 0, LM.NY - 1) * LM.NX + Math.min(LM.NX - 1, Math.floor(lo / LM.cellDeg))] === 1;
     // colour: ocean blue / land green-brown, warmer = greener/yellower; ice white where T < −10 °C
     let r, g, b;
     if (land) { const w = clamp((t - 0) / 30, 0, 1); r = 70 + 120 * w; g = 110 + 40 * w; b = 60 + 20 * w; }
@@ -621,7 +656,8 @@ function drawView(now, p) {
   const halo = ctx.createRadialGradient(cx, cy, Rg * 0.95, cx, cy, Rg * 1.12); halo.addColorStop(0, "rgba(120,170,255,0.35)"); halo.addColorStop(1, "rgba(120,170,255,0)");
   ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, Rg * 1.12, 0, 6.283); ctx.fill();
   const rot = (now / 1000) * 12;
-  ctx.drawImage(globeImage(Rg * (window.devicePixelRatio || 1), rot, sim.T, p.surf), cx - Rg, cy - Rg, 2 * Rg, 2 * Rg);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(globeImage(Rg, rot, sim.T, p.surf), cx - Rg, cy - Rg, 2 * Rg, 2 * Rg);
   ctx.fillStyle = "#eef0e8"; ctx.font = "bold 14px system-ui, sans-serif"; ctx.textAlign = "center";
   ctx.fillText(STATE_NAME[stateOf(ice)] + (stateOf(ice) === 1 ? ` — ice from ${ice.toFixed(0)}° to the poles` : ""), cx, cy + Rg + 26);
   ctx.font = "12px system-ui, sans-serif"; ctx.fillStyle = "#a3ab96";
@@ -835,6 +871,8 @@ document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => set
   if (id === "drift") sim.loopDir = -1;
   updateLabels();
 }));
+el("quality").value = quality;
+el("quality").addEventListener("input", () => { quality = el("quality").value; globeCache = null; try { localStorage.setItem("ice-albedo-quality", quality); } catch (e) {} });
 el("btnWarm").onclick = () => { document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); presetStart = "warm"; resetSim("warm"); };
 el("btnSnow").onclick = () => { document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); presetStart = "snow"; resetSim("snow"); };
 function setRunning(r) { sim.running = r; el("btnPlay").textContent = r ? "⏸ Pause" : sim.t > 0 ? "▶ Resume" : "▶ Start"; }

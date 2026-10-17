@@ -205,6 +205,15 @@
 
       <h2 class="gap">View</h2>
       <div class="ctl"><label>Field of view (width) <output id="o_fov"></output></label><input type="range" id="fov" min="-1" max="3" step="0.01" value="0.7"></div>
+      <div class="ctl"><label>Picture quality <output id="o_quality"></output></label>
+        <select id="quality">
+          <option value="low">Low: fast, blocky (1 ray per 2×2 screen pixels)</option>
+          <option value="medium" selected>Medium: smooth on a laptop (1 ray per screen pixel)</option>
+          <option value="high">High: sharp on high-DPI screens (1 ray per device pixel)</option>
+          <option value="ultra">Ultra: 4 rays per device pixel (anti-aliased, slow)</option>
+        </select>
+        <div class="hint">How many light rays are traced for the picture. It changes only how sharp the picture looks, not the physics. While you drag, a quicker, coarser picture is drawn.</div>
+      </div>
       <div class="brow"><button id="fitView" style="flex:1">Fit view to the Einstein radius</button></div>
       <label class="chk"><input type="checkbox" id="ovCrit" checked> Critical curves (red)</label>
       <label class="chk"><input type="checkbox" id="ovCaus" checked> Caustics (cyan, on the source plane)</label>
@@ -254,6 +263,7 @@
         <li><b>Time delays:</b> light along different paths takes different times: Δt = (1+z_l)/c · D_l D_s/D_ls · Δ[½|θ−β|² − ψ(θ)], with ψ the lensing potential.</li>
         <li><b>Microlensing:</b> lens star plus planet. The binary-lens equation is turned into a 5th-order polynomial (Witt & Mao 1995) and solved for the 3 or 5 images; the source star's size is included by averaging over 25 points across its disc. Single-lens magnification A(u) = (u²+2)/(u√(u²+4)). Noise: random scatter on each measurement.</li>
         <li><b>Eddington 1919:</b> bending α = 4GM/(c²b) = 1.75″ × (R☉/b) for light passing a distance b from the Sun's centre. Newton's physics (light as particles) gives half as much.</li>
+        <li><b>Picture quality</b> (Low/Medium/High/Ultra) only changes how many rays are traced for the picture (and how fine the grid for curves and images is), not the physics. Batch runs always use fixed resolutions.</li>
         <li><b>Left out:</b> light from the lens galaxy itself; dust; blurring by the atmosphere or telescope; lenses at several different distances; the source's own motion; microlensing by stars inside lens galaxies; "strong" bending near black holes (we assume small angles).</li>
       </ul>
     </details>
@@ -322,7 +332,7 @@
     <div class="brow"><button id="bRun" class="primary" style="flex:1">▶ Run batch</button><button id="bStop" disabled>■ Stop</button></div>
     <div id="bProg"><span></span></div>
     <div class="hint" id="bInfo"></div>
-    <p class="hint">Batch runs skip the drawing. Microlensing runs treat the source star as a point, sample the light curve 1600 times, and only work out the planet's effect near the star and the planet's caustics. Ring measurements use a small 100 × 100 pixel image, so they run fast.</p>
+    <p class="hint">Batch runs skip the drawing. Microlensing runs treat the source star as a point, sample the light curve 1600 times, and only work out the planet's effect near the star and the planet's caustics. Ring measurements always use a fixed 100 × 100 pixel image, and image searches a fixed 120 × 120 grid, whatever the picture-quality setting, so batch results are reproducible.</p>
   </div>
   <div id="bRight">
     <div id="bHead"><h3 id="bTitle">Batch run</h3><span><a id="bCsv" href="#" download="lensing-batch.csv" style="color:var(--accent);margin-right:10px">Download CSV</a><button id="bClose">✕ Close</button></span></div>
@@ -550,23 +560,42 @@ function viewGeom() {                    // arcsec per device pixel; half-widths
   const pa = fovW / W;
   return { W, H, pa, hx: fovW / 2, hy: pa * H / 2 };
 }
+/* Picture quality: how many rays are traced. ds = device pixels per ray (can be fractional);
+   ss = rays per output pixel along each side (2 = 2×2 supersampling for smoother arcs). */
+const QUALITY = {
+  low:    { cssPerRay: 2, ss: 1, grid: 110 },
+  medium: { cssPerRay: 1, ss: 1, grid: 170 },
+  high:   { cssPerRay: 0, ss: 1, grid: 220 },     // 0 = one ray per device pixel
+  ultra:  { cssPerRay: 0, ss: 2, grid: 280 },
+};
+let quality = "medium";
+try { const q = localStorage.getItem("gravitational-lensing-quality"); if (q && QUALITY[q]) quality = q; } catch (e) {}
+let lastRenderMs = 0;
 function renderSky(low) {
-  const g = viewGeom(), ds = low ? 3 : 1, w = Math.ceil(g.W / ds), h = Math.ceil(g.H / ds);
+  const t0 = performance.now(), dpr = window.devicePixelRatio || 1, Q = QUALITY[quality];
+  let ds = Q.cssPerRay ? Q.cssPerRay * dpr : 1, ss = Q.ss;
+  if (low) { ds = Math.max(ds, 1) * 2.5; ss = 1; }      // dragging: quicker, coarser picture
+  const g = viewGeom(), w = Math.ceil(g.W / ds), h = Math.ceil(g.H / ds);
   if (off.width !== w || off.height !== h) { off.width = w; off.height = h; }
   const img = octx.createImageData(w, h), d = img.data;
-  const S = Math.pow(10, st.src.logS), B = st.src.bright, type = st.src.type, sx = st.src.x, sy = st.src.y, pa = g.pa * ds;
+  const S = Math.pow(10, st.src.logS), B = st.src.bright, type = st.src.type, sx = st.src.x, sy = st.src.y, pa = g.pa * ds, sub = pa / ss, n2 = ss * ss;
   for (let j = 0; j < h; j++) {
-    const ty = g.hy - (j + 0.5) * pa;
     for (let i = 0; i < w; i++) {
-      const tx = -g.hx + (i + 0.5) * pa;
-      gAx = gAy = 0;
-      for (let k = 0; k < PS.length; k++) lensAt(PS[k], tx - PS[k].x, ty - PS[k].y, false);
-      sourceAt(type, tx - gAx - sx, ty - gAy - sy, S);        // the lens equation: β = θ − α(θ)
+      let r = 0, gg = 0, b = 0;
+      for (let sj = 0; sj < ss; sj++) for (let si = 0; si < ss; si++) {
+        const ty = g.hy - j * pa - (sj + 0.5) * sub, tx = -g.hx + i * pa + (si + 0.5) * sub;
+        gAx = gAy = 0;
+        for (let k = 0; k < PS.length; k++) lensAt(PS[k], tx - PS[k].x, ty - PS[k].y, false);
+        sourceAt(type, tx - gAx - sx, ty - gAy - sy, S);        // the lens equation: β = θ − α(θ)
+        r += 1 - Math.exp(-B * sR); gg += 1 - Math.exp(-B * sG); b += 1 - Math.exp(-B * sB);
+      }
       const o = 4 * (j * w + i);
-      d[o] = 6 + 249 * (1 - Math.exp(-B * sR)); d[o + 1] = 8 + 247 * (1 - Math.exp(-B * sG)); d[o + 2] = 18 + 237 * (1 - Math.exp(-B * sB)); d[o + 3] = 255;
+      d[o] = 6 + 249 * r / n2; d[o + 1] = 8 + 247 * gg / n2; d[o + 2] = 18 + 237 * b / n2; d[o + 3] = 255;
     }
   }
   octx.putImageData(img, 0, 0);
+  lastRenderMs = performance.now() - t0;
+  if (!low) el("o_quality").textContent = `${w}×${h} rays${ss > 1 ? " ×4" : ""} · ${Math.round(lastRenderMs)} ms`;
 }
 
 /* =====================================================================
@@ -880,7 +909,7 @@ function drawSky(dpr) {
   const g = viewGeom(), ctx = vctx;
   if (dirty) { renderSky(dragging); lastRenderLow = dragging; dirty = false; }
   else if (lastRenderLow && !dragging) { renderSky(false); lastRenderLow = false; }
-  if (analysisDirty) { AN = analyse(PS, g.hx, g.hy, st.src.x, st.src.y, dragging ? 90 : 170); analysisDirty = false; }
+  if (analysisDirty) { AN = analyse(PS, g.hx, g.hy, st.src.x, st.src.y, dragging ? 90 : QUALITY[quality].grid); analysisDirty = false; }
   ctx.imageSmoothingEnabled = true; ctx.drawImage(off, 0, 0, g.W, g.H);
   // X-ray gas glow (pink): hot gas lenses
   if (el("ovGas").checked) {
@@ -1172,7 +1201,9 @@ function frame(now) {
 
 el("presets").innerHTML = PRESETS.map((p, k) => `<button data-k="${k}">${p.name}<small>${p.note}</small></button>`).join("");
 document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.k)));
-document.querySelectorAll("#left input, #left select").forEach(c => { if (c.id !== "mode") c.addEventListener("input", onChange); });
+document.querySelectorAll("#left input, #left select").forEach(c => { if (c.id !== "mode" && c.id !== "quality") c.addEventListener("input", onChange); });
+el("quality").value = quality;
+el("quality").addEventListener("change", () => { quality = el("quality").value; try { localStorage.setItem("gravitational-lensing-quality", quality); } catch (e) {} dirty = true; analysisDirty = true; });
 el("mode").addEventListener("change", () => { st.mode = el("mode").value; onChange(); if (st.mode === "micro") microT = -2 * MS.tE; setRunning(false); });
 el("addLens").onclick = () => { st.lenses.push(L(1, 12.5, 0.3 * Math.pow(10, st.logFov) * (Math.random() - 0.5), 0.3 * Math.pow(10, st.logFov) * (Math.random() - 0.5))); st.sel = st.lenses.length - 1; syncLensControls(); onChange(); };
 el("delLens").onclick = () => { if (st.lenses.length > 1) { st.lenses.splice(st.sel, 1); st.sel = 0; syncLensControls(); onChange(); } };

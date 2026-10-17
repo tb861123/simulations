@@ -178,6 +178,11 @@
     <label class="chk"><input type="checkbox" id="vsl"> Smart motorway: variable speed limits</label>
     <div class="ctl"><label>Random seed</label><input type="number" id="seed" value="1" min="1" style="width:100%"></div>
 
+    <h2 class="gap">Display <span class="live">live</span></h2>
+    <div class="ctl"><label>Picture quality</label>
+      <select id="quality"><option value="low">Low (fast)</option><option value="medium" selected>Medium</option><option value="high">High</option><option value="ultra">Ultra</option></select>
+      <div class="hint">Sets how finely the space–time diagram is divided (30, 7.5, 3.75 or 1.5 m per pixel column) and how much detail the vehicles are drawn with. It changes only the picture, never the traffic or the batch results.</div></div>
+
     <details>
       <summary>How the model works (and what it leaves out)</summary>
       <ul>
@@ -625,6 +630,12 @@ const SEG = 250, NSEG = ROAD / SEG;                  // speed-limit signs every 
 const LORRY_KMH = 90;                                // 56 mph lorry limiter
 // Intelligent Driver Model settings
 const IDM = { T: 1.5, s0: 2, b: 2, aCar: 1.0, aLorry: 0.5, lenCar: 5, lenLorry: 16.5, dt: 0.1 };
+/* Picture quality (display only — the traffic model and batch runs never use it).
+   bin    : metres of road per pixel column of the space–time diagram
+   rowPx  : screen height (CSS pixels) of one second in the space–time diagram
+   detail : 0 = plain blocks, 1 = lane lines and lorry outlines, 2 = + windscreens, 3 = + outlines on every vehicle */
+const QUALITY = { low: { bin: 15, rowPx: 2, detail: 0 }, medium: { bin: 7.5, rowPx: 1.2, detail: 1 }, high: { bin: 3.75, rowPx: 1, detail: 2 }, ultra: { bin: 1.5, rowPx: 0.75, detail: 3 } };
+let Q = QUALITY.medium, ST_BINS = ROAD / Q.bin;
 const cellsForKmh = kmh => Math.max(1, Math.round(kmh / KMH_PER_CELL));
 
 /* =====================================================================
@@ -946,11 +957,12 @@ function vslUpdate(s) {
 }
 // one row of the space–time diagram: slowest speed (km/h) found in each 7.5 m bin, 255 = empty
 function recordRow(s) {
-  const row = new Uint8Array(NC).fill(255);
+  const nb = ST_BINS, bin = ROAD / nb, row = new Uint8Array(nb).fill(255);
   for (const v of s.veh) {
     const kmh = Math.min(254, Math.round(s.ca ? v.v * KMH_PER_CELL : v.v * 3.6));
-    const front = s.ca ? v.x : v.x / CELL, len = s.ca ? v.len : v.len / CELL;
-    for (let b = Math.floor(front - len + 1); b <= Math.floor(front); b++) { const q = s.ring ? (b + NC) % NC : b; if (q >= 0 && q < NC && kmh < row[q]) row[q] = kmh; }
+    // the stretch of road the vehicle covers, in metres (a cell-model car fills its whole 7.5 m cell)
+    const front = s.ca ? (v.x + 1) * CELL : v.x, rear = front - (s.ca ? v.len * CELL : v.len);
+    for (let b = Math.floor(rear / bin + 1e-9); b <= Math.floor((front - 1e-6) / bin); b++) { const q = s.ring ? ((b % nb) + nb) % nb : b; if (q >= 0 && q < nb && kmh < row[q]) row[q] = kmh; }
   }
   s.rows.push(row); if (s.rows.length > 600) s.rows.shift();
 }
@@ -1040,7 +1052,7 @@ let geom = null;
 function vehPos(v) {               // smooth position (metres) between steps for drawing
   const x0 = S.ca ? v.px * CELL : v.px, x1 = S.ca ? v.x * CELL : v.x;
   let d = x1 - x0; if (S.ring && d < -ROAD / 2) d += ROAD;
-  const f = S.ca ? frac : 1;
+  const f = S.ca && Q.detail > 0 ? frac : 1;      // low quality: no smoothing between 1 s steps
   let x = x0 + d * f; if (S.ring) x = ((x % ROAD) + ROAD) % ROAD; return x;
 }
 function drawRoad() {
@@ -1054,7 +1066,7 @@ function drawRoad() {
     ctx.fillStyle = "#1d2a17"; ctx.beginPath(); ctx.arc(cx, cy, R - nl * lw - 4 * dpr, 0, 2 * Math.PI); ctx.fill();
     ctx.strokeStyle = "#2b2f33"; ctx.lineWidth = nl * lw + 4 * dpr; ctx.beginPath(); ctx.arc(cx, cy, R - nl * lw / 2, 0, 2 * Math.PI); ctx.stroke();
     ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1 * dpr; ctx.setLineDash([6 * dpr, 8 * dpr]);
-    for (let l = 1; l < nl; l++) { ctx.beginPath(); ctx.arc(cx, cy, R - l * lw, 0, 2 * Math.PI); ctx.stroke(); }
+    for (let l = 1; l < (Q.detail ? nl : 1); l++) { ctx.beginPath(); ctx.arc(cx, cy, R - l * lw, 0, 2 * Math.PI); ctx.stroke(); }
     ctx.setLineDash([]);
     const ang = x => x / ROAD * 2 * Math.PI - Math.PI / 2, rad = l => R - (l + 0.5) * lw;
     // road works
@@ -1071,7 +1083,7 @@ function drawRoad() {
       ctx.save(); ctx.translate(cx + Math.cos(a) * r, cy + Math.sin(a) * r); ctx.rotate(a + Math.PI / 2);
       const L = Math.max(2.5 * dpr, lenM / ROAD * 2 * Math.PI * r), w = lw * (v.lorry ? 0.75 : 0.6);
       ctx.fillStyle = rgb(speedColour(kmh)); ctx.fillRect(-L / 2, -w / 2, L, w);
-      if (v.lorry) { ctx.strokeStyle = "#3d4a5c"; ctx.lineWidth = 1.2 * dpr; ctx.strokeRect(-L / 2, -w / 2, L, w); }
+      vehDetail(ctx, 0, 0, L, w, v.lorry, dpr);
       if (v === S.braked && S.t - S.brakedT < 15) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.arc(0, 0, lw * 0.9, 0, 2 * Math.PI); ctx.stroke(); }
       ctx.restore();
     }
@@ -1089,7 +1101,7 @@ function drawRoad() {
     for (let r = 0; r < 2; r++) {
       ctx.fillStyle = "#2b2f33"; ctx.fillRect(m, rowY(r), rowW, nl * lw);
       ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1 * dpr; ctx.setLineDash([6 * dpr, 8 * dpr]);
-      for (let l = 1; l < nl; l++) { ctx.beginPath(); ctx.moveTo(m, rowY(r) + l * lw); ctx.lineTo(m + rowW, rowY(r) + l * lw); ctx.stroke(); }
+      for (let l = 1; l < (Q.detail ? nl : 1); l++) { ctx.beginPath(); ctx.moveTo(m, rowY(r) + l * lw); ctx.lineTo(m + rowW, rowY(r) + l * lw); ctx.stroke(); }
       ctx.setLineDash([]); ctx.fillStyle = "#a3ab96"; ctx.font = `${10.5 * dpr}px system-ui`; ctx.textAlign = "left";
       for (let km = 0; km <= 1.5; km += 0.5) { const x = m + km / 1.5 * rowW; ctx.fillRect(x, rowY(r) + nl * lw, 1 * dpr, 5 * dpr); ctx.fillText(`${(km + r * 1.5).toFixed(1)} km`, x + 2 * dpr, rowY(r) + nl * lw + 14 * dpr); }
     }
@@ -1107,10 +1119,16 @@ function drawRoad() {
       const x = vehPos(v), lenM = S.ca ? v.len * CELL - 1.5 : v.len, [px, py] = toXY(Math.max(0, x - lenM / 2), v.lane);
       const L = Math.max(2.5 * dpr, lenM / (ROAD / 2) * rowW), w = lw * (v.lorry ? 0.75 : 0.6), kmh = S.ca ? v.v * KMH_PER_CELL : v.v * 3.6;
       ctx.fillStyle = rgb(speedColour(kmh)); ctx.fillRect(px - L / 2, py - w / 2, L, w);
-      if (v.lorry) { ctx.strokeStyle = "#3d4a5c"; ctx.lineWidth = 1.2 * dpr; ctx.strokeRect(px - L / 2, py - w / 2, L, w); }
+      vehDetail(ctx, px, py, L, w, v.lorry, dpr);
       if (v === S.braked && S.t - S.brakedT < 15) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.arc(px, py, lw * 0.9, 0, 2 * Math.PI); ctx.stroke(); }
     }
   }
+}
+// extra drawing detail for one vehicle (front is towards +x), depending on the picture quality
+function vehDetail(ctx, x, y, L, w, lorry, dpr) {
+  if (Q.detail >= 2 && L > 4 * dpr) { ctx.fillStyle = "rgba(20,25,35,0.55)"; ctx.fillRect(x + L / 2 - (lorry ? 0.12 : 0.32) * L, y - 0.4 * w, (lorry ? 0.06 : 0.12) * L, 0.8 * w); }
+  if (Q.detail >= 3) { ctx.strokeStyle = "rgba(10,12,9,0.7)"; ctx.lineWidth = 0.8 * dpr; ctx.strokeRect(x - L / 2, y - w / 2, L, w); }
+  if (lorry && Q.detail >= 1) { ctx.strokeStyle = "#3d4a5c"; ctx.lineWidth = 1.2 * dpr; ctx.strokeRect(x - L / 2, y - w / 2, L, w); }
 }
 function vslSigns(ctx, dpr, pos) {
   if (!S.p.vsl) return;
@@ -1122,26 +1140,26 @@ function vslSigns(ctx, dpr, pos) {
     ctx.fillStyle = "#fff"; ctx.font = `bold ${8.5 * dpr}px system-ui`; ctx.textAlign = "center"; ctx.fillText(lim, x, y + 3 * dpr);
   }
 }
-const stOff = document.createElement("canvas"); stOff.width = NC;
+const stOff = document.createElement("canvas"); stOff.width = ST_BINS;
 function drawST() {
   const c = el("st"), [ctx, W, H, dpr] = fitCanvas(c);
   ctx.fillStyle = "#0a0d09"; ctx.fillRect(0, 0, W, H);
   const rows = S.rows, nR = Math.max(1, Math.min(rows.length, Math.round(H / dpr / 1.2)));
   const L = 40 * dpr, B = 18 * dpr, T = 26 * dpr, pw = W - L - 8 * dpr, ph = H - B - T;
-  stOff.height = Math.max(1, Math.round(ph / dpr / 1.2));
-  const oc = stOff.getContext("2d"), img = oc.createImageData(NC, stOff.height), d = img.data;
+  stOff.width = ST_BINS; stOff.height = Math.max(1, Math.round(ph / dpr / Q.rowPx));
+  const oc = stOff.getContext("2d"), img = oc.createImageData(ST_BINS, stOff.height), d = img.data;
   const N = stOff.height, start = rows.length - N;
   for (let r = 0; r < N; r++) {
     const row = rows[start + r];
-    for (let i = 0; i < NC; i++) {
-      const o = 4 * (r * NC + i);
-      if (!row || row[i] === 255) { d[o] = 18; d[o + 1] = 21; d[o + 2] = 18; }
+    for (let i = 0; i < ST_BINS; i++) {
+      const o = 4 * (r * ST_BINS + i);
+      if (!row || row.length !== ST_BINS || row[i] === 255) { d[o] = 18; d[o + 1] = 21; d[o + 2] = 18; }
       else { const cc = speedColour(row[i]); d[o] = cc[0]; d[o + 1] = cc[1]; d[o + 2] = cc[2]; }
       d[o + 3] = 255;
     }
   }
   oc.putImageData(img, 0, 0);
-  ctx.imageSmoothingEnabled = false; ctx.drawImage(stOff, L, T, pw, ph);
+  ctx.imageSmoothingEnabled = ST_BINS > pw; ctx.drawImage(stOff, L, T, pw, ph);   // blend columns only when there are more columns than screen pixels
   ctx.fillStyle = "#a3ab96"; ctx.font = `${10 * dpr}px system-ui`; ctx.textAlign = "center";
   for (let km = 0; km <= 3; km += 0.5) ctx.fillText(`${km} km`, L + km / 3 * pw, H - 5 * dpr);
   ctx.textAlign = "right";
@@ -1244,7 +1262,15 @@ function updateLabels() {
 el("presets").innerHTML = PRESETS.map((p, k) => `<button data-k="${k}">${p.name}<small>${p.note}</small></button>`).join("");
 document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.k)));
 const LIVE = ["limit", "p", "vsl"];
+function setQuality(key, save) {
+  Q = QUALITY[key] || QUALITY.medium; ST_BINS = Math.round(ROAD / Q.bin);
+  if (S) S.rows = [];                                   // the diagram restarts at the new resolution; the traffic carries on
+  if (save) try { localStorage.setItem("traffic-flow-quality", key); } catch (e) {}
+}
+try { const q = localStorage.getItem("traffic-flow-quality"); if (q && QUALITY[q]) el("quality").value = q; } catch (e) {}
+setQuality(el("quality").value, false);
 document.querySelectorAll("#left input, #left select").forEach(e => e.addEventListener(e.type === "range" ? "input" : "change", () => {
+  if (e.id === "quality") { setQuality(e.value, true); return; }
   document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); updateLabels();
   if (LIVE.includes(e.id)) { S.p = Object.assign({}, S.p, params()); setLimits(S); if (!S.p.vsl) S.vslLim.fill(Infinity); else vslUpdate(S); }
   else { reset(); pendingBrake = null; }

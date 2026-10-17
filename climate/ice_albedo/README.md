@@ -30,6 +30,14 @@ change" option (Sun dims or brightens, a down-then-up loop, CO₂ builds up or
 falls; sped up), and warm or snowball restarts. Play/Pause, Reset, speed ½× to
 100× (1× = 5 years per second).
 
+**Display quality** (Low / Medium / High / Ultra, default High, remembered in
+the browser): how finely the globe is drawn — its pixel resolution (High and
+Ultra follow the screen's devicePixelRatio, so it is crisp at 200% scaling),
+the detail of the coastlines, and whether temperatures are blended between
+bands so the ice edge is smooth. It is drawing only: the climate model always
+uses 90 bands of 2°, in live runs and in batch runs, so results do not depend
+on it. All charts are sized by devicePixelRatio.
+
 ## Presets
 
 Today's climate · Hysteresis loop · Snowball Earth (Sun dimmed to 92%) ·

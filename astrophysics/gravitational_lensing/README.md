@@ -29,6 +29,7 @@ Open `gravitational-lensing.html` in Chrome or Edge. Nothing needs installing, a
   - lens type, mass (1 M☉ to 3 × 10¹⁵ M☉), ellipticity and angle, NFW concentration, gas core radius
   - source type, size and brightness
   - field of view, "Fit view to the Einstein radius" button, and overlays
+- **Picture quality** (sky view): Low / Medium / High / Ultra. It sets how many light rays are traced: one per 2×2 screen pixels, one per screen pixel (the default, smooth on a laptop), one per device pixel (sharp at 200% scaling), or 4 per device pixel (anti-aliased). Finer grids are also used for the critical curves and image search. While you drag, a coarser picture is drawn. Only the look changes, not the physics. The choice is remembered in the browser. All canvases are sized by devicePixelRatio, so lines and text stay crisp on Surface screens.
 - **Microlensing:** lens star mass and distance, source distance, relative motion, closest approach u₀, direction, source star radius, planet on/off, planet mass and orbit size (AU), measurement noise.
 - **Eddington:** exaggeration factor, and Newton vs Einstein.
 
@@ -79,7 +80,7 @@ In microlensing mode they also include θ_E (mas), t_E (days), the current and p
 
 ## Batch experiments
 
-Batch runs skip all drawing. Microlensing uses a point source and 1600 samples per event. The binary equation is only solved near the star and the planet's caustics (it gives the same result, 8× faster). Ring measurements use 100 × 100 pixel images.
+Batch runs skip all drawing. Microlensing uses a point source and 1600 samples per event. The binary equation is only solved near the star and the planet's caustics (it gives the same result, 8× faster). Ring measurements always use fixed 100 × 100 pixel images, and image searches use a fixed 120 × 120 grid, whatever the quality setting. This keeps batch results reproducible.
 
 | Experiment | Result | Theory |
 |---|---|---|
