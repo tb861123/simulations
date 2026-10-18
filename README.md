@@ -36,8 +36,10 @@ changing a simulation's batch experiments.
 
 | Folder | What it is | How to run |
 |---|---|---|
-| [`physics/gas_in_a_box/`](physics/gas_in_a_box/) | Kinetic theory: speeds settling into the Maxwell–Boltzmann curve, gas laws, Brownian motion, mixing | Open `gas-in-a-box.html` |
-| [`physics/double_pendulum/`](physics/double_pendulum/) | Chaos: two pendulums starting a hair apart drift apart exponentially | Open `double-pendulum.html` |
+| [`physics/gas_in_a_box/`](physics/gas_in_a_box/) | Kinetic theory: Maxwell–Boltzmann speeds, gas laws, p–V processes and heat engines, Brownian motion, diffusion (also listed under Chemistry) | Open `gas-in-a-box.html` |
+| [`physics/double_pendulum/`](physics/double_pendulum/) | Pendulums and oscillations: simple harmonic motion, damping and resonance, then double-pendulum chaos | Open `double-pendulum.html` |
+| [`physics/states_of_matter/`](physics/states_of_matter/) | States of matter: particles, heating and cooling curves, specific heat capacity and latent heat (also listed under Chemistry) | Open `states-of-matter.html` |
+| [`physics/youngs_modulus/`](physics/youngs_modulus/) | Young's modulus: Hooke's law, stress–strain curves, breaking, Searle's method | Open `youngs-modulus.html` |
 | [`physics/nuclear_fusion/`](physics/nuclear_fusion/) | Fusion on a potential-energy diagram: the Coulomb barrier, quantum tunnelling, the Gamow peak, and the temperature and pressure needed in stars and reactors | Open `nuclear-fusion.html` |
 | [`physics/physics_sims/`](physics/physics_sims/) | 28 WJEC Physics simulations (Streamlit app) | `python setup_env.py` once, then `streamlit run Home.py` |
 

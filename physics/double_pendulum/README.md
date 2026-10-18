@@ -1,4 +1,82 @@
-# Double Pendulum Chaos
+# Pendulums and Oscillations
+
+A single, self-contained HTML file (`double-pendulum.html`) for teaching
+oscillations. It needs no install and no internet: **open `double-pendulum.html`
+in Chrome or Edge**. Two tabs at the top of the centre panel switch between:
+
+1. **Simple harmonic motion**: a simple pendulum or a mass on a spring, with
+   Standard (GCSE) and Advanced (A level) levels. Replaces the old WJEC Streamlit
+   page *Simple Harmonic Motion* (`physics_sims/pages/02_Simple_Harmonic_Motion.py`).
+2. **Double pendulum**: chaos and the limits of prediction (below).
+
+The page remembers which tab you used last.
+
+# Part 1: Simple harmonic motion
+
+WJEC Eduqas A level Physics, Component 1, Topic 6 (Vibrations), sections (a)–(q).
+
+## Controls
+
+- **Level:** Standard (ideal SHM) or Advanced (adds damping, forcing, big swings).
+- **System:** simple pendulum (length 0.1–5 m, starting angle 1°–80°, gravity on
+  Earth, Moon, Mars or Jupiter) or spring–mass (k = 1–200 N/m, x₀ = 0.01–0.5 m);
+  mass 0.1–5 kg. Drag the bob or the mass on the picture to set a new start.
+- **Standard:** "Show period verification graphs": T against L and T on four planets
+  (pendulum), or T against m and T against k (spring).
+- **Advanced:** damping ratio ζ (0–2) with the regime (under-, critically or
+  over-damped); real-world examples (car suspension comfort/sport, tuned mass damper,
+  door closer, old clock, seismograph); forced oscillation with driving frequency
+  ratio ω/ω₀ (0.1–3) and the amplitude–frequency response curve with peak and Q;
+  large-angle comparison (solves θ'' = −(g/L) sin θ exactly).
+- Play/Pause, Restart, speed ¼×–4× (1× = real time), "+ Add pendulum" (up to two
+  more pendulums, 10% longer and 8% shorter, so you can watch them drift out of step),
+  and a **Look back** slider while paused, to step through the last few periods
+  (it sets the moment shown in the energy chart, like the old page's time slider).
+
+## Views and readouts
+
+Animated pendulum (angle arc, weight, velocity and driving-force arrows, damping
+envelope, scale bar) or spring (driven wall, velocity and restoring-force arrows);
+x, v and a against time with the ideal-SHM and envelope curves; phase portrait
+(v against x) with the ideal ellipse; KE / PE / total energy bars; tiles for T, f,
+ω₀, measured period, x, v, a, energies and Q; a "what's happening" commentary and
+the key-insight cards; Physics notes (spec reference, equations, explanation, and the
+advanced context in Advanced); **📝 Exam practice**: the old page's 3 questions
+(period, maximum speed, maximum acceleration), with numbers from the current
+settings, marks, hint and a "Show mark scheme" toggle.
+
+## Presets
+
+Classroom pendulum (T = 2.006 s) · Seconds pendulum (L = 0.994 m, T = 2.000 s) ·
+Pendulum on the Moon · Spring and mass (T = 0.993 s) · Four times the mass (T doubles) ·
+Big swing 60° (exact T = 2.153 s, 7% long) · Car suspension (ζ = 0.25) ·
+Door closer (ζ = 1) · Overdamped (ζ = 2) · Resonance (ζ = 0.1, driven at ω₀: 5× amplitude).
+
+## The model
+
+q'' = −ω₀²q − 2ζω₀q' + ω₀²q₀cos(ωt), with q = θ (pendulum) or x (spring),
+ω₀ = √(g/L) or √(k/m). Standard level uses only the first term. Large-angle mode uses
+−ω₀² sin q. Solved with RK4 (1000 steps per period live, 800 in batch runs).
+Pendulum displacement is measured along the arc, x = Lθ.
+Left out: the mass of the string or spring, bob size, stretching, the spring's limit
+of proportionality, friction with the track; damping is proportional to speed.
+Every assumption is listed in the app.
+
+## Batch experiments (SHM)
+
+Timing experiments add a random reaction time (normal, SD set in the panel) to
+the start and the end of each stopwatch timing. Results from the test run:
+
+| Question | Result |
+|---|---|
+| Why time 10 swings, not 1? (n = 1–16 swings, 30 timings each, SD 0.15 s) | mean 1.998–2.006 s at every n (theory 2.006 s); SD falls from 0.17 s (1 swing) to 0.017 s (10) and 0.011 s (16), as √2σ/n predicts |
+| How much do stopwatch timings scatter? (200 × 10 swings) | mean 2.008 s, SD 0.022 s (theory 2.006 s, SD 0.0212 s), +0.1%, 1.0 standard errors |
+| Is T = 2π√(L/g)? (L = 0.2–4 m, 5 timings each) | log–log gradient 0.500 (theory 0.5); every mean within 0.1% |
+| Where does the small-angle approximation fail? (10°–80°, exact equation) | matches the exact formula at every angle; 0.2% longer than 2π√(L/g) at 10°, 1.7% at 30°, 7.3% at 60°, 13.8% at 80° |
+| Resonance (ζ = 0.1, ω/ω₀ = 0.2–2.5) | peak 5.00× at ω = ω₀ (theory 5.00); every point within 0.2% of 1/√[(1−r²)² + (2ζr)²] |
+| How quickly does damping shrink the swings? (ζ = 0–0.6) | next swing ÷ first = 1, 0.532, 0.277, …, 0.0090: equal to e^(−2πζ/√(1−ζ²)) to 4 significant figures |
+
+# Part 2: Double pendulum
 
 A single, self-contained HTML file (`double-pendulum.html`) for teaching chaos
 and the limits of prediction. It needs no install and no internet: **open
@@ -61,7 +139,7 @@ choice of angles against time, phase space (θ against ω) or a Poincaré sectio
 **Left out:** heavy rods, bob size, hinge friction, air resistance that depends on
 speed², the arms bending, and the pendulums colliding.
 
-## Batch run
+## Batch run (double pendulum)
 
 The **📊 Batch run** button opens a panel that runs many pendulums without
 drawing, with seeded random starts (random big swings, the angles on the left ± 2°,
