@@ -6,7 +6,8 @@ function getInfo(i) {
   const box = document.querySelector('[data-batchbox]');
   const btn = box.querySelector(`[data-exp="${i}"]`);
   const clean = el => { const c = el.cloneNode(true); c.querySelectorAll('select,input,option,button').forEach(x => x.remove()); return c.textContent.replace(/\s+/g, ' ').trim(); };
-  const lab = e => { const l = e.id && box.querySelector(`label[for="${e.id}"]`); if (l) return clean(l);
+  const lab = e => { if (e.dataset && e.dataset.ws) return e.dataset.ws;   // batch settings tables label their sweep boxes explicitly
+    const l = e.id && box.querySelector(`label[for="${e.id}"]`); if (l) return clean(l);
     const par = e.closest('label'); if (par) return clean(par);
     let s = e.previousElementSibling; while (s && !/LABEL|SPAN|DIV|B|STRONG/.test(s.tagName)) s = s.previousElementSibling;
     if (s && clean(s).length && clean(s).length < 60) return clean(s);
@@ -14,6 +15,8 @@ function getInfo(i) {
     return e.id; };
   const setup = [...box.querySelectorAll('select, input')].filter(e => e.offsetParent && e.type !== 'checkbox' && e.type !== 'hidden').map(e =>
     [lab(e), e.tagName === 'SELECT' ? (e.options[e.selectedIndex] || {}).text : e.value]);
+  // the setting being swept, in sims with a batch settings table (its row label carries data-ws-change)
+  box.querySelectorAll('[data-ws-change]').forEach(e => { if (e.offsetParent) setup.unshift(['Change', clean(e)]); });
   const mode = [...box.querySelectorAll('button.on')].map(b => b.textContent.trim()).find(t => /^(Repeat|Sweep)$/.test(t))
     || setup.map(s => s[1]).find(v => /^(Repeat|Sweep)/.test(v || ''));
   // the explanation lives in one of these boxes, depending on the simulation; take the longest real one
