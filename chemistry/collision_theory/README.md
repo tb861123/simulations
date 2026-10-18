@@ -13,8 +13,21 @@ offline.
 
 ## Controls
 
-- **Presets** (12): Standard, Cold, Hot, Dilute, Concentrated, High pressure, High Ea,
-  With catalyst, Right way round, A + B → C, Solid lump, Powder.
+- **Presets** (13): Standard, Cold, Hot, Dilute, Concentrated, High pressure, High Ea,
+  With catalyst, Right way round, A + B → C, Solid lump, Powder, Marble chips + acid.
+- **Guided tour** (7 steps): collisions, temperature, concentration, pressure, surface area,
+  catalyst, then the marble-chips practical.
+- **Why does it change the rate?** Pick a factor to highlight its control and read the
+  collision-theory explanation.
+- **Marble chips + acid practical:** in the solid modes, the product graph can show the gas
+  collected (cm³, gas-syringe method) or the mass of the flask (g, balance method). The 64
+  solid particles stand for 1.00 g of marble (0.0100 mol CaCO₃), so each reaction gives
+  3.75 cm³ of CO₂ and the flask loses 0.0069 g.
+- **Drag the Ea line** on the collision-energy graph to change the activation energy.
+  Hover over a particle to see its speed and kinetic energy.
+- **Key equations** box and **Exam practice** (three exam-style questions with mark
+  schemes) at the bottom of the right panel. Extra readings: the rate compared with the
+  Standard preset, and what a 10 °C rise would do to the rate.
 - **Conditions** (change at once): temperature (250–1000 K), volume of the box (a piston),
   activation energy (0–30 kJ/mol), catalyst (halves Ea), "must hit the right way round".
 - **Reactants** (restart the reaction): reaction type (A + B → C + D, A + B → C, or
@@ -28,6 +41,13 @@ offline.
   (or particle speeds) with the Maxwell–Boltzmann theory curve, the Ea line and the
   successful collisions shaded; and an energy profile with and without the catalyst.
 - The side panels can be resized or hidden by dragging or clicking the dividers.
+
+## Merged in
+
+This simulation replaces `chem_sims/06_Rates_of_Reaction.html`. From that page it took the
+guided tour, the factor explanations with a highlighted control, the live relative-rate
+reading, the key equations, the draggable Ea line, particle hover details and the exam
+questions with mark schemes. It also adds the marble-chips practical graphs.
 
 ## The model
 

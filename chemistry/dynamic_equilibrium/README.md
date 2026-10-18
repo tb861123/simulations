@@ -19,12 +19,23 @@ offline.
 | 2NO₂ (brown) ⇌ N₂O₄ (colourless) | NO₂ + NO₂ collision | N₂O₄ splits on its own | −25 kJ/mol (real −57) |
 | H₂ + I₂ ⇌ 2HI | collision | HI + HI collision (1 in 5 the right way round) | −9.4 kJ/mol (about real) |
 | N₂ + 3H₂ ⇌ 2NH₃ (Haber) | N₂ + H₂ collision, × chance ([H₂] ÷ 1 per nm²)² that two more H₂ are close | NH₃ + NH₃ collision | −23 kJ/mol (real −92) |
+| Co(H₂O)₆²⁺ (pink) + 4Cl⁻ ⇌ CoCl₄²⁻ (blue) + 6H₂O, in water | Co(H₂O)₆²⁺ + Cl⁻ collision, × chance ([Cl⁻] ÷ 0.3 per nm²)³ that three more Cl⁻ are close | CoCl₄²⁻ splits on its own (k = ν) | +9 kJ/mol (real about +50) |
 
 ## Controls
 
-- **Presets** (13): Reaching equilibrium; From the other side; Labelled atoms; Add more
+- **Presets** (16): Reaching equilibrium; From the other side; Labelled atoms; Add more
   reactant; Remove product; NO₂ in ice; NO₂ in hot water; Heat it up; Squeeze NO₂; Squeeze
-  H₂ + I₂; Haber 450 °C, 200 atm; Haber 300 °C; Haber catalyst. Some presets make a change
+  H₂ + I₂; Haber 450 °C, 200 atm; Haber 300 °C; Haber catalyst; Cobalt: add chloride;
+  Cobalt: warm it up; Cobalt: add water.
+- **Guided tour** (7 steps): dynamic equilibrium, the Haber equilibrium, raising the
+  temperature, raising the pressure, pressure on NO₂/N₂O₄, the cobalt colour change, and a
+  catalyst.
+- **Concentration stress** buttons (+/− reactant, +/− product), with notes for each reaction
+  on what pressure and a catalyst do.
+- **Position of equilibrium** gauge with a "shifting left/right" arrow. Hover over a
+  molecule to see what it is.
+- **Key equations** (Le Chatelier's rules and the Kc expression for the chosen reaction)
+  and **Exam practice** (three questions with mark schemes). Some presets make a change
   part-way through (a message appears in the box when they do).
 - **Conditions** (change at once): temperature, volume (a piston), catalyst.
 - **Add or remove** 10 particles of any species.
@@ -35,6 +46,15 @@ offline.
   Q against Kc (log scale), and the energy profile.
 - **Readings:** temperature, pressure, Kc measured (average of the last 300 ps) and theory,
   % yield now and at equilibrium, forward and reverse rates, where the labels are.
+
+## Merged in
+
+This simulation replaces `chem_sims/07_Le_Chateliers.html`. From that page it took:
+- the cobalt chloride equilibrium (written the correct way round: forming blue CoCl₄²⁻ is endothermic, so heating turns it blue; the old page had the sign reversed);
+- the guided tour and the concentration-stress buttons;
+- the per-reaction notes on pressure and catalysts;
+- the equilibrium-position gauge;
+- the Le Chatelier key equations and the exam questions with mark schemes.
 
 ## The model
 

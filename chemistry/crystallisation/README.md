@@ -23,7 +23,7 @@ offline.
   years to 170 °C per minute for magma; 0.01–10 °C per minute for solutions), "keep at the
   starting temperature", evaporation, how readily particles stick (1 = dendrites).
 - **Starting conditions** (restart): starting temperature, concentration (shows the
-  temperature at which it is saturated), impurities (dust specks), random seed.
+  temperature at which it is saturated), impurities (dust specks per mm²), random seed, picture detail.
 - **Click the picture** to drop in a seed crystal.
 - **Centre:** time (in s, min, hours, days or years), temperature and status (molten,
   supercooled, crystallising, solid rock, glass, saturated, supersaturated), crystal count
@@ -37,8 +37,22 @@ offline.
 
 ## The model
 
-- **Grid:** 200 × 130 cells, each 0.1 mm (a 20 mm × 13 mm slice). Each crystal has its own
-  colour, like a thin section under a polarising microscope.
+- **Grid:** a 20 mm × 13 mm slice. Each crystal has its own colour, like a thin section
+  under a polarising microscope.
+- **Picture detail** (restarts): Low 0.1 mm cells (200 × 130), Medium 0.067 mm (300 × 195),
+  High 0.05 mm (400 × 260, the default) or Ultra 0.033 mm (600 × 390). Every rate is per mm²
+  and per second, so the physics does not change with the cell size:
+  - nucleation per cell uses the cell's area;
+  - growth is a distance in mm;
+  - impurities are a number of specks per mm²;
+  - seed crystals are 0.3 mm across;
+  - in solutions, the step time ∝ cell² (diffusion) and the sticking chance ∝ cell size.
+  Tested at all four settings (two seeds each): basalt 1,140–1,210 crystals/cm², mean
+  0.33 mm; granite 4–6 crystals/cm², about 5 mm; copper sulfate 12–14 crystals/cm², about
+  0.75 mm. Model times are the same at every setting.
+  Magma runs at full speed at every setting. Solutions are heavy: High runs at about 40% of
+  the set speed and Ultra at about 7% on a laptop. When the cells cover several screen
+  pixels the picture is smoothed rather than drawn as blocks.
 - **Magma:** freezing point Tm = 1100 °C, glass temperature Tg = 650 °C.
   - Mobility M(T) = exp(−A/(T − T₀)) (Vogel–Fulcher), normalised to 1 at Tm; about 10⁻⁶ at Tg.
   - Growth: G = 2×10⁻⁵ mm/s × M × ΔT/100, where ΔT = Tm − T. Each crystal grows outwards as
@@ -65,7 +79,7 @@ offline.
 
 ## Batch experiments (magma)
 
-Each run uses the same grid with no drawing. Results from testing (seed 1):
+Each run uses the standard 0.1 mm cells (200 × 130, whatever the picture detail is set to) with no drawing, so results can be repeated exactly. Results from testing (seed 1):
 
 | Experiment | Result | JMAK theory |
 |---|---|---|

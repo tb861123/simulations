@@ -21,6 +21,10 @@ the gap growing exponentially; its gradient is the Lyapunov exponent λ.
 
 Speed: ¼×, ½×, 1× (real time), 2×, 4×.
 
+**Display quality** (Low / Medium / High / Ultra, default High) sets how finely the
+trails are drawn (a point every 50, 33, 16 or 8 ms). Canvases are sized for the screen's
+pixel ratio. The physics and the batch runs are the same at every setting.
+
 ## Presets
 
 | Preset | Idea |
@@ -64,7 +68,8 @@ drawing, with seeded random starts (random big swings, the angles on the left ±
 or exactly the angles on the left). *Repeat* mode draws a histogram; *Sweep*
 steps one setting (starting difference δ, starting angle, rod length, gravity
 or the "different" threshold), using the same set of random starts at every step,
-and plots mean ± 1 SD with theory. Summaries give n, mean, SD, standard error,
+and plots mean ± 1 SD with theory. Each one-click experiment sets every input itself (from fixed defaults), so it gives the
+same result whatever is on the left panel and in any order. Summaries give n, mean, SD, standard error,
 min, max, theory and the difference; results download as CSV.
 
 Built-in experiments and typical results (each takes a few seconds):

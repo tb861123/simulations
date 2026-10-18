@@ -110,7 +110,7 @@
   #bsum table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
   #bsum td, #bsum th { padding: 1px 4px; border-bottom: 1px solid var(--line); text-align: right; font-size: 12px; }
   #bsum td:first-child, #bsum th:first-child { text-align: left; }
-  #bnote { margin-top: 8px; padding: 7px 9px; background: var(--panel-2); border-left: 3px solid var(--accent); border-radius: 5px; color: #dfe3d6; }
+  #bNote { margin-top: 8px; padding: 7px 9px; background: var(--panel-2); border-left: 3px solid var(--accent); border-radius: 5px; color: #dfe3d6; }
   .prog { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; flex: 1; min-width: 120px; }
   .prog span { display: block; height: 100%; width: 0; background: var(--accent); }
 
@@ -171,6 +171,9 @@
     <h2 class="gap">While it runs <span class="live">acts at once</span></h2>
     <div class="ctl"><label>Damping (air resistance) <output id="o_damp"></output></label><input type="range" id="damp" min="0" max="0.5" step="0.01" value="0"></div>
     <div class="ctl"><label>Trail length <output id="o_trail"></output></label><input type="range" id="trail" min="0" max="10" step="0.5" value="3"></div>
+    <h2 class="gap">Display quality</h2>
+    <div class="ctl"><select id="quality"><option value="0.05">Low (fastest)</option><option value="0.033">Medium</option><option value="0.016" selected>High</option><option value="0.008">Ultra</option></select>
+      <div class="hint">How finely the trails are drawn (a point every 50, 33, 16 or 8 ms). The physics (RK4, 1 ms steps) and the batch runs are the same at every setting.</div></div>
   </section>
 
   <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
@@ -270,7 +273,7 @@
   </div>
   <div id="bbody">
     <div id="bchartBox"><canvas id="bchart"></canvas></div>
-    <div id="bside"><div id="bsum" class="hint">Pick an experiment above, or set up your own, then press <b>Run batch</b>.</div><div id="bnote" style="display:none"></div></div>
+    <div id="bside"><div id="bsum" class="hint">Pick an experiment above, or set up your own, then press <b>Run batch</b>.</div><div id="bNote" style="display:none"></div></div>
   </div>
 </div>
 
@@ -450,7 +453,7 @@ function record() {
   const keep = +el("trail").value;
   for (let i = 0; i < pend.length; i++) {
     const [x, y] = bobPos(pend[i])[P.mode === "single" ? 0 : 1], tr = trails[i];
-    const lt = tr[tr.length - 1]; if (!lt || t - lt[2] >= 0.016) tr.push([x, y, t]);
+    const lt = tr[tr.length - 1]; if (!lt || t - lt[2] >= +el("quality").value) tr.push([x, y, t]);
     while (tr.length && t - tr[0][2] > keep) tr.shift();
   }
 }
@@ -807,7 +810,9 @@ function loadExperiment(i) {
   syncBatchUI();
 }
 function syncBatchUI() { const sweep = el("bMode").value === "sweep"; el("bRepeatOpts").style.display = sweep ? "none" : ""; el("bSweepOpts").style.display = sweep ? "" : "none"; }
-function baseParams() { const p = readParams(); return { ...p, ...(expSet || {}) }; }
+// Every one-click experiment starts from these complete defaults (never from the left panel), so experiments can be run in any order
+const BATCH_DEFAULTS = { mode: "double", m1: 1, m2: 1, L1: 1, L2: 1, g: 9.81, th1: 120, th2: 120, np: 2, delta: 1e-3, X: 10, b: 0, trail: 3 };
+function baseParams() { return expSet ? { ...BATCH_DEFAULTS, ...expSet } : { ...BATCH_DEFAULTS, ...readParams() }; }
 function runBatch() {
   const c = batchCfg(), base = { ...baseParams(), start: c.start }, jobs = [];
   if (c.mode === "repeat") for (let k = 0; k < c.runs; k++) jobs.push({ p: base, x: null, seed: 1000 + k * 7919 });
@@ -925,7 +930,7 @@ function drawBatch() {
     }
   }
   el("bsum").innerHTML = html;
-  const note = el("bnote"); note.style.display = expNote ? "" : "none"; note.innerHTML = expNote ? `<b>What this shows.</b> ${expNote}` : "";
+  const note = el("bNote"); note.style.display = expNote ? "" : "none"; note.innerHTML = expNote ? `<b>What this shows.</b> ${expNote}` : "";
 }
 function downloadCSV() {
   if (!batchRes) return;
