@@ -14,6 +14,16 @@
   nebula → protostar → main sequence → giant or supergiant → white dwarf,
   neutron star or black hole (or nothing at all).
 
+  Three views (switch at the top of the centre panel):
+    • Life cycle — the star's size, its inside, a timeline and charts.
+    • Black-body spectrum — Planck's law at the star's temperature (or any
+      temperature you choose), Wien's law λmax·T = 2.898 × 10⁻³ m K and the
+      Stefan–Boltzmann law L = 4πR²σT⁴ with live numbers.
+    • H–R diagram — real catalogue stars, the regions, the star's track and
+      (Advanced) lifetime against mass.
+  A Standard/Advanced switch adds the A-level material, and the exam
+  practice questions in the right panel use the simulation's numbers.
+
   This is NOT a full stellar-structure code. It uses well-known scaling
   laws and typical values from real stellar models, joined smoothly
   between "keyframes" for each stage of life. Every simplification is
@@ -21,7 +31,9 @@
 
   Units: mass in solar masses (M☉), radius in solar radii (R☉),
   luminosity in solar luminosities (L☉), temperature in kelvin (K),
-  time in years, density in g/cm³ (water = 1).
+  time in years, density in g/cm³ (water = 1). In the black-body view:
+  wavelength in nm (or m), spectral radiance B in W m⁻³ sr⁻¹, power per
+  area P in W m⁻², luminosity in W.
 -->
 <style>
   :root {
@@ -39,7 +51,56 @@
          gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 640px; }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
   #left, #right { overflow-y: auto; }
-  #centre { display: grid; grid-template-rows: minmax(0, 1.15fr) auto minmax(0, 1fr); gap: 8px; padding: 8px; }
+  #centre { display: grid; grid-template-rows: auto minmax(0, 1.15fr) auto minmax(0, 1fr); gap: 8px; padding: 8px; position: relative; }
+  #centre.m-hr { grid-template-rows: auto minmax(0, 1.55fr) auto minmax(0, 1fr); }
+  #centre:not(.m-life) #views, #centre:not(.m-life) #chartWrap,
+  #centre:not(.m-bb) #viewsBB, #centre:not(.m-bb) #bbPanel,
+  #centre:not(.m-hr) #viewsHR, #centre:not(.m-hr) #hrPanel { display: none; }
+  /* View switch at the top of the centre panel */
+  #modebar { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+  #modebar button { padding: 3px 11px; font-size: 12.5px; font-weight: 600; }
+  #modebar button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  #modebar .mhint { color: var(--muted); font-size: 11.5px; margin-left: auto; }
+  #viewsBB { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 8px; min-height: 0; }
+  #viewsHR { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  .lowpanel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; min-height: 0; overflow-y: auto; font-size: 12.5px; padding: 2px; }
+  .lowpanel h2 { margin-bottom: 6px; }
+  .lowpanel .check { margin-bottom: 5px; font-size: 12.5px; }
+  .lowpanel .presets { grid-template-columns: repeat(4, 1fr); margin-bottom: 8px; }
+  .lowpanel .presets button { padding: 3px 5px; }
+  .bbrow { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 4px 8px; margin-bottom: 5px; }
+  .bbrow .k { color: var(--muted); font-size: 11.5px; font-weight: 600; }
+  .bbrow .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 13.5px; }
+  .bbrow .w { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .sw { display: inline-block; width: 11px; height: 11px; border-radius: 50%; vertical-align: -1px; border: 1px solid rgba(255,255,255,.3); }
+  table.cat { width: 100%; border-collapse: collapse; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  table.cat th { text-align: left; color: var(--muted); font-weight: 600; padding: 2px 4px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.cat td { padding: 2px 4px; border-bottom: 1px solid #1c2340; white-space: nowrap; }
+  table.cat .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+  #hrPanel { grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+  #hrPanel > div:first-child { overflow-y: auto; min-height: 0; }
+  #hrRight { display: flex; flex-direction: column; min-height: 0; }
+  #hrRight #hrCat { flex: 1; min-height: 0; overflow: auto; }
+  #hrLifeBox { position: relative; flex: 1; min-height: 150px; }
+  #hrLifeBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #hrNow { margin-top: 10px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; font-size: 12.5px; }
+  /* Segmented buttons (level, quality) */
+  .seg { display: flex; gap: 3px; margin-bottom: 4px; }
+  .seg button { flex: 1; padding: 4px 5px; font-size: 12px; }
+  .seg button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  body:not(.adv) .adv-only { display: none !important; }
+  .advtag { color: #c9a6ff; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+  /* Exam practice */
+  details.exam { color: var(--text); }
+  .exset { margin-top: 8px; }
+  .extopic { font-weight: 700; color: var(--accent); font-size: 13px; }
+  .exq { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; margin-top: 6px; font-size: 12.5px; color: var(--text); }
+  .exhead { display: flex; gap: 8px; justify-content: space-between; align-items: flex-start; }
+  .marks { flex: none; background: var(--accent); color: var(--ink-dark); border-radius: 4px; padding: 0 6px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .msbtn { margin-top: 5px; padding: 2px 8px; font-size: 11.5px; }
+  .ms { margin-top: 5px; border-left: 3px solid var(--accent); padding-left: 8px; font-variant-numeric: tabular-nums; }
+  .ms .ans { margin-top: 3px; font-weight: 700; color: #8fe39b; }
+  .notes p { margin: 4px 0; } .notes .eq { color: var(--text); font-family: "Cambria Math", Cambria, Georgia, serif; font-size: 13.5px; margin: 2px 0; }
   h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
   h2.gap { margin-top: 14px; }
 
@@ -75,7 +136,7 @@
   .vbtns { position: absolute; right: 8px; top: 6px; display: flex; gap: 3px; }
   .vbtns button { padding: 2px 8px; font-size: 11.5px; }
   .vbtns button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
-  #toast { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); width: min(720px, 92%); background: rgba(241,175,40,.94);
+  #toast { position: absolute; z-index: 5; left: 50%; top: 44px; transform: translateX(-50%); width: min(720px, 92%); background: rgba(241,175,40,.94);
            color: var(--ink-dark); padding: 5px 12px; border-radius: 8px; font-weight: 600; font-size: 12.5px; display: none; text-align: center; pointer-events: none; }
 
   /* Timeline */
@@ -189,13 +250,16 @@
 <body>
 <header>
   <h1>Stellar Life Cycle</h1>
-  <span class="sub">Choose a star's starting conditions and watch it be born, live and die. Layers, composition, temperature, size and brightness change as it goes.</span>
+  <span class="sub">Choose a star's starting conditions and watch it be born, live and die. Layers, composition, spectrum, temperature, size and brightness change as it goes.</span>
 </header>
 
 <main>
   <!-- ======================= LEFT: CHOOSE A STAR ======================= -->
   <section class="panel side" id="left">
     <button class="reopen" title="Show this panel">Choose a star ›</button>
+    <h2>Level</h2>
+    <div class="seg" id="lvl" role="group" aria-label="Level"><button data-lvl="std">Standard (GCSE)</button><button data-lvl="adv">Advanced (A lvl)</button></div>
+    <div class="hint" style="margin-bottom:10px">Advanced adds the ultraviolet catastrophe, the Stefan–Boltzmann graph, lifetime against mass, H–R regions and luminosity in watts.</div>
     <h2>Presets</h2>
     <div class="presets" id="presets"></div>
 
@@ -219,6 +283,10 @@
 
     <div id="fate"></div>
 
+    <h2 class="gap">Display quality</h2>
+    <div class="seg" id="qual" role="group" aria-label="Quality"><button data-q="low">Low</button><button data-q="medium">Medium</button><button data-q="high">High</button><button data-q="ultra">Ultra</button></div>
+    <div class="hint"><span id="o_qual"></span>, and more particles in the animations. Pictures only: the star's life and every batch result are the same at every setting. Use Low on a slow laptop.</div>
+
     <details>
       <summary>How this model works (and what it leaves out)</summary>
       <ul>
@@ -233,7 +301,11 @@
         <li>The cutaway is drawn by <b>mass</b> (how much of the star is in each layer), not to scale in size: in a giant the core holds a lot of the mass but is thousands of times smaller than the star. The "size" view shows the true size.</li>
         <li>Brown dwarfs (under 0.08 M☉) never fuse ordinary hydrogen; above 0.013 M☉ they briefly fuse deuterium.</li>
         <li>Rotation, magnetic fields, and most binary-star effects are ignored (except the optional companion that can turn a white dwarf into a Type Ia supernova).</li>
-        <li><b>Batch run:</b> builds the life of many stars without drawing. "Repeat" picks masses at random from the Salpeter initial mass function (dN/dM ∝ M<sup>−2.35</sup>) to make a star cluster; "Sweep" steps one starting condition. The model has no randomness, so a sweep gives one exact answer per step unless you switch on the optional random scatter in metallicity and wind.</li>
+        <li><b>Batch run:</b> builds the life of many stars without drawing. "Repeat" picks masses at random from the Salpeter initial mass function (dN/dM ∝ M<sup>−2.35</sup>) to make a star cluster; "Sweep" steps one starting condition. The model has no randomness, so a sweep gives one exact answer per step unless you switch on the optional random scatter in metallicity and wind. The black-body experiments "observe" each star with a model spectrometer (100, 400 or 1,600 channels spread evenly in log λ from 10 nm to 1 mm, placed at a random offset each run); the channel width is why λmax × T scatters around Wien's constant.</li>
+        <li><b>Black-body view:</b> the star is treated as a perfect black body at its surface temperature, so its spectrum is Planck's curve. Real stars are close but not perfect: their atmospheres absorb dark lines, they are darker at the edge (limb darkening) and hot stars give out less ultraviolet than a black body. The Sun's real spectrum peaks near 500 nm, as Wien's law says.</li>
+        <li>Wien's law uses b = 2.898 × 10⁻³ m K and the spectrum is drawn per unit wavelength. (Per unit frequency the peak is in a different place, so don't mix the two.) The photons in the glowing-ball animation are picked at random from Planck's law by number (B × λ) and their rate is ∝ T⁴ or ∝ L, limited to 1–60 per second on screen.</li>
+        <li><b>H–R diagram:</b> the catalogue stars use published values (temperature, luminosity, radius). The main-sequence band is drawn around this model's own main sequence; the other regions are rough boxes. Exam questions use the textbook relations (τ = 10¹⁰ years × M⁻²·⁵) which this model follows only between about 0.8 and 25 M☉.</li>
+        <li><b>Quality</b> (Low / Medium / High / Ultra) only changes how many points the charts and spectra use and how many particles the animations draw. The canvases are drawn at the screen's full pixel density, so they stay sharp on Surface screens at 200%.</li>
         <li>Very long stages (red dwarfs, white-dwarf and brown-dwarf cooling) last longer than the age of the Universe (13.8 billion years): what you see there is a prediction no telescope can check yet.</li>
       </ul>
     </details>
@@ -242,15 +314,25 @@
   <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
 
   <!-- ======================= CENTRE: VIEWS, TIMELINE, CHARTS ======================= -->
-  <section class="panel" id="centre">
+  <section class="panel m-life" id="centre">
+    <div id="modebar" role="tablist" aria-label="View">
+      <button data-view="life" class="on">⭐ Life cycle</button><button data-view="bb">🌈 Black-body spectrum</button><button data-view="hr">📈 H–R diagram</button>
+    </div>
+    <div id="toast"></div>
     <div id="views">
       <div class="view"><canvas id="starView"></canvas><span class="cap">Size and appearance</span>
         <div class="vbtns" role="group" aria-label="Size scale">
           <button data-size="log" title="One fixed scale for every stage, with reference rings: you can see the star grow and shrink">Fixed scale</button><button data-size="true" title="True proportions; zooms in or out by ×10 only when it has to">True scale</button>
         </div></div>
       <div class="view"><canvas id="cutView"></canvas><span class="cap">Inside the star (layers by mass)</span></div>
-      <div id="toast"></div>
     </div>
+    <div id="viewsBB">
+      <div class="view"><canvas id="bbView"></canvas><span class="cap">Black body</span>
+        <div class="vbtns" role="group" aria-label="Photon rate"><button data-rate="area" title="Photons per second ∝ σT⁴: the power from each square metre of surface">∝ T⁴</button><button data-rate="star" title="Photons per second ∝ L = 4πR²σT⁴: the whole star (size ∝ log R)">∝ L</button></div></div>
+      <div class="view"><canvas id="specView"></canvas>
+        <div class="vbtns" role="group" aria-label="Graph"><button data-spec="planck">Planck</button><button data-spec="sb" class="adv-only" title="Stefan–Boltzmann: P = σT⁴ on log–log axes">P vs T</button></div></div>
+    </div>
+    <div id="viewsHR"><div class="view"><canvas id="hrView"></canvas></div></div>
 
     <div id="tl">
       <div id="tlTop">
@@ -283,6 +365,44 @@
       </div>
       <div id="chartBox"><canvas id="chart"></canvas></div>
     </div>
+
+    <div id="bbPanel" class="lowpanel">
+      <div>
+        <label class="check"><input type="checkbox" id="bbFollow" checked> <span>Follow the star (its temperature and radius right now)</span></label>
+        <div class="presets" id="bbPresets"></div>
+        <div class="ctl"><label>Temperature T <output id="o_bbT"></output></label>
+          <input type="range" id="bbT" min="2.477" max="4.602" step="0.001" value="3.761"></div>
+        <div class="ctl"><label>Radius R <output id="o_bbR"></output></label>
+          <input type="range" id="bbR" min="-1" max="3" step="0.01" value="0"></div>
+        <label class="check"><input type="checkbox" id="bbVis" checked> <span>Show the visible spectrum</span></label>
+        <label class="check"><input type="checkbox" id="bbRef" checked> <span>Faint curves for other temperatures</span></label>
+        <label class="check"><input type="checkbox" id="bbLogX"> <span>Log wavelength axis (10 nm – 1 mm)</span></label>
+        <label class="check"><input type="checkbox" id="bbLogY"> <span>Log y-axis</span></label>
+        <label class="check adv-only"><input type="checkbox" id="bbRJ"> <span>Rayleigh–Jeans curve (classical physics) <span class="advtag">A level</span></span></label>
+        <div class="hint adv-only" style="margin-top:4px"><b>Ultraviolet catastrophe:</b> the Rayleigh–Jeans law (classical physics) predicts that spectral radiance → ∞ as λ → 0. Planck fixed this in 1900 by quantising oscillator energy, E = nhf: the real curve falls to zero at short wavelengths.</div>
+      </div>
+      <div id="bbNums"></div>
+    </div>
+
+    <div id="hrPanel" class="lowpanel">
+      <div>
+        <h2>Show on the diagram</h2>
+        <label class="check"><input type="checkbox" id="hrMain" checked> <span>Main-sequence stars</span></label>
+        <label class="check"><input type="checkbox" id="hrGiant" checked> <span>Giants</span></label>
+        <label class="check"><input type="checkbox" id="hrSG" checked> <span>Supergiants</span></label>
+        <label class="check"><input type="checkbox" id="hrWD" checked> <span>White dwarfs</span></label>
+        <label class="check"><input type="checkbox" id="hrRegions" checked> <span>Shade the regions</span></label>
+        <label class="check adv-only"><input type="checkbox" id="hrTrack" checked> <span>Highlight the star's evolutionary track <span class="advtag">A level</span></span></label>
+        <h2 class="gap">Jump to a stage</h2>
+        <div class="row"><button data-jump="ms">Main sequence</button><button data-jump="giant">Giant</button><button data-jump="end">End state</button></div>
+        <div id="hrNow"></div>
+      </div>
+      <div id="hrRight">
+        <div class="tabs"><button data-hrt="cat">Star catalogue</button><button data-hrt="life" class="adv-only">Lifetime against mass</button></div>
+        <div id="hrCat"></div>
+        <div id="hrLifeBox"><canvas id="lifeChart"></canvas></div>
+      </div>
+    </div>
   </section>
 
   <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
@@ -304,6 +424,39 @@
 
     <h2 class="gap">Milestones <span class="hint" style="text-transform:none;letter-spacing:0">(click to jump)</span></h2>
     <div id="milestones"></div>
+
+    <details class="exam" id="examBox">
+      <summary>📝 Exam practice (6 questions)</summary>
+      <div class="hint" style="margin-top:4px">The questions use the simulation's current numbers: change the star, play the timeline or move the black-body slider and the answers update. Click "Show mark scheme" to see the working.</div>
+      <div id="exam"></div>
+    </details>
+
+    <details class="notes">
+      <summary>📐 Physics notes</summary>
+      <p><b>Spec references:</b> WJEC Eduqas A level Physics, Component 3 Topic 5 (Stars and cosmology) and Topic 4 (Thermal physics and quantum ideas).</p>
+      <p><b>Key equations</b></p>
+      <div class="eq">L = 4πR²σT⁴, σ = 5.67 × 10⁻⁸ W m⁻² K⁻⁴</div>
+      <div class="eq">λmax = b / T, b = 2.898 × 10⁻³ m K</div>
+      <div class="eq">P = σT⁴ (power per m² of surface)</div>
+      <div class="eq">B(λ,T) = (2hc²/λ⁵) × 1/(e<sup>hc/λkT</sup> − 1)</div>
+      <div class="eq">L ∝ M³·⁵, τ ∝ M⁻²·⁵ τ☉</div>
+      <p><b>The H–R diagram</b> plots luminosity against surface temperature (hot on the left). Most stars lie on the <b>main sequence</b>, a diagonal band from hot and bright (top left) to cool and dim (bottom right). Stars spend most of their lives there, fusing hydrogen in their cores.</p>
+      <p><b>Stefan–Boltzmann law:</b> L = 4πR²σT⁴ links luminosity, radius and temperature. A small hot star can be as luminous as a large cool giant. Doubling T multiplies the power by 16.</p>
+      <p><b>Wien's displacement law:</b> λmax = b/T. The peak moves to shorter (bluer) wavelengths as the temperature rises: the Sun peaks near 500 nm (visible green), a 2,700 K bulb filament in the infrared. This sets a star's colour, from blue O-type stars (over 30,000 K) to red M-type stars (under 3,700 K).</p>
+      <p><b>Black bodies:</b> a black body absorbs all radiation that falls on it and re-emits it with a spectrum that depends only on its temperature. Planck's law (1900) was the first to describe the whole spectrum; it needed energy to be quantised (E = nhf), the birth of quantum physics.</p>
+      <p><b>Stellar evolution:</b> lifetime τ ∝ M⁻²·⁵. Massive stars burn their fuel faster (L ∝ M³·⁵) and live far shorter lives. After the main sequence, stars swell into red giants, then end as white dwarfs, neutron stars or black holes, depending on their mass.</p>
+      <div class="adv-only">
+        <p><span class="advtag">Advanced</span></p>
+        <p><b>Mass–luminosity relation:</b> L ∝ M³·⁵ because more massive stars need a higher core pressure and temperature to stay in hydrostatic equilibrium. A 10 M☉ star is about 3,000 times more luminous than the Sun.</p>
+        <p><b>Lifetime scaling:</b> the fuel supply ∝ M and L ∝ M³·⁵, so τ ∝ M/L ∝ M⁻²·⁵. A 25 M☉ star lives only about 3 million years; a 0.1 M☉ red dwarf could shine for trillions of years.</p>
+        <p><b>H–R regions:</b> the giant branch (cool, luminous) forms when stars run out of core hydrogen and their envelopes expand. Supergiants are the most massive evolved stars. White dwarfs (lower left) are Earth-sized, hot remnants cooling over billions of years.</p>
+        <p><b>Spectral classes</b> O B A F G K M ("Oh Be A Fine Girl/Guy, Kiss Me") follow surface temperature and show as colour on the H–R diagram.</p>
+        <p><b>Ultraviolet catastrophe:</b> the classical Rayleigh–Jeans law, B = 2ckT/λ⁴, goes to infinity as λ → 0, predicting infinite total power. Planck's quantisation fixes this: short-wavelength (high-frequency) modes need large quanta hf, which are rarely excited at a finite temperature, so the spectrum falls exponentially at short wavelengths.</p>
+        <p><b>Stefan–Boltzmann on a log–log graph:</b> log P = log σ + 4 log T, a straight line of gradient exactly 4.</p>
+        <p><b>Stellar spectra:</b> real stars are close to black bodies. The Sun (G-type, 5,772 K) has a fairly flat visible spectrum and looks white-yellow.</p>
+        <p><b>Cosmic microwave background:</b> the most perfect black-body spectrum ever measured, the afterglow of the Big Bang at T ≈ 2.725 K, peaking in the microwave region (about 1.06 mm in this per-wavelength form).</p>
+      </div>
+    </details>
   </section>
 </main>
 
@@ -1166,7 +1319,7 @@ const LOG_RINGS = [
   { km: 25, name: "Greater London" }, { km: 6371, name: "Earth" }, { km: 69911, name: "Jupiter" },
   { km: RSUN_KM, name: "the Sun" }, { km: AU_KM, name: "Earth's orbit" }, { km: 30 * AU_KM, name: "Neptune's orbit" },
   { km: 1000 * AU_KM, name: "1,000 AU" }];
-const stars = Array.from({ length: 160 }, (_, i) => [(Math.sin(i * 12.9898) * 43758.5453) % 1, (Math.sin(i * 78.233) * 12543.123) % 1, ((Math.sin(i * 3.7) * 999) % 1)]).map(a => a.map(Math.abs));
+const stars = Array.from({ length: 640 }, (_, i) => [(Math.sin(i * 12.9898) * 43758.5453) % 1, (Math.sin(i * 78.233) * 12543.123) % 1, ((Math.sin(i * 3.7) * 999) % 1)]).map(a => a.map(Math.abs));
 
 function sizeCanvas(c) {
   const dpr = window.devicePixelRatio || 1, w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr);
@@ -1179,7 +1332,7 @@ function drawStarView(s, now) {
   const cx = W / 2, cy = H / 2 + 6 * dpr, half = Math.min(W, H) / 2;
   ctx.fillStyle = "#04060d"; ctx.fillRect(0, 0, W, H);
   // background stars (bent around a black hole)
-  for (const [x, y, b] of stars) { ctx.fillStyle = `rgba(255,255,255,${0.15 + 0.5 * b})`; ctx.fillRect(x * W, y * H, dpr, dpr); }
+  for (let k = 0; k < Q().stars; k++) { const [x, y, b] = stars[k]; ctx.fillStyle = `rgba(255,255,255,${0.15 + 0.5 * b})`; ctx.fillRect(x * W, y * H, dpr, dpr); }   // more at higher quality
 
   const ph = s.phase, kind = ph.kind;
   let Rkm = s.R * RSUN_KM;
@@ -1335,7 +1488,7 @@ function drawStarView(s, now) {
     const flash = kind === "sn" ? Math.max(0, 1 - s.f / 0.25) : 0;
     if (ph.key !== "sn_fail") {
       // filamentary expanding shell
-      for (let k = 0; k < 120; k++) {
+      for (let k = 0; k < Q().sn; k++) {
         const h1 = Math.abs(Math.sin(k * 12.9898) * 43758.5453) % 1, h2 = Math.abs(Math.sin(k * 78.233) * 12543.1) % 1;
         const a = k * 2.399 + h1 * 0.4, rr = r * (0.55 + 0.45 * Math.sqrt(h2));
         const x = cx + rr * Math.cos(a), y = cy + rr * Math.sin(a);
@@ -1424,7 +1577,7 @@ function drawDisc(ctx, cx, cy, r, rgb, T, t, blotchy, winds) {
 /* =====================================================================
    12. DRAWING: INSIDE THE STAR (cutaway by mass)
    ===================================================================== */
-const cutParticles = Array.from({ length: 220 }, (_, i) => ({ a: (i * 2.399) % (2 * Math.PI), r: ((i * 0.6180339) % 1), s: 0.3 + ((i * 0.37) % 1) }));
+const cutParticles = Array.from({ length: 1000 }, (_, i) => ({ a: (i * 2.399) % (2 * Math.PI), r: ((i * 0.6180339) % 1), s: 0.3 + ((i * 0.37) % 1) }));
 function drawCutaway(s, now) {
   const c = el("cutView"), dpr = sizeCanvas(c), ctx = c.getContext("2d"), W = c.width, H = c.height;
   ctx.fillStyle = "#04060d"; ctx.fillRect(0, 0, W, H);
@@ -1483,7 +1636,7 @@ function drawCutaway(s, now) {
   for (let j = 0; j < zones.length; j++) {
     const z = zones[j], r1 = rad[j], r0 = j ? rad[j - 1] : 0;
     if (r1 - r0 < 6 * dpr) continue;
-    for (let k = j * 17; k < j * 17 + 40 && k < cutParticles.length; k++) {
+    for (let k = j * 17; k < j * 17 + Q().cutPer && k < cutParticles.length; k++) {      // particles per layer set by quality
       const p = cutParticles[k];
       let ang, rr;
       if (z.conv) {
@@ -1578,7 +1731,7 @@ const QTY = {
 };
 let samples = null;
 function computeSamples() {
-  const n = 500; samples = [];
+  const n = Q().samples; samples = [];          // points along the life (set by quality)
   for (let k = 0; k <= n; k++) { const uu = k / n; const [i, f] = locate(track, uu); samples.push(stateAt(track, i, f)); }
 }
 function drawChart(s) {
@@ -1587,52 +1740,7 @@ function drawChart(s) {
   ctx.font = `${10.5 * dpr}px system-ui`;
   const L = 52 * dpr, Rr = 12 * dpr, T = 10 * dpr, B = 30 * dpr;
   if (!samples) computeSamples();
-  if (quantity === "hr") {
-    // x: temperature, hot on the LEFT (astronomers' tradition); y: luminosity
-    const tLo = Math.log10(600), tHi = Math.log10(2.5e5), lLo = -6.5, lHi = 7.5;
-    const X = Tk => L + (tHi - Math.log10(Tk)) / (tHi - tLo) * (W - L - Rr);
-    const Y = Lk => T + (lHi - Math.log10(Math.max(1e-12, Lk))) / (lHi - lLo) * (H - T - B);
-    // colour band along the temperature axis
-    for (let px = L; px < W - Rr; px += 3 * dpr) {
-      const Tk = Math.pow(10, tHi - (px - L) / (W - L - Rr) * (tHi - tLo));
-      const [r, g, b] = bbColour(Tk); ctx.fillStyle = `rgba(${r},${g},${b},0.07)`; ctx.fillRect(px, T, 3 * dpr, H - T - B);
-    }
-    ctx.strokeStyle = "rgba(140,150,190,0.15)"; ctx.fillStyle = "#9aa3bf"; ctx.lineWidth = 1;
-    for (let e = -6; e <= 7; e += 2) { const y = Y(Math.pow(10, e)); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - Rr, y); ctx.stroke(); ctx.textAlign = "right"; ctx.fillText("10" + sup(e), L - 4 * dpr, y + 4 * dpr); }
-    for (const Tk of [1000, 3000, 6000, 10000, 30000, 100000]) { const x = X(Tk); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - B); ctx.stroke(); ctx.textAlign = "center"; ctx.fillText(Tk >= 1000 ? Tk / 1000 + ",000" : Tk, x, H - B + 13 * dpr); }
-    ctx.textAlign = "center"; ctx.fillText("Surface temperature (K) — hotter to the left", (L + W) / 2, H - 5 * dpr);
-    ctx.save(); ctx.translate(12 * dpr, (T + H - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("Luminosity (Sun = 1)", 0, 0); ctx.restore();
-    // main sequence line
-    ctx.strokeStyle = "rgba(241,175,40,0.35)"; ctx.lineWidth = 6 * dpr; ctx.beginPath();
-    for (let lm = -1.1; lm <= 2.2; lm += 0.05) { const m = Math.pow(10, lm), Lm = lumMS(m), Rm = radMS(m), Tm = tempFrom(Lm, Rm); lm === -1.1 ? ctx.moveTo(X(Tm), Y(Lm)) : ctx.lineTo(X(Tm), Y(Lm)); }
-    ctx.stroke();
-    ctx.fillStyle = "rgba(241,175,40,0.7)"; ctx.textAlign = "left";
-    ctx.fillText("main sequence", X(14000), Y(1e2) + 18 * dpr);
-    ctx.fillStyle = "rgba(200,205,225,0.55)";
-    ctx.fillText("giants", X(4200), Y(300)); ctx.fillText("supergiants", X(7000), Y(3e5)); ctx.fillText("white dwarfs", X(30000), Y(1e-3));
-    // reference stars
-    for (const [n, Tk, Lk] of REF_STARS) { const x = X(Tk), y = Y(Lk); ctx.strokeStyle = "rgba(200,205,225,0.6)"; ctx.lineWidth = 1.2 * dpr; ctx.beginPath(); ctx.arc(x, y, 4 * dpr, 0, 2 * Math.PI); ctx.stroke(); ctx.fillStyle = "rgba(200,205,225,0.7)"; ctx.fillText(n, x + 6 * dpr, y - 4 * dpr); }
-    // the star's track, coloured by stage, up to now drawn bright
-    const onChart = st => st.phase.kind !== "cloud" && st.phase.kind !== "sn" && st.phase.kind !== "debris" && st.phase.kind !== "bh" && st.phase.kind !== "ns" && st.T > 500;
-    for (let k = 1; k < samples.length; k++) {
-      const a = samples[k - 1], b = samples[k];
-      if (!onChart(a) || !onChart(b)) continue;
-      const past = k / (samples.length - 1) <= u;
-      ctx.strokeStyle = past ? b.phase.colour : "rgba(150,160,190,0.25)"; ctx.lineWidth = (past ? 2.5 : 1.5) * dpr;
-      ctx.beginPath(); ctx.moveTo(X(a.T), Y(a.L)); ctx.lineTo(X(b.T), Y(b.L)); ctx.stroke();
-    }
-    if (onChart(s)) {
-      const [r, g, b] = bbColour(s.T);
-      ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2 * dpr;
-      ctx.beginPath(); ctx.arc(X(s.T), Y(s.L), 6 * dpr, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
-    } else {
-      ctx.fillStyle = "#f1af28"; ctx.textAlign = "center";
-      ctx.fillText(s.phase.kind === "ns" ? "Neutron stars are too small and faint (in visible light) for this diagram" :
-                   s.phase.kind === "bh" ? "Black holes give out no light: not on the diagram" :
-                   s.phase.kind === "cloud" ? "The cloud is too cold to appear on this diagram" : "Supernova: far brighter than this diagram shows", (L + W) / 2, T + 16 * dpr);
-    }
-    return;
-  }
+  if (quantity === "hr") { drawHR(ctx, W, H, dpr, s, false); return; }   // see section 20
   // time chart: same x-axis as the timeline
   const q = QTY[quantity];
   const vals = samples.map(q.get).filter(v => v > 0);
@@ -1695,6 +1803,8 @@ function renderReadouts(s) {
     tile("Core temperature", isBH ? "—" : `${fmtNum(s.Tc)} K`, s.Tc > 1e6 ? `${fmtNum(s.Tc / 1e6)} million °C` : "") +
     tile("Core density", isBH ? "—" : `${fmtNum(s.rho)} g/cm³`, isBH ? "" : s.rho > 1 ? `${fmtNum(s.rho)}× water` : "less dense than air") +
     tile(isBH ? "Density inside horizon" : "Average density", `${fmtNum(avgRho)} g/cm³`, ph.kind === "cloud" ? "almost a perfect vacuum" : avgRho > 1e10 ? "a teaspoon would weigh millions of tonnes" : avgRho < 1e-3 ? "thinner than air" : avgRho > 1e4 ? "a teaspoon would weigh tonnes" : "") +
+    tile("Peak wavelength (Wien)", isBH || !(s.T > 0) ? "—" : `${WIEN_B / s.T * 1e9 >= 1e4 ? fmtNum(WIEN_B / s.T * 1e6) + " µm" : fmtNum(WIEN_B / s.T * 1e9) + " nm"}`, isBH ? "" : `λmax = 2.898×10⁻³ m K ÷ T · ${bandName(WIEN_B / s.T * 1e9)}`) +
+    (adv ? tile("Luminosity in watts", isBH ? "0" : `${sci(s.L * LSUN_W)} W`, "L = 4πR²σT⁴") + tile("H–R region", hrRegion(s), "") : "") +
     tile("Type", spectralClass(s.T, ph), "") +
     tile("Fusion happening", burning.length ? burning.join("<br>") : "none", burning.length ? "" : ph.kind === "proto" ? "heated by gravity only" : "") +
     tile("Total lifespan", fmtAge(track.lifeEnd), track.lifeEnd > UNIVERSE_AGE ? "longer than the age of the Universe" : `main sequence ${fmtAge(track.msLife)}`);
@@ -1769,13 +1879,685 @@ function frame(now) {
   }
   const [i, f] = locate(track, Math.min(u, 0.999999));
   const s = stateAt(track, i, f);
-  drawStarView(s, now);
-  drawCutaway(s, now);
+  if (view === "life") { drawStarView(s, now); drawCutaway(s, now); drawChart(s); }
+  else if (view === "bb") { drawBBView(s, now, dt); drawSpectrumView(s); renderBB(s); }
+  else { drawHRBig(s); if (hrTab === "life") drawLifetime(s); renderHRNow(s); }
   drawTimeline();
-  drawChart(s);
   renderReadouts(s);
+  renderExam(s);
   requestAnimationFrame(frame);
 }
+
+/* =====================================================================
+   17. LEVEL (Standard / Advanced) AND DISPLAY QUALITY
+   ---------------------------------------------------------------------
+   Standard = GCSE content. Advanced adds the A-level material: the
+   Rayleigh–Jeans curve (ultraviolet catastrophe), the Stefan–Boltzmann
+   graph, lifetime against mass, H–R regions and luminosity in watts.
+   Quality changes only how many points and particles are DRAWN. The
+   star's life and every batch result are the same at every setting.
+   ===================================================================== */
+const QUAL = {
+  low:    { name: "Low",    samples: 250,  spec: 200,  photons: 0.5, cutPer: 20, stars: 80,  sn: 60,  note: "250 points per chart · 200 per spectrum" },
+  medium: { name: "Medium", samples: 500,  spec: 400,  photons: 1,   cutPer: 40, stars: 160, sn: 120, note: "500 points per chart · 400 per spectrum" },
+  high:   { name: "High",   samples: 1000, spec: 800,  photons: 2,   cutPer: 60, stars: 320, sn: 240, note: "1,000 points per chart · 800 per spectrum" },
+  ultra:  { name: "Ultra",  samples: 2000, spec: 1600, photons: 4,   cutPer: 80, stars: 640, sn: 400, note: "2,000 points per chart · 1,600 per spectrum" },
+};
+let qualKey = "medium", adv = false;
+try { const q = localStorage.getItem("stellar-quality"); if (QUAL[q]) qualKey = q; adv = localStorage.getItem("stellar-level") === "adv"; } catch (e) {}
+function Q() { return QUAL[qualKey]; }
+function setQuality(k) {
+  qualKey = k; samples = null; bbCdf = null;
+  try { localStorage.setItem("stellar-quality", k); } catch (e) {}
+  document.querySelectorAll("#qual button").forEach(b => b.classList.toggle("on", b.dataset.q === k));
+  el("o_qual").textContent = QUAL[k].note;
+}
+function setLevel(a) {
+  adv = a;
+  try { localStorage.setItem("stellar-level", a ? "adv" : "std"); } catch (e) {}
+  document.body.classList.toggle("adv", a);
+  document.querySelectorAll("#lvl button").forEach(b => b.classList.toggle("on", (b.dataset.lvl === "adv") === a));
+  if (!a) { if (specTab === "sb") setSpecTab("planck"); if (hrTab === "life") setHrTab("cat"); }
+  lastReadout = 0; examKey = "";
+}
+document.querySelectorAll("#qual button").forEach(b => (b.onclick = () => setQuality(b.dataset.q)));
+document.querySelectorAll("#lvl button").forEach(b => (b.onclick = () => setLevel(b.dataset.lvl === "adv")));
+
+/* =====================================================================
+   18. CENTRE VIEW SWITCH: Life cycle / Black-body spectrum / H–R diagram
+   ===================================================================== */
+let view = "life";
+try { const v = localStorage.getItem("stellar-view"); if (["life", "bb", "hr"].includes(v)) view = v; } catch (e) {}
+function setView(v) {
+  view = v;
+  try { localStorage.setItem("stellar-view", v); } catch (e) {}
+  const c = el("centre");
+  c.classList.remove("m-life", "m-bb", "m-hr"); c.classList.add("m-" + v);
+  document.querySelectorAll("#modebar [data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === v));
+}
+document.querySelectorAll("#modebar [data-view]").forEach(b => (b.onclick = () => setView(b.dataset.view)));
+
+/* =====================================================================
+   19. BLACK-BODY RADIATION
+   ---------------------------------------------------------------------
+   A black body absorbs all light that falls on it and gives out light
+   that depends ONLY on its temperature. Stars are close to black bodies.
+     Planck's law:  B(λ,T) = (2hc²/λ⁵) × 1/(e^(hc/λkT) − 1)
+                    (power per m² of surface, per metre of wavelength,
+                     per steradian: W m⁻³ sr⁻¹)
+     Wien's law:    λmax × T = b = 2.898 × 10⁻³ m K
+     Stefan–Boltzmann: P = σT⁴ per m², so the whole star gives L = 4πR²σT⁴
+   ===================================================================== */
+const H_PL = 6.62607e-34, C_LIGHT = 2.99792e8, K_B = 1.380649e-23;   // Planck, speed of light, Boltzmann (SI); these give σ = 5.670 × 10⁻⁸ and b = 2.898 × 10⁻³ exactly enough
+const SIGMA = 5.6704e-8;                                         // Stefan–Boltzmann constant, W m⁻² K⁻⁴ (5.67 × 10⁻⁸ in exams)
+const WIEN_B = 2.8978e-3;                                        // Wien's constant, m K (2.898 × 10⁻³ in exams)
+const RSUN_M = RSUN_KM * 1000;
+const LSUN_W = 4 * Math.PI * RSUN_M * RSUN_M * SIGMA * Math.pow(TSUN, 4);   // = 3.83 × 10²⁶ W, consistent with L = R²(T/T☉)⁴
+// Planck's law: spectral radiance at wavelength lam (metres) for temperature T (kelvin)
+function planckB(lam, T) {
+  if (!(T > 0)) return 0;
+  const x = H_PL * C_LIGHT / (lam * K_B * T);
+  if (x > 700) return 0;                                         // far too short a wavelength: no photons
+  return 2 * H_PL * C_LIGHT * C_LIGHT / Math.pow(lam, 5) / Math.expm1(x);
+}
+// Rayleigh–Jeans (classical physics, before quanta): B = 2ckT/λ⁴. Fine at long λ, infinite as λ → 0
+const rayleighJeans = (lam, T) => 2 * C_LIGHT * K_B * T / Math.pow(lam, 4);
+
+// Numbers like 5.02×10⁻⁷ for the readouts and mark schemes
+function sci(x, d = 3) {
+  if (!isFinite(x)) return "–";
+  if (x === 0) return "0";
+  let e = Math.floor(Math.log10(Math.abs(x)) + 1e-12);
+  let m = x / Math.pow(10, e);
+  if (Math.abs(+m.toFixed(d - 1)) >= 10) { m /= 10; e++; }        // e.g. 9.999 rounds up to 10.0 → 1.00×10¹
+  if (e >= 0 && e < 4) return (+x.toPrecision(d)).toLocaleString("en-GB");
+  return `${m.toFixed(d - 1)}×10${sup(e)}`;
+}
+const round3 = x => +x.toPrecision(3);
+// What part of the spectrum a wavelength (nm) is in
+function bandName(nm) {
+  if (nm < 10) return "X-rays";
+  if (nm < 380) return "ultraviolet";
+  if (nm <= 780) return "visible (" + (nm < 450 ? "violet" : nm < 495 ? "blue" : nm < 570 ? "green" : nm < 590 ? "yellow" : nm < 620 ? "orange" : "red") + ")";
+  if (nm < 1e6) return "infrared";
+  return "microwave";
+}
+// Old black-body lab colour names for cool glowing objects; star names above 2500 K
+function glowName(T) {
+  if (T < 500) return "invisible (infrared only)";
+  if (T < 800) return "faint dark red";
+  if (T < 1200) return "dull red";
+  if (T < 1800) return "bright red-orange";
+  if (T < 2500) return "orange";
+  return colourName(T);
+}
+// Colour of light of one wavelength (nm), for photons and the rainbow band
+function wlToRGB(wl) {
+  const lerpI = (v, a, b, span) => Math.round(a + (b - a) * Math.min(1, Math.max(0, v / span)));
+  if (wl < 380) return [180, 60, 255];                             // ultraviolet: shown violet
+  if (wl < 440) return [lerpI(440 - wl, 60, 180, 60), 0, 255];
+  if (wl < 490) return [0, lerpI(wl - 440, 0, 255, 50), 255];
+  if (wl < 510) return [0, 255, lerpI(510 - wl, 0, 255, 20)];
+  if (wl < 580) return [lerpI(wl - 510, 0, 255, 70), 255, 0];
+  if (wl < 645) return [255, lerpI(645 - wl, 0, 255, 65), 0];
+  if (wl <= 780) return [220, 0, 0];
+  return [150, 80, 55];                                            // infrared: shown dark red-brown
+}
+
+// Black-body settings: follow the star, or set T and R by hand
+const BB_PRESETS = [["Room", 300], ["Bulb", 2700], ["Sun", 5772], ["Blue star", 15000]];
+let specTab = "planck", photonMode = "area", bbCdf = null, bbCdfT = -1;
+const bbPhotons = [];
+function bbState(s) {
+  if (el("bbFollow").checked) {
+    const shining = !["bh"].includes(s.phase.key);
+    return { T: shining ? s.T : 0, R: s.R, follow: true, name: s.phase.name, Lmodel: s.L };
+  }
+  return { T: Math.pow(10, +el("bbT").value), R: Math.pow(10, +el("bbR").value), follow: false, name: "your black body" };
+}
+el("bbPresets").innerHTML = BB_PRESETS.map(([n, T]) => `<button data-t="${T}">${n}<small>${T.toLocaleString("en-GB")} K</small></button>`).join("");
+document.querySelectorAll("#bbPresets button").forEach(b => (b.onclick = () => {
+  el("bbFollow").checked = false; el("bbT").value = Math.log10(+b.dataset.t);
+  document.querySelectorAll("#bbPresets button").forEach(x => x.classList.toggle("on", x === b));
+}));
+for (const id of ["bbT", "bbR"]) el(id).addEventListener("input", () => { el("bbFollow").checked = false; document.querySelectorAll("#bbPresets button").forEach(x => x.classList.remove("on")); });
+el("bbFollow").addEventListener("change", () => document.querySelectorAll("#bbPresets button").forEach(x => x.classList.remove("on")));
+function setSpecTab(t) { specTab = t; document.querySelectorAll("[data-spec]").forEach(b => b.classList.toggle("on", b.dataset.spec === t)); }
+document.querySelectorAll("[data-spec]").forEach(b => (b.onclick = () => setSpecTab(b.dataset.spec)));
+function setPhotonMode(m) { photonMode = m; document.querySelectorAll("[data-rate]").forEach(b => b.classList.toggle("on", b.dataset.rate === m)); }
+document.querySelectorAll("[data-rate]").forEach(b => (b.onclick = () => setPhotonMode(b.dataset.rate)));
+
+// The glowing ball, giving out photons. Each photon's wavelength is picked at
+// random from Planck's law (weighted by NUMBER of photons, B × λ), so a hot
+// body sends out more blue and ultraviolet photons, a cool one mostly infrared.
+function photonSampler(T) {
+  if (bbCdf && Math.abs(bbCdfT - T) < 1e-6 * T) return bbCdf;
+  const n = 240, lo = Math.log(50e-9), hi = Math.log(1e-3), lam = [], cdf = [];
+  let tot = 0;
+  for (let k = 0; k < n; k++) { const l = Math.exp(lo + (hi - lo) * (k + 0.5) / n); tot += planckB(l, T) * l * l; lam.push(l * 1e9); cdf.push(tot); }
+  if (!(tot > 0)) { const pk = WIEN_B / T * 1e9; bbCdf = { lam: [pk], cdf: [1] }; bbCdfT = T; return bbCdf; }   // all photons at the peak
+  bbCdf = { lam, cdf: cdf.map(c => c / tot) }; bbCdfT = T;
+  return bbCdf;
+}
+let photonAcc = 0;
+function drawBBView(s, now, dt) {
+  const c = el("bbView"), dpr = sizeCanvas(c), ctx = c.getContext("2d"), W = c.width, H = c.height;
+  ctx.fillStyle = "#04060d"; ctx.fillRect(0, 0, W, H);
+  for (let k = 0; k < Q().stars; k++) { const [x, y, b] = stars[k]; ctx.fillStyle = `rgba(255,255,255,${0.12 + 0.4 * b * (0.7 + 0.3 * Math.sin(now / 900 + k))})`; ctx.fillRect(x * W, y * H, dpr, dpr); }
+  const bb = bbState(s), T = bb.T, cx = W / 2, cy = H * 0.5, half = Math.min(W, H) / 2;
+  ctx.font = `${11 * dpr}px system-ui`; ctx.textAlign = "left";
+  if (!(T > 0)) {
+    bbPhotons.length = 0;
+    ctx.fillStyle = "#000"; ctx.strokeStyle = "rgba(255,180,120,0.7)"; ctx.lineWidth = 2 * dpr;
+    ctx.beginPath(); ctx.arc(cx, cy, half * 0.25, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "rgba(220,225,240,0.9)"; ctx.textAlign = "center";
+    ctx.fillText("A black hole gives out no black-body light", cx, cy + half * 0.25 + 18 * dpr, W - 20 * dpr);
+    return;
+  }
+  // size: fixed (rate per m²) or growing with log(R) (whole star)
+  const r = photonMode === "star" ? half * Math.min(0.8, Math.max(0.05, 0.14 + 0.2 * Math.log10(bb.R + 1))) : half * 0.3;
+  const [R0, G0, B0] = bbColour(T);
+  for (const [k, a] of [[3, 0.035], [2.2, 0.07], [1.6, 0.13], [1.25, 0.2]]) {
+    ctx.fillStyle = `rgba(${R0},${G0},${B0},${a})`; ctx.beginPath(); ctx.arc(cx, cy, r * k, 0, 2 * Math.PI); ctx.fill();
+  }
+  const g = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, r * 0.05, cx, cy, r);
+  g.addColorStop(0, `rgb(${Math.min(255, R0 + 70)},${Math.min(255, G0 + 70)},${Math.min(255, B0 + 70)})`);
+  g.addColorStop(1, `rgb(${Math.round(R0 * 0.7)},${Math.round(G0 * 0.6)},${Math.round(B0 * 0.55)})`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 2 * Math.PI); ctx.fill();
+  // Photon rate: ∝ σT⁴ (per m² of surface) or ∝ L = 4πR²σT⁴ (whole star), scaled so the Sun gives 15 per second.
+  const ratio = photonMode === "star" ? bb.R * bb.R * Math.pow(T / TSUN, 4) : Math.pow(T / TSUN, 4);
+  const rate = Math.min(60, Math.max(1, 15 * ratio)) * Q().photons;
+  photonAcc += rate * Math.min(dt, 0.1);
+  const samp = photonSampler(T);
+  while (photonAcc >= 1) {
+    photonAcc -= 1;
+    const u = Math.random(); let j = 0; while (j < samp.cdf.length - 1 && samp.cdf[j] < u) j++;
+    const a = Math.random() * 2 * Math.PI, sp = (0.25 + 0.5 * Math.random()) * half;
+    bbPhotons.push({ a, d: r + 2 * dpr, sp, wl: samp.lam[j], sz: (1.4 + 1.6 * Math.random()) * dpr });
+  }
+  const maxP = 400 * Q().photons;
+  if (bbPhotons.length > maxP) bbPhotons.splice(0, bbPhotons.length - maxP);
+  for (let k = bbPhotons.length - 1; k >= 0; k--) {
+    const p = bbPhotons[k];
+    p.d += p.sp * Math.min(dt, 0.1);
+    if (p.d > Math.hypot(W, H) / 2) { bbPhotons.splice(k, 1); continue; }
+    const [pr, pg, pb] = wlToRGB(p.wl), x = cx + p.d * Math.cos(p.a), y = cy + p.d * Math.sin(p.a);
+    ctx.strokeStyle = `rgba(${pr},${pg},${pb},0.35)`; ctx.lineWidth = p.sz * 0.6;
+    ctx.beginPath(); ctx.moveTo(x - 14 * dpr * Math.cos(p.a), y - 14 * dpr * Math.sin(p.a)); ctx.lineTo(x, y); ctx.stroke();
+    ctx.fillStyle = `rgb(${pr},${pg},${pb})`; ctx.beginPath(); ctx.arc(x, y, p.sz, 0, 2 * Math.PI); ctx.fill();
+  }
+  // Labels
+  const lam = WIEN_B / T * 1e9;
+  ctx.textAlign = "left"; ctx.fillStyle = "rgba(255,220,120,0.95)"; ctx.font = `600 ${12 * dpr}px system-ui`;
+  ctx.fillText(`T = ${fmtNum(T)} K · ${glowName(T)}`, 10 * dpr, 34 * dpr, W - 20 * dpr);
+  ctx.font = `${11 * dpr}px system-ui`; ctx.fillStyle = "rgba(205,212,232,0.95)";
+  ctx.fillText(`λmax = ${lam >= 1e4 ? fmtNum(lam / 1000) + " µm" : fmtNum(lam) + " nm"} (${bandName(lam)})`, 10 * dpr, 50 * dpr, W - 20 * dpr);
+  ctx.fillText(`P = σT⁴ = ${sci(SIGMA * Math.pow(T, 4))} W m⁻²`, 10 * dpr, 65 * dpr, W - 20 * dpr);
+  ctx.fillStyle = "rgba(160,168,195,0.9)";
+  ctx.fillText(photonMode === "star" ? `Photon rate ∝ L (whole star) · size ∝ log R` : `Photon rate ∝ T⁴ (per m² of surface)`, 10 * dpr, H - 24 * dpr, W - 20 * dpr);
+  ctx.fillText(`Photon colour = its wavelength (IR dark red, UV violet)${15 * ratio > 60 ? " · rate capped" : ""}`, 10 * dpr, H - 9 * dpr, W - 20 * dpr);
+}
+
+// Planck spectrum chart (or the Stefan–Boltzmann graph in Advanced)
+const REF_TEMPS = [300, 1000, 2700, 5772, 10000, 20000];
+const REF_COLS = ["100,149,237", "100,200,100", "255,165,0", "200,100,255", "255,100,100", "0,200,200"];
+const SB_REFS = [["Earth", 288, "#2ca02c"], ["Bulb", 2700, "#ff7f0e"], ["Sun", 5772, "#ffdd44"], ["Sirius A", 9940, "#5ea8ff"], ["Blue giant", 30000, "#b48cff"]];
+function chartFrame(c) {
+  const dpr = sizeCanvas(c), ctx = c.getContext("2d"), W = c.width, H = c.height;
+  ctx.fillStyle = "#0b0f1d"; ctx.fillRect(0, 0, W, H);
+  ctx.font = `${10.5 * dpr}px system-ui`;
+  return { ctx, W, H, dpr };
+}
+function drawSpectrumView(s) {
+  const { ctx, W, H, dpr } = chartFrame(el("specView"));
+  const bb = bbState(s), T = bb.T;
+  if (specTab === "sb" && adv) return drawSB(ctx, W, H, dpr, T);
+  const L = 62 * dpr, Rr = 14 * dpr, Tp = 48 * dpr, B = 34 * dpr;
+  const logX = el("bbLogX").checked, logY = el("bbLogY").checked;
+  const x0 = logX ? Math.log10(10) : 1, x1 = logX ? Math.log10(1e6) : 3000;      // nm (or log10 nm)
+  const toNm = v => (logX ? Math.pow(10, v) : v);
+  const X = nm => L + ((logX ? Math.log10(nm) : nm) - x0) / (x1 - x0) * (W - L - Rr);
+  ctx.fillStyle = "#e8ebf4"; ctx.textAlign = "left"; ctx.font = `600 ${12 * dpr}px system-ui`;
+  ctx.fillText(T > 0 ? `Planck's law at T = ${fmtNum(T)} K` : "Planck's law", L, 15 * dpr, W - L - 110 * dpr);
+  ctx.font = `${10.5 * dpr}px system-ui`;
+  if (!(T > 0)) { ctx.fillStyle = "#f1af28"; ctx.textAlign = "center"; ctx.fillText("A black hole gives out no black-body light, so there is no spectrum to draw.", W / 2, H / 2); return; }
+  // sample the curve
+  const n = Q().spec, pts = [];
+  let ymaxVis = 0;
+  for (let k = 0; k <= n; k++) { const nm = toNm(x0 + (x1 - x0) * k / n), b = planckB(nm * 1e-9, T); pts.push([nm, b]); ymaxVis = Math.max(ymaxVis, b); }
+  const lamPeak = WIEN_B / T * 1e9, bPeak = planckB(lamPeak * 1e-9, T);
+  const ymax = (lamPeak >= toNm(x0) && lamPeak <= toNm(x1) ? bPeak : ymaxVis) * (logY ? 10 : 1.15) || 1;
+  const ymin = logY ? ymax * 1e-8 : 0;
+  const Y = b => {
+    if (logY) return H - B - (Math.log10(Math.max(b, ymin)) - Math.log10(ymin)) / (Math.log10(ymax) - Math.log10(ymin)) * (H - Tp - B);
+    return H - B - b / ymax * (H - Tp - B);
+  };
+  // visible band and region labels
+  if (el("bbVis").checked) {
+    for (let nm = 380; nm < 780; nm += 5) { const [r, g, b] = wlToRGB(nm + 2.5); ctx.fillStyle = `rgba(${r},${g},${b},0.2)`; const xa = X(nm), xb = X(nm + 5); ctx.fillRect(xa, Tp, Math.max(1, xb - xa + 0.5), H - Tp - B); }
+    ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 1 * dpr; ctx.strokeRect(X(380), Tp, X(780) - X(380), H - Tp - B);
+    ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.textAlign = "center"; ctx.fillText("visible", (X(380) + X(780)) / 2, Tp + 12 * dpr);
+    ctx.fillStyle = "rgba(180,140,255,0.6)"; if (X(380) - L > 50 * dpr) ctx.fillText("ultraviolet", (L + X(380)) / 2, Tp + 12 * dpr);
+    ctx.fillStyle = "rgba(255,140,110,0.6)"; ctx.fillText("infrared", Math.min(W - Rr - 40 * dpr, X(780) + 60 * dpr), Tp + 12 * dpr);
+  }
+  // axes and grid
+  ctx.strokeStyle = "rgba(140,150,190,0.15)"; ctx.fillStyle = "#9aa3bf"; ctx.lineWidth = 1;
+  const xt = logX ? [10, 100, 1000, 1e4, 1e5, 1e6] : [0, 500, 1000, 1500, 2000, 2500, 3000];
+  ctx.textAlign = "center";
+  for (const v of xt) { const x = X(Math.max(v, 1e-9)); ctx.beginPath(); ctx.moveTo(x, Tp); ctx.lineTo(x, H - B); ctx.stroke(); ctx.fillText(logX ? (v >= 1000 ? `${fmtNum(v / 1000)} µm` : `${v} nm`) : String(v), x, H - B + 13 * dpr); }
+  ctx.fillText(logX ? "Wavelength λ — log scale" : "Wavelength λ (nm)", (L + W) / 2, H - 5 * dpr);
+  ctx.textAlign = "right";
+  if (logY) { for (let e = Math.ceil(Math.log10(ymin)); e <= Math.log10(ymax); e += 2) { const y = Y(Math.pow(10, e)); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - Rr, y); ctx.stroke(); ctx.fillText("10" + sup(e), L - 4 * dpr, y + 4 * dpr); } }
+  else { for (let k = 0; k <= 4; k++) { const v = ymax / 1.15 * k / 4, y = Y(v); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - Rr, y); ctx.stroke(); ctx.fillText(k ? sci(v, 2) : "0", L - 4 * dpr, y + 4 * dpr); } }
+  ctx.save(); ctx.translate(11 * dpr, (Tp + H - B) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText("Spectral radiance B(λ,T) (W m⁻³ sr⁻¹)", 0, 0); ctx.restore();
+  ctx.strokeStyle = "rgba(200,205,220,0.6)"; ctx.beginPath(); ctx.moveTo(L, Tp); ctx.lineTo(L, H - B); ctx.lineTo(W - Rr, H - B); ctx.stroke();
+  ctx.save(); ctx.beginPath(); ctx.rect(L, Tp, W - L - Rr, H - Tp - B); ctx.clip();
+  // faded reference temperatures
+  if (el("bbRef").checked) {
+    REF_TEMPS.forEach((rt, j) => {
+      if (Math.abs(rt - T) < 0.02 * T) return;
+      ctx.strokeStyle = `rgba(${REF_COLS[j]},0.45)`; ctx.lineWidth = 1.2 * dpr; ctx.beginPath();
+      for (let k = 0; k <= n; k++) { const nm = toNm(x0 + (x1 - x0) * k / n), y = Y(planckB(nm * 1e-9, rt)); k ? ctx.lineTo(X(nm), y) : ctx.moveTo(X(nm), y); }
+      ctx.stroke();
+      const pk = WIEN_B / rt * 1e9, yb = Y(planckB(pk * 1e-9, rt));
+      if (X(pk) > L && X(pk) < W - Rr && yb > Tp + 10 * dpr) { ctx.fillStyle = `rgba(${REF_COLS[j]},0.85)`; ctx.textAlign = "left"; ctx.fillText(`${rt.toLocaleString("en-GB")} K`, X(pk) + 3 * dpr, yb - 3 * dpr); }
+    });
+  }
+  // area under the curve (= σT⁴/π) and the curve itself
+  const [cr, cg, cb] = bbColour(Math.max(T, 1500));
+  ctx.beginPath(); ctx.moveTo(X(pts[0][0]), Y(ymin));
+  for (const [nm, b] of pts) ctx.lineTo(X(nm), Y(b));
+  ctx.lineTo(X(pts[pts.length - 1][0]), Y(ymin)); ctx.closePath();
+  ctx.fillStyle = `rgba(${cr},${cg},${cb},0.12)`; ctx.fill();
+  if (adv && el("bbRJ").checked) {             // classical prediction: the ultraviolet catastrophe
+    ctx.setLineDash([6 * dpr, 4 * dpr]); ctx.strokeStyle = "#ff6b6b"; ctx.lineWidth = 2 * dpr; ctx.beginPath(); let pen = false;
+    for (let k = 0; k <= n; k++) { const nm = toNm(x0 + (x1 - x0) * k / n), y = Y(rayleighJeans(nm * 1e-9, T)); if (y < Tp - 50 * dpr) { pen = false; continue; } pen ? ctx.lineTo(X(nm), y) : ctx.moveTo(X(nm), y); pen = true; }
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.strokeStyle = `rgb(${cr},${cg},${cb})`; ctx.lineWidth = 3 * dpr; ctx.beginPath();
+  pts.forEach(([nm, b], k) => (k ? ctx.lineTo(X(nm), Y(b)) : ctx.moveTo(X(nm), Y(b)))); ctx.stroke();
+  ctx.restore();
+  // Wien's law: the peak
+  if (lamPeak >= toNm(x0) && lamPeak <= toNm(x1)) {
+    const xp = X(lamPeak), yp = Y(bPeak);
+    ctx.setLineDash([2 * dpr, 3 * dpr]); ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 1.5 * dpr;
+    ctx.beginPath(); ctx.moveTo(xp, Tp); ctx.lineTo(xp, H - B); ctx.stroke(); ctx.setLineDash([]);
+    const txt = `λmax = b/T = ${fmtNum(lamPeak)} nm`;
+    ctx.font = `600 ${11 * dpr}px system-ui`; const tw = ctx.measureText(txt).width + 10 * dpr;
+    const bx = Math.min(W - Rr - tw, Math.max(L + 2 * dpr, xp + 8 * dpr)), by = Math.max(Tp + 18 * dpr, yp - 6 * dpr);
+    ctx.fillStyle = "rgba(4,6,13,0.8)"; ctx.fillRect(bx, by - 13 * dpr, tw, 18 * dpr);
+    ctx.fillStyle = "#f1af28"; ctx.textAlign = "left"; ctx.fillText(txt, bx + 5 * dpr, by);
+    ctx.font = `${10.5 * dpr}px system-ui`;
+  } else {
+    ctx.fillStyle = "#f1af28"; ctx.textAlign = "center";
+    ctx.fillText(`The peak (${lamPeak > 1000 ? fmtNum(lamPeak / 1000) + " µm" : fmtNum(lamPeak) + " nm"}) is off the ${lamPeak > toNm(x1) ? "right" : "left"} of the graph: tick "Log wavelength axis".`, (L + W) / 2, (Tp + H - B) / 2, W - L - 20 * dpr);
+  }
+  // legend
+  ctx.textAlign = "left"; ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+  const legTxt = `━ ${bb.follow ? "the star now" : "your black body"} (shaded area × π = σT⁴)`;
+  ctx.fillText(legTxt, L, 31 * dpr, W - L - 10 * dpr);
+  if (adv && el("bbRJ").checked) { ctx.fillStyle = "#ff6b6b"; ctx.textAlign = "right"; ctx.fillText("┅ Rayleigh–Jeans (classical)", W - Rr - 4 * dpr, Tp + 26 * dpr); }
+}
+// Stefan–Boltzmann: power per m² against temperature, log–log (gradient 4)
+function drawSB(ctx, W, H, dpr, T) {
+  const L = 62 * dpr, Rr = 28 * dpr, Tp = 40 * dpr, B = 34 * dpr;
+  const tx0 = 2, tx1 = 5, py0 = -0.5, py1 = 13;                      // log10 T (100–100,000 K), log10 P
+  const X = t => L + (Math.log10(t) - tx0) / (tx1 - tx0) * (W - L - Rr), Y = P => H - B - (Math.log10(P) - py0) / (py1 - py0) * (H - Tp - B);
+  ctx.fillStyle = "#e8ebf4"; ctx.textAlign = "left"; ctx.font = `600 ${12 * dpr}px system-ui`;
+  ctx.fillText("Stefan–Boltzmann: P = σT⁴ per m²", L, 15 * dpr, W - L - 140 * dpr);
+  ctx.font = `${10.5 * dpr}px system-ui`;
+  ctx.strokeStyle = "rgba(140,150,190,0.15)"; ctx.fillStyle = "#9aa3bf"; ctx.lineWidth = 1;
+  ctx.textAlign = "center";
+  for (const t of [100, 300, 1000, 3000, 10000, 30000, 100000]) { const x = X(t); ctx.beginPath(); ctx.moveTo(x, Tp); ctx.lineTo(x, H - B); ctx.stroke(); ctx.fillText(t.toLocaleString("en-GB"), x, H - B + 13 * dpr); }
+  ctx.fillText("Temperature T (K) — log scale", (L + W) / 2, H - 5 * dpr);
+  ctx.textAlign = "right";
+  for (let e = 0; e <= 12; e += 2) { const y = Y(Math.pow(10, e)); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - Rr, y); ctx.stroke(); ctx.fillText("10" + sup(e), L - 4 * dpr, y + 4 * dpr); }
+  ctx.save(); ctx.translate(11 * dpr, (Tp + H - B) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText("Power per unit area P (W m⁻²) — log scale", 0, 0); ctx.restore();
+  ctx.strokeStyle = "#5ec8ff"; ctx.lineWidth = 2.5 * dpr; ctx.beginPath();
+  for (let k = 0; k <= 60; k++) { const t = Math.pow(10, tx0 + (tx1 - tx0) * k / 60); k ? ctx.lineTo(X(t), Y(SIGMA * t ** 4)) : ctx.moveTo(X(t), Y(SIGMA * t ** 4)); }
+  ctx.stroke();
+  ctx.fillStyle = "#5ec8ff"; ctx.textAlign = "left";
+  ctx.fillText("σT⁴: straight line, gradient 4", X(1500), Y(30), W - X(1500) - Rr);
+  ctx.fillText("(log P = log σ + 4 log T)", X(1500), Y(30) + 14 * dpr, W - X(1500) - Rr);
+  for (const [n, t, col] of SB_REFS) {
+    const x = X(t), y = Y(SIGMA * t ** 4);
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, 5 * dpr, 0, 2 * Math.PI); ctx.fill();
+    ctx.fillText(n, x + 7 * dpr, y + 14 * dpr);
+  }
+  if (T >= 100 && T <= 1e5) {
+    const [r, g, b] = bbColour(T); ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2 * dpr;
+    ctx.beginPath(); ctx.arc(X(T), Y(SIGMA * T ** 4), 8 * dpr, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#f1af28"; ctx.textAlign = X(T) > W * 0.6 ? "right" : "left";
+    ctx.fillText(`now: ${fmtNum(T)} K → ${sci(SIGMA * T ** 4)} W m⁻²`, X(T) + (X(T) > W * 0.6 ? -12 : 12) * dpr, Y(SIGMA * T ** 4) + 22 * dpr);
+  } else if (T > 0) { ctx.fillStyle = "#f1af28"; ctx.textAlign = "center"; ctx.fillText(`T = ${fmtNum(T)} K is off this graph`, (L + W) / 2, Tp + 14 * dpr); }
+}
+
+// Live black-body numbers with the working shown
+let lastBB = 0;
+function renderBB(s) {
+  const now = performance.now();
+  if (now - lastBB < 150) return;
+  lastBB = now;
+  const bb = bbState(s), T = bb.T;
+  if (bb.follow) {
+    el("bbT").value = Math.min(+el("bbT").max, Math.max(+el("bbT").min, Math.log10(Math.max(1, T))));
+    el("bbR").value = Math.min(+el("bbR").max, Math.max(+el("bbR").min, Math.log10(Math.max(1e-9, bb.R))));
+  }
+  el("o_bbT").textContent = T > 0 ? `${fmtNum(T)} K` : "—";
+  el("o_bbR").textContent = `${fmtNum(bb.R)} R☉`;
+  if (!(T > 0)) { el("bbNums").innerHTML = `<div class="hint" style="font-size:12.5px">${bb.name}: a black hole gives out no black-body light (T = 0 here). Untick "Follow the star" or pick a preset to explore black bodies.</div>`; return; }
+  const [r, g, b] = bbColour(T), lam = WIEN_B / T, P = SIGMA * Math.pow(T, 4), Rm = bb.R * RSUN_M, Lw = 4 * Math.PI * Rm * Rm * P;
+  const row = (k, v, w = "") => `<div class="bbrow"><div class="k">${k}</div><div class="v">${v}</div>${w ? `<div class="w">${w}</div>` : ""}</div>`;
+  el("bbNums").innerHTML =
+    row("Temperature", `${fmtNum(T)} K <span class="sw" style="background:rgb(${r},${g},${b})"></span> ${glowName(T)}`, bb.follow ? `following: ${bb.name}` : "set by hand") +
+    row("Wien's law: peak wavelength", `λmax = ${lam * 1e9 >= 1e4 ? fmtNum(lam * 1e6) + " µm" : fmtNum(lam * 1e9) + " nm"}`, `λmax = b/T = 2.898×10⁻³ ÷ ${fmtNum(T)} = ${sci(lam)} m · ${bandName(lam * 1e9)}`) +
+    row("Stefan–Boltzmann, per m²", `P = σT⁴ = ${sci(P)} W m⁻²`, `5.67×10⁻⁸ × ${fmtNum(T)}⁴ · that is ${fmtNum(P / (SIGMA * TSUN ** 4))}× the Sun's surface`) +
+    row("Whole object: L = 4πR²σT⁴", `${sci(Lw)} W = ${fmtNum(Lw / LSUN_W)} L☉`, `R = ${fmtNum(bb.R)} R☉ = ${sci(Rm)} m · 4π × (${sci(Rm)})² × ${sci(P)}` +
+      (bb.follow && bb.Lmodel > 0 ? (Math.abs(Lw / LSUN_W / bb.Lmodel - 1) < 0.02 ? ` · the model's L = ${fmtNum(bb.Lmodel)} L☉ ✓ (it obeys Stefan–Boltzmann)` :
+        ` · the model's L = ${fmtNum(bb.Lmodel)} L☉: different, because at this stage the glow does not come from one black-body surface (a cloud, a supernova or its debris)`) : ""));
+}
+
+/* =====================================================================
+   20. THE H–R DIAGRAM (shared by the small chart and the big view)
+   ===================================================================== */
+// A catalogue of real stars: name, surface temperature (K), luminosity (L☉), radius (R☉), spectral class, type
+const CATALOGUE = [
+  ["Sun", 5772, 1, 1, "G", "main"], ["Sirius A", 9940, 25.4, 1.71, "A", "main"], ["Rigel", 12100, 120000, 78.9, "B", "supergiant"],
+  ["Betelgeuse", 3500, 126000, 887, "M", "supergiant"], ["Vega", 9602, 40.1, 2.36, "A", "main"], ["Aldebaran", 3910, 518, 44.2, "K", "giant"],
+  ["Arcturus", 4286, 170, 25.7, "K", "giant"], ["Proxima Centauri", 3042, 0.0017, 0.15, "M", "main"], ["Deneb", 8525, 196000, 203, "A", "supergiant"],
+  ["Sirius B", 25200, 0.056, 0.0084, "A", "white_dwarf"], ["Pollux", 4666, 32, 9, "K", "giant"], ["Alpha Centauri A", 5790, 1.519, 1.23, "G", "main"],
+  ["Canopus", 7350, 10700, 71, "F", "supergiant"], ["Achernar", 15000, 3150, 6.78, "B", "main"], ["61 Cygni A", 4526, 0.153, 0.67, "K", "main"],
+];
+const SPEC_COL = { O: "#9bb4ff", B: "#aabfff", A: "#cad7ff", F: "#f8f7ff", G: "#fff4e8", K: "#ffd2a1", M: "#ffaa7f" };
+const TYPE_NAME = { main: "Main sequence", giant: "Giant", supergiant: "Supergiant", white_dwarf: "White dwarf" };
+const specLetter = T => (T >= 30000 ? "O" : T >= 10000 ? "B" : T >= 7500 ? "A" : T >= 6000 ? "F" : T >= 5200 ? "G" : T >= 3700 ? "K" : "M");
+// Which part of the H–R diagram a point sits in
+function hrRegion(s) {
+  const k = s.phase.kind, key = s.phase.key;
+  if (k === "wd") return "White dwarf";
+  if (k === "ns") return "Neutron star (off the diagram)";
+  if (k === "bh") return "Black hole (off the diagram)";
+  if (k === "sn" || k === "debris" || k === "cloud") return "Off the diagram";
+  if (key.startsWith("bd")) return "Brown dwarf (below the main sequence)";
+  const lL = Math.log10(Math.max(s.L, 1e-10));
+  if (s.T > 8000 && lL < -1.5) return "White dwarf region";
+  if (lL > 4) return "Supergiant";
+  if (lL > 1.5 && s.T < 6000) return "Giant branch";
+  return "Main sequence";
+}
+function hrShow(id) { const e = el(id); return !e || e.checked; }
+function drawHR(ctx, W, H, dpr, s, big) {
+  const L = (big ? 60 : 52) * dpr, Rr = 12 * dpr, T = (big ? 40 : 10) * dpr, B = 30 * dpr;
+  const tLo = Math.log10(600), tHi = Math.log10(2.5e5), lLo = -6.5, lHi = 7.5;
+  const X = Tk => L + (tHi - Math.log10(Tk)) / (tHi - tLo) * (W - L - Rr);
+  const Y = Lk => T + (lHi - Math.log10(Math.max(1e-12, Lk))) / (lHi - lLo) * (H - T - B);
+  ctx.font = `${(big ? 11 : 10.5) * dpr}px system-ui`;
+  if (big) { ctx.fillStyle = "#e8ebf4"; ctx.font = `600 ${12.5 * dpr}px system-ui`; ctx.textAlign = "left"; ctx.fillText("Hertzsprung–Russell diagram", L, 17 * dpr); ctx.font = `${11 * dpr}px system-ui`; }
+  // colour band along the temperature axis
+  for (let px = L; px < W - Rr; px += 3 * dpr) {
+    const Tk = Math.pow(10, tHi - (px - L) / (W - L - Rr) * (tHi - tLo));
+    const [r, g, b] = bbColour(Tk); ctx.fillStyle = `rgba(${r},${g},${b},0.07)`; ctx.fillRect(px, T, 3 * dpr, H - T - B);
+  }
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T, W - L - Rr, H - T - B); ctx.clip();
+  // shaded regions
+  if (hrShow("hrRegions")) {
+    const box = (t0, t1, l0, l1, col) => { ctx.fillStyle = col; ctx.fillRect(X(t1), Y(l1), X(t0) - X(t1), Y(l0) - Y(l1)); };
+    box(3200, 6000, 10, 1000, "rgba(255,127,14,0.08)");                // giants
+    box(2500, 2.5e5, 1e4, 3e7, "rgba(231,76,60,0.07)");               // supergiants
+    box(6000, 1.5e5, 1e-5, 0.1, "rgba(155,89,182,0.10)");             // white dwarfs
+    // main-sequence band, drawn around this model's main sequence (L × 4 and ÷ 4)
+    ctx.fillStyle = "rgba(31,119,180,0.12)"; ctx.beginPath();
+    const ms = [];
+    for (let lm = -1.1; lm <= 2.2; lm += 0.05) { const m = Math.pow(10, lm), Lm = lumMS(m), Tm = tempFrom(Lm, radMS(m)); ms.push([Tm, Lm]); }
+    ms.forEach(([t, l], k) => (k ? ctx.lineTo(X(t), Y(l * 4)) : ctx.moveTo(X(t), Y(l * 4))));
+    for (let k = ms.length - 1; k >= 0; k--) ctx.lineTo(X(ms[k][0]), Y(ms[k][1] / 4));
+    ctx.fill();
+    ctx.fillStyle = "rgba(200,205,225,0.55)"; ctx.font = `italic ${(big ? 11 : 10) * dpr}px system-ui`; ctx.textAlign = "left";
+    ctx.fillText("giants", X(5600), Y(600)); ctx.fillText("supergiants", X(60000), Y(1.5e5)); ctx.fillText("white dwarfs", X(60000), Y(2e-4));
+    ctx.fillText("main sequence", X(16000), Y(0.6));
+    ctx.font = `${(big ? 11 : 10.5) * dpr}px system-ui`;
+  }
+  ctx.restore();
+  // grid and labels
+  ctx.strokeStyle = "rgba(140,150,190,0.15)"; ctx.fillStyle = "#9aa3bf"; ctx.lineWidth = 1;
+  for (let e = -6; e <= 7; e += 2) { const y = Y(Math.pow(10, e)); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - Rr, y); ctx.stroke(); ctx.textAlign = "right"; ctx.fillText("10" + sup(e), L - 4 * dpr, y + 4 * dpr); }
+  for (const Tk of [1000, 3000, 6000, 10000, 30000, 100000]) { const x = X(Tk); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - B); ctx.stroke(); ctx.textAlign = "center"; ctx.fillText(Tk.toLocaleString("en-GB"), x, H - B + 13 * dpr); }
+  ctx.textAlign = "center"; ctx.fillText("Surface temperature (K) — hotter to the left, log scale", (L + W) / 2, H - 5 * dpr);
+  ctx.save(); ctx.translate(12 * dpr, (T + H - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("Luminosity (Sun = 1), log scale", 0, 0); ctx.restore();
+  // spectral classes along the top (big view)
+  if (big) {
+    const edges = [[2.5e5, 30000, "O"], [30000, 10000, "B"], [10000, 7500, "A"], [7500, 6000, "F"], [6000, 5200, "G"], [5200, 3700, "K"], [3700, 2400, "M"]];
+    ctx.font = `600 ${10.5 * dpr}px system-ui`;
+    for (const [a, b, c] of edges) { ctx.fillStyle = SPEC_COL[c]; ctx.fillText(c, (X(a) + X(b)) / 2, T + 12 * dpr); }
+    ctx.font = `${11 * dpr}px system-ui`;
+  }
+  // this model's main sequence
+  ctx.strokeStyle = "rgba(241,175,40,0.35)"; ctx.lineWidth = (big ? 4 : 6) * dpr; ctx.beginPath();
+  for (let lm = -1.1; lm <= 2.2; lm += 0.05) { const m = Math.pow(10, lm), Lm = lumMS(m), Rm = radMS(m), Tm = tempFrom(Lm, Rm); lm === -1.1 ? ctx.moveTo(X(Tm), Y(Lm)) : ctx.lineTo(X(Tm), Y(Lm)); }
+  ctx.stroke();
+  if (!hrShow("hrRegions")) { ctx.fillStyle = "rgba(241,175,40,0.7)"; ctx.textAlign = "left"; ctx.fillText("main sequence", X(14000), Y(1e2) + 18 * dpr); }
+  // catalogue stars, coloured by spectral class
+  const showType = { main: hrShow("hrMain"), giant: hrShow("hrGiant"), supergiant: hrShow("hrSG"), white_dwarf: hrShow("hrWD") };
+  for (const [n, Tk, Lk, , cls, type] of CATALOGUE) {
+    if (!showType[type]) continue;
+    const x = X(Tk), y = Y(Lk);
+    ctx.fillStyle = SPEC_COL[cls]; ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1 * dpr;
+    ctx.beginPath(); ctx.arc(x, y, (big ? 4.5 : 3.5) * dpr, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    if (big || ["Sun", "Betelgeuse", "Rigel", "Sirius B", "Proxima Centauri", "Sirius A"].includes(n)) {
+      // label positions chosen so neighbouring names don't overlap: [dx, dy, align]
+      const off = { Vega: [-7, 4, "right"], "Sirius A": [7, 12, "left"], "Alpha Centauri A": [7, 14, "left"], Sun: [-7, -4, "right"], Pollux: [7, 10, "left"],
+                    Arcturus: [7, 2, "left"], Deneb: [-7, -5, "right"], Canopus: [7, 10, "left"], "61 Cygni A": [7, 10, "left"] }[n] || [6, -5, "left"];
+      ctx.fillStyle = "rgba(210,220,240,0.8)"; ctx.textAlign = big ? off[2] : "left"; ctx.fillText(n, x + (big ? off[0] : 6) * dpr, y + (big ? off[1] : -5) * dpr);
+    }
+  }
+  // the star's own track (Advanced: can be switched off), bright up to now
+  const onChart = st => st.phase.kind !== "cloud" && st.phase.kind !== "sn" && st.phase.kind !== "debris" && st.phase.kind !== "bh" && st.phase.kind !== "ns" && st.T > 500;
+  if (!samples) computeSamples();
+  if (!adv || hrShow("hrTrack")) {
+    for (let k = 1; k < samples.length; k++) {
+      const a = samples[k - 1], b = samples[k];
+      if (!onChart(a) || !onChart(b)) continue;
+      const past = k / (samples.length - 1) <= u;
+      ctx.strokeStyle = past ? b.phase.colour : "rgba(150,160,190,0.25)"; ctx.lineWidth = (past ? 2.5 : 1.5) * dpr;
+      ctx.beginPath(); ctx.moveTo(X(a.T), Y(a.L)); ctx.lineTo(X(b.T), Y(b.L)); ctx.stroke();
+    }
+    if (big) {
+      // arrows at the start of each stage show which way the star moves
+      for (const ph of track.phases) {
+        if (!["star", "pn", "wd"].includes(ph.kind)) continue;
+        const a = stateAt(track, track.phases.indexOf(ph), 0.45), b = stateAt(track, track.phases.indexOf(ph), 0.55);
+        const x1 = X(a.T), y1 = Y(a.L), x2 = X(b.T), y2 = Y(b.L), d = Math.hypot(x2 - x1, y2 - y1);
+        if (d < 2 * dpr || !onChart(a)) continue;
+        const ux = (x2 - x1) / d, uy = (y2 - y1) / d, hx = (x1 + x2) / 2, hy = (y1 + y2) / 2, k = 7 * dpr;
+        ctx.fillStyle = "rgba(255,220,80,0.8)"; ctx.beginPath();
+        ctx.moveTo(hx + ux * k, hy + uy * k); ctx.lineTo(hx - ux * k - uy * k * 0.6, hy - uy * k + ux * k * 0.6); ctx.lineTo(hx - ux * k + uy * k * 0.6, hy - uy * k - ux * k * 0.6); ctx.fill();
+      }
+    }
+  }
+  if (onChart(s)) {
+    const [r, g, b] = bbColour(s.T);
+    ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2 * dpr;
+    ctx.beginPath(); ctx.arc(X(s.T), Y(s.L), (big ? 8 : 6) * dpr, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    if (big) {
+      ctx.fillStyle = "#f1af28"; ctx.font = `600 ${11.5 * dpr}px system-ui`;
+      const lab = `${fmtNum(track.params.M)} M☉ star now: ${s.phase.short}`;
+      const right = X(s.T) > W * 0.6, tw = ctx.measureText(lab).width, lx = X(s.T) + (right ? -12 * dpr - tw : 12 * dpr), ly = Y(s.L) - 10 * dpr;
+      ctx.fillStyle = "rgba(4,6,13,0.8)"; ctx.fillRect(lx - 4 * dpr, ly - 12 * dpr, tw + 8 * dpr, 17 * dpr);
+      ctx.fillStyle = "#f1af28"; ctx.textAlign = "left"; ctx.fillText(lab, lx, ly);
+    }
+  } else {
+    ctx.fillStyle = "#f1af28"; ctx.textAlign = "center";
+    ctx.fillText(s.phase.kind === "ns" ? "Neutron stars are too small and faint (in visible light) for this diagram" :
+                 s.phase.kind === "bh" ? "Black holes give out no light: not on the diagram" :
+                 s.phase.kind === "cloud" ? "The cloud is too cold to appear on this diagram" : "Supernova: far brighter than this diagram shows", (L + W) / 2, H - B - 8 * dpr);
+  }
+  if (big) {   // legend
+    ctx.textAlign = "left"; ctx.font = `${10.5 * dpr}px system-ui`;
+    const items = [["● catalogue star (colour = class)", "#cad7ff"], ["━ this model's main sequence", "rgba(241,175,40,0.8)"], ["━ the star's track (bright = lived)", "#f08a4b"]];
+    let lx = L;
+    items.forEach(([t, c]) => { ctx.fillStyle = c; ctx.fillText(t, lx, 32 * dpr); lx += ctx.measureText(t).width + 16 * dpr; });
+  }
+}
+function drawHRBig(s) { const { ctx, W, H, dpr } = chartFrame(el("hrView")); drawHR(ctx, W, H, dpr, s, true); }
+
+// Advanced: main-sequence lifetime against mass, log–log
+function drawLifetime(s) {
+  const { ctx, W, H, dpr } = chartFrame(el("lifeChart"));
+  const L = 54 * dpr, Rr = 10 * dpr, T = 22 * dpr, B = 32 * dpr;
+  const mx0 = Math.log10(0.07), mx1 = Math.log10(60), ty0 = 5, ty1 = 13;
+  const X = m => L + (Math.log10(m) - mx0) / (mx1 - mx0) * (W - L - Rr), Y = t => H - B - (Math.log10(t) - ty0) / (ty1 - ty0) * (H - T - B);
+  ctx.fillStyle = "#e8ebf4"; ctx.textAlign = "left"; ctx.font = `600 ${11.5 * dpr}px system-ui`;
+  ctx.fillText("Main-sequence lifetime against mass (τ ∝ M⁻²·⁵)", L, 14 * dpr, W - L - 8 * dpr);
+  ctx.font = `${10 * dpr}px system-ui`; ctx.strokeStyle = "rgba(140,150,190,0.15)"; ctx.fillStyle = "#9aa3bf"; ctx.lineWidth = 1;
+  ctx.textAlign = "center";
+  for (const m of [0.1, 0.3, 1, 3, 10, 30]) { const x = X(m); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - B); ctx.stroke(); ctx.fillText(String(m), x, H - B + 12 * dpr); }
+  ctx.fillText("Mass (M☉), log scale", (L + W) / 2, H - 4 * dpr);
+  ctx.textAlign = "right";
+  for (let e = 5; e <= 13; e += 2) { const y = Y(Math.pow(10, e)); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - Rr, y); ctx.stroke(); ctx.fillText("10" + sup(e), L - 4 * dpr, y + 4 * dpr); }
+  ctx.save(); ctx.translate(10 * dpr, (T + H - B) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText("Lifetime (years)", 0, 0); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T, W - L - Rr, H - T - B); ctx.clip();
+  // age of the Universe
+  ctx.setLineDash([3 * dpr, 4 * dpr]); ctx.strokeStyle = "#4ecdc4"; ctx.lineWidth = 1 * dpr; ctx.beginPath(); ctx.moveTo(L, Y(UNIVERSE_AGE)); ctx.lineTo(W - Rr, Y(UNIVERSE_AGE)); ctx.stroke();
+  // reference masses: hydrogen-burning limit and supernova limit
+  for (const [m, lab, col] of [[0.08, "H-burning limit", "rgba(150,150,220,0.8)"], [8, "supernova limit", "rgba(231,76,60,0.8)"]]) {
+    ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(X(m), T); ctx.lineTo(X(m), H - B); ctx.stroke();
+    ctx.fillStyle = col; ctx.textAlign = "left"; ctx.fillText(lab, X(m) + 3 * dpr, T + 10 * dpr);
+  }
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#4ecdc4"; ctx.textAlign = "right"; ctx.fillText("age of the Universe", W - Rr - 3 * dpr, Y(UNIVERSE_AGE) + 12 * dpr);
+  // τ = 10¹⁰ M⁻²·⁵ and this model's own lifetimes
+  const Zs = track.params.Z / ZSUN;
+  ctx.strokeStyle = "#5ec8ff"; ctx.lineWidth = 2.5 * dpr; ctx.beginPath();
+  for (let k = 0; k <= 80; k++) { const m = Math.pow(10, Math.log10(0.08) + (mx1 - Math.log10(0.08)) * k / 80); k ? ctx.lineTo(X(m), Y(1e10 * m ** -2.5)) : ctx.moveTo(X(m), Y(1e10 * m ** -2.5)); }
+  ctx.stroke();
+  ctx.setLineDash([5 * dpr, 4 * dpr]); ctx.strokeStyle = "rgba(241,175,40,0.9)"; ctx.lineWidth = 1.8 * dpr; ctx.beginPath();
+  for (let k = 0; k <= 80; k++) { const m = Math.pow(10, Math.log10(0.08) + (mx1 - Math.log10(0.08)) * k / 80); k ? ctx.lineTo(X(m), Y(msLifetime(m, Zs))) : ctx.moveTo(X(m), Y(msLifetime(m, Zs))); }
+  ctx.stroke(); ctx.setLineDash([]);
+  ctx.restore();
+  // the Sun and this star
+  ctx.fillStyle = "#ffdd44"; ctx.beginPath(); ctx.arc(X(1), Y(1e10), 5 * dpr, 0, 2 * Math.PI); ctx.fill();
+  ctx.textAlign = "left"; ctx.fillText("Sun", X(1) + 7 * dpr, Y(1e10) - 5 * dpr);
+  const M = track.params.M;
+  if (M >= 0.08 && M <= 60) {
+    const [r, g, b] = bbColour(tempFrom(lumMS(M), radMS(M)));
+    ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2 * dpr;
+    ctx.beginPath(); ctx.arc(X(M), Y(1e10 * M ** -2.5), 6 * dpr, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#f1af28"; ctx.textAlign = X(M) > W * 0.6 ? "right" : "left";
+    ctx.fillText(`${fmtNum(M)} M☉: ${fmtAge(1e10 * M ** -2.5)}`, X(M) + (X(M) > W * 0.6 ? -9 : 9) * dpr, Y(1e10 * M ** -2.5) - 9 * dpr);
+  }
+  ctx.textAlign = "left"; ctx.fillStyle = "#5ec8ff"; ctx.fillText("━ τ = 10¹⁰ yr × M⁻²·⁵", L + 4 * dpr, H - B - 18 * dpr);
+  ctx.fillStyle = "rgba(241,175,40,0.95)"; ctx.fillText("┅ this model (levels off for big stars)", L + 4 * dpr, H - B - 5 * dpr);
+}
+
+// H–R panel: catalogue table, stage jumps and the current star's place
+let hrTab = "cat";
+function setHrTab(t) {
+  hrTab = t;
+  document.querySelectorAll("[data-hrt]").forEach(b => b.classList.toggle("on", b.dataset.hrt === t));
+  el("hrCat").style.display = t === "cat" ? "" : "none"; el("hrLifeBox").style.display = t === "life" ? "" : "none";
+}
+document.querySelectorAll("[data-hrt]").forEach(b => (b.onclick = () => setHrTab(b.dataset.hrt)));
+function renderCatalogue() {
+  const rows = CATALOGUE.map(([n, Tk, Lk, Rk, cls, type]) => {
+    const Rsb = radFrom(Lk, Tk);          // radius from Stefan–Boltzmann: R = √L / (T/T☉)²
+    return `<tr title="${TYPE_NAME[type]}"><td><i class="dot" style="background:${SPEC_COL[cls]}"></i>${n}</td><td>${Tk.toLocaleString("en-GB")}</td><td>${fmtNum(Lk)}</td><td>${fmtNum(Rk)}</td><td class="adv-only">${fmtNum(Rsb)}</td><td>${cls}</td></tr>`;
+  }).join("");
+  el("hrCat").innerHTML = `<table class="cat"><tr><th>Star</th><th>T (K)</th><th>L (L☉)</th><th>R (R☉)</th><th class="adv-only" title="Radius worked out from L = 4πR²σT⁴">R from L,T</th><th>Class</th></tr>${rows}</table>
+    <div class="hint">Spectral classes O B A F G K M run from hottest (blue) to coolest (red). <span class="adv-only">The "R from L, T" column uses L = 4πR²σT⁴, i.e. R = √L ÷ (T/T☉)² in solar units.</span></div>`;
+}
+renderCatalogue();
+function jumpTo(kind) {
+  const P = track.phases;
+  const keys = kind === "ms" ? ["ms", "ms_rd"] : kind === "giant" ? ["rgb", "rsg", "bsg", "hg", "agb"] : ["wd", "ns", "bh", "debris", "bd_cool"];
+  const i = P.findIndex(ph => keys.includes(ph.key));
+  if (i < 0) { toast(kind === "giant" ? "This star never becomes a giant." : "This star has no such stage."); return; }
+  const f = kind === "giant" ? 0.95 : kind === "end" ? 0.03 : 0.02;
+  u = Math.min(0.99999, uOf(track, i, f)); lastToastU = u;
+}
+document.querySelectorAll("[data-jump]").forEach(b => (b.onclick = () => jumpTo(b.dataset.jump)));
+let lastHR = 0;
+function renderHRNow(s) {
+  const now = performance.now(); if (now - lastHR < 200) return; lastHR = now;
+  const isBH = s.phase.key === "bh";
+  el("hrNow").innerHTML = `<b>${fmtNum(track.params.M)} M☉ star: ${s.phase.name}</b><br>
+    L = ${isBH ? "0" : fmtNum(s.L) + " L☉"} · T = ${isBH ? "—" : fmtNum(s.T) + " K"} · R = ${fmtNum(s.R)} R☉<br>
+    Spectral class: ${spectralClass(s.T, s.phase)} · lifetime on the main sequence ${track.msLife ? fmtAge(track.msLife) : "none"}
+    <span class="adv-only"><br>H–R region: <b>${hrRegion(s)}</b> · L = ${isBH ? "0" : sci(s.L * LSUN_W)} W · λmax = ${s.T > 0 && !isBH ? fmtNum(WIEN_B / s.T * 1e9) + " nm" : "—"}</span>`;
+}
+
+/* =====================================================================
+   21. EXAM PRACTICE — the old WJEC questions, with numbers taken from
+   the simulation so the answers update live. Each answer is worked out
+   from the ROUNDED numbers shown in the question, as a student would.
+   ===================================================================== */
+const R_SUN_EXAM = 6.96e8, L_SUN_EXAM = 3.83e26, SIGMA_EXAM = 5.67e-8, WIEN_EXAM = 2.898e-3;   // the values printed on WJEC data sheets
+function examStar(s) {
+  const shining = ["star", "proto", "wd", "pn"].includes(s.phase.kind) && s.T >= 500;
+  if (shining) return { T: s.T, R: s.R, what: `the star in the simulation right now (${s.phase.short.toLowerCase()})` };
+  const i = track.phases.findIndex(ph => ph.key === "ms" || ph.key === "ms_rd");
+  if (i >= 0) { const m = stateAt(track, i, 0.5); return { T: m.T, R: m.R, what: "this star halfway through its main sequence" }; }
+  return { T: TSUN, R: 1, what: "the Sun (this object never shines as a star)" };
+}
+function examQuestions(s) {
+  const st = examStar(s), Tr = round3(st.T), Rr = round3(st.R), M = round3(track.params.M);
+  const Rm = Rr * R_SUN_EXAM, Lw = 4 * Math.PI * Rm * Rm * SIGMA_EXAM * Math.pow(Tr, 4);
+  const lam = WIEN_EXAM / Tr, tau = 1e10 * Math.pow(M, -2.5);
+  const bb = bbState(s), starNow = ["star", "proto", "wd", "pn"].includes(s.phase.kind) && s.T >= 500;
+  const Tb = round3(bb.follow ? (starNow ? bb.T : st.T) : bb.T), lamB = WIEN_EXAM / Tb, P = SIGMA_EXAM * Math.pow(Tb, 4);
+  const T$ = t => t.toLocaleString("en-GB");
+  return [
+    { topic: "Stellar evolution and the H–R diagram", src: `Numbers from ${st.what}; mass from the left panel.`, qs: [
+      { q: `A star has surface temperature T = ${T$(Tr)} K and radius R = ${Rr} R☉. Calculate its luminosity in watts. (R☉ = 6.96 × 10⁸ m, σ = 5.67 × 10⁻⁸ W m⁻² K⁻⁴)`, marks: 3,
+        hint: "Use L = 4πR²σT⁴ with SI units throughout.",
+        working: [`R = ${Rr} × 6.96 × 10⁸ = ${sci(Rm)} m`, `L = 4πR²σT⁴ = 4π × (${sci(Rm)})² × 5.67 × 10⁻⁸ × (${T$(Tr)})⁴`, `L = ${sci(Lw)} W`],
+        answer: `${sci(Lw)} W (${fmtNum(Lw / L_SUN_EXAM)} L☉)` },
+      { q: `Use Wien's displacement law to find the peak wavelength of light emitted by this star (T = ${T$(Tr)} K).`, marks: 2,
+        hint: "Wien's law: λmax T = 2.898 × 10⁻³ m K",
+        working: ["λmax = 2.898 × 10⁻³ / T", `λmax = 2.898 × 10⁻³ / ${T$(Tr)} = ${sci(lam)} m`, `λmax = ${fmtNum(lam * 1e9)} nm`],
+        answer: `${fmtNum(lam * 1e9)} nm` },
+      { q: `Estimate the main-sequence lifetime of a star with mass ${M} M☉, given the Sun's lifetime is about 10¹⁰ years.`, marks: 3,
+        hint: "Use τ ∝ M⁻²·⁵ relative to the Sun.",
+        working: ["L ∝ M³·⁵, so the star burns fuel far faster for larger M", "Fuel supply ∝ M, so τ ∝ M / L ∝ M / M³·⁵ = M⁻²·⁵", `τ = τ☉ × (M/M☉)⁻²·⁵ = 10¹⁰ × ${M}⁻²·⁵ = ${sci(tau)} years`],
+        answer: `${sci(tau)} years` },
+    ] },
+    { topic: "Black-body radiation", src: bb.follow ? (starNow ? "T from the star in the simulation right now (black-body view, 'Follow the star')." : `The object isn't shining as a star right now, so T is from ${st.what}.`) : "T from the black-body view's temperature slider.", qs: [
+      { q: `A star has surface temperature T = ${T$(Tb)} K. Use Wien's law to calculate the peak wavelength of radiation emitted.`, marks: 2,
+        working: [`λmax = b/T = 2.898×10⁻³/${T$(Tb)} = ${sci(lamB)} m = ${lamB * 1e9 >= 1e4 ? fmtNum(lamB * 1e6) + " µm" : fmtNum(lamB * 1e9) + " nm"}`],
+        answer: `λmax = ${lamB * 1e9 >= 1e4 ? fmtNum(lamB * 1e6) + " µm" : fmtNum(lamB * 1e9) + " nm"}` },
+      { q: "Calculate the power radiated per unit surface area of this star using the Stefan–Boltzmann law.", marks: 3,
+        working: [`P = σT⁴ = 5.67×10⁻⁸ × ${T$(Tb)}⁴ = ${sci(P)} W m⁻²`],
+        answer: `P = ${sci(P)} W m⁻²` },
+      { q: "The classical Rayleigh–Jeans law predicts intensity rising without limit at short wavelengths. What is this problem called and how did Planck resolve it?", marks: 2,
+        working: [],
+        answer: "The 'ultraviolet catastrophe'. Planck resolved it by proposing that energy is quantised: E = nhf, so high-frequency modes have a low probability of being excited." },
+    ] },
+  ];
+}
+const examOpen = new Set();
+let examKey = "", lastExam = 0;
+function renderExam(s) {
+  const now = performance.now();
+  if (now - lastExam < 400 || !el("examBox").open) return;
+  lastExam = now;
+  const sets = examQuestions(s);
+  let n = 0;
+  const html = sets.map(set => `<div class="exset"><div class="extopic">${set.topic}</div><div class="hint">${set.src}</div>` + set.qs.map(q => {
+    const id = n++, open = examOpen.has(id);
+    return `<div class="exq"><div class="exhead"><span><b>Q${id + 1}.</b> ${q.q}</span><span class="marks">${q.marks} mark${q.marks === 1 ? "" : "s"}</span></div>
+      ${q.hint ? `<div class="hint">💡 Hint: ${q.hint}</div>` : ""}
+      <button class="msbtn" data-ex="${id}">${open ? "Hide" : "Show"} mark scheme</button>
+      <div class="ms" style="display:${open ? "block" : "none"}">${q.working.map(w => `<div>→ ${w}</div>`).join("")}<div class="ans">Answer: ${q.answer}</div></div></div>`;
+  }).join("") + "</div>").join("");
+  if (html !== examKey) { examKey = html; el("exam").innerHTML = html; }
+}
+el("exam").addEventListener("click", e => {
+  const b = e.target.closest("[data-ex]"); if (!b) return;
+  const id = +b.dataset.ex; examOpen.has(id) ? examOpen.delete(id) : examOpen.add(id);
+  lastExam = 0; examKey = "";
+});
+el("examBox").addEventListener("toggle", () => { lastExam = 0; examKey = ""; });
+
+setQuality(qualKey); setLevel(adv); setView(view); setSpecTab("planck"); setPhotonMode("area"); setHrTab("cat");
 
 setPreset(0);
 requestAnimationFrame(frame);
@@ -1800,7 +2582,7 @@ requestAnimationFrame(frame);
 const Batch = (function () {
   let C = null, ov = null;
   const st = { mode: "repeat", nRepeat: 0, varKey: null, from: 0, to: 1, steps: 6, reps: 3, outKey: null, seed: 1 };
-  let results = [], jobsMeta = null, running = false, stopFlag = false, ctx = null, expNote = "", expOn = -1;
+  let results = [], jobsMeta = null, running = false, stopFlag = false, ctx = null, expNote = "", expOn = -1, expSnap = "", DEFAULTS = null;
   const THEORY = "#5ec8ff", POINT = "#f1af28";
   const $ = id => document.getElementById(id);
 
@@ -1848,13 +2630,13 @@ const Batch = (function () {
           <div class="brow"><span>Record</span><select id="b_out"></select></div>
           <div class="brow"><span>Batch seed</span><input type="number" id="b_seed" step="1" min="1"></div>
           ${cfg.extraHTML || ""}
-          <div class="bbtns"><button class="primary" id="b_run">▶ Run batch</button><button id="b_stop" disabled>■ Stop</button></div>
+          <div class="bbtns"><button class="primary" id="bRun">▶ Run batch</button><button id="b_stop" disabled>■ Stop</button></div>
           <div class="bprog"><div id="b_bar"></div></div>
           <div class="bstat" id="b_stat">Ready.</div>
           <div style="margin-top:6px"><a href="#" class="bdl" id="b_csv">⬇ Download CSV of the raw results</a></div>
         </div>
         <div class="bright">
-          <div class="bnote" id="b_note"></div>
+          <div class="bnote" id="bNote"></div>
           <div class="bchartbox"><canvas id="b_chart"></canvas></div>
           <div class="blegend" id="b_legend"></div>
           <div class="bsum" id="b_sum"></div>
@@ -1865,13 +2647,15 @@ const Batch = (function () {
     ov.querySelectorAll("[data-bx]").forEach(b => (b.onclick = () => runExperiment(+b.dataset.bx)));
     ov.querySelectorAll("[data-bm]").forEach(b => (b.onclick = () => { if (running) return; st.mode = b.dataset.bm; expOn = -1; syncForm(); }));
     $("b_close").onclick = close;
-    $("b_run").onclick = () => { readForm(); expOn = -1; expNote = ""; run(); };
+    // Run batch: if the settings are still exactly those of the chosen experiment, keep its note
+    $("bRun").onclick = () => { readForm(); if (expOn >= 0 && JSON.stringify(st) !== expSnap) { expOn = -1; expNote = ""; syncForm(); } run(); };
     $("b_stop").onclick = () => { stopFlag = true; };
     $("b_var").onchange = () => { const v = C.vars.find(q => q.key === $("b_var").value); st.varKey = v.key; st.from = v.from; st.to = v.to; st.steps = v.steps || st.steps; syncForm(); };
     $("b_out").onchange = () => { st.outKey = $("b_out").value; draw(); };
     $("b_csv").onclick = e => { e.preventDefault(); downloadCSV(); };
     window.addEventListener("resize", () => { if (ov.classList.contains("open")) { place(); draw(); } });
     syncForm();
+    DEFAULTS = JSON.stringify(st);          // every experiment starts from these batch defaults
   }
   function place() {
     // Cover the whole working area below the page header
@@ -1892,7 +2676,7 @@ const Batch = (function () {
     $("b_out").innerHTML = outs.map(o => `<option value="${o.key}">${o.label}${unitTxt(o.unit)}</option>`).join("");
     $("b_out").value = st.outKey;
     ov.querySelectorAll("[data-bx]").forEach(b => b.classList.toggle("on", +b.dataset.bx === expOn));
-    $("b_note").innerHTML = expNote;
+    $("bNote").innerHTML = expNote;
     if (C.syncExtra) C.syncExtra(st);
   }
   function readForm() {
@@ -1908,10 +2692,14 @@ const Batch = (function () {
   function runExperiment(k) {
     if (running) return;
     const e = C.experiments[k];
-    readForm();
+    // start from the complete set of batch defaults, never from what was set before
+    for (const key of Object.keys(st)) delete st[key];
+    Object.assign(st, JSON.parse(DEFAULTS));
     e.apply(st);
     expOn = k; expNote = `<b>${e.name}</b> ${e.note}`;
     syncForm();
+    readForm();                               // what the form now shows is exactly what runs
+    expSnap = JSON.stringify(st);
     $("b_base").innerHTML = C.baseText ? C.baseText() : "";
     run();
   }
@@ -1934,7 +2722,7 @@ const Batch = (function () {
     else { let k = 0; for (const x of sweepValues()) for (let r = 0; r < st.reps; r++) jobs.push({ idx: k++, seed: st.seed * 100003 + r, rep: r, x }); }
     results = []; jobsMeta = { mode: st.mode, varKey: st.varKey, total: jobs.length };
     running = true; stopFlag = false;
-    $("b_run").disabled = true; $("b_stop").disabled = false;
+    $("bRun").disabled = true; $("b_stop").disabled = false;
     ov.querySelectorAll("[data-bx], [data-bm]").forEach(b => (b.disabled = true));
     ctx = C.begin(st);
     const t0 = performance.now();
@@ -1960,7 +2748,7 @@ const Batch = (function () {
     function finish(stopped) {
       running = false;
       C.end(ctx);
-      $("b_run").disabled = false; $("b_stop").disabled = true;
+      $("bRun").disabled = false; $("b_stop").disabled = true;
       ov.querySelectorAll("[data-bx], [data-bm]").forEach(b => (b.disabled = false));
       const el = (performance.now() - t0) / 1000;
       if (!$("b_stat").textContent.startsWith("Error")) $("b_stat").textContent = `${stopped ? "Stopped" : "Finished"}: ${results.length} run${results.length === 1 ? "" : "s"} in ${el.toFixed(1)} s.`;
@@ -2249,6 +3037,47 @@ function fateCategory(remnant) {
   if (/brown dwarf/i.test(remnant)) return "Brown dwarf";
   return "Nothing left";
 }
+// ---- Observing a star's black-body spectrum with a model spectrometer ----
+// The spectrometer has `chan` channels spread evenly in log λ from 10 nm to
+// 1 mm. Its channels sit at a random offset (a fraction of one channel) in
+// each run, like a different instrument. We read off:
+//   • λmax: the centre of the brightest channel (so it can be wrong by up to
+//     half a channel — that is the scatter you see in the batch results);
+//   • P: the area under the curve, π ∫ B dλ, which should equal σT⁴.
+const SPEC_LO = 10e-9, SPEC_HI = 1e-3;
+function measureSpectrum(T, chan, off) {
+  const step = Math.log(SPEC_HI / SPEC_LO) / chan;
+  let best = -1, lamBest = 0, area = 0, prev = 0;
+  for (let k = 0; k <= chan; k++) {
+    const lam = SPEC_LO * Math.exp((k + off) * step), B = planckB(lam, T);
+    if (B > best) { best = B; lamBest = lam; }
+    const y = B * lam;                       // ∫ B dλ = ∫ B λ d(ln λ): trapezium rule in ln λ
+    if (k) area += 0.5 * (y + prev) * step;
+    prev = y;
+  }
+  return { lamMax: lamBest, P: Math.PI * area };
+}
+// What the spectrometer finds for a body at temperature T and radius R (R☉).
+// Lmodel is the model's own luminosity (L☉), to compare with 4πR² × (area under the curve).
+function spectrumOutcomes(T, R, Lmodel, chan, off) {
+  if (!(T > 0)) return {};
+  const m = measureSpectrum(T, chan, off), Rm = R * RSUN_M;
+  const Lspec = 4 * Math.PI * Rm * Rm * m.P / LSUN_W;
+  return { Tobs: T, lamMax: m.lamMax * 1e9, wienProd: m.lamMax * T, Pm2: m.P, sbRatio: Lmodel > 0 ? Lspec / Lmodel : null };
+}
+// A random moment in a random star's life, while it shines as a star
+// (each stage picked in proportion to how long it lasts)
+function randomShiningState(tr, rng) {
+  const ok = tr.phases.map((ph, i) => ({ ph, i })).filter(o => ["star", "wd", "pn", "proto"].includes(o.ph.kind));
+  const tot = ok.reduce((a, o) => a + o.ph.dur, 0);
+  for (let tries = 0; tries < 12 && tot > 0; tries++) {
+    let x = rng() * tot, pick = ok[ok.length - 1];
+    for (const o of ok) { if (x < o.ph.dur) { pick = o; break; } x -= o.ph.dur; }
+    const st = stateAt(tr, pick.i, rng());
+    if (st.T >= 1000 && st.T <= 60000) return st;
+  }
+  return null;
+}
 // Everything we record about one star's life
 function starOutcomes(p, ageT) {
   const tr = buildTrack(p);
@@ -2258,7 +3087,7 @@ function starOutcomes(p, ageT) {
   return {
     mass: p.M, fate: fateCategory(tr.fate.remnant), alive: tr.lifeEnd > ageT,
     msLife: ms ? ms.dur : null, life: tr.lifeEnd, Lms: ms ? ms.kfs[1].L : null,
-    remMass: tr.fate.remMass, peakR: peakR || null
+    remMass: tr.fate.remMass, peakR: peakR || null, track: tr
   };
 }
 const gauss = rng => Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng());
@@ -2276,11 +3105,17 @@ Batch.init({
     { key: "peakR", label: "Largest radius in its life", unit: "R☉", kind: "num", log: true },
     { key: "life", label: "Total life until it dies", unit: "years", kind: "num", log: true },
     { key: "mass", label: "Starting mass", unit: "M☉", kind: "num", log: true, only: "repeat" },
+    { key: "wienProd", label: "Measured λmax × T", unit: "m K", kind: "num" },
+    { key: "lamMax", label: "Measured peak wavelength λmax", unit: "nm", kind: "num", log: true },
+    { key: "Pm2", label: "Power per m² from the area under the spectrum", unit: "W m⁻²", kind: "num", log: true },
+    { key: "sbRatio", label: "L from the spectrum (4πR² × area) ÷ the model's L", kind: "num" },
+    { key: "Tobs", label: "Surface temperature of the observed star", unit: "K", kind: "num", log: true },
   ],
   vars: [
     { key: "M", label: "Starting mass", unit: "M☉", min: 0.02, max: 250, from: 0.8, to: 25, steps: 12, log: true },
     { key: "Z", label: "Metallicity", unit: "fraction", min: 1e-4, max: 0.04, from: 1e-4, to: 0.03, steps: 8, log: true },
     { key: "wind", label: "Stellar wind strength", unit: "× normal", min: 0, max: 3, from: 0, to: 3, steps: 7 },
+    { key: "T", label: "Black-body temperature", unit: "K", min: 300, max: 100000, from: 1000, to: 40000, steps: 10, log: true },
   ],
   extraHTML: `
     <div id="bx_rep">
@@ -2288,9 +3123,12 @@ Batch.init({
       <div class="brow"><span>Cluster age</span><select id="bx_age">${AGES.map(([t, n]) => `<option value="${t}">${n}</option>`).join("")}</select></div>
     </div>
     <label class="bchk" id="bx_scatWrap"><input type="checkbox" id="bx_scat"> <span>Add random scatter: each run's metallicity varies by about ×/÷1.6 and its wind by ±30% (otherwise every run at a step is identical)</span></label>
-    <label class="bchk"><input type="checkbox" id="bx_panel"> <span>Use the metallicity, wind and companion from the left panel (otherwise: Sun-like, normal winds, no companion)</span></label>`,
+    <label class="bchk"><input type="checkbox" id="bx_panel"> <span>Use the metallicity, wind and companion from the left panel (otherwise: Sun-like, normal winds, no companion)</span></label>
+    <div class="brow"><span>Spectrometer</span><select id="bx_chan"><option value="100">100 channels (coarse)</option><option value="400">400 channels</option><option value="1600">1,600 channels (fine)</option></select></div>
+    <div class="hint" style="margin-bottom:6px">Black-body outcomes: Repeat observes each star at a random moment of its life; a Sweep of mass, metallicity or wind observes it halfway through its main sequence; a Sweep of temperature observes a pure black body of radius 1 R☉.</div>`,
   syncExtra(st) {
-    st.lo = st.lo || 0.1; st.hi = st.hi || 100; st.age = st.age || 1e9;
+    st.lo = st.lo || 0.1; st.hi = st.hi || 100; st.age = st.age || 1e9; st.chan = st.chan || 400;
+    document.getElementById("bx_chan").value = st.chan;
     document.getElementById("bx_rep").style.display = st.mode === "repeat" ? "" : "none";
     document.getElementById("bx_scatWrap").style.display = st.mode === "sweep" ? "" : "none";
     document.getElementById("bx_lo").value = st.lo; document.getElementById("bx_hi").value = st.hi;
@@ -2302,13 +3140,14 @@ Batch.init({
     st.lo = Math.min(250, Math.max(0.02, lo || 0.1)); st.hi = Math.min(250, Math.max(st.lo * 1.01, hi || 100));
     st.age = +document.getElementById("bx_age").value;
     st.scatter = document.getElementById("bx_scat").checked; st.panel = document.getElementById("bx_panel").checked;
+    st.chan = +document.getElementById("bx_chan").value || 400;
   },
   baseText() {
     const st = Batch.state, p = params();
     return st.panel ? `Using the left panel: metallicity ${(p.Z * 100).toFixed(p.Z < 0.001 ? 3 : 2)}%, winds ×${p.wind.toFixed(1)}${p.companion ? ", with a close companion" : ""}.`
                     : "Sun-like composition (metallicity 1.4%), normal winds, no companion. The interactive star is not changed.";
   },
-  reducedNote: () => "Each run builds the whole life of one star from the model's scaling laws (no drawing), so even 5,000 stars take only a few seconds.",
+  reducedNote: () => "Each run builds the whole life of one star from the model's scaling laws (no drawing), so even 5,000 stars take only a few seconds. Batch runs never depend on the Display quality setting: the spectrometer has its own fixed channels, set below (default 400).",
   begin(st) {
     const p = params();
     const base = st.panel ? { Z: p.Z, wind: p.wind, companion: p.companion, M: p.M } : { Z: ZSUN, wind: 1, companion: false, M: p.M };
@@ -2319,6 +3158,12 @@ Batch.init({
     return { advance() {
       const rng = mulberry32(job.seed * 7919 + 17);
       const p = Object.assign({}, ctx.base);
+      const chan = st.chan || 400;
+      if (st.mode === "sweep" && st.varKey === "T") {
+        // a pure black body: no star is built, only its spectrum is observed
+        const T = job.x;
+        return spectrumOutcomes(T, 1, Math.pow(T / TSUN, 4), chan, rng());
+      }
       if (st.mode === "repeat") p.M = sampleSalpeter(rng(), ctx.lo, ctx.hi);
       else {
         p[st.varKey] = job.x;
@@ -2327,11 +3172,25 @@ Batch.init({
           if (st.varKey !== "wind") p.wind = Math.max(0, p.wind * (1 + 0.3 * gauss(rng)));
         }
       }
-      return starOutcomes(p, ctx.age);
+      const out = starOutcomes(p, ctx.age), tr = out.track;
+      delete out.track;
+      // observe the star's spectrum: a random moment (Repeat) or halfway through the main sequence (Sweep)
+      let obs = null;
+      if (st.mode === "repeat") obs = randomShiningState(tr, rng);
+      else { const i = tr.phases.findIndex(ph => ph.key === "ms" || ph.key === "ms_rd"); if (i >= 0) obs = stateAt(tr, i, 0.5); }
+      return Object.assign(out, obs ? spectrumOutcomes(obs.T, obs.R, obs.L, chan, rng()) : {});
     } };
   },
-  theoryRepeat(key, ctx) {
+  theoryRepeat(key, ctx, st) {
     const lo = ctx.lo, hi = ctx.hi;
+    if (key === "wienProd") {
+      // The brightest channel can be up to half a channel from the true peak: an even spread over one
+      // channel width w (in ln λ) has SD w/√12, so λmax × T should scatter by about that fraction.
+      const w = Math.log(SPEC_HI / SPEC_LO) / (st.chan || 400);
+      return { value: WIEN_B, label: "theory: Wien's constant b = 2.898 × 10⁻³ m K", col: "Wien's b",
+               text: `Spectrometer: ${st.chan || 400} channels, each ${(100 * (Math.exp(w) - 1)).toFixed(1)}% wide in wavelength. Expected scatter (SD) from the channel width alone: about ${(100 * w / Math.sqrt(12)).toFixed(2)}% of b = ${Batch.fmt(WIEN_B * w / Math.sqrt(12))} m K.` };
+    }
+    if (key === "sbRatio") return { value: 1, label: "theory: L = 4πR²σT⁴ (ratio exactly 1)", col: "Stefan–Boltzmann" };
     const norm = (1 - SALPETER) / (Math.pow(hi, 1 - SALPETER) - Math.pow(lo, 1 - SALPETER));     // C in dN/dM = C M^−2.35
     if (key === "fate") {
       if (!ctx.fates) {
@@ -2369,6 +3228,10 @@ Batch.init({
     return null;
   },
   theorySweep(key, varKey, ctx) {
+    if (key === "wienProd") return { f: () => WIEN_B, label: "theory: Wien's constant b = 2.898 × 10⁻³ m K", ratio: true };
+    if (key === "sbRatio") return { f: () => 1, label: "theory: L = 4πR²σT⁴ (ratio 1)" };
+    if (key === "lamMax" && varKey === "T") return { f: T => WIEN_B / T * 1e9, gradient: -1, label: "theory: Wien's law λmax = b/T" };
+    if (key === "Pm2" && varKey === "T") return { f: T => SIGMA * Math.pow(T, 4), gradient: 4, label: "theory: Stefan–Boltzmann P = σT⁴" };
     if (varKey !== "M") return null;
     if (key === "msLife") return { f: M => 1e10 * Math.pow(M, -2.5), gradient: -2.5, label: "theory: t = 10 billion years × M⁻²·⁵" };
     if (key === "life") return { f: M => 1e10 * Math.pow(M, -2.5), gradient: -2.5, label: "main-sequence lifetime only, 10 Gyr × M⁻²·⁵" };
@@ -2396,6 +3259,18 @@ Batch.init({
     { name: "After 1 billion years, how many still shine?", sub: "cluster of 1,000 → fraction alive",
       apply(st) { Object.assign(st, { mode: "repeat", nRepeat: 1000, outKey: "alive", lo: 0.1, hi: 100, age: 1e9, panel: false }); },
       note: "A star is still shining if its life is longer than the cluster's age. Theory uses t = 10 Gyr × M⁻²·⁵ to find the turn-off mass (about 2.5 M☉ at 1 billion years) and integrates the IMF below it. Because so many stars are small, almost all are still shining. The model's stars live a little longer than the main-sequence formula (giant stages add ~10–20%), so its turn-off mass is slightly higher. Try other ages." },
+    { name: "Does Wien's law hold for real-looking stars?", sub: "1,000 random stars → measured λmax × T",
+      apply(st) { Object.assign(st, { mode: "repeat", nRepeat: 1000, outKey: "wienProd", lo: 0.5, hi: 50, chan: 400, panel: false }); },
+      note: "Each run picks a star from the IMF (0.5–50 M☉) and a random moment of its life (red dwarfs, the Sun, giants, supergiants, white dwarfs: 1,000–60,000 K), then finds the brightest channel of its Planck spectrum with a 400-channel spectrometer. λmax × T comes out at Wien's constant, b = 2.898 × 10⁻³ m K, for every star, hot or cool. The runs scatter only because the brightest channel can sit up to half a channel either side of the true peak: the measured SD matches the SD predicted from the channel width, and the mean is within a few standard errors of b. Try 100 channels (coarse) or 1,600 (fine) to see the scatter grow or shrink." },
+    { name: "Is L = 4πR²σT⁴?", sub: "1,000 random stars → luminosity from the area under the spectrum",
+      apply(st) { Object.assign(st, { mode: "repeat", nRepeat: 1000, outKey: "sbRatio", lo: 0.5, hi: 50, chan: 400, panel: false }); },
+      note: "For each random star the spectrometer adds up the area under its Planck curve (π ∫B dλ = power per m² of surface) and multiplies by the surface area 4πR². Dividing by the model's luminosity gives 1 for every star: L = 4πR²σT⁴ holds whatever the radius and temperature, from a red dwarf to a supergiant 1,000 times the Sun's size. (The model sets each star's temperature from L and R using this law, so this checks that the area under Planck's curve really is σT⁴.) The mean is about 1 part in a million below 1: a small SYSTEMATIC error from adding up the area in steps and missing the far ends of the spectrum (below 10 nm and above 1 mm). The runs hardly scatter at all (SD about 10⁻⁸), so this tiny bias shows up as thousands of standard errors: a good example of why the standard error only measures random scatter, not systematic error." },
+    { name: "Wien's law: does λmax ∝ 1/T?", sub: "sweep temperature 1,000–40,000 K → λmax, log–log",
+      apply(st) { Object.assign(st, { mode: "sweep", varKey: "T", from: 1000, to: 40000, steps: 10, reps: 5, outKey: "lamMax", chan: 100, panel: false }); },
+      note: "A pure black body is heated from 1,000 K (peak in the infrared, about 2.9 µm) to 40,000 K (peak in the ultraviolet, about 72 nm). On log–log axes λmax = b/T is a straight line of gradient −1, and the fitted gradient comes out at −1.00. This uses a coarse 100-channel spectrometer (each channel 12% wide), so the 5 repeats at each temperature scatter by a few per cent: the error bars show the instrument's resolution, not a failure of Wien's law." },
+    { name: "Stefan–Boltzmann: is P ∝ T⁴?", sub: "sweep temperature 1,000–40,000 K → power per m², log–log",
+      apply(st) { Object.assign(st, { mode: "sweep", varKey: "T", from: 1000, to: 40000, steps: 10, reps: 3, outKey: "Pm2", chan: 400, panel: false }); },
+      note: "The power per square metre is the area under the Planck curve (times π). Raising the temperature 40 times multiplies it by 40⁴ ≈ 2.6 million, so on log–log axes the points lie on a line of gradient 4, and they sit on σT⁴ with σ = 5.67 × 10⁻⁸ W m⁻² K⁻⁴ (measured ÷ theory ≈ 1.000). This is why a star only a little hotter is much more luminous. Repeats agree to about 1 part in 10⁵ because adding up the area hardly depends on where the channels sit." },
   ],
 });
 el("btnBatch").onclick = () => Batch.open();

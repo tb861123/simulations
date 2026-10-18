@@ -55,8 +55,8 @@ A full run takes about a minute even at top speed, so the **📊 Batch** button
 (below the disc) runs discs headlessly at **reduced settings**, listed at the
 top of the batch panel: 100 planetesimals (not the slider value), a gas
 lifetime of 1 million years, a time step twice as long (1/10 of an orbit at
-0.3 AU), no cloud prologue, no asteroids or comets, and each run stops 20
-million years after the gas has gone. Other settings come from the left panel.
+0.3 AU), no cloud prologue, no asteroids or comets, Medium quality (see
+below), and each run stops 20 million years after the gas has gone. Other settings come from the left panel.
 **One run takes about 8–20 seconds**, so each experiment takes 1–2 minutes.
 The interactive simulation pauses during a batch and is not changed (each
 batch run has its own simulation object).
@@ -104,6 +104,24 @@ Solar-System-like, start from a cloud, no gas giants (rocks-only disc),
 massive disc, red-dwarf disc (0.5 M☉), bright F-type star (1.6 M☉, frost line
 far out), gas clears fast (1 Myr), and giant impacts only (few big bodies, no
 gas). Each preset sets the sliders and builds a new disc; press Start.
+
+## Quality
+
+The **Low / Medium / High / Ultra** buttons (left panel, under Display) set
+how many cloud parcels (1,000 / 2,000 / 4,000 / 8,000) and asteroids and
+comets (200 / 400 / 800 / 1,600) are followed, and how smooth orbit lines
+are. Higher quality looks sharper but is slower; Medium is the default and
+runs smoothly on a laptop. Like the other setup controls it takes effect on
+**Reset**, and the choice is remembered in your browser. Canvases are drawn
+at the screen's full pixel density (devicePixelRatio), so lines and text are
+crisp on Surface screens at 200% scaling.
+
+Quality never changes the planets: cloud parcels and asteroids don't pull on
+anything and have their own random numbers, while the planetesimals, the
+160-ring gas disc and the time step are physics and stay fixed. The belt
+finder's thresholds scale with the number of asteroids. Batch runs leave the
+cloud and asteroids out and always use Medium, so their results are the same
+whatever the Quality buttons say.
 
 ## Speed
 
