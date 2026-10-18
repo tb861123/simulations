@@ -1,0 +1,1917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fields and Orbits</title>
+<!--
+  FIELDS AND ORBITS — a teaching model
+  ====================================
+  One self-contained file: no libraries, no internet needed.
+  WJEC Eduqas A level Physics:
+    Component 2, Topic 6 (Fields), sections (a)–(f)
+    Component 2, Topic 8 (Orbits and the wider Universe), sections (a)–(g)
+    Component 3, Topic 11 (Astrophysics): binary star systems
+  It replaces two pages of the old WJEC Streamlit app:
+    05 Electric & Gravitational Fields, and 09 Orbital Motion.
+
+  Four modes (tabs at the top of the main view):
+  ELECTRIC FIELDS — point charges Q in coulombs (C)
+      field strength   E = kQ / r²        (N/C, the same as V/m), away from + charges
+      potential        V = kQ / r         (V = J/C)
+      force            F = kQ₁Q₂ / r²     (N)          k = 1/(4πε₀) = 8.99×10⁹ N m² C⁻²
+  GRAVITATIONAL FIELDS — point masses M in kg
+      field strength   g = GM / r²        (N/kg), always towards the mass
+      potential        Vg = −GM / r       (J/kg), always negative, zero far away
+      force            F = GM₁M₂ / r²     (N)          G = 6.67×10⁻¹¹ N m² kg⁻²
+  ORBITS (KEPLER'S LAWS) — a planet or satellite round a central mass M
+      circular speed   v = √(GM/r)        escape speed  v = √(2GM/r) = √2 × circular speed
+      Kepler's 3rd law T² = (4π²/GM) a³   (a = semi-major axis; a = r for a circle)
+      energy per kg    ½v² − GM/r = −GM/(2a)  (negative = bound orbit)
+  BINARY STARS — two stars round their common centre of mass (CoM)
+      r₁ = M₂d/(M₁+M₂),  r₂ = M₁d/(M₁+M₂),  T² = 4π²d³ / G(M₁+M₂),  v = 2πr/T
+
+  Fields add up (superposition): the field at a point is the vector sum of the
+  fields of every charge or mass, worked out exactly at every pixel.
+  Moving bodies are stepped with the 4th-order Runge–Kutta method (RK4).
+  Every simplification is listed in the page under "How the model works".
+  Units: SI (m, kg, C, s). Orbits are shown in AU (1 AU = 1.496×10¹¹ m) or km.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 250px) 10px minmax(0, 1fr) 10px var(--rw, 280px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  h2 .nc { text-transform: none; letter-spacing: 0; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: var(--ink-dark); }
+  .presets button .adv { color: #c39bff; font-weight: 700; }
+  .presets button.on .adv { color: var(--ink-dark); }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select, input[type=number] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .chk { display: flex; gap: 6px; align-items: center; font-size: 13px; margin-bottom: 7px; }
+  .chk input { accent-color: var(--accent); }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .seg { display: flex; gap: 4px; margin-bottom: 6px; }
+  .seg button { flex: 1; padding: 4px 6px; font-size: 12.5px; }
+  body.lvl-std .advOnly, body.lvl-adv .stdOnly { display: none !important; }
+  .advdiv { color: #c39bff; font-weight: 600; font-size: 12.5px; margin: 12px 0 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .info { background: #16212b; border: 1px solid #2b4152; color: #cfe3f2; border-radius: 6px; padding: 5px 8px; font-size: 12.5px; margin: 6px 0 8px; }
+  .info:empty { display: none; }
+  .card { background: #16212b; border-left: 3px solid #00aec3; border-radius: 5px; padding: 5px 8px; font-size: 12.5px; margin-top: 6px; color: #dfe9f0; }
+  .card.warn { border-left-color: var(--accent); background: #2a2410; color: #f5e7c4; }
+  .card.adv { border-left-color: #a86dab; background: #221a26; color: #eadcf0; }
+  .card:empty { display: none; }
+  details.sbox { margin: 0 0 6px; border: 1px solid var(--line); border-radius: 7px; padding: 4px 8px; font-size: 13px; color: var(--text); }
+  details.sbox summary { font-weight: 600; cursor: pointer; }
+  details.sbox[open] summary { margin-bottom: 4px; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  .tabs { display: flex; gap: 4px; }
+  .tabs button { flex: 1; font-weight: 700; font-size: 12.5px; padding: 5px 4px; line-height: 1.2; }
+  .topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; min-height: 30px; }
+  .clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .badge { font-weight: 700; font-size: 12.5px; border-radius: 999px; padding: 1px 10px; background: #2a3024; color: var(--muted); }
+  .badge.b-ok { background: #53892e; color: #fff; } .badge.b-warn { background: #f18700; color: #14133b; } .badge.b-red { background: #de252a; color: #fff; } .badge.b-blue { background: #00aec3; color: #14133b; }
+  .wrapC { position: relative; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  .wrapC canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .ctools { position: absolute; left: 8px; top: 8px; display: flex; gap: 4px; flex-wrap: wrap; max-width: calc(100% - 16px); }
+  .ctools button { padding: 3px 9px; font-size: 12.5px; background: rgba(20,24,17,.88); }
+  .ctools button.on { background: var(--accent); }
+  .toolrow { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); }
+  .toolrow:empty { display: none; }
+  .toolrow button { padding: 2px 9px; font-size: 12.5px; }
+  .hover { position: absolute; left: 8px; top: 6px; background: rgba(12,14,11,.85); border: 1px solid var(--line); border-radius: 5px; padding: 2px 8px; font-size: 12px; color: #dfe3d6; font-variant-numeric: tabular-nums; pointer-events: none; }
+  .hover:empty { display: none; }
+  .crow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .crow label { font-size: 12.5px; color: var(--muted); display: inline-flex; gap: 4px; align-items: center; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 6px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; min-width: 0; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; overflow-wrap: anywhere; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .chartBox { position: relative; height: 185px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+  details p { margin: 6px 0; }
+  .eq { font-family: "Cambria Math", "Times New Roman", serif; font-size: 14px; color: var(--text); margin: 2px 0 2px 8px; }
+  table.data { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  table.data td, table.data th { padding: 2px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+  table.data td:first-child, table.data th:first-child { text-align: left; }
+  table.data th { color: var(--muted); font-weight: 600; }
+  table.data tr.on td { color: var(--accent); font-weight: 700; }
+  table.cmp td, table.cmp th { text-align: left !important; }
+
+  /* Exam practice */
+  .exhead { font-size: 11.5px; color: var(--accent); text-transform: uppercase; letter-spacing: .05em; margin-top: 10px; }
+  .exq { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; margin-top: 7px; color: var(--text); font-size: 12.5px; }
+  .exq .qh { display: flex; gap: 8px; justify-content: space-between; align-items: flex-start; }
+  .exq .mk { flex: none; background: var(--accent); color: var(--ink-dark); border-radius: 4px; padding: 0 6px; font-size: 11px; font-weight: 700; }
+  .exq .ht { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  .exq button { margin-top: 5px; padding: 2px 8px; font-size: 12px; }
+  .exq .ms { display: none; margin-top: 5px; border-top: 1px dashed var(--line); padding-top: 4px; }
+  .exq.open .ms { display: block; }
+  .exq .ms div { margin: 1px 0 1px 6px; }
+  .exq .ans { color: #8fd694; font-weight: 700; margin-top: 3px; }
+
+  /* Batch run overlay (covers the centre and right panels) */
+  #batch { display: none; position: fixed; z-index: 30; background: var(--panel); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px;
+           flex-direction: column; gap: 7px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+  #batch.open { display: flex; }
+  #batch .bhead { display: flex; align-items: center; gap: 10px; }
+  #batch .bhead h3 { margin: 0; white-space: nowrap; font-size: 17px; color: var(--accent); }
+  #batch .brow { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; }
+  #batch .brow label { display: inline-flex; gap: 5px; align-items: center; }
+  #batch input[type=number] { width: 78px; }
+  #bexp { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 5px; }
+  #bexp button { text-align: left; font-size: 12px; padding: 5px 7px; line-height: 1.25; }
+  #bexp button small { display: block; color: var(--muted); font-size: 11px; }
+  #bexp button.on small { color: var(--ink-dark); }
+  #bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 32%); gap: 10px; }
+  #bchartBox { position: relative; min-height: 0; background: #050604; border-radius: 8px; }
+  #bchart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bside { overflow-y: auto; font-size: 12.5px; min-height: 0; }
+  #bsum table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #bsum td, #bsum th { padding: 1px 4px; border-bottom: 1px solid var(--line); text-align: right; font-size: 12px; }
+  #bsum td:first-child, #bsum th:first-child { text-align: left; }
+  #bNote { margin-top: 8px; padding: 7px 9px; background: var(--panel-2); border-left: 3px solid var(--accent); border-radius: 5px; color: #dfe3d6; }
+  .prog { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; flex: 1; min-width: 120px; }
+  .prog span { display: block; height: 100%; width: 0; background: var(--accent); }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+</style>
+</head>
+<body class="lvl-std">
+<header>
+  <h1>Fields and Orbits</h1>
+  <span class="sub">Electric and gravitational fields, Kepler's laws, escape speed and binary stars: field lines, equipotentials, orbits and the centre of mass.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: PRESETS AND CONTROLS ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Level</h2>
+    <div class="seg" id="lvl"><button data-lvl="std">Standard (GCSE)</button><button data-lvl="adv">Advanced (A level)</button></div>
+    <div class="hint" id="lvlHint"></div>
+
+    <h2 class="gap">Presets</h2>
+    <div class="presets" id="presets"></div>
+    <div class="info" id="presetInfo"></div>
+
+    <!-- ELECTRIC AND GRAVITATIONAL FIELD CONTROLS -->
+    <div data-m="EG">
+      <h2 class="gap" id="srcTitle">Charges</h2>
+      <div id="srcBox"></div>
+      <h2 class="gap">Probe point</h2>
+      <div class="ctl"><label>Probe x <output id="o_px"></output></label><input type="range" id="px" min="-5" max="5" step="0.25" value="3"></div>
+      <div class="ctl"><label>Probe y <output id="o_py"></output></label><input type="range" id="py" min="-5" max="5" step="0.25" value="3"></div>
+      <div class="hint">You can also drag the ✕ on the map. Drag a charge or mass to move it. Click an empty spot to drop a test particle and watch which way it is pushed.</div>
+      <div class="advOnly">
+        <div class="advdiv">⚗️ Advanced options</div>
+        <label class="chk"><input type="checkbox" id="cmpOn"> Show electric vs gravitational comparison</label>
+        <label class="chk"><input type="checkbox" id="lnOn"> Launch test particle (RK4 trajectory)</label>
+        <div id="lnBox">
+          <div class="hint" style="margin-bottom:4px"><b>Initial conditions</b></div>
+          <div class="ctl"><label>Particle x₀ <output id="o_lx"></output></label><input type="range" id="lx" min="-5" max="5" step="0.25" value="0"></div>
+          <div class="ctl"><label>Particle y₀ <output id="o_ly"></output></label><input type="range" id="ly" min="-5" max="5" step="0.25" value="-3"></div>
+          <div class="ctl"><label>Initial vx₀ <output id="o_lvx"></output></label><input type="range" id="lvx" min="-20" max="20" step="0.1" value="5"></div>
+          <div class="ctl"><label>Initial vy₀ <output id="o_lvy"></output></label><input type="range" id="lvy" min="-20" max="20" step="0.1" value="5"></div>
+          <div data-m="E">
+            <div class="ctl"><label>Test charge q (signed) <output id="o_lq"></output></label><input type="range" id="lq" min="-100" max="100" step="0.5" value="1">
+              <div class="hint">Positive: pushed along the field lines. Negative: pushed the opposite way.</div></div>
+            <div class="ctl"><label>Test mass m <output id="o_lm"></output></label><input type="range" id="lm" min="-3" max="2" step="0.05" value="0"></div>
+          </div>
+          <div data-m="G" class="info">Test mass = 1 kg. In a gravitational field the acceleration equals g, whatever the test mass, so its mass does not matter.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ORBIT CONTROLS -->
+    <div data-m="O">
+      <h2 class="gap">Central body</h2>
+      <div class="ctl"><label>Central mass M</label><select id="oM"></select><div class="hint" id="oMcap"></div></div>
+      <h2 class="gap">Planet orbit</h2>
+      <div class="ctl"><label>Initial orbital radius r₀ <output id="o_or0"></output></label><input type="range" id="or0" min="6.5" max="12.5" step="0.01" value="11.18">
+        <div class="hint" id="or0cap"></div></div>
+      <div class="ctl"><label><span>v₀ / v<sub>circular</sub></span> <output id="o_ovr"></output></label><input type="range" id="ovr" min="0.1" max="2" step="0.005" value="1">
+        <div class="hint">1.0 gives a circular orbit. √2 ≈ 1.41 is escape speed.</div></div>
+      <div class="info" id="oCap"></div>
+      <div class="hint">Drag on the picture (away from the central body) to launch your own planet: the drag sets its velocity.</div>
+      <div class="advOnly">
+        <div class="advdiv">⚗️ Advanced options</div>
+        <label class="chk"><input type="checkbox" id="o2b"> Enable two-body (planet has mass)</label>
+        <div id="o2bBox"><div class="ctl"><label>Planet mass m <output id="o_omp"></output></label><input type="range" id="omp" min="20" max="30" step="0.05" value="24.78"><div class="hint" id="ompcap"></div></div></div>
+        <label class="chk"><input type="checkbox" id="oHo"> Show Hohmann transfer orbit</label>
+        <div id="oHoBox"><div class="ctl"><label>Target orbit radius <output id="o_orT"></output></label><input type="range" id="orT" min="6.5" max="12.5" step="0.01" value="11.48"></div></div>
+        <label class="chk"><input type="checkbox" id="oRot"> Show galaxy rotation curve</label>
+        <div id="oRotBox">
+          <div class="ctl"><label><span>Dark matter halo speed v<sub>DM</sub></span> <output id="o_ovdm"></output></label><input type="range" id="ovdm" min="50" max="250" step="10" value="150"></div>
+          <div class="ctl"><label>Visible mass of the galaxy <output id="o_oMg"></output></label><input type="range" id="oMg" min="9" max="12" step="0.1" value="11"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BINARY STAR CONTROLS -->
+    <div data-m="B">
+      <h2 class="gap">The two stars</h2>
+      <div class="ctl"><label>M₁ <output id="o_bM1"></output></label><input type="range" id="bM1" min="-4" max="1.7" step="0.01" value="0.3"></div>
+      <div class="ctl"><label>M₂ <output id="o_bM2"></output></label><input type="range" id="bM2" min="-4" max="1.7" step="0.01" value="0"></div>
+      <div class="ctl"><label>Separation d <output id="o_bd"></output></label><input type="range" id="bd" min="-2.5" max="1.7" step="0.01" value="0"></div>
+      <div class="hint" style="margin:-4px 0 8px">Masses in solar masses (M☉ = 1.99×10³⁰ kg); the sliders are logarithmic so tiny planets and huge stars both fit.</div>
+      <div class="ctl"><label>Phase angle φ <output id="o_bphi"></output></label><input type="range" id="bphi" min="0" max="360" step="1" value="0"><div class="hint">Moves on its own while the animation plays.</div></div>
+      <label class="chk"><input type="checkbox" id="bTrail"> Show trail (last 180°)</label>
+      <div class="advOnly">
+        <div class="advdiv">⚗️ Advanced options</div>
+        <div class="ctl"><label>Inclination i <output id="o_binc"></output></label><input type="range" id="binc" min="0" max="90" step="1" value="60">
+          <div class="hint">Angle between the orbital plane and the line of sight. i = 90° is edge-on (largest Doppler signal); i = 0° is face-on (no radial velocity).</div></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE: THE MAIN VIEW ======================= -->
+  <section class="panel" id="centre">
+    <div class="tabs" id="tabs">
+      <button data-tab="E">⚡ Electric fields</button><button data-tab="G">🌍 Gravitational fields</button><button data-tab="O">🪐 Orbits (Kepler's laws)</button><button data-tab="B">✨ Binary stars</button>
+    </div>
+    <div class="topbar" id="topbar"></div>
+    <div class="toolrow" id="ctools"></div>
+    <div class="wrapC" id="wrapMain" style="flex:1"><canvas id="cv" aria-label="Main view"></canvas><div class="hover" id="hover"></div></div>
+    <div class="wrapC" id="wrapCmp" style="flex:0.8;display:none"><canvas id="cvCmp" aria-label="Electric and gravitational fields side by side"></canvas></div>
+    <div class="crow">
+      <button id="btnPlay" class="primary">⏸ Pause</button>
+      <button id="btnReset" title="Start the motion again">↺ Reset</button>
+      <button id="btnClear"></button>
+      <span class="speed" id="speed">Speed <button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="4">4×</button></span>
+      <label data-m="EG" title="How finely the colour map, equipotentials and field lines are drawn">Quality <select id="qual"><option value="low">Low</option><option value="med" selected>Medium</option><option value="high">High</option><option value="ultra">Ultra</option></select></label>
+      <button id="btnBatch" style="margin-left:auto">📊 Batch run</button>
+    </div>
+    <div class="legend" id="legMain"></div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT: READINGS ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readings</button>
+    <h2>What's happening</h2>
+    <div class="story" id="story"></div>
+    <h2 class="gap">Readings</h2>
+    <div class="tiles" id="tiles"></div>
+    <div class="card" id="ctx"></div>
+
+    <div id="ch1"><h2 class="gap" id="ch1t"></h2><div class="chartBox"><canvas id="c1"></canvas></div><div class="legend" id="ch1l" style="margin-top:4px"></div><div class="hint" id="ch1n"></div></div>
+    <div id="ch2"><h2 class="gap" id="ch2t"></h2><div class="chartBox"><canvas id="c2"></canvas></div><div class="legend" id="ch2l" style="margin-top:4px"></div><div class="hint" id="ch2n"></div></div>
+    <div id="extra"></div>
+
+    <details id="notes"><summary>📐 Physics notes</summary><div id="notesBody"></div></details>
+
+    <details id="exam" open>
+      <summary>📝 Exam practice</summary>
+      <div class="hint" style="margin-top:4px">The questions use your current settings: change the controls and the numbers and answers update.</div>
+      <div id="examQs"></div>
+    </details>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Point sources.</b> Every charge and mass is a point. The field and potential at each pixel are the exact sums E = Σ kQ/r² (as vectors) and V = Σ kQ/r, or g = Σ GM/r² and Vg = Σ −GM/r. (The old app read them off a 60 × 60 grid; here nothing is interpolated.)</li>
+        <li><b>A flat slice.</b> Real fields are 3-D; the map shows the plane the charges sit in. In this flat picture the spacing of the field lines is only a rough guide to strength: in 3-D the density of lines falls as 1/r², in a 2-D drawing as 1/r.</li>
+        <li><b>Colour map and equipotentials</b> use a squashed (inverse-sinh) scale so both the strong field near a charge and the weak field far away show up. So equipotentials are drawn at equal steps on that scale, not at equal steps in volts. The potential is clipped very close to a source, where it heads to infinity.</li>
+        <li><b>Quality</b> sets how many points the colour map and equipotentials use (Low 70 × 70 up to Ultra 340 × 340), how many field lines start from each source and the step along each line. It changes how sharp the picture is, not the physics. While you drag a source the map is drawn at Low quality, then redrawn.</li>
+        <li><b>Dropped test particles</b> (click on the map) show the direction of the force only: they get a steady push along the field and their speed is not to scale. A positive test charge is used in the electric map.</li>
+        <li><b>Launched test particle (Advanced)</b>: real units. RK4 with a 5 ms time step for up to 8 s, stopping at the edge of the map. The charges and masses are held still and the test particle does not change the field. No magnetic effects, radiation or relativity, so total energy KE + PE should stay constant.</li>
+        <li><b>Gravitational presets</b> put planets and stars a few metres apart, as the old app did. They show the shape of the field; the numbers at the probe are not realistic (real bodies would overlap).</li>
+        <li><b>Orbits</b>: Newton's law of gravitation between point masses, nothing else: no other planets, no air drag near the Earth, no relativity. The size of the central body is ignored (and it is not drawn to scale), so a slow launch can pass "through" the Earth. RK4 with an adaptive time step (about 500 steps per orbit; shorter steps near the central body).</li>
+        <li><b>Time in the orbit view</b>: 1× shows one orbit in about 10 s, whatever the real period. The clock shows the real time that has passed. Open orbits restart once the planet is 5 r₀ away, as in the old app.</li>
+        <li><b>Kepler's second law sectors</b> are 8 slices covering equal times (one eighth of the period each), worked out from the simulated orbit. Their areas are measured, not assumed.</li>
+        <li><b>Launching your own planet</b> by dragging: dragging a quarter of the picture's height gives the circular speed at that point. The path is worked out with RK4 (the old app used a simpler Euler method).</li>
+        <li><b>Two-body (Advanced)</b>: the star and planet pull each other equally and opposite (Newton's 3rd law), so their centre of mass never moves; the check shows any drift from rounding.</li>
+        <li><b>Hohmann transfer</b>: two instant engine burns, circular start and target orbits in the same plane, the planet's own gravity ignored. Real missions (e.g. Earth to Mars) also have to climb out of the Earth's gravity well.</li>
+        <li><b>Galaxy rotation curve</b>: all visible mass at the centre (real galaxies are discs, so near the centre the real curve rises), and the dark-matter halo simplified to a constant speed added in quadrature: v² = GM/r + v<sub>DM</sub>².</li>
+        <li><b>Binary stars</b>: circular orbits only (many real binaries are elliptical), no mass transfer, tides or gravitational-wave decay. Radial velocity v<sub>r</sub> = v sin i cos φ. The Doppler wobble of a star with a planet is covered in the separate Exoplanet hunting simulation.</li>
+        <li><b>Batch runs</b> use exact formulas and fixed integration settings (they do not depend on the Quality setting), with random reading errors where a real experiment would have them (a field probe: SD set in the panel, plus ±1 cm in where it is held; binary-star separation and period).</li>
+      </ul>
+    </details>
+  </section>
+</main>
+<script>
+"use strict";
+
+/* =====================================================================
+   SHARED TOOLS — small helpers, charts, panel layout, exam questions
+   and the batch-run engine. (The physics is further down the file.)
+   ===================================================================== */
+const el = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+// Repeatable random numbers (the same seed always gives the same sequence)
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+// A random number from a normal (bell-shaped) distribution, mean 0, SD 1
+function gauss(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+
+// Size a canvas for the screen's pixel ratio so lines and text stay sharp (Surface screens at 200%)
+function fitCanvas(cv) {
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const w = Math.max(10, Math.round(r.width * dpr)), h = Math.max(10, Math.round(r.height * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: r.width, h: r.height };
+}
+function niceStep(range, n) { const raw = range / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+function fmt(v, sig = 3) {
+  if (v === null || v === undefined || !isFinite(v)) return "–"; if (v === 0) return "0";
+  const a = Math.abs(v); if (a >= 1e6 || a < 1e-3) return v.toExponential(sig - 1).replace("e+", "e");
+  return (+v.toPrecision(sig)).toLocaleString("en-GB", { maximumFractionDigits: 6 });
+}
+function ticksFor(a, b, log) {
+  if (log) {
+    const out = [], lo = Math.floor(Math.log10(a)), hi = Math.ceil(Math.log10(b)), few = hi - lo <= 2;
+    for (let e = lo; e <= hi; e++) for (const m of few ? [1, 2, 5] : [1]) { const v = m * Math.pow(10, e); if (v >= a * 0.999 && v <= b * 1.001) out.push(v); }
+    return out;
+  }
+  const st = niceStep(b - a || 1, 5), out = []; for (let v = Math.ceil(a / st) * st; v <= b + st * 1e-6; v += st) out.push(Math.abs(v) < st * 1e-9 ? 0 : v); return out;
+}
+// Draw axes with grid, ticks and labels; returns functions X(v), Y(v) that map data to pixels
+function axes(ctx, w, h, o) {
+  const L = o.L || 54, R = o.R || 10, T = o.T || 8, B = o.B || 34;
+  const fx = o.xlog ? Math.log10 : v => v, fy = o.ylog ? Math.log10 : v => v;
+  const X = v => L + (fx(v) - fx(o.x0)) / (fx(o.x1) - fx(o.x0)) * (w - L - R);
+  const Y = v => h - B - (fy(v) - fy(o.y0)) / (fy(o.y1) - fy(o.y0)) * (h - T - B);
+  ctx.font = "11px system-ui, sans-serif"; ctx.lineWidth = 1;
+  for (const v of (o.xticks || ticksFor(o.x0, o.x1, o.xlog))) { const x = X(v); ctx.strokeStyle = "#232920"; ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, h - B); ctx.stroke(); if (!o.noXT) { ctx.fillStyle = "#a3ab96"; ctx.textAlign = "center"; ctx.fillText(o.xfmt ? o.xfmt(v) : fmt(v), x, h - B + 13); } }
+  for (const v of (o.yticks || ticksFor(o.y0, o.y1, o.ylog))) { const y = Y(v); ctx.strokeStyle = "#232920"; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke(); ctx.fillStyle = "#a3ab96"; ctx.textAlign = "right"; ctx.fillText(o.yfmt ? o.yfmt(v) : fmt(v), L - 4, y + 3.5); }
+  ctx.strokeStyle = "#5a6352"; ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, h - B); ctx.lineTo(w - R, h - B); ctx.stroke();
+  ctx.fillStyle = "#cfd5c4"; ctx.textAlign = "center"; ctx.fillText(o.xlabel || "", L + (w - L - R) / 2, h - 6);
+  ctx.save(); ctx.translate(11, T + (h - T - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(o.ylabel || "", 0, 0); ctx.restore();
+  return { X, Y, L, R, T, B };
+}
+function line(ctx, pts, col, width = 2, dash) {
+  ctx.strokeStyle = col; ctx.lineWidth = width; ctx.setLineDash(dash || []); ctx.beginPath();
+  let started = false; for (const [x, y] of pts) { if (!isFinite(x) || !isFinite(y)) { started = false; continue; } if (started) ctx.lineTo(x, y); else { ctx.moveTo(x, y); started = true; } }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+function clip(ctx, ax, w, h) { ctx.save(); ctx.beginPath(); ctx.rect(ax.L, ax.T, w - ax.L - ax.R, h - ax.T - ax.B); ctx.clip(); }
+function tile(k, v, s) { return `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s || ""}</div></div>`; }
+function arrow(ctx, x0, y0, x1, y1, col, wd = 2, head = 8) {
+  const a = Math.atan2(y1 - y0, x1 - x0), L = Math.hypot(x1 - x0, y1 - y0); if (L < 2) return;
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = wd; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - head * Math.cos(a - 0.4), y1 - head * Math.sin(a - 0.4)); ctx.lineTo(x1 - head * Math.cos(a + 0.4), y1 - head * Math.sin(a + 0.4)); ctx.closePath(); ctx.fill();
+}
+// Exam questions with marks, hint and a "Show mark scheme" toggle. Open mark schemes stay open when the numbers change.
+const examOpen = new Set();
+function renderExam(box, groups) {
+  let html = "", n = 0;
+  for (const g of groups) {
+    if (g.title) html += `<div class="exhead">${g.title}</div>`;
+    g.qs.forEach((q, i) => {
+      const id = (g.id || "q") + i; n++;
+      html += `<div class="exq${examOpen.has(id) ? " open" : ""}" data-id="${id}"><div class="qh"><span><b>Q${n}.</b> ${q.q}</span><span class="mk">${q.marks} mark${q.marks === 1 ? "" : "s"}</span></div>` +
+        (q.hint ? `<div class="ht">💡 Hint: ${q.hint}</div>` : "") + `<button>${examOpen.has(id) ? "Hide" : "Show"} mark scheme</button>` +
+        `<div class="ms">${(q.working || []).map(s => `<div>→ ${s}</div>`).join("")}<div class="ans">${q.answerLabel === false ? "" : "Answer: "}${q.answer}</div></div></div>`;
+    });
+  }
+  box.innerHTML = html;
+  box.querySelectorAll(".exq button").forEach(b => b.addEventListener("click", () => {
+    const d = b.parentElement, id = d.dataset.id; d.classList.toggle("open");
+    if (d.classList.contains("open")) examOpen.add(id); else examOpen.delete(id);
+    b.textContent = (d.classList.contains("open") ? "Hide" : "Show") + " mark scheme";
+  }));
+}
+
+// Resizable, hideable side panels (remembered in this browser)
+function initLayout(KEY, onChange) {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const STRIP = 30, MIN = 170, DEF = { lw: 250, rw: 280, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY + "-v2") || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY + "-v2", JSON.stringify(st)); } catch (e) {}
+    if (onChange) onChange();
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+}
+
+/* =====================================================================
+   BATCH RUN — run the model many times with no drawing, then compare
+   the results with theory.
+     REPEAT: the same settings N times with different random seeds
+             → histogram, mean, SD, standard error, theory.
+     SWEEP : change one setting in steps, several runs at each step
+             → mean ± 1 SD at each step, with the theory line.
+   A one-click experiment sets EVERY input itself (from fixed defaults),
+   so it gives the same answer whatever is on the left panel.
+   C = { defaults, current(), outcomes, vars, extras, experiments, runOnce(p, seed, out), fileName, hint }
+   ===================================================================== */
+const Batch = (function () {
+  let C = null, res = null, busy = false, stop = false, expI = -1;
+  const st = a => { const v = a.filter(x => x !== null && x !== undefined && isFinite(x)), n = v.length; if (!n) return { n: 0 }; const mean = v.reduce((s, x) => s + x, 0) / n; const sd = n > 1 ? Math.sqrt(v.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1)) : 0; return { n, mean, sd, se: sd / Math.sqrt(n), min: Math.min(...v), max: Math.max(...v) }; };
+  const linfit = (xs, ys) => { const n = xs.length; let sx = 0, sy = 0, sxx = 0, sxy = 0; for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; sxx += xs[i] ** 2; sxy += xs[i] * ys[i]; } const b = (n * sxy - sx * sy) / (n * sxx - sx * sx); return { b, a: (sy - b * sx) / n }; };
+  const unitOf = u => (u ? ` (${u})` : "");
+  function init(cfg) {
+    C = cfg;
+    const d = document.createElement("div"); d.id = "batch"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Batch run");
+    d.innerHTML = `
+      <div class="bhead"><h3>📊 Batch run</h3><span class="hint">${cfg.hint}</span><button id="bClose" style="margin-left:auto">✕ Close</button></div>
+      <div id="bexp"></div>
+      <div class="brow">
+        <label>Mode <select id="bMode"><option value="repeat">Repeat (new random numbers each run)</option><option value="sweep">Sweep (change one setting in steps)</option></select></label>
+        <label>Record <select id="bOut">${Object.entries(cfg.outcomes).map(([k, o]) => `<option value="${k}">${o.label}${unitOf(o.unit)}</option>`).join("")}</select></label>
+        <span id="bRepeatOpts"><label>Runs <select id="bRuns">${cfg.runChoices.map(n => `<option>${n}</option>`).join("")}</select></label></span>
+        ${(cfg.extras || []).map(x => `<label>${x.label} <input type="number" id="bx_${x.key}" step="${x.step}" min="${x.min}" max="${x.max}" value="${cfg.defaults[x.key]}"></label>`).join("")}
+      </div>
+      <div class="brow" id="bSweepOpts">
+        <label>Change <select id="bVar">${Object.entries(cfg.vars).map(([k, v]) => `<option value="${k}">${v.label}${unitOf(v.unit)}</option>`).join("")}</select></label>
+        <label>from <input type="number" id="bFrom" step="any"></label>
+        <label>to <input type="number" id="bTo" step="any"></label>
+        <label>steps <input type="number" id="bSteps" min="2" max="30" value="6" style="width:56px"></label>
+        <label>runs each <input type="number" id="bReps" min="1" max="100" value="5" style="width:60px"></label>
+      </div>
+      <div class="brow">
+        <button id="bRun" class="primary">▶ Run batch</button>
+        <button id="bStop" disabled>■ Stop</button>
+        <div class="prog"><span id="bProg"></span></div>
+        <span id="bStatus" class="hint">Ready</span>
+        <label><input type="checkbox" id="bLogX"> log x</label>
+        <label><input type="checkbox" id="bLogY"> log y</label>
+        <button id="bCsv" disabled>⬇ Download CSV</button>
+      </div>
+      <div id="bbody">
+        <div id="bchartBox"><canvas id="bchart"></canvas></div>
+        <div id="bside"><div id="bsum" class="hint">Pick an experiment above, or set up your own, then press <b>Run batch</b>.</div><div id="bNote" style="display:none"></div></div>
+      </div>`;
+    document.body.appendChild(d);
+    el("bexp").innerHTML = cfg.experiments.map((e, i) => `<button data-i="${i}">${e.q}${e.sub ? `<small>${e.sub}</small>` : ""}</button>`).join("");
+    document.querySelectorAll("#bexp button").forEach(b => b.addEventListener("click", () => load(+b.dataset.i)));
+    // changing the set-up by hand leaves the experiment: your own runs use the left panel
+    ["bMode", "bOut", "bVar"].forEach(id => el(id).addEventListener("input", () => { expI = -1; markExp(); sync(); if (id === "bVar") { const v = C.vars[el("bVar").value]; el("bFrom").value = v.from; el("bTo").value = v.to; } }));
+    ["bLogX", "bLogY"].forEach(id => el(id).addEventListener("input", draw));
+    el("bClose").addEventListener("click", () => d.classList.remove("open"));
+    el("bRun").addEventListener("click", run);
+    el("bStop").addEventListener("click", () => { stop = true; });
+    el("bCsv").addEventListener("click", csv);
+    const v0 = Object.values(cfg.vars)[0]; el("bFrom").value = v0.from; el("bTo").value = v0.to;
+    sync();
+  }
+  function markExp() { document.querySelectorAll("#bexp button").forEach(b => b.classList.toggle("on", +b.dataset.i === expI)); }
+  function sync() { const sw = el("bMode").value === "sweep"; el("bRepeatOpts").style.display = sw ? "none" : ""; el("bSweepOpts").style.display = sw ? "" : "none"; }
+  function load(i) {
+    const E = C.experiments[i]; expI = i;
+    el("bMode").value = E.mode; el("bOut").value = E.out;
+    if (E.runs) el("bRuns").value = E.runs;
+    if (E.v) { el("bVar").value = E.v; el("bFrom").value = E.from; el("bTo").value = E.to; el("bSteps").value = E.steps; el("bReps").value = E.reps; }
+    const full = { ...C.defaults, ...E.set };
+    (C.extras || []).forEach(x => { el("bx_" + x.key).value = full[x.key]; });
+    el("bLogX").checked = !!E.logx; el("bLogY").checked = !!E.logy;
+    markExp(); sync();
+    el("bStatus").textContent = "Experiment set up: press ▶ Run batch";
+  }
+  function open() { place(); el("batch").classList.add("open"); if (!res && expI < 0) load(0); draw(); }
+  function place() {
+    const c = el("centre").getBoundingClientRect(), r = el("right").getBoundingClientRect(), b = el("batch");
+    b.style.left = c.left + "px"; b.style.top = c.top + "px"; b.style.width = (r.right - c.left) + "px"; b.style.height = c.height + "px";
+  }
+  function base() {
+    const E = expI >= 0 ? C.experiments[expI] : null;
+    const b = E ? { ...C.defaults, ...E.set } : { ...C.defaults, ...C.current() };
+    (C.extras || []).forEach(x => { const v = +el("bx_" + x.key).value; b[x.key] = isFinite(v) ? clamp(v, x.min, x.max) : C.defaults[x.key]; });
+    return b;
+  }
+  function run() {
+    if (busy) return;
+    const mode = el("bMode").value, out = el("bOut").value, b = base(), jobs = [];
+    const cfg = { mode, out, v: el("bVar").value, from: +el("bFrom").value, to: +el("bTo").value, steps: clamp(Math.round(+el("bSteps").value) || 2, 2, 30), reps: clamp(Math.round(+el("bReps").value) || 1, 1, 100), runs: +el("bRuns").value, exp: expI };
+    if (mode === "repeat") for (let k = 0; k < cfg.runs; k++) jobs.push({ p: b, x: null, seed: 1000 + k * 7919 });
+    else {
+      const V = C.vars[cfg.v], lg = el("bLogX").checked && cfg.from > 0 && cfg.to > 0;
+      let last = null;
+      for (let s = 0; s < cfg.steps; s++) {
+        let v = lg ? cfg.from * Math.pow(cfg.to / cfg.from, s / (cfg.steps - 1)) : cfg.from + (cfg.to - cfg.from) * s / (cfg.steps - 1);
+        v = clamp(v, V.min, V.max); if (V.int) v = Math.round(v);
+        if (v === last) continue; last = v;
+        const p = { ...b, [cfg.v]: v };
+        // the SAME random numbers at every step, so only the swept setting changes
+        for (let r = 0; r < cfg.reps; r++) jobs.push({ p, x: v, seed: 2000 + r * 7919 });
+      }
+    }
+    res = { cfg, base: b, rows: [] }; busy = true; stop = false;
+    el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").disabled = true;
+    document.querySelectorAll("#bexp button").forEach(x => x.disabled = true);
+    let k = 0; const t0 = performance.now();
+    const chunk = () => {
+      const tc = performance.now();
+      while (k < jobs.length && performance.now() - tc < 50 && !stop) { const j = jobs[k++], r = C.runOnce(j.p, j.seed, out); res.rows.push({ x: j.x, seed: j.seed, ...r }); }
+      el("bProg").style.width = (100 * k / jobs.length) + "%";
+      el("bStatus").textContent = `${k} of ${jobs.length} runs · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+      draw();
+      if (k < jobs.length && !stop) setTimeout(chunk, 0);
+      else { busy = false; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").disabled = !res.rows.length; el("bStatus").textContent += stop ? " · stopped" : " · done"; document.querySelectorAll("#bexp button").forEach(x => x.disabled = false); draw(); }
+    };
+    setTimeout(chunk, 20);
+  }
+  function draw() {
+    const { ctx, w, h } = fitCanvas(el("bchart"));
+    ctx.clearRect(0, 0, w, h);
+    const note = el("bNote"), E = res && res.cfg.exp >= 0 ? C.experiments[res.cfg.exp] : null;
+    if (!res || !res.rows.length) { note.style.display = "none"; return; }
+    const c = res.cfg, O = C.outcomes[c.out], unit = unitOf(O.unit);
+    const leg = (col, t, dash) => `<span style="margin-right:10px;white-space:nowrap"><i style="display:inline-block;width:14px;height:${dash ? 2 : 10}px;background:${col};margin-right:4px;vertical-align:${dash ? 3 : -1}px"></i>${t}</span>`;
+    const logX = el("bLogX").checked, logY = el("bLogY").checked;
+    let html = "";
+    if (c.mode === "repeat") {
+      const vals = res.rows.map(r => r.value).filter(isFinite); if (!vals.length) { el("bsum").textContent = "No usable results."; return; }
+      const S = st(vals), thv = st(res.rows.map(r => r.theory)).mean, tsd = st(res.rows.map(r => r.theorySD)).mean;
+      let lo = Math.min(S.min, isFinite(thv) ? thv : S.min), hi = Math.max(S.max, isFinite(thv) ? thv : S.max);
+      if (isFinite(tsd) && tsd > 0) { lo = Math.min(lo, thv - 3.2 * tsd); hi = Math.max(hi, thv + 3.2 * tsd); }
+      if (hi - lo < 1e-12) { hi = lo + Math.abs(lo || 1) * 0.1; }
+      const pad = (hi - lo) * 0.04; lo -= pad; hi += pad;
+      const nb = clamp(Math.round(Math.sqrt(vals.length) * 1.6), 6, 30), bw = (hi - lo) / nb, cnt = new Array(nb).fill(0);
+      for (const v of vals) cnt[Math.min(nb - 1, Math.max(0, Math.floor((v - lo) / bw)))]++;
+      let ymax = Math.max(...cnt);
+      if (isFinite(tsd) && tsd > 0) ymax = Math.max(ymax, vals.length * bw / (tsd * Math.sqrt(2 * Math.PI)));
+      const ax = axes(ctx, w, h, { x0: lo, x1: hi, y0: 0, y1: ymax * 1.12, xlabel: O.label + unit, ylabel: "number of runs", L: 52 });
+      ctx.fillStyle = "#00aec3cc";
+      for (let b = 0; b < nb; b++) { const x0 = ax.X(lo + b * bw), x1 = ax.X(lo + (b + 1) * bw); ctx.fillRect(x0 + 0.5, ax.Y(cnt[b]), Math.max(1, x1 - x0 - 1), ax.Y(0) - ax.Y(cnt[b])); }
+      if (isFinite(tsd) && tsd > 0 && isFinite(thv)) { const pts = []; for (let k = 0; k <= 160; k++) { const x = lo + (hi - lo) * k / 160; pts.push([ax.X(x), ax.Y(vals.length * bw * Math.exp(-0.5 * ((x - thv) / tsd) ** 2) / (tsd * Math.sqrt(2 * Math.PI)))]); } line(ctx, pts, "#a4cbe6", 2); }
+      if (isFinite(thv)) line(ctx, [[ax.X(thv), ax.T], [ax.X(thv), ax.Y(0)]], "#f1af28", 2.5);
+      line(ctx, [[ax.X(S.mean), ax.T], [ax.X(S.mean), ax.Y(0)]], "#e83181", 2, [3, 3]);
+      const dp = thv ? 100 * (S.mean - thv) / thv : NaN, dse = S.se > 0 ? (S.mean - thv) / S.se : NaN;
+      html += `<div style="margin-bottom:6px">${leg("#00aec3cc", "runs")}${leg("#e83181", "mean", 1)}${isFinite(thv) ? leg("#f1af28", "theory: " + O.theoryLabel, 1) : ""}${isFinite(tsd) && tsd > 0 ? leg("#a4cbe6", "predicted spread (normal curve)", 1) : ""}</div>`;
+      html += `<table><tr><th>Runs (n)</th><td>${S.n}</td></tr><tr><th>Mean</th><td>${fmt(S.mean, 4)}</td></tr><tr><th>SD</th><td>${fmt(S.sd, 3)}</td></tr><tr><th>Standard error</th><td>${fmt(S.se, 2)}</td></tr>` +
+        `<tr><th>Min / max</th><td>${fmt(S.min, 3)} / ${fmt(S.max, 3)}</td></tr><tr><th>Theory</th><td>${fmt(thv, 4)}</td></tr>` +
+        (isFinite(tsd) && tsd > 0 ? `<tr><th>Theory SD</th><td>${fmt(tsd, 3)}</td></tr>` : "") +
+        (isFinite(dp) ? `<tr><th>Difference</th><td>${dp >= 0 ? "+" : ""}${dp.toFixed(1)}%</td></tr>` : "") +
+        `<tr><th>…in standard errors</th><td>${isFinite(dse) ? dse.toFixed(1) : "–"}</td></tr></table>`;
+    } else {
+      const V = C.vars[c.v];
+      const groups = new Map(); for (const r of res.rows) { if (!groups.has(r.x)) groups.set(r.x, { x: r.x, v: [], th: [], th2: [] }); const g = groups.get(r.x); g.v.push(r.value); g.th.push(r.theory); g.th2.push(r.theory2); }
+      const G = [...groups.values()].map(g => ({ ...g, ...st(g.v), thm: st(g.th).mean, th2m: st(g.th2).mean })).filter(g => g.n);
+      if (!G.length) { el("bsum").textContent = "No usable results."; return; }
+      const allY = res.rows.map(r => r.value).filter(isFinite).concat(G.map(g => g.thm).filter(isFinite)).concat(G.map(g => g.th2m).filter(isFinite));
+      let x0 = Math.min(c.from, c.to), x1 = Math.max(c.from, c.to); if (x0 === x1) x1 = x0 + 1;
+      let y0 = Math.min(...allY), y1 = Math.max(...allY);
+      if (logY) { y0 = Math.max(y0 / 1.4, 1e-12); y1 *= 1.4; } else { const pd = (y1 - y0) * 0.12 || Math.abs(y1) * 0.1 || 1; y0 = y0 >= 0 && y0 < 0.4 * y1 ? 0 : y0 - pd; y1 += pd; }
+      if (logX) { x0 /= 1.15; x1 *= 1.15; } else { const pd = (x1 - x0) * 0.05; x0 -= pd; x1 += pd; if (x0 < 0 && c.from >= 0) x0 = 0; }
+      const ax = axes(ctx, w, h, { x0, x1, y0, y1, xlog: logX, ylog: logY, xlabel: V.label + unitOf(V.unit), ylabel: O.label + unit, L: 58 });
+      clip(ctx, ax, w, h);
+      line(ctx, G.filter(g => isFinite(g.thm)).map(g => [ax.X(g.x), ax.Y(g.thm)]), "#f1af28", 2.2);
+      const has2 = G.some(g => isFinite(g.th2m));
+      if (has2) line(ctx, G.filter(g => isFinite(g.th2m)).map(g => [ax.X(g.x), ax.Y(g.th2m)]), "#a3ab96", 1.6, [5, 4]);
+      ctx.fillStyle = "rgba(0,174,195,.4)"; for (const r of res.rows) if (isFinite(r.value)) { ctx.beginPath(); ctx.arc(ax.X(r.x), ax.Y(r.value), 2.5, 0, 6.2832); ctx.fill(); }
+      ctx.strokeStyle = "#ffffff"; ctx.fillStyle = "#e83181"; ctx.lineWidth = 1.5;
+      for (const g of G) { const X = ax.X(g.x), lo = logY && g.mean - g.sd <= 0 ? g.mean * 0.5 : g.mean - g.sd; if (g.sd > 0) { ctx.beginPath(); ctx.moveTo(X, ax.Y(lo)); ctx.lineTo(X, ax.Y(g.mean + g.sd)); ctx.stroke(); } ctx.beginPath(); ctx.arc(X, ax.Y(g.mean), 4, 0, 6.2832); ctx.fill(); }
+      ctx.restore();
+      html += `<div style="margin-bottom:6px">${leg("rgba(0,174,195,.6)", "each run")}${leg("#e83181", "mean ± 1 SD")}${G.some(g => isFinite(g.thm)) ? leg("#f1af28", "theory: " + O.theoryLabel, 1) : ""}${has2 ? leg("#a3ab96", O.theory2Label || "second theory", 1) : ""}</div>`;
+      html += `<table><tr><th>${V.label}</th><th>n</th><th>mean</th><th>SD</th><th>theory</th>${has2 ? "<th>theory 2</th>" : ""}</tr>` +
+        G.map(g => `<tr><td>${fmt(g.x, 3)}</td><td>${g.n}</td><td>${fmt(g.mean, 4)}</td><td>${fmt(g.sd, 2)}</td><td>${fmt(g.thm, 4)}</td>${has2 ? `<td>${fmt(g.th2m, 4)}</td>` : ""}</tr>`).join("") + "</table>";
+      const ok = G.filter(g => g.x > 0 && g.mean > 0);
+      if (ok.length >= 2 && logX && logY) html += `<p><b>Gradient of the log–log graph:</b> ${linfit(ok.map(g => Math.log10(g.x)), ok.map(g => Math.log10(g.mean))).b.toFixed(3)}${O.gradient && O.gradient[c.v] !== undefined ? ` (theory ${O.gradient[c.v]})` : ""}.</p>`;
+      else if (G.length >= 2 && !logX && !logY && !O.noFit) { const f = linfit(G.map(g => g.x), G.map(g => g.mean)); html += `<p><b>Best-fit straight line:</b> gradient ${fmt(f.b, 3)}, intercept ${fmt(f.a, 3)}.</p>`; }
+    }
+    el("bsum").innerHTML = html;
+    note.style.display = E ? "" : "none"; note.innerHTML = E ? `<b>What this shows.</b> ${E.note}` : "";
+  }
+  function csv() {
+    if (!res) return;
+    const c = res.cfg, O = C.outcomes[c.out], V = C.vars[c.v], q = s => `"${String(s).replace(/"/g, '""')}"`;
+    const head = (c.mode === "sweep" ? [V.label + unitOf(V.unit)] : []).concat(["seed", O.label + unitOf(O.unit), "theory", "theory 2"]);
+    const lines = [head.map(q).join(",")].concat(res.rows.map(r => (c.mode === "sweep" ? [r.x] : []).concat([r.seed, r.value, r.theory ?? "", r.theory2 ?? ""]).map(v => typeof v === "number" ? +v.toPrecision(7) : v).join(",")));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" })); a.download = `${C.fileName}-batch-${c.out}.csv`;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+  return { init, open, isBusy: () => busy, refresh: () => { if (el("batch") && el("batch").classList.contains("open")) { place(); draw(); } } };
+})();
+
+
+/* =====================================================================
+   1. CONSTANTS AND SMALL HELPERS
+   ===================================================================== */
+const K = 8.988e9;        // Coulomb constant k = 1/(4πε₀), N m² C⁻²
+const G = 6.674e-11;      // gravitational constant, N m² kg⁻²
+const MSUN = 1.989e30;    // mass of the Sun, kg (1 solar mass, M☉)
+const MEARTH = 5.972e24;  // mass of the Earth, kg
+const AU = 1.496e11;      // astronomical unit (Earth–Sun distance), m
+const YEAR = 3.156e7;     // one year, s
+const DAY = 86400;        // one day, s
+const KPC = 3.086e19;     // one kiloparsec, m
+const RANGE = 6;          // the field map shows −6 m … +6 m in x and y
+const TAU = 2 * Math.PI;
+
+const SUPS = { "-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹" };
+// Scientific notation the way it is written in exams: 3.00×10⁻⁹
+function sci(v, d = 2) {
+  if (v === null || v === undefined || !isFinite(v)) return "–"; if (v === 0) return "0";
+  let e = Math.floor(Math.log10(Math.abs(v))), m = v / Math.pow(10, e);
+  if (Math.abs(+m.toFixed(d)) >= 10) { m /= 10; e++; }
+  if (e === 0) return m.toFixed(d);
+  return m.toFixed(d) + "×10" + String(e).split("").map(c => SUPS[c]).join("");
+}
+// A time in sensible units
+function fmtT(s) {
+  if (!isFinite(s)) return "–"; const a = Math.abs(s);
+  if (a < 120) return s.toFixed(a < 10 ? 2 : 1) + " s";
+  if (a < 7200) return (s / 60).toFixed(1) + " min";
+  if (a < 2 * DAY) return (s / 3600).toFixed(2) + " h";
+  if (a < 2 * YEAR) return (s / DAY).toFixed(a < 20 * DAY ? 2 : 1) + " days";
+  return (s / YEAR).toFixed(a < 200 * YEAR ? 2 : 1) + " years";
+}
+// A distance in km, or in AU when it is large
+// A scale-bar length that is a round number of AU (or km) and no longer than maxLen metres
+function niceBar(maxLen) { const u = maxLen >= 0.05 * AU ? AU : 1000, v = maxLen / u; let b = Math.pow(10, Math.floor(Math.log10(v))); for (const k of [5, 2, 1]) if (k * b <= v) { b *= k; break; } return b * u; }
+const fmtD = m => m >= 0.05 * AU ? fmt(m / AU, 4) + " AU" : fmt(m / 1000, 4) + " km";
+const kms = v => fmt(v / 1000, 4) + " km/s";
+// The generic RK4 step: s is the state (an array), f(s) gives ds/dt
+function rk4(f, s, h) {
+  const n = s.length, a = f(s), t = new Array(n);
+  for (let i = 0; i < n; i++) t[i] = s[i] + 0.5 * h * a[i];
+  const b = f(t); for (let i = 0; i < n; i++) t[i] = s[i] + 0.5 * h * b[i];
+  const c = f(t); for (let i = 0; i < n; i++) t[i] = s[i] + h * c[i];
+  const d = f(t), out = new Array(n);
+  for (let i = 0; i < n; i++) out[i] = s[i] + h / 6 * (a[i] + 2 * b[i] + 2 * c[i] + d[i]);
+  return out;
+}
+const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
+/* =====================================================================
+   2. APP STATE
+   ===================================================================== */
+const APP = { mode: "E", lvl: "std", playing: true, speed: 1, q: "med" };
+const adv = () => APP.lvl === "adv";
+const isField = () => APP.mode === "E" || APP.mode === "G";
+const SHOW = { map: true, eq: true, lines: true, arrows: false };          // field-map layers
+const OSHOW = { areas: true, esc: true, trail: true };                       // orbit-view layers
+
+// Electric (E) and gravitational (G) maps. Each source has v = charge in C (signed) or mass in kg, and a position (m).
+const FS = {
+  E: { src: [], probe: { x: 3, y: 3 }, preset: -1, parts: [], ln: { x0: 0, y0: -3, vx: 5, vy: 5, q: 1, lm: 0 } },
+  G: { src: [], probe: { x: 3, y: 3 }, preset: -1, parts: [], ln: { x0: 0, y0: -3, vx: 5, vy: 5 } },
+};
+const DEF_POS = [[-2, 0], [2, 0], [0, 2], [0, -2]];
+const FIELD = { cmp: false, ln: false };     // Advanced: comparison view, launched particle
+
+/* =====================================================================
+   3. FIELD PHYSICS — superposition of point charges or point masses
+   ===================================================================== */
+// "Strength" of a source: kQ for a charge (field points away if Q > 0), −GM for a mass (field always points in)
+const coef = (s, e) => e ? K * s.v : -G * s.v;
+// Field vector (fx, fy) and potential V at (x, y): add up every source
+function fieldAt(src, e, x, y) {
+  let fx = 0, fy = 0, V = 0;
+  for (const s of src) {
+    const dx = x - s.x, dy = y - s.y, r2 = dx * dx + dy * dy + 1e-12, r = Math.sqrt(r2), c = coef(s, e);
+    fx += c * dx / (r2 * r); fy += c * dy / (r2 * r); V += c / r;       // E = kQ/r² along r̂ ; V = kQ/r
+  }
+  return [fx, fy, V];
+}
+function potAt(src, e, x, y) { let V = 0; for (const s of src) { const dx = x - s.x, dy = y - s.y; V += coef(s, e) / Math.sqrt(dx * dx + dy * dy + 1e-12); } return V; }
+// Scale for the colour map: compress V with asinh so near and far both show
+function potScale(src, e) { let c = 0; for (const s of src) c = Math.max(c, Math.abs(coef(s, e))); c = c || 1; return { ref: c / RANGE, den: Math.asinh(RANGE / 0.25) }; }
+const tOf = (V, sc) => clamp(Math.asinh(V / sc.ref) / sc.den, -1, 1);
+
+const QUAL = {
+  low:   { N: 70,  nl: 8,  ds: 0.07,  lev: 10, ar: 9 },
+  med:   { N: 130, nl: 12, ds: 0.045, lev: 14, ar: 11 },
+  high:  { N: 220, nl: 16, ds: 0.03,  lev: 20, ar: 13 },
+  ultra: { N: 340, nl: 24, ds: 0.018, lev: 28, ar: 15 },
+};
+const BASE = [14, 17, 22];
+function colourOf(t, e) {
+  if (e) return t >= 0 ? mix(BASE, [222, 37, 42], Math.pow(t, 0.85)) : mix(BASE, [0, 174, 195], Math.pow(-t, 0.85));
+  return mix(BASE, [150, 160, 235], Math.pow(Math.max(0, -t), 0.8));
+}
+
+// Field lines: follow the field direction in small steps (midpoint method) from seed points
+function traceLines(src, e, q) {
+  const lines = [], near = (x, y) => src.findIndex(s => (x - s.x) ** 2 + (y - s.y) ** 2 < 0.0144);
+  const dirAt = (x, y) => { const f = fieldAt(src, e, x, y), m = Math.hypot(f[0], f[1]); return m > 0 ? [f[0] / m, f[1] / m] : null; };
+  const trace = (x, y, sg, from) => {
+    const pts = [[x, y]]; let end = -1; const maxN = Math.ceil(30 / q.ds);
+    for (let k = 0; k < maxN; k++) {
+      if (Math.abs(x) > RANGE * 1.03 || Math.abs(y) > RANGE * 1.03) break;
+      const d1 = dirAt(x, y); if (!d1) break;
+      const d2 = dirAt(x + 0.5 * q.ds * sg * d1[0], y + 0.5 * q.ds * sg * d1[1]); if (!d2) break;
+      x += q.ds * sg * d2[0]; y += q.ds * sg * d2[1]; pts.push([x, y]);
+      const ni = near(x, y); if (ni >= 0 && (ni !== from || k > 20)) { end = ni; break; }
+    }
+    return { pts, end };
+  };
+  if (e) {
+    // electric: lines start on positive charges and run with the field; lines from negative charges run backwards
+    const qmax = Math.max(...src.map(s => Math.abs(s.v)));
+    src.forEach((s, i) => {
+      const n = Math.max(4, Math.round(q.nl * Math.abs(s.v) / qmax)), sg = s.v >= 0 ? 1 : -1;
+      for (let k = 0; k < n; k++) {
+        const a = TAU * k / n + Math.PI / n, r = trace(s.x + 0.15 * Math.cos(a), s.y + 0.15 * Math.sin(a), sg, i);
+        if (sg < 0 && r.end >= 0 && src[r.end].v > 0) continue;   // already drawn from the positive end
+        if (r.pts.length > 2) lines.push(r.pts);
+      }
+    });
+  } else {
+    // gravity: lines come in from a ring near the edge (as in the old app) and end on the masses
+    const n = src.length * q.nl;
+    for (let k = 0; k < n; k++) { const a = TAU * k / n, r = trace(5.6 * Math.cos(a), 5.6 * Math.sin(a), 1, -1); if (r.pts.length > 2) lines.push(r.pts); }
+  }
+  return lines;
+}
+
+// The square on the canvas where the map is drawn, and world (m) ↔ pixel conversions
+function mapRect(x0, y0, w, h, padR) {
+  const L = 44, T = 10, B = 32, R = padR, s = Math.max(40, Math.min(w - L - R, h - T - B));
+  const R0 = { x: x0 + L + Math.max(0, (w - L - R - s) / 2), y: y0 + T + Math.max(0, (h - T - B - s) / 2), s };
+  R0.X = x => R0.x + (x + RANGE) / (2 * RANGE) * R0.s; R0.Y = y => R0.y + (RANGE - y) / (2 * RANGE) * R0.s;
+  R0.wx = px => (px - R0.x) / R0.s * 2 * RANGE - RANGE; R0.wy = py => RANGE - (py - R0.y) / R0.s * 2 * RANGE;
+  return R0;
+}
+
+// Draw the parts of a field map that do not move: colour map, equipotentials, field lines, arrows, axes, colour key
+const scratch = document.createElement("canvas");
+function drawFieldStatic(ctx, R, src, e, qName, show, dpr, title) {
+  const q = QUAL[qName], N = Math.max(20, Math.min(q.N, Math.round(R.s * dpr))), n1 = N + 1, sc = potScale(src, e);
+  const T = new Float32Array(n1 * n1);
+  scratch.width = n1; scratch.height = n1; const sctx = scratch.getContext("2d"), img = sctx.createImageData(n1, n1);
+  for (let j = 0; j < n1; j++) {
+    const y = RANGE - 2 * RANGE * j / N;
+    for (let i = 0; i < n1; i++) {
+      const x = -RANGE + 2 * RANGE * i / N, t = tOf(potAt(src, e, x, y), sc), c = colourOf(t, e), k = j * n1 + i;
+      T[k] = t; img.data[4 * k] = c[0]; img.data[4 * k + 1] = c[1]; img.data[4 * k + 2] = c[2]; img.data[4 * k + 3] = 255;
+    }
+  }
+  ctx.save(); ctx.beginPath(); ctx.rect(R.x, R.y, R.s, R.s); ctx.clip();
+  if (show.map) { sctx.putImageData(img, 0, 0); const cell = R.s / N; ctx.imageSmoothingEnabled = true; ctx.drawImage(scratch, R.x - cell / 2, R.y - cell / 2, R.s + cell, R.s + cell); }
+  else { ctx.fillStyle = "#0e1116"; ctx.fillRect(R.x, R.y, R.s, R.s); }
+  // equipotentials by "marching squares": find where each level crosses each little square of the grid
+  if (show.eq) {
+    const lev = []; for (let k = 1; k < q.lev; k++) { lev.push(-k / q.lev); if (e) lev.push(k / q.lev); } if (e) lev.push(0);
+    const cs = R.s / N, px = i => R.x + i * cs, py = j => R.y + j * cs;
+    const SEG = [null, [[3, 2]], [[2, 1]], [[3, 1]], [[0, 1]], [[3, 2], [0, 1]], [[0, 2]], [[3, 0]], [[3, 0]], [[0, 2]], [[3, 0], [2, 1]], [[0, 1]], [[3, 1]], [[2, 1]], [[3, 2]], null];
+    ctx.strokeStyle = "rgba(255,255,255,0.33)"; ctx.lineWidth = 0.9; ctx.beginPath();
+    for (const L of lev) for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const a = T[j * n1 + i], b = T[j * n1 + i + 1], c = T[(j + 1) * n1 + i + 1], d = T[(j + 1) * n1 + i];
+      const id = (a > L ? 8 : 0) | (b > L ? 4 : 0) | (c > L ? 2 : 0) | (d > L ? 1 : 0); if (!SEG[id]) continue;
+      if (Math.abs(a) >= 0.999 || Math.abs(b) >= 0.999 || Math.abs(c) >= 0.999 || Math.abs(d) >= 0.999) continue;   // clipped next to a source
+      const P = edge => edge === 0 ? [px(i + (L - a) / (b - a)), py(j)] : edge === 1 ? [px(i + 1), py(j + (L - b) / (c - b))] : edge === 2 ? [px(i + (L - d) / (c - d)), py(j + 1)] : [px(i), py(j + (L - a) / (d - a))];
+      for (const [e1, e2] of SEG[id]) { const p1 = P(e1), p2 = P(e2); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); }
+    }
+    ctx.stroke();
+  }
+  // field lines with arrowheads showing the direction of the force on a + test charge (or any test mass)
+  if (show.lines) {
+    const lines = traceLines(src, e, q), col = e ? "rgba(241,175,40,0.85)" : "rgba(241,175,40,0.8)";
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.2;
+    for (const pts of lines) { ctx.beginPath(); pts.forEach(([x, y], k) => k ? ctx.lineTo(R.X(x), R.Y(y)) : ctx.moveTo(R.X(x), R.Y(y))); ctx.stroke(); }
+    const every = Math.round(1.8 / q.ds);
+    const skip = Math.max(1, Math.round(q.nl / 12));          // fewer arrowheads when there are many lines
+    for (const [li, pts] of lines.entries()) if (li % skip === 0) for (let k = Math.round(every / 2); k < pts.length - 2; k += every) {
+      const [x, y] = pts[k], f = fieldAt(src, e, x, y), a = Math.atan2(-f[1], f[0]), X = R.X(x), Y = R.Y(y), hd = 6;
+      ctx.beginPath(); ctx.moveTo(X + hd * Math.cos(a), Y + hd * Math.sin(a)); ctx.lineTo(X + hd * Math.cos(a + 2.5), Y + hd * Math.sin(a + 2.5)); ctx.lineTo(X + hd * Math.cos(a - 2.5), Y + hd * Math.sin(a - 2.5)); ctx.closePath(); ctx.fill();
+    }
+  }
+  // field arrows (all the same length: they show direction; brightness shows strength)
+  if (show.arrows) {
+    const n = q.ar, mags = [], pts = [];
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = -RANGE + 2 * RANGE * (i + 0.5) / n, y = -RANGE + 2 * RANGE * (j + 0.5) / n, f = fieldAt(src, e, x, y), m = Math.hypot(f[0], f[1]); pts.push([x, y, f[0], f[1], m]); mags.push(Math.log10(m + 1e-300)); }
+    const lo = Math.min(...mags), hi = Math.max(...mags), Ls = R.s / n * 0.42;
+    for (const [x, y, fx, fy, m] of pts) { const t = hi > lo ? (Math.log10(m + 1e-300) - lo) / (hi - lo) : 1, X = R.X(x), Y = R.Y(y), ux = fx / m, uy = -fy / m; if (!isFinite(ux)) continue; arrow(ctx, X - ux * Ls / 2, Y - uy * Ls / 2, X + ux * Ls / 2, Y + uy * Ls / 2, `rgba(238,240,232,${0.35 + 0.65 * t})`, 1.2, 5); }
+  }
+  ctx.restore();
+  // axes
+  ctx.font = "11px system-ui, sans-serif"; ctx.strokeStyle = "#5a6352"; ctx.lineWidth = 1; ctx.strokeRect(R.x, R.y, R.s, R.s);
+  ctx.fillStyle = "#a3ab96"; ctx.textAlign = "center";
+  for (let v = -RANGE; v <= RANGE; v += 2) { ctx.fillText(v, R.X(v), R.y + R.s + 13); ctx.textAlign = "right"; ctx.fillText(v, R.x - 4, R.Y(v) + 4); ctx.textAlign = "center"; }
+  ctx.fillStyle = "#cfd5c4"; ctx.fillText("x (m)", R.x + R.s / 2, R.y + R.s + 27);
+  ctx.save(); ctx.translate(R.x - 30, R.y + R.s / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("y (m)", 0, 0); ctx.restore();
+  if (title) { ctx.textAlign = "left"; ctx.fillStyle = "#eef0e8"; ctx.font = "bold 12px system-ui, sans-serif"; ctx.fillText(title, R.x + 6, R.y + 15); }
+}
+// Colour key for the potential, to the right of the map
+function drawKey(ctx, R, e) {
+  const x = R.x + R.s + 10, y0 = R.y + R.s * 0.12, hgt = R.s * 0.76, wd = 11;
+  for (let k = 0; k < hgt; k++) { const t = e ? 1 - 2 * k / hgt : -k / hgt, c = colourOf(t, e); ctx.fillStyle = `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`; ctx.fillRect(x, y0 + k, wd, 1.5); }
+  ctx.strokeStyle = "#5a6352"; ctx.strokeRect(x, y0, wd, hgt);
+  ctx.fillStyle = "#a3ab96"; ctx.font = "10.5px system-ui, sans-serif"; ctx.textAlign = "left";
+  if (e) { ctx.fillText("+V", x + 14, y0 + 8); ctx.fillText("0", x + 14, y0 + hgt / 2 + 4); ctx.fillText("−V", x + 14, y0 + hgt); }
+  else { ctx.fillText("0", x + 14, y0 + 8); ctx.fillText("more", x + 14, y0 + hgt - 10); ctx.fillText("neg.", x + 14, y0 + hgt + 2); }
+  ctx.save(); ctx.translate(x + 5, y0 - 8); ctx.textAlign = "center"; ctx.fillText(e ? "V" : "Vg", 0, 0); ctx.restore();
+}
+
+/* ---------- the launched test particle (Advanced) ---------- */
+let LN = null;            // precomputed trajectory
+const LN_DT = 0.005, LN_T = 8;
+function computeLaunch() {
+  LN = null; if (!isField()) return;
+  const f = FS[APP.mode], e = APP.mode === "E", L = f.ln;
+  const q = e ? L.q * 1e-9 : 1, m = e ? Math.pow(10, L.lm) * 1e-3 : 1, qm = e ? q / m : 1;   // gravity: a = g whatever the mass
+  const der = s => { const F = fieldAt(f.src, e, s[0], s[1]); return [s[2], s[3], qm * F[0], qm * F[1]]; };
+  let s = [L.x0, L.y0, L.vx, L.vy]; const out = { t: [], x: [], y: [], vx: [], vy: [], KE: [], PE: [], hit: false, left: false, q, m, e };
+  for (let k = 0; k * LN_DT <= LN_T + 1e-9; k++) {
+    const V = potAt(f.src, e, s[0], s[1]);
+    out.t.push(k * LN_DT); out.x.push(s[0]); out.y.push(s[1]); out.vx.push(s[2]); out.vy.push(s[3]);
+    out.KE.push(0.5 * m * (s[2] * s[2] + s[3] * s[3])); out.PE.push(e ? q * V : m * V);      // PE = qV or mVg
+    if (Math.abs(s[0]) > RANGE || Math.abs(s[1]) > RANGE) { out.left = true; break; }
+    if (f.src.some(c => (s[0] - c.x) ** 2 + (s[1] - c.y) ** 2 < 0.0025)) { out.hit = true; break; }
+    s = rk4(der, s, LN_DT);
+  }
+  const E0 = out.KE[0] + out.PE[0], dr = Math.max(...out.KE.map((k, i) => Math.abs(k + out.PE[i] - E0)));
+  out.drift = dr; out.rel = dr / (Math.abs(E0) + 1e-30);
+  LN = out; LN.anim = 0;
+}
+
+/* =====================================================================
+   4. FIELD PRESETS (from the old app, plus a few new ones)
+   ===================================================================== */
+const E_PRESETS = [
+  { name: "Single charge", desc: "+2 nC: a radial field", src: [[2e-9, 0, 0]], probe: [2, 0],
+    story: "One positive charge at the origin. The field lines point straight outwards and the equipotentials are circles round it. The field gets weaker with distance as 1/r²: twice as far, a quarter of the field. The probe is 2 m away." },
+  { name: "Electric dipole (±)", desc: "+3 nC and −3 nC", src: [[3e-9, -2, 0], [-3e-9, 2, 0]],
+    story: "A water molecule acts as an electric dipole. This is why water is such a good solvent. Field lines leave the positive charge and end on the negative one; the line exactly halfway between them is the zero-volt equipotential." },
+  { name: "Two equal positive charges", desc: "Like charges repel", src: [[2e-9, -2, 0], [2e-9, 2, 0]],
+    story: "Like charges repel. There is a saddle point (unstable equilibrium) midway between them: the field there is zero, but a charge placed there would be pushed away by the slightest nudge." },
+  { name: "Capacitor plates (approx)", desc: "Two + and two − charges", src: [[5e-9, -1, -1], [5e-9, -1, 1], [-5e-9, 1, -1], [-5e-9, 1, 1]],
+    story: "Between parallel plates, the field is approximately uniform — the basis of every capacitor. Here each plate is only two point charges, so the field between them is roughly, not exactly, uniform: look at the near-parallel field lines in the middle." },
+  { name: "Three-phase symmetry", desc: "Three equal + charges", src: [[3e-9, 0, 2], [3e-9, -1.73, -1], [3e-9, 1.73, -1]],
+    story: "Three-fold symmetry: the field cancels exactly at the centre. Move the probe to (0, 0) and the field reads almost zero, yet the potential there is not zero: potential is a scalar and the three contributions add up." },
+  { name: "Unequal pair: neutral point", desc: "+4 nC and −1 nC", src: [[4e-9, -1.5, 0], [-1e-9, 1.5, 0]], probe: [4.5, 0],
+    story: "+4 nC and −1 nC, 3 m apart. The fields cancel at a neutral point outside the pair, on the side of the smaller charge, where 4/r₁² = 1/r₂²: twice as far from the big charge, at x = 4.5 m. The probe is there." },
+  { name: "Fire a charge past a dipole", desc: "launched particle", adv: true, src: [[10e-9, -2, 0], [-10e-9, 2, 0]], probe: [0, 0],
+    ln: { x0: -5, y0: -2.5, vx: 2.5, vy: 0.6, q: 50, lm: -3 },
+    story: "A +50 nC test charge of mass 1 mg is fired past a ±10 nC dipole. It is pulled towards the negative charge and away from the positive one, so it curves. Watch the energy graph: kinetic energy rises as potential energy falls, and the total stays constant." },
+];
+const G_PRESETS = [
+  { name: "Single mass", desc: "10¹² kg: radial, inwards", src: [[1e12, 0, 0]], probe: [2, 0],
+    story: "One mass of 10¹² kg (a small asteroid's worth) at the origin. The field lines all point inwards: gravity always attracts. The potential is negative everywhere and rises towards zero far away. The probe is 2 m from the mass." },
+  { name: "Earth–Moon system", desc: "Lagrange point L1", src: [[5.97e24, -2, 0], [7.34e22, 2, 0]],
+    story: "The Lagrange L1 point (between them) is where gravitational pulls exactly balance. The DSCOVR spacecraft orbits there. The Earth is 81 times heavier, so the balance point is much nearer the Moon: here at x ≈ 1.6 m. (The masses are only 4 m apart on this map, so the numbers are not realistic.)" },
+  { name: "Binary star (equal masses)", desc: "Two suns", src: [[2e30, -2, 0], [2e30, 2, 0]],
+    story: "About half of all stars are in binary systems. Both stars orbit their common centre of mass. Midway between two equal stars the pulls cancel: g = 0 there, but the potential is very negative (it is the sum of two negative values)." },
+  { name: "Star + giant planet", desc: "Jupiter ≈ Sun ÷ 1000", src: [[2e30, -1, 0], [1.9e27, 2, 0]],
+    story: "Jupiter is 1/1000th the mass of the Sun. The Sun actually wobbles slightly — this is how exoplanets are detected (radial velocity method). The planet barely dents the Sun's field: only very close to it does its own pull win." },
+  { name: "Two equal masses", desc: "10¹² kg each, 4 m apart", src: [[1e12, -2, 0], [1e12, 2, 0]],
+    story: "Two equal masses of 10¹² kg. Compare this with the electric dipole: here both pull, so all the field lines end on a mass and none join one mass to the other." },
+  { name: "Three masses", desc: "A triangle of 10¹² kg", src: [[1e12, 0, 2], [1e12, -1.73, -1], [1e12, 1.73, -1]],
+    story: "Three equal masses in a triangle. As in the electric three-charge preset, the field cancels at the centre, but the potential there is strongly negative." },
+  { name: "Orbit a mass", desc: "circular orbit", adv: true, src: [[1e12, 0, 0]], probe: [3, 0],
+    ln: { x0: 3, y0: 0, vx: 0, vy: Math.sqrt(G * 1e12 / 3) },
+    story: "A test mass 3 m from a 10¹² kg mass, launched sideways at exactly v = √(GM/r) = 4.72 m/s. Gravity supplies the centripetal force, so it goes round in a circle every 4.0 s. Kinetic and potential energy each stay constant." },
+];
+
+/* =====================================================================
+   5. ORBITS — one planet (or satellite) round a central mass
+   ===================================================================== */
+const O_MASSES = [{ v: MEARTH, body: "Earth" }, { v: 1e28 }, { v: 1e29 }, { v: 5e29 }, { v: 1e30 }, { v: 2e30 }, { v: 5e30 }, { v: 1e31 }, { v: MSUN, body: "Sun" }];
+O_MASSES.forEach(m => { m.body = m.body || "Star"; m.label = m.body === "Earth" ? "Earth (5.97×10²⁴ kg)" : m.body === "Sun" ? "The Sun (1.99×10³⁰ kg)" : `${(m.v / MSUN).toFixed(2)} M☉ (${sci(m.v, 0)} kg)`; });
+const OS = { Mi: 5, r0: 1.5e11, vr: 1, preset: -1, two: false, mp: 6e24, hoh: false, rT: 3e11, rot: false, vdm: 150, Mg: 1e11, custom: [] };
+const O_PRESETS = [
+  { name: "ISS (low Earth orbit)", desc: "408 km up, 92 min", Mi: 0, r0: 6.778e6, vr: 1,
+    story: "The ISS orbits at 408 km altitude, completing one orbit every 92 minutes at 7.66 km/s. Astronauts experience ~0.89g (not weightlessness — they're in free fall!)" },
+  { name: "GPS satellite", desc: "20,200 km up, 12 h", Mi: 0, r0: 2.656e7, vr: 1,
+    story: "GPS satellites orbit at ~20,200 km altitude with a 12-hour period. You need 4 satellites in view for 3D positioning." },
+  { name: "Geostationary", desc: "Period exactly 1 day", Mi: 0, r0: 4.216e7, vr: 1,
+    story: "A geostationary satellite appears fixed in the sky. Period = 24h exactly (one sidereal day, 23 h 56 min, to be precise). Used for TV broadcasting and weather." },
+  { name: "Moon", desc: "1.02 km/s, 27 days", Mi: 0, r0: 3.844e8, vr: 1,
+    story: "The Moon's orbital speed is 1.02 km/s — much slower than ISS because gravitational force decreases with distance²." },
+  { name: "Earth around Sun", desc: "1 AU, 1 year", Mi: 8, r0: 1.496e11, vr: 1,
+    story: "Earth orbits the Sun at 29.8 km/s. The gravitational force provides ~0.006 m/s² centripetal acceleration." },
+  { name: "Halley's Comet (approx)", desc: "e = 0.967, 75 years", Mi: 8, r0: 8.77e10, vr: 1.4025,
+    story: "Halley's Comet has an orbital period of ~75 years and an eccentricity of 0.967 — nearly parabolic! It swings from inside Venus to beyond Neptune. It starts here at its closest point (0.59 AU) moving at 1.4025 × the circular speed, just under escape speed (1.414 ×)." },
+  { name: "Slow launch: an ellipse", desc: "v₀ = 0.7 × circular", Mi: 8, r0: 1.496e11, vr: 0.7,
+    story: "Launched too slowly for a circle, the planet falls inwards into an ellipse with the Sun at one focus (Kepler's first law). Watch the coloured sectors: each takes the same time and has the same area, so the planet moves fastest when closest (Kepler's second law)." },
+  { name: "Escape speed", desc: "v₀ = √2 × circular", Mi: 8, r0: 1.496e11, vr: Math.SQRT2,
+    story: "At √2 times the circular speed, v = √(2GM/r), the kinetic energy exactly equals the energy needed to climb out of the Sun's potential well: total energy zero. The path is a parabola and the planet never comes back." },
+  { name: "Earth → Mars transfer", desc: "Hohmann orbit", adv: true, Mi: 8, r0: 1.496e11, vr: 1, hoh: true, rT: 2.279e11,
+    story: "A Hohmann transfer is the most fuel-efficient path between two circular orbits: half an ellipse that just touches both. From Earth's orbit (1 AU) to Mars's (1.52 AU) it takes about 259 days." },
+  { name: "Heavy planet: two-body", desc: "both move", adv: true, Mi: 4, r0: 1.496e11, vr: 1, two: true, mp: 2e29,
+    story: "The planet here is 20% of the star's mass, so the star is pulled round too. Both orbit their common centre of mass, which stays fixed (conservation of momentum)." },
+  { name: "Dark matter", desc: "rotation curve", adv: true, Mi: 8, r0: 1.496e11, vr: 1, rot: true, vdm: 150, Mg: 1e11,
+    story: "Stars far out in a galaxy orbit much faster than the visible mass can explain: the measured rotation curve stays flat instead of falling as r^(−½). See the rotation curve graph in the readings panel." },
+];
+const KEPLER_PLANETS = [["Mercury", 0.387, 0.241], ["Venus", 0.723, 0.615], ["Earth", 1.0, 1.0], ["Mars", 1.524, 1.881], ["Jupiter", 5.203, 11.862], ["Saturn", 9.537, 29.458]];
+function classify(r) {
+  if (r < 0.05) return "Radial infall (sub-orbital)";
+  if (Math.abs(r - 1) < 0.03) return "Circular orbit";
+  if (r < 1) return "Elliptical (sub-circular)";
+  if (r < Math.SQRT2) return "Elliptical (super-circular)";
+  if (Math.abs(r - Math.SQRT2) < 0.005) return "Parabolic (escape trajectory)";
+  return "Hyperbolic (unbound orbit)";
+}
+const orbM = () => O_MASSES[OS.Mi].v;
+const twoOn = () => adv() && OS.two;
+const hohOn = () => adv() && OS.hoh;
+// acceleration for one body round a fixed mass, and RK4 derivative
+const f1 = GM => s => { const r2 = s[0] * s[0] + s[1] * s[1], r = Math.sqrt(r2), k = -GM / (r2 * r); return [s[2], s[3], k * s[0], k * s[1]]; };
+// two bodies pulling each other: state [x1,y1,vx1,vy1, x2,y2,vx2,vy2], body 1 = star (mass M), body 2 = planet (mass m)
+const f2 = (M, m) => s => { const dx = s[4] - s[0], dy = s[5] - s[1], r2 = dx * dx + dy * dy, r = Math.sqrt(r2), k = G / (r2 * r); return [s[2], s[3], k * m * dx, k * m * dy, s[6], s[7], -k * M * dx, -k * M * dy]; };
+function hohmann(M, ra, rb) {
+  const GM = G * M, a = (ra + rb) / 2, v1 = Math.sqrt(GM * (2 / ra - 1 / a)), v2 = Math.sqrt(GM * (2 / rb - 1 / a));
+  const dv1 = v1 - Math.sqrt(GM / ra), dv2 = Math.sqrt(GM / rb) - v2;
+  return { a, v1, v2, dv1, dv2, dvt: Math.abs(dv1) + Math.abs(dv2), Tt: Math.PI * Math.sqrt(a ** 3 / GM) };
+}
+// Follow one orbit and MEASURE its period (time to go once round) and semi-major axis ((closest + furthest)/2)
+function measureOrbit(GM, r0, v0, perOrbit, tMax) {
+  let s = [r0, 0, 0, v0], t = 0, th = 0, prev = 0, rmin = r0, rmax = r0; const F = f1(GM), eta = TAU / perOrbit;
+  while (t < tMax) {
+    const r = Math.hypot(s[0], s[1]), h = eta * Math.sqrt(r * r * r / GM), n = rk4(F, s, h);
+    const a1 = Math.atan2(n[1], n[0]); let d = a1 - prev; if (d < -Math.PI) d += TAU; if (d > Math.PI) d -= TAU;
+    if (th + d >= TAU) { const fr = (TAU - th) / d; return { T: t + fr * h, a: (rmin + rmax) / 2, rmin, rmax }; }
+    th += d; prev = a1; s = n; t += h; const rn = Math.hypot(n[0], n[1]); rmin = Math.min(rmin, rn); rmax = Math.max(rmax, rn);
+    if (rn > 1e4 * r0 || rn < 1e-6 * r0) break;
+  }
+  return { T: NaN, a: NaN, rmin, rmax };
+}
+// Energy drift with a FIXED time step: steps per orbit × number of orbits (fixed-step RK4)
+function energyDrift(GM, r0, v0, steps, orbits) {
+  const E0 = 0.5 * v0 * v0 - GM / r0, bound = E0 < 0, a = bound ? -GM / (2 * E0) : r0, T = TAU * Math.sqrt(a ** 3 / GM), h = T / steps, F = f1(GM);
+  let s = [r0, 0, 0, v0], worst = 0;
+  for (let k = 0; k < steps * orbits; k++) {
+    s = rk4(F, s, h); const r = Math.hypot(s[0], s[1]); const E = 0.5 * (s[2] * s[2] + s[3] * s[3]) - GM / r;
+    worst = Math.max(worst, Math.abs(E - E0)); if (!bound && r > 5 * r0) break;
+  }
+  return { abs: worst, pct: 100 * worst / Math.max(Math.abs(E0), 1e-30), E0, bound };
+}
+
+let OP = null;           // everything worked out for the current orbit settings
+const OL = { t: 0, s: null, trail: [], hist: [], th: 0, prev: 0, laps: 0, tLap: [] };
+function orbitSetup() {
+  const M = orbM(), m = twoOn() ? OS.mp : 0, Mt = M + m, GMt = G * Mt, r0 = OS.r0;
+  const vc = Math.sqrt(GMt / r0), v0 = OS.vr * vc, E = 0.5 * v0 * v0 - GMt / r0;
+  const bound = E < -1e-9 * GMt / r0;             // negative total energy: a closed (bound) orbit
+  const a = bound ? -GMt / (2 * E) : NaN, T = bound ? TAU * Math.sqrt(a ** 3 / GMt) : NaN;
+  const hh = r0 * v0, ecc = Math.sqrt(Math.max(0, 1 + 2 * E * hh * hh / (GMt * GMt)));
+  const Tc = TAU * Math.sqrt(r0 ** 3 / GMt), tRef = bound ? T : Tc;
+  // the ghost path of the relative orbit, worked out with small adaptive RK4 steps. For a closed orbit the steps
+  // land exactly on 8 equal-time boundaries (Kepler's 2nd law sectors), and the area swept out in each eighth of
+  // the period is MEASURED by adding up thin triangles ½|x₁y₂ − x₂y₁| between neighbouring points.
+  const F = f1(GMt), path = [[r0, 0]], sect = [0], areas = []; let s = [r0, 0, 0, v0], t = 0;
+  const stepTo = (tk, stopOut) => { let A = 0, n = 0;
+    while (t < tk - 1e-12 * tk && n < 20000) { const r = Math.hypot(s[0], s[1]), h = Math.min(tk - t, (TAU / 800) * Math.sqrt(r * r * r / GMt)), s2 = rk4(F, s, h);
+      A += 0.5 * Math.abs(s[0] * s2[1] - s2[0] * s[1]); s = s2; t += h; n++; path.push([s[0], s[1]]); if (stopOut && Math.hypot(s[0], s[1]) > 5 * r0) break; }
+    return A; };
+  if (bound) for (let k = 1; k <= 8; k++) { areas.push(stepTo(T * k / 8, false)); sect.push(path.length - 1); }
+  else stepTo(3 * Tc, true);
+  const meas = bound ? measureOrbit(GMt, r0, v0, 1500, 3 * T) : { T: NaN, a: NaN };
+  const drift = energyDrift(GMt, r0, v0, 500, 2);       // as in the old app: 500 RK4 steps per period, 2 periods
+  const rA = bound ? a * (1 + ecc) : 5 * r0;
+  let rView = Math.max(rA, r0); if (hohOn() && bound) rView = Math.max(rView, OS.rT);
+  OP = { M, m, Mt, GMt, r0, vc, v0, vesc: Math.SQRT2 * vc, E, bound, a, T, ecc, Tc, tRef, path, sect, areas, meas, drift, rView: rView * 1.1, rP: bound ? a * (1 - ecc) : NaN, rA };
+  orbitReset();
+}
+function orbitReset() {
+  const P = OP; OL.t = 0; OL.trail = []; OL.hist = []; OL.th = 0; OL.prev = 0; OL.laps = 0; OL.tLap = [];
+  if (twoOn()) { const r1 = P.m * P.r0 / P.Mt, r2 = P.M * P.r0 / P.Mt; OL.s = [-r1, 0, 0, -P.v0 * P.m / P.Mt, r2, 0, 0, P.v0 * P.M / P.Mt]; OL.cm0 = [0, 0]; }
+  else OL.s = [P.r0, 0, 0, P.v0];
+}
+// relative position and velocity of the planet (from the star)
+const rel = () => twoOn() ? [OL.s[4] - OL.s[0], OL.s[5] - OL.s[1], OL.s[6] - OL.s[2], OL.s[7] - OL.s[3]] : OL.s;
+function orbitStep(simDt) {
+  const P = OP, F = twoOn() ? f2(P.M, P.m) : f1(P.GMt); let left = simDt, n = 0;
+  while (left > 0 && n < 6000) {
+    const q = rel(), r = Math.hypot(q[0], q[1]), h = Math.min(left, (TAU / 500) * Math.sqrt(r * r * r / P.GMt));
+    const before = Math.atan2(q[1], q[0]);
+    OL.s = rk4(F, OL.s, h); left -= h; OL.t += h; n++;
+    const q2 = rel(); let d = Math.atan2(q2[1], q2[0]) - before; if (d < -Math.PI) d += TAU; if (d > Math.PI) d -= TAU;
+    OL.th += d; if (OL.th >= TAU * (OL.laps + 1)) { OL.laps++; OL.tLap.push(OL.t); }      // count complete orbits
+  }
+  const q = rel(), r = Math.hypot(q[0], q[1]);
+  if (!P.bound && r > 5 * P.r0) orbitReset();          // open orbit: start again
+  else if (r < 1e-4 * P.r0) orbitReset();             // fell into the centre
+}
+// Path of a planet launched by dragging (adaptive RK4)
+function customOrbit(x, y, vx, vy) {
+  const GM = G * orbM(), F = f1(GM), pts = [[x, y]]; let s = [x, y, vx, vy], th = 0, prev = Math.atan2(y, x), hit = false;
+  for (let k = 0; k < 2500 && pts.length < 900; k++) {
+    const r = Math.hypot(s[0], s[1]), h = (TAU / 300) * Math.sqrt(r * r * r / GM); s = rk4(F, s, h);
+    const a = Math.atan2(s[1], s[0]); let d = a - prev; if (d < -Math.PI) d += TAU; if (d > Math.PI) d -= TAU; th += d; prev = a;
+    pts.push([s[0], s[1]]); const rn = Math.hypot(s[0], s[1]);
+    if (Math.abs(th) > TAU) break; if (rn > 3 * OP.rView) break; if (rn < OP.rView * 0.012) { hit = true; break; }
+  }
+  return { pts, hit };
+}
+
+/* =====================================================================
+   6. BINARY STARS — two stars round their common centre of mass
+   ===================================================================== */
+const BS = { M1: 2, M2: 1, d: 1, phi: 0, t: 0, trail: false, inc: 60, preset: -1 };
+const B_PRESETS = [
+  { name: "Alpha Centauri A & B", desc: "1.10 + 0.91 M☉, 23.4 AU", M1: 1.1, M2: 0.907, d: 23.4,
+    story: "The nearest star system to Earth (4.37 ly). A and B orbit each other every 79.9 years. Alpha Centauri C (Proxima) is a third, distant companion orbiting both." },
+  { name: "Sirius A & B", desc: "2.02 + 0.98 M☉, 19.8 AU", M1: 2.02, M2: 0.978, d: 19.8,
+    story: "Sirius B is a white dwarf — the end state of a sun-like star. It has the mass of the Sun compressed into the size of Earth. The pair orbit every 50 years (average separation 19.8 AU)." },
+  { name: "Cygnus X-1", desc: "Black hole + supergiant", M1: 21.0, M2: 14.8, d: 0.2,
+    story: "Cygnus X-1 contains a stellar black hole of ~15 solar masses orbiting a blue supergiant every 5.6 days. It was the first strong candidate for a black hole (1964)." },
+  { name: "TRAPPIST-1 b (star + planet)", desc: "Planet b: 1.5 days", M1: 0.089, M2: 0.000267, d: 0.0115,
+    story: "TRAPPIST-1 is an ultra-cool red dwarf with 7 Earth-sized planets. Planet b orbits in just 1.51 days. The host star has only 8% of the Sun's mass, so the centre of mass is just outside the star's centre." },
+  { name: "Equal mass (theoretical)", desc: "1 + 1 M☉, 1 AU", M1: 1, M2: 1, d: 1,
+    story: "With equal masses, both stars orbit the exact midpoint. The barycentre is equidistant from both stars. This symmetric case is the simplest to visualise." },
+  { name: "3 : 1 mass ratio", desc: "3 + 1 M☉, 2 AU", M1: 3, M2: 1, d: 2,
+    story: "Star 1 is three times heavier, so it is three times closer to the centre of mass (r₁ : r₂ = M₂ : M₁ = 1 : 3) and moves three times slower. Both still take the same time to go round." },
+];
+function bParams(M1s = BS.M1, M2s = BS.M2, dAU = BS.d) {
+  const M1 = M1s * MSUN, M2 = M2s * MSUN, d = dAU * AU, Mt = M1 + M2;
+  const r1 = M2 * d / Mt, r2 = M1 * d / Mt, w = Math.sqrt(G * Mt / d ** 3), T = TAU / w;    // ω² d³ = G(M₁+M₂)
+  return { M1, M2, d, Mt, r1, r2, w, T, v1: w * r1, v2: w * r2, xcm: r1 };
+}
+
+/* =====================================================================
+   7. DRAWING — field maps
+   ===================================================================== */
+const staticCv = document.createElement("canvas"), cmpCv = document.createElement("canvas");
+let staticKey = "", cmpKey = "", dragLow = false, MAPR = null, hoverW = null;
+function drawField() {
+  const { ctx, w, h } = fitCanvas(el("cv")), dpr = window.devicePixelRatio || 1, f = FS[APP.mode], e = APP.mode === "E";
+  const R = MAPR = mapRect(0, 0, w, h, 64), qn = dragLow ? "low" : APP.q;
+  const key = [APP.mode, w, h, dpr, qn, SHOW.map, SHOW.eq, SHOW.lines, SHOW.arrows, JSON.stringify(f.src)].join("|");
+  if (key !== staticKey) {
+    staticCv.width = Math.round(w * dpr); staticCv.height = Math.round(h * dpr);
+    const sc = staticCv.getContext("2d"); sc.setTransform(dpr, 0, 0, dpr, 0, 0); sc.fillStyle = "#050604"; sc.fillRect(0, 0, w, h);
+    drawFieldStatic(sc, R, f.src, e, qn, SHOW, dpr); drawKey(sc, R, e); staticKey = key;
+  }
+  ctx.clearRect(0, 0, w, h); ctx.drawImage(staticCv, 0, 0, w, h);
+  ctx.save(); ctx.beginPath(); ctx.rect(R.x, R.y, R.s, R.s); ctx.clip();
+  // launched test particle (Advanced): whole path, then a dot moving along it in real time
+  if (adv() && FIELD.ln && LN) {
+    line(ctx, LN.x.map((x, i) => [R.X(x), R.Y(LN.y[i])]), "#e83181", 2.2);
+    ctx.fillStyle = "#76b82a"; ctx.beginPath(); ctx.arc(R.X(LN.x[0]), R.Y(LN.y[0]), 5, 0, TAU); ctx.fill();
+    const n = LN.x.length - 1; ctx.fillStyle = "#e83181"; ctx.fillRect(R.X(LN.x[n]) - 4, R.Y(LN.y[n]) - 4, 8, 8);
+    const i = Math.min(n, Math.floor(LN.anim / LN_DT)), X = R.X(LN.x[i]), Y = R.Y(LN.y[i]);
+    const v = Math.hypot(LN.vx[i], LN.vy[i]); if (v > 1e-6) arrow(ctx, X, Y, X + LN.vx[i] / v * 34, Y - LN.vy[i] / v * 34, "#f18700", 2, 7);
+    ctx.fillStyle = "#fff"; ctx.strokeStyle = "#e83181"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X, Y, 6, 0, TAU); ctx.fill(); ctx.stroke();
+  }
+  // dropped test particles and their fading trails
+  for (const p of f.parts) {
+    for (let k = 1; k < p.trail.length; k++) { const a = k / p.trail.length; ctx.strokeStyle = `rgba(241,135,0,${0.8 * a})`; ctx.lineWidth = 0.5 + 1.5 * a; ctx.beginPath(); ctx.moveTo(R.X(p.trail[k - 1][0]), R.Y(p.trail[k - 1][1])); ctx.lineTo(R.X(p.trail[k][0]), R.Y(p.trail[k][1])); ctx.stroke(); }
+    ctx.fillStyle = "#f18700"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(R.X(p.x), R.Y(p.y), 4.5, 0, TAU); ctx.fill(); ctx.stroke();
+    if (e) { ctx.fillStyle = "#14133b"; ctx.font = "bold 8px system-ui"; ctx.textAlign = "center"; ctx.fillText("+", R.X(p.x), R.Y(p.y) + 3); }
+  }
+  ctx.restore();
+  drawSources(ctx, R, f.src, e);
+  // the probe
+  const P = f.probe, X = R.X(P.x), Y = R.Y(P.y);
+  ctx.strokeStyle = "#14133b"; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(X - 7, Y - 7); ctx.lineTo(X + 7, Y + 7); ctx.moveTo(X + 7, Y - 7); ctx.lineTo(X - 7, Y + 7); ctx.stroke();
+  ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.fillStyle = "#f1af28"; ctx.font = "bold 11px system-ui"; ctx.textAlign = "left"; ctx.fillText("probe", X + 9, Y - 6);
+  // the field direction at the probe
+  const F = fieldAt(f.src, e, P.x, P.y), m = Math.hypot(F[0], F[1]);
+  if (m > 0) { arrow(ctx, X, Y, X + F[0] / m * 34, Y - F[1] / m * 34, "#14133b", 5, 11); arrow(ctx, X, Y, X + F[0] / m * 34, Y - F[1] / m * 34, "#ffffff", 2.4, 9); }
+}
+function drawSources(ctx, R, src, e) {
+  ctx.font = "bold 13px system-ui, sans-serif"; ctx.textAlign = "center";
+  for (const s of src) {
+    const X = R.X(s.x), Y = R.Y(s.y), col = e ? (s.v >= 0 ? "#de252a" : "#00aec3") : "#abb5b5";
+    ctx.fillStyle = col; ctx.globalAlpha = 0.25; ctx.beginPath(); ctx.arc(X, Y, 18, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(X, Y, 12, 0, TAU); ctx.fill(); ctx.strokeStyle = "#f0f0f0"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = e ? "#fff" : "#14133b"; ctx.font = "bold 14px system-ui"; ctx.fillText(e ? (s.v >= 0 ? "+" : "−") : "M", X, Y + 5);
+    ctx.font = "bold 11px system-ui"; ctx.fillStyle = "#eef0e8"; ctx.strokeStyle = "rgba(0,0,0,.75)"; ctx.lineWidth = 3;
+    const lab = e ? `${s.v >= 0 ? "+" : "−"}${(Math.abs(s.v) * 1e9).toFixed(1)} nC` : `${sci(s.v, 1)} kg`;
+    ctx.strokeText(lab, X, Y - 21); ctx.fillText(lab, X, Y - 21);
+  }
+}
+// Advanced: electric dipole and two equal masses side by side (fixed set-ups, as in the old app)
+const CMP_E = [{ v: 3e-9, x: -2, y: 0 }, { v: -3e-9, x: 2, y: 0 }], CMP_G = [{ v: 1e12, x: -2, y: 0 }, { v: 1e12, x: 2, y: 0 }];
+function drawCompare() {
+  const { ctx, w, h } = fitCanvas(el("cvCmp")), dpr = window.devicePixelRatio || 1, key = [w, h, dpr, APP.q, SHOW.map, SHOW.eq, SHOW.lines, SHOW.arrows].join("|");
+  if (key !== cmpKey) {
+    cmpCv.width = Math.round(w * dpr); cmpCv.height = Math.round(h * dpr); const c = cmpCv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.fillStyle = "#050604"; c.fillRect(0, 0, w, h);
+    const R1 = mapRect(0, 0, w / 2, h, 46), R2 = mapRect(w / 2, 0, w / 2, h, 46);
+    drawFieldStatic(c, R1, CMP_E, true, APP.q, SHOW, dpr, "Electric field (dipole ±q)"); drawKey(c, R1, true); drawSources(c, R1, CMP_E, true);
+    drawFieldStatic(c, R2, CMP_G, false, APP.q, SHOW, dpr, "Gravitational field (two masses)"); drawKey(c, R2, false); drawSources(c, R2, CMP_G, false);
+    cmpKey = key;
+  }
+  ctx.clearRect(0, 0, w, h); ctx.drawImage(cmpCv, 0, 0, w, h);
+}
+function stepField(dt) {
+  const f = FS[APP.mode], e = APP.mode === "E";
+  // dropped test particles: a steady push along the field (direction only; not to scale)
+  for (let k = f.parts.length - 1; k >= 0; k--) {
+    const p = f.parts[k], F = fieldAt(f.src, e, p.x, p.y), m = Math.hypot(F[0], F[1]);
+    if (m > 0) { p.vx += 3 * F[0] / m * dt; p.vy += 3 * F[1] / m * dt; }
+    const v = Math.hypot(p.vx, p.vy); if (v > 6) { p.vx *= 6 / v; p.vy *= 6 / v; }
+    p.x += p.vx * dt; p.y += p.vy * dt; p.trail.push([p.x, p.y]); if (p.trail.length > 150) p.trail.shift();
+    if (Math.abs(p.x) > RANGE + 0.3 || Math.abs(p.y) > RANGE + 0.3 || f.src.some(s => (s.x - p.x) ** 2 + (s.y - p.y) ** 2 < 0.03)) f.parts.splice(k, 1);
+  }
+  if (LN) { LN.anim += dt; if (LN.anim > LN.t[LN.t.length - 1] + 1.2) LN.anim = 0; }
+}
+
+/* ---------- orbits ---------- */
+const STARS = (() => { const r = mulberry32(42), a = []; for (let i = 0; i < 110; i++) a.push([r(), r(), 0.4 + 1.2 * r(), 0.25 + 0.5 * r()]); return a; })();
+const SECT = ["#de252a", "#f18700", "#f1af28", "#76b82a", "#00aec3", "#a4cbe6", "#a86dab", "#e83181"];
+const CUST = ["#de252a", "#76b82a", "#f18700"];
+let OV = null, LAUNCH = null;       // view transform, drag-to-launch state
+function drawOrbit() {
+  const { ctx, w, h } = fitCanvas(el("cv")), P = OP;
+  ctx.fillStyle = "#04050a"; ctx.fillRect(0, 0, w, h);
+  for (const [x, y, r, a] of STARS) { ctx.fillStyle = `rgba(255,255,255,${a})`; ctx.beginPath(); ctx.arc(x * w, y * h, r, 0, TAU); ctx.fill(); }
+  const sc = Math.min(w, h) * 0.45 / P.rView, cx = w / 2, cy = h / 2 + 8;
+  OV = { sc, cx, cy, X: x => cx + x * sc, Y: y => cy - y * sc, wx: px => (px - cx) / sc, wy: py => (cy - py) / sc };
+  const X = OV.X, Y = OV.Y;
+  // faint distance rings and a scale bar
+  ctx.strokeStyle = "rgba(90,99,82,.35)"; ctx.lineWidth = 0.6; for (let k = 1; k <= 4; k++) { ctx.beginPath(); ctx.arc(cx, cy, k * P.rView / 4 * sc, 0, TAU); ctx.stroke(); }
+  const bar = niceBar(P.rView * 0.45);
+  ctx.strokeStyle = "#a3ab96"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(w - 20 - bar * sc, h - 16); ctx.lineTo(w - 20, h - 16); ctx.stroke();
+  ctx.fillStyle = "#a3ab96"; ctx.font = "11.5px system-ui"; ctx.textAlign = "right"; ctx.fillText(fmtD(bar), w - 20, h - 22);
+  // the centre of mass (two-body): body positions are relative to it
+  const two = twoOn(), s = OL.s;
+  const star = two ? [s[0], s[1]] : [0, 0], pl = two ? [s[4], s[5]] : [s[0], s[1]];
+  // Hohmann transfer (Advanced): target orbit and half an ellipse
+  if (hohOn() && P.bound) {
+    ctx.setLineDash([2, 4]); ctx.strokeStyle = "#a86dab"; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(cx, cy, OS.rT * sc, 0, TAU); ctx.stroke();
+    const a = (P.r0 + OS.rT) / 2, ec = Math.abs(OS.rT - P.r0) / (OS.rT + P.r0), pts = [];
+    for (let k = 0; k <= 120; k++) { const th = Math.PI * k / 120, r = a * (1 - ec * ec) / (1 + (OS.rT > P.r0 ? 1 : -1) * ec * Math.cos(th)); pts.push([X(r * Math.cos(th)), Y(r * Math.sin(th))]); }
+    line(ctx, pts, "#c39bff", 2, [7, 5]); ctx.setLineDash([]);
+  }
+  // Kepler's 2nd law: 8 sectors, each swept out in 1/8 of the period
+  if (OSHOW.areas && P.bound && !two) {
+    for (let k = 0; k < 8; k++) {
+      ctx.fillStyle = SECT[k] + "38"; ctx.beginPath(); ctx.moveTo(cx, cy);
+      for (let i = P.sect[k]; i <= P.sect[k + 1]; i++) ctx.lineTo(X(P.path[i][0]), Y(P.path[i][1]));
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  // ghost path of the orbit
+  if (two) {
+    line(ctx, P.path.map(([x, y]) => [X(x * P.M / P.Mt), Y(y * P.M / P.Mt)]), "rgba(164,203,230,.45)", 1.2);
+    line(ctx, P.path.map(([x, y]) => [X(-x * P.m / P.Mt), Y(-y * P.m / P.Mt)]), "rgba(241,175,40,.55)", 1.2);
+  } else line(ctx, P.path.map(([x, y]) => [X(x), Y(y)]), "rgba(164,203,230,.45)", 1.2);
+  // planets launched by dragging
+  for (const c of OS.custom) { line(ctx, c.pts.map(([x, y]) => [X(x), Y(y)]), c.col, 1.6); }
+  // escape-speed ring at the planet's current distance, labelled with v_orbit and v_escape there
+  const q = rel(), rNow = Math.hypot(q[0], q[1]);
+  if (OSHOW.esc) {
+    ctx.setLineDash([6, 5]); ctx.strokeStyle = "rgba(168,109,171,.55)"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(X(two ? 0 : 0), Y(0), rNow * sc, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    const vo = Math.sqrt(P.GMt / rNow), ve = Math.SQRT2 * vo; ctx.fillStyle = "#c39bff"; ctx.font = "11px system-ui"; ctx.textAlign = "left";
+    const ang = Math.atan2(q[1], q[0]) + Math.PI * 0.75, lx = clamp(cx + rNow * sc * Math.cos(ang) + 6, 4, w - 150), ly = clamp(cy - rNow * sc * Math.sin(ang), 14, h - 40);   // label away from the planet
+    ctx.fillText(`v_orbit = ${fmt(vo / 1000, 3)} km/s`, lx, ly); ctx.fillText(`v_escape = ${fmt(ve / 1000, 3)} km/s`, lx, ly + 14);
+  }
+  // trail
+  if (OSHOW.trail) for (let k = 1; k < OL.trail.length; k++) { const a = k / OL.trail.length; ctx.strokeStyle = `rgba(0,174,195,${0.85 * a})`; ctx.lineWidth = 0.5 + 2 * a; ctx.beginPath(); ctx.moveTo(X(OL.trail[k - 1][0]), Y(OL.trail[k - 1][1])); ctx.lineTo(X(OL.trail[k][0]), Y(OL.trail[k][1])); ctx.stroke(); }
+  // radius line
+  ctx.setLineDash([5, 4]); ctx.strokeStyle = "rgba(168,109,171,.6)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X(star[0]), Y(star[1])); ctx.lineTo(X(pl[0]), Y(pl[1])); ctx.stroke(); ctx.setLineDash([]);
+  // the central body (not to scale)
+  const body = O_MASSES[OS.Mi].body, isEarth = body === "Earth";
+  const g = ctx.createRadialGradient(X(star[0]), Y(star[1]), 2, X(star[0]), Y(star[1]), 34);
+  g.addColorStop(0, isEarth ? "rgba(0,174,195,.55)" : "rgba(255,200,50,.6)"); g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(X(star[0]), Y(star[1]), 34, 0, TAU); ctx.fill();
+  ctx.fillStyle = isEarth ? "#2a7fb8" : "#ffc832"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(X(star[0]), Y(star[1]), 11, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#eef0e8"; ctx.font = "11px system-ui"; ctx.textAlign = "center"; ctx.fillText(body === "Star" ? "star" : body, X(star[0]), Y(star[1]) + 27);
+  if (two) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; const c0 = X(0), c1 = Y(0); ctx.beginPath(); ctx.moveTo(c0 - 5, c1 - 5); ctx.lineTo(c0 + 5, c1 + 5); ctx.moveTo(c0 + 5, c1 - 5); ctx.lineTo(c0 - 5, c1 + 5); ctx.stroke(); ctx.fillText("CoM", c0, c1 - 9); }
+  // the planet and its velocity
+  const PX = X(pl[0]), PY = Y(pl[1]);
+  ctx.fillStyle = "rgba(0,174,195,.25)"; ctx.beginPath(); ctx.arc(PX, PY, 13, 0, TAU); ctx.fill();
+  ctx.fillStyle = "#00aec3"; ctx.strokeStyle = "#dff"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(PX, PY, 7, 0, TAU); ctx.fill(); ctx.stroke();
+  const vx = two ? s[6] : s[2], vy = two ? s[7] : s[3], v = Math.hypot(vx, vy), Lv = Math.min(140, 45 * v / P.vc);
+  if (v > 0) arrow(ctx, PX, PY, PX + vx / v * Lv, PY - vy / v * Lv, "#f18700", 2.2, 9);
+  // labels
+  ctx.textAlign = "left"; ctx.font = "12px system-ui"; ctx.fillStyle = "#cfd5c4";
+  if (OSHOW.areas && P.bound && !two) ctx.fillText("Kepler's 2nd law: each coloured sector takes the same time, and has the same area", 10, h - 10);
+  if (!P.bound) { ctx.fillStyle = "#f18700"; ctx.fillText("Open orbit: the planet escapes (restarts at 5 r₀)", 10, h - 10); }
+  if (OS.custom.length) { ctx.fillStyle = "#a3ab96"; ctx.textAlign = "right"; ctx.fillText(`${OS.custom.length} launched orbit${OS.custom.length > 1 ? "s" : ""}`, w - 12, 20); }
+  // drag-to-launch preview
+  if (LAUNCH && LAUNCH.end) {
+    const L = LAUNCH, sx = X(L.x), sy = Y(L.y), ex = L.end[0], ey = L.end[1], col = L.v < L.vc * 0.97 ? (Math.abs(L.v - L.vc) / L.vc < 0.05 ? "#76b82a" : "#f1af28") : L.v < L.vc * Math.SQRT2 * 0.97 ? "#76b82a" : "#de252a";
+    line(ctx, L.pts.map(([x, y]) => [X(x), Y(y)]), col, 1.4, [4, 3]); arrow(ctx, sx, sy, ex, ey, col, 2.2, 9);
+    ctx.fillStyle = "#ddd"; ctx.beginPath(); ctx.arc(sx, sy, 5.5, 0, TAU); ctx.fill();
+    const lab = L.v >= L.vc * Math.SQRT2 * 0.97 ? "Escape trajectory!" : Math.abs(L.v - L.vc) / L.vc < 0.05 ? "Circular orbit" : "Elliptical orbit";
+    ctx.font = "bold 12px system-ui"; ctx.fillStyle = col; ctx.textAlign = "left";
+    const tx = Math.min(sx + 10, w - 190), ty = Math.max(16, sy - 14);
+    ctx.fillText(`${lab}  v = ${fmt(L.v / 1000, 3)} km/s = ${(L.v / L.vc).toFixed(2)} × v_circ`, tx, ty);
+  }
+}
+function stepOrbit(dtReal) {
+  if (!OP) return;
+  orbitStep(dtReal * OP.tRef / 10);              // 1× ≈ one orbit in 10 s
+  const two = twoOn(), s = OL.s, pl = two ? [s[4], s[5]] : [s[0], s[1]];
+  OL.trail.push(pl); if (OL.trail.length > 160) OL.trail.shift();
+  const q = rel(), r = Math.hypot(q[0], q[1]), KE = 0.5 * (q[2] * q[2] + q[3] * q[3]), PE = -OP.GMt / r;     // per kg of planet
+  OL.hist.push([OL.t, KE, PE]); while (OL.hist.length > 2 && OL.hist[0][0] < OL.t - 3 * OP.tRef) OL.hist.shift();
+  if (OL.hist.length > 1500) OL.hist.splice(0, OL.hist.length - 1500);
+}
+
+/* ---------- binary stars ---------- */
+function drawBinary() {
+  const { ctx, w, h } = fitCanvas(el("cv")), B = bParams(), ph = BS.phi * Math.PI / 180;
+  ctx.fillStyle = "#04050a"; ctx.fillRect(0, 0, w, h);
+  for (const [x, y, r, a] of STARS) { ctx.fillStyle = `rgba(255,255,255,${a})`; ctx.beginPath(); ctx.arc(x * w, y * h, r, 0, TAU); ctx.fill(); }
+  const rmax = Math.max(B.r1, B.r2), sc = Math.min(w, h) * 0.36 / rmax, cx = w / 2, cy = h / 2 + 6, X = x => cx + x * sc, Y = y => cy - y * sc;
+  const c1 = "#a4cbe6", c2 = "#f18700";
+  // orbit circles
+  ctx.setLineDash([6, 5]); ctx.lineWidth = 1.2;
+  ctx.strokeStyle = c1; ctx.beginPath(); ctx.arc(cx, cy, B.r1 * sc, 0, TAU); ctx.stroke();
+  ctx.strokeStyle = c2; ctx.beginPath(); ctx.arc(cx, cy, B.r2 * sc, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  // trail: the last 180° of each orbit
+  if (BS.trail) { ctx.lineWidth = 4; ctx.globalAlpha = 0.4; ctx.strokeStyle = c1; ctx.beginPath(); ctx.arc(cx, cy, B.r1 * sc, -ph, -ph + Math.PI); ctx.stroke(); ctx.strokeStyle = c2; ctx.beginPath(); ctx.arc(cx, cy, B.r2 * sc, -ph - Math.PI, -ph); ctx.stroke(); ctx.globalAlpha = 1; }
+  const x1 = B.r1 * Math.cos(ph), y1 = B.r1 * Math.sin(ph), x2 = -B.r2 * Math.cos(ph), y2 = -B.r2 * Math.sin(ph);
+  // separation line
+  ctx.strokeStyle = "rgba(238,240,232,.35)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X(x1), Y(y1)); ctx.lineTo(X(x2), Y(y2)); ctx.stroke();
+  // stars: size ∝ M^(1/3) (not to scale)
+  const Mm = Math.max(B.M1, B.M2), s1 = Math.max(5, 20 * Math.cbrt(B.M1 / Mm)), s2 = Math.max(5, 20 * Math.cbrt(B.M2 / Mm));
+  for (const [x, y, s, c, lab] of [[x1, y1, s1, c1, "M₁"], [x2, y2, s2, c2, "M₂"]]) {
+    const gg = ctx.createRadialGradient(X(x), Y(y), 1, X(x), Y(y), s * 2.2); gg.addColorStop(0, c + "aa"); gg.addColorStop(1, c + "00");
+    ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(X(x), Y(y), s * 2.2, 0, TAU); ctx.fill();
+    ctx.fillStyle = c; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(X(x), Y(y), s, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = c; ctx.font = "bold 13px system-ui"; ctx.textAlign = "center"; ctx.fillText(lab, X(x), Y(y) - s - 8);
+  }
+  // velocity arrows (tangent to the orbits, lengths in proportion to the speeds)
+  const La = 70, vm = Math.max(B.v1, B.v2);
+  // (each arrow starts at the edge of its star; star 1 moves along (−sin φ, cos φ), star 2 the opposite way)
+  for (const [x, y, s, v, sg, c] of [[x1, y1, s1, B.v1, 1, c1], [x2, y2, s2, B.v2, -1, c2]]) {
+    const ux = -Math.sin(ph) * sg, uy = Math.cos(ph) * sg, L0 = s + 2, Lv = Math.max(14, La * v / vm);
+    arrow(ctx, X(x) + ux * L0, Y(y) - uy * L0, X(x) + ux * (L0 + Lv), Y(y) - uy * (L0 + Lv), c, 2.4, 9);
+  }
+  // centre of mass
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - 6, cy - 6); ctx.lineTo(cx + 6, cy + 6); ctx.moveTo(cx + 6, cy - 6); ctx.lineTo(cx - 6, cy + 6); ctx.stroke();
+  ctx.fillStyle = "#eef0e8"; ctx.font = "12px system-ui"; ctx.fillText("CoM", cx, cy + 20);
+  // labels and scale bar
+  ctx.fillStyle = "rgba(4,5,10,.8)"; ctx.fillRect(4, 4, 430, 52);
+  ctx.textAlign = "left"; ctx.font = "12px system-ui"; ctx.fillStyle = c1; ctx.fillText(`r₁ = ${fmtD(B.r1)}   v₁ = ${kms(B.v1)}`, 10, 18);
+  ctx.fillStyle = c2; ctx.fillText(`r₂ = ${fmtD(B.r2)}   v₂ = ${kms(B.v2)}`, 10, 34);
+  ctx.fillStyle = "#cfd5c4"; ctx.fillText(`d = r₁ + r₂ = ${fmtD(B.d)}   ·   both go round in T = ${fmtT(B.T)}`, 10, 50);
+  const bar = niceBar(rmax * 0.8);
+  ctx.strokeStyle = "#a3ab96"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(w - 20 - bar * sc, h - 16); ctx.lineTo(w - 20, h - 16); ctx.stroke();
+  ctx.fillStyle = "#a3ab96"; ctx.textAlign = "right"; ctx.fillText(fmtD(bar), w - 20, h - 22);
+  ctx.textAlign = "left"; ctx.fillText("Star sizes are not to scale (drawn ∝ M^⅓)", 10, h - 10);
+}
+function stepBinary(dt) {
+  const B = bParams(); BS.phi = (BS.phi + 360 * dt / 8) % 360; BS.t += B.T * dt / 8;    // 1× = one orbit in 8 s
+  el("bphi").value = Math.round(BS.phi); el("o_bphi").textContent = Math.round(BS.phi) + "°";
+}
+
+/* =====================================================================
+   8. GRAPHS IN THE READINGS PANEL
+   ===================================================================== */
+function chart(id, show) { el(id).style.display = show ? "" : "none"; }
+function fieldVsDistance() {
+  const f = FS[APP.mode], e = APP.mode === "E", s = f.src[0]; if (!s) return;
+  const c = Math.abs(coef(s, e)), Fr = r => c / (r * r);
+  const { ctx, w, h } = fitCanvas(el("c1")); ctx.clearRect(0, 0, w, h);
+  const ax = axes(ctx, w, h, { x0: 0.5, x1: 6, y0: Fr(6) / 1.5, y1: Fr(0.5) * 1.5, xlog: true, ylog: true, xlabel: "r (m)", ylabel: e ? "E (V/m)" : "g (N/kg)", L: 56, xfmt: v => fmt(v), yfmt: v => sci(v, 0) });
+  clip(ctx, ax, w, h); const pts = []; for (let k = 0; k <= 100; k++) { const r = 0.5 * Math.pow(12, k / 100); pts.push([ax.X(r), ax.Y(Fr(r))]); } line(ctx, pts, e ? "#00aec3" : "#a4cbe6", 2.4);
+  for (const r of [1, 2]) { ctx.fillStyle = "#f1af28"; ctx.beginPath(); ctx.arc(ax.X(r), ax.Y(Fr(r)), 4.5, 0, TAU); ctx.fill(); }
+  ctx.restore(); ctx.fillStyle = "#eef0e8"; ctx.font = "11px system-ui"; ctx.textAlign = "right"; ctx.fillText("Slope = −2 confirms inverse-square law", w - 14, 22);
+  el("ch1t").textContent = `${e ? "Electric" : "Gravitational"} field strength vs distance`;
+  el("ch1l").innerHTML = `<span><i style="background:${e ? "#00aec3" : "#a4cbe6"}"></i>first ${e ? "charge" : "mass"}: ${e ? sci(s.v, 2) + " C" : sci(s.v, 2) + " kg"}</span>`;
+  const F1 = Fr(1), F2 = Fr(2), u = e ? " V/m" : " N/kg";
+  el("ch1n").innerHTML = `<div class="tiles" style="margin-top:5px">${tile((e ? "E" : "g") + " at r = 1 m", sci(F1, 3) + u)}${tile((e ? "E" : "g") + " at r = 2 m", sci(F2, 3) + u)}${tile("Ratio", (F1 / F2).toFixed(2), "expect 4.0 for double distance")}</div>`;
+}
+function energyChartField() {
+  const { ctx, w, h } = fitCanvas(el("c2")); ctx.clearRect(0, 0, w, h); if (!LN) return;
+  const tot = LN.KE.map((k, i) => k + LN.PE[i]), all = LN.KE.concat(LN.PE, tot); let y0 = Math.min(...all), y1 = Math.max(...all); const pd = (y1 - y0) * 0.1 || Math.abs(y1) * 0.1 || 1; y0 -= pd; y1 += pd;
+  const tEnd = Math.max(0.05, LN.t[LN.t.length - 1]);
+  const ax = axes(ctx, w, h, { x0: 0, x1: tEnd, y0, y1, xlabel: "time t (s)", ylabel: "energy (J)", L: 58, yfmt: v => sci(v, 1) });
+  clip(ctx, ax, w, h);
+  line(ctx, LN.t.map((t, i) => [ax.X(t), ax.Y(LN.KE[i])]), "#76b82a", 2); line(ctx, LN.t.map((t, i) => [ax.X(t), ax.Y(LN.PE[i])]), "#00aec3", 2); line(ctx, LN.t.map((t, i) => [ax.X(t), ax.Y(tot[i])]), "#f1af28", 2.5, [6, 4]);
+  const i = Math.min(LN.t.length - 1, Math.floor(LN.anim / LN_DT)); line(ctx, [[ax.X(LN.t[i]), ax.T], [ax.X(LN.t[i]), h - ax.B]], "rgba(232,49,129,.7)", 1.2);
+  ctx.restore();
+  el("ch2t").textContent = "Energy conservation"; el("ch2l").innerHTML = `<span><i style="background:#76b82a"></i>KE</span><span><i style="background:#00aec3"></i>PE (${LN.e ? "qV" : "mVg"})</span><span><i style="background:#f1af28"></i>Total E</span>`;
+  el("ch2n").textContent = `Energy drift: ${sci(LN.drift, 2)} J (${fmt(LN.rel * 100, 3)}% relative) — small drift is expected from finite RK4 step size.${LN.left ? " The particle left the map." : LN.hit ? " The particle hit a source and stopped." : ""}`;
+}
+function tUnit(T) { return T < 2 * 3600 ? [60, "min"] : T < 2 * DAY ? [3600, "hours"] : T < 2 * YEAR ? [DAY, "days"] : [YEAR, "years"]; }
+function energyChartOrbit() {
+  const { ctx, w, h } = fitCanvas(el("c1")); ctx.clearRect(0, 0, w, h); const H = OL.hist; if (H.length < 2) return;
+  const [u, un] = tUnit(OP.tRef), t0 = H[0][0], t1 = Math.max(H[H.length - 1][0], t0 + OP.tRef * 0.05);
+  const all = []; H.forEach(r => all.push(r[1], r[2], r[1] + r[2])); let y0 = Math.min(...all, 0), y1 = Math.max(...all, 0); const pd = (y1 - y0) * 0.08; y0 -= pd; y1 += pd;
+  const ax = axes(ctx, w, h, { x0: t0 / u, x1: t1 / u, y0, y1, xlabel: `time (${un})`, ylabel: "energy per kg (J/kg)", L: 58, yfmt: v => sci(v, 1) });
+  clip(ctx, ax, w, h);
+  line(ctx, H.map(r => [ax.X(r[0] / u), ax.Y(r[1])]), "#76b82a", 2); line(ctx, H.map(r => [ax.X(r[0] / u), ax.Y(r[2])]), "#00aec3", 2); line(ctx, H.map(r => [ax.X(r[0] / u), ax.Y(r[1] + r[2])]), "#f1af28", 2.5, [6, 4]);
+  ctx.restore();
+  el("ch1t").textContent = "Specific energy vs time"; el("ch1l").innerHTML = `<span><i style="background:#76b82a"></i>KE (½v²)</span><span><i style="background:#00aec3"></i>PE (−GM/r)</span><span><i style="background:#f1af28"></i>E total (should be constant)</span>`;
+  const d = OP.drift;
+  el("ch1n").textContent = Math.abs(d.E0) > 1e-6 * OP.GMt / OP.r0 ? `Energy conservation: drift = ${fmt(d.pct, 3)}% (RK4 integrator, 500 steps per period, 2 periods — should be < 0.5%).` : "Total energy is zero (escape speed), so the drift cannot be given as a percentage.";
+}
+function rotationCurve() {
+  const { ctx, w, h } = fitCanvas(el("c2")); ctx.clearRect(0, 0, w, h);
+  const M = OS.Mg * MSUN, vdm = OS.vdm, vis = r => Math.sqrt(G * M / (r * KPC)) / 1000, tot = r => Math.sqrt(vis(r) ** 2 + vdm ** 2);
+  const ymax = Math.max(tot(0.5), vdm) * 1.1, ax = axes(ctx, w, h, { x0: 0, x1: 30, y0: 0, y1: ymax, xlabel: "radius (kpc)", ylabel: "orbital speed (km/s)", L: 48 });
+  clip(ctx, ax, w, h); const R = []; for (let k = 0; k <= 200; k++) R.push(0.5 + 29.5 * k / 200);
+  line(ctx, R.map(r => [ax.X(r), ax.Y(vis(r))]), "#00aec3", 2); line(ctx, R.map(r => [ax.X(r), ax.Y(vdm)]), "#a86dab", 2, [6, 4]); line(ctx, R.map(r => [ax.X(r), ax.Y(tot(r))]), "#f1af28", 3);
+  ctx.restore();
+  el("ch2t").textContent = "Galaxy rotation curve";
+  el("ch2l").innerHTML = `<span><i style="background:#00aec3"></i>Visible matter (Keplerian, v ∝ r⁻½)</span><span><i style="background:#a86dab"></i>Dark matter halo (flat, simplified)</span><span><i style="background:#f1af28"></i>Combined (visible + dark matter)</span>`;
+  el("ch2n").innerHTML = "The flat rotation curve cannot be explained by visible matter alone — evidence for <b>dark matter</b> (spec ref: Component 2, Topic 8(e)). Keplerian motion predicts v ∝ r^(−½) (falling curve), but observations show v ≈ constant out to very large radii, implying a diffuse dark-matter halo with M(r) ∝ r.";
+}
+function rvCurve() {
+  const { ctx, w, h } = fitCanvas(el("c1")); ctx.clearRect(0, 0, w, h); const B = bParams(), si = Math.sin(BS.inc * Math.PI / 180);
+  const K1 = B.v1 * si / 1000, K2 = B.v2 * si / 1000, ym = Math.max(K1, K2, 1e-6) * 1.2;
+  const ax = axes(ctx, w, h, { x0: 0, x1: 1, y0: -ym, y1: ym, xlabel: "orbital phase", ylabel: "radial velocity (km/s)", L: 50 });
+  clip(ctx, ax, w, h); const P = []; for (let k = 0; k <= 200; k++) P.push(k / 200);
+  line(ctx, [[ax.X(0), ax.Y(0)], [ax.X(1), ax.Y(0)]], "#5a6352", 1, [3, 3]);
+  line(ctx, P.map(p => [ax.X(p), ax.Y(K1 * Math.cos(TAU * p))]), "#a4cbe6", 2.2); line(ctx, P.map(p => [ax.X(p), ax.Y(-K2 * Math.cos(TAU * p))]), "#f18700", 2.2);
+  const p = BS.phi / 360; ctx.fillStyle = "#a4cbe6"; ctx.beginPath(); ctx.arc(ax.X(p), ax.Y(K1 * Math.cos(TAU * p)), 4.5, 0, TAU); ctx.fill(); ctx.fillStyle = "#f18700"; ctx.beginPath(); ctx.arc(ax.X(p), ax.Y(-K2 * Math.cos(TAU * p)), 4.5, 0, TAU); ctx.fill();
+  ctx.restore();
+  el("ch1t").textContent = "Radial velocity curves (spectroscopic binary)";
+  el("ch1l").innerHTML = `<span><i style="background:#a4cbe6"></i>Star 1 (M₁)</span><span><i style="background:#f18700"></i>Star 2 (M₂)</span>`;
+  el("ch1n").textContent = "Astronomers detect binary stars from this anti-correlated Doppler wobble — even when the stars can't be resolved visually.";
+}
+function drawCharts() {
+  const m = APP.mode;
+  if (isField()) {
+    chart("ch1", true); fieldVsDistance();
+    const sh = adv() && FIELD.ln && !!LN; chart("ch2", sh); if (sh) energyChartField();
+  } else if (m === "O") {
+    chart("ch1", true); energyChartOrbit();
+    const sh = adv() && OS.rot; chart("ch2", sh); if (sh) rotationCurve();
+  } else {
+    chart("ch1", adv()); if (adv()) rvCurve(); chart("ch2", false);
+  }
+}
+
+/* =====================================================================
+   9. READINGS, STORY, TOP BAR, NOTES AND EXAM QUESTIONS
+   ===================================================================== */
+const dirWord = (fx, fy) => { const a = (Math.atan2(fy, fx) * 180 / Math.PI + 360) % 360; return `${a.toFixed(0)}° anticlockwise from the +x direction`; };
+function presetStory(list, k) { return k >= 0 ? list[k].story : "Your own set-up. Pick a preset to see one idea at a time."; }
+function ui() {
+  const m = APP.mode; let tiles = "", top = "", story = "", ctxH = "", extra = "";
+  if (isField()) {
+    const f = FS[m], e = m === "E", P = f.probe, F = fieldAt(f.src, e, P.x, P.y), Fm = Math.hypot(F[0], F[1]), u = e ? "V/m" : "N/kg", s0 = f.src[0];
+    const r1 = s0 ? Math.hypot(P.x - s0.x, P.y - s0.y) : NaN;
+    top = `<span class="clock">${e ? "E" : "g"} = ${sci(Fm, 3)} ${u}</span><span class="stat">${e ? "V" : "Vg"} at probe <b>${sci(F[2], 3)} ${e ? "V" : "J/kg"}</b></span><span class="stat">Probe at <b>(${P.x.toFixed(2)}, ${P.y.toFixed(2)}) m</b></span><span class="badge ${e ? "b-red" : "b-blue"}">${f.src.length} ${f.src.length > 1 ? (e ? "charges" : "masses") : (e ? "charge" : "mass")}</span>`;
+    tiles = tile(e ? "E at probe" : "g at probe", sci(Fm, 3) + " " + u, e ? "|E| = |Σ kQ/r²| (vectors)" : "|g| = |Σ GM/r²| (vectors)") +
+      tile(e ? "V at probe" : "Vg at probe", sci(F[2], 3) + (e ? " V" : " J/kg"), e ? "V = Σ kQ/r (scalars)" : "Vg = Σ −GM/r (scalars)") +
+      tile(e ? "Force on +1 nC" : "Force on 1 kg", sci(Fm * (e ? 1e-9 : 1), 3) + " N", e ? "F = qE" : "F = mg") +
+      tile("Distance to " + (e ? "charge" : "mass") + " 1", isFinite(r1) ? r1.toFixed(2) + " m" : "–", "from the probe");
+    if (e) { const net = f.src.reduce((a, s) => a + s.v, 0); tiles += tile("Net charge", (net >= 0 ? "+" : "−") + (Math.abs(net) * 1e9).toFixed(1) + " nC", "sum of the charges"); }
+    else { const tot = f.src.reduce((a, s) => a + s.v, 0); tiles += tile("Total mass", sci(tot, 2) + " kg"); }
+    tiles += tile("Field direction", Fm > 0 ? ((Math.atan2(F[1], F[0]) * 180 / Math.PI + 360) % 360).toFixed(0) + "°" : "–", "from +x, anticlockwise");
+    if (adv() && FIELD.ln && LN) tiles += tile("Energy drift", fmt(LN.rel * 100, 3) + " %", "launched particle, RK4") + tile("Flight time", LN.t[LN.t.length - 1].toFixed(2) + " s", LN.left ? "left the map" : LN.hit ? "hit a source" : "8 s shown");
+    ctxH = e ? "⚡ Real measurements: E field near thundercloud base ≈ 10,000 V/m. E field that ionises air ≈ 3×10⁶ V/m (dielectric breakdown). E inside a cell membrane ≈ 10⁷ V/m."
+      : "🌍 Real measurements: g at Earth's surface = 9.81 N/kg. g at ISS altitude (408 km) = 8.69 N/kg (only 11% less!). g at Moon's surface = 1.62 N/kg.";
+    const live = Fm > 0 ? (e ? `At the probe the field is ${sci(Fm, 3)} V/m, pointing ${dirWord(F[0], F[1])}. A positive charge there is pushed that way; a negative charge the opposite way. Field lines cross equipotentials at right angles.`
+      : `At the probe g = ${sci(Fm, 3)} N/kg, pointing ${dirWord(F[0], F[1])}: any mass placed there accelerates that way at ${sci(Fm, 3)} m/s². Gravity only ever pulls, so every field line ends on a mass.`) : "The field at the probe is zero.";
+    story = `<p style="margin:0 0 6px">${presetStory(e ? E_PRESETS : G_PRESETS, f.preset)}</p><p style="margin:0;color:var(--accent)">${live}</p>`;
+    if (adv() && FIELD.cmp) extra += `<h2 class="gap">Electric vs gravitational</h2><table class="data cmp"><tr><th>Property</th><th>Electric</th><th>Gravitational</th></tr>
+      <tr><td>Source</td><td>Charge q</td><td>Mass M</td></tr><tr><td>Force law</td><td>F = kq₁q₂/r²</td><td>F = GM₁M₂/r²</td></tr><tr><td>Field</td><td>E = kq/r²</td><td>g = GM/r²</td></tr>
+      <tr><td>Potential</td><td>V = kq/r</td><td>Vg = −GM/r</td></tr><tr><td>Can be repulsive?</td><td><b>Yes</b></td><td><b>No</b></td></tr>
+      <tr><td>Constant</td><td>k = 8.988×10⁹ N m² C⁻²</td><td>G = 6.674×10⁻¹¹ N m² kg⁻²</td></tr><tr><td>Relative strength</td><td>~10³⁶ × gravity</td><td>Weakest fundamental force</td></tr></table>`;
+  } else if (m === "O") {
+    const P = OP, q = rel(), r = Math.hypot(q[0], q[1]), v = Math.hypot(q[2], q[3]), type = classify(OS.vr);
+    const kTheory = P.GMt / (4 * Math.PI ** 2), kMeas = P.meas.a ** 3 / P.meas.T ** 2;
+    const bc = Math.abs(OS.vr - 1) < 0.03 ? "b-ok" : P.bound ? "b-blue" : "b-warn";
+    top = `<span class="clock">${fmtT(OL.t)}</span><span class="stat">r <b>${fmtD(r)}</b></span><span class="stat">v <b>${kms(v)}</b></span><span class="stat">Orbits completed <b>${OL.laps}</b></span><span class="badge ${bc}">${type}</span>`;
+    tiles = tile("Orbit type", type, P.bound ? `eccentricity e = ${P.ecc.toFixed(3)}` : "trajectory is open (r → ∞)") +
+      tile("Orbital period T", P.bound ? fmtT(P.T) : "Unbound (open orbit)", P.bound ? `= ${fmt(P.T / YEAR, 4)} years` : "") +
+      tile("a³/T² (measured)", P.bound ? sci(kMeas, 4) + " m³/s²" : "–", "from the simulated orbit") + tile("GM/4π² (theory)", sci(kTheory, 4) + " m³/s²", P.bound ? `differs by ${fmt(100 * Math.abs(kMeas - kTheory) / kTheory, 2)} %` : "Kepler's 3rd law") +
+      tile("v circular", kms(P.vc), "√(GM/r₀)") + tile("v₀ (launch)", kms(P.v0), `${OS.vr.toFixed(3)} × v_circular`) + tile("v escape", kms(P.vesc), "√(2GM/r₀) = √2 v_circ") +
+      tile("Energy per kg", sci(P.E, 3) + " J/kg", P.E < 0 ? "negative: bound" : "≥ 0: unbound");
+    if (P.bound && !twoOn()) { const tot = P.areas.reduce((a, b) => a + b, 0), mx = Math.max(...P.areas), mn = Math.min(...P.areas); tiles += tile("Equal areas", `${fmt(100 * mn / tot, 4)}–${fmt(100 * mx / tot, 4)} %`, "each sector's share (theory 12.5%)"); }
+    if (P.bound) tiles += tile("Closest / furthest", `${fmtD(P.rP)} / ${fmtD(P.rA)}`, "a(1 − e) and a(1 + e)");
+    if (!adv()) {
+      const gO = G * P.M / P.r0 ** 2;
+      tiles += tile("Orbital speed", kms(P.vc), "circular speed at r₀") + tile("Orbital period", fmtT(TAU * P.r0 / P.vc), "circular, T = 2πr/v") + tile("g at orbit", fmt(gO, 4) + " m/s²", "g = GM/r²");
+      ctxH = `At this altitude, g = ${fmt(gO, 4)} m/s². Astronauts appear weightless not because gravity is zero, but because they are in FREE FALL — the spacecraft and everything in it fall together.`;
+    } else {
+      ctxH = "";
+      if (twoOn()) { const cm = [(P.M * OL.s[0] + P.m * OL.s[4]) / P.Mt, (P.M * OL.s[1] + P.m * OL.s[5]) / P.Mt]; tiles += tile("CoM from star", fmtD(P.m * P.r0 / P.Mt), "both bodies orbit this fixed point") + tile("CoM drift", sci(Math.hypot(cm[0], cm[1]) / AU, 2) + " AU", "should be ≈ 0 — conservation of momentum"); ctxH = `m/M = ${sci(P.m / P.M, 3)} (${P.m / P.M > 0.01 ? "significant" : "negligible"}). Centre of mass is ${fmt(P.m * P.r0 / P.Mt / AU, 4)} AU from the star. (Both bodies orbit this fixed point.)`; }
+    }
+    if (hohOn() && P.bound) { const H = hohmann(P.M, P.r0, OS.rT); extra += `<h2 class="gap">Hohmann transfer results</h2><div class="tiles">${tile("Δv₁ (departure burn)", fmt(H.dv1 / 1000, 4) + " km/s")}${tile("Δv₂ (arrival burn)", fmt(H.dv2 / 1000, 4) + " km/s")}${tile("Total Δv", fmt(H.dvt / 1000, 4) + " km/s")}${tile("Transfer time", fmtT(H.Tt))}</div><div class="card">A Hohmann transfer is the most fuel-efficient path between two circular orbits. The Earth→Mars transfer takes ~259 days; from low Earth orbit the Mars mission needs Δv ≈ 3.6 km/s (more than the Sun-centred numbers here, because the rocket must also climb out of the Earth's gravity).</div>`; }
+    else if (hohOn()) extra += `<div class="card warn">The Hohmann transfer needs a closed starting orbit: set v₀/v_circular below √2.</div>`;
+    extra += `<details${OS.preset >= 0 && O_PRESETS[OS.preset].name.startsWith("Earth around") ? " open" : ""}><summary>Kepler's 3rd Law check (Solar System)</summary><table class="data" style="margin-top:4px"><tr><th>Planet</th><th>r (AU)</th><th>T measured (yr)</th><th>T = r^1.5 (yr)</th><th>Error</th></tr>` +
+      KEPLER_PLANETS.map(([n, r, T]) => `<tr><td>${n}</td><td>${r.toFixed(3)}</td><td>${T.toFixed(3)}</td><td>${Math.pow(r, 1.5).toFixed(3)}</td><td>${(100 * Math.abs(Math.pow(r, 1.5) - T) / T).toFixed(2)}%</td></tr>`).join("") +
+      `</table><p>Kepler's 3rd Law: T² = r³ (when T in years, r in AU). This follows from F_grav = F_centripetal.</p></details>`;
+    const live = P.bound ? `The planet is ${fmtD(r)} from the ${O_MASSES[OS.Mi].body === "Earth" ? "Earth" : "star"}, moving at ${kms(v)}. ${P.ecc > 0.02 ? "Closer in it speeds up and further out it slows down: kinetic and potential energy swap, but their total stays the same." : "In a circular orbit the speed, kinetic energy and potential energy all stay constant."}`
+      : `The planet is ${fmtD(r)} out, moving at ${kms(v)}: it has at least escape speed, so its total energy is not negative and it will never come back.`;
+    story = `<p style="margin:0 0 6px">${presetStory(O_PRESETS, OS.preset)}</p><p style="margin:0;color:var(--accent)">${live}</p>`;
+  } else {
+    const B = bParams(), si = Math.sin(BS.inc * Math.PI / 180), Mk = 4 * Math.PI ** 2 * B.d ** 3 / (G * B.T ** 2);
+    top = `<span class="clock">${fmtT(BS.t)}</span><span class="stat">Phase <b>${Math.round(BS.phi)}°</b></span><span class="stat">Period <b>${fmtT(B.T)}</b></span><span class="badge b-blue">Same period T and ω for both stars</span>`;
+    tiles = tile("Period T", fmtT(B.T), "T² = 4π²d³/G(M₁+M₂)") + tile("r₁ (AU)", fmt(B.r1 / AU, 4), "M₂d/(M₁+M₂)") + tile("r₂ (AU)", fmt(B.r2 / AU, 4), "M₁d/(M₁+M₂)") +
+      tile("v₁ (km/s)", fmt(B.v1 / 1000, 4), "ωr₁") + tile("v₂ (km/s)", fmt(B.v2 / 1000, 4), "ωr₂") + tile("CoM from M₁ (AU)", fmt(B.xcm / AU, 4), "= r₁") +
+      tile("M₁ + M₂ from T and d", fmt(Mk / MSUN, 4) + " M☉", "4π²d³/(GT²)") + tile("Mass ratio M₁/M₂", fmt(B.r2 / B.r1, 4), "= r₂/r₁ = v₂/v₁");
+    if (adv()) tiles += tile("K₁ = v₁ sin i", fmt(B.v1 * si / 1000, 4) + " km/s", "semi-amplitude, star 1") + tile("K₂ = v₂ sin i", fmt(B.v2 * si / 1000, 4) + " km/s", "M₁/M₂ = K₂/K₁");
+    ctxH = "Most stars in the Milky Way are in binary or multiple systems — our Sun is unusual in being solitary. Binary stars are crucial for measuring stellar masses: Newton's form of Kepler's 3rd Law gives M₁+M₂ from d and T.";
+    if (adv()) extra += `<div class="card adv">Close binary stars emit gravitational waves, slowly losing energy. The first indirect evidence for gravitational waves came from the Hulse-Taylor binary pulsar (1974), which earned the 1993 Nobel Prize — the orbital period shortens at exactly the rate predicted by GR.</div>`;
+    const live = `Star 1 is ${fmt(B.r1 / AU, 3)} AU from the centre of mass and moves at ${kms(B.v1)}; star 2 is ${fmt(B.r2 / AU, 3)} AU away at ${kms(B.v2)}. ${Math.abs(BS.M1 - BS.M2) / Math.max(BS.M1, BS.M2) < 0.02 ? "Equal masses: equal circles." : `The heavier star stays closer to the centre of mass and moves more slowly (r₁/r₂ = M₂/M₁ = ${fmt(BS.M2 / BS.M1, 3)}).`}`;
+    story = `<p style="margin:0 0 6px">${presetStory(B_PRESETS, BS.preset)}</p><p style="margin:0;color:var(--accent)">${live}</p>`;
+  }
+  el("topbar").innerHTML = top; el("tiles").innerHTML = tiles; el("story").innerHTML = story; el("ctx").innerHTML = ctxH;
+  if (el("extra").dataset.h !== extra) { el("extra").innerHTML = extra; el("extra").dataset.h = extra; }
+}
+
+const NOTES = {
+  F: `<p><b>Spec reference:</b> Component 2, Topic 6 (Fields), sections (a)–(f)</p><p style="margin-bottom:2px"><b>Key equations:</b></p>
+    <div class="eq">E = kQ / r²</div><div class="eq">V = kQ / r</div><div class="eq">g = GM / r²</div><div class="eq">V<sub>g</sub> = −GM / r</div><div class="eq">F = kQ₁Q₂ / r²</div><div class="eq">F = GM₁M₂ / r²</div>
+    <p><b>What this shows:</b> Field lines show the direction of force on a positive test charge or mass. Equipotentials (shown as contours) are always <b>perpendicular</b> to field lines. The gravitational field always points <b>towards</b> the mass (always attractive). The electric field can be repulsive (like charges) or attractive (opposite charges). Use the probe sliders to read off the field magnitude and potential at any point.</p>
+    <div class="advOnly"><p><b>Advanced context:</b> Coulomb's law and Newton's law of gravitation are both <b>inverse-square laws</b>. Key difference: gravity is always attractive, while electric force can be repulsive. The field represents energy stored in space — moving a charge or mass against the field requires work equal to the change in potential energy. Potential energy = qV (electric) or mVg (gravitational). When a test particle is released, kinetic energy gained equals potential energy lost, so the total mechanical energy E = KE + PE remains constant (verified in the energy plot).</p></div>`,
+  O: `<p><b>Spec reference:</b> Component 2, Topic 8 (Orbits and the Wider Universe), sections (a)–(g)</p><p style="margin-bottom:2px"><b>Key equations:</b></p>
+    <div class="eq">F = GMm / r²</div><div class="eq">v<sub>circular</sub> = √(GM / r)</div><div class="eq">T² = (4π² / GM) r³   (Kepler's 3rd law)</div><div class="eq">v<sub>escape</sub> = √(2GM / r)</div>
+    <p><b>What this shows:</b> A <b>circular orbit</b> occurs when gravitational force provides exactly the centripetal force needed: F<sub>grav</sub> = F<sub>centripetal</sub> gives GMm/r² = mv²/r, so v<sub>circ</sub> = √(GM/r). <b>Kepler's Third Law</b> (T² ∝ r³) follows directly from this substitution into T = 2πr/v. For bound orbits (ellipses) the total mechanical energy is negative; for unbound trajectories (hyperbola) it is positive. The energy plot should show a nearly constant total energy — deviations indicate numerical error in the RK4 integrator.</p>
+    <div class="advOnly"><p><b>Kepler's 3rd law derivation:</b> Setting F<sub>grav</sub> = F<sub>cent</sub>: GMm/r² = mv²/r → v² = GM/r → T = 2πr/v = 2πr<sup>3/2</sup>/√(GM) → T² = (4π²/GM) r³.</p>
+    <p><b>Escape velocity:</b> Set total energy to zero: ½mv² − GMm/r = 0 → v<sub>esc</sub> = √(2GM/r) = √2 v<sub>circ</sub>.</p>
+    <p><b>Orbit classification by energy:</b> Circular (E &lt; 0, e = 0), Elliptical (E &lt; 0, 0 &lt; e &lt; 1), Parabolic (E = 0, e = 1, escape trajectory), Hyperbolic (E &gt; 0, e &gt; 1, unbound).</p>
+    <p><b>Galaxy rotation curves:</b> If all mass were at the galactic centre, v ∝ r<sup>−1/2</sup> (Keplerian decline). Observations show v ≈ constant far from the centre — a <i>flat</i> rotation curve. This requires M(r) ∝ r even where there are no visible stars, implying a diffuse dark-matter halo extending far beyond the visible disc. This is one of the strongest lines of evidence for dark matter (spec 8(e)).</p></div>`,
+  B: `<p><b>Spec reference:</b> Component 3, Topic 11 (Astrophysics) — binary star systems</p><p style="margin-bottom:2px"><b>Key equations:</b></p>
+    <div class="eq">T² = 4π²d³ / G(M₁ + M₂)</div><div class="eq">r₁ = M₂d / (M₁ + M₂),   r₂ = M₁d / (M₁ + M₂)</div><div class="eq">v₁ = ωr₁,   v₂ = ωr₂</div>
+    <p><b>What this shows:</b> Two stars of masses M₁ and M₂ orbit their common centre of mass (barycentre). The barycentre divides the separation d in the inverse ratio of the masses. Both stars share the same angular velocity ω and period T, but their orbital radii and speeds differ. Spectroscopic binaries are identified by the periodic Doppler shift of their spectral lines — the radial velocity curves are exactly anti-correlated, providing M₁+M₂ via Kepler's Third Law.</p>
+    <div class="advOnly"><p><b>Radial velocity method:</b> Observers measure the line-of-sight component of each star's velocity, v<sub>r</sub> = v sin i cos φ. The semi-amplitudes K₁ and K₂ give the mass ratio: M₁/M₂ = K₂/K₁. Combined with Kepler's Third Law this yields individual masses (if i is known from eclipses or astrometry).</p>
+    <p><b>Gravitational waves:</b> Inspiralling binaries lose orbital energy to gravitational radiation at a rate predicted by GR. The Hulse-Taylor pulsar (PSR B1913+16) loses energy at exactly the predicted rate, providing indirect proof of gravitational waves 16 years before LIGO's direct detection in 2015.</p></div>`,
+};
+
+let examKey = "";
+function exam() {
+  const m = APP.mode; let groups;
+  if (isField()) {
+    const f = FS[m], e = m === "E", s0 = f.src[0]; let r = Math.hypot(f.probe.x, f.probe.y); if (r < 0.1) r = 0.1;    // probe distance from the origin
+    const key = [m, s0.v, r].join("|"); if (key === examKey) return; examKey = key;
+    if (e) {
+      const Q = s0.v, Qa = Math.abs(Q), E = 8.99e9 * Qa / (r * r), F = E * 2e-6;
+      groups = [{ title: "Electric fields", id: "ef", qs: [
+        { q: `A point charge Q = ${sci(Q, 2)} C creates an electric field. Calculate the field strength at a distance r = ${r.toFixed(2)} m.`, marks: 2, answer: `E = ${sci(E, 3)} N/C`, working: [`E = kQ/r² = 8.99×10⁹ × ${sci(Qa, 2)} / ${r.toFixed(2)}² = ${sci(E, 3)} N/C`] },
+        { q: "State the direction of the electric field around (a) a positive charge and (b) a negative charge.", marks: 2, answer: "(a) Radially outward. (b) Radially inward.", working: [] },
+        { q: `A +2 μC test charge is placed at r = ${r.toFixed(2)} m from the source charge. Calculate the electrostatic force on it.`, marks: 3, answer: `F = ${sci(F, 3)} N`, hint: "Use F = qE, where E is the field calculated in Q1",
+          working: [`F = qE = 2×10⁻⁶ × ${sci(E, 3)} = ${sci(F, 3)} N`, "Direction: away from source (like charges repel) or toward (unlike charges attract)"] },
+      ] }];
+    } else {
+      const M = s0.v, g = 6.67e-11 * M / (r * r), F = 1.0 * g;
+      groups = [{ title: "Gravitational fields", id: "gf", qs: [
+        { q: `A point mass M = ${sci(M, 2)} kg creates a gravitational field. Calculate the field strength at a distance r = ${r.toFixed(2)} m.`, marks: 2, answer: `g = ${sci(g, 3)} N/kg`, working: [`g = GM/r² = 6.67×10⁻¹¹ × ${sci(M, 2)} / ${r.toFixed(2)}² = ${sci(g, 3)} N/kg`] },
+        { q: "State the direction of the gravitational field around a point mass.", marks: 2, answer: "Radially inward (always attractive — toward the mass).", working: [] },
+        { q: `A 1 kg test mass is placed at r = ${r.toFixed(2)} m from the source mass. Calculate the gravitational force on it.`, marks: 3, answer: `F = ${sci(F, 3)} N`, hint: "Use F = mg where g is the field strength calculated in Q1",
+          working: [`F = mg = 1.0 × ${sci(g, 3)} = ${sci(F, 3)} N`, "Direction: toward the source mass (gravitational force is always attractive)"] },
+      ] }];
+    }
+  } else if (m === "O") {
+    const M = orbM(), r0 = OS.r0, key = ["O", M, r0].join("|"); if (key === examKey) return; examKey = key;
+    const v = Math.sqrt(6.67e-11 * M / r0), T = TAU * r0 / v, ve = Math.SQRT2 * v;
+    groups = [{ title: "Orbits", id: "or", qs: [
+      { q: `A satellite orbits at radius r = ${sci(r0, 3)} m from a body of mass M = ${sci(M, 3)} kg. Calculate the orbital speed.`, marks: 3, answer: `v = ${v.toFixed(0)} m/s`, hint: "Set gravitational force equal to centripetal force: GMm/r² = mv²/r.",
+        working: ["v = √(GM/r)", `v = √(6.67×10⁻¹¹ × ${sci(M, 2)} / ${sci(r0, 2)}) = ${v.toFixed(0)} m/s`] },
+      { q: `Calculate the orbital period for a circular orbit at r = ${sci(r0, 3)} m around M = ${sci(M, 3)} kg.`, marks: 2, answer: `T = ${sci(T, 3)} s`, working: [`T = 2πr / v = 2π × ${sci(r0, 2)} / ${v.toFixed(0)} = ${sci(T, 3)} s`] },
+      { q: `Calculate the escape velocity from radius r = ${sci(r0, 3)} m around M = ${sci(M, 3)} kg.`, marks: 2, answer: `v_esc = ${ve.toFixed(0)} m/s`, hint: "Set total energy to zero: ½mv² − GMm/r = 0.",
+        working: ["v_esc = √(2GM/r) = √2 × v_circular", `v_esc = √2 × ${v.toFixed(0)} = ${ve.toFixed(0)} m/s`] },
+    ] }];
+  } else {
+    const key = ["B", BS.M1, BS.M2, BS.d].join("|"); if (key === examKey) return; examKey = key;
+    const M1 = BS.M1 * 1.99e30, M2 = BS.M2 * 1.99e30, d = BS.d * 1.50e11, Mt = M1 + M2, r1 = M2 * d / Mt, T = TAU * Math.sqrt(d ** 3 / (6.67e-11 * Mt)), Ty = T / 3.16e7;
+    const Mback = 4 * Math.PI ** 2 * d ** 3 / (6.67e-11 * T * T);
+    groups = [{ title: "Binary stars (new questions)", id: "bs", qs: [
+      { q: `Two stars of masses M₁ = ${fmt(BS.M1, 3)} M☉ and M₂ = ${fmt(BS.M2, 3)} M☉ are ${fmt(BS.d, 3)} AU apart. Calculate the distance of star 1 from the centre of mass, in AU.`, marks: 2, answer: `r₁ = ${fmt(r1 / 1.5e11, 4)} AU`,
+        hint: "The centre of mass divides d in the inverse ratio of the masses.", working: ["r₁ = M₂d / (M₁ + M₂)", `r₁ = ${fmt(BS.M2, 3)} × ${fmt(BS.d, 3)} / (${fmt(BS.M1, 3)} + ${fmt(BS.M2, 3)}) = ${fmt(r1 / 1.5e11, 4)} AU`] },
+      { q: `Calculate the orbital period of the pair. (1 M☉ = 1.99×10³⁰ kg, 1 AU = 1.50×10¹¹ m, G = 6.67×10⁻¹¹ N m² kg⁻²)`, marks: 3, answer: `T = ${sci(T, 3)} s = ${fmt(Ty, 3)} years`,
+        working: [`M₁ + M₂ = ${sci(Mt, 3)} kg,  d = ${sci(d, 3)} m`, `T = 2π √(d³ / G(M₁+M₂)) = 2π √(${sci(d ** 3, 3)} / (6.67×10⁻¹¹ × ${sci(Mt, 3)}))`, `T = ${sci(T, 3)} s ÷ 3.16×10⁷ s/year = ${fmt(Ty, 3)} years`] },
+      { q: `Astronomers observe a binary with period ${fmt(Ty, 3)} years and separation ${fmt(BS.d, 3)} AU. Calculate the total mass of the two stars in solar masses.`, marks: 3, answer: `M₁ + M₂ = ${fmt(Mback / 1.99e30, 3)} M☉`, hint: "Rearrange Kepler's third law: M₁ + M₂ = 4π²d³ / (GT²).",
+        working: [`d = ${sci(d, 3)} m,  T = ${sci(T, 3)} s`, `M₁ + M₂ = 4π² × ${sci(d ** 3, 3)} / (6.67×10⁻¹¹ × (${sci(T, 3)})²) = ${sci(Mback, 3)} kg`, `÷ 1.99×10³⁰ kg = ${fmt(Mback / 1.99e30, 3)} M☉`] },
+    ] }];
+  }
+  renderExam(el("examQs"), groups);
+}
+
+/* =====================================================================
+   10. CONTROLS
+   ===================================================================== */
+const LVL_HINT = {
+  E: "Advanced adds a launched test particle with its energy graph, and the electric vs gravitational comparison.",
+  G: "Advanced adds a launched test mass with its energy graph, and the electric vs gravitational comparison.",
+  O: "Standard shows orbital speed, period and g at the orbit. Advanced adds the two-body problem, Hohmann transfers and galaxy rotation curves.",
+  B: "Advanced adds the inclination and the radial velocity curves (spectroscopic binaries).",
+};
+function own() {
+  if (isField()) FS[APP.mode].preset = -1; else if (APP.mode === "O") OS.preset = -1; else BS.preset = -1;
+  document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); el("presetInfo").textContent = "";
+}
+function presetList() { return { E: E_PRESETS, G: G_PRESETS, O: O_PRESETS, B: B_PRESETS }[APP.mode]; }
+function curPreset() { return isField() ? FS[APP.mode].preset : APP.mode === "O" ? OS.preset : BS.preset; }
+function buildPresets() {
+  el("presets").innerHTML = presetList().map((p, i) => `<button data-i="${i}" class="${i === curPreset() ? "on" : ""}">${p.name}<small>${p.adv ? '<span class="adv">A level · </span>' : ""}${p.desc}</small></button>`).join("");
+  document.querySelectorAll("#presets button").forEach(b => b.addEventListener("click", () => applyPreset(+b.dataset.i)));
+}
+function applyPreset(k) {
+  const p = presetList()[k];
+  if (p.adv) setLevel("adv");
+  if (isField()) {
+    const f = FS[APP.mode]; f.src = p.src.map(([v, x, y]) => ({ v, x, y })); f.probe = p.probe ? { x: p.probe[0], y: p.probe[1] } : { x: 3, y: 3 }; f.parts = []; f.preset = k;
+    if (p.ln) { Object.assign(f.ln, p.ln); FIELD.ln = true; } else FIELD.ln = false;
+    buildSrc(); syncField(); fieldChanged();
+  } else if (APP.mode === "O") {
+    Object.assign(OS, { Mi: p.Mi, r0: p.r0, vr: p.vr, two: !!p.two, hoh: !!p.hoh, rot: !!p.rot, custom: [], preset: k });
+    if (p.mp) OS.mp = p.mp; if (p.rT) OS.rT = p.rT; if (p.vdm) OS.vdm = p.vdm; if (p.Mg) OS.Mg = p.Mg;
+    syncOrbit(); orbitSetup();
+  } else {
+    Object.assign(BS, { M1: p.M1, M2: p.M2, d: p.d, phi: 0, t: 0, preset: k }); syncBinary();
+  }
+  buildPresets(); examKey = ""; ui(); exam();
+}
+// Charge / mass editor (one block per source)
+function buildSrc() {
+  if (!isField()) return;
+  const f = FS[APP.mode], e = APP.mode === "E";
+  el("srcTitle").textContent = e ? "Charges" : "Masses";
+  let h = `<div class="ctl"><label>Number of ${e ? "charges" : "masses"} <output>${f.src.length}</output></label><input type="range" id="nSrc" min="1" max="${e ? 4 : 3}" step="1" value="${f.src.length}"></div>`;
+  f.src.forEach((s, i) => {
+    h += `<details class="sbox"${i < 2 ? " open" : ""}><summary>${e ? "Charge" : "Mass"} ${i + 1} <span class="hint" id="sum${i}"></span></summary>
+      <div class="ctl"><label>x position <output id="o_sx${i}"></output></label><input type="range" id="sx${i}" min="-5" max="5" step="0.1" value="${s.x}"></div>
+      <div class="ctl"><label>y position <output id="o_sy${i}"></output></label><input type="range" id="sy${i}" min="-5" max="5" step="0.1" value="${s.y}"></div>` +
+      (e ? `<div class="ctl"><label>Magnitude <output id="o_sm${i}"></output></label><input type="range" id="sm${i}" min="0.1" max="10" step="0.1" value="${(Math.abs(s.v) * 1e9).toFixed(1)}"><div class="hint">1 nC = 1×10⁻⁹ C</div></div>
+           <div class="seg sgn" data-i="${i}"><button data-s="1" class="${s.v >= 0 ? "on" : ""}">+ positive</button><button data-s="-1" class="${s.v < 0 ? "on" : ""}">− negative</button></div>`
+         : `<div class="ctl"><label>log₁₀(Mass / kg) <output id="o_sm${i}"></output></label><input type="range" id="sm${i}" min="10" max="31" step="0.1" value="${Math.log10(s.v).toFixed(1)}"><div class="hint">Slide to set mass on a log scale. 12 → 1×10¹² kg</div></div>`) +
+      `</details>`;
+  });
+  el("srcBox").innerHTML = h;
+  el("nSrc").addEventListener("input", ev => {
+    const n = +ev.target.value; own();
+    while (f.src.length < n) { const [x, y] = DEF_POS[f.src.length]; f.src.push({ v: e ? 1e-9 : 1e12, x, y }); }
+    f.src.length = n; buildSrc(); fieldChanged();
+  });
+  f.src.forEach((s, i) => {
+    el("sx" + i).addEventListener("input", ev => { own(); s.x = +ev.target.value; fieldChanged(); });
+    el("sy" + i).addEventListener("input", ev => { own(); s.y = +ev.target.value; fieldChanged(); });
+    el("sm" + i).addEventListener("input", ev => { own(); s.v = e ? (s.v < 0 ? -1 : 1) * (+ev.target.value) * 1e-9 : Math.pow(10, +ev.target.value); fieldChanged(); });
+  });
+  document.querySelectorAll(".sgn").forEach(sg => sg.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+    own(); const s = f.src[+sg.dataset.i]; s.v = Math.abs(s.v) * +b.dataset.s; sg.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); fieldChanged();
+  })));
+  srcLabels();
+}
+function srcLabels() {
+  if (!isField()) return; const f = FS[APP.mode], e = APP.mode === "E";
+  f.src.forEach((s, i) => {
+    if (!el("sx" + i)) return;
+    el("o_sx" + i).textContent = s.x.toFixed(1) + " m"; el("o_sy" + i).textContent = s.y.toFixed(1) + " m";
+    el("o_sm" + i).textContent = e ? (Math.abs(s.v) * 1e9).toFixed(1) + " nC" : Math.log10(s.v).toFixed(1);
+    el("sum" + i).textContent = e ? `${s.v >= 0 ? "+" : "−"}${(Math.abs(s.v) * 1e9).toFixed(1)} nC at (${s.x.toFixed(1)}, ${s.y.toFixed(1)})` : `M = ${sci(s.v, 2)} kg`;
+  });
+}
+function syncField() {
+  const f = FS[APP.mode], L = f.ln;
+  el("px").value = f.probe.x; el("py").value = f.probe.y; el("o_px").textContent = f.probe.x.toFixed(2) + " m"; el("o_py").textContent = f.probe.y.toFixed(2) + " m";
+  el("cmpOn").checked = FIELD.cmp; el("lnOn").checked = FIELD.ln; el("lnBox").style.display = FIELD.ln ? "" : "none";
+  el("lx").value = L.x0; el("ly").value = L.y0; el("lvx").value = L.vx; el("lvy").value = L.vy;
+  el("o_lx").textContent = L.x0.toFixed(2) + " m"; el("o_ly").textContent = L.y0.toFixed(2) + " m"; el("o_lvx").textContent = L.vx.toFixed(2) + " m/s"; el("o_lvy").textContent = L.vy.toFixed(2) + " m/s";
+  if (APP.mode === "E") { el("lq").value = L.q; el("lm").value = L.lm; el("o_lq").textContent = (L.q >= 0 ? "+" : "") + L.q.toFixed(1) + " nC"; const mg = Math.pow(10, L.lm); el("o_lm").textContent = mg >= 1 ? mg.toFixed(mg < 10 ? 2 : 1) + " g" : (mg * 1000).toFixed(mg < 0.01 ? 2 : 1) + " mg"; }
+  el("wrapCmp").style.display = adv() && FIELD.cmp ? "" : "none";
+}
+function fieldChanged() { srcLabels(); computeLaunch(); examKey = ""; }
+function syncOrbit() {
+  el("oM").value = OS.Mi; el("or0").value = Math.log10(OS.r0).toFixed(2); el("ovr").value = OS.vr; el("o_ovr").textContent = OS.vr.toFixed(3);
+  el("o_or0").textContent = fmtD(OS.r0); el("or0cap").textContent = `r₀ = ${fmt(OS.r0 / AU, 4)} AU  (${sci(OS.r0, 3)} m)`;
+  const M = orbM(); el("oMcap").textContent = `M = ${sci(M, 3)} kg = ${fmt(M / MSUN, 3)} M☉`;
+  el("o2b").checked = OS.two; el("o2bBox").style.display = OS.two ? "" : "none"; el("omp").value = Math.log10(OS.mp).toFixed(2); el("o_omp").textContent = sci(OS.mp, 2) + " kg";
+  el("ompcap").textContent = `m/M = ${sci(OS.mp / M, 3)}  (${OS.mp / M > 0.01 ? "significant" : "negligible"})`;
+  el("oHo").checked = OS.hoh; el("oHoBox").style.display = OS.hoh ? "" : "none"; el("orT").value = Math.log10(OS.rT).toFixed(2); el("o_orT").textContent = fmtD(OS.rT);
+  el("oRot").checked = OS.rot; el("oRotBox").style.display = OS.rot ? "" : "none"; el("ovdm").value = OS.vdm; el("o_ovdm").textContent = OS.vdm + " km/s"; el("oMg").value = Math.log10(OS.Mg).toFixed(1); el("o_oMg").textContent = sci(OS.Mg, 1) + " M☉";
+  const vc = Math.sqrt(G * M / OS.r0); el("oCap").innerHTML = `v_circular = ${sci(vc, 2)} m/s<br>v₀ = ${sci(OS.vr * vc, 2)} m/s<br>v_escape = ${sci(vc * Math.SQRT2, 2)} m/s`;
+}
+function syncBinary() {
+  const set = (id, v, txt) => { el(id).value = v; el("o_" + id).textContent = txt; };
+  set("bM1", Math.log10(BS.M1).toFixed(2), fmt(BS.M1, 3) + " M☉"); set("bM2", Math.log10(BS.M2).toFixed(2), fmt(BS.M2, 3) + " M☉"); set("bd", Math.log10(BS.d).toFixed(2), fmt(BS.d, 3) + " AU");
+  set("bphi", Math.round(BS.phi), Math.round(BS.phi) + "°"); set("binc", BS.inc, BS.inc + "°"); el("bTrail").checked = BS.trail;
+}
+function buildTools() {
+  let t = "";
+  if (isField()) t = [["map", "Colour map (potential)"], ["eq", "Equipotentials"], ["lines", "Field lines"], ["arrows", "Field arrows"]].map(([k, n]) => `<button data-k="${k}" class="${SHOW[k] ? "on" : ""}">${n}</button>`).join("");
+  else if (APP.mode === "O") t = [["areas", "Equal areas"], ["esc", "Escape-speed ring"], ["trail", "Trail"]].map(([k, n]) => `<button data-k="${k}" class="${OSHOW[k] ? "on" : ""}">${n}</button>`).join("");
+  el("ctools").innerHTML = t;
+  if (t) el("ctools").insertAdjacentHTML("afterbegin", "<span>Show:</span>");
+  el("ctools").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { const S = isField() ? SHOW : OSHOW; S[b.dataset.k] = !S[b.dataset.k]; b.classList.toggle("on", S[b.dataset.k]); }));
+}
+function setMode(m) {
+  APP.mode = m; LAUNCH = null;
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === m));
+  document.querySelectorAll("[data-m]").forEach(x => { x.style.display = x.dataset.m.includes(m) ? "" : "none"; });
+  el("lvlHint").textContent = LVL_HINT[m];
+  el("notesBody").innerHTML = NOTES[isField() ? "F" : m];
+  el("btnClear").style.display = m === "B" ? "none" : ""; el("btnClear").textContent = "✕ Clear"; el("btnClear").title = isField() ? "Remove the dropped test particles" : "Remove the planets you launched by dragging";
+  el("hover").textContent = "";
+  buildPresets(); buildTools();
+  if (isField()) { buildSrc(); syncField(); computeLaunch(); } else el("wrapCmp").style.display = "none";
+  if (m === "O") { syncOrbit(); if (!OP) orbitSetup(); }
+  if (m === "B") syncBinary();
+  el("legMain").innerHTML = m === "E" ? `<span><i style="background:#de252a"></i>positive charge</span><span><i style="background:#00aec3"></i>negative charge</span><span><i style="background:#f1af28"></i>field lines (direction of force on a + charge)</span><span><i style="background:#ffffff88"></i>equipotentials</span><span><i style="background:#f18700"></i>dropped + test charge (speed not to scale)</span>`
+    : m === "G" ? `<span><i style="background:#abb5b5"></i>mass</span><span><i style="background:#f1af28"></i>field lines (always towards a mass)</span><span><i style="background:#ffffff88"></i>equipotentials</span><span><i style="background:#f18700"></i>dropped test mass (speed not to scale)</span>`
+    : m === "O" ? `<span><i style="background:#00aec3"></i>planet or satellite</span><span><i style="background:#f18700"></i>velocity</span><span><i style="background:#a86dab"></i>escape-speed ring at the current distance</span><span>1× ≈ one orbit in 10 s · bodies not to scale</span>`
+    : `<span><i style="background:#a4cbe6"></i>star 1 (M₁)</span><span><i style="background:#f18700"></i>star 2 (M₂)</span><span>✕ centre of mass · arrows: velocities · 1× = one orbit in 8 s</span>`;
+  examKey = ""; ui(); exam(); Batch.refresh();
+}
+function setLevel(l) {
+  APP.lvl = l; document.body.classList.toggle("lvl-adv", l === "adv"); document.body.classList.toggle("lvl-std", l === "std");
+  document.querySelectorAll("#lvl button").forEach(b => b.classList.toggle("on", b.dataset.lvl === l));
+  if (isField()) syncField();
+  if (OP && (OS.two || OS.hoh)) orbitSetup();
+  examKey = "";
+}
+
+(function initControls() {
+  el("oM").innerHTML = O_MASSES.map((m, i) => `<option value="${i}">${m.label}</option>`).join("");
+  document.querySelectorAll("#tabs button").forEach(b => b.addEventListener("click", () => setMode(b.dataset.tab)));
+  document.querySelectorAll("#lvl button").forEach(b => b.addEventListener("click", () => { setLevel(b.dataset.lvl); ui(); }));
+  // fields
+  const fl = () => FS[APP.mode];
+  el("px").addEventListener("input", () => { fl().probe.x = +el("px").value; syncField(); examKey = ""; });
+  el("py").addEventListener("input", () => { fl().probe.y = +el("py").value; syncField(); examKey = ""; });
+  el("cmpOn").addEventListener("input", () => { FIELD.cmp = el("cmpOn").checked; syncField(); });
+  el("lnOn").addEventListener("input", () => { FIELD.ln = el("lnOn").checked; syncField(); computeLaunch(); });
+  [["lx", "x0"], ["ly", "y0"], ["lvx", "vx"], ["lvy", "vy"], ["lq", "q"], ["lm", "lm"]].forEach(([id, k]) => el(id).addEventListener("input", () => { fl().ln[k] = +el(id).value; syncField(); computeLaunch(); }));
+  el("qual").addEventListener("input", () => { APP.q = el("qual").value; });
+  // orbits
+  const oc = (fn, re = true) => () => { own(); fn(); syncOrbit(); if (re) orbitSetup(); examKey = ""; };
+  el("oM").addEventListener("input", oc(() => { OS.Mi = +el("oM").value; OS.custom = []; }));
+  el("or0").addEventListener("input", oc(() => { OS.r0 = Math.pow(10, +el("or0").value); OS.custom = []; }));
+  el("ovr").addEventListener("input", oc(() => { OS.vr = +el("ovr").value; }));
+  el("o2b").addEventListener("input", oc(() => { OS.two = el("o2b").checked; }));
+  el("omp").addEventListener("input", oc(() => { OS.mp = Math.pow(10, +el("omp").value); }));
+  el("oHo").addEventListener("input", oc(() => { OS.hoh = el("oHo").checked; }));
+  el("orT").addEventListener("input", oc(() => { OS.rT = Math.pow(10, +el("orT").value); }));
+  el("oRot").addEventListener("input", oc(() => { OS.rot = el("oRot").checked; }, false));
+  el("ovdm").addEventListener("input", oc(() => { OS.vdm = +el("ovdm").value; }, false));
+  el("oMg").addEventListener("input", oc(() => { OS.Mg = Math.pow(10, +el("oMg").value); }, false));
+  // binary
+  const bc = fn => () => { own(); fn(); syncBinary(); examKey = ""; };
+  el("bM1").addEventListener("input", bc(() => { BS.M1 = +Math.pow(10, +el("bM1").value).toPrecision(3); }));
+  el("bM2").addEventListener("input", bc(() => { BS.M2 = +Math.pow(10, +el("bM2").value).toPrecision(3); }));
+  el("bd").addEventListener("input", bc(() => { BS.d = +Math.pow(10, +el("bd").value).toPrecision(3); }));
+  el("bphi").addEventListener("input", () => { BS.phi = +el("bphi").value; syncBinary(); });
+  el("binc").addEventListener("input", () => { BS.inc = +el("binc").value; syncBinary(); });
+  el("bTrail").addEventListener("input", () => { BS.trail = el("bTrail").checked; });
+  // run controls
+  el("btnPlay").addEventListener("click", () => { APP.playing = !APP.playing; el("btnPlay").textContent = APP.playing ? "⏸ Pause" : "▶ Play"; });
+  el("btnReset").addEventListener("click", () => {
+    if (isField()) { FS[APP.mode].parts = []; if (LN) LN.anim = 0; } else if (APP.mode === "O") orbitReset(); else { BS.phi = 0; BS.t = 0; syncBinary(); }
+  });
+  el("btnClear").addEventListener("click", () => { if (isField()) FS[APP.mode].parts = []; else OS.custom = []; });
+  document.querySelectorAll("#speed button").forEach(b => b.addEventListener("click", () => { APP.speed = +b.dataset.s; document.querySelectorAll("#speed button").forEach(x => x.classList.toggle("on", x === b)); }));
+  el("btnBatch").addEventListener("click", () => Batch.open());
+
+  // pointer on the main view: drag sources/probe, drop test particles, launch planets
+  const cv = el("cv"); let drag = null;
+  const pos = ev => { const r = cv.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
+  cv.addEventListener("pointerdown", ev => {
+    const [px, py] = pos(ev);
+    if (isField() && MAPR) {
+      const f = FS[APP.mode], R = MAPR;
+      const i = f.src.findIndex(s => Math.hypot(R.X(s.x) - px, R.Y(s.y) - py) < 16);
+      if (i >= 0) { drag = { k: "src", i }; dragLow = true; own(); }
+      else if (Math.hypot(R.X(f.probe.x) - px, R.Y(f.probe.y) - py) < 12) drag = { k: "probe" };
+      else if (px >= R.x && px <= R.x + R.s && py >= R.y && py <= R.y + R.s) { f.parts.push({ x: R.wx(px), y: R.wy(py), vx: 0, vy: 0, trail: [] }); if (f.parts.length > 40) f.parts.shift(); }
+      if (drag) cv.setPointerCapture(ev.pointerId);
+    } else if (APP.mode === "O" && OV) {
+      if (Math.hypot(px - OV.cx, py - OV.cy) > 20) { LAUNCH = { x: OV.wx(px), y: OV.wy(py), end: null, pts: [], v: 0, vc: 1 }; cv.setPointerCapture(ev.pointerId); }
+    }
+  });
+  cv.addEventListener("pointermove", ev => {
+    const [px, py] = pos(ev);
+    if (isField() && MAPR) {
+      const f = FS[APP.mode], R = MAPR, e = APP.mode === "E";
+      const x = clamp(Math.round(R.wx(px) * 10) / 10, -5, 5), y = clamp(Math.round(R.wy(py) * 10) / 10, -5, 5);
+      if (drag && drag.k === "src") { const s = f.src[drag.i]; s.x = x; s.y = y; el("sx" + drag.i).value = x; el("sy" + drag.i).value = y; fieldChanged(); }
+      else if (drag && drag.k === "probe") { f.probe.x = clamp(Math.round(R.wx(px) * 4) / 4, -5, 5); f.probe.y = clamp(Math.round(R.wy(py) * 4) / 4, -5, 5); syncField(); examKey = ""; }
+      if (px >= R.x && px <= R.x + R.s && py >= R.y && py <= R.y + R.s) {
+        const F = fieldAt(f.src, e, R.wx(px), R.wy(py)); el("hover").textContent = `${e ? "|E|" : "|g|"} = ${sci(Math.hypot(F[0], F[1]), 2)} ${e ? "V/m" : "N/kg"} · ${e ? "V" : "Vg"} = ${sci(F[2], 2)} ${e ? "V" : "J/kg"} at (${R.wx(px).toFixed(2)}, ${R.wy(py).toFixed(2)}) m`;
+      } else el("hover").textContent = "";
+    } else if (APP.mode === "O" && LAUNCH) {
+      const L = LAUNCH, dx = px - OV.X(L.x), dy = py - OV.Y(L.y), len = Math.hypot(dx, dy), { h } = cv.getBoundingClientRect();
+      const r = Math.hypot(L.x, L.y), vc = Math.sqrt(G * orbM() / r); L.vc = vc; L.v = len / (0.25 * h) * vc;   // a quarter of the height = circular speed
+      L.end = [px, py]; const vx = len ? dx / len * L.v : 0, vy = len ? -dy / len * L.v : 0; L.vx = vx; L.vy = vy;
+      L.pts = len > 3 ? customOrbit(L.x, L.y, vx, vy).pts : [];
+    }
+  });
+  const up = () => {
+    if (drag && drag.k === "src") { dragLow = false; examKey = ""; }
+    drag = null;
+    if (LAUNCH && LAUNCH.end && LAUNCH.v > 0) { const c = customOrbit(LAUNCH.x, LAUNCH.y, LAUNCH.vx, LAUNCH.vy); OS.custom.push({ pts: c.pts, col: CUST[OS.custom.length % 3] }); if (OS.custom.length > 3) OS.custom.shift(); }
+    LAUNCH = null;
+  };
+  cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+  cv.addEventListener("pointerleave", () => { if (!drag) el("hover").textContent = ""; });
+})();
+
+/* =====================================================================
+   11. MAIN LOOP
+   ===================================================================== */
+let lastT = performance.now(), uiT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000) * APP.speed; lastT = now;
+  if (APP.playing) { if (isField()) stepField(dt); else if (APP.mode === "O") stepOrbit(dt); else stepBinary(dt); }
+  if (isField()) { drawField(); if (adv() && FIELD.cmp) drawCompare(); } else if (APP.mode === "O") drawOrbit(); else drawBinary();
+  if (now - uiT > 150) { ui(); exam(); drawCharts(); uiT = now; }
+  requestAnimationFrame(frame);
+}
+
+/* =====================================================================
+   12. BATCH RUN — measure the laws many times and compare with theory
+   ===================================================================== */
+function runOnce(p, seed, out) {
+  const rng = mulberry32(seed);
+  if (out === "E" || out === "V" || out === "g") {
+    // a field probe held at distance r (±1 cm) from a single source; the meter reading has a random error (SD probeErr %)
+    const rTrue = Math.max(0.05, p.r + 0.01 * gauss(rng)), noise = 1 + p.probeErr / 100 * gauss(rng);
+    if (out === "g") { const c = G * p.M; return { value: c / (rTrue * rTrue) * noise, theory: c / (p.r * p.r), theorySD: c / (p.r * p.r) * Math.hypot(p.probeErr / 100, 2 * 0.01 / p.r) }; }
+    const c = K * p.Q * 1e-9;
+    if (out === "E") return { value: c / (rTrue * rTrue) * noise, theory: c / (p.r * p.r), theorySD: c / (p.r * p.r) * Math.hypot(p.probeErr / 100, 2 * 0.01 / p.r) };
+    return { value: c / rTrue * noise, theory: c / p.r, theorySD: c / p.r * Math.hypot(p.probeErr / 100, 0.01 / p.r) };
+  }
+  const GM = G * p.Msun * MSUN, r0 = p.r0 * AU;
+  if (out === "T" || out === "kep") {
+    const vr = clamp(p.vr + p.vrSpread * (2 * rng() - 1), 0.1, 1.4), v0 = vr * Math.sqrt(GM / r0), m = measureOrbit(GM, r0, v0, 2000, 1e3 * TAU * Math.sqrt(r0 ** 3 / GM));
+    const E = 0.5 * v0 * v0 - GM / r0, a = -GM / (2 * E);
+    if (out === "T") return { value: m.T / YEAR, theory: TAU * Math.sqrt(a ** 3 / GM) / YEAR };
+    return { value: (m.a / AU) ** 3 / (m.T / YEAR) ** 2, theory: GM / (4 * Math.PI ** 2) / (AU ** 3 / YEAR ** 2) };
+  }
+  if (out === "drift") {
+    const vr = clamp(p.vr + p.vrSpread * (2 * rng() - 1), 0.1, 1.38), v0 = vr * Math.sqrt(GM / r0);
+    return { value: energyDrift(GM, r0, v0, Math.round(p.steps), Math.round(p.orbits)).pct, theory: NaN };
+  }
+  if (out === "rmax") {
+    const v0 = p.vr * Math.sqrt(GM / r0), T0 = TAU * Math.sqrt(r0 ** 3 / GM), F = f1(GM); let s = [r0, 0, 0, v0], t = 0, rm = r0;
+    while (t < 2000 * T0 && rm < 1000 * r0) { const r = Math.hypot(s[0], s[1]), h = (TAU / 400) * Math.sqrt(r * r * r / GM); s = rk4(F, s, h); t += h; rm = Math.max(rm, Math.hypot(s[0], s[1])); }
+    const k2 = p.vr * p.vr; return { value: Math.min(rm / r0, 1000), theory: k2 < 2 ? Math.max(1, k2 / (2 - k2)) : NaN };    // furthest point r_a/r₀ = v²/(2v_c² − v²)
+  }
+  if (out === "Mtot") {
+    // an astronomer measures the separation d and the period T, each with a random error, and uses Kepler's third law
+    const B = bParams(p.M1, p.M2, p.d), dm = B.d * (1 + p.errD / 100 * gauss(rng)), Tm = B.T * (1 + p.errT / 100 * gauss(rng));
+    const M = 4 * Math.PI ** 2 * dm ** 3 / (G * Tm * Tm) / MSUN, th = p.M1 + p.M2;
+    return { value: M, theory: th, theorySD: th * Math.hypot(3 * p.errD, 2 * p.errT) / 100 };
+  }
+}
+Batch.init({
+  fileName: "fields-orbits", runChoices: [20, 50, 100, 200, 500, 1000],
+  hint: "Run a model measurement many times with no drawing. Experiments set every input themselves; your own runs start from the current mode's set-up. Batch runs use exact formulas, not the map's Quality setting.",
+  defaults: { Q: 1, M: 1e12, r: 2, probeErr: 3, Msun: 1, r0: 1, vr: 1, vrSpread: 0, steps: 400, orbits: 5, M1: 2.02, M2: 0.978, d: 19.8, errD: 2, errT: 1 },
+  current: () => {
+    if (APP.mode === "E" || APP.mode === "G") { const f = FS[APP.mode], s = f.src[0], r = Math.max(0.1, Math.hypot(f.probe.x - s.x, f.probe.y - s.y)); return APP.mode === "E" ? { Q: Math.abs(s.v) * 1e9, r } : { M: s.v, r }; }
+    if (APP.mode === "O") return { Msun: orbM() / MSUN, r0: OS.r0 / AU, vr: Math.min(OS.vr, 1.38) };
+    return { M1: BS.M1, M2: BS.M2, d: BS.d };
+  },
+  extras: [{ key: "probeErr", label: "Probe reading error SD (%)", step: 0.5, min: 0, max: 50 }, { key: "errD", label: "Binary: error in d, SD (%)", step: 0.5, min: 0, max: 20 }],
+  outcomes: {
+    E: { label: "Field strength E measured", unit: "V/m", theoryLabel: "E = kQ/r²", gradient: { r: -2, Q: 1 } },
+    V: { label: "Potential V measured", unit: "V", theoryLabel: "V = kQ/r", gradient: { r: -1, Q: 1 } },
+    g: { label: "Gravitational field g measured", unit: "N/kg", theoryLabel: "g = GM/r²", gradient: { r: -2 } },
+    T: { label: "Orbital period T (simulated)", unit: "years", theoryLabel: "T = 2π√(a³/GM)", gradient: { r0: 1.5, Msun: -0.5 } },
+    kep: { label: "a³/T² from the simulated orbit", unit: "AU³/yr²", theoryLabel: "GM/4π² (= M in M☉)", noFit: true },
+    drift: { label: "Energy drift after the orbits", unit: "%", theoryLabel: "0 (energy is conserved)", gradient: { steps: "−4 or steeper (RK4 is a 4th-order method)" } },
+    rmax: { label: "Furthest distance ÷ r₀", unit: "", theoryLabel: "v²/(2v_c² − v²) for a closed orbit" },
+    Mtot: { label: "Total mass from Kepler's 3rd law", unit: "M☉", theoryLabel: "M₁ + M₂" },
+  },
+  vars: {
+    r: { label: "Distance r", unit: "m", min: 0.1, max: 100, from: 0.5, to: 5 },
+    Q: { label: "Charge Q", unit: "nC", min: 0.01, max: 1000, from: 1, to: 10 },
+    r0: { label: "Orbit radius r₀", unit: "AU", min: 0.01, max: 100, from: 0.2, to: 30 },
+    Msun: { label: "Central mass M", unit: "M☉", min: 0.01, max: 100, from: 0.1, to: 10 },
+    vr: { label: "Launch speed v₀/v_circular", unit: "", min: 0.1, max: 2, from: 1, to: 1.6 },
+    steps: { label: "Time steps per orbit", unit: "", int: true, min: 8, max: 5000, from: 25, to: 400 },
+    probeErr: { label: "Probe reading error SD", unit: "%", min: 0, max: 50, from: 0, to: 10 },
+    errD: { label: "Binary: error in d, SD", unit: "%", min: 0, max: 20, from: 0, to: 6 },
+  },
+  experiments: [
+    { q: "Does E fall as 1/r²?", sub: "1 nC charge, probe 0.5–5 m, 3% meter error", mode: "sweep", out: "E", v: "r", from: 0.5, to: 5, steps: 8, reps: 6, logx: true, logy: true, set: { Q: 1, probeErr: 3 },
+      note: "Each point is a student holding a field probe at distance r (to ±1 cm) from a 1 nC charge; the meter has a 3% random error. On log–log axes E = kQ/r² is a straight line of gradient −2: double the distance, a quarter of the field. The measured gradient comes out close to −2. Close in, the ±1 cm position error matters more (a 1 cm error at 0.5 m is a 4% error in E), so the scatter is bigger there." },
+    { q: "Kepler's third law: T² ∝ r³?", sub: "circular orbits round the Sun, 0.2–30 AU", mode: "sweep", out: "T", v: "r0", from: 0.2, to: 30, steps: 8, reps: 1, logx: true, logy: true, set: { Msun: 1, vr: 1, vrSpread: 0 },
+      note: "Each point is a planet launched at the circular speed and timed once round by the simulation (RK4). On log–log axes the gradient is 1.5: T ∝ r^1.5, which is the same as T² ∝ r³. At 1 AU the period is 1 year; at 30 AU (Neptune) about 164 years. The simulated periods sit on the theory line to better than 0.01%, because the only error is the tiny step error of RK4." },
+    { q: "Does Kepler's 3rd law hold for ellipses?", sub: "200 random launch speeds: a³/T²", mode: "repeat", out: "kep", runs: 200, set: { Msun: 1, r0: 1, vr: 0.95, vrSpread: 0.35 },
+      note: "Each run launches a planet at 1 AU with a random speed between 0.6 and 1.3 times the circular speed, so most orbits are ellipses of very different shapes. The simulation measures the semi-major axis a = (closest + furthest)/2 and the period T, in AU and years. a³/T² comes out as 1.000 for every orbit, the Sun's mass in solar masses: Kepler's third law uses the semi-major axis, whatever the eccentricity. The tiny spread is only the simulation's step error." },
+    { q: "Is energy conserved over orbits?", sub: "RK4, 25–400 steps per orbit, 5 orbits", mode: "sweep", out: "drift", v: "steps", from: 25, to: 400, steps: 7, reps: 3, logx: true, logy: true, set: { Msun: 1, r0: 1, vr: 0.8, vrSpread: 0.01, orbits: 5 },
+      note: "In real gravity the total energy (KE + PE) of an orbit never changes. A computer has to step forward in time, and each step makes a small error, so the total energy drifts. RK4 is a 4th-order method: over a fixed time its errors shrink at least as fast as (time step)⁴, a gradient of −4 or steeper on log–log axes. For the energy of this orbit the gradient comes out steeper still, about −5: halve the time step and the drift falls about 30 times. With 25 steps an orbit the energy is out by about 1.5%; with 400 it is out by about one part in 60 million. The drift is a fault of the method, not of the physics. (The three runs at each step have slightly different launch speeds, between 0.79 and 0.81 of circular speed.)" },
+    { q: "Where does escape speed start?", sub: "launch speed 1.0–1.6 × circular", mode: "sweep", out: "rmax", v: "vr", from: 1, to: 1.6, steps: 13, reps: 1, logy: true, set: { Msun: 1, r0: 1 },
+      note: "How far out does the planet get? For a closed orbit the furthest point is r₀ × v²/(2v_c² − v²), which shoots up as the speed nears √2 × v_c = 1.414 v_c, the escape speed √(2GM/r). Beyond that the planet never comes back: the simulation stops it at 1000 r₀ (the flat top of the graph), and there is no theory line because the furthest point is at infinity." },
+    { q: "Weigh Sirius A and B", sub: "200 measurements of d (2%) and T (1%)", mode: "repeat", out: "Mtot", runs: 200, set: { M1: 2.02, M2: 0.978, d: 19.8, errD: 2, errT: 1 },
+      note: "Each run is one astronomer measuring the separation d (2% error) and the period T (1% error) of Sirius A and B, then using M₁ + M₂ = 4π²d³/(GT²). The results scatter round the true 3.0 M☉ with an SD of about 6%: because d is cubed, its 2% error becomes 6%, while the 1% error in T only becomes 2%. That is why measuring the distance well matters most when weighing stars." },
+  ],
+  runOnce,
+});
+
+/* =====================================================================
+   13. START
+   ===================================================================== */
+initLayout("fields-orbits-layout", () => Batch.refresh());
+setLevel("std");
+// starting set-ups for every mode
+applyPresetQuiet("G", 4); applyPresetQuiet("E", 1);
+OS.preset = 4; Object.assign(OS, { Mi: 8, r0: 1.496e11, vr: 1 }); orbitSetup();
+Object.assign(BS, { M1: 2, M2: 1, d: 1, preset: -1 });
+function applyPresetQuiet(m, k) { const p = (m === "E" ? E_PRESETS : G_PRESETS)[k], f = FS[m]; f.src = p.src.map(([v, x, y]) => ({ v, x, y })); f.probe = p.probe ? { x: p.probe[0], y: p.probe[1] } : { x: 3, y: 3 }; f.preset = k; }
+setMode("E");
+requestAnimationFrame(frame);
+</script>
+<!-- VIEW BAR (start): hide/show the side panels and full-screen the simulation. Same block in every simulation. -->
+<style>
+  #viewBar { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-shrink: 0; align-self: center; }
+  #viewBar button { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  #viewBar button.on { border-color: var(--accent); }
+  #viewBar .vbKey { opacity: .55; font-size: 11px; margin-left: 4px; }
+  /* bigger, clearer drag handles between the panels */
+  .splitter::before { width: 4px !important; margin-left: -2px !important; }
+  .splitter::after { content: "⋮"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--muted); font-size: 16px; pointer-events: none; }
+  .splitter button { width: 22px !important; height: 52px !important; font-size: 15px !important; font-weight: 700; background: var(--accent) !important; color: #14133b !important; border: none !important; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  /* full screen: the centre panel fills the screen */
+  #centre:fullscreen { background: var(--bg); padding: 10px; width: 100vw; height: 100vh; box-sizing: border-box; }
+  #centre .vbExit { display: none; }
+  #centre:fullscreen .vbExit { display: block; position: absolute; top: 10px; right: 12px; z-index: 50; }
+  #centre:fullscreen { position: relative; }
+  #vbTip { position: fixed; top: 52px; right: 14px; z-index: 60; max-width: 330px; background: var(--panel-2, #1b2017); border: 1px solid var(--accent);
+           border-radius: 10px; padding: 9px 12px; font-size: 13px; line-height: 1.45; box-shadow: 0 4px 16px rgba(0,0,0,.5); cursor: pointer; }
+</style>
+<script>
+(function () {
+  // Buttons in the header: hide/show the left (controls) and right (readouts) panels, and full screen.
+  // They click the existing ‹ › buttons on the drag handles, so each simulation's own layout code stays in charge.
+  const header = document.querySelector("header"), centre = document.getElementById("centre");
+  const sL = document.getElementById("splitL"), sR = document.getElementById("splitR");
+  const left = sL && sL.previousElementSibling, right = sR && sR.nextElementSibling;   // the panels either side of the drag handles
+  const bL = sL && sL.querySelector("button"), bR = sR && sR.querySelector("button");
+  if (!header || !centre || !left || !right || !bL || !bR) return;
+  const bar = document.createElement("div"); bar.id = "viewBar";
+  bar.innerHTML = '<button id="vbL" title="Hide or show the controls panel (key: [ )"></button>' +
+                  '<button id="vbR" title="Hide or show the readouts panel (key: ] )"></button>' +
+                  '<button id="vbF" title="Show only the simulation, full screen (key: F; Esc to leave)">⛶ Full screen</button>';
+  header.appendChild(bar);
+  const exit = document.createElement("button"); exit.className = "vbExit"; exit.textContent = "✕ Exit full screen (Esc)";
+  centre.appendChild(exit);
+  const vbL = bar.querySelector("#vbL"), vbR = bar.querySelector("#vbR"), vbF = bar.querySelector("#vbF");
+  function label() {
+    const lc = left.classList.contains("collapsed"), rc = right.classList.contains("collapsed");
+    vbL.textContent = lc ? "◧ Show controls" : "◧ Hide controls"; vbL.classList.toggle("on", !lc);
+    vbR.textContent = rc ? "Show readouts ◨" : "Hide readouts ◨"; vbR.classList.toggle("on", !rc);
+  }
+  new MutationObserver(label).observe(left, { attributes: true, attributeFilter: ["class"] });
+  new MutationObserver(label).observe(right, { attributes: true, attributeFilter: ["class"] });
+  label();
+  const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else if (centre.requestFullscreen) centre.requestFullscreen().catch(() => {}); };
+  vbL.onclick = () => bL.click(); vbR.onclick = () => bR.click(); vbF.onclick = full; exit.onclick = full;
+  document.addEventListener("fullscreenchange", () => {
+    vbF.textContent = document.fullscreenElement ? "✕ Exit full screen" : "⛶ Full screen";
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 60);    // canvases re-measure themselves
+  });
+  // The batch-run window lives outside the full-screen area, so leave full screen when it is opened
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("button");
+    if (document.fullscreenElement && b && /Batch run/.test(b.textContent)) document.exitFullscreen();
+  }, true);
+  document.addEventListener("keydown", e => {
+    const t = e.target.tagName; if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA" || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "f" || e.key === "F") { full(); e.preventDefault(); }
+    else if (e.key === "[") bL.click(); else if (e.key === "]") bR.click();
+  });
+  // A one-time tip so people notice the panels can be hidden or resized
+  let seen = false; try { seen = localStorage.getItem("sims-viewbar-tip") === "1"; } catch (e) {}
+  if (!seen) {
+    const tip = document.createElement("div"); tip.id = "vbTip";
+    tip.innerHTML = "<b>Make the simulation bigger:</b> hide the side panels with the buttons above (or the yellow ‹ › tabs), drag the ⋮ bars to resize them, or press <b>⛶ Full screen</b>. Click to close.";
+    document.body.appendChild(tip);
+    const close = () => { tip.remove(); try { localStorage.setItem("sims-viewbar-tip", "1"); } catch (e) {} };
+    tip.onclick = close; setTimeout(close, 12000);
+  }
+})();
+</script>
+<!-- VIEW BAR (end) -->
+</body>
+</html>
