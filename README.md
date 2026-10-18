@@ -40,6 +40,8 @@ changing a simulation's batch experiments.
 | [`physics/double_pendulum/`](physics/double_pendulum/) | Pendulums and oscillations: simple harmonic motion, damping and resonance, then double-pendulum chaos | Open `double-pendulum.html` |
 | [`physics/states_of_matter/`](physics/states_of_matter/) | States of matter: particles, heating and cooling curves, specific heat capacity and latent heat (also listed under Chemistry) | Open `states-of-matter.html` |
 | [`physics/youngs_modulus/`](physics/youngs_modulus/) | Young's modulus: Hooke's law, stress–strain curves, breaking, Searle's method | Open `youngs-modulus.html` |
+| [`physics/projectile_motion/`](physics/projectile_motion/) | Projectile motion: range, angle and time of flight, with air resistance, spin and wind | Open `projectile-motion.html` |
+| [`physics/circular_motion/`](physics/circular_motion/) | Circular motion: whirling bung, banked bends, loop-the-loop, conical pendulum | Open `circular-motion.html` |
 | [`physics/nuclear_fusion/`](physics/nuclear_fusion/) | Fusion on a potential-energy diagram: the Coulomb barrier, quantum tunnelling, the Gamow peak, and the temperature and pressure needed in stars and reactors | Open `nuclear-fusion.html` |
 | [`physics/physics_sims/`](physics/physics_sims/) | 28 WJEC Physics simulations (Streamlit app) | `python setup_env.py` once, then `streamlit run Home.py` |
 
@@ -66,7 +68,7 @@ changing a simulation's batch experiments.
 |---|---|---|
 | [`engineering/earthquake_buildings/`](engineering/earthquake_buildings/) | Tall buildings in earthquakes: resonance, tuned mass dampers, base isolation | Open `earthquake-buildings.html` |
 | [`engineering/traffic_flow/`](engineering/traffic_flow/) | Traffic flow and phantom jams, smart motorways, lane closures | Open `traffic-flow.html` |
-| [`engineering/car_crash/`](engineering/car_crash/) | Car crash safety: crumple zones, seatbelts and airbags (momentum and impulse) | Open `car-crash.html` |
+| [`engineering/car_crash/`](engineering/car_crash/) | Car crash safety: crumple zones, seatbelts and airbags (momentum and impulse), plus a collisions lab (also listed under Physics) | Open `car-crash.html` |
 | [`engineering/fluid_dynamics/`](engineering/fluid_dynamics/) | 2D CFD: the Hess–Smith panel method for flow around aerofoils | `pip install -r requirements.txt`, then `python main.py` |
 
 ## Medical and anatomical

@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Projectile Motion</title>
+<!--
+  PROJECTILE MOTION — a teaching model
+  ====================================
+  One self-contained file: no libraries, no internet needed.
+  WJEC Eduqas A level Physics, Component 1, Topic 2 (Kinematics), sections (f) and (g).
+
+  A ball is launched at speed v₀ and angle θ above the horizontal, from a
+  height h₀ above level ground. With no air resistance the horizontal and
+  vertical motions are independent:
+      horizontal:  no force, so vₓ = v₀ cos θ stays the same        x = v₀ cos θ · t
+      vertical:    weight only, so a = −g                           y = h₀ + v₀ sin θ · t − ½ g t²
+  From level ground (h₀ = 0):
+      time of flight  T = 2 v₀ sin θ / g        range  R = v₀² sin 2θ / g
+      maximum height  H = v₀² sin² θ / (2g)     45° gives the longest range.
+
+  ADVANCED: quadratic air drag  F_D = ½ ρ C_D A v²  (opposite to the velocity,
+  measured relative to the air, so wind matters), and the Magnus force on a
+  spinning ball (topspin dips, backspin lifts). These are solved step by step
+  with the RK4 method (time step 5 ms). Terminal velocity v_T = √(2mg / ρC_D A).
+
+  Units: metres, seconds, kilograms, newtons, joules; angles in degrees.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 250px) 10px minmax(0, 1fr) 10px var(--rw, 280px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  h2 .nc { text-transform: none; letter-spacing: 0; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: var(--ink-dark); }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select, input[type=number] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .chk { display: flex; gap: 6px; align-items: center; font-size: 13px; margin-bottom: 7px; }
+  .chk input { accent-color: var(--accent); }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .seg { display: flex; gap: 4px; margin-bottom: 6px; }
+  .seg button { flex: 1; padding: 4px 6px; font-size: 12.5px; }
+  body.lvl-std .advOnly, body.lvl-adv .stdOnly { display: none !important; }
+  .advdiv { color: #c39bff; font-weight: 600; font-size: 12.5px; margin: 12px 0 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .info { background: #16212b; border: 1px solid #2b4152; color: #cfe3f2; border-radius: 6px; padding: 5px 8px; font-size: 12.5px; margin: 4px 0 8px; }
+  .info:empty { display: none; }
+  .card { background: #16212b; border-left: 3px solid #00aec3; border-radius: 5px; padding: 5px 8px; font-size: 12.5px; margin-top: 6px; color: #dfe9f0; }
+  .card.warn { border-left-color: var(--accent); background: #2a2410; color: #f5e7c4; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  .topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  .clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .badge { font-weight: 700; font-size: 12.5px; border-radius: 999px; padding: 1px 10px; background: #2a3024; color: var(--muted); }
+  .wrapC { position: relative; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  .wrapC canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .ctools { position: absolute; left: 8px; top: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
+  .ctools button { padding: 3px 9px; font-size: 12.5px; background: rgba(20,24,17,.88); }
+  .ctools button.on { background: var(--accent); }
+  .crow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 6px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .chartBox { position: relative; height: 185px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+  details p { margin: 6px 0; }
+  .eq { font-family: "Cambria Math", "Times New Roman", serif; font-size: 14px; color: var(--text); margin: 2px 0 2px 8px; }
+  table.data { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  table.data td, table.data th { padding: 2px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+  table.data td:first-child, table.data th:first-child { text-align: left; }
+  table.data th { color: var(--muted); font-weight: 600; }
+  table.data tr.on td { color: var(--accent); font-weight: 700; }
+
+  /* Exam practice */
+  .exhead { font-size: 11.5px; color: var(--accent); text-transform: uppercase; letter-spacing: .05em; margin-top: 10px; }
+  .exq { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; margin-top: 7px; color: var(--text); font-size: 12.5px; }
+  .exq .qh { display: flex; gap: 8px; justify-content: space-between; align-items: flex-start; }
+  .exq .mk { flex: none; background: var(--accent); color: var(--ink-dark); border-radius: 4px; padding: 0 6px; font-size: 11px; font-weight: 700; }
+  .exq .ht { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  .exq button { margin-top: 5px; padding: 2px 8px; font-size: 12px; }
+  .exq .ms { display: none; margin-top: 5px; border-top: 1px dashed var(--line); padding-top: 4px; }
+  .exq.open .ms { display: block; }
+  .exq .ms div { margin: 1px 0 1px 6px; }
+  .exq .ans { color: #8fd694; font-weight: 700; margin-top: 3px; }
+
+  /* Batch run overlay (covers the centre and right panels) */
+  #batch { display: none; position: fixed; z-index: 30; background: var(--panel); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px;
+           flex-direction: column; gap: 7px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+  #batch.open { display: flex; }
+  #batch .bhead { display: flex; align-items: center; gap: 10px; }
+  #batch .bhead h3 { margin: 0; white-space: nowrap; font-size: 17px; color: var(--accent); }
+  #batch .brow { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; }
+  #batch .brow label { display: inline-flex; gap: 5px; align-items: center; }
+  #batch input[type=number] { width: 78px; }
+  #bexp { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 5px; }
+  #bexp button { text-align: left; font-size: 12px; padding: 5px 7px; line-height: 1.25; }
+  #bexp button small { display: block; color: var(--muted); font-size: 11px; }
+  #bexp button.on small { color: var(--ink-dark); }
+  #bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 32%); gap: 10px; }
+  #bchartBox { position: relative; min-height: 0; background: #050604; border-radius: 8px; }
+  #bchart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bside { overflow-y: auto; font-size: 12.5px; min-height: 0; }
+  #bsum table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #bsum td, #bsum th { padding: 1px 4px; border-bottom: 1px solid var(--line); text-align: right; font-size: 12px; }
+  #bsum td:first-child, #bsum th:first-child { text-align: left; }
+  #bNote { margin-top: 8px; padding: 7px 9px; background: var(--panel-2); border-left: 3px solid var(--accent); border-radius: 5px; color: #dfe3d6; }
+  .prog { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; flex: 1; min-width: 120px; }
+  .prog span { display: block; height: 100%; width: 0; background: var(--accent); }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+
+  .pane { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
+  .tabs { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 4px; }
+  .tabs button { padding: 2px 8px; font-size: 12px; }
+  .numrow { display: flex; gap: 6px; align-items: center; }
+  .numrow input[type=range] { flex: 1; }
+  .cbar { display: inline-block; width: 70px; height: 9px; border-radius: 4px; vertical-align: -1px; background: linear-gradient(90deg, #3b2a8f, #b03a8a, #f18700, #f1e04a); }
+  .lv { color: #8fd694; font-size: 10.5px; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+</style>
+</head>
+<body class="lvl-std">
+<header>
+  <h1>Projectile Motion</h1>
+  <span class="sub">Launch a ball and watch the horizontal and vertical motions work independently: range, height and time of flight, then add air resistance and spin.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: PRESETS AND CONTROLS ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Level</h2>
+    <div class="seg" id="lvl"><button data-lvl="std">Standard (GCSE)</button><button data-lvl="adv">Advanced (A level)</button></div>
+    <div class="hint">Advanced adds air resistance (drag), terminal velocity, spin (the Magnus effect), wind and real sports balls.</div>
+
+    <h2 class="gap">Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">Launch <span class="lv">relaunches at once</span></h2>
+    <div class="ctl"><label>Initial speed v₀ <output id="o_v0"></output></label><input type="range" id="v0" min="1" max="80" step="1" value="20">
+      <div class="hint">Or drag back from the launcher on the picture, like a catapult.</div></div>
+    <div class="ctl"><label>Launch angle θ <output id="o_th"></output></label><input type="range" id="th" min="0" max="90" step="1" value="45">
+      <div class="hint">Angle above the horizontal. 45° gives the longest range from level ground with no air resistance.</div></div>
+    <div class="ctl"><label>Launch height h₀ <output id="o_h0"></output></label><input type="range" id="h0" min="0" max="100" step="1" value="0">
+      <div class="hint">Above 0 the ball is launched from a cliff or a tower.</div></div>
+    <div class="ctl"><label>Gravity</label><select id="gsel">
+      <option value="9.81">Earth (9.81 m/s²)</option><option value="1.62">Moon (1.62 m/s²)</option><option value="3.71">Mars (3.71 m/s²)</option><option value="24.79">Jupiter (24.79 m/s²)</option></select></div>
+
+    <div class="advOnly">
+      <div class="advdiv">⚗️ Advanced options</div>
+      <label class="chk"><input type="checkbox" id="drag"> Air resistance (quadratic drag, solved with RK4)</label>
+      <div id="dragOpts">
+        <div class="ctl"><label>Real-world object</label><select id="obj"></select></div>
+        <div class="ctl"><label><span>Drag coefficient C<sub>D</sub></span> <output id="o_cd"></output></label><input type="range" id="cd" min="0.1" max="1.5" step="0.01" value="0.47">
+          <div class="hint">Sphere ≈ 0.47, streamlined body &lt; 0.1, bluff body &gt; 1.</div></div>
+        <div class="ctl"><label>Cross-sectional area A <output id="o_area"></output></label><input type="range" id="area" min="0.001" max="0.5" step="0.001" value="0.1">
+          <div class="hint">The area facing the direction of motion.</div></div>
+        <div class="ctl"><label>Mass m <output id="o_mass"></output></label><input type="range" id="mass" min="0.005" max="10" step="0.005" value="1">
+          <div class="hint">Heavier objects are less affected by drag. Pick "Custom" to change C<sub>D</sub>, A and m.</div></div>
+        <div class="info">Air density ρ = 1.225 kg/m³ (sea level, 15 °C)</div>
+        <div id="objFact" class="card" style="display:none"></div>
+        <div class="ctl" style="margin-top:8px"><label>Wind <output id="o_wind"></output></label><input type="range" id="wind" min="-15" max="15" step="0.5" value="0">
+          <div class="hint">+ = tail wind (blowing the way the ball goes), − = head wind.</div></div>
+        <label class="chk"><input type="checkbox" id="magnus"> Magnus effect (spin)</label>
+        <div class="ctl" id="spinOpts"><label>Spin rate ω <output id="o_omega"></output></label><input type="range" id="omega" min="-200" max="200" step="5" value="0">
+          <div class="hint">Positive = topspin (the ball dips), negative = backspin (it climbs). <span id="radiusNote"></span></div></div>
+      </div>
+    </div>
+
+    <h2 class="gap">Display</h2>
+    <label class="chk"><input type="checkbox" id="showComp" checked> Velocity components (vₓ and vᵧ arrows)</label>
+    <label class="chk"><input type="checkbox" id="showMarks" checked> Time markers every 0.5 s</label>
+    <label class="chk"><input type="checkbox" id="speedCol"> Colour the path by speed</label>
+    <label class="chk"><input type="checkbox" id="equal" checked> Same scale on both axes (true shape)</label>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE: THE FLIGHT ======================= -->
+  <section class="panel" id="centre">
+    <div class="topbar">
+      <span class="clock" id="cT">0.00 s</span>
+      <span class="stat">x <b id="cX">–</b></span>
+      <span class="stat">y <b id="cY">–</b></span>
+      <span class="stat">vₓ <b id="cVx">–</b></span>
+      <span class="stat">vᵧ <b id="cVy">–</b></span>
+      <span class="badge" id="badge">In flight</span>
+    </div>
+    <div class="wrapC" style="flex:2.1"><canvas id="scene" aria-label="The projectile's flight"></canvas>
+      <div class="ctools"><button id="btnTarget" title="Put the target somewhere new">🎯 New target</button><button id="btnPin" title="Keep this path on the picture to compare with the next one">📌 Keep this path</button><button id="btnClear">Clear kept paths</button></div></div>
+    <div class="wrapC" style="flex:1"><canvas id="vt" aria-label="Velocity components against time"></canvas></div>
+    <div class="crow">
+      <button id="btnLaunch" class="primary" style="min-width:96px">▶ Launch</button>
+      <button id="btnPause">⏸ Pause</button>
+      <span class="speed" id="speed">Speed <button data-s="0.25">¼×</button><button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="4">4×</button></span>
+      <button id="btnBatch" style="margin-left:auto">📊 Batch run</button>
+    </div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT: READINGS ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readings</button>
+    <h2>What's happening</h2>
+    <div class="story" id="story"></div>
+    <h2 class="gap">No air resistance (the formulas)</h2>
+    <div class="tiles" id="tiles"></div>
+    <div class="advOnly" id="dragTilesBox">
+      <h2 class="gap" id="dragHead">With air resistance</h2>
+      <div class="tiles" id="dragTiles"></div>
+    </div>
+    <h2 class="gap">Graphs</h2>
+    <div class="tabs" id="gtabs"><button data-g="range" class="on">Range vs angle</button><button data-g="energy">Energy</button><button data-g="height">Height vs time</button></div>
+    <div class="chartBox" style="height:200px"><canvas id="chart"></canvas></div>
+    <div class="legend" id="chartLegend" style="margin-top:4px"></div>
+    <div class="hint" id="chartNote" style="margin-top:3px"></div>
+
+    <details id="notes">
+      <summary>📐 Physics notes</summary>
+      <p><b>Spec reference:</b> Component 1, Topic 2 (Kinematics), sections (f) and (g).</p>
+      <p style="margin-bottom:2px"><b>Key equations:</b></p>
+      <div class="eq">x = v₀ cos θ · t</div>
+      <div class="eq">y = v₀ sin θ · t − ½ g t²</div>
+      <div class="eq">R = v₀² sin 2θ / g</div>
+      <div class="eq">H = v₀² sin² θ / (2g)</div>
+      <p><b>What this shows:</b> projectile motion separates into two <b>independent</b> components. Horizontally there is no force (ignoring air resistance), so vₓ = v₀ cos θ stays the same throughout the flight. Vertically, gravity gives a constant downward acceleration g, so vᵧ falls steadily from v₀ sin θ to zero at the top, then grows downwards until landing. The result is a <b>parabola</b>. Range is greatest at θ = 45° with no air resistance.</p>
+      <p><b>Horizontal velocity is CONSTANT (no air resistance). This is the key idea: the x and y motions are completely independent.</b></p>
+      <p><b>Energy:</b> at launch all the energy is kinetic (½mv₀²). At the top, KE = ½mv₀² cos²θ (only the horizontal motion is left) and GPE = mgH.</p>
+      <div class="advOnly">
+        <p><b>Advanced context.</b> <b>Quadratic drag</b> arises because the projectile must push a column of air out of its way. The drag force is F<sub>D</sub> = ½ρC<sub>D</sub>Av², where ρ is the air density, C<sub>D</sub> the drag coefficient, A the cross-sectional area and v the speed. Because drag depends on v² it is negligible at low speeds but dominant at high speeds. The equations have no simple formula solution, so they are solved numerically (RK4 here). <b>Terminal velocity</b> is reached when drag exactly balances the weight: v<sub>T</sub> = √(2mg / ρC<sub>D</sub>A).</p>
+        <p><b>Magnus effect:</b> a spinning ball drags the air next to it round with it. On one side this adds to the flow past the ball (faster, so lower pressure — Bernoulli); on the other side it opposes it (slower, higher pressure). The pressure difference gives a force at right angles to the velocity. Topspin (ω &gt; 0) pushes the ball <b>down</b> (shorter range); backspin (ω &lt; 0) pushes it <b>up</b> (longer range). Footballers, golfers, tennis players and cricketers all use it.</p>
+      </div>
+    </details>
+
+    <details id="exam" open>
+      <summary>📝 Exam practice</summary>
+      <div class="hint" style="margin-top:4px">The questions use your current settings: change the speed and angle and the numbers and answers update.</div>
+      <div id="examQs"></div>
+    </details>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>No air resistance (Standard):</b> exact formulas. Only the weight acts, so a = −g straight down and the horizontal speed never changes. The ball is a point: its size does not matter.</li>
+        <li><b>Flat, level ground</b> at y = 0. A ball launched from a height h₀ lands when y = 0: T = (v₀ sin θ + √(v₀² sin²θ + 2gh₀)) / g.</li>
+        <li><b>g is constant</b> (9.81 m/s² on Earth). In reality g falls very slightly with height, and the Earth is curved and spinning: for a ball these effects are far too small to see.</li>
+        <li><b>Air resistance (Advanced):</b> F<sub>D</sub> = ½ρC<sub>D</sub>Av², with ρ = 1.225 kg/m³ and the velocity measured relative to the moving air (wind). C<sub>D</sub> is kept constant; for real balls it changes with speed (a golf ball's dimples make it drop sharply above about 15 m/s).</li>
+        <li><b>Magnus force:</b> a = ½ρAC<sub>L</sub>r ω v / m at right angles to the velocity, with lift coefficient C<sub>L</sub> = 0.5 and the radius r worked out from the area (A = πr²). The spin stays the same through the flight; really it slowly decays.</li>
+        <li><b>Numerical method:</b> RK4 with 5 ms steps; the landing point is found by interpolating between the last two steps.</li>
+        <li><b>Left out:</b> the ball bouncing or rolling after it lands, side-spin (swerve to the left or right), how a javelin or shuttlecock turns to point along its path, and changes of air density with height and temperature.</li>
+        <li><b>Batch runs:</b> a real launcher is not perfect. Each run adds a random error to the launch speed (SD as a % of v₀) and to the angle (SD in degrees), drawn from normal distributions.</li>
+      </ul>
+    </details>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   SHARED TOOLS — small helpers, charts, panel layout, exam questions
+   and the batch-run engine. (The physics is further down the file.)
+   ===================================================================== */
+const el = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+// Repeatable random numbers (the same seed always gives the same sequence)
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+// A random number from a normal (bell-shaped) distribution, mean 0, SD 1
+function gauss(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+
+// Size a canvas for the screen's pixel ratio so lines and text stay sharp (Surface screens at 200%)
+function fitCanvas(cv) {
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const w = Math.max(10, Math.round(r.width * dpr)), h = Math.max(10, Math.round(r.height * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: r.width, h: r.height };
+}
+function niceStep(range, n) { const raw = range / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+function fmt(v, sig = 3) {
+  if (v === null || v === undefined || !isFinite(v)) return "–"; if (v === 0) return "0";
+  const a = Math.abs(v); if (a >= 1e6 || a < 1e-3) return v.toExponential(sig - 1).replace("e+", "e");
+  return (+v.toPrecision(sig)).toLocaleString("en-GB", { maximumFractionDigits: 6 });
+}
+function ticksFor(a, b, log) {
+  if (log) {
+    const out = [], lo = Math.floor(Math.log10(a)), hi = Math.ceil(Math.log10(b)), few = hi - lo <= 2;
+    for (let e = lo; e <= hi; e++) for (const m of few ? [1, 2, 5] : [1]) { const v = m * Math.pow(10, e); if (v >= a * 0.999 && v <= b * 1.001) out.push(v); }
+    return out;
+  }
+  const st = niceStep(b - a || 1, 5), out = []; for (let v = Math.ceil(a / st) * st; v <= b + st * 1e-6; v += st) out.push(Math.abs(v) < st * 1e-9 ? 0 : v); return out;
+}
+// Draw axes with grid, ticks and labels; returns functions X(v), Y(v) that map data to pixels
+function axes(ctx, w, h, o) {
+  const L = o.L || 54, R = o.R || 10, T = o.T || 8, B = o.B || 34;
+  const fx = o.xlog ? Math.log10 : v => v, fy = o.ylog ? Math.log10 : v => v;
+  const X = v => L + (fx(v) - fx(o.x0)) / (fx(o.x1) - fx(o.x0)) * (w - L - R);
+  const Y = v => h - B - (fy(v) - fy(o.y0)) / (fy(o.y1) - fy(o.y0)) * (h - T - B);
+  ctx.font = "11px system-ui, sans-serif"; ctx.lineWidth = 1;
+  for (const v of (o.xticks || ticksFor(o.x0, o.x1, o.xlog))) { const x = X(v); ctx.strokeStyle = "#232920"; ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, h - B); ctx.stroke(); if (!o.noXT) { ctx.fillStyle = "#a3ab96"; ctx.textAlign = "center"; ctx.fillText(o.xfmt ? o.xfmt(v) : fmt(v), x, h - B + 13); } }
+  for (const v of (o.yticks || ticksFor(o.y0, o.y1, o.ylog))) { const y = Y(v); ctx.strokeStyle = "#232920"; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke(); ctx.fillStyle = "#a3ab96"; ctx.textAlign = "right"; ctx.fillText(o.yfmt ? o.yfmt(v) : fmt(v), L - 4, y + 3.5); }
+  ctx.strokeStyle = "#5a6352"; ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, h - B); ctx.lineTo(w - R, h - B); ctx.stroke();
+  ctx.fillStyle = "#cfd5c4"; ctx.textAlign = "center"; ctx.fillText(o.xlabel || "", L + (w - L - R) / 2, h - 6);
+  ctx.save(); ctx.translate(11, T + (h - T - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(o.ylabel || "", 0, 0); ctx.restore();
+  return { X, Y, L, R, T, B };
+}
+function line(ctx, pts, col, width = 2, dash) {
+  ctx.strokeStyle = col; ctx.lineWidth = width; ctx.setLineDash(dash || []); ctx.beginPath();
+  let started = false; for (const [x, y] of pts) { if (!isFinite(x) || !isFinite(y)) { started = false; continue; } if (started) ctx.lineTo(x, y); else { ctx.moveTo(x, y); started = true; } }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+function clip(ctx, ax, w, h) { ctx.save(); ctx.beginPath(); ctx.rect(ax.L, ax.T, w - ax.L - ax.R, h - ax.T - ax.B); ctx.clip(); }
+function tile(k, v, s) { return `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s || ""}</div></div>`; }
+function arrow(ctx, x0, y0, x1, y1, col, wd = 2, head = 8) {
+  const a = Math.atan2(y1 - y0, x1 - x0), L = Math.hypot(x1 - x0, y1 - y0); if (L < 2) return;
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = wd; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - head * Math.cos(a - 0.4), y1 - head * Math.sin(a - 0.4)); ctx.lineTo(x1 - head * Math.cos(a + 0.4), y1 - head * Math.sin(a + 0.4)); ctx.closePath(); ctx.fill();
+}
+// Exam questions with marks, hint and a "Show mark scheme" toggle. Open mark schemes stay open when the numbers change.
+const examOpen = new Set();
+function renderExam(box, groups) {
+  let html = "", n = 0;
+  for (const g of groups) {
+    if (g.title) html += `<div class="exhead">${g.title}</div>`;
+    g.qs.forEach((q, i) => {
+      const id = (g.id || "q") + i; n++;
+      html += `<div class="exq${examOpen.has(id) ? " open" : ""}" data-id="${id}"><div class="qh"><span><b>Q${n}.</b> ${q.q}</span><span class="mk">${q.marks} mark${q.marks === 1 ? "" : "s"}</span></div>` +
+        (q.hint ? `<div class="ht">💡 Hint: ${q.hint}</div>` : "") + `<button>${examOpen.has(id) ? "Hide" : "Show"} mark scheme</button>` +
+        `<div class="ms">${(q.working || []).map(s => `<div>→ ${s}</div>`).join("")}<div class="ans">${q.answerLabel === false ? "" : "Answer: "}${q.answer}</div></div></div>`;
+    });
+  }
+  box.innerHTML = html;
+  box.querySelectorAll(".exq button").forEach(b => b.addEventListener("click", () => {
+    const d = b.parentElement, id = d.dataset.id; d.classList.toggle("open");
+    if (d.classList.contains("open")) examOpen.add(id); else examOpen.delete(id);
+    b.textContent = (d.classList.contains("open") ? "Hide" : "Show") + " mark scheme";
+  }));
+}
+
+// Resizable, hideable side panels (remembered in this browser)
+function initLayout(KEY, onChange) {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const STRIP = 30, MIN = 170, DEF = { lw: 250, rw: 280, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY + "-v2") || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY + "-v2", JSON.stringify(st)); } catch (e) {}
+    if (onChange) onChange();
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+}
+
+/* =====================================================================
+   BATCH RUN — run the model many times with no drawing, then compare
+   the results with theory.
+     REPEAT: the same settings N times with different random seeds
+             → histogram, mean, SD, standard error, theory.
+     SWEEP : change one setting in steps, several runs at each step
+             → mean ± 1 SD at each step, with the theory line.
+   A one-click experiment sets EVERY input itself (from fixed defaults),
+   so it gives the same answer whatever is on the left panel.
+   C = { defaults, current(), outcomes, vars, extras, experiments, runOnce(p, seed, out), fileName, hint }
+   ===================================================================== */
+const Batch = (function () {
+  let C = null, res = null, busy = false, stop = false, expI = -1;
+  const st = a => { const v = a.filter(x => x !== null && x !== undefined && isFinite(x)), n = v.length; if (!n) return { n: 0 }; const mean = v.reduce((s, x) => s + x, 0) / n; const sd = n > 1 ? Math.sqrt(v.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1)) : 0; return { n, mean, sd, se: sd / Math.sqrt(n), min: Math.min(...v), max: Math.max(...v) }; };
+  const linfit = (xs, ys) => { const n = xs.length; let sx = 0, sy = 0, sxx = 0, sxy = 0; for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; sxx += xs[i] ** 2; sxy += xs[i] * ys[i]; } const b = (n * sxy - sx * sy) / (n * sxx - sx * sx); return { b, a: (sy - b * sx) / n }; };
+  const unitOf = u => (u ? ` (${u})` : "");
+  function init(cfg) {
+    C = cfg;
+    const d = document.createElement("div"); d.id = "batch"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Batch run");
+    d.innerHTML = `
+      <div class="bhead"><h3>📊 Batch run</h3><span class="hint">${cfg.hint}</span><button id="bClose" style="margin-left:auto">✕ Close</button></div>
+      <div id="bexp"></div>
+      <div class="brow">
+        <label>Mode <select id="bMode"><option value="repeat">Repeat (new random numbers each run)</option><option value="sweep">Sweep (change one setting in steps)</option></select></label>
+        <label>Record <select id="bOut">${Object.entries(cfg.outcomes).map(([k, o]) => `<option value="${k}">${o.label}${unitOf(o.unit)}</option>`).join("")}</select></label>
+        <span id="bRepeatOpts"><label>Runs <select id="bRuns">${cfg.runChoices.map(n => `<option>${n}</option>`).join("")}</select></label></span>
+        ${(cfg.extras || []).map(x => `<label>${x.label} <input type="number" id="bx_${x.key}" step="${x.step}" min="${x.min}" max="${x.max}" value="${cfg.defaults[x.key]}"></label>`).join("")}
+      </div>
+      <div class="brow" id="bSweepOpts">
+        <label>Change <select id="bVar">${Object.entries(cfg.vars).map(([k, v]) => `<option value="${k}">${v.label}${unitOf(v.unit)}</option>`).join("")}</select></label>
+        <label>from <input type="number" id="bFrom" step="any"></label>
+        <label>to <input type="number" id="bTo" step="any"></label>
+        <label>steps <input type="number" id="bSteps" min="2" max="30" value="6" style="width:56px"></label>
+        <label>runs each <input type="number" id="bReps" min="1" max="100" value="5" style="width:60px"></label>
+      </div>
+      <div class="brow">
+        <button id="bRun" class="primary">▶ Run batch</button>
+        <button id="bStop" disabled>■ Stop</button>
+        <div class="prog"><span id="bProg"></span></div>
+        <span id="bStatus" class="hint">Ready</span>
+        <label><input type="checkbox" id="bLogX"> log x</label>
+        <label><input type="checkbox" id="bLogY"> log y</label>
+        <button id="bCsv" disabled>⬇ Download CSV</button>
+      </div>
+      <div id="bbody">
+        <div id="bchartBox"><canvas id="bchart"></canvas></div>
+        <div id="bside"><div id="bsum" class="hint">Pick an experiment above, or set up your own, then press <b>Run batch</b>.</div><div id="bNote" style="display:none"></div></div>
+      </div>`;
+    document.body.appendChild(d);
+    el("bexp").innerHTML = cfg.experiments.map((e, i) => `<button data-i="${i}">${e.q}${e.sub ? `<small>${e.sub}</small>` : ""}</button>`).join("");
+    document.querySelectorAll("#bexp button").forEach(b => b.addEventListener("click", () => load(+b.dataset.i)));
+    // changing the set-up by hand leaves the experiment: your own runs use the left panel
+    ["bMode", "bOut", "bVar"].forEach(id => el(id).addEventListener("input", () => { expI = -1; markExp(); sync(); if (id === "bVar") { const v = C.vars[el("bVar").value]; el("bFrom").value = v.from; el("bTo").value = v.to; } }));
+    ["bLogX", "bLogY"].forEach(id => el(id).addEventListener("input", draw));
+    el("bClose").addEventListener("click", () => d.classList.remove("open"));
+    el("bRun").addEventListener("click", run);
+    el("bStop").addEventListener("click", () => { stop = true; });
+    el("bCsv").addEventListener("click", csv);
+    const v0 = Object.values(cfg.vars)[0]; el("bFrom").value = v0.from; el("bTo").value = v0.to;
+    sync();
+  }
+  function markExp() { document.querySelectorAll("#bexp button").forEach(b => b.classList.toggle("on", +b.dataset.i === expI)); }
+  function sync() { const sw = el("bMode").value === "sweep"; el("bRepeatOpts").style.display = sw ? "none" : ""; el("bSweepOpts").style.display = sw ? "" : "none"; }
+  function load(i) {
+    const E = C.experiments[i]; expI = i;
+    el("bMode").value = E.mode; el("bOut").value = E.out;
+    if (E.runs) el("bRuns").value = E.runs;
+    if (E.v) { el("bVar").value = E.v; el("bFrom").value = E.from; el("bTo").value = E.to; el("bSteps").value = E.steps; el("bReps").value = E.reps; }
+    const full = { ...C.defaults, ...E.set };
+    (C.extras || []).forEach(x => { el("bx_" + x.key).value = full[x.key]; });
+    el("bLogX").checked = !!E.logx; el("bLogY").checked = !!E.logy;
+    markExp(); sync();
+    el("bStatus").textContent = "Experiment set up: press ▶ Run batch";
+  }
+  function open() { place(); el("batch").classList.add("open"); if (!res && expI < 0) load(0); draw(); }
+  function place() {
+    const c = el("centre").getBoundingClientRect(), r = el("right").getBoundingClientRect(), b = el("batch");
+    b.style.left = c.left + "px"; b.style.top = c.top + "px"; b.style.width = (r.right - c.left) + "px"; b.style.height = c.height + "px";
+  }
+  function base() {
+    const E = expI >= 0 ? C.experiments[expI] : null;
+    const b = E ? { ...C.defaults, ...E.set } : { ...C.defaults, ...C.current() };
+    (C.extras || []).forEach(x => { const v = +el("bx_" + x.key).value; b[x.key] = isFinite(v) ? clamp(v, x.min, x.max) : C.defaults[x.key]; });
+    return b;
+  }
+  function run() {
+    if (busy) return;
+    const mode = el("bMode").value, out = el("bOut").value, b = base(), jobs = [];
+    const cfg = { mode, out, v: el("bVar").value, from: +el("bFrom").value, to: +el("bTo").value, steps: clamp(Math.round(+el("bSteps").value) || 2, 2, 30), reps: clamp(Math.round(+el("bReps").value) || 1, 1, 100), runs: +el("bRuns").value, exp: expI };
+    if (mode === "repeat") for (let k = 0; k < cfg.runs; k++) jobs.push({ p: b, x: null, seed: 1000 + k * 7919 });
+    else {
+      const V = C.vars[cfg.v], lg = el("bLogX").checked && cfg.from > 0 && cfg.to > 0;
+      let last = null;
+      for (let s = 0; s < cfg.steps; s++) {
+        let v = lg ? cfg.from * Math.pow(cfg.to / cfg.from, s / (cfg.steps - 1)) : cfg.from + (cfg.to - cfg.from) * s / (cfg.steps - 1);
+        v = clamp(v, V.min, V.max); if (V.int) v = Math.round(v);
+        if (v === last) continue; last = v;
+        const p = { ...b, [cfg.v]: v };
+        // the SAME random numbers at every step, so only the swept setting changes
+        for (let r = 0; r < cfg.reps; r++) jobs.push({ p, x: v, seed: 2000 + r * 7919 });
+      }
+    }
+    res = { cfg, base: b, rows: [] }; busy = true; stop = false;
+    el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").disabled = true;
+    document.querySelectorAll("#bexp button").forEach(x => x.disabled = true);
+    let k = 0; const t0 = performance.now();
+    const chunk = () => {
+      const tc = performance.now();
+      while (k < jobs.length && performance.now() - tc < 50 && !stop) { const j = jobs[k++], r = C.runOnce(j.p, j.seed, out); res.rows.push({ x: j.x, seed: j.seed, ...r }); }
+      el("bProg").style.width = (100 * k / jobs.length) + "%";
+      el("bStatus").textContent = `${k} of ${jobs.length} runs · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+      draw();
+      if (k < jobs.length && !stop) setTimeout(chunk, 0);
+      else { busy = false; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").disabled = !res.rows.length; el("bStatus").textContent += stop ? " · stopped" : " · done"; document.querySelectorAll("#bexp button").forEach(x => x.disabled = false); draw(); }
+    };
+    setTimeout(chunk, 20);
+  }
+  function draw() {
+    const { ctx, w, h } = fitCanvas(el("bchart"));
+    ctx.clearRect(0, 0, w, h);
+    const note = el("bNote"), E = res && res.cfg.exp >= 0 ? C.experiments[res.cfg.exp] : null;
+    if (!res || !res.rows.length) { note.style.display = "none"; return; }
+    const c = res.cfg, O = C.outcomes[c.out], unit = unitOf(O.unit);
+    const leg = (col, t, dash) => `<span style="margin-right:10px;white-space:nowrap"><i style="display:inline-block;width:14px;height:${dash ? 2 : 10}px;background:${col};margin-right:4px;vertical-align:${dash ? 3 : -1}px"></i>${t}</span>`;
+    const logX = el("bLogX").checked, logY = el("bLogY").checked;
+    let html = "";
+    if (c.mode === "repeat") {
+      const vals = res.rows.map(r => r.value).filter(isFinite); if (!vals.length) { el("bsum").textContent = "No usable results."; return; }
+      const S = st(vals), thv = st(res.rows.map(r => r.theory)).mean, tsd = st(res.rows.map(r => r.theorySD)).mean;
+      let lo = Math.min(S.min, isFinite(thv) ? thv : S.min), hi = Math.max(S.max, isFinite(thv) ? thv : S.max);
+      if (isFinite(tsd) && tsd > 0) { lo = Math.min(lo, thv - 3.2 * tsd); hi = Math.max(hi, thv + 3.2 * tsd); }
+      if (hi - lo < 1e-12) { hi = lo + Math.abs(lo || 1) * 0.1; }
+      const pad = (hi - lo) * 0.04; lo -= pad; hi += pad;
+      const nb = clamp(Math.round(Math.sqrt(vals.length) * 1.6), 6, 30), bw = (hi - lo) / nb, cnt = new Array(nb).fill(0);
+      for (const v of vals) cnt[Math.min(nb - 1, Math.max(0, Math.floor((v - lo) / bw)))]++;
+      let ymax = Math.max(...cnt);
+      if (isFinite(tsd) && tsd > 0) ymax = Math.max(ymax, vals.length * bw / (tsd * Math.sqrt(2 * Math.PI)));
+      const ax = axes(ctx, w, h, { x0: lo, x1: hi, y0: 0, y1: ymax * 1.12, xlabel: O.label + unit, ylabel: "number of runs", L: 52 });
+      ctx.fillStyle = "#00aec3cc";
+      for (let b = 0; b < nb; b++) { const x0 = ax.X(lo + b * bw), x1 = ax.X(lo + (b + 1) * bw); ctx.fillRect(x0 + 0.5, ax.Y(cnt[b]), Math.max(1, x1 - x0 - 1), ax.Y(0) - ax.Y(cnt[b])); }
+      if (isFinite(tsd) && tsd > 0 && isFinite(thv)) { const pts = []; for (let k = 0; k <= 160; k++) { const x = lo + (hi - lo) * k / 160; pts.push([ax.X(x), ax.Y(vals.length * bw * Math.exp(-0.5 * ((x - thv) / tsd) ** 2) / (tsd * Math.sqrt(2 * Math.PI)))]); } line(ctx, pts, "#a4cbe6", 2); }
+      if (isFinite(thv)) line(ctx, [[ax.X(thv), ax.T], [ax.X(thv), ax.Y(0)]], "#f1af28", 2.5);
+      line(ctx, [[ax.X(S.mean), ax.T], [ax.X(S.mean), ax.Y(0)]], "#e83181", 2, [3, 3]);
+      const dp = thv ? 100 * (S.mean - thv) / thv : NaN, dse = S.se > 0 ? (S.mean - thv) / S.se : NaN;
+      html += `<div style="margin-bottom:6px">${leg("#00aec3cc", "runs")}${leg("#e83181", "mean", 1)}${isFinite(thv) ? leg("#f1af28", "theory: " + O.theoryLabel, 1) : ""}${isFinite(tsd) && tsd > 0 ? leg("#a4cbe6", "predicted spread (normal curve)", 1) : ""}</div>`;
+      html += `<table><tr><th>Runs (n)</th><td>${S.n}</td></tr><tr><th>Mean</th><td>${fmt(S.mean, 4)}</td></tr><tr><th>SD</th><td>${fmt(S.sd, 3)}</td></tr><tr><th>Standard error</th><td>${fmt(S.se, 2)}</td></tr>` +
+        `<tr><th>Min / max</th><td>${fmt(S.min, 3)} / ${fmt(S.max, 3)}</td></tr><tr><th>Theory</th><td>${fmt(thv, 4)}</td></tr>` +
+        (isFinite(tsd) && tsd > 0 ? `<tr><th>Theory SD</th><td>${fmt(tsd, 3)}</td></tr>` : "") +
+        (isFinite(dp) ? `<tr><th>Difference</th><td>${dp >= 0 ? "+" : ""}${dp.toFixed(1)}%</td></tr>` : "") +
+        `<tr><th>…in standard errors</th><td>${isFinite(dse) ? dse.toFixed(1) : "–"}</td></tr></table>`;
+    } else {
+      const V = C.vars[c.v];
+      const groups = new Map(); for (const r of res.rows) { if (!groups.has(r.x)) groups.set(r.x, { x: r.x, v: [], th: [], th2: [] }); const g = groups.get(r.x); g.v.push(r.value); g.th.push(r.theory); g.th2.push(r.theory2); }
+      const G = [...groups.values()].map(g => ({ ...g, ...st(g.v), thm: st(g.th).mean, th2m: st(g.th2).mean })).filter(g => g.n);
+      if (!G.length) { el("bsum").textContent = "No usable results."; return; }
+      const allY = res.rows.map(r => r.value).filter(isFinite).concat(G.map(g => g.thm).filter(isFinite)).concat(G.map(g => g.th2m).filter(isFinite));
+      let x0 = Math.min(c.from, c.to), x1 = Math.max(c.from, c.to); if (x0 === x1) x1 = x0 + 1;
+      let y0 = Math.min(...allY), y1 = Math.max(...allY);
+      if (logY) { y0 = Math.max(y0 / 1.4, 1e-12); y1 *= 1.4; } else { const pd = (y1 - y0) * 0.12 || Math.abs(y1) * 0.1 || 1; y0 = y0 >= 0 && y0 < 0.4 * y1 ? 0 : y0 - pd; y1 += pd; }
+      if (logX) { x0 /= 1.15; x1 *= 1.15; } else { const pd = (x1 - x0) * 0.05; x0 -= pd; x1 += pd; if (x0 < 0 && c.from >= 0) x0 = 0; }
+      const ax = axes(ctx, w, h, { x0, x1, y0, y1, xlog: logX, ylog: logY, xlabel: V.label + unitOf(V.unit), ylabel: O.label + unit, L: 58 });
+      clip(ctx, ax, w, h);
+      line(ctx, G.filter(g => isFinite(g.thm)).map(g => [ax.X(g.x), ax.Y(g.thm)]), "#f1af28", 2.2);
+      const has2 = G.some(g => isFinite(g.th2m));
+      if (has2) line(ctx, G.filter(g => isFinite(g.th2m)).map(g => [ax.X(g.x), ax.Y(g.th2m)]), "#a3ab96", 1.6, [5, 4]);
+      ctx.fillStyle = "rgba(0,174,195,.4)"; for (const r of res.rows) if (isFinite(r.value)) { ctx.beginPath(); ctx.arc(ax.X(r.x), ax.Y(r.value), 2.5, 0, 6.2832); ctx.fill(); }
+      ctx.strokeStyle = "#ffffff"; ctx.fillStyle = "#e83181"; ctx.lineWidth = 1.5;
+      for (const g of G) { const X = ax.X(g.x), lo = logY && g.mean - g.sd <= 0 ? g.mean * 0.5 : g.mean - g.sd; if (g.sd > 0) { ctx.beginPath(); ctx.moveTo(X, ax.Y(lo)); ctx.lineTo(X, ax.Y(g.mean + g.sd)); ctx.stroke(); } ctx.beginPath(); ctx.arc(X, ax.Y(g.mean), 4, 0, 6.2832); ctx.fill(); }
+      ctx.restore();
+      html += `<div style="margin-bottom:6px">${leg("rgba(0,174,195,.6)", "each run")}${leg("#e83181", "mean ± 1 SD")}${G.some(g => isFinite(g.thm)) ? leg("#f1af28", "theory: " + O.theoryLabel, 1) : ""}${has2 ? leg("#a3ab96", O.theory2Label || "second theory", 1) : ""}</div>`;
+      html += `<table><tr><th>${V.label}</th><th>n</th><th>mean</th><th>SD</th><th>theory</th>${has2 ? "<th>theory 2</th>" : ""}</tr>` +
+        G.map(g => `<tr><td>${fmt(g.x, 3)}</td><td>${g.n}</td><td>${fmt(g.mean, 4)}</td><td>${fmt(g.sd, 2)}</td><td>${fmt(g.thm, 4)}</td>${has2 ? `<td>${fmt(g.th2m, 4)}</td>` : ""}</tr>`).join("") + "</table>";
+      const ok = G.filter(g => g.x > 0 && g.mean > 0);
+      if (ok.length >= 2 && logX && logY) html += `<p><b>Gradient of the log–log graph:</b> ${linfit(ok.map(g => Math.log10(g.x)), ok.map(g => Math.log10(g.mean))).b.toFixed(3)}${O.gradient && O.gradient[c.v] !== undefined ? ` (theory ${O.gradient[c.v]})` : ""}.</p>`;
+      else if (G.length >= 2 && !logX && !logY && !O.noFit) { const f = linfit(G.map(g => g.x), G.map(g => g.mean)); html += `<p><b>Best-fit straight line:</b> gradient ${fmt(f.b, 3)}, intercept ${fmt(f.a, 3)}.</p>`; }
+    }
+    el("bsum").innerHTML = html;
+    note.style.display = E ? "" : "none"; note.innerHTML = E ? `<b>What this shows.</b> ${E.note}` : "";
+  }
+  function csv() {
+    if (!res) return;
+    const c = res.cfg, O = C.outcomes[c.out], V = C.vars[c.v], q = s => `"${String(s).replace(/"/g, '""')}"`;
+    const head = (c.mode === "sweep" ? [V.label + unitOf(V.unit)] : []).concat(["seed", O.label + unitOf(O.unit), "theory", "theory 2"]);
+    const lines = [head.map(q).join(",")].concat(res.rows.map(r => (c.mode === "sweep" ? [r.x] : []).concat([r.seed, r.value, r.theory ?? "", r.theory2 ?? ""]).map(v => typeof v === "number" ? +v.toPrecision(7) : v).join(",")));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" })); a.download = `${C.fileName}-batch-${c.out}.csv`;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+  return { init, open, isBusy: () => busy, refresh: () => { if (el("batch") && el("batch").classList.contains("open")) { place(); draw(); } } };
+})();
+
+
+/* =====================================================================
+   1. CONSTANTS AND REAL-WORLD OBJECTS
+   ===================================================================== */
+const RHO_AIR = 1.225;      // kg/m³, density of air at sea level, 15 °C
+const CL_MAGNUS = 0.5;      // lift coefficient for the Magnus force (no units)
+const DT_RK4 = 0.005;       // s, RK4 time step
+const MARK = 0.5;           // s, time between markers on the path
+// mass (kg), cross-sectional area (m²) and drag coefficient for some real objects
+const OBJECTS = {
+  "Custom":      { mass: 1.0,   area: 0.1,     cd: 0.47 },
+  "Football":    { mass: 0.43,  area: 0.038,   cd: 0.47, fact: "A professional free kick can reach 140 km/h. The ball curves because of spin (the Magnus effect)." },
+  "Golf ball":   { mass: 0.046, area: 0.00143, cd: 0.47, fact: "Dimples on a golf ball reduce drag and help create lift: a smooth ball would travel about 50% less far." },
+  "Cannonball":  { mass: 5.0,   area: 0.0177,  cd: 0.47, fact: "A 12-pounder Napoleonic cannon fired its ball at about 450 m/s. Air resistance was a major tactical consideration." },
+  "Basketball":  { mass: 0.62,  area: 0.0452,  cd: 0.47, fact: "A 3-point shot is typically launched at 45–52° at about 7–8 m/s." },
+  "Tennis ball": { mass: 0.057, area: 0.00346, cd: 0.55, fact: "Topspin in tennis uses the Magnus effect to bring the ball down faster." },
+  "Javelin":     { mass: 0.8,   area: 0.004,   cd: 0.4,  fact: "Elite javelin throwers release at about 33 m/s at about 30°, a little below the theoretical best angle because of aerodynamics." },
+  "Shuttlecock": { mass: 0.005, area: 0.00283, cd: 0.6,  fact: "A shuttlecock slows from 300 km/h to 100 km/h in under half a second because of its huge drag!" },
+};
+const COL = { vac: "#f1af28", drag: "#00aec3", mag: "#e83181", cmp: ["#a4cbe6", "#a2c617", "#a86dab", "#f18700"], vx: "#00aec3", vy: "#e83181", v: "#f1af28", g: "#de252a" };
+
+/* =====================================================================
+   2. THE PHYSICS
+   ===================================================================== */
+// Read every setting into one object p
+function P() {
+  const adv = document.body.classList.contains("lvl-adv");
+  const p = { v0: +el("v0").value, th: +el("th").value, h0: +el("h0").value, g: +el("gsel").value,
+    drag: adv && el("drag").checked, magnus: adv && el("drag").checked && el("magnus").checked,
+    obj: el("obj").value, cd: +el("cd").value, area: +el("area").value, mass: +el("mass").value, wind: +el("wind").value, omega: +el("omega").value };
+  if (!p.magnus) p.omega = 0;
+  return p;
+}
+// No air resistance: exact formulas (from height h0 to the ground)
+function vacuum(v0, thDeg, h0, g) {
+  const th = thDeg * Math.PI / 180, vx = v0 * Math.cos(th), vy = v0 * Math.sin(th);
+  const T = (vy + Math.sqrt(vy * vy + 2 * g * h0)) / g;         // time when y = 0
+  const H = h0 + (vy > 0 ? vy * vy / (2 * g) : 0);              // highest point
+  const vyEnd = vy - g * T;
+  return { T: Math.max(T, 0), R: vx * Math.max(T, 0), H, tTop: vy > 0 ? vy / g : 0, vx, vy, vImp: Math.hypot(vx, vyEnd), angImp: Math.atan2(-vyEnd, vx) * 180 / Math.PI };
+}
+// Sample the no-drag path as arrays (t, x, y, vx, vy)
+function vacuumPath(p) {
+  const s = vacuum(p.v0, p.th, p.h0, p.g), n = 400, out = { t: [], x: [], y: [], vx: [], vy: [] };
+  for (let i = 0; i <= n; i++) { const t = s.T * i / n; out.t.push(t); out.x.push(s.vx * t); out.y.push(Math.max(0, p.h0 + s.vy * t - 0.5 * p.g * t * t)); out.vx.push(s.vx); out.vy.push(s.vy - p.g * t); }
+  out.y[n] = 0;
+  return Object.assign(out, { T: s.T, R: s.R, H: s.H, vImp: s.vImp, angImp: s.angImp });
+}
+// Acceleration with drag (and the Magnus force when omega ≠ 0). State s = [x, y, vx, vy]
+function accel(s, c) {
+  const rx = s[2] - c.wind, ry = s[3], sp = Math.hypot(rx, ry);       // velocity relative to the air
+  let ax = -c.k * sp * rx, ay = -c.g - c.k * sp * ry;                 // drag opposes the relative velocity
+  // Magnus: topspin (ω > 0) gives a force (ω vᵧ, −ω vₓ) × constant: downwards when moving forwards
+  ax += c.km * c.omega * ry; ay += -c.km * c.omega * rx;
+  return [s[2], s[3], ax, ay];
+}
+function dragConsts(p) {
+  const r = Math.sqrt(p.area / Math.PI);
+  return { k: 0.5 * RHO_AIR * p.cd * p.area / p.mass, km: 0.5 * RHO_AIR * p.area * CL_MAGNUS * r / p.mass, omega: p.omega || 0, wind: p.wind || 0, g: p.g };
+}
+// Solve the flight step by step with RK4 until the ball reaches the ground
+function rk4Path(p, keep = true) {
+  const c = dragConsts(p), th = p.th * Math.PI / 180;
+  let s = [0, p.h0, p.v0 * Math.cos(th), p.v0 * Math.sin(th)], t = 0, H = p.h0;
+  const out = keep ? { t: [0], x: [0], y: [p.h0], vx: [s[2]], vy: [s[3]] } : null;
+  const tMax = Math.max(5 * vacuum(p.v0, p.th, p.h0, p.g).T, 1) + 30;
+  const add = (a, b, f) => a.map((v, i) => v + b[i] * f);
+  while (t < tMax) {
+    const k1 = accel(s, c), k2 = accel(add(s, k1, DT_RK4 / 2), c), k3 = accel(add(s, k2, DT_RK4 / 2), c), k4 = accel(add(s, k3, DT_RK4), c);
+    const n = s.map((v, i) => v + DT_RK4 / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]));
+    if (n[1] < 0 && t > 0) {                     // crossed the ground: interpolate to y = 0
+      const f = s[1] / (s[1] - n[1]); const L = s.map((v, i) => v + (n[i] - v) * f);
+      t += DT_RK4 * f; s = L; s[1] = 0;
+      if (keep) { out.t.push(t); out.x.push(s[0]); out.y.push(0); out.vx.push(s[2]); out.vy.push(s[3]); }
+      break;
+    }
+    s = n; t += DT_RK4; if (s[1] > H) H = s[1];
+    if (keep) { out.t.push(t); out.x.push(s[0]); out.y.push(s[1]); out.vx.push(s[2]); out.vy.push(s[3]); }
+  }
+  const res = { T: t, R: s[0], H, vImp: Math.hypot(s[2], s[3]), angImp: Math.atan2(-s[3], s[2]) * 180 / Math.PI };
+  return keep ? Object.assign(out, res) : res;
+}
+const termVel = p => Math.sqrt(2 * p.mass * p.g / (RHO_AIR * p.cd * p.area));
+// State of a path at time t (linear interpolation; holds the landing point after it lands)
+function at(path, t) {
+  const n = path.t.length; if (t <= 0) return { x: path.x[0], y: path.y[0], vx: path.vx[0], vy: path.vy[0], done: false };
+  if (t >= path.T) return { x: path.x[n - 1], y: path.y[n - 1], vx: path.vx[n - 1], vy: path.vy[n - 1], done: true };
+  let lo = 0, hi = n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (path.t[m] <= t) lo = m; else hi = m; }
+  const f = (t - path.t[lo]) / (path.t[hi] - path.t[lo] || 1), L = k => path[k][lo] + (path[k][hi] - path[k][lo]) * f;
+  return { x: L("x"), y: L("y"), vx: L("vx"), vy: L("vy"), done: false };
+}
+
+/* =====================================================================
+   3. STATE: the paths being shown and the animation clock
+   ===================================================================== */
+const S = { p: null, vac: null, drag: null, mag: null, main: null, cmp: [], ghosts: [], t: 0, playing: true, speed: 1, shot: false,
+  target: 0, hits: 0, shots: 0, flash: 0, sling: null, hover: null, preset: -1, view: null, rangeTable: null, landed: false };
+function compute() {
+  const p = P(); S.p = p;
+  S.vac = vacuumPath(p);
+  S.drag = p.drag ? rk4Path(Object.assign({}, p, { omega: 0 })) : null;
+  S.mag = p.magnus ? rk4Path(p) : null;
+  S.main = S.mag || S.drag || S.vac;
+  S.rangeTable = null;                 // the range-vs-angle table is rebuilt when needed
+  S.view = null;
+}
+function launch(byUser) {
+  compute(); S.t = 0; S.playing = true; S.landed = false; S.shot = !!byUser; if (byUser) S.shots++;
+  el("btnPause").textContent = "⏸ Pause";
+}
+// Range against angle for 1°…89° (drag runs use RK4), used for the graph and the best angle
+function rangeTable() {
+  if (S.rangeTable) return S.rangeTable;
+  const p = S.p, vac = [], drag = [];
+  for (let a = 0; a <= 90; a += 1) {
+    vac.push([a, vacuum(p.v0, a, p.h0, p.g).R]);
+    if (p.drag) drag.push([a, rk4Path(Object.assign({}, p, { th: a }), false).R]);
+  }
+  const best = arr => arr.reduce((b, q) => (q[1] > b[1] ? q : b), [0, -1]);
+  S.rangeTable = { vac, drag, bestVac: best(vac), bestDrag: p.drag ? best(drag) : null };
+  return S.rangeTable;
+}
+function newTarget() { const R = Math.max(2, S.vac ? S.vac.R : 20); S.target = R * (0.35 + 0.55 * Math.random()); }
+
+/* =====================================================================
+   4. DRAWING THE FLIGHT
+   ===================================================================== */
+// Speed colour scale: deep purple (slow) → pink → orange → yellow (fast)
+function speedColour(f) {
+  const st = [[59, 42, 143], [176, 58, 138], [241, 135, 0], [241, 224, 74]]; f = clamp(f, 0, 1) * 3;
+  const i = Math.min(2, Math.floor(f)), u = f - i, a = st[i], b = st[i + 1];
+  return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * u)).join(",")})`;
+}
+function viewBox(w, h) {
+  // the world box that holds every path being shown, the target and the launcher
+  let xmax = 1, ymax = 1;
+  for (const pa of [S.vac, S.drag, S.mag, ...S.cmp.map(c => c.path)]) if (pa) { xmax = Math.max(xmax, ...pa.x); ymax = Math.max(ymax, ...pa.y); }
+  xmax = Math.max(xmax, S.target * 1.05); xmax *= 1.06; ymax *= 1.12;
+  let xmin = -0.04 * xmax - (S.p.h0 > 0 ? 0.04 * xmax : 0);
+  const L = 50, R = 14, T = 44, B = 34;
+  if (el("equal").checked) {
+    const s = Math.min((w - L - R) / (xmax - xmin), (h - T - B) / ymax);
+    xmax = xmin + (w - L - R) / s; ymax = (h - T - B) / s;
+  }
+  return { x0: xmin, x1: xmax, y0: 0, y1: ymax, L, R, T, B };
+}
+function drawPath(ctx, ax, pa, col, width, dash, speedCol) {
+  if (!pa) return;
+  if (speedCol) {
+    const vmax = Math.max(...pa.vx.map((v, i) => Math.hypot(v, pa.vy[i]))), vmin = Math.min(...pa.vx.map((v, i) => Math.hypot(v, pa.vy[i])));
+    ctx.lineWidth = width + 1;
+    for (let i = 1; i < pa.t.length; i++) { ctx.strokeStyle = speedColour((Math.hypot(pa.vx[i], pa.vy[i]) - vmin) / (vmax - vmin || 1)); ctx.beginPath(); ctx.moveTo(ax.X(pa.x[i - 1]), ax.Y(pa.y[i - 1])); ctx.lineTo(ax.X(pa.x[i]), ax.Y(pa.y[i])); ctx.stroke(); }
+    return;
+  }
+  line(ctx, pa.x.map((x, i) => [ax.X(x), ax.Y(pa.y[i])]), col, width, dash);
+}
+function drawScene() {
+  const cv = el("scene"), { ctx, w, h } = fitCanvas(cv);
+  ctx.fillStyle = "#070a10"; ctx.fillRect(0, 0, w, h);
+  if (!S.view || S.view.w !== w || S.view.h !== h) S.view = Object.assign(viewBox(w, h), { w, h });
+  const V = S.view, ax = axes(ctx, w, h, { x0: V.x0, x1: V.x1, y0: V.y0, y1: V.y1, xlabel: "horizontal distance x (m)", ylabel: "height y (m)", L: V.L, R: V.R, T: V.T, B: V.B });
+  const p = S.p;
+  clip(ctx, ax, w, h);
+  // ground and launcher (a cliff if h0 > 0)
+  ctx.fillStyle = "#1d2a17"; ctx.fillRect(0, ax.Y(0), w, h);
+  if (p.h0 > 0) { ctx.fillStyle = "#4a4136"; ctx.fillRect(ax.X(V.x0) - 5, ax.Y(p.h0), ax.X(0) - ax.X(V.x0) + 5, ax.Y(0) - ax.Y(p.h0)); }
+  // target
+  const tx = ax.X(S.target), ty = ax.Y(0);
+  ctx.strokeStyle = "rgba(222,37,42,.9)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(tx, ty, 16, 5, 0, 0, 6.283); ctx.stroke();
+  ctx.fillStyle = "rgba(222,37,42,.9)"; ctx.beginPath(); ctx.ellipse(tx, ty, 6, 2.2, 0, 0, 6.283); ctx.fill();
+  ctx.font = "10.5px system-ui"; ctx.textAlign = "center"; ctx.fillText("target", tx, ty - 9);
+  // ghosts of the last catapult shots, kept paths, then the current paths
+  S.ghosts.forEach((g, i) => line(ctx, g.x.map((x, k) => [ax.X(x), ax.Y(g.y[k])]), `rgba(200,200,200,${0.18 + 0.12 * i})`, 1.4, [3, 4]));
+  S.cmp.forEach((c, i) => { line(ctx, c.path.x.map((x, k) => [ax.X(x), ax.Y(c.path.y[k])]), c.col, 1.6, [6, 4]); });
+  const sc = el("speedCol").checked;
+  drawPath(ctx, ax, S.vac, COL.vac, S.drag ? 1.5 : 2.2, S.drag ? [6, 4] : null, sc && !S.drag);
+  drawPath(ctx, ax, S.drag, COL.drag, 2.2, S.mag ? [6, 4] : null, sc && !S.mag);
+  drawPath(ctx, ax, S.mag, COL.mag, 2.2, null, sc);
+  // time markers every 0.5 s on the main path
+  if (el("showMarks").checked) {
+    const pa = S.main, n = Math.floor(pa.T / MARK), every = n > 24 ? 4 : n > 12 ? 2 : 1;
+    ctx.font = "10px system-ui"; ctx.textAlign = "center";
+    for (let k = 1; k <= n; k++) { const q = at(pa, k * MARK), X = ax.X(q.x), Y = ax.Y(q.y); ctx.fillStyle = "#eef0e8"; ctx.beginPath(); ctx.arc(X, Y, 2.6, 0, 6.283); ctx.fill(); if (k % every === 0) { ctx.fillStyle = "#cfd5c4"; ctx.fillText(`${(k * MARK).toFixed(1)} s`, X, Y - 7); } }
+  }
+  // the moving balls: kept paths first, then the paths being studied
+  const balls = S.cmp.map(c => ({ pa: c.path, col: c.col, r: 5 })).concat([S.vac && S.drag ? { pa: S.vac, col: COL.vac, r: 5 } : null, S.drag && S.mag ? { pa: S.drag, col: COL.drag, r: 5 } : null].filter(Boolean));
+  for (const b of balls) { const q = at(b.pa, S.t); ctx.fillStyle = b.col; ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.arc(ax.X(q.x), ax.Y(q.y), b.r, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1; }
+  const q = at(S.main, S.t), bx = ax.X(q.x), by = ax.Y(q.y);
+  // landing flash
+  if (q.done && S.flash > 0) { ctx.fillStyle = `rgba(241,175,40,${S.flash})`; ctx.beginPath(); ctx.arc(bx, by, 26 * (1.2 - S.flash), 0, 6.283); ctx.fill(); }
+  ctx.restore();
+  // velocity arrows (60 px for the launch speed) and the forces
+  const k = 60 / Math.max(1, p.v0), mainCol = S.mag ? COL.mag : S.drag ? COL.drag : COL.vac;
+  if (!q.done) {
+    if (el("showComp").checked) { arrow(ctx, bx, by, bx + q.vx * k, by, COL.vx, 2); arrow(ctx, bx, by, bx, by - q.vy * k, COL.vy, 2); }
+    arrow(ctx, bx, by, bx + q.vx * k, by - q.vy * k, "#ffffff", 2.4);
+    arrow(ctx, bx, by, bx, by + 30, COL.g, 2);
+    ctx.font = "11px system-ui"; ctx.fillStyle = COL.g; ctx.textAlign = "right"; ctx.fillText("W = mg", bx - 5, by + 30);
+    if (p.drag) {      // drag force arrow: length ∝ drag/weight (30 px = weight)
+      const c = dragConsts(p), rx = q.vx - c.wind, sp = Math.hypot(rx, q.vy), aD = c.k * sp * sp;
+      if (sp > 0.01) { const len = Math.min(90, 30 * aD / p.g); arrow(ctx, bx, by, bx - rx / sp * len, by + q.vy / sp * len, "#a4cbe6", 2); }
+      if (p.magnus && Math.abs(p.omega) > 0 && sp > 0.01) { const aM = c.km * Math.abs(p.omega) * sp, len = Math.min(90, 30 * aM / p.g), s = Math.sign(p.omega); arrow(ctx, bx, by, bx + s * q.vy / sp * len, by + s * rx / sp * len, "#a2c617", 2); }
+    }
+  }
+  ctx.fillStyle = mainCol; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(bx, by, 7.5, 0, 6.283); ctx.fill(); ctx.stroke();
+  // catapult at the launch point
+  const ox = ax.X(0), oy = ax.Y(p.h0);
+  ctx.strokeStyle = "#8b5a2b"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(ox - 6, oy); ctx.lineTo(ox - 9, oy - 18); ctx.moveTo(ox + 6, oy); ctx.lineTo(ox + 9, oy - 18); ctx.moveTo(ox, oy); ctx.lineTo(ox, oy + 10); ctx.stroke();
+  if (S.sling) {
+    const sl = S.sling; ctx.strokeStyle = "rgba(241,135,0,.85)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ox - 9, oy - 18); ctx.lineTo(sl.px, sl.py); ctx.lineTo(ox + 9, oy - 18); ctx.stroke();
+    if (sl.prev) line(ctx, sl.prev.x.map((x, i) => [ax.X(x), ax.Y(sl.prev.y[i])]), "rgba(230,230,230,.75)", 1.5, [3, 4]);
+    ctx.fillStyle = "#f1e04a"; ctx.font = "bold 12px system-ui"; ctx.textAlign = "left"; ctx.fillText(`v₀ = ${sl.v.toFixed(0)} m/s   θ = ${sl.th.toFixed(0)}°`, sl.px + 12, sl.py - 10);
+    ctx.fillStyle = mainCol; ctx.beginPath(); ctx.arc(sl.px, sl.py, 7.5, 0, 6.283); ctx.fill();
+  } else if (S.t === 0 || q.done) { ctx.fillStyle = "rgba(200,200,200,.7)"; ctx.font = "10.5px system-ui"; ctx.textAlign = "left"; ctx.fillText("drag back to launch", ox + 10, oy - 8); }
+  // score and hit message
+  ctx.textAlign = "right"; ctx.font = "12px system-ui"; ctx.fillStyle = "#8fd694"; ctx.fillText(`Target hits: ${S.hits} / ${S.shots} shots`, w - 12, 46);
+  if (S.flash > 0 && S.hitNow) { ctx.font = "bold 26px system-ui"; ctx.fillStyle = `rgba(241,224,74,${Math.min(1, S.flash * 1.5)})`; ctx.textAlign = "center"; ctx.fillText("HIT!", tx, ty - 30); }
+  // hover readout (snaps to the main path)
+  if (S.hover && !S.sling) {
+    const hv = S.hover; let best = null, bd = 20;
+    for (let i = 0; i < S.main.t.length; i += 2) { const d = Math.hypot(ax.X(S.main.x[i]) - hv.x, ax.Y(S.main.y[i]) - hv.y); if (d < bd) { bd = d; best = i; } }
+    ctx.strokeStyle = "rgba(255,255,255,.4)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(hv.x - 10, hv.y); ctx.lineTo(hv.x + 10, hv.y); ctx.moveTo(hv.x, hv.y - 10); ctx.lineTo(hv.x, hv.y + 10); ctx.stroke();
+    const wx = best !== null ? S.main.x[best] : V.x0 + (hv.x - ax.L) / (w - ax.L - ax.R) * (V.x1 - V.x0), wy = best !== null ? S.main.y[best] : V.y1 - (hv.y - ax.T) / (h - ax.T - ax.B) * V.y1;
+    const lines = [`x = ${wx.toFixed(1)} m   y = ${Math.max(0, wy).toFixed(1)} m`].concat(best !== null ? [`t = ${S.main.t[best].toFixed(2)} s   v = ${Math.hypot(S.main.vx[best], S.main.vy[best]).toFixed(1)} m/s`] : []);
+    ctx.fillStyle = "rgba(10,12,20,.85)"; ctx.fillRect(ax.L + 6, 8, 210, 8 + 15 * lines.length);
+    ctx.fillStyle = "#dfe3d6"; ctx.font = "11.5px system-ui"; ctx.textAlign = "left"; lines.forEach((s, i) => ctx.fillText(s, ax.L + 12, 22 + 15 * i));
+  }
+  S.ax = ax;
+}
+// velocity components against time (the old page's lower graph)
+function drawVT() {
+  const { ctx, w, h } = fitCanvas(el("vt")); ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, w, h);
+  const paths = [S.vac, S.drag, S.mag].filter(Boolean), T = Math.max(...paths.map(q => q.T), 0.1);
+  const vals = paths.flatMap(q => q.vx.concat(q.vy)); let y0 = Math.min(0, ...vals), y1 = Math.max(1, ...vals); const pd = (y1 - y0) * 0.08; y0 -= pd; y1 += pd;
+  const ax = axes(ctx, w, h, { x0: 0, x1: T * 1.02, y0, y1, xlabel: "time t (s)", ylabel: "velocity (m/s)", B: 30 });
+  clip(ctx, ax, w, h);
+  line(ctx, [[ax.X(0), ax.Y(0)], [ax.X(T * 1.02), ax.Y(0)]], "rgba(200,210,190,.35)", 1);
+  const dash = { vac: S.drag ? [5, 4] : null, drag: S.mag ? [5, 4] : null, mag: null };
+  [["vac", S.vac], ["drag", S.drag], ["mag", S.mag]].forEach(([k, pa]) => { if (!pa) return;
+    line(ctx, pa.t.map((t, i) => [ax.X(t), ax.Y(pa.vx[i])]), COL.vx, k === "vac" && S.drag ? 1.3 : 2, dash[k]);
+    line(ctx, pa.t.map((t, i) => [ax.X(t), ax.Y(pa.vy[i])]), COL.vy, k === "vac" && S.drag ? 1.3 : 2, dash[k]); });
+  line(ctx, [[ax.X(S.t), ax.T], [ax.X(S.t), h - ax.B]], "rgba(238,240,232,.7)", 1);
+  ctx.restore();
+  ctx.font = "11px system-ui"; ctx.textAlign = "right"; ctx.fillStyle = COL.vx; ctx.fillText("vₓ (horizontal)", w - 14, ax.T + 12); ctx.fillStyle = COL.vy; ctx.fillText("vᵧ (vertical, + is up)", w - 14, ax.T + 26);
+  if (S.drag) { ctx.fillStyle = "#a3ab96"; ctx.fillText("dashed = no air resistance", w - 14, ax.T + 40); }
+}
+// graphs on the right
+let gMode = "range";
+function drawChart() {
+  const { ctx, w, h } = fitCanvas(el("chart")); ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, w, h);
+  const p = S.p, leg = el("chartLegend"), note = el("chartNote");
+  if (gMode === "range") {
+    const RT = rangeTable(), all = RT.vac.map(q => q[1]).concat(RT.drag.map(q => q[1]));
+    const ax = axes(ctx, w, h, { x0: 0, x1: 90, y0: 0, y1: Math.max(1, ...all) * 1.1, xlabel: "launch angle θ (°)", ylabel: "range R (m)", xticks: [0, 15, 30, 45, 60, 75, 90] });
+    clip(ctx, ax, w, h);
+    line(ctx, RT.vac.map(q => [ax.X(q[0]), ax.Y(q[1])]), COL.vac, 2);
+    if (RT.drag.length) line(ctx, RT.drag.map(q => [ax.X(q[0]), ax.Y(q[1])]), p.magnus ? COL.mag : COL.drag, 2);
+    line(ctx, [[ax.X(RT.bestVac[0]), ax.T], [ax.X(RT.bestVac[0]), h - ax.B]], "rgba(241,175,40,.5)", 1, [3, 3]);
+    if (RT.bestDrag) line(ctx, [[ax.X(RT.bestDrag[0]), ax.T], [ax.X(RT.bestDrag[0]), h - ax.B]], "rgba(0,174,195,.6)", 1, [3, 3]);
+    const cur = S.main.R; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ax.X(p.th), ax.Y(cur), 4.5, 0, 6.283); ctx.fill();
+    ctx.restore();
+    leg.innerHTML = `<span><i style="background:${COL.vac}"></i>no air resistance (best ${RT.bestVac[0]}°)</span>` + (RT.bestDrag ? `<span><i style="background:${COL.drag}"></i>with air resistance${p.magnus ? " and spin" : ""} (best ${RT.bestDrag[0]}°)</span>` : "") + `<span><i style="background:#fff"></i>your launch</span>`;
+    note.textContent = p.h0 > 0 ? "From a height, the best angle is below 45°: the ball has extra time to fall, so it pays to throw flatter." : p.drag ? "Air resistance shortens every throw and moves the best angle below 45°." : "Complementary angles (like 30° and 60°) give the same range, because sin 2θ is the same for both.";
+  } else if (gMode === "energy") {
+    const pa = S.main, m = p.drag ? p.mass : OBJECTS[p.obj] ? (p.drag ? p.mass : 1) : 1, mm = p.drag ? p.mass : 1;
+    const KE = pa.t.map((t, i) => 0.5 * mm * (pa.vx[i] ** 2 + pa.vy[i] ** 2)), GPE = pa.y.map(y => mm * p.g * y), TOT = KE.map((v, i) => v + GPE[i]);
+    const ax = axes(ctx, w, h, { x0: 0, x1: pa.T * 1.02 || 1, y0: 0, y1: Math.max(...TOT) * 1.12 || 1, xlabel: "time t (s)", ylabel: "energy (J)" });
+    clip(ctx, ax, w, h);
+    line(ctx, pa.t.map((t, i) => [ax.X(t), ax.Y(KE[i])]), "#00aec3", 2); line(ctx, pa.t.map((t, i) => [ax.X(t), ax.Y(GPE[i])]), "#76b82a", 2); line(ctx, pa.t.map((t, i) => [ax.X(t), ax.Y(TOT[i])]), "#f1af28", 2);
+    line(ctx, [[ax.X(S.t), ax.T], [ax.X(S.t), h - ax.B]], "rgba(238,240,232,.6)", 1);
+    ctx.restore();
+    leg.innerHTML = `<span><i style="background:#00aec3"></i>kinetic ½mv²</span><span><i style="background:#76b82a"></i>gravitational mgh</span><span><i style="background:#f1af28"></i>total</span>`;
+    note.textContent = p.drag ? `For this ${p.mass} kg object. The total falls: air resistance does work against the ball, turning its energy into heat in the air.` : "For a 1 kg ball. With no air resistance the total stays the same: KE turns into GPE on the way up and back again on the way down. At the top the KE is not zero, because the ball is still moving sideways.";
+    void m;
+  } else {
+    const paths = [["vac", S.vac], ["drag", S.drag], ["mag", S.mag]].filter(q => q[1]);
+    const T = Math.max(...paths.map(q => q[1].T)), Hm = Math.max(...paths.map(q => q[1].H));
+    const ax = axes(ctx, w, h, { x0: 0, x1: T * 1.02, y0: 0, y1: Hm * 1.12 || 1, xlabel: "time t (s)", ylabel: "height y (m)" });
+    clip(ctx, ax, w, h);
+    paths.forEach(([k, pa]) => line(ctx, pa.t.map((t, i) => [ax.X(t), ax.Y(pa.y[i])]), COL[k], 2));
+    line(ctx, [[ax.X(S.t), ax.T], [ax.X(S.t), h - ax.B]], "rgba(238,240,232,.6)", 1);
+    ctx.restore();
+    leg.innerHTML = paths.map(([k]) => `<span><i style="background:${COL[k]}"></i>${k === "vac" ? "no air resistance" : k === "drag" ? "with drag" : "drag + spin"}</span>`).join("");
+    note.textContent = "Height against time is a parabola, y = h₀ + v₀ sin θ · t − ½gt², whatever the horizontal speed. The gradient is vᵧ: zero at the top.";
+  }
+}
+
+/* =====================================================================
+   5. READINGS, STORY AND EXAM QUESTIONS
+   ===================================================================== */
+const f1 = v => (Math.abs(v) >= 1000 ? Math.round(v).toLocaleString("en-GB") : v.toFixed(Math.abs(v) >= 100 ? 0 : 1));
+function ui() {
+  const p = S.p, V = vacuum(p.v0, p.th, p.h0, p.g), q = at(S.main, S.t);
+  el("cT").textContent = `${Math.min(S.t, S.main.T).toFixed(2)} s`;
+  el("cX").textContent = `${q.x.toFixed(1)} m`; el("cY").textContent = `${q.y.toFixed(1)} m`;
+  el("cVx").textContent = `${q.vx.toFixed(1)} m/s`; el("cVy").textContent = `${q.vy.toFixed(1)} m/s`;
+  const b = el("badge"); b.textContent = q.done ? "Landed" : S.t === 0 ? "Ready" : q.vy > 0 ? "Going up" : "Coming down";
+  b.style.background = q.done ? "#3a9d4a" : "#2a3024"; b.style.color = q.done ? "#fff" : "var(--muted)";
+  el("tiles").innerHTML = tile("Range R", `${f1(V.R)} m`, p.h0 > 0 ? `from ${p.h0} m up` : "v₀² sin 2θ / g") + tile("Max height H", `${f1(V.H)} m`, p.h0 > 0 ? "above the ground" : "v₀² sin²θ / 2g") +
+    tile("Time of flight T", `${V.T.toFixed(2)} s`, p.h0 > 0 ? "until y = 0" : "2 v₀ sin θ / g") + tile("vₓ (constant)", `${V.vx.toFixed(2)} m/s`, "v₀ cos θ") +
+    tile("vᵧ at launch", `${V.vy.toFixed(2)} m/s`, "v₀ sin θ") + tile("Landing speed", `${V.vImp.toFixed(1)} m/s`, `at ${V.angImp.toFixed(0)}° below horizontal`);
+  if (p.drag) {
+    const D = S.drag, M = S.mag, vt = termVel(p), RT = rangeTable();
+    el("dragHead").textContent = M ? "With air resistance (and with spin)" : "With air resistance";
+    el("dragTiles").innerHTML = tile("Range (drag)", `${f1(D.R)} m`, `${(100 * D.R / V.R - 100).toFixed(0)}% vs no air`) + tile("Max height (drag)", `${f1(D.H)} m`, "") + tile("Time of flight", `${D.T.toFixed(2)} s`, "") +
+      tile("Terminal velocity", `${vt.toFixed(1)} m/s`, "√(2mg / ρC<sub>D</sub>A)") + tile("Best angle (this ball)", `${RT.bestDrag[0]}°`, `range ${f1(RT.bestDrag[1])} m`) +
+      (M ? tile(`Drag + ${p.omega > 0 ? "topspin" : p.omega < 0 ? "backspin" : "no spin"}`, `${f1(M.R)} m`, `height ${f1(M.H)} m, ${M.T.toFixed(2)} s`) : tile("Landing speed", `${D.vImp.toFixed(1)} m/s`, `at ${D.angImp.toFixed(0)}°`));
+  }
+  el("story").innerHTML = story(q);
+  el("legend").innerHTML = `<span><i style="background:${COL.vac}"></i>no air resistance</span>` + (S.drag ? `<span><i style="background:${COL.drag}"></i>with drag</span>` : "") + (S.mag ? `<span><i style="background:${COL.mag}"></i>drag + spin</span>` : "") +
+    S.cmp.map(c => `<span><i style="background:${c.col}"></i>${c.label}</span>`).join("") + `<span><i style="background:#fff"></i>velocity</span>` + (el("showComp").checked ? `<span><i style="background:${COL.vx}"></i>vₓ</span><span><i style="background:${COL.vy}"></i>vᵧ</span>` : "") +
+    (el("speedCol").checked ? `<span><span class="cbar"></span> slow → fast</span>` : "") + (S.drag ? `<span><i style="background:#a4cbe6"></i>drag force</span>` : "") + (S.mag ? `<span><i style="background:#a2c617"></i>Magnus force</span>` : "") + `<span><i style="background:${COL.g}"></i>weight</span>`;
+}
+function story(q) {
+  const p = S.p, V = vacuum(p.v0, p.th, p.h0, p.g);
+  if (S.sling) return "Pull back further for more speed; the angle you pull at sets the launch angle. Let go to launch.";
+  if (S.t === 0) return `Ready to launch at ${p.v0} m/s, ${p.th}° above the horizontal${p.h0 > 0 ? ` from ${p.h0} m up` : ""}. Press <b>Launch</b>, or drag back from the catapult.`;
+  const msgs = [];
+  if (!q.done) {
+    msgs.push(q.vy > 0 ? `Going up: gravity slows the vertical speed by ${p.g.toFixed(2)} m/s every second.` : `Coming down: the vertical speed grows by ${p.g.toFixed(2)} m/s every second.`);
+    if (!p.drag) msgs.push(`The horizontal speed stays at ${V.vx.toFixed(1)} m/s the whole time: nothing pushes the ball sideways, so it covers equal distances in equal times (look at the evenly spaced time markers).`);
+    else msgs.push(`Air resistance pulls back along the path, so the horizontal speed is falling too (now ${q.vx.toFixed(1)} m/s).`);
+    if (Math.abs(q.vy) < 0.6 && p.th > 0) msgs.push("<b>At the top</b> the vertical speed is zero, but the ball is still moving sideways.");
+  } else {
+    msgs.push(`Landed ${S.main.R.toFixed(1)} m away after ${S.main.T.toFixed(2)} s.`);
+    if (S.hitNow) msgs.push("<b>Bullseye!</b>"); else msgs.push(`The target is ${S.target.toFixed(1)} m away: change the speed or angle and try again.`);
+    if (p.drag) msgs.push(`With no air it would have gone ${V.R.toFixed(1)} m.`);
+  }
+  return msgs.join(" ");
+}
+function exam() {
+  const key = [S.p.th, S.p.v0, S.p.h0, S.p.drag, S.p.mass, S.p.cd, S.p.area, S.p.g].join("|"); if (exam.key === key) return; exam.key = key;
+  const a = S.p.th, v = S.p.v0, g = 9.81, th = a * Math.PI / 180, vy = v * Math.sin(th), vx = v * Math.cos(th);
+  const H = v * v * Math.sin(th) ** 2 / (2 * g), R = v * v * Math.sin(2 * th) / g, T = 2 * v * Math.sin(th) / g;
+  const h0 = S.p.h0 > 0 ? S.p.h0 : 20, tf = Math.sqrt(2 * h0 / g), xf = v * tf;
+  const qs = [
+    { q: `A projectile is launched from level ground at ${a.toFixed(0)}° with initial speed ${v.toFixed(1)} m/s. Calculate the maximum height reached.`, marks: 3, answer: `${H.toFixed(2)} m`,
+      working: [`v_y = v sinθ = ${v.toFixed(1)}×sin(${a.toFixed(0)}°) = ${vy.toFixed(2)} m/s`, `H = v_y²/(2g) = ${vy.toFixed(2)}²/(2×9.81) = ${H.toFixed(2)} m`] },
+    { q: "Calculate the horizontal range of the projectile.", marks: 2, answer: `${R.toFixed(2)} m`, working: [`R = v²sin(2θ)/g = ${v.toFixed(1)}²×sin(${(2 * a).toFixed(0)}°)/9.81 = ${R.toFixed(2)} m`] },
+    { q: "Calculate the time of flight.", marks: 2, answer: `${T.toFixed(2)} s`, working: [`t = 2v sinθ/g = 2×${v.toFixed(1)}×sin(${a.toFixed(0)}°)/9.81 = ${T.toFixed(2)} s`] },
+  ];
+  const extra = [
+    { q: `A ball is thrown horizontally at ${v.toFixed(1)} m/s from the top of a cliff ${h0.toFixed(0)} m high. Ignoring air resistance, how far from the foot of the cliff does it land?`, marks: 3, answer: `${xf.toFixed(1)} m`,
+      hint: "The vertical motion starts from rest; the horizontal speed never changes.", working: [`Vertically: h = ½gt², so t = √(2h/g) = √(2×${h0.toFixed(0)}/9.81) = ${tf.toFixed(2)} s`, `Horizontally: x = vt = ${v.toFixed(1)} × ${tf.toFixed(2)} = ${xf.toFixed(1)} m`] },
+    { q: `Explain why a ball launched at ${a.toFixed(0)}° has the same range as one launched at ${(90 - a).toFixed(0)}° at the same speed (no air resistance).`, marks: 2, answer: `sin(2×${a.toFixed(0)}°) = sin(${(180 - 2 * a).toFixed(0)}°) = sin(2×${(90 - a).toFixed(0)}°), so R = v²sin2θ/g is the same.`, answerLabel: false,
+      working: ["R = v² sin 2θ / g depends on sin 2θ", "sin x = sin(180° − x), so θ and 90° − θ give the same sin 2θ", "The steeper throw goes higher and stays up longer, but moves sideways more slowly"] },
+  ];
+  if (S.p.drag) {
+    const p = S.p, vt = termVel(p);
+    extra.push({ q: `(A level) A ${p.mass} kg object with C<sub>D</sub> = ${p.cd} and cross-sectional area ${p.area} m² falls through air of density 1.225 kg/m³. Calculate its terminal velocity.`, marks: 3, answer: `${vt.toFixed(1)} m/s`,
+      hint: "At terminal velocity the drag force equals the weight.", working: ["At terminal velocity: ½ρC<sub>D</sub>Av² = mg", `v = √(2mg / ρC<sub>D</sub>A) = √(2×${p.mass}×${p.g} / (1.225×${p.cd}×${p.area}))`, `v = ${vt.toFixed(1)} m/s`] });
+  }
+  renderExam(el("examQs"), [{ title: "From the WJEC page", id: "p", qs }, { title: "More practice", id: "x", qs: extra }]);
+}
+
+/* =====================================================================
+   6. PRESETS AND CONTROLS
+   ===================================================================== */
+const BASE = { v0: 20, th: 45, h0: 0, gsel: "9.81", drag: false, obj: "Football", magnus: false, omega: 0, wind: 0, lvl: "std" };
+const cmpPath = (o) => vacuumPath(Object.assign({ v0: 20, th: 45, h0: 0, g: 9.81 }, o));
+const PRESETS = [
+  { name: "Kick at 45°", desc: "20 m/s: the longest range", s: {} },
+  { name: "30° and 60°", desc: "same range, different heights", s: { v0: 20, th: 60 }, cmp: [{ label: "30° (kept)", o: { v0: 20, th: 30 } }] },
+  { name: "Off a cliff", desc: "thrown sideways from 20 m", s: { v0: 15, th: 0, h0: 20 } },
+  { name: "Dropped vs thrown", desc: "which lands first?", s: { v0: 15, th: 0, h0: 30 }, cmp: [{ label: "dropped (kept)", o: { v0: 0, th: 0, h0: 30 } }] },
+  { name: "On the Moon", desc: "g = 1.62 m/s²", s: { gsel: "1.62", v0: 10 }, cmp: [{ label: "same throw on Earth", o: { v0: 10, th: 45 } }] },
+  { name: "Basketball shot", desc: "7.5 m/s at 52° from 2 m", s: { v0: 8, th: 52, h0: 2 } },
+  { name: "Football with drag", desc: "air resistance shortens it", s: { lvl: "adv", drag: true, obj: "Football", v0: 25, th: 45 } },
+  { name: "Golf drive, backspin", desc: "Magnus lift: 70 m/s", s: { lvl: "adv", drag: true, obj: "Golf ball", magnus: true, omega: -200, v0: 70, th: 12 } },
+  { name: "Tennis topspin", desc: "the ball dips", s: { lvl: "adv", drag: true, obj: "Tennis ball", magnus: true, omega: 150, v0: 30, th: 12, h0: 1 } },
+  { name: "Shuttlecock", desc: "huge drag: falls steeply", s: { lvl: "adv", drag: true, obj: "Shuttlecock", v0: 40, th: 30, h0: 2 } },
+  { name: "Cannonball", desc: "heavy: drag matters less", s: { lvl: "adv", drag: true, obj: "Cannonball", v0: 80, th: 40 } },
+  { name: "Head wind", desc: "football into 10 m/s wind", s: { lvl: "adv", drag: true, obj: "Football", v0: 25, th: 40, wind: -10 } },
+];
+function setObj(name) {
+  const o = OBJECTS[name]; el("obj").value = name; el("cd").value = o.cd; el("area").value = o.area; el("mass").value = o.mass;
+  const custom = name === "Custom"; ["cd", "area", "mass"].forEach(id => (el(id).disabled = !custom));
+  el("objFact").style.display = o.fact ? "" : "none"; el("objFact").textContent = o.fact || "";
+}
+function setPreset(k) {
+  const s = Object.assign({}, BASE, PRESETS[k].s);
+  setLevel(s.lvl);
+  el("v0").value = s.v0; el("th").value = s.th; el("h0").value = s.h0; el("gsel").value = s.gsel; el("drag").checked = s.drag; el("magnus").checked = s.magnus; el("omega").value = s.omega; el("wind").value = s.wind;
+  setObj(s.obj);
+  S.preset = k; document.querySelectorAll("#presets button").forEach((b, i) => b.classList.toggle("on", i === k));
+  S.cmp = (PRESETS[k].cmp || []).map((c, i) => ({ label: c.label, col: COL.cmp[i], path: cmpPath(Object.assign({ g: c.o.g || (k === 4 ? 9.81 : +s.gsel) }, c.o)) }));
+  labels(); launch(false); newTarget();
+}
+function labels() {
+  const p = P();
+  el("o_v0").textContent = `${p.v0} m/s`; el("o_th").textContent = `${p.th}°`; el("o_h0").textContent = `${p.h0} m`;
+  el("o_cd").textContent = (+el("cd").value).toFixed(2); el("o_area").textContent = `${(+el("area").value).toFixed(3)} m²`; el("o_mass").textContent = `${+el("mass").value} kg`;
+  el("o_wind").textContent = `${(+el("wind").value).toFixed(1)} m/s`; el("o_omega").textContent = `${(+el("omega").value).toFixed(0)} rad/s`;
+  el("dragOpts").style.display = el("drag").checked ? "" : "none"; el("spinOpts").style.display = el("magnus").checked ? "" : "none";
+  el("radiusNote").textContent = `Ball radius r = ${(100 * Math.sqrt(+el("area").value / Math.PI)).toFixed(1)} cm (from A = πr²).`;
+}
+function setLevel(l) {
+  document.body.classList.toggle("lvl-adv", l === "adv"); document.body.classList.toggle("lvl-std", l === "std");
+  document.querySelectorAll("#lvl button").forEach(b => b.classList.toggle("on", b.dataset.lvl === l));
+  el("speedCol").checked = l === "std";     // the old page coloured the path by speed in Basic mode
+}
+(function initControls() {
+  el("obj").innerHTML = Object.keys(OBJECTS).map(k => `<option>${k}</option>`).join("");
+  el("presets").innerHTML = PRESETS.map((p, i) => `<button data-i="${i}">${p.name}<small>${p.desc}</small></button>`).join("");
+  document.querySelectorAll("#presets button").forEach(b => b.addEventListener("click", () => setPreset(+b.dataset.i)));
+  const own = () => { S.preset = -1; document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); };
+  ["v0", "th", "h0", "cd", "area", "mass", "wind", "omega"].forEach(id => el(id).addEventListener("input", () => { own(); labels(); launch(false); }));
+  ["gsel", "drag", "magnus"].forEach(id => el(id).addEventListener("change", () => { own(); labels(); launch(false); }));
+  el("obj").addEventListener("change", () => { own(); setObj(el("obj").value); labels(); launch(false); });
+  ["showComp", "showMarks", "speedCol"].forEach(id => el(id).addEventListener("change", () => ui()));
+  el("equal").addEventListener("change", () => { S.view = null; });
+  document.querySelectorAll("#lvl button").forEach(b => b.addEventListener("click", () => { setLevel(b.dataset.lvl); labels(); launch(false); }));
+  el("btnLaunch").addEventListener("click", () => launch(true));
+  el("btnPause").addEventListener("click", () => { S.playing = !S.playing; el("btnPause").textContent = S.playing ? "⏸ Pause" : "▶ Resume"; });
+  document.querySelectorAll("#speed button").forEach(b => b.addEventListener("click", () => { S.speed = +b.dataset.s; document.querySelectorAll("#speed button").forEach(x => x.classList.toggle("on", x === b)); }));
+  document.querySelectorAll("#gtabs button").forEach(b => b.addEventListener("click", () => { gMode = b.dataset.g; document.querySelectorAll("#gtabs button").forEach(x => x.classList.toggle("on", x === b)); }));
+  el("btnTarget").addEventListener("click", () => { newTarget(); S.view = null; S.hitNow = false; });
+  el("btnPin").addEventListener("click", () => { if (S.cmp.length >= 4) S.cmp.shift(); const p = S.p; S.cmp.push({ label: `kept: ${p.v0} m/s, ${p.th}°${p.drag ? ", drag" : ""}`, col: COL.cmp[S.cmp.length % 4], path: S.main }); S.view = null; });
+  el("btnClear").addEventListener("click", () => { S.cmp = []; S.ghosts = []; S.view = null; });
+  el("btnBatch").addEventListener("click", () => Batch.open());
+  // catapult: press near the launcher, drag back, let go
+  const cv = el("scene");
+  const pos = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  cv.addEventListener("pointerdown", e => {
+    if (!S.ax) return; const m = pos(e), ox = S.ax.X(0), oy = S.ax.Y(S.p.h0);
+    if (Math.hypot(m.x - ox, m.y - oy) < 40) { S.sling = { px: m.x, py: m.y, v: 0, th: 0, prev: null }; cv.setPointerCapture(e.pointerId); S.playing = false; }
+  });
+  cv.addEventListener("pointermove", e => {
+    const m = pos(e); S.hover = m;
+    if (!S.sling) return;
+    const ox = S.ax.X(0), oy = S.ax.Y(S.p.h0), dx = ox - m.x, dy = m.y - oy;      // pull back = launch the other way
+    const v = clamp(Math.round(Math.hypot(dx, dy) / 3), 1, 80), th = clamp(Math.round(Math.atan2(dy, Math.max(dx, 0.001)) * 180 / Math.PI), 0, 90);
+    const p = Object.assign({}, S.p, { v0: v, th });
+    S.sling = { px: m.x, py: m.y, v, th, prev: p.drag ? rk4Path(p) : vacuumPath(p) };
+  });
+  cv.addEventListener("pointerleave", () => { S.hover = null; });
+  cv.addEventListener("pointerup", () => {
+    if (!S.sling) return; const sl = S.sling; S.sling = null;
+    if (sl.v < 2) { S.playing = true; return; }
+    el("v0").value = sl.v; el("th").value = sl.th; own(); labels(); launch(true);
+    S.ghosts.push({ x: S.main.x, y: S.main.y }); if (S.ghosts.length > 3) S.ghosts.shift();
+  });
+})();
+
+/* =====================================================================
+   7. MAIN LOOP
+   ===================================================================== */
+let lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  if (S.playing && S.t < S.main.T + 1.5) {
+    const was = S.t < S.main.T; S.t += dt * S.speed;
+    if (was && S.t >= S.main.T) {                 // just landed: check the target
+      S.flash = 1; S.hitNow = Math.abs(S.main.R - S.target) < 0.04 * (S.view ? S.view.x1 - S.view.x0 : S.main.R);
+      if (S.hitNow && S.shot) S.hits++;
+    }
+  }
+  if (S.flash > 0) S.flash = Math.max(0, S.flash - dt * 0.8);
+  drawScene(); drawVT(); drawChart();
+  if (!frame.k || now - frame.k > 120) { ui(); frame.k = now; }
+  if (!frame.e || now - frame.e > 500) { exam(); frame.e = now; }
+  requestAnimationFrame(frame);
+}
+
+/* =====================================================================
+   8. BATCH RUN — a real launcher is not perfect: each run has a random
+      error in the launch speed and angle. Compare with the formulas.
+   ===================================================================== */
+function outcomeOf(r, out) { return out === "range" ? r.R : out === "height" ? r.H : out === "tof" ? r.T : r.vImp; }
+function runOnce(p, seed, out) {
+  const rng = mulberry32(seed);
+  const q = Object.assign({}, p, { obj: p.obj });
+  const o = OBJECTS[p.obj] || OBJECTS.Custom; q.cd = o.cd; q.area = o.area; q.mass = p.obj === "Custom" ? p.mass : o.mass;
+  q.v0 = Math.max(0, p.v0 * (1 + p.errV / 100 * gauss(rng))); q.th = p.th + p.errA * gauss(rng);
+  q.omega = p.omega || 0; q.magnus = q.omega !== 0;
+  const r = p.drag ? rk4Path(q, false) : vacuum(q.v0, q.th, q.h0, q.g);
+  // theory: the no-air formula with the launcher's intended speed and angle; spread from the two random errors
+  const f = (v, a) => outcomeOf(vacuum(v, a, p.h0, p.g), out === "vdrop" ? "vimp" : out);
+  const th = f(p.v0, p.th), dv = p.v0 * p.errV / 100, da = p.errA;
+  const sdV = dv > 0 ? (f(p.v0 + dv, p.th) - f(Math.max(0, p.v0 - dv), p.th)) / 2 : 0, sdA = da > 0 ? (f(p.v0, p.th + da) - f(p.v0, p.th - da)) / 2 : 0;
+  const res = { value: outcomeOf(r, out === "vdrop" ? "vimp" : out), theory: th, theorySD: p.drag ? NaN : Math.hypot(sdV, sdA) };
+  if (out === "vdrop") {
+    // falling from rest with quadratic drag has an exact answer: v = v_T √(1 − e^(−2gh/v_T²))
+    const vt = termVel(Object.assign({}, q, { g: p.g }));
+    res.theory = vt * Math.sqrt(1 - Math.exp(-2 * p.g * p.h0 / (vt * vt))); res.theory2 = Math.sqrt(2 * p.g * p.h0); res.theorySD = NaN;
+  }
+  return res;
+}
+Batch.init({
+  fileName: "projectile-motion", runChoices: [20, 50, 100, 200, 500, 1000],
+  hint: "Run a model launcher many times with no drawing. Experiments set every input themselves; your own runs use the settings on the left. Each launch has a small random error in speed and angle.",
+  defaults: { v0: 20, th: 45, h0: 0, g: 9.81, drag: false, obj: "Football", mass: 1, omega: 0, wind: 0, errV: 2, errA: 1 },
+  current: () => { const p = P(); return { v0: p.v0, th: p.th, h0: p.h0, g: p.g, drag: p.drag, obj: p.obj, mass: p.mass, omega: p.magnus ? p.omega : 0, wind: p.drag ? p.wind : 0 }; },
+  extras: [{ key: "errV", label: "Launch speed error SD (%)", step: 0.5, min: 0, max: 20 }, { key: "errA", label: "Angle error SD (°)", step: 0.5, min: 0, max: 10 }],
+  outcomes: {
+    range: { label: "Range", unit: "m", theoryLabel: "no-air formula", gradient: { v0: 2, g: -1 }, noFit: true },
+    height: { label: "Maximum height", unit: "m", theoryLabel: "no-air formula", gradient: { v0: 2, g: -1 } },
+    tof: { label: "Time of flight", unit: "s", theoryLabel: "no-air formula", gradient: { v0: 1, g: -1 } },
+    vimp: { label: "Landing speed", unit: "m/s", theoryLabel: "no-air formula" },
+    vdrop: { label: "Landing speed of a dropped object", unit: "m/s", theoryLabel: "v = v_T√(1 − e^(−2gh/v_T²)) (with drag)", theory2Label: "no air: v = √(2gh)", noFit: true },
+  },
+  vars: {
+    v0: { label: "Launch speed v₀", unit: "m/s", min: 0, max: 200, from: 2, to: 30 },
+    th: { label: "Launch angle θ", unit: "°", min: 0, max: 90, from: 5, to: 85 },
+    h0: { label: "Launch height h₀", unit: "m", min: 0, max: 2000, from: 0, to: 50 },
+    g: { label: "Gravity g", unit: "m/s²", min: 0.5, max: 30, from: 1.6, to: 25 },
+    mass: { label: "Mass (Custom object)", unit: "kg", min: 0.005, max: 100, from: 0.05, to: 10 },
+    errV: { label: "Launch speed error SD", unit: "%", min: 0, max: 20, from: 0, to: 10 },
+  },
+  experiments: [
+    { q: "How much do 200 shots scatter?", sub: "10 m/s at 45°: speed ±2%, angle ±1°", mode: "repeat", out: "range", runs: 200, set: { v0: 10, th: 45, h0: 0, g: 9.81, drag: false, errV: 2, errA: 1 },
+      note: "Each run is one shot from a slightly imperfect launcher. The ranges form a bell-shaped spread around the formula R = v²sin2θ/g = 10.2 m. Almost all of the spread comes from the speed: R ∝ v², so a 2% speed error gives a 4% range error. At 45° a small angle error hardly matters, because sin 2θ is at its peak and the graph of R against θ is flat there. The mean sits a whisker below the formula: any angle error, either way, makes the range slightly shorter." },
+    { q: "Does the range grow as v²?", sub: "2–30 m/s at 45°, log–log axes", mode: "sweep", out: "range", v: "v0", from: 2, to: 30, steps: 8, reps: 5, logx: true, logy: true, set: { th: 45, h0: 0, g: 9.81, drag: false, errV: 1, errA: 0.5 },
+      note: "On log–log axes a power law is a straight line whose gradient is the power. R = v²sin2θ/g gives a gradient of 2: double the speed and the ball goes four times as far. The small scatter at each speed is the launcher's random error; it grows with speed because it is a percentage." },
+    { q: "Which angle goes furthest?", sub: "15 m/s, 5°–85°, no air resistance", mode: "sweep", out: "range", v: "th", from: 5, to: 85, steps: 17, reps: 5, set: { v0: 15, h0: 0, g: 9.81, drag: false, errV: 1, errA: 0.5 },
+      note: "The points follow R = v²sin2θ/g: highest at 45°, and symmetrical about it, so 30° and 60° (or 20° and 70°) give the same range. Near 45° the curve is flat, so small angle errors cost almost nothing; at very low or very high angles the same error changes the range much more." },
+    { q: "Air resistance and the best angle", sub: "football at 25 m/s, 10°–80°, with drag", mode: "sweep", out: "range", v: "th", from: 10, to: 80, steps: 15, reps: 3, set: { v0: 25, h0: 0, g: 9.81, drag: true, obj: "Football", errV: 0.5, errA: 0.3 },
+      note: "The line is the no-air formula; the points are the RK4 model with quadratic drag. Every throw falls short of the formula, and high throws lose most (they stay in the air longer, so drag acts for longer). The best angle drops to about 40°. Heavier, denser balls (try a cannonball) are much closer to the formula." },
+    { q: "Faster sideways, longer in the air?", sub: "thrown sideways off a 20 m cliff, 0–30 m/s", mode: "sweep", out: "tof", v: "v0", from: 0, to: 30, steps: 7, reps: 5, set: { th: 0, h0: 20, g: 9.81, drag: false, errV: 1, errA: 0.5 },
+      note: "However fast the ball is thrown sideways, it lands after the same time, t = √(2h/g) = 2.02 s, as a ball simply dropped. The horizontal motion does not affect the vertical motion. The scatter grows with speed only because a small error in the angle gives a fast ball a little upward or downward speed." },
+    { q: "Falling with air resistance", sub: "tennis ball dropped from 1–200 m", mode: "sweep", out: "vdrop", v: "h0", from: 1, to: 200, steps: 12, reps: 1, logx: true, set: { v0: 0, th: 0, g: 9.81, drag: true, obj: "Tennis ball", errV: 0, errA: 0 },
+      note: "With no air the landing speed keeps growing as √(2gh) (dashed grey line). With drag it levels off at the terminal velocity, v_T = √(2mg/ρC_DA) ≈ 22 m/s for a tennis ball, when drag balances the weight. The points sit on the exact drag formula (yellow), which checks the RK4 solver. There is no scatter: a dropped ball has no launch errors." },
+  ],
+  runOnce,
+});
+
+initLayout("projectile-motion-layout", () => { S.view = null; Batch.refresh(); });
+setLevel("std");
+setPreset(0);
+requestAnimationFrame(frame);
+</script>
+<!-- VIEW BAR (start): hide/show the side panels and full-screen the simulation. Same block in every simulation. -->
+<style>
+  #viewBar { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-shrink: 0; align-self: center; }
+  #viewBar button { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  #viewBar button.on { border-color: var(--accent); }
+  #viewBar .vbKey { opacity: .55; font-size: 11px; margin-left: 4px; }
+  /* bigger, clearer drag handles between the panels */
+  .splitter::before { width: 4px !important; margin-left: -2px !important; }
+  .splitter::after { content: "⋮"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--muted); font-size: 16px; pointer-events: none; }
+  .splitter button { width: 22px !important; height: 52px !important; font-size: 15px !important; font-weight: 700; background: var(--accent) !important; color: #14133b !important; border: none !important; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  /* full screen: the centre panel fills the screen */
+  #centre:fullscreen { background: var(--bg); padding: 10px; width: 100vw; height: 100vh; box-sizing: border-box; }
+  #centre .vbExit { display: none; }
+  #centre:fullscreen .vbExit { display: block; position: absolute; top: 10px; right: 12px; z-index: 50; }
+  #centre:fullscreen { position: relative; }
+  #vbTip { position: fixed; top: 52px; right: 14px; z-index: 60; max-width: 330px; background: var(--panel-2, #1b2017); border: 1px solid var(--accent);
+           border-radius: 10px; padding: 9px 12px; font-size: 13px; line-height: 1.45; box-shadow: 0 4px 16px rgba(0,0,0,.5); cursor: pointer; }
+</style>
+<script>
+(function () {
+  // Buttons in the header: hide/show the left (controls) and right (readouts) panels, and full screen.
+  // They click the existing ‹ › buttons on the drag handles, so each simulation's own layout code stays in charge.
+  const header = document.querySelector("header"), centre = document.getElementById("centre");
+  const sL = document.getElementById("splitL"), sR = document.getElementById("splitR");
+  const left = sL && sL.previousElementSibling, right = sR && sR.nextElementSibling;   // the panels either side of the drag handles
+  const bL = sL && sL.querySelector("button"), bR = sR && sR.querySelector("button");
+  if (!header || !centre || !left || !right || !bL || !bR) return;
+  const bar = document.createElement("div"); bar.id = "viewBar";
+  bar.innerHTML = '<button id="vbL" title="Hide or show the controls panel (key: [ )"></button>' +
+                  '<button id="vbR" title="Hide or show the readouts panel (key: ] )"></button>' +
+                  '<button id="vbF" title="Show only the simulation, full screen (key: F; Esc to leave)">⛶ Full screen</button>';
+  header.appendChild(bar);
+  const exit = document.createElement("button"); exit.className = "vbExit"; exit.textContent = "✕ Exit full screen (Esc)";
+  centre.appendChild(exit);
+  const vbL = bar.querySelector("#vbL"), vbR = bar.querySelector("#vbR"), vbF = bar.querySelector("#vbF");
+  function label() {
+    const lc = left.classList.contains("collapsed"), rc = right.classList.contains("collapsed");
+    vbL.textContent = lc ? "◧ Show controls" : "◧ Hide controls"; vbL.classList.toggle("on", !lc);
+    vbR.textContent = rc ? "Show readouts ◨" : "Hide readouts ◨"; vbR.classList.toggle("on", !rc);
+  }
+  new MutationObserver(label).observe(left, { attributes: true, attributeFilter: ["class"] });
+  new MutationObserver(label).observe(right, { attributes: true, attributeFilter: ["class"] });
+  label();
+  const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else if (centre.requestFullscreen) centre.requestFullscreen().catch(() => {}); };
+  vbL.onclick = () => bL.click(); vbR.onclick = () => bR.click(); vbF.onclick = full; exit.onclick = full;
+  document.addEventListener("fullscreenchange", () => {
+    vbF.textContent = document.fullscreenElement ? "✕ Exit full screen" : "⛶ Full screen";
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 60);    // canvases re-measure themselves
+  });
+  // The batch-run window lives outside the full-screen area, so leave full screen when it is opened
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("button");
+    if (document.fullscreenElement && b && /Batch run/.test(b.textContent)) document.exitFullscreen();
+  }, true);
+  document.addEventListener("keydown", e => {
+    const t = e.target.tagName; if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA" || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "f" || e.key === "F") { full(); e.preventDefault(); }
+    else if (e.key === "[") bL.click(); else if (e.key === "]") bR.click();
+  });
+  // A one-time tip so people notice the panels can be hidden or resized
+  let seen = false; try { seen = localStorage.getItem("sims-viewbar-tip") === "1"; } catch (e) {}
+  if (!seen) {
+    const tip = document.createElement("div"); tip.id = "vbTip";
+    tip.innerHTML = "<b>Make the simulation bigger:</b> hide the side panels with the buttons above (or the yellow ‹ › tabs), drag the ⋮ bars to resize them, or press <b>⛶ Full screen</b>. Click to close.";
+    document.body.appendChild(tip);
+    const close = () => { tip.remove(); try { localStorage.setItem("sims-viewbar-tip", "1"); } catch (e) {} };
+    tip.onclick = close; setTimeout(close, 12000);
+  }
+})();
+</script>
+<!-- VIEW BAR (end) -->
+</body>
+</html>
