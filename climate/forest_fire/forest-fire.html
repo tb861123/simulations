@@ -237,13 +237,24 @@
       <label>Random seed</label>
       <input id="seed" value="7" style="width:100%;font:inherit;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px">
     </div>
+    <div class="ctl">
+      <label>Map detail (cell size)</label>
+      <select id="detail">
+        <option value="20">Low: 20 m cells (120 × 80) — fastest</option>
+        <option value="10" selected>Medium: 10 m cells (240 × 160) — default</option>
+        <option value="5">High: 5 m cells (480 × 320)</option>
+        <option value="2.5">Ultra: 2.5 m cells (960 × 640) — slow with big fires</option>
+      </select>
+      <div class="hint">Same 2.4 km × 1.6 km wood and the same fire behaviour, drawn with bigger or smaller squares (a new map is built; your drawings are kept). Finer detail runs more slowly at high speed. At Low, tracks and rivers can't be narrower than one 20 m square. Batch runs always use 10 m cells.</div>
+    </div>
+    <label class="hint" style="display:block;margin-bottom:8px;font-size:13px;color:var(--text)"><input type="checkbox" id="smooth"> Smooth the map (blend neighbouring squares)</label>
     <div id="pending">Woodland settings changed — press <b>New map</b> to rebuild the forest.</div>
     <div class="row" style="display:flex;gap:6px"><button id="btnNew" style="flex:1">New map</button></div>
 
     <details>
       <summary>How the model works (and what it leaves out)</summary>
       <ul>
-        <li><b>Grid:</b> 240 × 160 cells, each 10 m × 10 m (2.4 km × 1.6 km). A cell is unburnt, burning, smouldering or burnt out.</li>
+        <li><b>Grid:</b> 2.4 km × 1.6 km, split into 240 × 160 cells of 10 m (or 20 m, 5 m or 2.5 m with "Map detail"; spread chances, time steps, the time each square can pass the fire on, and ember rates are scaled so the fire crosses the wood in about the same time; fires driven by embers run a little faster at High and Ultra. Batch runs always use 10 m). A cell is unburnt, burning, smouldering or burnt out.</li>
         <li><b>Spreading:</b> each burning cell can ignite its 8 neighbours. For each neighbour the model works out a rate of spread R (metres per minute) in that direction; in a short time step Δt the chance of ignition is 1 − e<sup>−RΔt/d</sup>, where d is the distance between cell centres. So on average the fire covers distance d in time d/R, with some randomness, like a real flickering fire front.</li>
         <li><b>Base rate</b> (no wind, flat, bone dry): grass 2 m/min, heather 1.5, bracken 1.0, leaf litter 0.5, scaled by how much undergrowth there is (30% of the rate with very little, 100% with lots). Trees add needle/leaf litter (1.0 m/min) and multiply the rate: pine ×1.3, eucalyptus ×1.5, birch ×0.8, broadleaf ×0.6.</li>
         <li><b>Dryness:</b> Rothermel's moisture-damping formula 1 − 2.59r + 5.11r² − 3.52r³ (r = moisture ÷ moisture of extinction, 25–30%), combined with the extra heat needed to boil off the water (250 + 1116 × moisture). Above the extinction moisture the factor is zero.</li>
@@ -255,7 +266,7 @@
         <li><b>Burn times:</b> fine fuels flame only briefly — grass about 1.5 minutes, heather and litter 3, bracken 2, the fuel under trees 3–4 (crown flames about 2). Then the cell smoulders (logs and stumps for 40 minutes, litter 10, other fuels 3). Smouldering fuel can still set light to unburnt fuel next to it, at 20% of the flaming rate.</li>
         <li><b>Trees:</b> crown fires kill trees; after a surface fire, broadleaf and eucalyptus trees often survive (scorched), pines and birches less often.</li>
         <li><b>Drawing:</b> firebreaks, rivers/lakes and planted trees you draw stay when you press <i>Reset fire</i> (a new map clears them). Water drops dry out over about two hours.</li>
-        <li><b>Batch run:</b> runs the same model many times without drawing, on the map shown (including anything you have drawn) or on newly built maps when you sweep a woodland setting. Only the random numbers for the fire change between repeats, so the spread of results shows the part played by chance.</li>
+        <li><b>Batch run:</b> runs the same model many times without drawing, on the map shown (including anything you have drawn) or on newly built maps when you sweep a woodland setting. Only the random numbers for the fire change between repeats, so the spread of results shows the part played by chance. Batch runs always use 10 m cells (240 × 160), whatever the map detail, so their results are repeatable.</li>
         <li><b>Not modelled:</b> fire making its own wind and weather, wind gusts and eddies around hills, day/night changes in humidity, fuel drying ahead of the fire, oxygen limits, firefighting other than the water-drop tool, and different moisture in living plants.</li>
       </ul>
     </details>
@@ -335,14 +346,21 @@
 /* =====================================================================
    1. THE GRID AND CONSTANTS
    ===================================================================== */
-const GW = 240, GH = 160;            // grid size in cells
-const CELL = 10;                     // metres per cell
-const N = GW * GH;
+// The map is always 2.4 km × 1.6 km. The cell size ("Map detail") can be
+// 20 m (Low), 10 m (Medium, the default), 5 m (High) or 2.5 m (Ultra). Everything physical is worked out in metres and
+// minutes, so the fire behaves the same; finer cells just look smoother (and
+// run more slowly). Batch runs always use 10 m cells so results are repeatable.
+const MAP_W_M = 2400, MAP_H_M = 1600;
+let CELL = 10;                       // metres per cell
+let GW = MAP_W_M / CELL, GH = MAP_H_M / CELL;   // grid size in cells
+let N = GW * GH;
+let SC = 10 / CELL;                  // cells per 10 m (1 at the default Medium detail)
 const ROS_CAP = 150;                 // fastest spread allowed (m/min, ~9 km/h) — real fires rarely exceed this
 // States of a cell
 const UNBURNT = 0, BURNING = 1, SMOULDER = 2, BURNT = 3;
 // The 8 neighbours: dx, dy, distance
-const NB = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]].map(([dx, dy]) => ({ dx, dy, d: CELL * Math.hypot(dx, dy), ux: dx / Math.hypot(dx, dy), uy: dy / Math.hypot(dx, dy) }));
+const makeNB = () => [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]].map(([dx, dy]) => ({ dx, dy, d: CELL * Math.hypot(dx, dy), ux: dx / Math.hypot(dx, dy), uy: dy / Math.hypot(dx, dy) }));
+let NB = makeNB();
 
 /* =====================================================================
    2. FUELS
@@ -390,21 +408,26 @@ function makeNoise(rng, scale) {
 /* =====================================================================
    4. THE FOREST MAP
    ===================================================================== */
-const tree = new Uint8Array(N);       // 0 = no tree, else TREES index
-const under = new Float32Array(N);    // amount of undergrowth 0–1
-const barrier = new Uint8Array(N);    // 0 none, 1 track/firebreak, 2 water
-const elev = new Float32Array(N);     // height (m)
-const wet = new Float32Array(N);      // extra moisture from water drops
-const state = new Uint8Array(N);
-const timer = new Float32Array(N);    // minutes left burning / smouldering
-const crown = new Uint8Array(N);      // 1 if this cell is burning as a crown fire
-const fate = new Uint8Array(N);       // trees: 0 unburnt, 1 scorched but alive, 2 killed
-const intensity = new Float32Array(N);
-const crownTimer = new Float32Array(N); // minutes of flaming left in the treetops
-const glows = new Uint8Array(N);        // smouldering cell that may still have unburnt neighbours
+let tree = new Uint8Array(N);       // 0 = no tree, else TREES index
+let under = new Float32Array(N);    // amount of undergrowth 0–1
+let barrier = new Uint8Array(N);    // 0 none, 1 track/firebreak, 2 water
+let elev = new Float32Array(N);     // height (m)
+let wet = new Float32Array(N);      // extra moisture from water drops
+let state = new Uint8Array(N);
+let timer = new Float32Array(N);    // minutes left burning / smouldering
+let crown = new Uint8Array(N);      // 1 if this cell is burning as a crown fire
+let fate = new Uint8Array(N);       // trees: 0 unburnt, 1 scorched but alive, 2 killed
+let intensity = new Float32Array(N);
+let crownTimer = new Float32Array(N); // minutes of flaming left in the treetops
+let spreadEnd = new Float32Array(N);  // time until which a burning square can light its neighbours (used at Low, High and Ultra detail)
+let spreadLeft = new Float32Array(N); // High/Ultra: minutes left in which a burning square can light its neighbours
+let glowLeft = new Float32Array(N);   // High/Ultra: minutes left in which it can rekindle neighbours at the smouldering rate
+let crownEnd = new Float32Array(N);   // time until which its crown fire speeds that up (same)
+let glowEnd = new Float32Array(N);    // time until which a smouldering square can rekindle its neighbours (same)
+let glows = new Uint8Array(N);        // smouldering cell that may still have unburnt neighbours
 const SMOULDER_SPREAD = 0.2;            // smouldering logs ignite neighbours at 20% of the flaming rate
-const shade = new Float32Array(N);    // hillshade for drawing
-const tint = new Float32Array(N);     // per-cell colour variation
+let shade = new Float32Array(N);    // hillshade for drawing
+let tint = new Float32Array(N);     // per-cell colour variation
 let orig = null;                      // copy of the map before the fire (for Reset)
 let groundKey = "grass";
 let ignitionPoint = null;
@@ -420,7 +443,7 @@ function params() {
 // Used by buildMap, and by the batch run to make maps without touching the fire.
 function generateMap(p) {
   const rng = mulberry32(hashSeed(p.seed + "|" + p.terrain + p.species));
-  const n1 = makeNoise(rng, 18), n2 = makeNoise(rng, 6), n3 = makeNoise(rng, 40);
+  const n1 = makeNoise(rng, 18 * SC), n2 = makeNoise(rng, 6 * SC), n3 = makeNoise(rng, 40 * SC);   // feature sizes in 10 m units
   groundKey = p.ground;
   for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
     const i = y * GW + x;
@@ -447,15 +470,15 @@ function generateMap(p) {
   // --- river: a meandering band of water across the map
   if (p.river) {
     for (let x = 0; x < GW; x++) {
-      const cy = GH * (0.55 + 0.12 * Math.sin(x / 23) + 0.05 * Math.sin(x / 7.3));
-      for (let y = Math.floor(cy - 2); y <= Math.ceil(cy + 2); y++) if (y >= 0 && y < GH) { const i = y * GW + x; barrier[i] = 2; tree[i] = 0; under[i] = 0; }
+      const cy = GH * (0.55 + 0.12 * Math.sin(x / (23 * SC)) + 0.05 * Math.sin(x / (7.3 * SC)));
+      for (let y = Math.floor(cy - 2 * SC); y <= Math.ceil(cy + 2 * SC); y++) if (y >= 0 && y < GH) { const i = y * GW + x; barrier[i] = 2; tree[i] = 0; under[i] = 0; }
     }
   }
   // --- fire tracks: a grid of cleared strips
-  const spacing = [0, 60, 35, 22][p.tracks];       // cells (600 m, 350 m, 220 m)
+  const spacing = [0, 60, 35, 22][p.tracks] * SC;  // cells (600 m, 350 m, 220 m)
   if (spacing) {
     for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
-      const onX = (x % spacing) < p.twidth && x > 3, onY = (y % spacing) < p.twidth && y > 3;
+      const onX = (x % spacing) < p.twidth * SC && x > 3 * SC, onY = (y % spacing) < p.twidth * SC && y > 3 * SC;   // track width is in 10 m steps
       if ((onX || onY) && barrier[y * GW + x] !== 2) { const i = y * GW + x; barrier[i] = 1; tree[i] = 0; under[i] = 0; }
     }
   }
@@ -530,11 +553,13 @@ function rosInto(i, j, k) {
   if (fm <= 0) return 0;
   // wind near the ground is weaker under trees (unless the fire is in the treetops)
   const canopy = t ? TREES[t].canopyWind : 0.9;
-  const V = W.V * (crown[i] ? 1 : canopy);
+  // is the burning square a crown fire? (other map details: for the same share of its spreading time, see ignite)
+  const cr = SC === 1 ? crown[i] : sim.t < crownEnd[i];
+  const V = W.V * (cr ? 1 : canopy);
   const cosT = nb.ux * W.wx + nb.uy * W.wy;
   const tanS = (elev[j] - elev[i]) / nb.d;
   let R = baseROS(j) * fm * windFactor(V, cosT) * slopeFactor(tanS);
-  if (crown[i] && t && TREES[t].crown) R *= 3.34;          // active crown fire
+  if (cr && t && TREES[t].crown) R *= 3.34;          // active crown fire
   return Math.min(ROS_CAP, R);
 }
 
@@ -545,16 +570,34 @@ function ignite(j, R, spot = false) {
   const t = tree[j], G = GROUND[groundKey];
   const I = 300 * fuelLoad(j) * Math.max(R, 0.2);           // Byram's intensity (kW/m)
   intensity[j] = I;
-  crown[j] = 0;
+  crown[j] = 0; crownEnd[j] = 0;
   if (t && TREES[t].crown) {
     // Van Wagner: a crown fire starts if the surface fire is hot enough to reach the canopy.
     // Undergrowth acts as a ladder, lowering the effective crown base height.
     const cbh = TREES[t].cbh * (1 - 0.6 * under[j]);
     const fmc = 100;                                          // moisture of living needles (%)
     const I0 = Math.pow(0.010 * cbh * (460 + 25.9 * fmc), 1.5);
-    if (I > I0) { crown[j] = 1; intensity[j] = 300 * (fuelLoad(j) + 1.0) * Math.max(R, 0.2); crownTimer[j] = 2; }  // the canopy adds ~1 kg/m² of needles
+    if (I > I0) { crown[j] = 1; intensity[j] = 300 * (fuelLoad(j) + 1.0) * Math.max(R, 0.2); crownTimer[j] = 2; crownEnd[j] = sim.t + 2 / SC; }  // the canopy adds ~1 kg/m² of needles
   }
-  timer[j] = t ? TREES[t].burn * (0.8 + 0.2 * under[j]) : G.burn * (0.7 + 0.6 * under[j]);
+  const flame = t ? TREES[t].burn * (0.8 + 0.2 * under[j]) : G.burn * (0.7 + 0.6 * under[j]);   // minutes of flames
+  // MAP DETAIL: the chance that a burning square lights its neighbour before its
+  // flames die is 1 − e^(−R × time / d). The distance d shrinks with the square,
+  // so small squares would pass the fire on more reliably than big ones and the
+  // fire would run faster at Ultra than at Low. To keep it the same, a square's
+  // "spreading life" (flaming at the full rate, then smouldering at 20%) is
+  // squeezed into half the time at High and a quarter at Ultra (it still flames,
+  // glows and throws embers for the real time), and stretched to twice as long
+  // at Low, where it keeps lighting neighbours at the full rate into the start of
+  // its smouldering. At Medium nothing changes.
+  timer[j] = flame;
+  spreadEnd[j] = sim.t + flame / SC;
+  if (SC > 1) {
+    // High/Ultra: minutes left for lighting neighbours. At Medium a square tries for
+    // whole time steps until its flames are out, so round up the same way first.
+    const dt10 = Math.min(0.5, 4.5 / Math.max(1, 1.5 * (sim.fastest || 2)));
+    spreadLeft[j] = Math.ceil(flame / dt10 - 1e-9) * dt10 / SC;
+    glowLeft[j] = (t ? 40 : groundKey === "litter" ? 10 : 3) / SC;   // then the smouldering's share (see step)
+  }
   if (spot) sim.spots++;
   return true;
 }
@@ -577,7 +620,9 @@ function resetFire() {
 
 function startFireAt(x, y) {
   let lit = 0;
-  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+  // a square patch 30 m across (40 m at Low detail), whatever the cell size
+  const n = Math.max(2, Math.round(30 / CELL)), lo = -Math.floor((n - 1) / 2);
+  for (let dy = lo; dy < lo + n; dy++) for (let dx = lo; dx < lo + n; dx++) {
     const X = x + dx, Y = y + dy;
     if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue;
     const i = Y * GW + X;
@@ -595,30 +640,37 @@ function step(dt) {
   for (const i of sim.burningList) {
     if (state[i] !== BURNING) continue;
     const x = i % GW, y = (i / GW) | 0;
-    // try to ignite each neighbour
-    for (let k = 0; k < 8; k++) {
+    // try to ignite each neighbour (at High/Ultra only for the first part of the flaming, see ignite)
+    let e = dt, f = 1;                            // minutes of trying in this step, and at what share of the rate
+    if (SC > 1) {
+      // High/Ultra: the square's whole spreading life (flaming, then smouldering) is
+      // squeezed into 1/SC of the time, so it may already be at the smouldering rate
+      if (spreadLeft[i] > 0) { e = Math.min(dt, spreadLeft[i]); spreadLeft[i] -= dt; }
+      else { e = Math.min(dt, glowLeft[i]); glowLeft[i] -= dt; f = SMOULDER_SPREAD; }
+    }
+    if (e > 0) for (let k = 0; k < 8; k++) {
       const X = x + NB[k].dx, Y = y + NB[k].dy;
       if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue;
       const j = Y * GW + X;
       if (state[j] !== UNBURNT || !burnable(j)) continue;
-      const R = rosInto(i, j, k);
+      const R = rosInto(i, j, k) * f;
       if (R <= 0) continue;
       if (R > fastest) fastest = R;
-      if (rng() < 1 - Math.exp(-R * dt / NB[k].d) && ignite(j, R)) next.push(j);
+      if (rng() < 1 - Math.exp(-R * e / NB[k].d) && ignite(j, R)) next.push(j);
     }
     // intense fires radiate heat across a narrow gap (e.g. a 10 m track)
     if (crown[i] || intensity[i] > 8000) {
       for (let k = 0; k < 8; k++) {
-        const X = x + 2 * NB[k].dx, Y = y + 2 * NB[k].dy;
+        const X = x + Math.round(2 * SC) * NB[k].dx, Y = y + Math.round(2 * SC) * NB[k].dy;   // about 20 m away
         if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue;
         const j = Y * GW + X;
-        if (state[j] === UNBURNT && burnable(j) && rng() < 0.02 * dt * (1 + Math.max(0, NB[k].ux * W.wx + NB[k].uy * W.wy) * W.V / 3) && ignite(j, 1)) next.push(j);
+        if (state[j] === UNBURNT && burnable(j) && rng() < 0.02 / (SC * SC) * dt * (1 + Math.max(0, NB[k].ux * W.wx + NB[k].uy * W.wy) * W.V / 3) && ignite(j, 1)) next.push(j);   // ÷SC²: the same chance per 100 m² of burning fuel at any detail
       }
     }
     // EMBERS: crown fires and very intense fires throw burning bark and twigs downwind
     if (crown[i] || intensity[i] > 4000) {
       const t = tree[i];
-      const rate = 0.25 * (t ? TREES[t].ember : 0.3) * (0.3 + W.V / 6);   // embers per minute
+      const rate = 0.25 * (t ? TREES[t].ember : 0.3) * (0.3 + W.V / 6) / (SC * SC);   // embers per minute per 100 m² of burning fuel
       if (rng() < rate * dt) launchEmber(x, y, rng, next);
     }
     if (crown[i]) { crownTimer[i] -= dt; if (crownTimer[i] <= 0) { crown[i] = 0; intensity[i] *= 0.3; fate[i] = 2; } }
@@ -626,6 +678,9 @@ function step(dt) {
     if (timer[i] <= 0) {
       state[i] = SMOULDER;
       timer[i] = tree[i] ? 40 : groundKey === "litter" ? 10 : 3;      // logs and branches smoulder for a long time
+      // MAP DETAIL: smouldering can rekindle neighbours for (smouldering time × cell size ÷ 10 m),
+      // for the same reason as the flames (see ignite). At Low the square smoulders that long.
+      if (SC < 1) { glowEnd[i] = spreadEnd[i] + timer[i] / SC; timer[i] = Math.max(timer[i], glowEnd[i] - sim.t); }
       glows[i] = 1;
       if (tree[i]) {
         const t = TREES[tree[i]];
@@ -643,6 +698,9 @@ function step(dt) {
     if (timer[i] <= 0) { state[i] = BURNT; glows[i] = 0; continue; }
     sm.push(i);
     if (!glows[i]) continue;
+    let e = dt;                                    // minutes of trying in this step
+    if (SC < 1 && sim.t > glowEnd[i] + 1e-6) { glows[i] = 0; continue; }   // Low: its time to rekindle is over
+    if (SC > 1) { e = Math.min(dt, glowLeft[i]); glowLeft[i] -= dt; if (e <= 0) { glows[i] = 0; continue; } }   // High/Ultra: the same
     const x = i % GW, y = (i / GW) | 0;
     let open = false;
     for (let k = 0; k < 8; k++) {
@@ -651,8 +709,8 @@ function step(dt) {
       const j = Y * GW + X;
       if (state[j] !== UNBURNT || !burnable(j)) continue;
       open = true;
-      const Rs = rosInto(i, j, k) * SMOULDER_SPREAD;
-      if (Rs > 0 && rng() < 1 - Math.exp(-Rs * dt / NB[k].d) && ignite(j, Rs)) next.push(j);
+      const Rs = rosInto(i, j, k) * (SC < 1 && sim.t < spreadEnd[i] ? 1 : SMOULDER_SPREAD);   // Low detail: full flaming rate at first (see ignite)
+      if (Rs > 0 && rng() < 1 - Math.exp(-Rs * e / NB[k].d) && ignite(j, Rs)) next.push(j);
     }
     if (!open) glows[i] = 0;                       // nothing left to ignite: stop checking this cell
     else canRekindle++;
@@ -665,8 +723,10 @@ function step(dt) {
   sim.t += dt;
   sim.fastest = fastest;
 }
-// A safe time step: the fastest spread happening now (with a margin) moves less than half a cell
-function safeDt() { return Math.min(0.5, 0.45 * CELL / Math.max(1, 1.5 * (sim.fastest || 2))); }
+// A safe time step: the fastest spread happening now (with a margin) moves less than half a cell.
+// Never more than half a minute per 10 m of cell: a newly lit square only starts spreading on the
+// next step, so the longest step has to shrink with the square too, or small squares slow the fire.
+function safeDt() { return Math.min(0.05 * CELL, 0.45 * CELL / Math.max(1, 1.5 * (sim.fastest || 2))); }
 
 function launchEmber(x, y, rng, next) {
   // distance: about 12 m per m/s of wind, with a long random tail (log-normal)
@@ -726,7 +786,8 @@ function atEdge() {
    ===================================================================== */
 const off = document.createElement("canvas"); off.width = GW; off.height = GH;
 const offCtx = off.getContext("2d");
-const img = offCtx.createImageData(GW, GH);
+let img = offCtx.createImageData(GW, GH);
+let smoothMap = false;                  // "Smooth map" option: blend neighbouring cells when drawing
 function cellColour(i, flick) {
   const s = state[i], sh = shade[i], v = 0.88 + 0.24 * tint[i];
   let r, g, b;
@@ -769,7 +830,7 @@ function drawMap(now) {
     d[4 * i] = r; d[4 * i + 1] = g; d[4 * i + 2] = b; d[4 * i + 3] = 255;
   }
   offCtx.putImageData(img, 0, 0);
-  ctx.imageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = smoothMap;
   ctx.drawImage(off, view.ox, view.oy, GW * s, GH * s);
 
   // tree crowns as little dots for texture (only when zoomed in enough)
@@ -797,7 +858,7 @@ function drawMap(now) {
     const i = bl[q];
     if (state[i] !== BURNING) continue;
     const x = (i % GW + 0.5) * s + view.ox, y = (((i / GW) | 0) + 0.5) * s + view.oy;
-    const rad = s * (crown[i] ? 2.6 : 1.6);
+    const rad = s * SC * (crown[i] ? 2.6 : 1.6);          // same size in metres at any detail
     const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
     g.addColorStop(0, crown[i] ? "rgba(255,220,140,0.22)" : "rgba(255,120,40,0.16)"); g.addColorStop(1, "rgba(255,80,0,0)");
     ctx.fillStyle = g; ctx.fillRect(x - rad, y - rad, 2 * rad, 2 * rad);
@@ -810,12 +871,12 @@ function drawMap(now) {
     if (sim.smoke.length > maxSmoke) break;
     const i = sim.burningList[(Math.random() * sim.burningList.length) | 0];
     if (i === undefined) break;
-    sim.smoke.push({ x: i % GW, y: (i / GW) | 0, age: 0, r: 1.2 + Math.random() * 1.5, dark: crown[i] ? 0.5 : 0.75 });
+    sim.smoke.push({ x: i % GW, y: (i / GW) | 0, age: 0, r: (1.2 + Math.random() * 1.5) * SC, dark: crown[i] ? 0.5 : 0.75 });
   }
-  const sp = 0.03 + W.V * 0.02;
+  const sp = (0.03 + W.V * 0.02) * SC;
   sim.smoke = sim.smoke.filter(p => p.age < 220);
   for (const p of sim.smoke) {
-    if (sim.running) { p.x += W.wx * sp + (Math.random() - 0.5) * 0.15; p.y += W.wy * sp + (Math.random() - 0.5) * 0.15; p.age++; p.r += 0.03; }
+    if (sim.running) { p.x += W.wx * sp + (Math.random() - 0.5) * 0.15 * SC; p.y += W.wy * sp + (Math.random() - 0.5) * 0.15 * SC; p.age++; p.r += 0.03 * SC; }
     const a = 0.09 * (1 - p.age / 220);
     const g0 = Math.round(150 * p.dark + 60);
     ctx.fillStyle = `rgba(${g0},${g0},${g0 - 5},${a})`;
@@ -827,9 +888,9 @@ function drawMap(now) {
   for (const e of sim.embers) {
     if (sim.running || e.age === 0) e.age++;
     const f = Math.min(1, e.age / 30);
-    const x = e.x0 + (e.x1 - e.x0) * f, y = e.y0 + (e.y1 - e.y0) * f - Math.sin(f * Math.PI) * 6;
+    const x = e.x0 + (e.x1 - e.x0) * f, y = e.y0 + (e.y1 - e.y0) * f - Math.sin(f * Math.PI) * 6 * SC;
     ctx.fillStyle = `rgba(255,${180 + Math.random() * 60},80,${1 - f * 0.5})`;
-    ctx.beginPath(); ctx.arc(view.ox + (x + 0.5) * s, view.oy + (y + 0.5) * s, Math.max(1.5, s * 0.5), 0, 2 * Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.arc(view.ox + (x + 0.5) * s, view.oy + (y + 0.5) * s, Math.max(1.5 * dpr, s * 0.5 * SC), 0, 2 * Math.PI); ctx.fill();
   }
 
   // rectangle preview while dragging an area
@@ -863,7 +924,7 @@ function drawMap(now) {
     ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - 10 * dpr * Math.cos(a - 0.5), y1 - 10 * dpr * Math.sin(a - 0.5)); ctx.lineTo(x1 - 10 * dpr * Math.cos(a + 0.5), y1 - 10 * dpr * Math.sin(a + 0.5)); ctx.fill();
   } else { ctx.fillText("calm", cx, cy + 4 * dpr); }
   ctx.fillStyle = "rgba(230,232,220,0.9)"; ctx.fillText(`wind ${Math.round(W.V * 3.6)} km/h`, cx, cy + R + 13 * dpr);
-  const bar = 50 * s;                         // 500 m
+  const bar = 500 / CELL * s;                 // 500 m
   ctx.fillStyle = "rgba(10,12,9,0.7)"; ctx.fillRect(view.ox + 8 * dpr, view.oy + GH * s - 26 * dpr, bar + 16 * dpr, 20 * dpr);
   ctx.fillStyle = "#eee"; ctx.fillRect(view.ox + 16 * dpr, view.oy + GH * s - 12 * dpr, bar, 3 * dpr);
   ctx.textAlign = "left"; ctx.fillText("500 m", view.ox + 16 * dpr, view.oy + GH * s - 15 * dpr);
@@ -1016,6 +1077,42 @@ function fireOut() {
 function hideOut() { const b = document.getElementById("outBanner"); if (b) b.style.display = "none"; }
 
 /* =====================================================================
+   9c. MAP DETAIL — change the cell size (20 m, 10 m, 5 m or 2.5 m)
+   ---------------------------------------------------------------------
+   The map keeps its real size. Things you have drawn are carried over.
+   ===================================================================== */
+function setGrid(cell) {
+  CELL = cell; SC = 10 / CELL; GW = MAP_W_M / CELL; GH = MAP_H_M / CELL; N = GW * GH;
+  NB = makeNB();
+  tree = new Uint8Array(N); under = new Float32Array(N); barrier = new Uint8Array(N); elev = new Float32Array(N);
+  wet = new Float32Array(N); state = new Uint8Array(N); timer = new Float32Array(N); crown = new Uint8Array(N);
+  fate = new Uint8Array(N); intensity = new Float32Array(N); crownTimer = new Float32Array(N); glows = new Uint8Array(N); spreadEnd = new Float32Array(N); crownEnd = new Float32Array(N); glowEnd = new Float32Array(N); spreadLeft = new Float32Array(N); glowLeft = new Float32Array(N);
+  shade = new Float32Array(N); tint = new Float32Array(N);
+  off.width = GW; off.height = GH; img = offCtx.createImageData(GW, GH);
+}
+// Drawn features as rectangles in metres, so they can be put on a grid of any cell size
+function drawnInMetres() { return [...drawnEdits].map(([i, v]) => ({ x: (i % GW) * CELL, y: ((i / GW) | 0) * CELL, w: CELL, v })); }
+function drawnFromMetres(list) {
+  for (const d of list) {
+    const x0 = Math.floor(d.x / CELL), y0 = Math.floor(d.y / CELL), x1 = Math.max(x0, Math.ceil((d.x + d.w) / CELL) - 1), y1 = Math.max(y0, Math.ceil((d.y + d.w) / CELL) - 1);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      if (x < 0 || y < 0 || x >= GW || y >= GH) continue;
+      const i = y * GW + x;
+      barrier[i] = d.v[0]; tree[i] = d.v[1]; under[i] = d.v[2];
+      orig.barrier[i] = d.v[0]; orig.tree[i] = d.v[1]; orig.under[i] = d.v[2];
+      drawnEdits.set(i, d.v.slice());
+    }
+  }
+}
+function changeDetail(cell) {
+  if (cell === CELL) return;
+  const drawn = drawnInMetres();
+  setGrid(cell);
+  rebuild();                         // a new map at the new detail (same seed and settings)
+  drawnFromMetres(drawn);
+}
+
+/* =====================================================================
    10. PRESETS
    ===================================================================== */
 const PRESETS = [
@@ -1076,7 +1173,7 @@ function updateLabels() {
   el("o_density").textContent = `${Math.round(p.density * 100)}% of the ground`;
   el("o_under").textContent = p.under < 0.05 ? "none" : p.under < 0.35 ? "a little" : p.under < 0.7 ? "medium" : "thick";
   el("o_tracks").textContent = ["none", "every 600 m", "every 350 m", "every 220 m"][p.tracks];
-  el("o_twidth").textContent = `${p.twidth * CELL} m`;
+  el("o_twidth").textContent = `${p.twidth * 10} m`;
   updateWind(p); sim.moist = p.moist;
   const changed = builtWith && builtWith !== JSON.stringify(SETUP.map(k => p[k]));
   el("pending").style.display = changed ? "block" : "none";
@@ -1086,6 +1183,8 @@ document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => set
 ["wind", "dir", "moist", "density", "under", "tracks", "twidth", "seed"].forEach(id => el(id).addEventListener("input", () => { document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); updateLabels(); }));
 ["species", "ground", "terrain", "river"].forEach(id => el(id).addEventListener("change", () => { document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); updateLabels(); }));
 el("btnNew").onclick = () => { pendingIgnite = null; rebuild(); };
+el("detail").addEventListener("change", () => { changeDetail(+el("detail").value); try { localStorage.setItem("forest-fire-detail", el("detail").value); } catch (e) {} });
+el("smooth").addEventListener("change", () => (smoothMap = el("smooth").checked));
 
 function setRunning(r) { sim.running = r; el("btnPlay").textContent = r ? "⏸ Pause" : sim.out ? "▶ New fire" : ignitionPoint ? "▶ Resume" : "▶ Start"; }
 el("btnPlay").onclick = () => {
@@ -1128,7 +1227,8 @@ function applyTool(i) {
     sim.wetCount = 1;
   }
 }
-const brushRadius = () => [0, 1, 2][brush] + (tool === "water" ? 2 : 0);
+// brush radius in cells: 10, 30 or 50 m wide (water drops 40 m wider), whatever the cell size
+const brushRadius = () => Math.max(0, Math.round(([0, 1, 2][brush] + (tool === "water" ? 2 : 0) + 0.5) * SC - 0.5));
 function stamp(x, y) {
   const rad = brushRadius();
   for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
@@ -1246,6 +1346,8 @@ function frame(now) {
   apply();
 })();
 
+// the map detail chosen last time (remembered in this browser)
+try { const d = localStorage.getItem("forest-fire-detail"); if (["20", "10", "5", "2.5"].includes(d) && +d !== CELL) { el("detail").value = d; setGrid(+d); } } catch (e) {}
 setPreset(2);
 
 /* =====================================================================
@@ -1268,7 +1370,7 @@ setPreset(2);
 const Batch = (function () {
   let C = null, ov = null;
   const st = { mode: "repeat", nRepeat: 0, varKey: null, from: 0, to: 1, steps: 6, reps: 3, outKey: null, seed: 1 };
-  let results = [], jobsMeta = null, running = false, stopFlag = false, ctx = null, expNote = "", expOn = -1;
+  let results = [], jobsMeta = null, running = false, stopFlag = false, ctx = null, expNote = "", expOn = -1, expSnap = "", DEFAULTS = null;
   const THEORY = "#5ec8ff", POINT = "#f1af28";
   const $ = id => document.getElementById(id);
 
@@ -1316,13 +1418,13 @@ const Batch = (function () {
           <div class="brow"><span>Record</span><select id="b_out"></select></div>
           <div class="brow"><span>Batch seed</span><input type="number" id="b_seed" step="1" min="1"></div>
           ${cfg.extraHTML || ""}
-          <div class="bbtns"><button class="primary" id="b_run">▶ Run batch</button><button id="b_stop" disabled>■ Stop</button></div>
+          <div class="bbtns"><button class="primary" id="bRun">▶ Run batch</button><button id="b_stop" disabled>■ Stop</button></div>
           <div class="bprog"><div id="b_bar"></div></div>
           <div class="bstat" id="b_stat">Ready.</div>
           <div style="margin-top:6px"><a href="#" class="bdl" id="b_csv">⬇ Download CSV of the raw results</a></div>
         </div>
         <div class="bright">
-          <div class="bnote" id="b_note"></div>
+          <div class="bnote" id="bNote"></div>
           <div class="bchartbox"><canvas id="b_chart"></canvas></div>
           <div class="blegend" id="b_legend"></div>
           <div class="bsum" id="b_sum"></div>
@@ -1333,13 +1435,15 @@ const Batch = (function () {
     ov.querySelectorAll("[data-bx]").forEach(b => (b.onclick = () => runExperiment(+b.dataset.bx)));
     ov.querySelectorAll("[data-bm]").forEach(b => (b.onclick = () => { if (running) return; st.mode = b.dataset.bm; expOn = -1; syncForm(); }));
     $("b_close").onclick = close;
-    $("b_run").onclick = () => { readForm(); expOn = -1; expNote = ""; run(); };
+    // Run batch: if the settings are still exactly those of the chosen experiment, keep its note
+    $("bRun").onclick = () => { readForm(); if (expOn >= 0 && JSON.stringify(st) !== expSnap) { expOn = -1; expNote = ""; syncForm(); } run(); };
     $("b_stop").onclick = () => { stopFlag = true; };
     $("b_var").onchange = () => { const v = C.vars.find(q => q.key === $("b_var").value); st.varKey = v.key; st.from = v.from; st.to = v.to; st.steps = v.steps || st.steps; syncForm(); };
     $("b_out").onchange = () => { st.outKey = $("b_out").value; draw(); };
     $("b_csv").onclick = e => { e.preventDefault(); downloadCSV(); };
     window.addEventListener("resize", () => { if (ov.classList.contains("open")) { place(); draw(); } });
     syncForm();
+    DEFAULTS = JSON.stringify(st);          // every experiment starts from these batch defaults
   }
   function place() {
     // Cover the whole working area below the page header
@@ -1360,7 +1464,7 @@ const Batch = (function () {
     $("b_out").innerHTML = outs.map(o => `<option value="${o.key}">${o.label}${unitTxt(o.unit)}</option>`).join("");
     $("b_out").value = st.outKey;
     ov.querySelectorAll("[data-bx]").forEach(b => b.classList.toggle("on", +b.dataset.bx === expOn));
-    $("b_note").innerHTML = expNote;
+    $("bNote").innerHTML = expNote;
     if (C.syncExtra) C.syncExtra(st);
   }
   function readForm() {
@@ -1376,10 +1480,14 @@ const Batch = (function () {
   function runExperiment(k) {
     if (running) return;
     const e = C.experiments[k];
-    readForm();
+    // start from the complete set of batch defaults, never from what was set before
+    for (const key of Object.keys(st)) delete st[key];
+    Object.assign(st, JSON.parse(DEFAULTS));
     e.apply(st);
     expOn = k; expNote = `<b>${e.name}</b> ${e.note}`;
     syncForm();
+    readForm();                               // what the form now shows is exactly what runs
+    expSnap = JSON.stringify(st);
     $("b_base").innerHTML = C.baseText ? C.baseText() : "";
     run();
   }
@@ -1402,7 +1510,7 @@ const Batch = (function () {
     else { let k = 0; for (const x of sweepValues()) for (let r = 0; r < st.reps; r++) jobs.push({ idx: k++, seed: st.seed * 100003 + r, rep: r, x }); }
     results = []; jobsMeta = { mode: st.mode, varKey: st.varKey, total: jobs.length };
     running = true; stopFlag = false;
-    $("b_run").disabled = true; $("b_stop").disabled = false;
+    $("bRun").disabled = true; $("b_stop").disabled = false;
     ov.querySelectorAll("[data-bx], [data-bm]").forEach(b => (b.disabled = true));
     ctx = C.begin(st);
     const t0 = performance.now();
@@ -1428,7 +1536,7 @@ const Batch = (function () {
     function finish(stopped) {
       running = false;
       C.end(ctx);
-      $("b_run").disabled = false; $("b_stop").disabled = true;
+      $("bRun").disabled = false; $("b_stop").disabled = true;
       ov.querySelectorAll("[data-bx], [data-bm]").forEach(b => (b.disabled = false));
       const el = (performance.now() - t0) / 1000;
       if (!$("b_stat").textContent.startsWith("Error")) $("b_stat").textContent = `${stopped ? "Stopped" : "Finished"}: ${results.length} run${results.length === 1 ? "" : "s"} in ${el.toFixed(1)} s.`;
@@ -1730,9 +1838,9 @@ function theoryROS(cells, V, M) {
   }
   return n ? s / n : 0;
 }
-const CAPS = [[60, "1 hour"], [120, "2 hours"], [240, "4 hours"], [480, "8 hours"], [1440, "24 hours"]];
+const CAPS = [[60, "1 hour"], [120, "2 hours"], [180, "3 hours"], [240, "4 hours"], [480, "8 hours"], [1440, "24 hours"]];   // every experiment's time limit must be in this list
 function fireSetup(settings, ignite) {        // used by the batch experiments: load a forest into the main controls
-  applySettings(settings);
+  applySettings(Object.assign({ seed: "7" }, settings));
   document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on"));
   pendingIgnite = ignite || null;
   rebuild();
@@ -1740,7 +1848,7 @@ function fireSetup(settings, ignite) {        // used by the batch experiments: 
 
 Batch.init({
   fileName: "forest-fire",
-  repeatChoices: [10, 20, 50, 100, 200], repeatDefault: 20, repsDefault: 5,
+  repeatChoices: [10, 20, 40, 50, 100, 200], repeatDefault: 20, repsDefault: 5,
   outcomes: [
     { key: "area", label: "Area burnt", unit: "ha", kind: "num" },
     { key: "speed", label: "Head-of-fire speed", unit: "m/min", kind: "num" },
@@ -1776,9 +1884,22 @@ Batch.init({
     const sp = p.species === "mixed" ? "mixed woodland" : TREES[TREE_CODE[p.species]].name.toLowerCase();
     return `Uses the map shown now (${sp}, density ${Math.round(p.density * 100)}%, ${GROUND[groundKey].name.toLowerCase()}${drawnEdits.size ? ", plus what you have drawn" : ""}) and the weather in the left panel (wind ${p.wind} m/s, fuel moisture ${Math.round(p.moist * 100)}%). Each run is lit at the same spot.`;
   },
-  reducedNote: () => "Batch runs use the full 240 × 160 cell map and the same rules as the animation, just without drawing. A run takes from a few hundredths of a second (small fires) to about a second (a whole forest burning). Experiments load their own forest into the left panel first; the interactive fire is put back when the batch ends.",
+  reducedNote: () => "Batch runs always use 10 m cells (the full 240 × 160 cell map, whatever the map detail on screen) and the same rules as the animation, just without drawing. A run takes from a few hundredths of a second (small fires) to about a second (a whole forest burning). Experiments load their own forest into the left panel first; the interactive fire is put back when the batch ends.",
   begin(st) {
     const base = params();
+    // Batch runs always use 10 m cells. If the map on screen is finer, put it
+    // aside, build the same wood at 10 m (with anything drawn), and restore it later.
+    let gridSnap = null;
+    if (CELL !== 10) {
+      gridSnap = { cell: CELL, arrays: { tree, under, barrier, elev, wet, state, timer, crown, fate, intensity, crownTimer, glows, shade, tint, spreadEnd, crownEnd, glowEnd, spreadLeft, glowLeft },
+                   orig, drawn: new Map(drawnEdits), img, ign: ignitionPoint, sim: Object.assign({}, sim), W: Object.assign({}, W), groundKey };
+      const drawn = drawnInMetres(), ignM = ignitionPoint ? [ignitionPoint.x * CELL, ignitionPoint.y * CELL] : null;
+      setGrid(10);
+      generateMap(base);
+      orig = { tree: tree.slice(), under: under.slice(), barrier: barrier.slice() };
+      drawnEdits.clear(); drawnFromMetres(drawn);
+      ignitionPoint = ignM ? { x: Math.round(ignM[0] / 10), y: Math.round(ignM[1] / 10), t: 0 } : null;
+    }
     const saved = { arrays: FIRE_ARRAYS().map(a => a.slice()), sim: Object.assign({}, sim), ign: ignitionPoint, W: Object.assign({}, W), groundKey };
     const baseMap = { tree: orig.tree.slice(), under: orig.under.slice(), barrier: orig.barrier.slice(), elev: elev.slice(), groundKey };
     tree.set(baseMap.tree); under.set(baseMap.under); barrier.set(baseMap.barrier);
@@ -1791,12 +1912,20 @@ Batch.init({
       const t = tree[i];
       cells.push({ base: baseROS(i), mx: t && under[i] < 0.1 ? 0.30 : GROUND[groundKey].mx, canopy: t ? TREES[t].canopyWind : 0.9 });
     }
-    return { base, saved, baseMap, ign, cells, cache: null, cap: st.cap, stopAtEdge: st.stopAtEdge, varyMap: st.varyMap || (st.mode === "sweep" && MAP_VARS.includes(st.varKey)) };
+    return { base, saved, gridSnap, baseMap, ign, cells, cache: null, cap: st.cap, stopAtEdge: st.stopAtEdge, varyMap: st.varyMap || (st.mode === "sweep" && MAP_VARS.includes(st.varKey)) };
   },
   end(ctx) {
-    FIRE_ARRAYS().forEach((a, k) => a.set(ctx.saved.arrays[k]));
-    Object.assign(sim, ctx.saved.sim);
-    ignitionPoint = ctx.saved.ign; W = ctx.saved.W; groundKey = ctx.saved.groundKey;
+    const g = ctx.gridSnap;
+    if (g) {                                 // back to the finer map that was on screen
+      setGrid(g.cell);
+      ({ tree, under, barrier, elev, wet, state, timer, crown, fate, intensity, crownTimer, glows, shade, tint, spreadEnd, crownEnd, glowEnd, spreadLeft, glowLeft } = g.arrays);
+      orig = g.orig; img = g.img; drawnEdits.clear(); for (const [k, v] of g.drawn) drawnEdits.set(k, v);
+      Object.assign(sim, g.sim); ignitionPoint = g.ign; W = g.W; groundKey = g.groundKey;
+    } else {
+      FIRE_ARRAYS().forEach((a, k) => a.set(ctx.saved.arrays[k]));
+      Object.assign(sim, ctx.saved.sim);
+      ignitionPoint = ctx.saved.ign; W = ctx.saved.W; groundKey = ctx.saved.groundKey;
+    }
     lastT = performance.now();
   },
   start(job, ctx, st) {
@@ -1808,7 +1937,7 @@ Batch.init({
       else if (k === "moist") p.moist = x / 100;
       else if (k === "density") p.density = x / 100;
       else if (k === "under") p.under = x / 100;
-      else if (k === "twidth") { p.twidth = Math.max(1, Math.min(4, Math.round(x / CELL))); if (!p.tracks) p.tracks = 1; }
+      else if (k === "twidth") { p.twidth = Math.max(1, Math.min(4, Math.round(x / 10))); if (!p.tracks) p.tracks = 1; }
     }
     if (ctx.varyMap) p.seed = `${ctx.base.seed}-map${job.rep + 1}`;
     // ---- the map: the one on screen, or a freshly built one (plus anything drawn)

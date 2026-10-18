@@ -44,7 +44,7 @@ and after the rain.
 
 ## How the spread is calculated
 
-The map is a grid of 10 m cells (2.4 km × 1.6 km). Each burning cell can
+The map is 2.4 km × 1.6 km, a grid of 10 m cells at the default Medium detail. Each burning cell can
 ignite its 8 neighbours. For each neighbour the model works out a rate of
 spread R in metres per minute, then the chance of ignition in a short time
 step Δt is 1 − e^(−RΔt/d), where d is the distance between the cells.
@@ -73,7 +73,9 @@ under **"How the model works"**.
 Press **📊 Batch run** (below the map) to run the model many times with no
 drawing. It uses the map on screen, including anything you have drawn, and
 the weather in the left panel. The interactive fire is saved first and put
-back afterwards.
+back afterwards. Batch runs always use the Medium detail (10 m cells,
+240 × 160) whatever the map detail on screen, so their results are the same
+as before the detail setting was added (see *Map detail* below).
 
 - **Repeat:** the same map and weather 10–200 times; only the fire's random
   numbers change (tick *New random map for every repeat* to vary the woodland
@@ -102,3 +104,58 @@ One-click batch experiments (timings from a test machine):
 
 Drag the bars beside the map to resize the side panels, or use their ‹ ›
 buttons to hide them. Double-click a bar to reset.
+
+## Map detail (resolution)
+
+**Map detail** in the left panel sets the cell size: Low 20 m (120 × 80),
+Medium 10 m (240 × 160, the default), High 5 m (480 × 320) or Ultra 2.5 m
+(960 × 640). The choice is remembered in the browser. The wood stays
+2.4 km × 1.6 km and the fire behaves about the same at every setting,
+because everything is worked out in metres and minutes:
+
+- the ignition chance 1 − e^(−RΔt/d) uses the real distance d between cells,
+  and the time step shrinks with the cell size (never more than half a
+  minute per 10 m of cell), so the fire never jumps more than half a cell per
+  step;
+- the chance that a burning square lights its neighbour before it goes out,
+  1 − e^(−R·time/d), is kept the same at every setting. A square's whole
+  "spreading life" (its flaming time at the full rate, then its smouldering
+  time at 20% of the rate) is squeezed into half the time at High and a
+  quarter at Ultra, and stretched to twice as long at Low. The squares still
+  flame, glow and throw embers for the real number of minutes. The extra push
+  from a crown fire is squeezed the same way. Without this, small squares
+  pass the fire on far more reliably than big ones: in testing, a slow fire
+  in a dense pine wood took twice as long to spread 400 m at Ultra as at
+  Medium;
+- ember launches and radiant-heat jumps are per 100 m² of burning fuel, so
+  the same number of embers fly per hectare burning, and the heat jump across
+  a gap is always about 20 m;
+- woods, glades, hills, rivers, fire tracks, brush sizes, the ignition patch
+  (30 m across, 40 m at Low), smoke and glow are all sized in metres.
+
+How close the settings are (4 fires each, same seeds, mean time for the head
+of the fire to get that far from where it started):
+
+| Preset | Distance | Low | Medium | High | Ultra |
+|---|---|---|---|---|---|
+| Dense trees (85%), no wind | 400 m | 106 min | 111 min | 119 min | 111 min |
+| Fire runs uphill | 400 m | 38 min | 43 min | 43 min | 42 min |
+| Heathland fire | 1000 m | 18 min | 17 min | 12 min | 16 min |
+| Pine plantation (crown fire) | 1200 m | 4.7 min | 3.9 min | 2.8 min | 2.4 min |
+| Grass fire, strong wind | 1200 m | 6.2 min | 5.1 min | 4.1 min | 4.1 min |
+
+Surface fires agree to within about 10% (heathland runs vary a lot from fire
+to fire at every setting). Fires driven by embers in strong wind still run
+somewhat faster at High and Ultra, because a fire on small squares settles
+into its shape sooner after each new spot fire, and every spot fire starts the
+next. Use Medium (the setting the batch runs use) for anything you measure.
+
+Finer detail just looks smoother and runs more slowly at high speed. At Low,
+a track or river cannot be narrower than one 20 m square. Changing the detail
+builds the same map again at the new resolution and keeps what you have drawn.
+
+**Batch runs always use 10 m cells** (240 × 160), whatever the detail on
+screen, so batch results are repeatable. If the screen is at another detail,
+the same wood is rebuilt at 10 m for the batch and the map on screen is put
+back afterwards. All canvases are sized by devicePixelRatio, so lines and text
+are sharp on 200% (Surface) screens.
