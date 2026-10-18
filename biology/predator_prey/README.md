@@ -22,6 +22,16 @@ regrowth rate, rabbit breeding rate, fox hunting success, fox energy needs,
 the age when young foxes can breed, fox culling, years to simulate. **Events:** rabbit
 disease (kills 80%), cull half the foxes, add 10 foxes, add 50 rabbits.
 
+**Quality** (below the field): the size of the grass cells, Low (50 m),
+Medium (25 m, the default), High (17 m) or Ultra (12.5 m). Finer cells look
+smoother and let grazed patches follow the rabbits, but run slower (Ultra on
+a big 80 × 80 field drops to about 30 frames a second). A rabbit always
+grazes a 50 m × 50 m area centred on itself, grass regrows at the same rate
+per week and a full field holds the same grass, so populations behave the
+same at every setting (no-fox carrying capacity 671–677 rabbits at all four).
+**Batch runs always use Low**, whatever the setting, so their results are
+repeatable.
+
 **Readouts:** measured cycle period, Lotka–Volterra period 2π/√(ad), how far
 fox peaks lag behind rabbit peaks, recent peak sizes, animals per hectare and
 per km², and (with no foxes) the logistic fit and carrying capacity.

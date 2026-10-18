@@ -191,6 +191,7 @@
     <details>
       <summary>How the model works (and what it leaves out)</summary>
       <ul>
+        <li><b>Quality:</b> the grass can be stored in 50 m squares (Low), or in finer cells of 25 m, 17 m or 12.5 m. A rabbit always grazes a 50 m × 50 m area centred on itself, the grass regrows at the same rate per week and a full field holds the same amount of grass, so populations behave the same at every setting; finer cells just let the grazed patches move smoothly with the animals. Batch runs always use Low, so their results can be repeated exactly.</li>
         <li><b>Field:</b> square patches, each 50 m × 50 m (0.25 ha). A field of 30 × 30 patches is 1.5 km × 1.5 km (225 ha). Animals can't leave the field and none arrive from outside.</li>
         <li><b>Grass:</b> each patch holds 0–1 "units" of grass. Each week it regrows by r × (1 − g): fastest when grazed bare, slowing as it fills up.</li>
         <li><b>Rabbits:</b> each week a rabbit hops up to 1.5 patches, to the grassier of two spots it tries. It eats up to 0.3 units of grass (8 units of energy per unit eaten) and uses 1 unit of energy. Energy is capped at 8. From 12 weeks old, a doe with at least 4 units of energy has a litter with the chance set by the breeding rate; about 3 young survive to leave the nest. Half the rabbits are does. Rabbits die if their energy runs out, and 1% die each week of other causes (most live about 2 years).</li>
@@ -224,6 +225,8 @@
       <button id="btnReset">Reset</button>
       <span class="speed">Speed <button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="4">4×</button><button data-s="15">15×</button></span>
       <span class="hint">1× = 4 weeks/s</span>
+      <label class="speed" title="Size of the grass cells. Finer cells look smoother and let grazing patterns show, but run slower. Batch runs always use Low.">Quality <select id="res">
+        <option value="1">Low (50 m grass cells)</option><option value="2" selected>Medium (25 m)</option><option value="3">High (17 m)</option><option value="4">Ultra (12.5 m)</option></select></label>
       <button id="btnBatch2" style="margin-left:auto">📊 Batch</button>
     </div>
     <div class="key"><span><i style="background:#d9c7a8"></i>Rabbit</span><span><i style="background:#f18700"></i>Fox</span><span><i style="background:#a3a3a3"></i>Vole</span><span><i style="background:#3d6e2a;border-radius:2px"></i>Grass (darker brown = eaten)</span><span><i style="background:#2a1d12;border:1px solid #c9a46a"></i>Warren (refuge)</span><span>Red ring: caught</span></div>
@@ -703,6 +706,7 @@ const VOLE = { hop: 0.8, bite: 0.12, gain: 4, cost: 0.25, maxE: 2, adult: 5, bre
 const FOX = { roam: 3, reach: 2, attacks: 5, maxE: 6, adult: 26, breedE: 3, breed: 0.04, litter: 2.5, die: 0.004, startE: 3, babyE: 1.5 };
 const LV_CONV = 0.1, LV_DIE = 0.04;      // LV-like mode: cubs per rabbit eaten; fox death chance per week
 const newCounts = () => ({ rB: 0, rD: 0, rE: 0, fB: 0, fD: 0, sR: 0, sF: 0, sRF: 0, w: 0 });
+const BATCH_RES = 1;                      // grass cells per patch side used by every batch run (Low)
 const SAFE = 6;                           // rabbits safe in one warren
 
 /* =====================================================================
@@ -721,8 +725,14 @@ function remove(h, i) { const j = --h.n; if (i !== j) for (const k of ["x", "y",
 
 function makeField(p, seed, live) {
   const S = Math.round(p.side), rng = mulberry32(seed);
-  const m = { p, S, rng, live, week: 0, counts: newCounts(), grass: new Float32Array(S * S), refuge: new Uint8Array(S * S), R: herd(1024), F: herd(64), V: herd(256), hist: [], caught: 0, kills: [] };
-  for (let i = 0; i < S * S; i++) { m.grass[i] = 0.5 + 0.5 * rng(); if (rng() < p.ref / 100) m.refuge[i] = 1; }
+  // Grass resolution: k × k grass cells per 50 m patch (k = 1 Low … 4 Ultra). Batch runs always use k = 1.
+  const k = clamp(Math.round(p.res || 1), 1, 4), GS = S * k;
+  const m = { p, S, k, GS, rng, live, week: 0, counts: newCounts(), grass: new Float32Array(GS * GS), refuge: new Uint8Array(S * S), R: herd(1024), F: herd(64), V: herd(256), hist: [], caught: 0, kills: [] };
+  for (let i = 0; i < S * S; i++) {
+    const v = 0.5 + 0.5 * rng(), px = i % S, py = Math.floor(i / S);   // same random start whatever the resolution
+    for (let a = 0; a < k; a++) for (let b = 0; b < k; b++) m.grass[(py * k + a) * GS + px * k + b] = v;
+    if (rng() < p.ref / 100) m.refuge[i] = 1;
+  }
   for (let k = 0; k < p.R0; k++) add(m, "R", rng() * S, rng() * S, 2 + 4 * rng(), RAB.adult + rng() * 60, rng);
   for (let k = 0; k < p.F0; k++) add(m, "F", rng() * S, rng() * S, FOX.startE, p.mature + rng() * 100, rng);
   for (let k = 0; k < p.V0; k++) add(m, "V", rng() * S, rng() * S, 1, VOLE.adult + rng() * 20, rng);
@@ -732,6 +742,27 @@ function makeField(p, seed, live) {
 const cellOf = (m, x, y) => Math.min(m.S - 1, Math.floor(y)) * m.S + Math.min(m.S - 1, Math.floor(x));
 const wrapIn = (v, S) => v < 0 ? -v : v >= S ? 2 * S - v - 0.001 : v;   // bounce off the hedges round the field
 
+// The grass a grazer can reach: one patch-sized (50 m × 50 m) square of grass cells centred on it.
+// With finer grass cells (higher quality) the square moves smoothly with the animal; the amount of
+// grass per square metre, the regrowth rate and how much a rabbit eats are the same at every setting.
+function footprint(m, x, y) {
+  const k = m.k, G = m.GS;
+  return [clamp(Math.round(x * k - k / 2), 0, G - k), clamp(Math.round(y * k - k / 2), 0, G - k)];
+}
+function grassAt(m, x, y) {          // average cover (0–1) within reach
+  if (m.k === 1) return m.grass[cellOf(m, x, y)];
+  const k = m.k, G = m.GS, [x0, y0] = footprint(m, x, y); let s = 0;
+  for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) s += m.grass[(y0 + j) * G + x0 + i];
+  return s / (k * k);
+}
+function graze(m, x, y, want) {      // eat up to "want" units (1 unit = a fully grown patch); returns the amount eaten
+  if (m.k === 1) { const c = cellOf(m, x, y), e = Math.min(m.grass[c], want); m.grass[c] -= e; return e; }
+  const k = m.k, G = m.GS, [x0, y0] = footprint(m, x, y), have = grassAt(m, x, y);
+  if (have <= 0) return 0;
+  const e = Math.min(have, want), keep = 1 - e / have;   // take the same share from every cell in reach
+  for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) m.grass[(y0 + j) * G + x0 + i] *= keep;
+  return e;
+}
 // Grazers (rabbits and voles): move, eat, use energy, breed, die
 function grazers(m, key, T, breedRate) {
   const h = m[key], S = m.S, rng = m.rng, g = m.grass, lv = m.p.simple && key === "R", C = m.counts;
@@ -739,7 +770,7 @@ function grazers(m, key, T, breedRate) {
     h.px[i] = h.x[i]; h.py[i] = h.y[i];
     // hop: try two spots and go to the grassier one
     let bx = h.x[i], by = h.y[i], bg = -1;
-    for (let k = 0; k < 2; k++) { const a = rng() * 6.283, d = rng() * T.hop; const x = wrapIn(h.x[i] + Math.cos(a) * d, S), y = wrapIn(h.y[i] + Math.sin(a) * d, S); const cc = cellOf(m, x, y), gg = g[cc] + (key === "R" && m.refuge[cc] ? 0.3 : 0); if (gg > bg) { bg = gg; bx = x; by = y; } }
+    for (let k = 0; k < 2; k++) { const a = rng() * 6.283, d = rng() * T.hop; const x = wrapIn(h.x[i] + Math.cos(a) * d, S), y = wrapIn(h.y[i] + Math.sin(a) * d, S); const cc = cellOf(m, x, y), gg = grassAt(m, x, y) + (key === "R" && m.refuge[cc] ? 0.3 : 0); if (gg > bg) { bg = gg; bx = x; by = y; } }
     h.x[i] = bx; h.y[i] = by;
     h.age[i]++;
     if (lv) {
@@ -751,8 +782,8 @@ function grazers(m, key, T, breedRate) {
       }
       continue;
     }
-    const c = cellOf(m, bx, by), eat = Math.min(g[c], T.bite);
-    g[c] -= eat; h.e[i] = Math.min(T.maxE, h.e[i] + eat * T.gain - T.cost);
+    const eat = graze(m, bx, by, T.bite);
+    h.e[i] = Math.min(T.maxE, h.e[i] + eat * T.gain - T.cost);
     if (h.e[i] <= 0 || rng() < T.die) { if (key === "R") C.rD++; remove(h, i); continue; }
     if (h.sex[i] === 0 && h.age[i] >= T.adult && h.e[i] >= T.breedE && rng() < breedRate) {
       const kids = poisson(rng, T.litter); if (key === "R") C.rB += kids;
@@ -779,7 +810,7 @@ function stepField(m) {
   if (m.week === 52) m.counts = newCounts();
   const C = m.counts; C.sR += m.R.n; C.sF += m.F.n; C.sRF += m.R.n * m.F.n; C.w++;
   // 1. grass regrows (logistic)
-  if (p.simple) g.fill(1); else for (let i = 0; i < S * S; i++) g[i] += p.grow * (1 - g[i]);
+  if (p.simple) g.fill(1); else for (let i = 0; i < g.length; i++) g[i] += p.grow * (1 - g[i]);   // same rate per week for any cell size
   // 2. rabbits and voles
   grazers(m, "R", RAB, p.breed);
   if (m.V.n) grazers(m, "V", VOLE, VOLE.breed);
@@ -919,6 +950,7 @@ function fitLogistic(series) {
    4. ONE HEADLESS RUN (for the batch lab)
    ===================================================================== */
 function runOnce(p, seed) {
+  p = { ...p, res: BATCH_RES };                 // batch runs always use the same (Low) grass resolution
   const m = makeField(p, seed, false), weeks = Math.round(p.years * 52);
   let foxGoneAt = NaN;
   for (let w = 0; w < weeks; w++) { stepField(m); if (m.F.n === 0 && !finite(foxGoneAt) && p.F0 > 0) foxGoneAt = m.week; if (m.R.n === 0 && m.F.n === 0 && m.V.n === 0) break; }
@@ -938,7 +970,7 @@ function runOnce(p, seed) {
 /* =====================================================================
    5. CONTROLS AND PRESETS
    ===================================================================== */
-const NUMS = ["side", "R0", "F0", "V0", "ref", "simple", "grow", "breed", "hunt", "need", "mature", "cull", "years"];
+const NUMS = ["res", "side", "R0", "F0", "V0", "ref", "simple", "grow", "breed", "hunt", "need", "mature", "cull", "years"];
 function params() { const p = { seed: el("seed").value }; NUMS.forEach(k => p[k] = +el(k).value); return p; }
 function updateLabels() {
   const p = params(), ha = (p.side * PATCH_M) ** 2 / 10000;
@@ -975,6 +1007,7 @@ function setPreset(k) {
 el("presets").innerHTML = PRESETS.map((p, k) => `<button data-k="${k}">${p.name}<small>${p.note}</small></button>`).join("");
 document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.k)));
 const unPreset = () => { document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); presetStory = ""; };
+el("res").addEventListener("change", () => reset());
 ["side", "R0", "F0", "V0", "ref", "simple"].forEach(id => { el(id).addEventListener("input", () => { unPreset(); updateLabels(); }); el(id).addEventListener("change", () => reset()); });
 el("seed").addEventListener("change", () => reset());
 ["grow", "breed", "hunt", "need", "mature", "cull", "years"].forEach(id => el(id).addEventListener("input", () => { unPreset(); updateLabels(); }));
@@ -1004,7 +1037,7 @@ el("btnLV").onclick = () => {
 
 function advance(real) {
   const m = live.m; if (!live.running) return;
-  m.p = { ...params(), side: m.p.side, R0: m.p.R0, F0: m.p.F0, V0: m.p.V0, ref: m.p.ref, simple: m.p.simple };
+  m.p = { ...params(), res: m.p.res, side: m.p.side, R0: m.p.R0, F0: m.p.F0, V0: m.p.V0, ref: m.p.ref, simple: m.p.simple };
   live.acc += real * speed * WEEKS_PER_SEC;
   const t0 = performance.now();
   while (live.acc >= 1 && performance.now() - t0 < 35) {
@@ -1017,13 +1050,16 @@ function drawView() {
   const { ctx: g, W, H, dpr } = fitCanvas(el("view")), m = live.m, S = m.S;
   g.fillStyle = "#050604"; g.fillRect(0, 0, W, H);
   const s = Math.min(W / S, H / S), ox = (W - S * s) / 2, oy = (H - S * s) / 2;
-  // grass: brown earth to green
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const v = m.grass[y * S + x];
-    g.fillStyle = `rgb(${Math.round(92 - 40 * v)},${Math.round(70 + 60 * v)},${Math.round(40 - 6 * v)})`;
-    g.fillRect(ox + x * s, oy + y * s, Math.ceil(s), Math.ceil(s));
-    if (m.refuge[y * S + x]) { g.fillStyle = "#2a1d12"; g.strokeStyle = "#c9a46a"; g.lineWidth = 1; g.beginPath(); g.arc(ox + (x + 0.5) * s, oy + (y + 0.5) * s, s * 0.32, 0, 7); g.fill(); g.stroke(); }
-  }
+  // grass: brown earth to green, one pixel per grass cell, then scaled up to fill the view
+  const G = m.GS;
+  if (!live.img || live.img.width !== G) { live.off = document.createElement("canvas"); live.off.width = live.off.height = G; live.img = live.off.getContext("2d").createImageData(G, G); }
+  const d = live.img.data;
+  for (let i = 0; i < G * G; i++) { const v = m.grass[i]; d[4 * i] = 92 - 40 * v; d[4 * i + 1] = 70 + 60 * v; d[4 * i + 2] = 40 - 6 * v; d[4 * i + 3] = 255; }
+  live.off.getContext("2d").putImageData(live.img, 0, 0);
+  g.imageSmoothingEnabled = m.k > 1;            // Low shows crisp 50 m squares; finer settings blend smoothly
+  g.drawImage(live.off, ox, oy, S * s, S * s);
+  g.fillStyle = "#2a1d12"; g.strokeStyle = "#c9a46a"; g.lineWidth = 1 * dpr;
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (m.refuge[y * S + x]) { g.beginPath(); g.arc(ox + (x + 0.5) * s, oy + (y + 0.5) * s, s * 0.32, 0, 7); g.fill(); g.stroke(); }
   const f = live.running ? clamp(live.acc, 0, 1) : 1;      // smooth motion between weekly steps
   const pos = (h, i) => [ox + (h.px[i] + (h.x[i] - h.px[i]) * f) * s, oy + (h.py[i] + (h.y[i] - h.py[i]) * f) * s];
   const r = clamp(s * 0.28, 1.6 * dpr, 6 * dpr);
@@ -1107,7 +1143,7 @@ function frame(now) { const real = Math.min(0.1, (now - lastNow) / 1000); lastNo
 const batch = setupBatch({
   csvName: "predator-prey",
   note: "Each run: a new field with the same settings, for the number of years set on the left.",
-  costNote: "Big fields with many animals are slower; the experiments use the default 30 × 30 field or smaller.",
+  costNote: "Batch runs always use Low quality (50 m grass cells), whatever the Quality setting, so results are repeatable. Big fields with many animals are slower.",
   getParams: params, runOnce, repeatNs: [20, 50, 100, 200], sweepReps: [5, 10, 20, 40],
   outcomes: [
     { key: "outcome", kind: "cat", label: "Outcome at the end", cats: ["both survive", "foxes died out", "rabbits died out"], catTheory: () => [1, 0, 0], theoryLabel: "Lotka–Volterra (never die out)",
