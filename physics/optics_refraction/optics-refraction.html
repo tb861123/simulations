@@ -1,0 +1,1751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optics: Refraction, Dispersion, Lenses and Fibres</title>
+<!--
+  OPTICS — a teaching simulation (WJEC / Eduqas GCSE and A level)
+  ================================================================
+  One self-contained file: no libraries, no internet needed.
+
+  Five modes (tabs at the top of the centre view):
+  1. SNELL'S LAW AND TOTAL INTERNAL REFLECTION
+       n1 sin θ1 = n2 sin θ2,   n = c / v,   sin θc = n2 / n1  (only when n1 > n2)
+       Fresnel equations give how much light is reflected at the boundary.
+  2. PRISM AND DISPERSION
+       n(λ) = A + B / λ²  (Cauchy's equation, λ in nm),  each colour refracts by its own amount.
+       Minimum deviation: n = sin((A + Dmin)/2) / sin(A/2)  (A = apex angle)
+  3. CONVERGING LENS   and   4. DIVERGING LENS
+       "real is positive" convention used in UK A level:
+       1/u + 1/v = 1/f,   magnification m = v/u  (shown with a minus sign for an inverted image)
+       f is negative for a diverging lens; power P = 1/f (f in metres), in dioptres (D)
+       lens maker's equation 1/f = (n − 1)(1/R1 − 1/R2)
+  5. OPTICAL FIBRES
+       sin θc = n_cladding / n_core,  NA = √(n_core² − n_cladding²) = sin(acceptance half-angle in air)
+       time to travel L at angle θ to the axis: t = L n_core / (c cos θ)  (modal dispersion)
+
+  Units: angles in degrees, lengths in cm for lenses, wavelengths in nm,
+  c = 3.00 × 10⁸ m/s. Light is drawn as rays with moving wavefronts
+  (in slow motion, wavelength hugely enlarged).
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 250px) 10px minmax(0, 1fr) 10px var(--rw, 280px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: var(--ink-dark); opacity: .8; }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; }
+  #pending { display: none; background: #3a2a07; color: #ffd98a; border: 1px solid #6b4e10; border-radius: 6px; padding: 6px 8px; font-size: 12.5px; margin: 6px 0; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #mapWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #tools { position: absolute; left: 8px; top: 8px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+  .trow { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+  #tools button { padding: 4px 9px; font-size: 12.5px; background: rgba(20,24,17,.88); }
+  #tools button.on { background: var(--accent); }
+  #drawOpts { background: rgba(20,24,17,.75); border-radius: 7px; padding: 2px 4px; }
+  #drawOpts button { padding: 2px 8px; font-size: 12px; }
+  .tlabel { font-size: 11.5px; color: var(--muted); margin: 0 2px 0 4px; }
+  #outBanner { display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(460px, 86%);
+               background: rgba(14,18,12,.94); border: 2px solid #8fd694; border-radius: 12px; padding: 14px 18px; box-shadow: 0 8px 30px rgba(0,0,0,.6); }
+  #outBanner h3 { margin: 0 0 6px; font-size: 20px; color: #8fd694; }
+  #outBanner p { margin: 6px 0; font-size: 13.5px; }
+  #outBanner .row2 { display: flex; gap: 8px; margin-top: 10px; }
+  #status { font-weight: 700; font-size: 13px; border-radius: 999px; padding: 1px 10px; }
+  #status.idle { background: #2a3024; color: var(--muted); }
+  #status.burning { background: #e4572e; color: #fff; }
+  #status.smoulder { background: #7a1e0c; color: #ffd2c2; }
+  #status.out { background: #8fd694; color: #10200c; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  #chartBox { position: relative; height: 170px; }
+  #chart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  .gauge { height: 12px; border-radius: 6px; background: linear-gradient(90deg, #3a7d44, #b5c33a 25%, #f1af28 45%, #e4572e 70%, #8b1e1e); position: relative; margin: 6px 0 2px; }
+  .gauge span { position: absolute; top: -4px; width: 4px; height: 20px; background: #fff; border-radius: 2px; transform: translateX(-2px); }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+
+  /* ---------- Batch run overlay ---------- */
+  #batchOv { position: fixed; z-index: 50; display: none; background: var(--panel); border: 1px solid var(--accent); border-radius: 10px;
+             box-shadow: 0 10px 40px rgba(0,0,0,.6); flex-direction: column; overflow: hidden; }
+  #batchOv.open { display: flex; }
+  #batchOv .bhead { display: flex; gap: 12px; align-items: baseline; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  #batchOv .bhead b { font-size: 16px; color: var(--accent); white-space: nowrap; }
+  #batchOv .bhead .hint { flex: 1; min-width: 0; color: var(--muted); font-size: 12px; }
+  #batchOv .bhead button { flex: none; }
+  #batchOv .bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: 310px minmax(0, 1fr); }
+  #batchOv .bleft { overflow-y: auto; padding: 10px 12px; border-right: 1px solid var(--line); }
+  #batchOv .bright { display: flex; flex-direction: column; min-height: 0; padding: 10px 12px; gap: 6px; overflow-y: auto; }
+  #batchOv h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 6px; }
+  #batchOv h2.gap { margin-top: 12px; }
+  #batchOv .bexps { display: flex; flex-direction: column; gap: 4px; }
+  #batchOv .bexps button { text-align: left; font-size: 12.5px; padding: 5px 8px; font-weight: 600; line-height: 1.25; flex: none; }
+  #batchOv .bexps button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  #batchOv .bexps button.on { border-color: var(--accent); background: var(--panel-2); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
+  #batchOv .bmodes { display: flex; gap: 4px; margin-bottom: 8px; }
+  #batchOv .bmodes button { flex: 1; padding: 4px 8px; font-size: 12.5px; }
+  #batchOv .bmodes button.on { background: var(--accent); color: var(--ink-dark, #14133b); border-color: var(--accent); font-weight: 700; }
+  #batchOv .brow { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; font-size: 12.5px; }
+  #batchOv .brow > span { flex: none; min-width: 74px; color: var(--muted); }
+  #batchOv .brow select, #batchOv .brow input[type=number], #batchOv .brow input[type=text] { flex: 1; min-width: 0; font: inherit; font-size: 12.5px; background: var(--panel-2); color: var(--text);
+            border: 1px solid var(--line); border-radius: 6px; padding: 3px 5px; }
+  #batchOv .brow input[type=number] { width: 70px; }
+  #batchOv label.bchk { display: flex; gap: 6px; align-items: flex-start; font-size: 12.5px; margin-bottom: 6px; }
+  #batchOv .bbtns { display: flex; gap: 6px; margin: 8px 0 6px; }
+  #batchOv .bbtns button { flex: 1; }
+  #batchOv .bprog { height: 8px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  #batchOv .bprog div { height: 100%; width: 0; background: var(--accent); }
+  #batchOv .bstat { font-size: 12px; color: var(--muted); margin-top: 4px; min-height: 1.4em; }
+  #batchOv .bchartbox { position: relative; flex: 1 1 auto; min-height: 240px; }
+  #batchOv .bchartbox canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #batchOv .blegend { display: flex; flex-wrap: wrap; gap: 3px 14px; font-size: 12px; color: var(--muted); }
+  #batchOv .blegend i { display: inline-block; width: 14px; height: 3px; margin-right: 5px; vertical-align: 3px; border-radius: 2px; }
+  #batchOv .bsum { font-size: 12.5px; }
+  #batchOv .bsum table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  #batchOv .bsum td, #batchOv .bsum th { padding: 1px 10px 1px 0; text-align: left; white-space: nowrap; }
+  #batchOv .bsum th { color: var(--muted); font-weight: 600; }
+  #batchOv .bsum .fit { margin-top: 4px; color: var(--accent); }
+  #batchOv .bnote { font-size: 12.5px; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; }
+  #batchOv .bnote:empty { display: none; }
+  #batchOv .breduced { font-size: 11.5px; color: var(--muted); margin-bottom: 10px; border-left: 3px solid var(--accent); padding-left: 8px; }
+  #batchOv a.bdl { color: var(--accent); font-size: 12.5px; }
+  .bopen { white-space: nowrap; }
+
+
+  .tabs { display: inline-flex; gap: 3px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+  .tabs button { border: 0; background: none; padding: 4px 11px; font-size: 13px; font-weight: 600; }
+  .tabs button.on { background: var(--accent); color: var(--ink-dark); }
+  #viewWrap { position: relative; flex: 1 1 58%; min-height: 0; background: #05070d; border-radius: 8px; overflow: hidden; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #plotWrap { position: relative; flex: 1 1 42%; min-height: 150px; background: var(--panel-2); border-radius: 8px; overflow: hidden; }
+  #plot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #overlay { position: absolute; left: 8px; top: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
+  #overlay button { padding: 2px 9px; font-size: 12px; background: rgba(20,24,40,.85); }
+  #overlay button.on { background: var(--accent); color: var(--ink-dark); }
+  .grp { display: none; }
+  .grp.show { display: block; }
+  .swatch { display: inline-block; width: 26px; height: 12px; border-radius: 3px; border: 1px solid #555; vertical-align: -1px; margin-left: 6px; }
+  .adv { border-top: 1px dashed #7c5aa6; margin-top: 10px; padding-top: 8px; }
+  .adv > .advh { color: #c39bff; font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+  .info { background: #182033; border: 1px solid #2c3a5c; border-radius: 7px; padding: 6px 9px; font-size: 12.5px; margin: 6px 0; }
+  .warn { background: #33270c; border-color: #6b4e10; color: #ffe2a3; }
+  .bad { background: #3a1414; border-color: #7a2a2a; color: #ffc9c9; }
+  .good { background: #13301c; border-color: #2c6b3d; color: #c8f5d2; }
+  .chk { display: flex; gap: 6px; align-items: flex-start; font-size: 13px; margin: 4px 0 8px; }
+  .lvl { display: flex; gap: 4px; margin-bottom: 4px; }
+  .lvl button { flex: 1; padding: 4px; font-size: 12.5px; }
+  .rbox { position: relative; height: 190px; margin: 4px 0 8px; }
+  .rbox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  table.tbl { border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; width: 100%; }
+  table.tbl td, table.tbl th { padding: 2px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+  table.tbl th { color: var(--muted); font-weight: 600; }
+  .eq { font-family: "Cambria Math", Cambria, Georgia, serif; font-size: 13.5px; color: #f4f1e4; background: #10162a; border-radius: 5px; padding: 3px 8px; margin: 3px 0; }
+  .notes p { margin: 6px 0; color: #d7dbe8; }
+  .exq { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; margin: 6px 0; background: var(--panel-2); font-size: 12.5px; color: var(--text); }
+  .exq .mk { float: right; background: #2b5fb4; color: #fff; border-radius: 4px; padding: 0 7px; font-size: 11px; margin-left: 6px; }
+  .exq .ht { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  .exq button { margin-top: 5px; padding: 2px 8px; font-size: 12px; }
+  .exq .ms { display: none; margin-top: 5px; border-left: 3px solid var(--accent); padding-left: 8px; }
+  .exq .ms.open { display: block; }
+  .exq .ans { color: #8fe3a0; font-weight: 700; margin-top: 3px; }
+  .exset { color: var(--accent); font-size: 12px; font-weight: 700; margin: 10px 0 2px; text-transform: uppercase; letter-spacing: .04em; }
+  #plotCap { font-size: 11.5px; color: var(--muted); padding: 0 4px; min-height: 1.3em; }
+  details.box { border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; background: rgba(255,255,255,.02); }
+  details.box[open] summary { margin-bottom: 6px; }
+
+</style>
+</head>
+<body>
+<header>
+  <h1>Optics</h1>
+  <span class="sub">Refraction and Snell's law, total internal reflection, prisms and dispersion, converging and diverging lenses, and optical fibres.</span>
+</header>
+
+<main>
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+    <h2 class="gap">Level</h2>
+    <div class="lvl" id="lvl"><button data-l="0" class="on">Standard (GCSE / AS)</button><button data-l="1">Advanced (A level)</button></div>
+    <div class="hint">Advanced adds the extra A-level tables, graphs and equations (purple).</div>
+
+    <!-- SNELL -->
+    <div class="grp" data-m="snell">
+      <h2 class="gap">Snell's law &amp; TIR</h2>
+      <div class="ctl"><label>Material preset</label><select id="spre"></select><div id="sctx" class="info" style="display:none"></div></div>
+      <div class="ctl"><label>n₁ (incident medium, top) <output id="o_n1"></output></label><input type="range" id="n1" min="1" max="2.5" step="0.01" value="1"></div>
+      <div class="ctl"><label>n₂ (refracting medium, bottom) <output id="o_n2"></output></label><input type="range" id="n2" min="1" max="2.5" step="0.01" value="1.5"></div>
+      <div class="ctl"><label>Angle of incidence θ₁ <output id="o_th1"></output></label><input type="range" id="th1" min="0" max="89" step="0.5" value="40">
+        <div class="hint">Measured from the normal. You can also drag the blue handle on the incident ray.</div></div>
+      <div class="adv adv-only"><div class="advh">⚗️ Advanced options</div><label class="chk"><input type="checkbox" id="stable"> <span>Show a table of θ₂ for θ₁ = 0° … 85°</span></label></div>
+    </div>
+    <!-- PRISM -->
+    <div class="grp" data-m="prism">
+      <h2 class="gap">Prism &amp; dispersion</h2>
+      <div class="ctl"><label>Prism material</label><select id="mat"><option>Crown glass</option><option>Flint glass</option><option>Diamond</option></select>
+        <div class="hint">Cauchy coefficients A and B decide how strongly each material spreads colours.</div></div>
+      <div class="ctl"><label>Angle of incidence on the prism <output id="o_thp"></output></label><input type="range" id="thp" min="10" max="85" step="0.5" value="40"></div>
+      <div class="ctl"><label>Apex angle A <output id="o_apex"></output></label><input type="range" id="apex" min="20" max="80" step="1" value="60"></div>
+      <div class="adv adv-only"><div class="advh">⚗️ Advanced options</div>
+        <label class="chk"><input type="checkbox" id="allMat"> <span>Compare all materials on the dispersion curve</span></label>
+        <button id="minDev" style="font-size:12px;padding:3px 8px">Set to minimum deviation (589 nm)</button></div>
+    </div>
+    <!-- LENS -->
+    <div class="grp" data-m="lens">
+      <h2 class="gap">Converging lens</h2>
+      <div class="ctl"><label>Real-world lens</label><select id="lpre"></select><div id="lctx" class="info" style="display:none"></div></div>
+      <div class="ctl"><label>Focal length f <output id="o_f"></output></label><input type="range" id="f" min="1" max="30" step="0.5" value="15"></div>
+      <div class="ctl"><label>Object distance u <output id="o_u"></output></label><input type="range" id="u" min="2" max="100" step="0.5" value="30">
+        <div class="hint">You can also drag the object arrow.</div></div>
+      <div class="adv adv-only"><div class="advh">⚗️ Advanced options</div>
+        <label class="chk"><input type="checkbox" id="ltable"> <span>Show a table of v and m for u = 5 … 60 cm</span></label>
+        <label class="chk"><input type="checkbox" id="inv" checked> <span>Show the 1/v against 1/u graph</span></label></div>
+    </div>
+    <!-- DIVERGING -->
+    <div class="grp" data-m="div">
+      <h2 class="gap">Diverging lens</h2>
+      <div class="ctl"><label>Real-world use</label><select id="dpre"></select><div id="dctx" class="info" style="display:none"></div></div>
+      <div class="ctl"><label>Focal length |f| <output id="o_df"></output></label><input type="range" id="df" min="5" max="40" step="1" value="15">
+        <div class="hint">The lens equation uses f = −|f| (negative for a diverging lens).</div></div>
+      <div class="ctl"><label>Object distance u <output id="o_du"></output></label><input type="range" id="du" min="5" max="200" step="1" value="25"></div>
+      <div class="adv adv-only"><div class="advh">⚗️ Lens maker's equation</div>
+        <label class="chk"><input type="checkbox" id="lm"> <span>Show the lens maker's equation</span></label>
+        <div id="c_lm">
+          <div class="ctl"><label>Glass refractive index n <output id="o_ng"></output></label><input type="range" id="ng" min="1.4" max="1.9" step="0.01" value="1.5"></div>
+          <div class="ctl"><label>R₁ (negative: concave first surface) <output id="o_R1"></output></label><input type="range" id="R1" min="-80" max="-5" step="1" value="-30"></div>
+          <div class="ctl"><label>R₂ (positive: concave second surface) <output id="o_R2"></output></label><input type="range" id="R2" min="5" max="80" step="1" value="30"></div>
+        </div></div>
+    </div>
+    <!-- FIBRE -->
+    <div class="grp" data-m="fibre">
+      <h2 class="gap">Optical fibre</h2>
+      <div class="ctl"><label>Fibre type</label><select id="fpre"></select><div id="fctx" class="info" style="display:none"></div></div>
+      <div class="ctl"><label>Core refractive index n_core <output id="o_nc"></output></label><input type="range" id="nc" min="1.40" max="1.80" step="0.001" value="1.5"></div>
+      <div class="ctl"><label>Cladding refractive index n_clad <output id="o_ncl"></output></label><input type="range" id="ncl" min="1.35" max="1.79" step="0.001" value="1.46">
+        <div class="hint">Must be less than n_core for total internal reflection.</div></div>
+      <div class="ctl"><label>Ray angle θ from the axis (inside the core) <output id="o_fth"></output></label><input type="range" id="fth" min="0" max="60" step="0.5" value="15"></div>
+      <div class="ctl"><label>Bounces to show <output id="o_nb"></output></label><input type="range" id="nb" min="3" max="10" step="1" value="5"></div>
+    </div>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul id="howList"></ul>
+    </details>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span class="tabs" id="tabs"><button data-mode="snell">Snell's law &amp; TIR</button><button data-mode="prism">Prism</button><button data-mode="lens">Converging lens</button><button data-mode="div">Diverging lens</button><button data-mode="fibre">Optical fibre</button></span>
+      <span id="readouts"></span>
+    </div>
+    <div id="viewWrap">
+      <canvas id="view" aria-label="Ray diagram"></canvas>
+      <div id="overlay"></div>
+    </div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">⏸ Pause</button>
+      <button id="btnReset">↺ Reset</button>
+      <span class="speed">Speed <button data-s="0.25">¼×</button><button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="4">4×</button></span>
+      <button id="btnBatch" class="bopen" title="Run a simulated practical many times and compare with theory">📊 Batch run</button>
+      <span class="hint" id="slowNote"></span>
+    </div>
+    <div id="plotWrap"><canvas id="plot" aria-label="Graph"></canvas></div>
+    <div id="plotCap"></div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readings</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <div id="alerts"></div>
+    <h2 class="gap">Readings</h2>
+    <div class="tiles" id="tiles"></div>
+    <div id="rextra"></div>
+    <h2 class="gap">Physics notes</h2>
+    <details class="box notes" id="notes"><summary>📐 Equations and explanation</summary><div id="notesBody"></div></details>
+    <h2 class="gap">📝 Exam practice</h2>
+    <div class="hint">Questions use the current settings: change the controls and the answers update.</div>
+    <div id="exam"></div>
+  </section>
+</main>
+
+<script>
+const PANEL_KEY = "optics-layout";
+/* =====================================================================
+   HELPERS: number formatting, colours of light, canvas drawing
+   ===================================================================== */
+const el = id => document.getElementById(id);
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const TAU = 2 * Math.PI;
+// Short number formatting with British conventions
+function fmt(v, d = 3) {
+  if (v == null || !isFinite(v)) return "–";
+  if (v === 0) return "0";
+  const a = Math.abs(v);
+  if (a >= 1e5 || a < 1e-3) { const e = Math.floor(Math.log10(a)); return `${(v / Math.pow(10, e)).toFixed(2)}×10${sup(e)}`; }
+  if (a >= 1000) return Math.round(v).toLocaleString("en-GB");
+  return String(+v.toPrecision(d));
+}
+function sup(e) { const S = "⁰¹²³⁴⁵⁶⁷⁸⁹"; return String(e).split("").map(c => (c === "-" ? "⁻" : S[+c])).join(""); }
+const fx = (v, d) => (isFinite(v) ? v.toFixed(d) : "–");
+
+/* Colour of light of wavelength nm (an approximation of what the eye sees).
+   Returns [r, g, b] from 0 to 255. Colours fade towards the ends of the
+   visible spectrum because the eye is less sensitive there. */
+function wlRGB(nm) {
+  let r = 0, g = 0, b = 0;
+  if (nm < 440) { r = (440 - nm) / 60; b = 1; }
+  else if (nm < 490) { g = (nm - 440) / 50; b = 1; }
+  else if (nm < 510) { g = 1; b = (510 - nm) / 20; }
+  else if (nm < 580) { r = (nm - 510) / 70; g = 1; }
+  else if (nm < 645) { r = 1; g = (645 - nm) / 65; }
+  else r = 1;
+  let f = 1;
+  if (nm < 420) f = 0.35 + 0.65 * (nm - 380) / 40; else if (nm > 700) f = 0.35 + 0.65 * (780 - nm) / 80;
+  f = clamp(f, 0.3, 1);
+  return [r, g, b].map(c => Math.round(255 * clamp(c, 0, 1) * f));
+}
+const wlCSS = (nm, a = 1) => { const [r, g, b] = wlRGB(nm); return `rgba(${r},${g},${b},${a})`; };
+function bandName(nm) { return nm < 380 ? "ultraviolet" : nm < 450 ? "violet" : nm < 495 ? "blue" : nm < 570 ? "green" : nm < 590 ? "yellow" : nm < 620 ? "orange" : nm <= 750 ? "red" : "infrared"; }
+
+/* ---------------- Canvas helpers ---------------- */
+// Size a canvas for the screen's pixel density (crisp on 200% Surface screens). Draw in CSS pixels.
+function fit(cv) {
+  const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  const w = Math.max(1, Math.round(W * dpr)), h = Math.max(1, Math.round(H * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const g = cv.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { g, W, H, dpr };
+}
+function niceStep(span, n) { const raw = span / n, e = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / e; return (m >= 5 ? 10 : m >= 2 ? 5 : m >= 1 ? 2 : 1) * e; }
+function ticks(lo, hi, n) { const st = niceStep(hi - lo || 1, n), t = []; for (let v = Math.ceil(lo / st - 1e-9) * st; v <= hi + 1e-9 * st; v += st) t.push(+v.toPrecision(12)); return { t, st }; }
+const tickTxt = (v, st) => { const d = Math.max(0, Math.min(4, -Math.floor(Math.log10(st) + 1e-9))); return Math.abs(v) >= 1e5 ? fmt(v) : v.toFixed(d); };
+/* Draw axes on a canvas. o = { xr, yr, xlabel, ylabel, title, bg, nx, ny, noYnum }.
+   Returns mapping functions X(), Y() and the plot box. */
+function chart(cv, o) {
+  let g, W, H, ox = 0, oy = 0;
+  if (o.box) { g = o.box.g; [ox, oy, W, H] = o.box.r; g.save(); g.translate(ox, oy); }   // draw inside part of a canvas
+  else ({ g, W, H } = fit(cv));
+  g.fillStyle = o.bg || "#1a2033"; g.fillRect(0, 0, W, H);
+  const L = o.L ?? 56, R = o.R ?? 12, T = o.T ?? (o.title ? 22 : 10), B = 36;
+  const X = v => L + (v - o.xr[0]) / (o.xr[1] - o.xr[0] || 1) * (W - L - R);
+  const Y = v => H - B - (v - o.yr[0]) / (o.yr[1] - o.yr[0] || 1) * (H - T - B);
+  g.font = "11px system-ui, sans-serif"; g.lineWidth = 1;
+  const xt = o.xticks ? { t: o.xticks, st: 1 } : ticks(o.xr[0], o.xr[1], o.nx || Math.max(3, Math.floor((W - L - R) / 70)));
+  const yt = ticks(o.yr[0], o.yr[1], o.ny || Math.max(2, Math.floor((H - T - B) / 34)));
+  g.strokeStyle = "rgba(160,170,190,0.16)"; g.fillStyle = "#a9b0c4";
+  g.textAlign = "center";
+  for (const v of xt.t) { const x = X(v); g.beginPath(); g.moveTo(x, T); g.lineTo(x, H - B); g.stroke(); g.fillText(o.xfmt ? o.xfmt(v) : tickTxt(v, xt.st), x, H - B + 14); }
+  g.textAlign = "right";
+  if (!o.noYnum) for (const v of yt.t) { const y = Y(v); g.beginPath(); g.moveTo(L, y); g.lineTo(W - R, y); g.stroke(); g.fillText(tickTxt(v, yt.st), L - 5, y + 4); }
+  g.strokeStyle = "rgba(210,215,230,0.6)"; g.beginPath(); g.moveTo(L, T); g.lineTo(L, H - B); g.lineTo(W - R, H - B); g.stroke();
+  g.fillStyle = "#e6e9f2"; g.textAlign = "center"; g.fillText(o.xlabel || "", (L + W - R) / 2, H - 6);
+  if (o.ylabel) { g.save(); g.translate(12, (T + H - B) / 2); g.rotate(-Math.PI / 2); g.fillText(o.ylabel, 0, 0); g.restore(); }
+  if (o.title) { g.textAlign = "left"; g.font = "600 12px system-ui, sans-serif"; g.fillText(o.title, L, 15); g.font = "11px system-ui, sans-serif"; }
+  if (o.box) g.restore();
+  const Xo = v => ox + X(v), Yo = v => oy + Y(v);
+  return { g, X: Xo, Y: Yo, L: ox + L, R: R, T: oy + T, B: B, W: ox + W, H: oy + H,
+    clip() { g.save(); g.beginPath(); g.rect(ox + L, oy + T, W - L - R, H - T - B); g.clip(); }, unclip() { g.restore(); } };
+}
+// Draw a polyline of [x, y] points (data units) on a chart
+function plotLine(A, pts, colour, width = 2, dash = null, alpha = 1) {
+  const g = A.g; g.save(); g.globalAlpha = alpha; g.strokeStyle = colour; g.lineWidth = width; if (dash) g.setLineDash(dash);
+  g.beginPath(); let pen = false;
+  for (const p of pts) { if (!p || p[1] == null || !isFinite(p[1])) { pen = false; continue; } const x = A.X(p[0]), y = A.Y(p[1]); if (pen) g.lineTo(x, y); else { g.moveTo(x, y); pen = true; } }
+  g.stroke(); g.restore();
+}
+function vline(A, x, colour, dash = [4, 4], label, ly) {
+  const g = A.g, X = A.X(x); g.save(); g.strokeStyle = colour; g.setLineDash(dash); g.lineWidth = 1;
+  g.beginPath(); g.moveTo(X, A.T); g.lineTo(X, A.H - A.B); g.stroke(); g.restore();
+  if (label) { g.fillStyle = colour; g.font = "10px system-ui, sans-serif"; g.textAlign = "center"; g.fillText(label, X, ly ?? A.T + 10); }
+}
+function legendBox(A, items, x0, y0) {   // items: [colour, text, dashed]
+  const g = A.g; g.font = "11px system-ui, sans-serif";
+  const w = Math.max(...items.map(i => g.measureText(i[1]).width)) + 34, h = items.length * 15 + 6;
+  const x = x0 ?? A.W - A.R - w - 4, y = y0 ?? A.T + 4;
+  g.fillStyle = "rgba(10,14,26,0.78)"; g.fillRect(x, y, w, h);
+  items.forEach(([c, t, d], k) => { g.strokeStyle = c; g.lineWidth = 2.5; g.setLineDash(d ? [4, 3] : []); g.beginPath(); g.moveTo(x + 6, y + 11 + 15 * k); g.lineTo(x + 24, y + 11 + 15 * k); g.stroke(); g.setLineDash([]); g.fillStyle = "#e6e9f2"; g.textAlign = "left"; g.fillText(t, x + 29, y + 15 + 15 * k); });
+}
+function arrow(g, x1, y1, x2, y2, size = 9) {
+  g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  g.beginPath(); g.moveTo(x2, y2); g.lineTo(x2 - size * Math.cos(a - 0.4), y2 - size * Math.sin(a - 0.4)); g.lineTo(x2 - size * Math.cos(a + 0.4), y2 - size * Math.sin(a + 0.4)); g.closePath(); g.fill();
+}
+function text(g, s, x, y, colour = "#e6e9f2", align = "left", font = "12px system-ui, sans-serif") { g.font = font; g.fillStyle = colour; g.textAlign = align; g.fillText(s, x, y); }
+function pill(g, s, x, y, colour = "#e6e9f2", font = "12px system-ui, sans-serif", align = "left") {
+  g.font = font; const w = g.measureText(s).width + 10; const x0 = align === "center" ? x - w / 2 : align === "right" ? x - w : x;
+  g.fillStyle = "rgba(8,11,22,0.8)"; g.fillRect(x0, y - 13, w, 18); g.fillStyle = colour; g.textAlign = "left"; g.fillText(s, x0 + 5, y);
+}
+
+/* ---------------- Animation clock ---------------- */
+const anim = { playing: true, speed: 1, last: performance.now() };
+
+/* =====================================================================
+   1. SETTINGS, DATA AND THE PHYSICS
+   ===================================================================== */
+const C_LIGHT = 3.00e8;                 // speed of light in a vacuum (m/s)
+const P = {
+  mode: "snell", adv: false,
+  n1: 1.0, n2: 1.5, th1: 40, stable: false, scan: false,
+  mat: "Crown glass", thp: 40, apex: 60, allMat: false,
+  f: 15, u: 30, ltable: false, inv: true,
+  df: 15, du: 25, lm: false, ng: 1.5, R1: -30, R2: 30,
+  nc: 1.5, ncl: 1.46, fth: 15, nb: 5,
+};
+// Cauchy coefficients (A, B in nm²): n(λ) = A + B/λ²
+const CAUCHY = { "Crown glass": [1.507, 4200], "Flint glass": [1.590, 8400], "Diamond": [2.390, 22000] };
+const MATERIALS = {
+  "Custom": null,
+  "Air → Water": [1.0, 1.33, "Swimming pools look shallower than they are: light from the bottom bends away from the normal as it leaves the water, so objects appear nearer the surface. Water's refractive index is about 1.33."],
+  "Air → Glass": [1.0, 1.50, "Ordinary glass has n ≈ 1.50. Camera lenses use several glass elements to correct aberrations while keeping the image sharp."],
+  "Water → Glass": [1.33, 1.50, "Light going from water into glass bends towards the normal, but less than from air into glass because the indices are closer."],
+  "Air → Diamond": [1.0, 2.42, "Diamond's very high refractive index (2.42) means most light entering it is totally internally reflected several times inside — this is why diamonds sparkle."],
+  "Glass → Air": [1.50, 1.0, "Optical fibres use TIR at a glass boundary. Light hitting the side at more than the critical angle (≈ 41.8° for glass to air) is reflected along the fibre with almost no loss."],
+  "Diamond → Air": [2.42, 1.0, "Diamond's critical angle is only about 24.4°. Gems are cut so that most light inside meets faces beyond the critical angle, bouncing around before leaving through the top."],
+};
+const LENSES = {
+  "Custom": null,
+  "Magnifying glass (f = 10 cm)": [10, 8, "A magnifying glass is a converging lens with the object INSIDE the focal length. The image is virtual, upright and magnified, on the same side as the object. Typical magnification ×2 to ×4."],
+  "Camera lens (f = 35 mm)": [3.5, 50, "A 35 mm lens is a classic ‘normal’ camera lens. With the subject 50 cm away the image forms just over 3.5 cm behind the lens, on the sensor."],
+  "Human eye (f ≈ 17 mm)": [1.7, 25, "The eye focuses on the retina about 17 mm behind its lens. The image is real and inverted; the brain turns it the right way up."],
+  "Projector lens (f = 20 cm)": [20, 22, "A projector puts the slide just outside the focal length. The screen is far away and the image is real, inverted and greatly magnified — so slides go in upside-down."],
+};
+const DIVS = {
+  "Custom": null,
+  "Short-sight correction": [25, 25, "Short-sighted eyes focus too strongly. Diverging glasses spread the light before it enters the eye. Prescriptions are in dioptres: P = 1/f (f in metres), negative for diverging lenses."],
+  "Camera wide-angle element": [20, 50, "Wide-angle camera lenses include diverging elements to capture a wider field of view. The image is diminished, fitting more of the scene into the frame."],
+  "Door peephole": [5, 200, "A door peephole uses a strongly diverging lens to give a wide view of the corridor. The image is very small and virtual."],
+};
+const FIBRES = {
+  "Custom": null,
+  "Single-mode fibre": [1.458, 1.450, "Used in telecoms: the core is so thin (≈ 8 μm) that only one path (mode) is possible, so pulses do not spread. Carries internet data for thousands of km."],
+  "Multi-mode fibre": [1.50, 1.46, "Many ray paths travel at once; steep rays take longer, so pulses spread out (modal dispersion). Used for shorter links."],
+  "Medical endoscope fibre": [1.62, 1.52, "A large numerical aperture collects lots of light for a bright image. Flexible bundles of thousands of fibres carry pictures from inside the body."],
+};
+const WL7 = [380, 433, 487, 540, 593, 647, 700];       // the seven colours traced through the prism
+
+const rad = d => d * Math.PI / 180, deg = r => r * 180 / Math.PI;
+// Snell's law: n1 sin θ1 = n2 sin θ2. Returns θ2 (or null for total internal reflection) and the critical angle.
+function snell(th1, n1, n2) {
+  const s = n1 * Math.sin(rad(th1)) / n2;
+  return { th2: Math.abs(s) > 1 ? null : deg(Math.asin(s)), tir: Math.abs(s) > 1, crit: n1 > n2 ? deg(Math.asin(n2 / n1)) : null, sin2: s };
+}
+// Fresnel equations: the fraction of light reflected (average of the two polarisations)
+function fresnel(th1, n1, n2) {
+  const s = snell(th1, n1, n2); if (s.tir) return { R: 1, Rs: 1, Rp: 1 };
+  const ci = Math.cos(rad(th1)), ct = Math.cos(rad(s.th2));
+  const rs = (n1 * ci - n2 * ct) / (n1 * ci + n2 * ct), rp = (n2 * ci - n1 * ct) / (n2 * ci + n1 * ct);
+  return { Rs: rs * rs, Rp: rp * rp, R: (rs * rs + rp * rp) / 2 };
+}
+const cauchyN = (mat, wl) => CAUCHY[mat][0] + CAUCHY[mat][1] / (wl * wl);
+// Exit angle from the second face of a prism (old formula: r1 from Snell, r2 = A − r1, exit = asin(n sin r2))
+function prismExit(thi, A, n) {
+  const sr1 = Math.sin(rad(thi)) / n; if (Math.abs(sr1) > 1) return null;
+  const r2 = rad(A) - Math.asin(sr1), se = n * Math.sin(r2);
+  return Math.abs(se) > 1 ? null : deg(Math.asin(se));
+}
+const deviation = (thi, A, n) => { const e = prismExit(thi, A, n); return e == null ? null : thi + e - A; };
+const minDeviation = (A, n) => { const s = n * Math.sin(rad(A / 2)); return s > 1 ? null : 2 * deg(Math.asin(s)) - A; };
+// Lens formula (real is positive): 1/u + 1/v = 1/f  →  v = f u / (u − f).  m = −v/u (negative means inverted).
+function lensImage(f, u) {
+  if (Math.abs(u - f) < 0.01) return { v: Infinity, m: Infinity, type: "At infinity", ori: "n/a" };
+  const v = f * u / (u - f), m = -v / u;
+  return { v, m, type: v > 0 ? "Real" : "Virtual", ori: m < 0 ? "Inverted" : "Upright" };
+}
+function fibreInfo(s = P) {
+  const tc = deg(Math.asin(Math.min(1, s.ncl / s.nc))), NA = Math.sqrt(Math.max(0, s.nc * s.nc - s.ncl * s.ncl));
+  const acc = deg(Math.asin(Math.min(1, NA))), tb = 90 - s.fth;
+  return { tc, NA, acc, tb, guided: tb >= tc, maxAxis: 90 - tc };
+}
+// Vector refraction. d: unit direction; nrm: unit normal pointing back towards the incoming light.
+function refractV(d, nrm, n1, n2) {
+  const eta = n1 / n2, ci = -(nrm[0] * d[0] + nrm[1] * d[1]), k = 1 - eta * eta * (1 - ci * ci);
+  if (k < 0) return null;
+  const a = eta * ci - Math.sqrt(k);
+  return [eta * d[0] + a * nrm[0], eta * d[1] + a * nrm[1]];
+}
+const reflectV = (d, nrm) => { const dn = d[0] * nrm[0] + d[1] * nrm[1]; return [d[0] - 2 * dn * nrm[0], d[1] - 2 * dn * nrm[1]]; };
+
+/* Draw a ray with moving wavefronts. pts: [[x,y],…]; ns: refractive index of each segment.
+   Wavefronts are spaced λ/n and move at c/n, so they bunch up in denser materials. */
+const WAVE_PX = 22, LIGHT_PX = 70;            // drawn wavelength in air (px) and speed in air (px/s, slow motion)
+let lightT = 0;
+function lightRay(g, pts, ns, colour, width = 2.5, alpha = 1, opt0 = 0, ticks = true) {
+  g.save(); g.globalAlpha = alpha; g.strokeStyle = colour; g.lineWidth = width;
+  g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.stroke();
+  if (ticks) {
+    let o = opt0; const shift = (LIGHT_PX * lightT) % WAVE_PX;
+    g.lineWidth = Math.max(1.5, width * 0.8);
+    for (let i = 1; i < pts.length; i++) {
+      const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], L = Math.hypot(x1 - x0, y1 - y0), n = ns[Math.min(i - 1, ns.length - 1)];
+      if (L < 1e-6) continue;
+      const ux = (x1 - x0) / L, uy = (y1 - y0) / L, o1 = o + n * L;
+      for (let k = Math.ceil((o - shift) / WAVE_PX); k * WAVE_PX + shift <= o1; k++) {
+        const s = (k * WAVE_PX + shift - o) / n, x = x0 + ux * s, y = y0 + uy * s;
+        g.beginPath(); g.moveTo(x - uy * 5, y + ux * 5); g.lineTo(x + uy * 5, y - ux * 5); g.stroke();
+      }
+      o = o1;
+    }
+  }
+  g.restore();
+  // a small arrowhead in the middle of the last segment shows the direction
+  const a = pts[pts.length - 2], b = pts[pts.length - 1];
+  if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 30) { g.save(); g.globalAlpha = alpha; g.fillStyle = colour; g.strokeStyle = colour; g.lineWidth = 0; const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, ang = Math.atan2(b[1] - a[1], b[0] - a[0]); g.beginPath(); g.moveTo(mx + 8 * Math.cos(ang), my + 8 * Math.sin(ang)); g.lineTo(mx - 6 * Math.cos(ang - 0.5), my - 6 * Math.sin(ang - 0.5)); g.lineTo(mx - 6 * Math.cos(ang + 0.5), my - 6 * Math.sin(ang + 0.5)); g.fill(); g.restore(); }
+  let tot = opt0; for (let i = 1; i < pts.length; i++) tot += ns[Math.min(i - 1, ns.length - 1)] * Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  return tot;
+}
+function arcAngle(g, x, y, r, a0, a1, colour, label, lr) {
+  g.save(); g.strokeStyle = colour; g.setLineDash([3, 3]); g.lineWidth = 1.3; g.beginPath(); g.arc(x, y, r, Math.min(a0, a1), Math.max(a0, a1)); g.stroke(); g.restore();
+  if (label) { const m = (a0 + a1) / 2; text(g, label, x + (lr || r + 16) * Math.cos(m), y + (lr || r + 16) * Math.sin(m) + 4, colour, "center", "12px system-ui"); }
+}
+function mediumFill(n) { const k = clamp((n - 1) / 1.5, 0, 1); return `rgb(${12 + 10 * k | 0},${20 + 40 * k | 0},${40 + 70 * k | 0})`; }
+function notesHTML(spec, eqs, expl, adv) {
+  return `<p><b>Spec reference:</b> WJEC Eduqas A level Physics — ${spec}</p><p><b>Key equations:</b></p>${eqs.map(e => `<div class="eq">${e}</div>`).join("")}<p><b>What this shows:</b> ${expl}</p>${P.adv && adv ? `<div class="adv"><div class="advh">⚗️ Advanced context</div><p>${adv}</p></div>` : !P.adv && adv ? `<p class="hint">Choose Advanced for the A-level extension notes.</p>` : ""}`;
+}
+const NOTES_EQ = ["n₁ sin θ₁ = n₂ sin θ₂   (Snell's law)", "n = c / v", "sin θc = n₂ / n₁   (n₁ > n₂)", "n(λ) = A + B / λ²   (Cauchy's equation)", "1/u + 1/v = 1/f   (real is positive)", "m = v / u   (image height ÷ object height)", "P = 1 / f   (f in m, P in dioptres)"];
+const NOTES_EXPL = "<b>Refraction</b> happens when light crosses a boundary between materials with different refractive indices: its speed changes (v = c/n), so the ray bends. Snell's law n₁ sin θ₁ = n₂ sin θ₂ says by how much. Going from a denser into a less dense material (n₁ > n₂), <b>total internal reflection</b> happens at angles of incidence above the critical angle θc = arcsin(n₂/n₁). TIR is used in optical fibres and diamond cutting. <b>Dispersion</b>: the refractive index depends on wavelength — shorter wavelengths refract more — so a prism splits white light into a spectrum. <b>Converging lenses</b> obey 1/u + 1/v = 1/f: a real, inverted image forms when u > f; a virtual, upright, magnified image when u < f (a magnifying glass). Magnification m = v/u compares image and object heights. Diverging lenses always give a virtual, upright, diminished image.";
+const NOTES_ADV = "<b>Fermat's principle:</b> light takes the path of least (strictly, stationary) time. Snell's law follows directly: the time is least when n₁ sin θ₁ = n₂ sin θ₂. <br><b>Sign conventions:</b> this simulation uses ‘real is positive’ (1/u + 1/v = 1/f with virtual distances negative). Some books use the Cartesian convention, 1/v − 1/u = 1/f with u negative on the left; both give the same image. <br><b>Chromatic aberration:</b> a lens's focal length depends on n, which varies with wavelength, so blue and red focus at different points. Achromatic doublets (two glasses cemented together) cancel the dispersion while keeping the focusing. <br><b>Fibre bandwidth</b> is limited by <i>modal dispersion</i> (different ray paths arrive at different times) and <i>chromatic dispersion</i> (different wavelengths travel at different speeds). Single-mode fibres (core ≈ 8 μm) remove modal dispersion. Modern fibres carry over 100 Tbit/s over thousands of kilometres.";
+
+/* =====================================================================
+   2. THE FIVE MODES
+   ===================================================================== */
+const MODES = {};
+const scan = { dir: 1 };
+MODES.snell = {
+  overlay: () => `<button data-ov="scan" class="${P.scan ? "on" : ""}">${P.scan ? "⏸ Stop scan" : "▶ Auto-scan θ₁"}</button>`,
+  onOverlay(k) { if (k === "scan") P.scan = !P.scan; },
+  geo(W, H) { const cx = W / 2, cy = H / 2, RL = Math.min(H / 2 - 16, W / 2 - 70); return { cx, cy, RL }; },
+  view(cv, dt) {
+    const { g, W, H } = fit(cv);
+    if (P.scan && dt > 0) { P.th1 += scan.dir * 12 * dt; if (P.th1 >= 89) { P.th1 = 89; scan.dir = -1; } if (P.th1 <= 0) { P.th1 = 0; scan.dir = 1; } P.th1 = Math.round(P.th1 * 10) / 10; syncLite(); }
+    const { cx, cy, RL } = this.geo(W, H), s = snell(P.th1, P.n1, P.n2), fr = fresnel(P.th1, P.n1, P.n2);
+    g.fillStyle = mediumFill(P.n1); g.fillRect(0, 0, W, cy); g.fillStyle = mediumFill(P.n2); g.fillRect(0, cy, W, H - cy);
+    text(g, `n₁ = ${P.n1.toFixed(3)}   light travels at c/${P.n1.toFixed(2)} = ${fmt(C_LIGHT / P.n1)} m/s`, 10, 48, "#9fb6ea", "left", "12.5px system-ui");
+    text(g, `n₂ = ${P.n2.toFixed(3)}   light travels at c/${P.n2.toFixed(2)} = ${fmt(C_LIGHT / P.n2)} m/s`, 10, H - 10, "#8fd0b0", "left", "12.5px system-ui");
+    g.save(); g.strokeStyle = "rgba(220,220,230,.7)"; g.setLineDash([10, 6]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(0, cy); g.lineTo(W, cy); g.stroke();
+    g.strokeStyle = "rgba(160,160,170,.6)"; g.setLineDash([6, 5]); g.lineWidth = 1; g.beginPath(); g.moveTo(cx, cy - RL - 8); g.lineTo(cx, cy + RL + 8); g.stroke(); g.restore();
+    text(g, "normal", cx + 4, cy - RL + 6, "#999", "left", "10.5px system-ui");
+    if (s.crit != null) { const c = rad(s.crit); g.save(); g.strokeStyle = "rgba(255,160,0,.55)"; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx - Math.sin(c) * RL, cy - Math.cos(c) * RL); g.stroke(); g.restore(); text(g, `θc = ${s.crit.toFixed(1)}°`, cx - Math.sin(c) * RL - 6, cy - Math.cos(c) * RL + 4, "#ffb347", "right", "11.5px system-ui"); }
+    lightT += dt;
+    const t1 = rad(P.th1), P0 = [cx - Math.sin(t1) * RL, cy - Math.cos(t1) * RL], O = [cx, cy];
+    const optO = lightRay(g, [P0, O], [P.n1], "#5a8cff", 2.6);
+    lightRay(g, [O, [cx + Math.sin(t1) * RL, cy - Math.cos(t1) * RL]], [P.n1], "#ffd83c", s.tir ? 3 : 1.2 + 2 * fr.R, s.tir ? 1 : clamp(0.25 + 1.5 * fr.R, 0.25, 1), optO);
+    if (!s.tir) { const t2 = rad(s.th2); lightRay(g, [O, [cx + Math.sin(t2) * RL, cy + Math.cos(t2) * RL]], [P.n2], "#3cc88c", 2.6, Math.max(0.35, 1 - fr.R), optO); arcAngle(g, cx, cy, 55, Math.PI / 2 - t2, Math.PI / 2, "#3cc88c", `θ₂ = ${s.th2.toFixed(1)}°`, 82); }
+    arcAngle(g, cx, cy, 55, -Math.PI / 2 - t1, -Math.PI / 2, "#7aa2ff", `θ₁ = ${P.th1.toFixed(1)}°`, 82);
+    g.fillStyle = "#5a8cff"; g.beginPath(); g.arc(P0[0], P0[1], 8, 0, TAU); g.fill(); g.strokeStyle = "#fff"; g.lineWidth = 1; g.stroke();
+    pill(g, s.tir ? "Reflected: 100% (TIR)" : `Reflected: ${(100 * fr.R).toFixed(1)}%   Refracted: ${(100 - 100 * fr.R).toFixed(1)}%`, W - 10, 22, "#ffe58a", "12px system-ui", "right");
+    if (s.tir) pill(g, "TOTAL INTERNAL REFLECTION", cx, cy - RL * 0.55, "#ff6b6b", "bold 15px system-ui", "center");
+    pill(g, `n₁ sin θ₁ = ${(P.n1 * Math.sin(t1)).toFixed(4)}    n₂ sin θ₂ = ${s.tir ? "TIR" : (P.n2 * Math.sin(rad(s.th2))).toFixed(4)}`, W - 10, H - 10, "#e6e9f2", "12px system-ui", "right");
+  },
+  pointer(type, x, y) {
+    const cv = el("view"), { cx, cy, RL } = this.geo(cv.clientWidth, cv.clientHeight), t1 = rad(P.th1);
+    if (type === "down" && Math.hypot(x - (cx - Math.sin(t1) * RL), y - (cy - Math.cos(t1) * RL)) < 20) { this.drag = true; P.scan = false; return true; }
+    if (type === "move" && this.drag && y < cy) { P.th1 = Math.round(clamp(deg(Math.atan2(cx - x, cy - y)), 0, 89) * 2) / 2; el("spre").value = "Custom"; syncControls(); return true; }
+    if (type === "up") this.drag = false;
+  },
+  plot(cv) {
+    const { g, W, H } = fit(cv); g.fillStyle = "#1a2033"; g.fillRect(0, 0, W, H);
+    const w1 = Math.round(W * 0.5), s = snell(P.th1, P.n1, P.n2);
+    const A = chart(null, { box: { g, r: [0, 0, w1, H] }, xr: [0, 90], yr: [0, 90], xlabel: "Angle of incidence θ₁ (°)", ylabel: "Angle of refraction θ₂ (°)", title: "Refraction angle", L: 46 });
+    const pts = []; for (let a = 0; a <= 90; a += 0.25) { const q = snell(a, P.n1, P.n2); pts.push([a, q.tir ? null : q.th2]); }
+    A.clip(); plotLine(A, [[0, 0], [90, 90]], "rgba(255,255,255,.3)", 1, [4, 4]); plotLine(A, pts, "#3cc88c", 2.2); if (s.crit != null) vline(A, s.crit, "#ffb347", [5, 4], `θc = ${s.crit.toFixed(1)}°`, A.T + 12); A.unclip();
+    if (!s.tir) { g.fillStyle = "#e74c3c"; g.beginPath(); g.arc(A.X(P.th1), A.Y(s.th2), 5, 0, TAU); g.fill(); }
+    text(g, "dashed: no bending (n₁ = n₂)", A.X(45), A.Y(4) , "#aab", "center", "10.5px system-ui");
+    const B = chart(null, { box: { g, r: [w1, 0, W - w1, H] }, xr: [0, 90], yr: [0, 100], xlabel: "Angle of incidence θ₁ (°)", ylabel: "Reflected (%)", title: "How much light is reflected (Fresnel)", L: 46 });
+    const rs = [], rp = [], ra = []; for (let a = 0; a <= 90; a += 0.25) { const f = fresnel(Math.min(a, 89.99), P.n1, P.n2); rs.push([a, 100 * f.Rs]); rp.push([a, 100 * f.Rp]); ra.push([a, 100 * f.R]); }
+    B.clip(); plotLine(B, rs, "#ff9f40", 1.3, [4, 3]); plotLine(B, rp, "#b07cff", 1.3, [4, 3]); plotLine(B, ra, "#ffd83c", 2.2); if (s.crit != null) vline(B, s.crit, "#ffb347", [5, 4]); B.unclip();
+    const fr = fresnel(P.th1, P.n1, P.n2); g.fillStyle = "#e74c3c"; g.beginPath(); g.arc(B.X(P.th1), B.Y(100 * fr.R), 5, 0, TAU); g.fill();
+    legendBox(B, [["#ffd83c", "average"], ["#ff9f40", "s-polarised", true], ["#b07cff", "p-polarised", true]], B.L + 6, B.T + 4);
+    el("plotCap").textContent = s.crit != null ? `Beyond θc = ${s.crit.toFixed(1)}° there is no refracted ray: 100% is reflected (TIR). Just below θc the refracted ray is faint and skims the surface.` : "From a less dense to a denser material the ray always bends towards the normal and there is no critical angle. Little light is reflected except at grazing angles.";
+  },
+  tiles() { const s = snell(P.th1, P.n1, P.n2); return [["θ₁ (incidence)", `${P.th1.toFixed(1)}°`, ""], ["θ₂ (refraction)", s.tir ? "TIR" : `${s.th2.toFixed(1)}°`, ""], ["Critical angle θc", s.crit != null ? `${s.crit.toFixed(1)}°` : "n/a", s.crit != null ? "sin θc = n₂/n₁" : "n₁ ≤ n₂"], ["n₂ / n₁", (P.n2 / P.n1).toFixed(3), ""], ["Speed in medium 2", `${fmt(C_LIGHT / P.n2)} m/s`, "v = c/n"], ["Reflected", `${(100 * fresnel(P.th1, P.n1, P.n2).R).toFixed(1)}%`, "Fresnel"]]; },
+  story() {
+    const s = snell(P.th1, P.n1, P.n2);
+    if (s.tir) return `θ₁ = ${P.th1.toFixed(1)}° is bigger than the critical angle (${s.crit.toFixed(1)}°), so n₁ sin θ₁ would need sin θ₂ > 1. No light can leave: it is all reflected. The wavefronts show the light keeps its speed in medium 1.`;
+    if (P.n2 > P.n1) return `Light slows down from ${fmt(C_LIGHT / P.n1)} to ${fmt(C_LIGHT / P.n2)} m/s entering medium 2. Look at the wavefronts: they get closer together (λ = v/f, and f does not change), and the ray bends <b>towards</b> the normal.`;
+    if (P.n2 < P.n1) return `Light speeds up entering medium 2 and bends <b>away from</b> the normal. Increase θ₁ past ${s.crit.toFixed(1)}° and the refracted ray disappears: total internal reflection.`;
+    return "Both materials have the same refractive index: the light goes straight through without bending.";
+  },
+  alerts() {
+    const s = snell(P.th1, P.n1, P.n2), out = [], c = MATERIALS[el("spre").value];
+    if (c) out.push(["info", c[2]]);
+    if (s.tir) out.push(["warn", "Total internal reflection! No light passes into medium 2: the ray is completely reflected back into medium 1."]);
+    else if (s.crit != null && P.th1 / s.crit > 0.85) out.push(["warn", `Approaching the critical angle! θ₁ = ${P.th1}°, θc = ${s.crit.toFixed(1)}°. Increase θ₁ to trigger total internal reflection.`]);
+    if (s.tir && P.n1 > P.n2) out.push(["good", `TIR is occurring. With n₁ = ${P.n1.toFixed(2)} and n₂ = ${P.n2.toFixed(2)} the critical angle is ${s.crit.toFixed(1)}°. This is how optical fibres work: light bounces along the fibre without escaping.`]);
+    return out;
+  },
+  extra() {
+    if (!(P.adv && P.stable)) return "";
+    let rows = ""; for (let a = 0; a < 90; a += 5) { const q = snell(a, P.n1, P.n2); rows += `<tr><td>${a}</td><td>${q.tir ? "TIR" : q.th2.toFixed(2)}</td><td>${q.tir ? "Yes" : "No"}</td></tr>`; }
+    return `<div class="adv"><div class="advh">⚗️ θ₁ → θ₂ table</div><table class="tbl"><tr><th>θ₁ (°)</th><th>θ₂ (°)</th><th>TIR?</th></tr>${rows}</table></div>`;
+  },
+  how: ["Rays are straight lines; at the boundary Snell's law gives the refracted direction and the Fresnel equations (for unpolarised light) give the fraction reflected, shown by the brightness of the reflected ray.", "Wavefronts are drawn λ/n apart and move at c/n (hugely enlarged and slowed down), so you can see light slow down and its wavelength shrink in a denser material. The frequency does not change.", "Refractive indices are fixed numbers: real ones change slightly with colour (see the Prism mode) and temperature. No absorption."],
+};
+
+MODES.prism = {
+  overlay: () => "",
+  geom(W, H) {
+    const A = rad(P.apex), top = H * 0.1, base = H * 0.86;
+    let h = base - top, bw = h * Math.tan(A / 2);
+    if (bw > W * 0.2) { bw = W * 0.2; h = bw / Math.tan(A / 2); }
+    const cx = W * 0.42, ap = [cx, base - h], bl = [cx - bw, base], br = [cx + bw, base];
+    return { A, ap, bl, br, cx, base };
+  },
+  // Trace one colour through the prism. Returns the path, the exit angle and whether TIR happened.
+  trace(W, H, wl) {
+    const { A, ap, bl, br } = this.geom(W, H), n = cauchyN(P.mat, wl);
+    const hit = [ap[0] + 0.55 * (bl[0] - ap[0]), ap[1] + 0.55 * (bl[1] - ap[1])];
+    const nL = [-Math.cos(A / 2), -Math.sin(A / 2)];                 // outward normal of the left face
+    const d0 = [Math.cos(A / 2 - rad(P.thp)), Math.sin(A / 2 - rad(P.thp))];
+    const start = [hit[0] - d0[0] * 2000, hit[1] - d0[1] * 2000];
+    const d1 = refractV(d0, nL, 1, n); if (!d1) return null;
+    // where does the ray inside meet the right face (or the base)?
+    const inter = (p, d, a, b) => { const ex = b[0] - a[0], ey = b[1] - a[1], den = d[0] * ey - d[1] * ex; if (Math.abs(den) < 1e-9) return null; const t = ((a[0] - p[0]) * ey - (a[1] - p[1]) * ex) / den, s = ((a[0] - p[0]) * d[1] - (a[1] - p[1]) * d[0]) / den; return t > 1e-6 && s >= 0 && s <= 1 ? t : null; };
+    let t = inter(hit, d1, ap, br), face = "right";
+    const tb = inter(hit, d1, bl, br); if (tb != null && (t == null || tb < t)) { t = tb; face = "base"; }
+    if (t == null) return null;
+    const p2 = [hit[0] + d1[0] * t, hit[1] + d1[1] * t];
+    const nOut = face === "right" ? [Math.cos(A / 2), -Math.sin(A / 2)] : [0, 1];
+    const d2 = refractV(d1, [-nOut[0], -nOut[1]], n, 1);
+    if (!d2) { const r = reflectV(d1, nOut); return { pts: [start, hit, p2, [p2[0] + r[0] * 60, p2[1] + r[1] * 60]], ns: [1, n, n], tir: true, n }; }
+    const e = deg(Math.acos(clamp(d2[0] * nOut[0] + d2[1] * nOut[1], -1, 1)));
+    return { pts: [start, hit, p2, [p2[0] + d2[0] * 2000, p2[1] + d2[1] * 2000]], ns: [1, n, 1], tir: false, e, face, n };
+  },
+  view(cv, dt) {
+    const { g, W, H } = fit(cv); g.fillStyle = "#070a14"; g.fillRect(0, 0, W, H);
+    const { ap, bl, br } = this.geom(W, H);
+    lightT += dt;
+    g.fillStyle = "rgba(100,160,220,.16)"; g.strokeStyle = "#17becf"; g.lineWidth = 2; g.beginPath(); g.moveTo(...ap); g.lineTo(...bl); g.lineTo(...br); g.closePath(); g.fill(); g.stroke();
+    const tr = WL7.map(wl => [wl, this.trace(W, H, wl)]).filter(q => q[1]);
+    if (tr.length) {
+      const t0 = tr[0][1], inc = [t0.pts[0], t0.pts[1]];
+      g.save(); g.beginPath(); g.rect(0, 0, W, H); g.clip();
+      lightRay(g, inc, [1], "#ffffff", 3, 1, 0, true);
+      for (const [wl, t] of tr) lightRay(g, t.pts.slice(1), t.ns.slice(1), wlCSS(wl), 2, 0.95, 0, false);
+      g.restore();
+    }
+    // normals at the faces
+    text(g, `A = ${P.apex}°`, ap[0], ap[1] - 6, "#17becf", "center", "12px system-ui");
+    text(g, `${P.mat}: n(589 nm) = ${cauchyN(P.mat, 589).toFixed(4)}`, 10, 20, "#e6e9f2", "left", "12.5px system-ui");
+    const info = prismInfo();
+    if (info.dispersion != null) text(g, `Angular dispersion (400–700 nm): ${info.dispersion.toFixed(2)}°`, 10, 38, "#e6e9f2", "left", "12.5px system-ui");
+    if (tr.some(q => q[1].tir) || tr.length < WL7.length) pill(g, "Some colours are totally internally reflected at the second face", W / 2, H - 12, "#ff8a7a", "12px system-ui", "center");
+    text(g, "white light", 10, tr.length ? clamp(tr[0][1].pts[1][1] - 40, 50, H - 10) : H / 2, "#fff", "left", "12px system-ui");
+  },
+  plot(cv) {
+    const { g, W, H } = fit(cv); g.fillStyle = "#1a2033"; g.fillRect(0, 0, W, H);
+    const w1 = Math.round(W * 0.5), mats = P.adv && P.allMat ? Object.keys(CAUCHY) : [P.mat];
+    const ns = mats.flatMap(m => [cauchyN(m, 380), cauchyN(m, 700)]);
+    const A = chart(null, { box: { g, r: [0, 0, w1, H] }, xr: [380, 700], yr: [Math.min(...ns) - 0.01, Math.max(...ns) + 0.01], xlabel: "Wavelength λ (nm)", ylabel: "Refractive index n", title: `Dispersion curve — Cauchy n = A + B/λ²`, L: 52 });
+    A.clip();
+    const cols = { "Crown glass": "#1f9bff", "Flint glass": "#ff9f40", "Diamond": "#b07cff" };
+    for (const m of mats) {
+      if (mats.length === 1) for (let wl = 380; wl < 700; wl += 2) { A.g.strokeStyle = wlCSS(wl + 1); A.g.lineWidth = 4; A.g.beginPath(); A.g.moveTo(A.X(wl), A.Y(cauchyN(m, wl))); A.g.lineTo(A.X(wl + 2), A.Y(cauchyN(m, wl + 2))); A.g.stroke(); }
+      else { const pts = []; for (let wl = 380; wl <= 700; wl += 2) pts.push([wl, cauchyN(m, wl)]); plotLine(A, pts, cols[m], 2.4); }
+    }
+    vline(A, 589, "#ff9f40", [5, 4], "589 nm", A.T + 10);
+    A.unclip();
+    if (mats.length > 1) legendBox(A, mats.map(m => [cols[m], m]));
+    // deviation against angle of incidence for 589 nm (minimum deviation marked)
+    const n589 = cauchyN(P.mat, 589), dpts = []; for (let a = 0; a <= 90; a += 0.25) dpts.push([a, deviation(a, P.apex, n589)]);
+    const ys = dpts.map(p => p[1]).filter(v => v != null), Dm = minDeviation(P.apex, n589);
+    const B = chart(null, { box: { g, r: [w1, 0, W - w1, H] }, xr: [0, 90], yr: ys.length ? [Math.min(...ys) - 2, Math.min(Math.max(...ys), (Dm ?? 0) + 40) + 2] : [0, 90], xlabel: "Angle of incidence (°)", ylabel: "Deviation D (°)", title: "Deviation of 589 nm light", L: 46 });
+    B.clip(); plotLine(B, dpts, "#ffd83c", 2.2); if (Dm != null) plotLine(B, [[0, Dm], [90, Dm]], "#5ec8ff", 1.2, [5, 4]); B.unclip();
+    const dnow = deviation(P.thp, P.apex, n589); if (dnow != null) { g.fillStyle = "#e74c3c"; g.beginPath(); g.arc(B.X(P.thp), B.Y(dnow), 5, 0, TAU); g.fill(); }
+    if (Dm != null) text(g, `D_min = ${Dm.toFixed(2)}°`, B.X(88), B.Y(Dm) - 5, "#5ec8ff", "right", "11px system-ui");
+    el("plotCap").textContent = "Shorter wavelengths have a larger refractive index (normal dispersion), so violet bends most. The deviation is smallest when the ray passes symmetrically through the prism (minimum deviation).";
+  },
+  tiles() {
+    const i = prismInfo(), n = wl => cauchyN(P.mat, wl).toFixed(4);
+    return [["n(400 nm)", n(400), "violet"], ["n(500 nm)", n(500), ""], ["n(589 nm)", n(589), "sodium D"], ["n(700 nm)", n(700), "red"], ["Angular dispersion", i.dispersion != null ? `${i.dispersion.toFixed(2)}°` : "TIR", "400–700 nm"], ["Δn", (cauchyN(P.mat, 400) - cauchyN(P.mat, 700)).toFixed(4), "n(400) − n(700)"], ["Deviation (589 nm)", i.D589 != null ? `${i.D589.toFixed(2)}°` : "TIR", ""], ["Min deviation (589)", i.Dmin != null ? `${i.Dmin.toFixed(2)}°` : "n/a", "symmetric path"]];
+  },
+  story() { const i = prismInfo(); return i.dispersion == null ? "At this angle some colours cannot get out of the second face: they are totally internally reflected. Increase the angle of incidence or use a smaller apex angle." : `Each colour has its own refractive index, so each bends by a different amount at both faces. Violet (short λ) has the largest n and is deviated most; red the least. The colours leave spread over ${i.dispersion.toFixed(2)}°.`; },
+  alerts() {
+    const out = [["info", "In 1666 Isaac Newton used a glass prism to split sunlight into a spectrum, showing white light is a mixture of colours. Rainbows form the same way in raindrops: refraction, internal reflection, refraction. Red refracts least, violet most."]];
+    const i = prismInfo();
+    if (i.dispersion != null) out.push(["good", `Angular dispersion (400–700 nm): <b>${i.dispersion.toFixed(2)}°</b> | n(400) = ${cauchyN(P.mat, 400).toFixed(4)}, n(700) = ${cauchyN(P.mat, 700).toFixed(4)} | Δn = ${(cauchyN(P.mat, 400) - cauchyN(P.mat, 700)).toFixed(4)}`]);
+    else out.push(["warn", "Some wavelengths undergo TIR at the second face for these settings. Try a smaller apex angle or a larger angle of incidence."]);
+    return out;
+  },
+  extra() { if (!P.adv) return ""; const [a, b] = CAUCHY[P.mat]; return `<div class="adv"><div class="advh">⚗️ Cauchy coefficients</div><div style="font-size:12.5px">${P.mat}: A = ${a.toFixed(3)}, B = ${b} nm². Shorter wavelengths have higher n → more refraction (normal dispersion).<br>Minimum deviation: n = sin((A + D_min)/2) / sin(A/2) = sin((${P.apex} + ${(prismInfo().Dmin ?? 0).toFixed(2)})/2) / sin(${P.apex / 2}) = ${prismInfo().Dmin != null ? (Math.sin(rad((P.apex + prismInfo().Dmin) / 2)) / Math.sin(rad(P.apex / 2))).toFixed(4) : "–"}</div></div>`; },
+  how: ["Seven wavelengths from 380 to 700 nm are traced with Snell's law at each face, using n from Cauchy's equation (A, B for crown glass, flint glass and diamond).", "If a colour meets the second face beyond its critical angle it is totally internally reflected and stops being followed.", "The prism is a perfect triangle in air; partial reflections, absorption and the spread of the incoming beam are ignored."],
+};
+function prismInfo() {
+  const ev = prismExit(P.thp, P.apex, cauchyN(P.mat, 400)), er = prismExit(P.thp, P.apex, cauchyN(P.mat, 700));
+  return { dispersion: ev != null && er != null ? Math.abs(ev - er) : null, D589: deviation(P.thp, P.apex, cauchyN(P.mat, 589)), Dmin: minDeviation(P.apex, cauchyN(P.mat, 589)) };
+}
+
+/* ---------- lenses (converging and diverging share one ray-diagram routine) ---------- */
+const lensDrag = { on: false };
+function lensDiagram(cv, dt, f, u, converging) {
+  const { g, W, H } = fit(cv); g.fillStyle = "#070a14"; g.fillRect(0, 0, W, H);
+  lightT += dt;
+  const im = lensImage(f, u), af = Math.abs(f);
+  const vFin = isFinite(im.v), cap = 3 * Math.max(u, 2 * af);
+  let xmin = -Math.max(u, 2 * af) * 1.15, xmax = Math.max(2 * af, vFin && im.v > 0 ? Math.min(im.v, cap) : 0, u * 0.5) * 1.15;
+  if (vFin && im.v < 0) xmin = Math.min(xmin, im.v * 1.15);
+  const h0 = 1, hi = vFin ? im.m * h0 : 0, y3a = Math.abs(h0 * f / (f - u));
+  const ymax = Math.min(Math.max(h0, Math.abs(hi), isFinite(y3a) ? y3a : 0), 6 * h0) * 1.2;   // fit the image (up to 6× the object)
+  const L = 30, R = 30, T = 22, B = 30;
+  const X = x => L + (x - xmin) / (xmax - xmin) * (W - L - R), Y = y => T + (H - T - B) / 2 - y / ymax * (H - T - B) / 2;
+  // axis, lens, focal points
+  g.strokeStyle = "#3a4258"; g.lineWidth = 1.2; g.beginPath(); g.moveTo(0, Y(0)); g.lineTo(W, Y(0)); g.stroke();
+  const lt = Y(ymax * 0.92), lb = Y(-ymax * 0.92), lx = X(0);
+  g.strokeStyle = "#17becf"; g.fillStyle = "#17becf"; g.lineWidth = 3; g.beginPath(); g.moveTo(lx, lt); g.lineTo(lx, lb); g.stroke();
+  const head = (y, up) => { const s = converging ? (up ? -1 : 1) : (up ? 1 : -1); g.beginPath(); g.moveTo(lx, y); g.lineTo(lx - 8, y - s * 10); g.lineTo(lx + 8, y - s * 10); g.closePath(); g.fill(); };
+  head(lt, true); head(lb, false);
+  for (const [x, lab] of [[-af, "F"], [af, "F′"], [-2 * af, "2F"], [2 * af, "2F′"]]) if (x > xmin && x < xmax) { g.fillStyle = "#2ca02c"; g.beginPath(); g.arc(X(x), Y(0), 4, 0, TAU); g.fill(); text(g, lab, X(x), Y(0) + 16, "#5fd07a", "center", "12px system-ui"); }
+  // scale bar along the axis (cm)
+  const st = niceStep(xmax - xmin, 8); g.fillStyle = "#6b7390"; g.font = "10px system-ui"; g.textAlign = "center";
+  for (let x = Math.ceil(xmin / st) * st; x <= xmax; x += st) { g.fillRect(X(x) - 0.5, Y(0) - 3, 1, 6); if (Math.abs(x) > 1e-9) g.fillText(`${+x.toFixed(3)}`, X(x), H - 8); }
+  text(g, "distance from lens (cm) — heights not to scale", W - 8, H - 20, "#6b7390", "right", "10px system-ui");
+  // object arrow
+  const ox = X(-u);
+  g.strokeStyle = "#1f9bff"; g.fillStyle = "#1f9bff"; g.lineWidth = 3; arrow(g, ox, Y(0), ox, Y(h0), 10); text(g, "object", ox, Y(h0) - 8, "#7ab8ff", "center", "12px system-ui");
+  // three principal rays from the top of the object
+  const tip = [-u, h0], cols = ["#e74c3c", "#2ca02c", "#b07cff"];
+  const y3 = h0 * f / (f - u);                    // ray 3 meets the lens at this height
+  // after the lens: ray 1 passes through (or away from) the focal point, ray 2 goes straight through the centre, ray 3 runs parallel
+  const after = [x => h0 - h0 * x / f, x => -h0 * x / u, x => y3];
+  const at0 = [h0, 0, y3];
+  const seg = (a, b) => [[X(a[0]), Y(a[1])], [X(b[0]), Y(b[1])]];
+  const xEnd = xmax;
+  for (let k = 0; k < 3; k++) {
+    if (k === 2 && !isFinite(y3)) continue;
+    const pIn = [tip, [0, at0[k]]], pOut = [[0, at0[k]], [xEnd, after[k](xEnd)]];
+    g.save(); g.beginPath(); g.rect(0, 0, W, H); g.clip();
+    const o = lightRay(g, seg(...pIn), [1], cols[k], 1.8, 0.95);
+    lightRay(g, seg(...pOut), [1], cols[k], 1.8, 0.95, o);
+    if (vFin && im.v < 0) { g.setLineDash([5, 4]); g.strokeStyle = cols[k]; g.globalAlpha = 0.7; g.lineWidth = 1.2; g.beginPath(); g.moveTo(X(0), Y(at0[k])); g.lineTo(X(im.v), Y(after[k](im.v))); g.stroke(); g.setLineDash([]); g.globalAlpha = 1; }
+    g.restore();
+  }
+  // image arrow
+  if (vFin) {
+    const ix = X(im.v), real = im.v > 0, col = real ? "#ff9f40" : "#c39bff";
+    const hiC = clamp(hi, -ymax, ymax);
+    g.save(); if (!real) g.setLineDash([5, 3]); g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 3; arrow(g, ix, Y(0), ix, Y(hiC), 10); g.restore();
+    if (Math.abs(hi) > ymax) text(g, "(taller than shown)", ix, Y(hiC) + (hiC > 0 ? -22 : 30), col, "center", "11px system-ui");
+    text(g, `image (${im.type.toLowerCase()})`, ix, Y(hiC) + (hiC > 0 ? -8 : 18), col, "center", "12px system-ui");
+    if (im.v > cap) pill(g, `image is further away: v = ${fmt(im.v)} cm →`, W - 10, 20, col, "12px system-ui", "right");
+  } else pill(g, "Object at the focal point: the rays leave parallel — the image is at infinity", W / 2, 20, "#ffd27a", "12px system-ui", "center");
+  legendBox({ g, W, R: 6, T: 6 }, [[cols[0], converging ? "1: parallel → through F′" : "1: parallel → away from F"], [cols[1], "2: through the centre, undeviated"], [cols[2], converging ? "3: through F → parallel" : "3: towards F′ → parallel"]], 8, H - 84);
+  return { X, Y, ox };
+}
+MODES.lens = {
+  overlay: () => "",
+  view(cv, dt) { this.map = lensDiagram(cv, dt, P.f, P.u, true); },
+  pointer(type, x, y) {
+    if (type === "down" && this.map && Math.abs(x - this.map.ox) < 14) { lensDrag.on = true; return true; }
+    if (type === "move" && lensDrag.on && this.map) { const X = this.map.X, u = -((x - X(0)) / (X(1) - X(0))); P.u = clamp(Math.round(u * 2) / 2, 2, 100); el("lpre").value = "Custom"; syncControls(); return true; }
+    if (type === "up") lensDrag.on = false;
+  },
+  plot(cv) { lensPlots(cv, P.f, P.u, true); },
+  tiles() { const i = lensImage(P.f, P.u); return [["Image distance v", isFinite(i.v) ? `${i.v.toFixed(1)} cm` : "∞", "1/u + 1/v = 1/f"], ["Magnification m", isFinite(i.m) ? `${i.m.toFixed(2)}×` : "∞", "minus sign = inverted"], ["Image type", i.type, ""], ["Orientation", i.ori, ""], ["Power P", `${(100 / P.f).toFixed(2)} D`, "P = 1/f (m)"], ["Size", isFinite(i.m) ? (Math.abs(i.m) > 1 ? "Magnified" : "Diminished") : "–", ""]]; },
+  story() {
+    const i = lensImage(P.f, P.u);
+    if (!isFinite(i.v)) return "The object is at the focal point: every ray leaves the lens parallel, so no image forms (it is ‘at infinity’). Torches and spotlights use this to make a parallel beam.";
+    if (i.type === "Virtual") return `u < f: the rays still spread out after the lens. Your eye traces them back (dashed) to a <b>virtual, upright, magnified</b> image ${Math.abs(i.v).toFixed(1)} cm from the lens on the object's side. It cannot be shown on a screen.`;
+    return `u > f: the rays meet again on the far side, making a <b>real, inverted</b> image at v = ${i.v.toFixed(1)} cm that can be caught on a screen. ${Math.abs(i.m) > 1 ? "It is magnified (object between F and 2F): a projector." : "It is diminished (object beyond 2F): a camera or eye."}`;
+  },
+  alerts() {
+    const i = lensImage(P.f, P.u), out = [], c = LENSES[el("lpre").value];
+    if (c) out.push(["info", c[2]]);
+    if (Math.abs(P.u - P.f) < 1) out.push(["warn", `The object is very close to the focal point (u ≈ f = ${P.f} cm). The image forms at or near infinity — used in torches and spotlights to give a parallel beam.`]);
+    else if (i.type === "Virtual") out.push(["info", `Virtual image at v = ${i.v.toFixed(1)} cm (same side as the object). Upright and magnified — the magnifying glass arrangement. A virtual image cannot be projected onto a screen.`]);
+    else if (Math.abs(i.m) > 1) out.push(["good", `Real, inverted, magnified image (m = ${i.m.toFixed(2)}). This is the projector arrangement — also used in microscope objectives.`]);
+    else out.push(["good", `Real, inverted, diminished image (m = ${i.m.toFixed(2)}). This is the camera arrangement: the image falls on a sensor or film.`]);
+    if (isFinite(i.v)) out.push(["info", `Lens equation check: 1/u + 1/v = 1/${P.u} + 1/(${i.v.toFixed(2)}) = ${(1 / P.u).toFixed(4)} + ${(1 / i.v).toFixed(4)} = ${(1 / P.u + 1 / i.v).toFixed(4)} cm⁻¹ = 1/f = ${(1 / P.f).toFixed(4)} cm⁻¹ ✓`]);
+    return out;
+  },
+  extra() {
+    if (!(P.adv && P.ltable)) return "";
+    let rows = ""; for (let u = 5; u <= 60; u += 5) { const i = lensImage(P.f, u); rows += `<tr><td>${u}</td><td>${isFinite(i.v) ? i.v.toFixed(1) : "∞"}</td><td>${isFinite(i.m) ? i.m.toFixed(2) : "∞"}</td><td>${i.type}</td><td>${i.ori}</td></tr>`; }
+    return `<div class="adv"><div class="advh">⚗️ Image position against u (f = ${P.f} cm)</div><table class="tbl"><tr><th>u (cm)</th><th>v (cm)</th><th>m</th><th>Type</th><th>Orient.</th></tr>${rows}</table></div>`;
+  },
+  how: ["Thin-lens model: all bending happens at the centre line of the lens; 1/u + 1/v = 1/f with real distances positive and virtual ones negative.", "Three principal rays are drawn from the top of the object. Heights are stretched to fit the picture (straight lines stay straight, so the ray diagram is still exact); distances along the axis are to scale.", "No aberrations: every ray from one point meets at one image point, and every colour focuses at the same place."],
+};
+MODES.div = {
+  overlay: () => "",
+  view(cv, dt) { this.map = lensDiagram(cv, dt, -P.df, P.du, false); },
+  pointer(type, x, y) {
+    if (type === "down" && this.map && Math.abs(x - this.map.ox) < 14) { lensDrag.on = true; return true; }
+    if (type === "move" && lensDrag.on && this.map) { const X = this.map.X, u = -((x - X(0)) / (X(1) - X(0))); P.du = clamp(Math.round(u), 5, 200); el("dpre").value = "Custom"; syncControls(); return true; }
+    if (type === "up") lensDrag.on = false;
+  },
+  plot(cv) { lensPlots(cv, -P.df, P.du, false); },
+  tiles() { const i = lensImage(-P.df, P.du); return [["Image distance v", `${i.v.toFixed(1)} cm`, "negative: virtual"], ["Magnification |m|", `${Math.abs(i.m).toFixed(3)}×`, "diminished"], ["Image type", i.type, ""], ["Orientation", i.ori, ""], ["Power P", `${(-100 / P.df).toFixed(2)} D`, "negative: diverging"], ["f", `${-P.df} cm`, "f = −|f|"]]; },
+  story() { const i = lensImage(-P.df, P.du); return `The lens spreads the rays out. Traced back (dashed), they seem to come from a <b>virtual, upright, diminished</b> image ${Math.abs(i.v).toFixed(1)} cm from the lens, between F and the lens. This is true wherever the object is.`; },
+  alerts() { const c = DIVS[el("dpre").value], out = []; if (c) out.push(["info", c[2]]); out.push(["info", "Diverging lenses always give virtual, upright, diminished images — always between the object and the lens. They are used in spectacles for short sight and in Galilean telescopes."]); return out; },
+  extra() {
+    if (!(P.adv && P.lm)) return "";
+    const fl = 1 / ((P.ng - 1) * (1 / P.R1 - 1 / P.R2));
+    return `<div class="adv"><div class="advh">⚗️ Lens maker's equation</div><div class="eq">1/f = (n − 1)(1/R₁ − 1/R₂)</div><div style="font-size:12.5px">For a double-concave (diverging) lens R₁ &lt; 0 and R₂ &gt; 0, making 1/f negative. More curved surfaces (smaller |R|) or higher-index glass give a shorter, more powerful focal length.</div><div class="info good">Lens maker's equation gives f = <b>${fl.toFixed(2)} cm</b> (P = ${(100 / fl).toFixed(2)} D) for n = ${P.ng}, R₁ = ${P.R1} cm, R₂ = ${P.R2} cm.</div></div>`;
+  },
+  how: ["Same thin-lens model with f negative: 1/u + 1/v = 1/f gives a negative (virtual) v for every object position.", "Lens maker's equation (Advanced) for a thin lens in air."],
+};
+function lensPlots(cv, f, u, converging) {
+  const { g, W, H } = fit(cv); g.fillStyle = "#1a2033"; g.fillRect(0, 0, W, H);
+  const w1 = Math.round(W * 0.5), af = Math.abs(f), umax = Math.max(60, u * 1.2);
+  const pts = []; for (let x = 0.5; x <= umax; x += umax / 600) { const i = lensImage(f, x); pts.push([x, isFinite(i.v) && Math.abs(i.v) < 8 * Math.max(af, 10) ? i.v : null]); }
+  const vs = pts.map(p => p[1]).filter(v => v != null), lo = Math.min(0, ...vs), hi = Math.max(0, ...vs);
+  const A = chart(null, { box: { g, r: [0, 0, w1, H] }, xr: [0, umax], yr: [lo - 2, hi + 2], xlabel: "Object distance u (cm)", ylabel: "Image distance v (cm)", title: "Where the image forms", L: 50 });
+  A.clip(); plotLine(A, pts, "#ffd83c", 2.2); plotLine(A, [[0, 0], [umax, 0]], "rgba(255,255,255,.3)", 1); if (converging) { vline(A, af, "#5fd07a", [5, 4], "u = f", A.T + 10); plotLine(A, [[0, af], [umax, af]], "#5fd07a", 1, [3, 4]); } A.unclip();
+  const im = lensImage(f, u); if (isFinite(im.v)) { g.fillStyle = "#e74c3c"; g.beginPath(); g.arc(A.X(u), A.Y(clamp(im.v, lo - 2, hi + 2)), 5, 0, TAU); g.fill(); }
+  text(g, converging ? "v < 0: virtual image" : "v is always negative (virtual)", A.X(umax * 0.97), A.Y(lo - 1) - 4, "#aab", "right", "10.5px system-ui");
+  if (converging && P.adv && P.inv) {
+    const B = chart(null, { box: { g, r: [w1, 0, W - w1, H] }, xr: [0, 1.15 / f], yr: [0, 1.15 / f], xlabel: "1/u (cm⁻¹)", ylabel: "1/v (cm⁻¹)", title: `1/v against 1/u — intercepts at 1/f = ${(1 / f).toFixed(3)} cm⁻¹`, L: 50 });
+    const q = []; for (let x = f + 0.5; x <= 200; x += 0.5) { const i = lensImage(f, x); q.push([1 / x, 1 / i.v]); }
+    B.clip(); plotLine(B, [[0, 1 / f], [1 / f, 0]], "#5fd07a", 1.5, [6, 4]); plotLine(B, q, "#ff9f40", 2.2); B.unclip();
+    if (im.v > 0 && isFinite(im.v)) { g.fillStyle = "#e74c3c"; g.beginPath(); g.arc(B.X(1 / u), B.Y(1 / im.v), 5, 0, TAU); g.fill(); }
+    el("plotCap").textContent = "1/v against 1/u is a straight line of gradient −1 with both intercepts at 1/f: the standard A-level practical for finding the focal length.";
+  } else {
+    const mp = []; for (let x = 0.5; x <= umax; x += umax / 600) { const i = lensImage(f, x); mp.push([x, isFinite(i.m) && Math.abs(i.m) < 6 ? i.m : null]); }
+    const B = chart(null, { box: { g, r: [w1, 0, W - w1, H] }, xr: [0, umax], yr: [-6, 6], xlabel: "Object distance u (cm)", ylabel: "Magnification m", title: "Magnification (negative = inverted)", L: 40 });
+    B.clip(); plotLine(B, mp, "#b07cff", 2.2); plotLine(B, [[0, 0], [umax, 0]], "rgba(255,255,255,.3)", 1); plotLine(B, [[0, 1], [umax, 1]], "rgba(255,255,255,.2)", 1, [3, 3]); plotLine(B, [[0, -1], [umax, -1]], "rgba(255,255,255,.2)", 1, [3, 3]); B.unclip();
+    if (isFinite(im.m) && Math.abs(im.m) < 6) { g.fillStyle = "#e74c3c"; g.beginPath(); g.arc(B.X(u), B.Y(im.m), 5, 0, TAU); g.fill(); }
+    el("plotCap").textContent = converging ? "As the object moves in towards F the real image runs away to infinity and grows; inside F the image becomes virtual and upright." : "A diverging lens always gives a virtual image between F and the lens, smaller than the object (|m| < 1).";
+  }
+}
+
+MODES.fibre = {
+  overlay: () => "",
+  view(cv, dt) {
+    const { g, W, H } = fit(cv); g.fillStyle = "#070a14"; g.fillRect(0, 0, W, H);
+    lightT += dt;
+    const fi = fibreInfo(), cy = H / 2, hc = Math.min(H * 0.17, 60), cl = hc * 0.55, x0 = W * 0.2, x1 = W - 12;
+    g.fillStyle = "rgba(80,100,180,.22)"; g.fillRect(x0, cy - hc - cl, x1 - x0, cl); g.fillRect(x0, cy + hc, x1 - x0, cl);
+    g.fillStyle = "rgba(40,70,140,.35)"; g.fillRect(x0, cy - hc, x1 - x0, 2 * hc);
+    g.strokeStyle = "#17becf"; g.lineWidth = 1.2; g.strokeRect(x0, cy - hc - cl, x1 - x0, 2 * (hc + cl)); g.strokeStyle = "#1f77b4"; g.strokeRect(x0, cy - hc, x1 - x0, 2 * hc);
+    text(g, `cladding  n = ${P.ncl.toFixed(3)}`, x1 - 8, cy - hc - cl / 2 + 4, "#cfd5e6", "right", "11.5px system-ui");
+    text(g, `core  n = ${P.nc.toFixed(3)}`, x1 - 8, cy + hc - 8, "#cfd5e6", "right", "11.5px system-ui");
+    // acceptance cone in the air before the fibre
+    const acc = rad(Math.min(fi.acc, 89)), cl2 = Math.min(x0 - 10, 150);
+    g.fillStyle = "rgba(100,220,100,.10)"; g.strokeStyle = "rgba(255,159,64,.8)"; g.setLineDash([5, 4]); g.beginPath(); g.moveTo(x0, cy); g.lineTo(x0 - cl2, cy - cl2 * Math.tan(acc)); g.lineTo(x0 - cl2, cy + cl2 * Math.tan(acc)); g.closePath(); g.fill(); g.stroke(); g.setLineDash([]);
+    text(g, `acceptance ±${fi.acc.toFixed(1)}°`, x0 - 6, cy - Math.min(cl2 * Math.tan(acc), H / 2 - 30) - 8, "#ffb347", "right", "11px system-ui");
+    // the ray: enters at the centre of the end face, bounces (or leaks) along the core
+    const th = rad(P.fth), sExt = P.nc * Math.sin(th), ext = sExt <= 1 ? Math.asin(sExt) : null;
+    const pts = [], leaks = [];
+    if (ext != null) pts.push([x0 - 120 * Math.cos(ext), cy + 120 * Math.sin(ext)]);
+    pts.push([x0, cy]);
+    let x = x0, y = cy, dir = -1, alpha = 1, bounces = 0;
+    const R = fi.guided ? 1 : fresnel(fi.tb, P.nc, P.ncl).R;
+    while (x < x1 && bounces <= P.nb && alpha > 0.02) {
+      if (th < 1e-4) { pts.push([x1, y]); break; }
+      const yw = dir < 0 ? cy - hc : cy + hc, dx = Math.abs(yw - y) / Math.tan(th);
+      if (x + dx > x1) { pts.push([x1, y + dir * (x1 - x) * Math.tan(th)]); break; }
+      x += dx; y = yw; pts.push([x, y]); bounces++;
+      if (!fi.guided) { const tr = snell(fi.tb, P.nc, P.ncl); if (tr.th2 != null) { const a2 = rad(tr.th2); leaks.push({ x, y, dir, a2, alpha: alpha * (1 - R) }); } alpha *= R; }
+      dir = -dir;
+    }
+    // draw the ray: bright if guided, fading at each bounce if it leaks
+    g.save(); g.beginPath(); g.rect(0, 0, W, H); g.clip();
+    let a = 1;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const inAir = ext != null && i === 0;
+      lightRay(g, [pts[i], pts[i + 1]], [inAir ? 1 : P.nc], fi.guided ? "#ff5050" : "#ff8080", 2.5, a, 0);
+      if (!inAir && !fi.guided) a *= R;        // each leaky bounce keeps only the reflected fraction
+    }
+    for (const L of leaks) { g.strokeStyle = `rgba(255,90,90,${clamp(L.alpha, 0.15, 1)})`; g.setLineDash([5, 4]); g.lineWidth = 1.6; g.beginPath(); g.moveTo(L.x, L.y); g.lineTo(L.x + 70 * Math.sin(L.a2), L.y + L.dir * 70 * Math.cos(L.a2)); g.stroke(); g.setLineDash([]); }
+    g.restore();
+    if (pts.length > (ext != null ? 2 : 1)) { const k = ext != null ? 2 : 1, b = pts[k]; if (b) { arcAngle(g, b[0], b[1], 26, b[1] < cy ? Math.PI / 2 - rad(fi.tb) : -Math.PI / 2, b[1] < cy ? Math.PI / 2 : -Math.PI / 2 + rad(fi.tb), "#5fd07a", `θ = ${fi.tb.toFixed(0)}°`, 44); } }
+    pill(g, fi.guided ? "GUIDED by total internal reflection" : "LEAKING: the ray meets the boundary below the critical angle", W / 2, 22, fi.guided ? "#8fe3a0" : "#ff8a7a", "bold 13px system-ui", "center");
+    if (ext == null) pill(g, "This angle inside the core cannot be reached from air (sin θ_air would exceed 1)", W / 2, H - 12, "#ffd27a", "12px system-ui", "center");
+    text(g, `θc = ${fi.tc.toFixed(1)}°   NA = ${fi.NA.toFixed(4)}`, 10, H - 10, "#e6e9f2", "left", "12px system-ui");
+  },
+  plot(cv) {
+    const fi = fibreInfo(), Lk = 1000, n = P.nc;
+    const base = Lk * n / C_LIGHT * 1e9;                           // ns for an axial ray along 1 km
+    const pts = []; for (let a = 0; a <= 60; a += 0.1) pts.push([a, base * (1 / Math.cos(rad(a)) - 1)]);
+    const ymax = Math.max(base * (1 / Math.cos(rad(Math.min(60, fi.maxAxis + 5))) - 1), 5);
+    const A = chart(cv, { xr: [0, 60], yr: [0, ymax * 1.08], xlabel: "Ray angle θ from the axis inside the core (°)", ylabel: "Extra delay over 1 km (ns)", title: `Modal dispersion: steeper rays take longer (axial ray: ${fmt(base)} ns per km)` });
+    A.clip(); plotLine(A, pts, "#ffd83c", 2.2); vline(A, fi.maxAxis, "#e74c3c", [5, 4], `guided up to ${fi.maxAxis.toFixed(1)}°`, A.T + 12); A.unclip();
+    const now = base * (1 / Math.cos(rad(P.fth)) - 1); A.g.fillStyle = "#e74c3c"; A.g.beginPath(); A.g.arc(A.X(P.fth), A.Y(Math.min(now, ymax * 1.08)), 5, 0, TAU); A.g.fill();
+    el("plotCap").textContent = `A short pulse sent down 1 km of this fibre spreads by up to ${fmt(base * (P.nc / P.ncl - 1))} ns, because guided rays take paths of different lengths. Single-mode fibres avoid this.`;
+  },
+  tiles() { const f = fibreInfo(); return [["Critical angle θc", `${f.tc.toFixed(2)}°`, "sin θc = n_clad/n_core"], ["Numerical aperture", f.NA.toFixed(4), "√(n_core² − n_clad²)"], ["Acceptance angle", `${f.acc.toFixed(2)}°`, "half-angle in air"], ["Boundary angle θ", `${f.tb.toFixed(1)}°`, "= 90° − ray angle"], ["Guided?", f.guided ? "Yes" : "No", f.guided ? "θ ≥ θc" : "θ < θc"], ["Pulse spread", `${fmt(1000 * P.nc / C_LIGHT * 1e9 * (P.nc / P.ncl - 1))} ns/km`, "modal dispersion"]]; },
+  story() { const f = fibreInfo(); return f.guided ? `The ray meets the core–cladding boundary at ${f.tb.toFixed(1)}°, more than the critical angle (${f.tc.toFixed(1)}°), so it is totally internally reflected every time and stays in the core.` : `The ray meets the boundary at only ${f.tb.toFixed(1)}°, less than the critical angle (${f.tc.toFixed(1)}°). Some light refracts out into the cladding at every bounce, so the signal fades. Make the ray flatter (smaller angle from the axis).`; },
+  alerts() { const f = fibreInfo(), c = FIBRES[el("fpre").value], out = []; if (c) out.push(["info", c[2]]); out.push([f.guided ? "good" : "warn", f.guided ? "Ray is guided by total internal reflection." : "Ray will NOT be guided — it escapes through the cladding."]); out.push(["info", "Optical fibres carry internet data as pulses of light. One hair-thin fibre can carry thousands of conversations at once using different wavelengths (wavelength-division multiplexing). It all depends on total internal reflection."]); return out; },
+  extra: () => "",
+  how: ["The ray is launched on the fibre's axis at angle θ (inside the core). Entering from air it bends towards the axis by Snell's law, which gives the acceptance cone sin(half-angle) = NA.", "At each boundary hit: if the angle of incidence is at least θc the ray is totally reflected; otherwise part of it refracts into the cladding (dashed) and the rest, given by the Fresnel equations, reflects on — so a leaking ray fades.", "Step-index fibre with a perfectly smooth, straight boundary; no absorption or bending losses. Time delays use t = L n_core / (c cos θ)."],
+};
+for (const m of ["lens", "div", "fibre", "prism"]) MODES[m].onOverlay = () => {};
+
+/* ---------- notes and exam questions ---------- */
+function notesFor(mode) {
+  const extra = { div: ["1/f = (n − 1)(1/R₁ − 1/R₂)   (lens maker's equation)"], fibre: ["NA = √(n_core² − n_clad²) = sin(acceptance half-angle)", "t = L n_core / (c cos θ)"], prism: ["n = sin((A + D_min)/2) / sin(A/2)   (minimum deviation)"] }[mode] || [];
+  return notesHTML("Component 3, Topic 9 (Wave properties of light) — refraction, total internal reflection, lenses and fibres", NOTES_EQ.concat(extra), NOTES_EXPL, NOTES_ADV);
+}
+function examSets() {
+  const n1 = P.n1, n2 = P.n2, t1 = P.th1, s = snell(t1, n1, n2), sin2 = n1 * Math.sin(rad(t1)) / n2, v2 = C_LIGHT / n2;
+  const snellQ = [
+    { q: `Light travels from a medium with n₁ = ${n1.toFixed(2)} into one with n₂ = ${n2.toFixed(2)} at an angle of incidence of ${t1.toFixed(1)}°. Calculate the angle of refraction.`, marks: 3, hint: "Apply Snell's law: n₁ sin θ₁ = n₂ sin θ₂.",
+      working: s.tir ? [`sin θ₂ = (n₁/n₂) sin θ₁ = ${n1.toFixed(2)}/${n2.toFixed(2)} × sin(${t1.toFixed(1)}°) = ${sin2.toFixed(4)} > 1 → TIR`] : ["Snell's law: n₁ sin θ₁ = n₂ sin θ₂", `sin θ₂ = (n₁/n₂) × sin θ₁ = ${n1.toFixed(2)}/${n2.toFixed(2)} × sin(${t1.toFixed(1)}°)`, `sin θ₂ = ${sin2.toFixed(4)}`, `θ₂ = ${s.th2.toFixed(2)}°`],
+      answer: s.tir ? "Total internal reflection — there is no refracted ray." : `θ₂ = ${s.th2.toFixed(2)}°` },
+    { q: `Calculate the critical angle for the boundary between n₁ = ${n1.toFixed(2)} and n₂ = ${n2.toFixed(2)}.`, marks: 2, hint: "sin θc = n₂/n₁ (only when n₁ > n₂).",
+      working: s.crit != null ? [`sin θc = n₂/n₁ = ${n2.toFixed(2)}/${n1.toFixed(2)} = ${(n2 / n1).toFixed(4)}`, `θc = ${s.crit.toFixed(2)}°`] : [], answer: s.crit != null ? `θc = ${s.crit.toFixed(2)}°` : "No critical angle — light is going from a less dense into a denser (or equal) medium." },
+    { q: `Calculate the speed of light in the medium with refractive index n₂ = ${n2.toFixed(2)}.`, marks: 2, hint: "n = c/v → v = c/n.", working: [`v = c/n = 3×10⁸ / ${n2.toFixed(2)} = ${v2.toExponential(3)} m/s`], answer: `${v2.toExponential(3)} m/s` },
+  ];
+  const i = lensImage(P.f, P.u);
+  const lensQ = [
+    { q: `An object is placed ${P.u} cm from a converging lens of focal length ${P.f} cm. Calculate the image distance and say whether the image is real or virtual.`, marks: 3, hint: "1/u + 1/v = 1/f (real is positive).",
+      working: isFinite(i.v) ? [`1/v = 1/f − 1/u = 1/${P.f} − 1/${P.u} = ${(1 / P.f - 1 / P.u).toFixed(4)} cm⁻¹`, `v = ${i.v.toFixed(1)} cm`, i.v > 0 ? "v is positive: a real image on the far side." : "v is negative: a virtual image on the same side as the object."] : ["1/v = 1/f − 1/u = 0, so the image is at infinity."], answer: isFinite(i.v) ? `v = ${i.v.toFixed(1)} cm (${i.type.toLowerCase()})` : "At infinity" },
+    { q: "Calculate the magnification and describe the image.", marks: 2, working: isFinite(i.v) ? [`m = v/u = ${Math.abs(i.v).toFixed(1)}/${P.u} = ${Math.abs(i.m).toFixed(2)}`, `${i.ori}, ${Math.abs(i.m) > 1 ? "magnified" : "diminished"}`] : ["No image forms."], answer: isFinite(i.v) ? `m = ${Math.abs(i.m).toFixed(2)}, ${i.type.toLowerCase()}, ${i.ori.toLowerCase()}, ${Math.abs(i.m) > 1 ? "magnified" : "diminished"}` : "–" },
+    { q: `A diverging lens has a focal length of ${P.df} cm. Calculate its power.`, marks: 2, hint: "P = 1/f with f in metres; f is negative for a diverging lens.", working: [`f = −${(P.df / 100).toFixed(2)} m`, `P = 1/f = 1/(−${(P.df / 100).toFixed(2)}) = ${(-100 / P.df).toFixed(2)} D`], answer: `P = ${(-100 / P.df).toFixed(2)} D` },
+  ];
+  const f = fibreInfo();
+  const fibreQ = [
+    { q: `An optical fibre has a core of refractive index ${P.nc.toFixed(3)} and cladding of ${P.ncl.toFixed(3)}. Calculate the critical angle at the core–cladding boundary.`, marks: 2, working: [`sin θc = n_clad/n_core = ${P.ncl.toFixed(3)}/${P.nc.toFixed(3)} = ${(P.ncl / P.nc).toFixed(4)}`, `θc = ${f.tc.toFixed(2)}°`], answer: `θc = ${f.tc.toFixed(2)}°` },
+    { q: `Explain why the cladding must have a lower refractive index than the core.`, marks: 2, working: ["TIR only happens when light goes from a higher to a lower refractive index.", "The cladding also protects the core surface from scratches and from touching other fibres, which would let light escape."], answer: "So that total internal reflection can happen at the core–cladding boundary (n_core > n_clad)." },
+  ];
+  return [["snell", "Snell's law and refraction", snellQ], ["lens", "Lenses", lensQ], ["fibre", "Optical fibres", fibreQ]];
+}
+
+/* =====================================================================
+   3. CONTROLS, PRESETS, PANELS AND THE ANIMATION LOOP
+   ===================================================================== */
+const DEFAULTS = JSON.parse(JSON.stringify(P));
+const anim2 = { playing: true, speed: 1, last: performance.now() };
+const CTL = [
+  ["n1", v => v.toFixed(2)], ["n2", v => v.toFixed(2)], ["th1", v => `${v}°`], ["thp", v => `${v}°`], ["apex", v => `${v}°`],
+  ["f", v => `${v} cm`], ["u", v => `${v} cm`], ["df", v => `${v} cm`], ["du", v => `${v} cm`], ["ng", v => v.toFixed(2)], ["R1", v => `${v} cm`], ["R2", v => `${v} cm`],
+  ["nc", v => v.toFixed(3)], ["ncl", v => v.toFixed(3)], ["fth", v => `${v}°`], ["nb", v => `${v}`],
+];
+const CHK = ["stable", "allMat", "ltable", "inv", "lm"];
+let dirty = true;
+function fillSelect(id, obj) { el(id).innerHTML = Object.keys(obj).map(k => `<option>${k}</option>`).join(""); }
+fillSelect("spre", MATERIALS); fillSelect("lpre", LENSES); fillSelect("dpre", DIVS); fillSelect("fpre", FIBRES);
+function syncLite() { el("th1").value = P.th1; el("o_th1").textContent = `${P.th1}°`; dirty = true; }
+function syncControls() {
+  if (P.ncl > P.nc - 0.001) P.ncl = +(P.nc - 0.001).toFixed(3);
+  el("ncl").max = (P.nc - 0.001).toFixed(3);
+  for (const [k, show] of CTL) { el(k).value = P[k]; el("o_" + k).textContent = show(P[k]); }
+  for (const k of CHK) el(k).checked = !!P[k];
+  el("mat").value = P.mat;
+  document.querySelectorAll(".grp").forEach(g => g.classList.toggle("show", g.dataset.m === P.mode));
+  document.querySelectorAll(".adv-only").forEach(g => (g.style.display = P.adv ? "" : "none"));
+  el("c_lm").style.display = P.lm ? "" : "none";
+  for (const [sel, box, data] of [["spre", "sctx", MATERIALS], ["lpre", "lctx", LENSES], ["dpre", "dctx", DIVS], ["fpre", "fctx", FIBRES]]) { const d = data[el(sel).value]; el(box).style.display = d ? "" : "none"; el(box).textContent = d ? d[2] : ""; }
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.mode === P.mode));
+  document.querySelectorAll("#lvl button").forEach(b => b.classList.toggle("on", +b.dataset.l === (P.adv ? 1 : 0)));
+  el("overlay").innerHTML = MODES[P.mode].overlay();
+  dirty = true;
+}
+function bind() {
+  const custom = { n1: "spre", n2: "spre", f: "lpre", u: "lpre", df: "dpre", du: "dpre", nc: "fpre", ncl: "fpre" };
+  for (const [k] of CTL) el(k).addEventListener("input", () => { P[k] = +el(k).value; if (custom[k]) el(custom[k]).value = "Custom"; if (k === "th1") P.scan = false; syncControls(); });
+  for (const k of CHK) el(k).addEventListener("change", () => { P[k] = el(k).checked; syncControls(); });
+  el("mat").addEventListener("change", () => { P.mat = el("mat").value; syncControls(); });
+  el("spre").addEventListener("change", () => { const d = MATERIALS[el("spre").value]; if (d) { P.n1 = d[0]; P.n2 = d[1]; } syncControls(); });
+  el("lpre").addEventListener("change", () => { const d = LENSES[el("lpre").value]; if (d) { P.f = d[0]; P.u = d[1]; } syncControls(); });
+  el("dpre").addEventListener("change", () => { const d = DIVS[el("dpre").value]; if (d) { P.df = d[0]; P.du = d[1]; } syncControls(); });
+  el("fpre").addEventListener("change", () => { const d = FIBRES[el("fpre").value]; if (d) { P.nc = d[0]; P.ncl = d[1]; } syncControls(); });
+  el("minDev").onclick = () => { const n = cauchyN(P.mat, 589), Dm = minDeviation(P.apex, n); if (Dm != null) P.thp = Math.round((P.apex + Dm) / 2 * 2) / 2; syncControls(); };
+  document.querySelectorAll("#tabs button").forEach(b => (b.onclick = () => { P.mode = b.dataset.mode; syncControls(); }));
+  document.querySelectorAll("#lvl button").forEach(b => (b.onclick = () => { P.adv = b.dataset.l === "1"; syncControls(); }));
+  el("overlay").addEventListener("click", e => { const b = e.target.closest("[data-ov]"); if (!b) return; MODES[P.mode].onOverlay(b.dataset.ov); syncControls(); });
+  el("btnPlay").onclick = () => setPlaying(!anim2.playing);
+  el("btnReset").onclick = () => { lightT = 0; P.scan = false; setPlaying(true); syncControls(); };
+  document.querySelectorAll(".speed button").forEach(b => (b.onclick = () => { anim2.speed = +b.dataset.s; document.querySelectorAll(".speed button").forEach(q => q.classList.toggle("on", q === b)); }));
+  const cv = el("view"), pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  cv.addEventListener("pointerdown", e => { const [x, y] = pos(e); if (MODES[P.mode].pointer && MODES[P.mode].pointer("down", x, y)) cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener("pointermove", e => { const [x, y] = pos(e); MODES[P.mode].pointer && MODES[P.mode].pointer("move", x, y); });
+  cv.addEventListener("pointerup", e => { const [x, y] = pos(e); MODES[P.mode].pointer && MODES[P.mode].pointer("up", x, y); });
+}
+function setPlaying(on) { anim2.playing = on; el("btnPlay").textContent = on ? "⏸ Pause" : "▶ Play"; }
+
+const PRESETS = [
+  { name: "Swimming pool", note: "air → water, θ₁ = 40°", s: { mode: "snell", th1: 40 }, sel: ["spre", "Air → Water"] },
+  { name: "Why diamonds sparkle", note: "air → diamond (n = 2.42)", s: { mode: "snell", th1: 50 }, sel: ["spre", "Air → Diamond"] },
+  { name: "Total internal reflection", note: "glass → air at 50°", s: { mode: "snell", th1: 50 }, sel: ["spre", "Glass → Air"] },
+  { name: "Diamond's tiny θc", note: "diamond → air, θc ≈ 24°", s: { mode: "snell", th1: 22, adv: true, stable: true }, sel: ["spre", "Diamond → Air"] },
+  { name: "Newton's prism", note: "crown glass, minimum deviation", s: { mode: "prism", mat: "Crown glass", apex: 60, thp: 49.5 } },
+  { name: "Flint glass prism", note: "twice the dispersion", s: { mode: "prism", mat: "Flint glass", apex: 60, thp: 55, adv: true, allMat: true } },
+  { name: "Magnifying glass", note: "u < f: virtual image", s: { mode: "lens" }, sel: ["lpre", "Magnifying glass (f = 10 cm)"] },
+  { name: "Camera", note: "u > 2f: small real image", s: { mode: "lens", f: 10, u: 45 } },
+  { name: "Projector", note: "f < u < 2f: big real image", s: { mode: "lens" }, sel: ["lpre", "Projector lens (f = 20 cm)"] },
+  { name: "Glasses for short sight", note: "diverging lens", s: { mode: "div" }, sel: ["dpre", "Short-sight correction"] },
+  { name: "Too steep: light leaks", note: "multi-mode fibre, θ = 15°", s: { mode: "fibre", fth: 15 }, sel: ["fpre", "Multi-mode fibre"] },
+  { name: "Endoscope fibre", note: "large NA: guided at 15°", s: { mode: "fibre", fth: 15 }, sel: ["fpre", "Medical endoscope fibre"] },
+];
+function setPreset(k) {
+  const pr = PRESETS[k];
+  Object.assign(P, JSON.parse(JSON.stringify(DEFAULTS)), pr.s);
+  ["spre", "lpre", "dpre", "fpre"].forEach(id => (el(id).value = "Custom"));
+  if (pr.sel) { el(pr.sel[0]).value = pr.sel[1]; el(pr.sel[0]).dispatchEvent(new Event("change")); }
+  lightT = 0; setPlaying(true);
+  document.querySelectorAll("#presets button").forEach((b, i) => b.classList.toggle("on", i === k));
+  syncControls();
+}
+
+const openMS = new Set();
+function refreshRight() {
+  const M = MODES[P.mode];
+  el("story").innerHTML = M.story();
+  el("alerts").innerHTML = M.alerts().map(([c, h]) => `<div class="info ${c === "info" ? "" : c}">${h}</div>`).join("");
+  el("tiles").innerHTML = M.tiles().map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s || ""}</div></div>`).join("");
+  el("rextra").innerHTML = M.extra();
+  el("notesBody").innerHTML = notesFor(P.mode);
+  const cur = P.mode === "div" ? "lens" : P.mode === "prism" ? "snell" : P.mode;
+  const sets = examSets().sort((a, b) => (a[0] === cur ? -1 : b[0] === cur ? 1 : 0));
+  el("exam").innerHTML = sets.map(([m, title, qs]) => `<div class="exset">${title}${m === cur ? " — this mode" : ""}</div>` + qs.map((q, i) => {
+    const key = `${m}${i}`, open = openMS.has(key);
+    return `<div class="exq"><span class="mk">${q.marks} mark${q.marks === 1 ? "" : "s"}</span><b>Q${i + 1}.</b> ${q.q}${q.hint ? `<div class="ht">💡 Hint: ${q.hint}</div>` : ""}<button data-ms="${key}">${open ? "Hide" : "Show"} mark scheme</button><div class="ms${open ? " open" : ""}">${(q.working || []).map(w => `<div>→ ${w}</div>`).join("")}<div class="ans">Answer: ${q.answer}</div></div></div>`;
+  }).join("")).join("");
+}
+el("exam").addEventListener("click", e => { const b = e.target.closest("[data-ms]"); if (!b) return; const k = b.dataset.ms; if (openMS.has(k)) openMS.delete(k); else openMS.add(k); refreshRight(); });
+function readouts() {
+  let h = "";
+  if (P.mode === "snell") { const s = snell(P.th1, P.n1, P.n2); h = `θ₂ <b>${s.tir ? "TIR" : s.th2.toFixed(1) + "°"}</b> · θc <b>${s.crit != null ? s.crit.toFixed(1) + "°" : "none"}</b>`; }
+  else if (P.mode === "prism") { const i = prismInfo(); h = `dispersion <b>${i.dispersion != null ? i.dispersion.toFixed(2) + "°" : "TIR"}</b> · deviation (589 nm) <b>${i.D589 != null ? i.D589.toFixed(1) + "°" : "–"}</b>`; }
+  else if (P.mode === "lens" || P.mode === "div") { const f = P.mode === "lens" ? P.f : -P.df, u = P.mode === "lens" ? P.u : P.du, i = lensImage(f, u); h = `v <b>${isFinite(i.v) ? i.v.toFixed(1) + " cm" : "∞"}</b> · m <b>${isFinite(i.m) ? i.m.toFixed(2) : "∞"}</b> · ${i.type.toLowerCase()}`; }
+  else { const f = fibreInfo(); h = `θc <b>${f.tc.toFixed(1)}°</b> · NA <b>${f.NA.toFixed(3)}</b> · <b>${f.guided ? "guided" : "leaking"}</b>`; }
+  el("readouts").innerHTML = `<span class="stat">${h}</span>`;
+}
+function howList() {
+  const names = { snell: "Snell's law & TIR", prism: "Prism", lens: "Converging lens", div: "Diverging lens", fibre: "Optical fibre" };
+  el("howList").innerHTML = Object.keys(names).map(m => `<li><b>${names[m]}</b><ul>${MODES[m].how.map(x => `<li>${x}</li>`).join("")}</ul></li>`).join("") +
+    "<li><b>Light as rays with wavefronts:</b> the moving tick marks are wavefronts, drawn hugely enlarged and in slow motion. They move at c/n and are λ/n apart.</li>" +
+    "<li><b>Batch run:</b> repeats a simulated class practical many times. Each run adds random measurement errors (stated in the batch panel) to the exact values and works the answer out as a student would.</li>";
+}
+let lastKey = "";
+function frame(now) {
+  const real = Math.min(0.1, (now - anim2.last) / 1000); anim2.last = now;
+  const dt = anim2.playing ? real * anim2.speed : 0;
+  MODES[P.mode].view(el("view"), dt);
+  const pc = el("plot"), key = JSON.stringify(P) + pc.clientWidth + "x" + pc.clientHeight + (window.devicePixelRatio || 1);
+  if (key !== lastKey) { lastKey = key; MODES[P.mode].plot(pc); }
+  if (dirty) { refreshRight(); readouts(); dirty = false; }
+  el("slowNote").textContent = "Wavefronts: slow motion, wavelength hugely enlarged.";
+  requestAnimationFrame(frame);
+}
+window.addEventListener("resize", () => { dirty = true; });
+el("presets").innerHTML = PRESETS.map((p, i) => `<button data-p="${i}">${p.name}<small>${p.note}</small></button>`).join("");
+document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.p)));
+bind();
+howList();
+
+(function () {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const KEY = PANEL_KEY, STRIP = 30, MIN = 170, DEF = { lw: 250, rw: 280, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+    window.dispatchEvent(new Event("panelsChanged"));
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  window.addEventListener("resize", () => setTimeout(() => window.dispatchEvent(new Event("panelsChanged")), 0));
+  apply();
+})();
+
+setPreset(2);
+
+/* =====================================================================
+   BATCH RUN — run the model many times with no drawing, then compare
+
+   the results with theory.
+   ---------------------------------------------------------------------
+   Real scientists never trust one run of a model that has chance in it:
+   they repeat it many times and look at the spread of results. Two modes:
+     REPEAT : the same settings N times with different random seeds
+              → a histogram (or bar chart) of one outcome.
+     SWEEP  : change one setting in steps, a few runs at each step
+              → mean ± 1 standard deviation at each step, plus the
+                theory line where there is one.
+   The runs happen in short chunks (about 40 ms at a time) so the page
+   stays responsive, and the interactive simulation is saved before the
+   batch and put back afterwards, so it is not disturbed.
+   This part is the same in every simulation of the suite; the model-
+   specific parts are in BATCH_CONFIG (passed to Batch.init).
+   ===================================================================== */
+const Batch = (function () {
+  let C = null, ov = null;
+  const st = { mode: "repeat", nRepeat: 0, varKey: null, from: 0, to: 1, steps: 6, reps: 3, outKey: null, seed: 1 };
+  let results = [], jobsMeta = null, running = false, stopFlag = false, ctx = null, expNote = "", expOn = -1;
+  const THEORY = "#5ec8ff", POINT = "#f1af28";
+  const $ = id => document.getElementById(id);
+
+  // ---------- small statistics helpers ----------
+  const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+  const sd = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); };
+  const SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+  const sup = e => String(e).split("").map(c => (c === "-" ? "⁻" : SUP[+c])).join("");
+  function fmt(v, d = 3) {
+    if (v == null || !isFinite(v)) return "–";
+    if (v === 0) return "0";
+    const a = Math.abs(v);
+    if (a >= 1e5 || a < 1e-2) { const e = Math.floor(Math.log10(a)); return `${(v / Math.pow(10, e)).toFixed(2)}×10${sup(e)}`; }
+    if (a >= 1000) return Math.round(v).toLocaleString("en-GB");
+    return String(+v.toPrecision(d));
+  }
+  const outcome = () => C.outcomes.find(o => o.key === st.outKey);
+  const sweepVar = () => C.vars.find(v => v.key === st.varKey);
+  const unitTxt = u => (u ? ` (${u})` : "");
+
+  // ---------- building the panel ----------
+  function init(cfg) {
+    C = cfg;
+    st.nRepeat = cfg.repeatDefault; st.outKey = cfg.outcomes[0].key;
+    const v0 = cfg.vars[0]; st.varKey = v0.key; st.from = v0.from; st.to = v0.to; st.steps = v0.steps || 6; st.reps = cfg.repsDefault || 3;
+    ov = document.createElement("div");
+    ov.id = "batchOv";
+    ov.innerHTML = `
+      <div class="bhead"><b>📊 Batch run</b><span class="hint" id="b_base"></span><button id="b_close" title="Close the batch panel (the interactive simulation is untouched)">✕ Close</button></div>
+      <div class="bbody">
+        <div class="bleft">
+          <div class="breduced" id="b_reduced"></div>
+          <h2>Batch experiments <span style="text-transform:none;letter-spacing:0">(one click: set up and run)</span></h2>
+          <div class="bexps" id="b_exps"></div>
+          <h2 class="gap">Or set up your own</h2>
+          <div class="bmodes"><button data-bm="repeat">Repeat</button><button data-bm="sweep">Sweep</button></div>
+          <div id="b_rep">
+            <div class="brow"><span>Runs</span><select id="b_n">${cfg.repeatChoices.map(n => `<option value="${n}">${n}</option>`).join("")}</select></div>
+          </div>
+          <div id="b_swp">
+            <div class="brow"><span>Change</span><select id="b_var">${cfg.vars.map(v => `<option value="${v.key}">${v.label}${unitTxt(v.unit)}</option>`).join("")}</select></div>
+            <div class="brow"><span>From</span><input type="number" id="b_from" step="any"><span style="min-width:0">to</span><input type="number" id="b_to" step="any"></div>
+            <div class="brow"><span>Steps</span><input type="number" id="b_steps" min="2" max="30" step="1"><span style="min-width:0">runs each</span><input type="number" id="b_reps" min="1" max="50" step="1"></div>
+          </div>
+          <div class="brow"><span>Record</span><select id="b_out"></select></div>
+          <div class="brow"><span>Batch seed</span><input type="number" id="b_seed" step="1" min="1"></div>
+          ${cfg.extraHTML || ""}
+          <div class="bbtns"><button class="primary" id="bRun">▶ Run batch</button><button id="b_stop" disabled>■ Stop</button></div>
+          <div class="bprog"><div id="b_bar"></div></div>
+          <div class="bstat" id="b_stat">Ready.</div>
+          <div style="margin-top:6px"><a href="#" class="bdl" id="b_csv">⬇ Download CSV of the raw results</a></div>
+        </div>
+        <div class="bright">
+          <div class="bnote" id="bNote"></div>
+          <div class="bchartbox"><canvas id="b_chart"></canvas></div>
+          <div class="blegend" id="b_legend"></div>
+          <div class="bsum" id="b_sum"></div>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    $("b_exps").innerHTML = cfg.experiments.map((e, k) => `<button data-bx="${k}">${e.name}<small>${e.sub}</small></button>`).join("");
+    ov.querySelectorAll("[data-bx]").forEach(b => (b.onclick = () => runExperiment(+b.dataset.bx)));
+    ov.querySelectorAll("[data-bm]").forEach(b => (b.onclick = () => { if (running) return; readForm(); st.mode = b.dataset.bm; clearExp(); syncForm(); }));
+    $("b_close").onclick = close;
+    // Run batch: runs exactly what the form shows. If an experiment was chosen and the form
+    // has not been changed since, that experiment (with its note) runs again.
+    $("bRun").onclick = () => { readForm(); run(); };
+    ["b_n", "b_from", "b_to", "b_steps", "b_reps", "b_seed"].forEach(id => $(id).addEventListener("change", () => { if (running) return; readForm(); clearExp(); syncForm(); }));
+    $("b_stop").onclick = () => { stopFlag = true; };
+    $("b_var").onchange = () => { clearExp(); const v = C.vars.find(q => q.key === $("b_var").value); st.varKey = v.key; st.from = v.from; st.to = v.to; st.steps = v.steps || st.steps; syncForm(); };
+    $("b_out").onchange = () => { st.outKey = $("b_out").value; draw(); };
+    $("b_csv").onclick = e => { e.preventDefault(); downloadCSV(); };
+    window.addEventListener("resize", () => { if (ov.classList.contains("open")) { place(); draw(); } });
+    syncForm();
+  }
+  function place() {
+    // Cover the whole working area below the page header
+    const top = document.querySelector("main").getBoundingClientRect().top + window.scrollY;
+    Object.assign(ov.style, { top: Math.max(0, top - window.scrollY) + 6 + "px", left: "10px", right: "10px", bottom: "10px" });
+  }
+  function open() { place(); ov.classList.add("open"); $("b_base").innerHTML = C.baseText ? C.baseText() : ""; $("b_reduced").innerHTML = C.reducedNote ? C.reducedNote() : ""; syncForm(); draw(); }
+  function close() { stopFlag = true; ov.classList.remove("open"); }
+
+  function syncForm() {
+    ov.querySelectorAll("[data-bm]").forEach(b => b.classList.toggle("on", b.dataset.bm === st.mode));
+    $("b_rep").style.display = st.mode === "repeat" ? "" : "none";
+    $("b_swp").style.display = st.mode === "sweep" ? "" : "none";
+    $("b_n").value = st.nRepeat; $("b_var").value = st.varKey;
+    $("b_from").value = st.from; $("b_to").value = st.to; $("b_steps").value = st.steps; $("b_reps").value = st.reps; $("b_seed").value = st.seed;
+    const outs = C.outcomes.filter(o => (st.mode === "sweep" ? o.kind !== "cat" && o.only !== "repeat" : o.only !== "sweep"));
+    if (!outs.find(o => o.key === st.outKey)) st.outKey = outs[0].key;
+    $("b_out").innerHTML = outs.map(o => `<option value="${o.key}">${o.label}${unitTxt(o.unit)}</option>`).join("");
+    $("b_out").value = st.outKey;
+    ov.querySelectorAll("[data-bx]").forEach(b => b.classList.toggle("on", +b.dataset.bx === expOn));
+    $("bNote").innerHTML = expNote;
+    if (C.syncExtra) C.syncExtra(st);
+  }
+  // Forget the chosen experiment once the user changes the set-up by hand
+  function clearExp() { expOn = -1; expNote = ""; st.exp = null; }
+  function readForm() {
+    st.nRepeat = +$("b_n").value; st.varKey = $("b_var").value;
+    const v = sweepVar();
+    const clamp = x => Math.min(v.max, Math.max(v.min, isFinite(x) ? x : v.from));
+    st.from = clamp(+$("b_from").value); st.to = clamp(+$("b_to").value);
+    st.steps = Math.max(2, Math.min(30, Math.round(+$("b_steps").value) || 2));
+    st.reps = Math.max(1, Math.min(50, Math.round(+$("b_reps").value) || 1));
+    st.outKey = $("b_out").value; st.seed = Math.max(1, Math.round(+$("b_seed").value) || 1);
+    if (C.readExtra) C.readExtra(st);
+  }
+  function runExperiment(k) {
+    if (running) return;
+    const e = C.experiments[k];
+    readForm();
+    e.apply(st);
+    expOn = k; expNote = `<b>${e.name}</b> ${e.note}`;
+    syncForm();
+    $("b_base").innerHTML = C.baseText ? C.baseText() : "";
+    run();
+  }
+
+  // ---------- running ----------
+  function sweepValues() {
+    const v = sweepVar(), xs = [];
+    for (let i = 0; i < st.steps; i++) {
+      const f = i / (st.steps - 1);
+      let x = v.log ? Math.exp(Math.log(st.from) + f * (Math.log(st.to) - Math.log(st.from))) : st.from + f * (st.to - st.from);
+      if (v.int) x = Math.round(x);
+      xs.push(x);
+    }
+    return v.int ? [...new Set(xs)] : xs;
+  }
+  function run() {
+    if (running) return;
+    const jobs = [];
+    if (st.mode === "repeat") for (let k = 0; k < st.nRepeat; k++) jobs.push({ idx: k, seed: st.seed * 100003 + k, rep: k, x: null });
+    else { let k = 0; for (const x of sweepValues()) for (let r = 0; r < st.reps; r++) jobs.push({ idx: k++, seed: st.seed * 100003 + r, rep: r, x }); }
+    results = []; jobsMeta = { mode: st.mode, varKey: st.varKey, total: jobs.length };
+    running = true; stopFlag = false;
+    $("bRun").disabled = true; $("b_stop").disabled = false;
+    ov.querySelectorAll("[data-bx], [data-bm]").forEach(b => (b.disabled = true));
+    ctx = C.begin(st);
+    const t0 = performance.now();
+    let next = 0, cur = null, lastDraw = 0;
+    const chunk = () => {
+      if (stopFlag) return finish(true);
+      const deadline = performance.now() + (C.chunkMs || 40);
+      try {
+        while (next < jobs.length && performance.now() < deadline) {
+          if (!cur) cur = C.start(jobs[next], ctx, st);
+          const r = cur.advance(deadline);
+          if (r) { results.push(Object.assign({ job: jobs[next] }, r)); cur = null; next++; }
+        }
+      } catch (err) { console.error(err); $("b_stat").textContent = "Error: " + err.message; return finish(true); }
+      const done = next, el = (performance.now() - t0) / 1000;
+      $("b_bar").style.width = `${(100 * done / jobs.length).toFixed(1)}%`;
+      const eta = done ? el / done * (jobs.length - done) : 0;
+      $("b_stat").textContent = `Run ${Math.min(done + 1, jobs.length)} of ${jobs.length} · ${el.toFixed(0)} s so far${done ? ` · about ${Math.ceil(eta)} s left` : ""}`;
+      if (performance.now() - lastDraw > 400) { draw(); lastDraw = performance.now(); }
+      if (next >= jobs.length) finish(false); else setTimeout(chunk, 0);
+    };
+    setTimeout(chunk, 0);
+    function finish(stopped) {
+      running = false;
+      C.end(ctx);
+      $("bRun").disabled = false; $("b_stop").disabled = true;
+      ov.querySelectorAll("[data-bx], [data-bm]").forEach(b => (b.disabled = false));
+      const el = (performance.now() - t0) / 1000;
+      if (!$("b_stat").textContent.startsWith("Error")) $("b_stat").textContent = `${stopped ? "Stopped" : "Finished"}: ${results.length} run${results.length === 1 ? "" : "s"} in ${el.toFixed(1)} s.`;
+      draw();
+    }
+  }
+
+  // ---------- results ----------
+  function values(rs, o) { return rs.map(r => r[o.key]).filter(v => v != null && (o.kind !== "num" || isFinite(v))); }
+  function catsOf(o) { return o.kind === "bool" ? ["Yes", "No"] : o.cats; }
+  const catVal = (o, v) => (o.kind === "bool" ? (v ? "Yes" : "No") : v);
+
+  function niceTicks(lo, hi, n = 6) {
+    const span = hi - lo || 1, raw = span / n, e = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / e;
+    const step = (m >= 5 ? 10 : m >= 2 ? 5 : m >= 1 ? 2 : 1) * e;
+    const t = [];
+    for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + 1e-9 * step; v += step) t.push(+v.toPrecision(12));
+    return t;
+  }
+  function logTicks(lo, hi) {      // lo, hi are log10 values
+    const t = [];
+    const span = hi - lo;
+    for (let e = Math.floor(lo); e <= Math.ceil(hi); e++) for (const m of span < 1.5 ? [1, 2, 5] : span < 3 ? [1, 3] : [1]) {
+      const v = e + Math.log10(m); if (v >= lo - 1e-9 && v <= hi + 1e-9) t.push(v);
+    }
+    if (span > 8) return t.filter(v => Math.abs(v - Math.round(v)) < 1e-9 && Math.round(v) % 2 === 0);
+    return t;
+  }
+  function tickLabel(v, isLog, step) {
+    if (isLog) return fmt(Math.pow(10, v), 2);
+    const a = Math.abs(v);
+    if (step && a < 1e5 && (a >= 0.01 || v === 0)) { const d = Math.max(0, Math.min(4, -Math.floor(Math.log10(step) + 1e-9))); return d ? v.toFixed(d) : Math.round(v).toLocaleString("en-GB"); }
+    return fmt(v, 3);
+  }
+
+  function setupCanvas() {
+    const c = $("b_chart"), dpr = window.devicePixelRatio || 1;
+    const W = Math.round(c.clientWidth * dpr), H = Math.round(c.clientHeight * dpr);
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    const g = c.getContext("2d");
+    const css = getComputedStyle(document.body);
+    g.fillStyle = css.getPropertyValue("--panel-2") || "#161c31"; g.fillRect(0, 0, W, H);
+    return { g, W, H, dpr, text: css.getPropertyValue("--text") || "#eee", muted: css.getPropertyValue("--muted") || "#999" };
+  }
+  // Axes: box from (L,T) to (W-R, H-B); returns mapping functions
+  function axes(cv, xr, yr, xlog, ylog, xlabel, ylabel, xticks) {
+    const { g, W, H, dpr } = cv, L = 78 * dpr, R = 18 * dpr, T = 16 * dpr, B = 44 * dpr;
+    const X = v => L + (v - xr[0]) / (xr[1] - xr[0] || 1) * (W - L - R);
+    const Y = v => H - B - (v - yr[0]) / (yr[1] - yr[0] || 1) * (H - T - B);
+    g.font = `${11.5 * dpr}px system-ui, sans-serif`; g.lineWidth = 1;
+    g.strokeStyle = "rgba(160,170,190,0.18)"; g.fillStyle = cv.muted;
+    const yt = ylog ? logTicks(yr[0], yr[1]) : niceTicks(yr[0], yr[1], 5);
+    g.textAlign = "right";
+    const ys = yt.length > 1 ? yt[1] - yt[0] : 0;
+    for (const v of yt) { const y = Y(v); g.beginPath(); g.moveTo(L, y); g.lineTo(W - R, y); g.stroke(); g.fillText(tickLabel(v, ylog, ys), L - 6 * dpr, y + 4 * dpr); }
+    const xt = xticks || (xlog ? logTicks(xr[0], xr[1]) : niceTicks(xr[0], xr[1], 7));
+    g.textAlign = "center";
+    for (const v of xt) { const x = X(v); g.beginPath(); g.moveTo(x, T); g.lineTo(x, H - B); g.stroke(); g.fillText(typeof v === "object" ? v.label : tickLabel(v, xlog, xt.length > 1 ? xt[1] - xt[0] : 0), x, H - B + 15 * dpr); }
+    g.strokeStyle = "rgba(200,205,220,0.6)"; g.beginPath(); g.moveTo(L, T); g.lineTo(L, H - B); g.lineTo(W - R, H - B); g.stroke();
+    g.fillStyle = cv.text; g.fillText(xlabel, (L + W - R) / 2, H - 8 * dpr);
+    g.save(); g.translate(13 * dpr, (T + H - B) / 2); g.rotate(-Math.PI / 2); g.fillText(ylabel, 0, 0); g.restore();
+    return { X, Y, L, R, T, B };
+  }
+  function legend(items) { $("b_legend").innerHTML = items.map(([c, t, dash]) => `<span><i style="background:${dash ? `repeating-linear-gradient(90deg,${c} 0 4px,transparent 4px 7px)` : c}"></i>${t}</span>`).join(""); }
+
+  function draw() {
+    if (!ov || !ov.classList.contains("open")) return;
+    const cv = setupCanvas(), { g, W, H, dpr } = cv;
+    const o = outcome();
+    if (!results.length) {
+      g.fillStyle = cv.muted; g.font = `${14 * dpr}px system-ui, sans-serif`; g.textAlign = "center";
+      g.fillText(running ? "Running…" : "Choose a batch experiment on the left, or set up your own and press Run batch.", W / 2, H / 2);
+      legend([]); $("b_sum").innerHTML = ""; return;
+    }
+    if (jobsMeta.mode === "repeat") (o.kind === "num" ? drawHist : drawCats)(cv, o);
+    else drawSweep(cv, o);
+  }
+
+  // REPEAT, numerical outcome → histogram
+  function drawHist(cv, o) {
+    const { g, dpr } = cv;
+    const raw = values(results, o), vals = o.log ? raw.filter(v => v > 0).map(Math.log10) : raw;
+    const th = C.theoryRepeat ? C.theoryRepeat(o.key, ctx, st) : null;
+    const n = vals.length;
+    if (!n) { $("b_sum").textContent = "No usable values."; return; }
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    const thv = th && th.value != null ? (o.log ? Math.log10(th.value) : th.value) : null;
+    if (thv != null && isFinite(thv)) { lo = Math.min(lo, thv); hi = Math.max(hi, thv); }
+    if (th && th.range) { lo = Math.min(lo, th.range[0]); hi = Math.max(hi, th.range[1]); }
+    let w, nb;
+    if (o.int && !o.log) { lo = Math.floor(lo) - 0.5; hi = Math.ceil(hi) + 0.5; nb = Math.round(hi - lo); w = 1; while (nb > 30) { w *= 2; nb = Math.ceil((hi - lo) / w); } }
+    else { if (hi - lo < 1e-9) { lo -= 0.5; hi += 0.5; } nb = Math.max(5, Math.min(25, Math.round(Math.sqrt(n)) + 1)); w = (hi - lo) / nb; lo -= 0.02 * w; hi += 0.02 * w; w = (hi - lo) / nb; }
+    const counts = new Array(nb).fill(0);
+    for (const v of vals) counts[Math.min(nb - 1, Math.max(0, Math.floor((v - lo) / w)))]++;
+    let ymax = Math.max(...counts);
+    let curve = null;
+    if (th && th.pdf) { curve = []; for (let k = 0; k <= 160; k++) { const x = lo + (hi - lo) * k / 160, y = n * w * th.pdf(x); if (isFinite(y)) { curve.push([x, y]); } } ymax = Math.max(ymax, ...curve.map(p => p[1])); }
+    const A = axes(cv, [lo, hi], [0, ymax * 1.12 || 1], o.log, false, `${o.label}${unitTxt(o.unit)}${o.log ? " — log scale" : ""}`, "number of runs");
+    g.fillStyle = "rgba(241,175,40,0.55)"; g.strokeStyle = POINT;
+    counts.forEach((c, k) => { const x0 = A.X(lo + k * w), x1 = A.X(lo + (k + 1) * w); g.fillRect(x0 + dpr, A.Y(c), x1 - x0 - 2 * dpr, A.Y(0) - A.Y(c)); });
+    const m = mean(vals);
+    g.setLineDash([5 * dpr, 4 * dpr]); g.strokeStyle = cv.text; g.lineWidth = 1.5 * dpr; g.beginPath(); g.moveTo(A.X(m), A.T); g.lineTo(A.X(m), A.Y(0)); g.stroke(); g.setLineDash([]);
+    const leg = [[POINT, `runs (n = ${n})`], [cv.text, o.log ? "mean of log values" : "mean", true]];
+    if (curve) { g.strokeStyle = THEORY; g.lineWidth = 2.5 * dpr; g.beginPath(); curve.forEach(([x, y], k) => (k ? g.lineTo(A.X(x), A.Y(y)) : g.moveTo(A.X(x), A.Y(y)))); g.stroke(); leg.push([THEORY, th.label]); }
+    if (thv != null && isFinite(thv)) { g.strokeStyle = THEORY; g.lineWidth = 2.5 * dpr; g.beginPath(); g.moveTo(A.X(thv), A.T); g.lineTo(A.X(thv), A.Y(0)); g.stroke(); if (!curve) leg.push([THEORY, th.label]); }
+    legend(leg);
+    // summary
+    const rv = o.log ? vals.map(v => Math.pow(10, v)) : vals;
+    const M = mean(rv), S = sd(rv), SE = S / Math.sqrt(n);
+    let rows = `<tr><th>n</th><th>mean</th><th>SD</th><th>standard error</th><th>min</th><th>max</th>${o.log ? "<th>median</th>" : ""}<th>${(th && th.col) || "theory"}</th><th>difference</th></tr>`;
+    const sorted = rv.slice().sort((a, b) => a - b), med = sorted[Math.floor(n / 2)];
+    let diff = "–";
+    if (th && th.value != null && isFinite(th.value)) {
+      const d = M - th.value;
+      diff = `${d >= 0 ? "+" : ""}${fmt(d)} (${th.value ? `${(100 * d / th.value).toFixed(1)}%, ` : ""}${SE > 0 ? (d / SE).toFixed(1) + " SE" : "–"})`;
+    }
+    rows += `<tr><td>${n}</td><td>${fmt(M)}</td><td>${fmt(S)}</td><td>${fmt(SE)}</td><td>${fmt(Math.min(...rv))}</td><td>${fmt(Math.max(...rv))}</td>${o.log ? `<td>${fmt(med)}</td>` : ""}<td>${th && th.value != null ? fmt(th.value) : th ? "curve" : "none"}</td><td>${diff}</td></tr>`;
+    $("b_sum").innerHTML = `<table>${rows}</table>${th && th.text ? `<div class="fit">${th.text}</div>` : ""}`;
+  }
+
+  // REPEAT, category or yes/no outcome → bar chart of percentages
+  function drawCats(cv, o) {
+    const { g, dpr } = cv;
+    const P = v => (v > 0 && v < 1 ? v.toFixed(2) : v.toFixed(1));
+    const vals = values(results, o).map(v => catVal(o, v)), n = vals.length;
+    const th = C.theoryRepeat ? C.theoryRepeat(o.key, ctx, st) : null;
+    // leave out categories that never happened and that theory says can't happen
+    const cats = catsOf(o).filter(c => vals.includes(c) || (th && th.cats && th.cats[c] > 0) || o.kind === "bool");
+    const pc = cats.map(c => vals.filter(v => v === c).length / (n || 1) * 100);
+    const tp = cats.map(c => (th && th.cats && th.cats[c] != null ? 100 * th.cats[c] : null));
+    const ymax = Math.max(10, ...pc, ...tp.filter(v => v != null));
+    const xt = cats.map((c, k) => ({ v: k, label: c }));
+    const A = axes(cv, [-0.6, cats.length - 0.4], [0, Math.min(100, ymax * 1.15)], false, false, o.label, "% of runs", xt.map(t => ({ valueOf: () => t.v, label: t.label })));
+    cats.forEach((c, k) => {
+      const x0 = A.X(k - 0.32), x1 = A.X(k + 0.32);
+      g.fillStyle = "rgba(241,175,40,0.6)"; g.fillRect(x0, A.Y(pc[k]), x1 - x0, A.Y(0) - A.Y(pc[k]));
+      // error bar: ±1 standard error of a proportion
+      const p = pc[k] / 100, se = 100 * Math.sqrt(p * (1 - p) / Math.max(1, n));
+      g.strokeStyle = cv.text; g.lineWidth = 1.3 * dpr; const xm = A.X(k);
+      g.beginPath(); g.moveTo(xm, A.Y(Math.max(0, pc[k] - se))); g.lineTo(xm, A.Y(pc[k] + se)); g.stroke();
+      g.fillStyle = cv.text; g.font = `${11.5 * dpr}px system-ui, sans-serif`; g.textAlign = "center";
+      g.fillText(`${P(pc[k])}%`, xm, A.Y(pc[k] + se) - 5 * dpr);
+      if (tp[k] != null) { g.strokeStyle = THEORY; g.lineWidth = 3 * dpr; g.beginPath(); g.moveTo(A.X(k - 0.42), A.Y(tp[k])); g.lineTo(A.X(k + 0.42), A.Y(tp[k])); g.stroke(); }
+    });
+    legend([[POINT, `runs (n = ${n}), error bars ±1 standard error`]].concat(th ? [[THEORY, th.label]] : []));
+    let rows = `<tr><th></th><th>count</th><th>% of runs</th><th>${(th && th.col) || "theory"}</th><th>difference</th></tr>`;
+    cats.forEach((c, k) => {
+      const cnt = vals.filter(v => v === c).length;
+      let diff = "–";
+      if (tp[k] != null) { const p = tp[k] / 100, se = 100 * Math.sqrt(p * (1 - p) / Math.max(1, n)), d = pc[k] - tp[k]; diff = `${d >= 0.005 ? "+" : ""}${Math.abs(d) < 0.005 ? "0" : P(Math.abs(d)) * Math.sign(d)} points${se > 0 ? ` (${(d / se).toFixed(1)} SE)` : ""}`; }
+      rows += `<tr><td>${c}</td><td>${cnt}</td><td>${P(pc[k])}%</td><td>${tp[k] != null ? P(tp[k]) + "%" : "–"}</td><td>${diff}</td></tr>`;
+    });
+    $("b_sum").innerHTML = `<table>${rows}</table>${th && th.text ? `<div class="fit">${th.text}</div>` : ""}`;
+  }
+
+  // SWEEP → mean ± 1 SD at each step (or % of runs ± 1 SE for yes/no outcomes)
+  function drawSweep(cv, o) {
+    const { g, dpr } = cv;
+    const v = C.vars.find(q => q.key === jobsMeta.varKey);
+    const xs = [...new Set(results.map(r => r.job.x))].sort((a, b) => a - b);
+    const tx = x => (v.log ? Math.log10(x) : x), ty = y => (o.log ? Math.log10(y) : y);
+    const groups = xs.map(x => {
+      const rs = results.filter(r => r.job.x === x);
+      if (o.kind === "bool") { const vs = values(rs, o), p = vs.filter(Boolean).length / (vs.length || 1); return { x, n: vs.length, m: 100 * p, e: 100 * Math.sqrt(p * (1 - p) / Math.max(1, vs.length)), pts: [] }; }
+      const vs = values(rs, o).filter(y => !o.log || y > 0).map(ty);
+      return { x, n: vs.length, m: mean(vs), e: sd(vs), pts: vs };
+    }).filter(gp => gp.n > 0);
+    const th = C.theorySweep ? C.theorySweep(o.key, v.key, ctx, st) : null;
+    let x0 = Math.min(tx(st.from), tx(st.to), ...xs.map(tx)), x1 = Math.max(tx(st.from), tx(st.to), ...xs.map(tx));
+    if (jobsMeta.mode === "sweep") { x0 = Math.min(...xs.map(tx)); x1 = Math.max(...xs.map(tx)); }
+    const pad = (x1 - x0) * 0.05 || 0.5; x0 -= pad; x1 += pad;
+    let ys = [];
+    groups.forEach(gp => { ys.push(gp.m - gp.e, gp.m + gp.e); ys = ys.concat(gp.pts); });
+    let curve = null;
+    if (th && th.f) {
+      curve = [];
+      for (let k = 0; k <= 200; k++) { const X = x0 + (x1 - x0) * k / 200, xr = v.log ? Math.pow(10, X) : X, y = th.f(xr); if (y != null && isFinite(y) && (!o.log || y > 0)) curve.push([X, ty(y)]); else curve.push(null); }
+      const cy = curve.filter(Boolean).map(p => p[1]);
+      if (cy.length) { const lo = Math.min(...ys), hi = Math.max(...ys), span = hi - lo || 1; ys = ys.concat(cy.filter(y => y > lo - 1.5 * span && y < hi + 1.5 * span)); }
+    }
+    let y0 = Math.min(...ys), y1 = Math.max(...ys);
+    if (o.kind === "bool") { y0 = 0; y1 = 100; }
+    else if (!o.log && y0 >= 0 && y0 < 0.35 * y1) y0 = 0;
+    const yp = (y1 - y0) * 0.08 || 0.5; if (o.kind !== "bool") { y1 += yp; if (y0 !== 0) y0 -= yp; } else y1 = 105;
+    const ylabel = o.kind === "bool" ? `% of runs: ${o.label.toLowerCase()}` : `${o.label}${unitTxt(o.unit)}`;
+    const A = axes(cv, [x0, x1], [y0, y1], v.log, o.log, `${v.label}${unitTxt(v.unit)}${v.log ? " — log scale" : ""}`, ylabel);
+    g.save(); g.beginPath(); g.rect(A.L, A.T, cv.W - A.L - A.R, cv.H - A.T - A.B); g.clip();
+    const leg = [];
+    if (curve) {
+      g.strokeStyle = THEORY; g.lineWidth = 2.5 * dpr; g.beginPath(); let pen = false;
+      for (const p of curve) { if (!p) { pen = false; continue; } if (pen) g.lineTo(A.X(p[0]), A.Y(p[1])); else { g.moveTo(A.X(p[0]), A.Y(p[1])); pen = true; } }
+      g.stroke(); leg.push([THEORY, th.label]);
+    }
+    if (th && th.vlines) {
+      g.font = `${11 * dpr}px system-ui, sans-serif`; g.textAlign = "left";
+      th.vlines.forEach((l, k) => { const X = A.X(tx(l.x)); g.strokeStyle = l.colour || THEORY; g.lineWidth = 2 * dpr; g.setLineDash(k ? [6 * dpr, 4 * dpr] : []); g.beginPath(); g.moveTo(X, A.T); g.lineTo(X, cv.H - A.B); g.stroke(); g.setLineDash([]); g.fillStyle = l.colour || THEORY; g.fillText(l.label, X + 4 * dpr, A.T + 12 * dpr + 14 * dpr * k); });
+      leg.push([THEORY, th.label]);
+    }
+    // individual runs (faint), then means with error bars
+    g.fillStyle = "rgba(241,175,40,0.35)";
+    groups.forEach(gp => gp.pts.forEach(y => { g.beginPath(); g.arc(A.X(tx(gp.x)), A.Y(y), 2.2 * dpr, 0, 2 * Math.PI); g.fill(); }));
+    groups.forEach(gp => {
+      const X = A.X(tx(gp.x));
+      g.strokeStyle = cv.text; g.lineWidth = 1.5 * dpr;
+      if (gp.e > 0) { g.beginPath(); g.moveTo(X, A.Y(gp.m - gp.e)); g.lineTo(X, A.Y(gp.m + gp.e)); g.moveTo(X - 4 * dpr, A.Y(gp.m - gp.e)); g.lineTo(X + 4 * dpr, A.Y(gp.m - gp.e)); g.moveTo(X - 4 * dpr, A.Y(gp.m + gp.e)); g.lineTo(X + 4 * dpr, A.Y(gp.m + gp.e)); g.stroke(); }
+      g.fillStyle = POINT; g.beginPath(); g.arc(X, A.Y(gp.m), 4.5 * dpr, 0, 2 * Math.PI); g.fill();
+    });
+    g.restore();
+    leg.unshift([POINT, o.kind === "bool" ? "% of runs ± 1 standard error" : `mean${o.log ? " (of log values)" : ""} ± 1 SD (faint dots: single runs)`]);
+    legend(leg);
+    // summary table and fitted relationship
+    const back = y => (o.log ? Math.pow(10, y) : y);
+    let rows = `<tr><th>${v.label}${unitTxt(v.unit)}</th><th>runs</th><th>${o.kind === "bool" ? "% yes" : "mean"}</th><th>${o.kind === "bool" ? "± SE" : "SD"}</th><th>${(th && th.col) || "theory"}</th>${th && th.f && o.kind !== "bool" && th.ratio !== false ? "<th>measured ÷ theory</th>" : ""}</tr>`;
+    groups.forEach(gp => {
+      const t = th && th.f ? th.f(gp.x) : null;
+      const sdTxt = gp.n < 2 ? "–" : o.kind === "bool" ? gp.e.toFixed(1) : o.log ? `×/÷ ${fmt(Math.pow(10, gp.e))}` : fmt(gp.e);
+      rows += `<tr><td>${fmt(gp.x)}</td><td>${gp.n}</td><td>${o.kind === "bool" ? gp.m.toFixed(0) + "%" : fmt(back(gp.m))}</td><td>${sdTxt}</td><td>${t != null && isFinite(t) ? fmt(t) : "–"}</td>${th && th.f && o.kind !== "bool" && th.ratio !== false ? `<td>${t > 0 ? "× " + fmt(back(gp.m) / t, 2) : "–"}</td>` : ""}</tr>`;
+    });
+    let fit = "";
+    if (o.kind === "bool") {
+      for (let k = 1; k < groups.length; k++) {
+        const a = groups[k - 1], b = groups[k];
+        if ((a.m - 50) * (b.m - 50) <= 0 && a.m !== b.m) { const xa = tx(a.x), xb = tx(b.x), X = xa + (50 - a.m) / (b.m - a.m) * (xb - xa); fit = `The 50% point (half the runs say yes) is at ${v.label.toLowerCase()} ≈ ${fmt(v.log ? Math.pow(10, X) : X)}${v.unit ? " " + v.unit : ""}.`; break; }
+      }
+      if (!fit && groups.length) fit = "The results never cross 50% in this range.";
+    } else if (groups.length >= 2) {
+      const P = [];
+      groups.forEach(gp => gp.pts.forEach(y => P.push([tx(gp.x), y])));
+      const mx = mean(P.map(p => p[0])), my = mean(P.map(p => p[1]));
+      let sxy = 0, sxx = 0; P.forEach(([x, y]) => { sxy += (x - mx) * (y - my); sxx += (x - mx) * (x - mx); });
+      const b = sxx ? sxy / sxx : 0;
+      if (v.log && o.log) fit = `Fitted straight line on the log–log graph: gradient = ${b.toFixed(2)}, so ${o.label.toLowerCase()} ∝ ${v.label.toLowerCase()}<sup>${b.toFixed(2)}</sup>${th && th.gradient != null ? ` (theory: gradient ${th.gradient})` : ""}.`;
+      else if (!v.log && !o.log) fit = `Best-fit straight line: gradient = ${fmt(b)}${o.unit ? " " + o.unit : ""} per ${v.unit || "unit"}${th && th.gradient != null ? ` (theory: ${th.gradient})` : ""}.`;
+    }
+    $("b_sum").innerHTML = `<table>${rows}</table>${fit ? `<div class="fit">${fit}</div>` : ""}${th && th.text ? `<div class="fit">${th.text}</div>` : ""}`;
+  }
+
+  function downloadCSV() {
+    if (!results.length) { $("b_stat").textContent = "Nothing to download yet: run a batch first."; return; }
+    const v = C.vars.find(q => q.key === jobsMeta.varKey);
+    const head = ["run", "seed"].concat(jobsMeta.mode === "sweep" ? [`${v.label}${unitTxt(v.unit)}`] : []).concat(C.outcomes.map(o => `${o.label}${unitTxt(o.unit)}`)).concat(C.csvExtra ? C.csvExtra.map(c => c.label) : []);
+    const q = s => `"${String(s).replace(/"/g, '""')}"`;
+    const lines = [head.map(q).join(",")];
+    results.forEach((r, k) => {
+      const row = [k + 1, r.job.seed].concat(jobsMeta.mode === "sweep" ? [r.job.x] : [])
+        .concat(C.outcomes.map(o => (r[o.key] == null ? "" : o.kind === "bool" ? (r[o.key] ? "yes" : "no") : typeof r[o.key] === "number" ? +r[o.key].toPrecision(6) : r[o.key])))
+        .concat(C.csvExtra ? C.csvExtra.map(c => r[c.key] ?? "") : []);
+      lines.push(row.map(x => (typeof x === "number" ? x : q(x))).join(","));
+    });
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = `${C.fileName || "batch"}-${jobsMeta.mode}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+
+  return { config: () => C, init, open, close, isRunning: () => running, state: st, results: () => results, draw, fmt };
+})();
+
+
+/* ---------------------------------------------------------------------
+   BATCH RUN: a simulated class practical, repeated many times.
+   True values come from the exact optics formulas. Each reading gets a
+   random error like a real instrument's, and the answer is worked out
+   from the readings as a student would.
+   --------------------------------------------------------------------- */
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function gauss(rng) { if (!rng) return 0; let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * rng()); }
+const KIND = { snell: "glass block: n from sin i / sin r", crit: "glass block: n from the critical angle", prism: "prism on a spectrometer: n from minimum deviation", lens: "converging lens on an optical bench", div: "diverging lens (image found by no parallax)", fibre: "pulse spreading in 1 km of fibre" };
+const kindO = p => (p.method === "crit" ? "crit" : p.mode);
+/* One practical; rng = null gives the exact (theory) value. */
+function measureO(p, rng) {
+  const out = { nMeas: null, fMeas: null, vMeas: null, spread: null }, k = kindO(p);
+  if (k === "snell") {
+    const s = snell(p.th1, p.n1, p.n2);
+    if (!s.tir && p.th1 > 0) { const i = rad(p.th1 + gauss(rng)), r = rad(s.th2 + gauss(rng)); out.nMeas = p.n1 * Math.sin(i) / Math.sin(r); }   // protractor ±1° on each angle
+  } else if (k === "crit") {
+    const s = snell(0, p.n1, p.n2);
+    if (s.crit != null) out.nMeas = p.n2 / Math.sin(rad(s.crit + 0.5 * gauss(rng)));                                  // spotting where TIR starts ±0.5°
+  } else if (k === "prism") {
+    const n = cauchyN(p.mat, p.lam ?? 589), Dm = minDeviation(p.apex, n);
+    if (Dm != null) { const D = Dm + 0.1 * gauss(rng), A = p.apex + 0.1 * gauss(rng); out.nMeas = Math.sin(rad((A + D) / 2)) / Math.sin(rad(A / 2)); }   // spectrometer ±0.1°
+  } else if (k === "lens" || k === "div") {
+    const f = k === "lens" ? p.f : -p.df, u0 = k === "lens" ? p.u : p.du, im = lensImage(f, u0);
+    if (isFinite(im.v) && (k === "div" || im.v > 0)) {
+      const u = u0 + 0.2 * gauss(rng), v = im.v + 0.5 * gauss(rng);                  // ruler ±2 mm; sharpest image found to ±5 mm
+      out.vMeas = v; out.fMeas = u * v / (u + v);
+    }
+  } else if (k === "fibre") {
+    const NA = Math.sqrt(Math.max(0, p.nc * p.nc - p.ncl * p.ncl)), acc = Math.asin(Math.min(1, NA)), base = 1000 * p.nc / C_LIGHT * 1e9;
+    if (!rng) { const maxInt = Math.asin(Math.sin(acc) / p.nc); out.spread = base * (1 / Math.cos(maxInt) - 1); }
+    else {   // 200 rays enter at random angles inside the acceptance cone; the pulse spreads by (slowest − fastest)
+      let tmin = Infinity, tmax = -Infinity;
+      for (let r = 0; r < 200; r++) { const ext = acc * rng(), th = Math.asin(Math.sin(ext) / p.nc), t = base / Math.cos(th); tmin = Math.min(tmin, t); tmax = Math.max(tmax, t); }
+      out.spread = tmax - tmin;
+    }
+  }
+  return out;
+}
+function withVarO(p, key, x) { const q = Object.assign({}, p); q[key] = x; return q; }
+const EXPO = over => Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), { method: null, lam: 589 }, over);
+function baseO(st) { return st.exp ? Object.assign({}, st.exp) : Object.assign({}, P, { method: null, lam: 589 }); }
+
+Batch.init({
+  fileName: "optics",
+  repeatChoices: [100, 500, 1000, 5000], repeatDefault: 500, repsDefault: 10,
+  outcomes: [
+    { key: "nMeas", label: "Measured refractive index", kind: "num" },
+    { key: "fMeas", label: "Measured focal length", unit: "cm", kind: "num" },
+    { key: "vMeas", label: "Measured image distance", unit: "cm", kind: "num" },
+    { key: "spread", label: "Pulse spread over 1 km", unit: "ns", kind: "num" },
+  ],
+  vars: [
+    { key: "th1", label: "Angle of incidence θ₁ (glass block)", unit: "°", min: 1, max: 89, from: 10, to: 80, steps: 8 },
+    { key: "n2", label: "Refractive index n₂ (glass block)", min: 1, max: 2.5, from: 1.3, to: 2.4, steps: 6 },
+    { key: "lam", label: "Wavelength (prism)", unit: "nm", min: 380, max: 700, from: 400, to: 700, steps: 7 },
+    { key: "apex", label: "Prism apex angle", unit: "°", min: 20, max: 80, from: 30, to: 70, steps: 5 },
+    { key: "u", label: "Object distance u (converging lens)", unit: "cm", min: 2, max: 100, from: 20, to: 60, steps: 9 },
+    { key: "f", label: "Focal length f (converging lens)", unit: "cm", min: 1, max: 30, from: 5, to: 25, steps: 5 },
+    { key: "ncl", label: "Cladding refractive index (fibre)", min: 1.35, max: 1.499, from: 1.40, to: 1.495, steps: 6 },
+  ],
+  baseText() {
+    const p = baseO(Batch.state), k = kindO(p);
+    const det = { snell: `n₁ = ${p.n1}, n₂ = ${p.n2}, θ₁ = ${p.th1}°`, crit: `n₁ = ${p.n1}, n₂ = ${p.n2}`, prism: `${p.mat}, A = ${p.apex}°, λ = ${p.lam ?? 589} nm`, lens: `f = ${p.f} cm, u = ${p.u} cm`, div: `f = −${p.df} cm, u = ${p.du} cm`, fibre: `n_core = ${p.nc}, n_clad = ${p.ncl}` }[k];
+    return `Experiment: <b>${KIND[k]}</b> (${det})${Batch.state.exp ? " — set by the chosen batch experiment" : " — from the controls of the current mode"}.`;
+  },
+  reducedNote: () => "Each run is one simulated practical. Random reading errors (SD): protractor ±1° on each angle; spotting the start of TIR ±0.5°; spectrometer ±0.1° on the apex angle and the minimum deviation; ruler ±2 mm on u; sharpest image found to ±5 mm. The fibre experiment launches 200 rays at random angles inside the acceptance cone and records the difference between the slowest and fastest arrival. Runs are almost instant.",
+  begin(st) { return { base: baseO(st) }; },
+  end() {},
+  start(job, ctx, st) {
+    const p = st.mode === "sweep" ? withVarO(ctx.base, st.varKey, job.x) : ctx.base;
+    const r = measureO(p, mulberry32(((job.seed * 2654435761) ^ Math.imul(job.idx + 1, 40503)) >>> 0));
+    return { advance: () => r };
+  },
+  theoryRepeat(key, ctx) { const t = measureO(ctx.base, null)[key]; return t == null ? null : { value: t, label: "theory (no measurement error)", col: "theory" }; },
+  theorySweep(key, varKey, ctx) {
+    const th = { f: x => measureO(withVarO(ctx.base, varKey, x), null)[key], label: "theory (exact formula)", col: "theory" };
+    if (key === "vMeas" && varKey === "u") th.text = "Theory: v = fu/(u − f). As u approaches f the image runs off to infinity, and a small error in u gives a large error in v.";
+    return th;
+  },
+  experiments: [
+    { name: "Glass block: n = sin i / sin r", sub: "repeat 500 students at i = 40°",
+      apply(st) { st.exp = EXPO({ mode: "snell", n1: 1, n2: 1.5, th1: 40 }); Object.assign(st, { mode: "repeat", nRepeat: 500, outKey: "nMeas", seed: 1 }); },
+      note: "Each student measures i and r with a protractor (±1° each). The answers scatter around the true 1.50 with an SD of about 0.06 (4 %). A 1° error matters more for r (25.4°) than for i, because sin changes fastest at small angles relative to its size." },
+    { name: "Which angle of incidence is best?", sub: "sweep i from 10° to 80°",
+      apply(st) { st.exp = EXPO({ mode: "snell", n1: 1, n2: 1.5, th1: 40 }); Object.assign(st, { mode: "sweep", varKey: "th1", from: 10, to: 80, steps: 8, reps: 40, outKey: "nMeas", seed: 1 }); },
+      note: "The mean stays near 1.50 at every angle, but the spread is huge at small angles (SD about 0.2 at 10°) and small at large angles (0.03–0.05 above 50°): a ±1° error is a big fraction of a small angle. So use large angles of incidence (but not so large that the refracted ray is hard to mark), or better, plot sin i against sin r and take the gradient." },
+    { name: "Critical angle method", sub: "glass → air: n = 1 / sin θc",
+      apply(st) { st.exp = EXPO({ mode: "snell", n1: 1.5, n2: 1, th1: 40, method: "crit" }); Object.assign(st, { mode: "repeat", nRepeat: 500, outKey: "nMeas", seed: 1 }); },
+      note: "Shine light into a semicircular block and find the angle where the refracted ray just disappears (θc = 41.8° for n = 1.50), to ±0.5°. Then n = 1/sin θc. The SD is about 0.015, much smaller than with one i and r reading, because only one angle is measured and it is large." },
+    { name: "Prism: n for each colour", sub: "minimum deviation, 400–700 nm, crown glass",
+      apply(st) { st.exp = EXPO({ mode: "prism", mat: "Crown glass", apex: 60, lam: 589 }); Object.assign(st, { mode: "sweep", varKey: "lam", from: 400, to: 700, steps: 7, reps: 20, outKey: "nMeas", seed: 1 }); },
+      note: "On a spectrometer the minimum deviation of each spectral line is measured to ±0.1°, and n = sin((A + D_min)/2)/sin(A/2). The results follow Cauchy's curve: n falls from about 1.533 (400 nm) to 1.516 (700 nm). The SD at each colour is only about 0.002, small enough to see dispersion clearly — that is why spectrometers measure to a fraction of a degree." },
+    { name: "Lens: find f from u and v", sub: "repeat 500: f = 15 cm, u = 30 cm",
+      apply(st) { st.exp = EXPO({ mode: "lens", f: 15, u: 30 }); Object.assign(st, { mode: "repeat", nRepeat: 500, outKey: "fMeas", seed: 1 }); },
+      note: "Students set u = 30 cm (±2 mm) and move the screen until the image looks sharpest (±5 mm, because the image looks sharp over a range). f = uv/(u + v) comes out at 15.0 cm on average with an SD of about 0.13 cm (under 1 %). Errors in u and v are partly cancelled because f depends on them both in the same way." },
+    { name: "Lens: how does v depend on u?", sub: "sweep u from 20 to 60 cm, f = 15 cm",
+      apply(st) { st.exp = EXPO({ mode: "lens", f: 15, u: 30 }); Object.assign(st, { mode: "sweep", varKey: "u", from: 20, to: 60, steps: 9, reps: 10, outKey: "vMeas", seed: 1 }); },
+      note: "The measured image distances follow v = fu/(u − f): 60 cm at u = 20 cm, 30 cm at u = 2f = 30 cm (the image is the same size as the object) and 20 cm at u = 60 cm. Plot 1/v against 1/u from the CSV and you get a straight line of gradient −1 with both intercepts at 1/f." },
+    { name: "Fibre: does a smaller Δn cut pulse spreading?", sub: "n_core = 1.50, sweep n_cladding",
+      apply(st) { st.exp = EXPO({ mode: "fibre", nc: 1.5, ncl: 1.46 }); Object.assign(st, { mode: "sweep", varKey: "ncl", from: 1.40, to: 1.495, steps: 6, reps: 10, outKey: "spread", seed: 1 }); },
+      note: "The steepest guided ray travels L/cos θ instead of L, so a pulse spreads by Δt = (L n_core/c)(n_core/n_clad − 1): about 357 ns per km for n_clad = 1.40 but only 17 ns for 1.495. Each run sends 200 rays at random angles, so the measured spread is a little less than the theory maximum (the steepest possible ray is rarely sampled exactly). Telecom fibres use tiny index differences (and single-mode cores) to keep pulses sharp." },
+  ],
+});
+el("btnBatch").onclick = () => Batch.open();
+setPreset(0);
+requestAnimationFrame(frame);
+
+</script>
+<!-- VIEW BAR (start): hide/show the side panels and full-screen the simulation. Same block in every simulation. -->
+<style>
+  #viewBar { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-shrink: 0; align-self: center; }
+  #viewBar button { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  #viewBar button.on { border-color: var(--accent); }
+  #viewBar .vbKey { opacity: .55; font-size: 11px; margin-left: 4px; }
+  /* bigger, clearer drag handles between the panels */
+  .splitter::before { width: 4px !important; margin-left: -2px !important; }
+  .splitter::after { content: "⋮"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--muted); font-size: 16px; pointer-events: none; }
+  .splitter button { width: 22px !important; height: 52px !important; font-size: 15px !important; font-weight: 700; background: var(--accent) !important; color: #14133b !important; border: none !important; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  /* full screen: the centre panel fills the screen */
+  #centre:fullscreen { background: var(--bg); padding: 10px; width: 100vw; height: 100vh; box-sizing: border-box; }
+  #centre .vbExit { display: none; }
+  #centre:fullscreen .vbExit { display: block; position: absolute; top: 10px; right: 12px; z-index: 50; }
+  #centre:fullscreen { position: relative; }
+  #vbTip { position: fixed; top: 52px; right: 14px; z-index: 60; max-width: 330px; background: var(--panel-2, #1b2017); border: 1px solid var(--accent);
+           border-radius: 10px; padding: 9px 12px; font-size: 13px; line-height: 1.45; box-shadow: 0 4px 16px rgba(0,0,0,.5); cursor: pointer; }
+</style>
+<script>
+(function () {
+  // Buttons in the header: hide/show the left (controls) and right (readouts) panels, and full screen.
+  // They click the existing ‹ › buttons on the drag handles, so each simulation's own layout code stays in charge.
+  const header = document.querySelector("header"), centre = document.getElementById("centre");
+  const sL = document.getElementById("splitL"), sR = document.getElementById("splitR");
+  const left = sL && sL.previousElementSibling, right = sR && sR.nextElementSibling;   // the panels either side of the drag handles
+  const bL = sL && sL.querySelector("button"), bR = sR && sR.querySelector("button");
+  if (!header || !centre || !left || !right || !bL || !bR) return;
+  const bar = document.createElement("div"); bar.id = "viewBar";
+  bar.innerHTML = '<button id="vbL" title="Hide or show the controls panel (key: [ )"></button>' +
+                  '<button id="vbR" title="Hide or show the readouts panel (key: ] )"></button>' +
+                  '<button id="vbF" title="Show only the simulation, full screen (key: F; Esc to leave)">⛶ Full screen</button>';
+  header.appendChild(bar);
+  const exit = document.createElement("button"); exit.className = "vbExit"; exit.textContent = "✕ Exit full screen (Esc)";
+  centre.appendChild(exit);
+  const vbL = bar.querySelector("#vbL"), vbR = bar.querySelector("#vbR"), vbF = bar.querySelector("#vbF");
+  function label() {
+    const lc = left.classList.contains("collapsed"), rc = right.classList.contains("collapsed");
+    vbL.textContent = lc ? "◧ Show controls" : "◧ Hide controls"; vbL.classList.toggle("on", !lc);
+    vbR.textContent = rc ? "Show readouts ◨" : "Hide readouts ◨"; vbR.classList.toggle("on", !rc);
+  }
+  new MutationObserver(label).observe(left, { attributes: true, attributeFilter: ["class"] });
+  new MutationObserver(label).observe(right, { attributes: true, attributeFilter: ["class"] });
+  label();
+  const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else if (centre.requestFullscreen) centre.requestFullscreen().catch(() => {}); };
+  vbL.onclick = () => bL.click(); vbR.onclick = () => bR.click(); vbF.onclick = full; exit.onclick = full;
+  document.addEventListener("fullscreenchange", () => {
+    vbF.textContent = document.fullscreenElement ? "✕ Exit full screen" : "⛶ Full screen";
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 60);    // canvases re-measure themselves
+  });
+  // The batch-run window lives outside the full-screen area, so leave full screen when it is opened
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("button");
+    if (document.fullscreenElement && b && /Batch run/.test(b.textContent)) document.exitFullscreen();
+  }, true);
+  document.addEventListener("keydown", e => {
+    const t = e.target.tagName; if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA" || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "f" || e.key === "F") { full(); e.preventDefault(); }
+    else if (e.key === "[") bL.click(); else if (e.key === "]") bR.click();
+  });
+  // A one-time tip so people notice the panels can be hidden or resized
+  let seen = false; try { seen = localStorage.getItem("sims-viewbar-tip") === "1"; } catch (e) {}
+  if (!seen) {
+    const tip = document.createElement("div"); tip.id = "vbTip";
+    tip.innerHTML = "<b>Make the simulation bigger:</b> hide the side panels with the buttons above (or the yellow ‹ › tabs), drag the ⋮ bars to resize them, or press <b>⛶ Full screen</b>. Click to close.";
+    document.body.appendChild(tip);
+    const close = () => { tip.remove(); try { localStorage.setItem("sims-viewbar-tip", "1"); } catch (e) {} };
+    tip.onclick = close; setTimeout(close, 12000);
+  }
+})();
+</script>
+<!-- VIEW BAR (end) -->
+
+</body>
+</html>

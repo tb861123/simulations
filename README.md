@@ -42,6 +42,8 @@ changing a simulation's batch experiments.
 | [`physics/youngs_modulus/`](physics/youngs_modulus/) | Young's modulus: Hooke's law, stress–strain curves, breaking, Searle's method | Open `youngs-modulus.html` |
 | [`physics/projectile_motion/`](physics/projectile_motion/) | Projectile motion: range, angle and time of flight, with air resistance, spin and wind | Open `projectile-motion.html` |
 | [`physics/circular_motion/`](physics/circular_motion/) | Circular motion: whirling bung, banked bends, loop-the-loop, conical pendulum | Open `circular-motion.html` |
+| [`physics/waves/`](physics/waves/) | Waves: interference and Young's slits, standing waves on strings and in pipes, diffraction gratings, the Doppler effect | Open `waves.html` |
+| [`physics/optics_refraction/`](physics/optics_refraction/) | Refraction: Snell's law, total internal reflection, prisms, lenses, optical fibres | Open `optics-refraction.html` |
 | [`physics/nuclear_fusion/`](physics/nuclear_fusion/) | Fusion on a potential-energy diagram: the Coulomb barrier, quantum tunnelling, the Gamow peak, and the temperature and pressure needed in stars and reactors | Open `nuclear-fusion.html` |
 | [`physics/physics_sims/`](physics/physics_sims/) | 28 WJEC Physics simulations (Streamlit app) | `python setup_env.py` once, then `streamlit run Home.py` |
 

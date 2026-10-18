@@ -16,6 +16,13 @@ Open `expanding-universe.html` in Chrome or Edge. You do not need to install any
 
   Each measured galaxy is added to the Hubble diagram, with error bars. A weighted line is fitted through the origin to give H0 ± its uncertainty and the Hubble time 1/H0. The "Latest measurement" box shows each step of the working.
 
+- **Redshift of one spectral line** (right panel). Pick a galaxy (Andromeda, Virgo, Coma, quasar 3C 273, a galaxy at z = 1) or set the rest wavelength and the speed β = v/c (−0.1 to 0.95). It shows the observed wavelength (relativistic Doppler, λ_obs = λ√((1 + β)/(1 − β))), Δλ, z = Δλ/λ, the speed, the small-speed estimate v = zc (flagged when it fails), colour swatches, a rest-versus-observed line graph and a Hubble's-law distance (H0 = 70), with the working shown live.
+- **Hubble's law with real cluster data**: ten galaxy clusters fitted with a line through the origin, compared with the Planck (67.4) and SH0ES (73.0) values (the Hubble tension).
+- **More about redshift** (A level): light versus sound Doppler, Hubble's law from uniform expansion, the CMB at z ≈ 1100, Olbers' paradox and lookback.
+- **📝 Exam practice: redshift**: three questions (z from a spectral line, v from Δλ/λ = v/c, distance from Hubble's law) whose numbers and mark schemes follow the calculator.
+
+These four parts came from the redshift section of the old WJEC Physics Streamlit "Doppler Effect" page; the sound Doppler effect is now a mode of `physics/waves`.
+
 ## Controls
 
 | Group | Controls |

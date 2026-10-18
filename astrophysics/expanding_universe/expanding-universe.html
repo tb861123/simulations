@@ -135,6 +135,25 @@
   #viewTools button { padding: 3px 8px; font-size: 12px; background: rgba(20,24,17,.88); }
   #viewTools button.on { background: var(--accent); }
   #viewTools .tlabel { font-size: 11.5px; color: var(--muted); margin: 0 2px 0 6px; }
+
+  /* ---------- Redshift calculator (from the old Doppler page) ---------- */
+  #rsBox .ctl { margin-bottom: 7px; }
+  #rsBox select { width: 100%; }
+  .rsInfo { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; font-size: 12.5px; color: #dfe3d6; margin: 6px 0; }
+  .rsInfo.red { border-color: #7a3b2a; background: #2a1712; }
+  .rsInfo.blue { border-color: #2c4d7a; background: #121c2a; }
+  .rsSw { display: inline-block; width: 30px; height: 14px; border-radius: 3px; border: 1px solid #555; vertical-align: -2px; margin-right: 6px; }
+  .rsEq { font-family: Cambria, Georgia, serif; font-size: 13px; color: #f4f1e4; background: #0d100b; border-radius: 5px; padding: 3px 7px; margin: 3px 0; }
+  .rsQ { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; margin: 6px 0; background: var(--panel-2); font-size: 12.5px; color: var(--text); }
+  .rsQ .mk { float: right; background: #2b5fb4; color: #fff; border-radius: 4px; padding: 0 7px; font-size: 11px; margin-left: 6px; }
+  .rsQ .ht { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  .rsQ button { margin-top: 5px; padding: 2px 8px; font-size: 12px; }
+  .rsQ .ms { display: none; margin-top: 5px; border-left: 3px solid var(--accent); padding-left: 8px; }
+  .rsQ .ms.open { display: block; }
+  .rsQ .ans { color: #8fe3a0; font-weight: 700; margin-top: 3px; }
+  #rsBox table { border-collapse: collapse; width: 100%; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  #rsBox td, #rsBox th { padding: 1px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+  #rsBox td:first-child, #rsBox th:first-child { text-align: left; }
 </style>
 </head>
 <body>
@@ -197,6 +216,7 @@
         <li><b>Age:</b> the Hubble time 1/H0 = 977.8/H0 billion years. If the expansion had always been at the same rate, this would be the age. With ΛCDM (Ωm = 0.3, ΩΛ = 0.7) the age is 0.964/H0 (13.5 billion years for H0 = 70); with matter only it is (2/3)/H0.</li>
         <li><b>Far galaxies (ΛCDM / matter only):</b> the comoving distance is D = (c/H0) ∫<sub>0</sub><sup>z</sup> dz'/E(z'), with E(z) = √(Ωm(1+z)³ + ΩΛ). Standard candles give the luminosity distance d<sub>L</sub> = (1 + z) D. Plotting cz against d<sub>L</sub> bends away from a straight line: far supernovae look fainter (further away) than a straight line predicts. In 1998 this showed the expansion is speeding up.</li>
         <li><b>The animation</b> is a 2D slice with exponential expansion at a constant rate. Galaxies keep their size: gravity holds them together, only the space between them stretches.</li>
+        <li><b>Redshift calculator</b> (right panel): one spectral line from a galaxy moving at β = v/c, using the relativistic Doppler formula λ<sub>obs</sub> = λ√((1 + β)/(1 − β)). It compares the exact speed with the small-speed formula Δλ/λ = v/c and estimates the distance with Hubble's law (H0 = 70). The real cluster data are ten galaxy clusters (distance, velocity) fitted with a line through the origin.</li>
         <li><b>Not modelled:</b> dust dimming, K-corrections, the Malmquist bias (picking only bright objects far away), gravitational lensing, the "Hubble tension" (local measurements give about 73, the cosmic microwave background about 67), relativistic Doppler formula for peculiar velocities.</li>
       </ul>
     </details>
@@ -244,6 +264,44 @@
     <div class="legend" style="margin-top:4px"><span><i style="background:#f1af28"></i>fitted H0 ± 1 uncertainty</span><span><i style="background:#00aec3"></i>true H0</span></div>
     <h2 class="gap">What's happening</h2>
     <div id="story"></div>
+    <h2 class="gap">Redshift of one spectral line</h2>
+    <details id="rsBox" open>
+      <summary>🔭 Redshift calculator: Δλ/λ = v/c with live numbers</summary>
+      <div class="ctl"><label>Galaxy</label>
+        <select id="rsGal"><option value="">Custom</option><option value="and">Andromeda (approaching!)</option><option value="vir">Virgo Cluster</option><option value="com">Coma Cluster</option><option value="q3c">Quasar 3C 273</option><option value="z1">Distant galaxy, z = 1</option></select></div>
+      <div id="rsNote" class="rsInfo" style="display:none"></div>
+      <div class="ctl"><label>Rest wavelength λ <output id="o_rsLam"></output></label><input type="range" id="rsLam" min="400" max="700" step="1" value="656">
+        <div class="hint">656 nm is hydrogen-alpha (Hα), the strongest line in most galaxies.</div></div>
+      <div class="ctl"><label>Speed β = v/c (+ away, − towards) <output id="o_rsBeta"></output></label><input type="range" id="rsBeta" min="-0.1" max="0.95" step="0.001" value="0.01"></div>
+      <div id="rsSwatch" style="font-size:12.5px;margin:4px 0"></div>
+      <div id="rsShift" class="rsInfo"></div>
+      <div class="tiles" id="rsTiles"></div>
+      <div class="chartBox" style="height:160px;margin-top:6px"><canvas id="rsChart"></canvas></div>
+      <div id="rsWork" style="margin-top:6px"></div>
+    </details>
+    <details id="rsReal">
+      <summary>📈 Hubble's law with real cluster data</summary>
+      <div class="chartBox" style="height:190px;margin-top:6px"><canvas id="rsHub"></canvas></div>
+      <div class="tiles" id="rsHubTiles" style="margin-top:6px"></div>
+      <div class="rsInfo">The difference between the cosmic-microwave-background value (Planck, 67.4) and the local distance-ladder value (SH0ES, 73.0) is one of the biggest unsolved problems in cosmology: the <b>Hubble tension</b>.</div>
+      <table id="rsTable"></table>
+      <div class="hint">Distances and recession speeds of ten galaxy clusters, as used in the old WJEC app's Hubble plot. Fit: a line through the origin, H0 = Σdv / Σd².</div>
+    </details>
+    <details id="rsMore">
+      <summary>📐 More about redshift (A level)</summary>
+      <div class="rsEq">z = Δλ/λ = (λ_obs − λ_rest)/λ_rest</div>
+      <div class="rsEq">Δλ/λ ≈ v/c   (only when v ≪ c)</div>
+      <div class="rsEq">λ_obs = λ_rest √((1 + β)/(1 − β)),  β = v/c   (relativistic Doppler)</div>
+      <div class="rsEq">v = H0 d,  H0 ≈ 70 km s⁻¹ Mpc⁻¹</div>
+      <p><b>Light and sound compared:</b> for sound the speed of the source and of the listener through the air both matter (see the Waves simulation). Light needs no medium, so only the relative speed counts. At low speed both give Δf/f ≈ Δλ/λ ≈ v/c (or v/v_sound).</p>
+      <p><b>Hubble's law from expansion:</b> if space stretches uniformly, every pair of galaxies moves apart at a rate proportional to their separation: ḋ = H0 d. There is no centre: every galaxy sees the others receding at v = H0 d.</p>
+      <p><b>The cosmic microwave background (CMB):</b> light from 380,000 years after the Big Bang has been redshifted by z ≈ 1100, from visible light to microwaves. Its spectrum today is a perfect black body at 2.725 K — the strongest evidence for the Hot Big Bang.</p>
+      <p><b>Olbers' paradox:</b> in an infinite, unchanging, eternal universe every line of sight would end on a star and the night sky would be as bright as the Sun. The dark sky shows the universe has a finite age, and light from very distant galaxies is redshifted out of the visible band.</p>
+      <p><b>Lookback:</b> light from a galaxy with redshift z set off when the universe was 1/(1 + z) of its present size. A galaxy at z = 1 is seen as it was when the universe was half its present size.</p>
+    </details>
+    <h2 class="gap">📝 Exam practice: redshift</h2>
+    <div class="hint">These use the calculator's current numbers: change the line or the speed and the answers update.</div>
+    <div id="rsExam"></div>
   </section>
 </main>
 
@@ -1235,6 +1293,110 @@ setupPanels("expanding-universe-layout", () => {});
 updateLabels();
 setPreset(1);
 requestAnimationFrame(frame);
+</script>
+
+<script>
+/* =====================================================================
+   REDSHIFT CALCULATOR, REAL CLUSTER DATA AND EXAM PRACTICE
+   (carried over from the old WJEC Physics "Doppler Effect" page)
+   One spectral line from a galaxy moving at β = v/c:
+     relativistic Doppler  λ_obs = λ √((1 + β)/(1 − β))
+     redshift              z = (λ_obs − λ)/λ ≈ v/c when v ≪ c
+     Hubble's law          d = v / H0  (H0 = 70 km/s/Mpc)
+   ===================================================================== */
+(function () {
+  const RS_GAL = {
+    and: { beta: -0.001, note: "M31 is approaching at about 110 km/s — one of the few blueshifted galaxies. It will merge with the Milky Way in about 4.5 billion years." },
+    vir: { beta: 0.004, note: "About 54 million light years away, receding at about 1,200 km/s. Contains over 1,300 galaxies, including M87 (the first black hole ever imaged)." },
+    com: { beta: 0.023, note: "About 321 million light years away. Fritz Zwicky studied this cluster in 1933 and first proposed dark matter." },
+    q3c: { beta: 0.158, note: "The brightest quasar seen from Earth, about 2.4 billion light years away. Its large redshift was a shock when it was measured in 1963." },
+    z1: { beta: 0.6, note: "A galaxy at redshift z = 1 is receding at about 0.6c. The universe was about 6 billion years old when this light left." },
+  };
+  // Ten galaxy clusters: name, distance (Mpc), recession velocity (km/s)
+  const RS_DATA = [["Virgo", 16.5, 1136], ["Ursa Major I", 22.0, 960], ["Corona Borealis", 299.0, 21600], ["Boötes", 246.0, 39300], ["Hydra", 594.0, 60600],
+    ["Leo", 171.0, 19600], ["Perseus", 102.0, 5400], ["Coma", 99.0, 6925], ["Hercules", 153.0, 10800], ["Ursa Major II", 305.0, 15000]];
+  const C = 299792.458, H0R = 70, open = new Set();
+  const st = { lam: 656, beta: 0.01 };
+  const rgb = nm => `rgb(${wlColour(Math.max(380, Math.min(750, nm))).join(",")})`;
+  function calc() {
+    const b = Math.max(-0.9999, Math.min(0.9999, st.beta));
+    const lo = st.lam * Math.sqrt((1 + b) / (1 - b)), z = (lo - st.lam) / st.lam;
+    return { b, lo, z, dl: lo - st.lam, vRel: b * C, vSimple: z * C };
+  }
+  function band(nm) { return nm < 380 ? " (ultraviolet)" : nm > 700 ? " (infrared)" : ""; }
+  function render() {
+    const r = calc();
+    el("o_rsLam").textContent = `${st.lam} nm`; el("o_rsBeta").textContent = st.beta.toFixed(3);
+    const g = el("rsGal").value; el("rsNote").style.display = g ? "" : "none"; el("rsNote").textContent = g ? RS_GAL[g].note : "";
+    el("rsSwatch").innerHTML = `<span class="rsSw" style="background:${rgb(st.lam)}"></span>Rest λ = ${st.lam} nm &nbsp; <span class="rsSw" style="background:${rgb(r.lo)}"></span>Observed λ = ${r.lo.toFixed(1)} nm${band(r.lo)}`;
+    const box = el("rsShift");
+    if (st.beta < -0.0005) { box.className = "rsInfo blue"; box.innerHTML = `<b>Blueshift</b> — approaching at ${fmt(Math.abs(r.vRel), 3)} km/s (z = ${r.z.toFixed(4)})`; }
+    else if (st.beta > 0.0005) { box.className = "rsInfo red"; box.innerHTML = `<b>Redshift</b> — receding at ${fmt(r.vRel, 3)} km/s (z = ${r.z.toFixed(4)})`; }
+    else { box.className = "rsInfo"; box.textContent = "No Doppler shift — the source is not moving towards or away from us."; }
+    const d = r.vRel / H0R;
+    el("rsTiles").innerHTML = tile("λ observed", `${r.lo.toFixed(1)} nm`, band(r.lo).trim() || "visible") + tile("Shift Δλ", `${r.dl >= 0 ? "+" : ""}${r.dl.toFixed(2)} nm`, "λ_obs − λ_rest") +
+      tile("Redshift z", r.z.toFixed(4), "Δλ / λ") + tile("Speed v", `${fmt(r.vRel, 3)} km/s`, "β × c (relativistic)") +
+      tile("v from v = zc", `${fmt(r.vSimple, 3)} km/s`, Math.abs(r.vSimple - r.vRel) / Math.max(1, Math.abs(r.vRel)) > 0.05 ? "too big: v ≪ c fails" : "small-speed formula") +
+      tile("Hubble distance", st.beta > 0.0005 ? `${fmt(d, 3)} Mpc` : "n/a", st.beta > 0.0005 ? `≈ ${fmt(d * 3.26, 3)} million light years (H0 = 70)` : "approaching: not Hubble flow");
+    el("rsWork").innerHTML = `<div class="rsEq">λ_obs = ${st.lam} × √((1 + ${r.b.toFixed(3)})/(1 − ${r.b.toFixed(3)})) = ${r.lo.toFixed(2)} nm</div><div class="rsEq">z = Δλ/λ = ${r.dl.toFixed(2)} / ${st.lam} = ${r.z.toFixed(4)}</div><div class="rsEq">v ≈ zc = ${r.z.toFixed(4)} × 3.00×10⁵ = ${fmt(r.z * 3e5, 3)} km/s</div>`;
+    drawSpec(r); exam(r);
+  }
+  function drawSpec(r) {
+    const c = el("rsChart"); if (!c.clientWidth) return;
+    const { ctx, W, H, dpr } = fitCanvas(c);
+    const lo = Math.max(300, Math.min(st.lam, r.lo) - 80), hi = Math.min(1500, Math.max(st.lam, r.lo) + 80);
+    const A = plotFrame(ctx, { x: 0, y: 0, w: W, h: H }, { dpr, x0: lo, x1: hi, y0: -0.05, y1: 1.25, xlabel: "Wavelength (nm)", ylabel: "Intensity", title: "Spectral line: rest and observed", padL: 40 });
+    A.clip();
+    ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(A.X(Math.max(lo, 380)), A.T, A.X(Math.min(hi, 700)) - A.X(Math.max(lo, 380)), A.B - A.T);
+    for (const [cen, col] of [[st.lam, rgb(st.lam)], [r.lo, rgb(r.lo)]]) {
+      const pts = []; for (let i = 0; i <= 300; i++) { const x = lo + (hi - lo) * i / 300; pts.push([A.X(x), A.Y(Math.exp(-0.5 * ((x - cen) / 8) ** 2))]); }
+      polyline(ctx, pts, col, 2.5 * dpr);
+      ctx.save(); ctx.setLineDash([3 * dpr, 3 * dpr]); ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(A.X(cen), A.T); ctx.lineTo(A.X(cen), A.B); ctx.stroke(); ctx.restore();
+    }
+    ctx.restore();
+    ctx.fillStyle = "#a3ab96"; ctx.font = `${10 * dpr}px system-ui`; ctx.textAlign = "left"; if (lo < 700 && hi > 380) ctx.fillText("visible", A.X(Math.max(lo, 380)) + 3 * dpr, A.T + 11 * dpr);
+    legendBox(ctx, [[rgb(st.lam), `rest ${st.lam} nm`], [rgb(r.lo), `observed ${r.lo.toFixed(1)} nm`]], A.R - 4 * dpr, A.T + 4 * dpr, dpr);
+  }
+  function drawHub() {
+    const c = el("rsHub"); if (!c.clientWidth) return;
+    const { ctx, W, H, dpr } = fitCanvas(c);
+    const sxy = RS_DATA.reduce((s, q) => s + q[1] * q[2], 0), sxx = RS_DATA.reduce((s, q) => s + q[1] * q[1], 0), Hf = sxy / sxx;
+    const A = plotFrame(ctx, { x: 0, y: 0, w: W, h: H }, { dpr, x0: 0, x1: 660, y0: 0, y1: 66000, xlabel: "Distance (Mpc)", ylabel: "Recession velocity (km/s)", title: `v = H0 d: fitted H0 = ${Hf.toFixed(1)} km/s/Mpc`, padL: 50, yfmt: v => (v / 1000) + "k" });
+    A.clip();
+    polyline(ctx, [[A.X(0), A.Y(0)], [A.X(660), A.Y(Hf * 660)]], "#f1af28", 2 * dpr, [6 * dpr, 4 * dpr]);
+    polyline(ctx, [[A.X(0), A.Y(0)], [A.X(660), A.Y(70 * 660)]], "#a86dab", 1.5 * dpr, [2 * dpr, 3 * dpr]);
+    for (const [, dd, v] of RS_DATA) { ctx.fillStyle = "#00aec3"; ctx.beginPath(); ctx.arc(A.X(dd), A.Y(v), 4 * dpr, 0, 7); ctx.fill(); }
+    ctx.restore();
+    legendBox(ctx, [["#00aec3", "galaxy clusters", "dot"], ["#f1af28", `best fit ${Hf.toFixed(1)}`, true], ["#a86dab", "H0 = 70 (reference)", true]], A.L + 150 * dpr, A.T + 4 * dpr, dpr);
+    el("rsHubTiles").innerHTML = tile("Fitted H0", `${Hf.toFixed(1)}`, "km/s/Mpc, these 10 clusters") + tile("Planck H0", "67.4", "from the CMB (2018)") + tile("SH0ES H0", "73.0", "Cepheids + supernovae") + tile("Hubble time", `${(977.8 / Hf).toFixed(1)} Gyr`, "1/H0 from the fit");
+    el("rsTable").innerHTML = `<tr><th>Cluster</th><th>d (Mpc)</th><th>v (km/s)</th><th>v/d</th></tr>` + RS_DATA.map(q => `<tr><td>${q[0]}</td><td>${q[1]}</td><td>${q[2].toLocaleString("en-GB")}</td><td>${(q[2] / q[1]).toFixed(0)}</td></tr>`).join("");
+  }
+  function exam(r) {
+    const lam = st.lam, lo = r.lo, z = r.z, v = z * 3e5, d = v / H0R;
+    const qs = [
+      { q: `A spectral line with a laboratory wavelength of ${lam} nm is observed at ${lo.toFixed(1)} nm in the spectrum of a galaxy. Calculate the redshift z.`, marks: 2, hint: "z = Δλ/λ = (λ_observed − λ_laboratory)/λ_laboratory.",
+        working: [`Δλ = ${lo.toFixed(1)} − ${lam} = ${(lo - lam).toFixed(1)} nm`, `z = Δλ/λ = ${(lo - lam).toFixed(1)} / ${lam} = ${((lo - lam) / lam).toFixed(4)}`], answer: `z = ${((lo - lam) / lam).toFixed(4)}${z < 0 ? " (negative: a blueshift)" : ""}` },
+      { q: "Use Δλ/λ = v/c to calculate the speed of the galaxy relative to us. State whether it is moving towards or away from us.", marks: 3, hint: "c = 3.00 × 10⁸ m/s. A longer observed wavelength means moving away.",
+        working: [`v = c Δλ/λ = 3.00×10⁸ × ${Math.abs(z).toFixed(4)} = ${fmt(Math.abs(z) * 3e8, 3)} m/s`, z >= 0 ? "λ has increased (redshift), so the galaxy is moving away." : "λ has decreased (blueshift), so the galaxy is moving towards us.",
+          Math.abs(r.b) > 0.1 ? `Note: at this speed Δλ/λ = v/c is not accurate — the relativistic formula gives ${fmt(Math.abs(r.vRel) * 1000, 3)} m/s.` : "Δλ/λ = v/c is accurate here because v ≪ c."],
+        answer: `${fmt(Math.abs(z) * 3e8, 3)} m/s ${z >= 0 ? "away from us" : "towards us"}` },
+      { q: "Use Hubble's law with H0 = 70 km s⁻¹ Mpc⁻¹ to estimate the distance to the galaxy, in Mpc and in light years.", marks: 3, hint: "d = v / H0 with v in km/s. 1 Mpc = 3.26 million light years.",
+        working: z > 0 ? [`v = ${fmt(v, 3)} km/s`, `d = v / H0 = ${fmt(v, 3)} / 70 = ${fmt(d, 3)} Mpc`, `d = ${fmt(d, 3)} × 3.26 × 10⁶ = ${fmt(d * 3.26e6, 3)} light years`].concat(z > 0.1 ? ["Note: for z above about 0.1 both v = zc and a straight-line Hubble's law are only rough; the expansion history must be included (see the ΛCDM model in this simulation)."] : []) : ["The galaxy is approaching (blueshift), so its motion is not the Hubble expansion: Hubble's law cannot be used. (Nearby galaxies like Andromeda are pulled by gravity.)"],
+        answer: z > 0 ? `d ≈ ${fmt(d, 3)} Mpc ≈ ${fmt(d * 3.26e6, 3)} light years` : "Hubble's law does not apply to an approaching galaxy." },
+    ];
+    el("rsExam").innerHTML = qs.map((q, i) => `<div class="rsQ"><span class="mk">${q.marks} marks</span><b>Q${i + 1}.</b> ${q.q}${q.hint ? `<div class="ht">💡 Hint: ${q.hint}</div>` : ""}<button data-rs="${i}">${open.has(i) ? "Hide" : "Show"} mark scheme</button><div class="ms${open.has(i) ? " open" : ""}">${q.working.map(w => `<div>→ ${w}</div>`).join("")}<div class="ans">Answer: ${q.answer}</div></div></div>`).join("");
+  }
+  el("rsExam").addEventListener("click", e => { const b = e.target.closest("[data-rs]"); if (!b) return; const k = +b.dataset.rs; if (open.has(k)) open.delete(k); else open.add(k); render(); });
+  el("rsLam").addEventListener("input", () => { st.lam = +el("rsLam").value; el("rsGal").value = ""; render(); });
+  el("rsBeta").addEventListener("input", () => { st.beta = +el("rsBeta").value; el("rsGal").value = ""; render(); });
+  el("rsGal").addEventListener("change", () => { const g = RS_GAL[el("rsGal").value]; if (g) { st.beta = g.beta; st.lam = 656; el("rsBeta").value = g.beta; el("rsLam").value = 656; } render(); });
+  el("rsReal").addEventListener("toggle", drawHub);
+  window.addEventListener("resize", () => { render(); drawHub(); });
+  window.addEventListener("panelsChanged", () => { render(); drawHub(); });
+  // redraw when the right panel is resized (the panel code changes its width)
+  if (window.ResizeObserver) new ResizeObserver(() => { drawSpec(calc()); drawHub(); }).observe(el("right"));
+  render();
+})();
 </script>
 <!-- VIEW BAR (start): hide/show the side panels and full-screen the simulation. Same block in every simulation. -->
 <style>
