@@ -63,7 +63,11 @@ are equally likely in the model).
 
 A diffraction-grating spectrometer (d sin θ = λ, first order) with a random error
 in each angle reading. Repeat or sweep, histogram or mean ± SD with theory, summary
-statistics and CSV download. One-click experiments:
+statistics and CSV download.
+
+**Batch settings table.** The batch panel lists every setting the chosen outcome uses: upper and lower level n, grating lines per mm and angle error SD; for the cascade, the starting level and the number of atoms in each run. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill in the whole table. **↺ Use my left-panel settings** copies the left panel into the table.
+
+One-click experiments:
 
 1. **Do the Balmer lines fit Rydberg's formula?** n = 3–9: means on the formula,
    converging to 365 nm.

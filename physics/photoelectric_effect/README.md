@@ -65,10 +65,14 @@ charge, thermionic emission. The animation is slowed down enormously.
 ## Batch run
 
 Runs a model photocell experiment many times with no drawing: voltmeter readings
-have a random error (normal, 0.01 V resolution), electrons are counted in 10 ns
-windows (Poisson numbers), and LED peak wavelengths have a random uncertainty.
-Repeat or sweep mode, histogram or mean ± SD with theory, summary statistics and
-CSV download. One-click experiments:
+have a random error (normal, 0.01 V resolution), electrons are counted in short
+windows (10 ns by default; Poisson numbers), and LED peak wavelengths have a random
+uncertainty. Repeat or sweep mode, histogram or mean ± SD with theory, summary
+statistics and CSV download.
+
+**Batch settings table.** The batch panel lists every setting the chosen outcome uses: metal, frequency, intensity, anode voltage, electron counting window, voltmeter error SD and LED wavelength uncertainty SD. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill in the whole table. **↺ Use my left-panel settings** copies the left panel into the table.
+
+One-click experiments:
 
 1. **Stopping voltage against frequency** (caesium, 6–18 × 10¹⁴ Hz): straight line;
    h = e × gradient (within about 1%), φ from the intercept.
