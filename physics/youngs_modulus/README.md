@@ -75,13 +75,15 @@ rate, work hardening beyond the old maximum on reloading, the wire's own weight.
 ## Batch run
 
 **📊 Batch run** runs model experiments with no drawing. Repeat mode gives a
-histogram with mean, SD, standard error and the theory value; Sweep steps one
-setting (length, area, force, reading error, number of load steps) and plots mean ±
+histogram with mean, SD, standard error and the theory value; Sweep steps any one
+setting from the batch settings table (below) and plots mean ±
 1 SD with the theory line. Results download as CSV. Every one-click experiment sets
 all of its own inputs, so it gives the same result in any order.
 Searle's-method runs add random reading errors (extension scale and micrometer);
 breaking-strength runs give each wire a random strength from a Weibull distribution
 (wide for glass, narrow for metals).
+
+**Batch settings table.** The batch panel lists every starting setting the chosen outcome uses (material; wire length, area, force, number of load steps, largest load (fraction of the elastic limit), extension reading error and micrometer error). Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in, and **↺ Use my left-panel settings** copies the left panel into it.
 
 | Question | Result (test run) |
 |---|---|

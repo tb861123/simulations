@@ -138,6 +138,30 @@
   #bNote { margin-top: 8px; padding: 7px 9px; background: var(--panel-2); border-left: 3px solid var(--accent); border-radius: 5px; color: #dfe3d6; }
   .prog { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; flex: 1; min-width: 120px; }
   .prog span { display: block; height: 100%; width: 0; background: var(--accent); }
+  /* Batch run: two columns, set-up on the left (experiments and the settings table), results on the right */
+  #batch { gap: 8px 12px; }
+  #batch.open { display: grid; grid-template-columns: minmax(330px, 40%) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  #batch .bhead { grid-column: 1 / -1; }
+  #batch .bhead .hint { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  #bsetup { overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding-right: 4px; min-height: 0; }
+  #bresults { display: flex; flex-direction: column; gap: 7px; min-height: 0; }
+  #bsetup #bexp { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  #bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(180px, 1fr) minmax(0, 42%); gap: 8px; }
+  /* Batch settings table: every starting setting, with a tick box to choose the one that is varied */
+  #bSetBox { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--panel-2); margin-top: 0; color: var(--text); }
+  #bSetBox > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
+  #bSetBox .bhint { font-size: 11.5px; color: var(--muted); margin: 3px 0 5px; }
+  #bOpts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; margin-bottom: 5px; }
+  #bOpts label { display: inline-flex; gap: 5px; align-items: center; }
+  #bTbl { display: grid; grid-template-columns: 1fr; gap: 3px 14px; }
+  .bt { display: flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 2px 4px; border-radius: 6px; flex-wrap: wrap; }
+  .bt.on { background: rgba(241,175,40,.13); outline: 1px solid var(--accent); }
+  .bt label { flex: 1; min-width: 150px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .bt input[type=number] { width: 78px !important; }
+  .bt .bsw { display: none; gap: 5px; align-items: center; flex-wrap: wrap; }
+  .bt.on .bsw { display: inline-flex; }
+  .bt.on .bval { display: none; }
+  .bt .bcount { color: var(--muted); font-size: 11.5px; }
 
   /* Resizable, hideable side panels */
   .splitter { position: relative; cursor: col-resize; touch-action: none; }
@@ -421,73 +445,169 @@ function initLayout(KEY, onChange) {
    the results with theory.
      REPEAT: the same settings N times with different random seeds
              → histogram, mean, SD, standard error, theory.
-     SWEEP : change one setting in steps, several runs at each step
-             → mean ± 1 SD at each step, with the theory line.
-   A one-click experiment sets EVERY input itself (from fixed defaults),
-   so it gives the same answer whatever is on the left panel.
-   C = { defaults, current(), outcomes, vars, extras, experiments, runOnce(p, seed, out), fileName, hint }
+     SWEEP : tick one setting in the table and step it from → to
+             (+ adds the step, × multiplies by it), several runs at each
+             step → mean ± 1 SD at each step, with the theory line.
+   The batch settings table lists EVERY starting setting the model uses.
+   A one-click experiment fills in the whole table (from fixed defaults,
+   never from the left panel), and a run uses exactly what the table shows.
+   An experiment's sweep uses its own evenly spaced values (from → to in
+   'steps' values, log-spaced on log axes) until you edit the range.
+   C = { defaults, current(), outcomes, vars, opts, experiments, runOnce(p, seed, out), fileName, hint, runChoices }
+     vars: { key: { label, unit, min, max, int, outs: [outcome keys it matters for] } }
+     opts: [{ k, label, bool } | { k, label, choices: [[value, text], …] }]   (non-numeric settings)
    ===================================================================== */
 const Batch = (function () {
   let C = null, res = null, busy = false, stop = false, expI = -1;
+  const TBL = { vals: {}, opts: {}, vary: null, from: 0, to: 1, kind: "+", step: 1, exact: null };
   const st = a => { const v = a.filter(x => x !== null && x !== undefined && isFinite(x)), n = v.length; if (!n) return { n: 0 }; const mean = v.reduce((s, x) => s + x, 0) / n; const sd = n > 1 ? Math.sqrt(v.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1)) : 0; return { n, mean, sd, se: sd / Math.sqrt(n), min: Math.min(...v), max: Math.max(...v) }; };
   const linfit = (xs, ys) => { const n = xs.length; let sx = 0, sy = 0, sxx = 0, sxy = 0; for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; sxx += xs[i] ** 2; sxy += xs[i] * ys[i]; } const b = (n * sxy - sx * sy) / (n * sxx - sx * sx); return { b, a: (sy - b * sx) / n }; };
   const unitOf = u => (u ? ` (${u})` : "");
+  const nice = x => (x === 0 || !isFinite(x)) ? x : +(+x).toPrecision(4);
+  const optsOf = () => C.opts || [];
+  const disp = x => (typeof x === "number" && isFinite(x) && x !== 0) ? +x.toPrecision(10) : x;   // tidy display; the table keeps the exact value
   function init(cfg) {
     C = cfg;
     const d = document.createElement("div"); d.id = "batch"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Batch run");
     d.innerHTML = `
       <div class="bhead"><h3>📊 Batch run</h3><span class="hint">${cfg.hint}</span><button id="bClose" style="margin-left:auto">✕ Close</button></div>
-      <div id="bexp"></div>
-      <div class="brow">
-        <label>Mode <select id="bMode"><option value="repeat">Repeat (new random numbers each run)</option><option value="sweep">Sweep (change one setting in steps)</option></select></label>
-        <label>Record <select id="bOut">${Object.entries(cfg.outcomes).map(([k, o]) => `<option value="${k}">${o.label}${unitOf(o.unit)}</option>`).join("")}</select></label>
-        <span id="bRepeatOpts"><label>Runs <select id="bRuns">${cfg.runChoices.map(n => `<option>${n}</option>`).join("")}</select></label></span>
-        ${(cfg.extras || []).map(x => `<label>${x.label} <input type="number" id="bx_${x.key}" step="${x.step}" min="${x.min}" max="${x.max}" value="${cfg.defaults[x.key]}"></label>`).join("")}
+      <div id="bsetup">
+        <div id="bexp"></div>
+        <div class="brow">
+          <label>Mode <select id="bMode"><option value="repeat">Repeat (new random numbers each run)</option><option value="sweep">Sweep (vary the ticked setting in steps)</option></select></label>
+          <label>Record <select id="bOut">${Object.entries(cfg.outcomes).map(([k, o]) => `<option value="${k}">${o.label}${unitOf(o.unit)}</option>`).join("")}</select></label>
+          <span id="bRepeatOpts"><label>Runs <select id="bRuns">${cfg.runChoices.map(n => `<option>${n}</option>`).join("")}</select></label></span>
+        </div>
+        <details id="bSetBox" open>
+          <summary>Starting settings: tick the one to vary</summary>
+          <div class="bhint">Every setting the model uses for this outcome is listed. Tick one to sweep it from → to in steps (+ adds the step each time, × multiplies by it); every other setting stays at the value shown. What you see is what runs.</div>
+          <div id="bOpts"></div>
+          <div id="bTbl"></div>
+          <div class="brow" style="margin-top:5px"><span id="bSweepOpts"><label>Repeats at each step <input type="number" id="bReps" min="1" max="200" value="5" style="width:60px"></label></span>
+            <button id="bLeft" title="Fill the table from the settings on the left panel">↺ Use my left-panel settings</button></div>
+        </details>
       </div>
-      <div class="brow" id="bSweepOpts">
-        <label>Change <select id="bVar">${Object.entries(cfg.vars).map(([k, v]) => `<option value="${k}">${v.label}${unitOf(v.unit)}</option>`).join("")}</select></label>
-        <label>from <input type="number" id="bFrom" step="any"></label>
-        <label>to <input type="number" id="bTo" step="any"></label>
-        <label>steps <input type="number" id="bSteps" min="2" max="30" value="6" style="width:56px"></label>
-        <label>runs each <input type="number" id="bReps" min="1" max="100" value="5" style="width:60px"></label>
-      </div>
-      <div class="brow">
-        <button id="bRun" class="primary">▶ Run batch</button>
-        <button id="bStop" disabled>■ Stop</button>
-        <div class="prog"><span id="bProg"></span></div>
-        <span id="bStatus" class="hint">Ready</span>
-        <label><input type="checkbox" id="bLogX"> log x</label>
-        <label><input type="checkbox" id="bLogY"> log y</label>
-        <button id="bCsv" disabled>⬇ Download CSV</button>
-      </div>
-      <div id="bbody">
-        <div id="bchartBox"><canvas id="bchart"></canvas></div>
-        <div id="bside"><div id="bsum" class="hint">Pick an experiment above, or set up your own, then press <b>Run batch</b>.</div><div id="bNote" style="display:none"></div></div>
+      <div id="bresults">
+        <div class="brow">
+          <button id="bRun" class="primary">▶ Run batch</button>
+          <button id="bStop" disabled>■ Stop</button>
+          <div class="prog"><span id="bProg"></span></div>
+          <span id="bStatus" class="hint">Ready</span>
+          <label><input type="checkbox" id="bLogX"> log x</label>
+          <label><input type="checkbox" id="bLogY"> log y</label>
+          <button id="bCsv" disabled>⬇ Download CSV</button>
+        </div>
+        <div id="bbody">
+          <div id="bchartBox"><canvas id="bchart"></canvas></div>
+          <div id="bside"><div id="bsum" class="hint">Pick an experiment, or set up your own, then press <b>Run batch</b>.</div><div id="bNote" style="display:none"></div></div>
+        </div>
       </div>`;
     document.body.appendChild(d);
     el("bexp").innerHTML = cfg.experiments.map((e, i) => `<button data-i="${i}">${e.q}${e.sub ? `<small>${e.sub}</small>` : ""}</button>`).join("");
     document.querySelectorAll("#bexp button").forEach(b => b.addEventListener("click", () => load(+b.dataset.i)));
-    // changing the set-up by hand leaves the experiment: your own runs use the left panel
-    ["bMode", "bOut", "bVar"].forEach(id => el(id).addEventListener("input", () => { expI = -1; markExp(); sync(); if (id === "bVar") { const v = C.vars[el("bVar").value]; el("bFrom").value = v.from; el("bTo").value = v.to; } }));
+    el("bMode").addEventListener("input", () => { edited(); sync(); });
+    el("bOut").addEventListener("input", () => { edited(); if (TBL.vary && !visible(TBL.vary)) { TBL.vary = null; el("bMode").value = "repeat"; } renderTable(); sync(); });
+    el("bRuns").addEventListener("input", edited);
+    el("bReps").addEventListener("input", edited);
     ["bLogX", "bLogY"].forEach(id => el(id).addEventListener("input", draw));
     el("bClose").addEventListener("click", () => d.classList.remove("open"));
     el("bRun").addEventListener("click", run);
     el("bStop").addEventListener("click", () => { stop = true; });
     el("bCsv").addEventListener("click", csv);
-    const v0 = Object.values(cfg.vars)[0]; el("bFrom").value = v0.from; el("bTo").value = v0.to;
+    el("bSetBox").addEventListener("input", e => {
+      const t = e.target;
+      if (t.dataset.vary) {              // the tick boxes act like radio buttons: one varied setting at most
+        if (t.checked) { startVary(t.dataset.vary); el("bMode").value = "sweep"; } else { TBL.vary = null; el("bMode").value = "repeat"; }
+        renderTable(); sync(); edited(); return;
+      }
+      if (t.dataset.v) TBL.vals[t.dataset.v] = +t.value;
+      if (t.dataset.o) TBL.opts[t.dataset.o] = t.type === "checkbox" ? (t.checked ? 1 : 0) : t.value;
+      if (t.dataset.r) { TBL.exact = null; TBL[t.dataset.r] = t.dataset.r === "kind" ? t.value : +t.value; if (t.dataset.r === "kind") el("bLogX").checked = t.value === "×"; }
+      updateCount(); edited();
+    });
+    el("bLeft").addEventListener("click", () => { expI = -1; markExp(); fillTable({ ...C.defaults, ...C.current() }, null); el("bMode").value = "repeat"; sync(); });
+    fillTable({ ...C.defaults, ...C.current() }, null);
     sync();
   }
+  const visible = k => { const V = C.vars[k]; return !V.outs || V.outs.includes(el("bOut").value); };
+  // the values the varied setting takes: from, from+step, … (or from, from×step, …) up to "to"; at most 60
+  function sweepValues() {
+    const out = [], up = TBL.to >= TBL.from, V = C.vars[TBL.vary];
+    if (!V) return [];
+    if (TBL.exact) return TBL.exact.slice();       // an experiment's own values, until the range is edited
+    if (TBL.kind === "×") {
+      let f = Math.abs(TBL.step); if (!(f > 1) || TBL.from <= 0 || TBL.to <= 0) return [TBL.from];
+      if (!up) f = 1 / f;
+      for (let v = TBL.from, i = 0; i < 60 && (up ? v <= TBL.to * 1.01 : v >= TBL.to * 0.99); i++, v *= f) out.push(nice(v));
+    } else {
+      let dd = Math.abs(TBL.step); if (!(dd > 0)) return [TBL.from];
+      if (!up) dd = -dd;
+      for (let i = 0; i < 60; i++) { const v = TBL.from + i * dd; if (up ? v > TBL.to + 1e-3 * Math.abs(dd) : v < TBL.to - 1e-3 * Math.abs(dd)) break; out.push(nice(v)); }
+    }
+    const vals = out.map(v => clamp(V.int ? Math.round(v) : v, V.min, V.max));
+    return vals.filter((v, i) => i === 0 || v !== vals[i - 1]);
+  }
+  // Fill the table from a full set of parameters (an experiment's, or the left panel's)
+  function fillTable(p, E) {
+    TBL.vals = {}; TBL.opts = {};
+    TBL.exact = null;
+    for (const k of Object.keys(C.vars)) TBL.vals[k] = p[k];
+    for (const O of optsOf()) TBL.opts[O.k] = p[O.k];
+    if (E && E.v) {
+      TBL.vary = E.v; TBL.from = E.from; TBL.to = E.to;
+      if (E.logx && E.from > 0 && E.to > 0) { TBL.kind = "×"; TBL.step = nice(Math.pow(E.to / E.from, 1 / (E.steps - 1))); }
+      else { TBL.kind = "+"; TBL.step = nice((E.to - E.from) / (E.steps - 1)); }
+      // the experiment's exact values: 'steps' evenly spaced values (log-spaced on log axes), repeats dropped
+      const V = C.vars[E.v], lg = E.logx && E.from > 0 && E.to > 0; TBL.exact = []; let last = null;
+      for (let s = 0; s < E.steps; s++) {
+        let v = lg ? E.from * Math.pow(E.to / E.from, s / (E.steps - 1)) : E.from + (E.to - E.from) * s / (E.steps - 1);
+        v = clamp(v, V.min, V.max); if (V.int) v = Math.round(v);
+        if (v !== last) TBL.exact.push(v); last = v;
+      }
+    } else TBL.vary = null;
+    renderTable();
+  }
+  function renderTable() {
+    el("bOpts").innerHTML = optsOf().filter(O => !O.outs || O.outs.includes(el("bOut").value)).map(O => O.bool
+      ? `<label><input type="checkbox" data-o="${O.k}" ${TBL.opts[O.k] ? "checked" : ""}> ${O.label}</label>`
+      : `<label>${O.label} <select data-o="${O.k}">${O.choices.map(([v, t]) => `<option value="${v}" ${String(TBL.opts[O.k]) === String(v) ? "selected" : ""}>${t}</option>`).join("")}</select></label>`).join("");
+    el("bTbl").innerHTML = Object.entries(C.vars).filter(([k]) => visible(k)).map(([k, V]) => {
+      const on = TBL.vary === k, u = V.unit ? ` (${V.unit})` : "";
+      return `<div class="bt${on ? " on" : ""}" data-k="${k}"><label ${on ? "data-ws-change" : ""}><input type="checkbox" data-vary="${k}" ${on ? "checked" : ""}> ${V.label}${u}</label>` +
+        `<input type="number" class="bval" data-v="${k}" step="any" min="${V.min}" max="${V.max}" value="${disp(TBL.vals[k])}">` +
+        `<span class="bsw">from <input type="number" data-ws="from" data-r="from" step="any" value="${on ? TBL.from : ""}"> to <input type="number" data-ws="to" data-r="to" step="any" value="${on ? TBL.to : ""}">
+          step <select data-ws="step type" data-r="kind"><option value="+" ${TBL.kind === "+" ? "selected" : ""}>+</option><option value="×" ${TBL.kind === "×" ? "selected" : ""}>×</option></select>
+          <input type="number" data-ws="step" data-r="step" step="any" value="${on ? TBL.step : ""}"> <span class="bcount bsteps"></span></span></div>`;
+    }).join("");
+    updateCount();
+  }
+  function updateCount() {
+    const span = TBL.vary && el("bTbl").querySelector(`.bt[data-k="${TBL.vary}"] .bsteps`);
+    if (span) { const xs = sweepValues(); span.textContent = `→ ${xs.length} steps: ${xs.slice(0, 4).map(v => fmt(v, 4)).join(", ")}${xs.length > 4 ? " … " + fmt(xs[xs.length - 1], 4) : ""}`; }
+  }
+  function startVary(k) {                 // a sensible first range when a setting is ticked
+    const V = C.vars[k], cur = TBL.vals[k];
+    TBL.vary = k; TBL.kind = "+"; TBL.exact = null;
+    if (cur > 0) { TBL.from = nice(Math.max(V.min, cur / 2)); TBL.to = nice(Math.min(V.max, cur * 2)); }
+    else { TBL.from = V.min; TBL.to = nice(Math.min(V.max, V.min + 10)); }
+    TBL.step = nice((TBL.to - TBL.from) / 4); if (V.int) TBL.step = Math.max(1, Math.round(TBL.step));
+    el("bLogX").checked = false;
+  }
+  function edited() { expI = -1; markExp(); }
   function markExp() { document.querySelectorAll("#bexp button").forEach(b => b.classList.toggle("on", +b.dataset.i === expI)); }
-  function sync() { const sw = el("bMode").value === "sweep"; el("bRepeatOpts").style.display = sw ? "none" : ""; el("bSweepOpts").style.display = sw ? "" : "none"; }
+  function sync() {
+    if (el("bMode").value === "sweep" && !TBL.vary) { const k = Object.keys(C.vars).find(visible); if (k) { startVary(k); renderTable(); } }
+    if (el("bMode").value === "repeat" && TBL.vary) { TBL.vary = null; renderTable(); }
+    const sw = el("bMode").value === "sweep"; el("bRepeatOpts").style.display = sw ? "none" : ""; el("bSweepOpts").style.display = sw ? "" : "none";
+  }
   function load(i) {
-    const E = C.experiments[i]; expI = i;
+    const E = C.experiments[i];
     el("bMode").value = E.mode; el("bOut").value = E.out;
     if (E.runs) el("bRuns").value = E.runs;
-    if (E.v) { el("bVar").value = E.v; el("bFrom").value = E.from; el("bTo").value = E.to; el("bSteps").value = E.steps; el("bReps").value = E.reps; }
-    const full = { ...C.defaults, ...E.set };
-    (C.extras || []).forEach(x => { el("bx_" + x.key).value = full[x.key]; });
+    if (E.v) el("bReps").value = E.reps;
     el("bLogX").checked = !!E.logx; el("bLogY").checked = !!E.logy;
-    markExp(); sync();
+    fillTable({ ...C.defaults, ...E.set }, E.mode === "sweep" ? E : null);
+    expI = i; markExp(); sync();
     el("bStatus").textContent = "Experiment set up: press ▶ Run batch";
   }
   function open() { place(); el("batch").classList.add("open"); if (!res && expI < 0) load(0); draw(); }
@@ -495,28 +615,25 @@ const Batch = (function () {
     const c = el("centre").getBoundingClientRect(), r = el("right").getBoundingClientRect(), b = el("batch");
     b.style.left = c.left + "px"; b.style.top = c.top + "px"; b.style.width = (r.right - c.left) + "px"; b.style.height = c.height + "px";
   }
+  // the parameters for a run: defaults, then the experiment's settings (or the left panel), then every value in the table
   function base() {
     const E = expI >= 0 ? C.experiments[expI] : null;
     const b = E ? { ...C.defaults, ...E.set } : { ...C.defaults, ...C.current() };
-    (C.extras || []).forEach(x => { const v = +el("bx_" + x.key).value; b[x.key] = isFinite(v) ? clamp(v, x.min, x.max) : C.defaults[x.key]; });
+    for (const [k, v] of Object.entries(TBL.vals)) { const V = C.vars[k]; if (V && isFinite(v)) b[k] = clamp(V.int ? Math.round(v) : v, V.min, V.max); }
+    for (const [k, v] of Object.entries(TBL.opts)) if (v !== undefined) b[k] = v;
     return b;
   }
   function run() {
     if (busy) return;
-    const mode = el("bMode").value, out = el("bOut").value, b = base(), jobs = [];
-    const cfg = { mode, out, v: el("bVar").value, from: +el("bFrom").value, to: +el("bTo").value, steps: clamp(Math.round(+el("bSteps").value) || 2, 2, 30), reps: clamp(Math.round(+el("bReps").value) || 1, 1, 100), runs: +el("bRuns").value, exp: expI };
-    if (mode === "repeat") for (let k = 0; k < cfg.runs; k++) jobs.push({ p: b, x: null, seed: 1000 + k * 7919 });
-    else {
-      const V = C.vars[cfg.v], lg = el("bLogX").checked && cfg.from > 0 && cfg.to > 0;
-      let last = null;
-      for (let s = 0; s < cfg.steps; s++) {
-        let v = lg ? cfg.from * Math.pow(cfg.to / cfg.from, s / (cfg.steps - 1)) : cfg.from + (cfg.to - cfg.from) * s / (cfg.steps - 1);
-        v = clamp(v, V.min, V.max); if (V.int) v = Math.round(v);
-        if (v === last) continue; last = v;
-        const p = { ...b, [cfg.v]: v };
-        // the SAME random numbers at every step, so only the swept setting changes
-        for (let r = 0; r < cfg.reps; r++) jobs.push({ p, x: v, seed: 2000 + r * 7919 });
-      }
+    const out = el("bOut").value, b = base(), jobs = [];
+    const sweep = el("bMode").value === "sweep" && TBL.vary, xs = sweep ? sweepValues() : [];
+    const cfg = { mode: sweep ? "sweep" : "repeat", out, v: TBL.vary, xs, from: xs.length ? Math.min(...xs) : 0, to: xs.length ? Math.max(...xs) : 1,
+                  reps: clamp(Math.round(+el("bReps").value) || 1, 1, 200), runs: +el("bRuns").value, exp: expI };
+    if (cfg.mode === "repeat") for (let k = 0; k < cfg.runs; k++) jobs.push({ p: b, x: null, seed: 1000 + k * 7919 });
+    else for (const v of xs) {
+      const p = { ...b, [cfg.v]: v };
+      // the SAME random numbers at every step, so only the swept setting changes
+      for (let r = 0; r < cfg.reps; r++) jobs.push({ p, x: v, seed: 2000 + r * 7919 });
     }
     res = { cfg, base: b, rows: [] }; busy = true; stop = false;
     el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").disabled = true;
@@ -1097,10 +1214,10 @@ function runOnce(p, seed, out) {
 }
 Batch.init({
   fileName: "projectile-motion", runChoices: [20, 50, 100, 200, 500, 1000],
-  hint: "Run a model launcher many times with no drawing. Experiments set every input themselves; your own runs use the settings on the left. Each launch has a small random error in speed and angle.",
+  hint: "Run a model launcher many times with no drawing. Every setting used is in the table: experiments fill it in, and you can change any of it. Each launch has a small random error in speed and angle.",
   defaults: { v0: 20, th: 45, h0: 0, g: 9.81, drag: false, obj: "Football", mass: 1, omega: 0, wind: 0, errV: 2, errA: 1 },
   current: () => { const p = P(); return { v0: p.v0, th: p.th, h0: p.h0, g: p.g, drag: p.drag, obj: p.obj, mass: p.mass, omega: p.magnus ? p.omega : 0, wind: p.drag ? p.wind : 0 }; },
-  extras: [{ key: "errV", label: "Launch speed error SD (%)", step: 0.5, min: 0, max: 20 }, { key: "errA", label: "Angle error SD (°)", step: 0.5, min: 0, max: 10 }],
+  opts: [{ k: "drag", label: "Air resistance (drag)", bool: true }, { k: "obj", label: "Object (with drag)", choices: Object.keys(OBJECTS).map(n => [n, n]) }],
   outcomes: {
     range: { label: "Range", unit: "m", theoryLabel: "no-air formula", gradient: { v0: 2, g: -1 }, noFit: true },
     height: { label: "Maximum height", unit: "m", theoryLabel: "no-air formula", gradient: { v0: 2, g: -1 } },
@@ -1108,13 +1225,16 @@ Batch.init({
     vimp: { label: "Landing speed", unit: "m/s", theoryLabel: "no-air formula" },
     vdrop: { label: "Landing speed of a dropped object", unit: "m/s", theoryLabel: "v = v_T√(1 − e^(−2gh/v_T²)) (with drag)", theory2Label: "no air: v = √(2gh)", noFit: true },
   },
-  vars: {
-    v0: { label: "Launch speed v₀", unit: "m/s", min: 0, max: 200, from: 2, to: 30 },
-    th: { label: "Launch angle θ", unit: "°", min: 0, max: 90, from: 5, to: 85 },
-    h0: { label: "Launch height h₀", unit: "m", min: 0, max: 2000, from: 0, to: 50 },
-    g: { label: "Gravity g", unit: "m/s²", min: 0.5, max: 30, from: 1.6, to: 25 },
-    mass: { label: "Mass (Custom object)", unit: "kg", min: 0.005, max: 100, from: 0.05, to: 10 },
-    errV: { label: "Launch speed error SD", unit: "%", min: 0, max: 20, from: 0, to: 10 },
+  vars: {   // every starting setting; "outs" lists the outcomes it is used for
+    v0: { label: "Launch speed v₀", unit: "m/s", min: 0, max: 200 },
+    th: { label: "Launch angle θ", unit: "°", min: 0, max: 90 },
+    h0: { label: "Launch height h₀", unit: "m", min: 0, max: 2000 },
+    g: { label: "Gravity g", unit: "m/s²", min: 0.5, max: 30 },
+    errV: { label: "Launch speed error SD", unit: "%", min: 0, max: 20 },
+    errA: { label: "Angle error SD", unit: "°", min: 0, max: 10 },
+    mass: { label: "Mass (Custom object, with drag)", unit: "kg", min: 0.005, max: 100 },
+    wind: { label: "Wind (with drag; + blows forwards)", unit: "m/s", min: -50, max: 50 },
+    omega: { label: "Spin ω (with drag; + is topspin)", unit: "rad/s", min: -500, max: 500 },
   },
   experiments: [
     { q: "How much do 200 shots scatter?", sub: "10 m/s at 45°: speed ±2%, angle ±1°", mode: "repeat", out: "range", runs: 200, set: { v0: 10, th: 45, h0: 0, g: 9.81, drag: false, errV: 2, errA: 1 },

@@ -78,6 +78,8 @@ plus the minimum speed for a loop and a conical pendulum period.
 Model class practicals with stopwatch reaction errors (SD 0.15 s per press,
 10 turns timed) and car-to-car variation in tyre grip.
 
+**Batch settings table.** The batch panel lists every starting setting the chosen outcome uses (bung mass, radius and hanging mass; conical pendulum length, angle and mass; turns timed and reaction error; loop radius, speed and speed error; bend radius, bank angle, average grip and its spread). Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in, and **↺ Use my left-panel settings** copies the left panel into it.
+
 | Experiment | Result (from testing) |
 |---|---|
 | Whirling bung: is F = mω²r? (100 runs) | mean 0.973 N against Mg = 0.981 N (−0.8%, −1.2 SE); SD 0.06 N as predicted |

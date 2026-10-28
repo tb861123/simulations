@@ -66,10 +66,12 @@ complementary angles, and (with drag on) a terminal velocity question.
 ## Batch run
 
 Each run is one launch from an imperfect launcher: a random error in the
-launch speed (SD as a % of v₀) and angle (SD in degrees). Repeat or sweep
-launch speed, angle, height, g, mass or the speed error; record range,
+launch speed (SD as a % of v₀) and angle (SD in degrees). Repeat, or sweep
+any setting in the table below; record range,
 maximum height, time of flight, landing speed or the landing speed of a
 dropped object. Results against theory with mean, SD, standard error and CSV.
+
+**Batch settings table.** The batch panel lists every starting setting the chosen outcome uses (air resistance on/off and the object; launch speed, angle, height, g, the speed and angle errors, mass (Custom object), wind and spin). Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in, and **↺ Use my left-panel settings** copies the left panel into it.
 
 | Experiment | Result (from testing) |
 |---|---|

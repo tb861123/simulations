@@ -79,6 +79,8 @@ mean, SD, standard error, theory and predicted spread; Sweep → mean ± 1 SD wi
 theory line and a fitted line or log–log gradient; CSV download. Every one-click
 experiment sets all of its own inputs. Results from the test run:
 
+**Batch settings table.** The batch panel lists every starting setting the chosen outcome uses (substance; mass, heater power, heat loss to the room, starting temperature, heating time, thermometer and timing errors; and, for the method of mixtures, both masses, specific heat capacities and starting temperatures and the block's cooling on the way). Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in, and **↺ Use my left-panel settings** copies the left panel into it.
+
 | Question | Result |
 |---|---|
 | Measuring c of water: what do heat losses do? (50 W, 10 min, loss 0–2 W/K) | 4270 ± 150 J/kg/K with no loss (theory 4200); rises steadily to 5640 at 2 W/K |
