@@ -47,6 +47,9 @@ changing a simulation's batch experiments.
 | [`physics/fields_orbits/`](physics/fields_orbits/) | Fields and orbits: electric and gravitational fields, Kepler's laws, escape speed, binary stars (also listed under Astrophysics) | Open `fields-orbits.html` |
 | [`physics/photoelectric_effect/`](physics/photoelectric_effect/) | Photoelectric effect: threshold frequency, work function, stopping voltage, Planck's constant | Open `photoelectric-effect.html` |
 | [`physics/atomic_spectra/`](physics/atomic_spectra/) | Atomic spectra: energy levels, emission and absorption lines, Rydberg formula | Open `atomic-spectra.html` |
+| [`physics/radioactive_decay/`](physics/radioactive_decay/) | Radioactive decay: half-life, Geiger counts and background, decay chains | Open `radioactive-decay.html` |
+| [`physics/nuclear_fission/`](physics/nuclear_fission/) | Nuclear fission: chain reactions, k, critical mass, control rods | Open `nuclear-fission.html` |
+| [`physics/particle_physics/`](physics/particle_physics/) | Particle physics: quarks, leptons, conservation laws, Feynman diagrams | Open `particle-physics.html` |
 | [`physics/nuclear_fusion/`](physics/nuclear_fusion/) | Fusion on a potential-energy diagram: the Coulomb barrier, quantum tunnelling, the Gamow peak, and the temperature and pressure needed in stars and reactors | Open `nuclear-fusion.html` |
 | [`physics/physics_sims/`](physics/physics_sims/) | 28 WJEC Physics simulations (Streamlit app) | `python setup_env.py` once, then `streamlit run Home.py` |
 
