@@ -45,6 +45,9 @@ changing a simulation's batch experiments.
 | [`physics/waves/`](physics/waves/) | Waves: interference and Young's slits, standing waves on strings and in pipes, diffraction gratings, the Doppler effect | Open `waves.html` |
 | [`physics/optics_refraction/`](physics/optics_refraction/) | Refraction: Snell's law, total internal reflection, prisms, lenses, optical fibres | Open `optics-refraction.html` |
 | [`physics/fields_orbits/`](physics/fields_orbits/) | Fields and orbits: electric and gravitational fields, Kepler's laws, escape speed, binary stars (also listed under Astrophysics) | Open `fields-orbits.html` |
+| [`physics/circuits/`](physics/circuits/) | Circuits: EMF and internal resistance, I–V characteristics, resistivity, AC | Open `circuits.html` |
+| [`physics/capacitors/`](physics/capacitors/) | Capacitors: charge and discharge, time constant, energy | Open `capacitors.html` |
+| [`physics/magnetism_induction/`](physics/magnetism_induction/) | Magnetism and induction: motor effect, Faraday's law, transformers, DC motor | Open `magnetism-induction.html` |
 | [`physics/photoelectric_effect/`](physics/photoelectric_effect/) | Photoelectric effect: threshold frequency, work function, stopping voltage, Planck's constant | Open `photoelectric-effect.html` |
 | [`physics/atomic_spectra/`](physics/atomic_spectra/) | Atomic spectra: energy levels, emission and absorption lines, Rydberg formula | Open `atomic-spectra.html` |
 | [`physics/radioactive_decay/`](physics/radioactive_decay/) | Radioactive decay: half-life, Geiger counts and background, decay chains | Open `radioactive-decay.html` |
