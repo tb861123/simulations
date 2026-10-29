@@ -10,7 +10,7 @@ holds one folder per simulation:
 | Subject folder | Simulations |
 |---|---|
 | `physics/` | `gas_in_a_box`, `double_pendulum`, `nuclear_fusion`, `states_of_matter`, `youngs_modulus`, `projectile_motion`, `circular_motion`, `waves`, `optics_refraction`, `fields_orbits`, `photoelectric_effect`, `atomic_spectra`, `radioactive_decay`, `nuclear_fission`, `particle_physics`, `circuits`, `capacitors`, `magnetism_induction`, `physics_sims` (WJEC Streamlit app: `python setup_env.py`, then `streamlit run Home.py`) |
-| `chemistry/` | `collision_theory`, `dynamic_equilibrium`, `crystallisation`, `atomic_structure`, `bonding`, `organic_chemistry`, `chem_sims` (Edexcel iGCSE: `run.bat` / `index.html`) |
+| `chemistry/` | `collision_theory`, `dynamic_equilibrium`, `crystallisation`, `atomic_structure`, `bonding`, `organic_chemistry`, `periodic_groups`, `reactivity_metals`, `chem_sims` (Edexcel iGCSE: `run.bat` / `index.html`) |
 | `biology/` | `natural_selection`, `epidemics`, `predator_prey` |
 | `engineering/` | `earthquake_buildings`, `traffic_flow`, `car_crash`, `aerofoil_flow` |
 | `medical/` | `heart_circulation`, `nerve_impulse`, `antibiotic_resistance`, `gas_exchange` |
