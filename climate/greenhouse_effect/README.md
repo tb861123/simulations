@@ -75,6 +75,20 @@ methane, albedo, solar constant, ocean depth, feedback strength, variability).
 Outcomes: final temperature, warming, climate sensitivity, time to reach 63%.
 Results are plotted with theory and can be downloaded as CSV.
 
+**Batch settings table.** The batch panel lists every starting setting of a
+run: CO₂, methane, albedo, solar constant, ocean depth, feedback strength and
+natural variability; the atmosphere, water vapour feedback and "uncertain
+feedback" choices; and four things that used to be fixed: the uncertain
+feedback's mean (2.05) and SD (0.3 W/m² per °C), the settling time (8
+response times) and the years averaged at the end (40). Defaults are the old
+values, so results are unchanged. Tick one setting to vary it and give from /
+to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as
+you type); every other setting stays at the value shown, and a run uses
+exactly what the table shows. Unticking goes back to Repeat. Uncertain
+feedback now works in sweeps too. One-click experiments set the left panel and
+fill the whole table in, and **↺ Use my left-panel settings** copies the left
+panel into it.
+
 Batch experiments:
 
 1. **How much warming per doubling of CO₂?** Temperature against ln(CO₂) is a

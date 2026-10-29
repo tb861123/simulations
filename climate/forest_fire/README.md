@@ -71,8 +71,8 @@ under **"How the model works"**.
 ## Batch run (many fires, compared with theory)
 
 Press **📊 Batch run** (below the map) to run the model many times with no
-drawing. It uses the map on screen, including anything you have drawn, and
-the weather in the left panel. The interactive fire is saved first and put
+drawing. Opening it fills the batch settings table (below) from the map on
+screen, including anything you have drawn, and the weather in the left panel. The interactive fire is saved first and put
 back afterwards. Batch runs always use the Medium detail (10 m cells,
 240 × 160) whatever the map detail on screen, so their results are the same
 as before the detail setting was added (see *Map detail* below).
@@ -88,6 +88,22 @@ as before the detail setting was added (see *Map detail* below).
   killed (%), time until out, spot fires and actual tree cover.
 - Each run stops when the fire is out, at a time limit (1–24 h of fire), or
   optionally when it reaches the map edge. Results download as CSV.
+
+**Batch settings table.** The batch panel lists every starting setting of a
+fire: wind speed and direction, fuel moisture, tree density, amount of
+undergrowth, fire-track width and the ignition point (as % across and down the
+map); the choices of tree type, undergrowth type, landscape, fire tracks,
+river and map seed; and the run settings (time limit, new random map for every
+repeat, stop at the map edge). Tick one setting to vary it and give from / to /
+step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you
+type); every other setting stays at the value shown, and a run uses exactly
+what the table shows. Unticking goes back to Repeat. If the table's woodland
+settings are the ones the map on screen was built with, that map is used
+(with anything drawn on it); otherwise the batch builds a new map from the
+table and adds your drawing to it. Opening the panel fills the table from the
+left panel; one-click experiments load their forest into the left panel and
+fill the whole table in, and **↺ Use my left-panel settings** copies the left
+panel (and the spot the fire will be lit) into it.
 
 One-click batch experiments (timings from a test machine):
 

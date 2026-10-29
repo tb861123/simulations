@@ -80,6 +80,19 @@ climate from step to step. Outcomes: final ice-edge latitude, global mean
 temperature, final state, years until it tips, whether it tipped. Results are
 plotted with theory and can be downloaded as CSV.
 
+**Batch settings table.** The batch panel lists every starting setting of a
+run: Sun, CO₂, heat transport, ice albedo, weather noise and years per run;
+the surface and start choices; and two things that used to be fixed: the
+spin-up before each run (150 years, no noise) and the batch time step (0.5
+years; 0.25 and 0.125 are offered). Defaults are the old values, so results
+are unchanged. Tick one setting to vary it and give from / to / step (+ adds
+the step, × multiplies by it; up to 60 steps, previewed as you type; a sweep
+can go down, as in the hysteresis experiments); every other setting stays at
+the value shown, and a run uses exactly what the table shows. Unticking goes
+back to Repeat; **there and back** sits next to the repeats per step.
+One-click experiments set the left panel and fill the whole table in, and
+**↺ Use my left-panel settings** copies the left panel into it.
+
 Batch experiments:
 
 1. **Sun down, then back up.** The ice-free branch gives way to ice caps below

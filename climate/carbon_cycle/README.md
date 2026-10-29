@@ -78,6 +78,23 @@ sensitivity (log-normal, about 2.3–3.9 °C for 1 SD). There are two modes:
 ± 1 SD for each step). Results download as CSV. Headless runs use a 0.2-year
 step.
 
+**Batch settings table.** The batch panel lists every starting setting a run
+uses: the future scenario, extra deforestation, trees planted, volcanic CO₂,
+CO₂ fertilisation β, ocean mixing and climate sensitivity; the choices (ocean
+uptake, warming feedbacks, vary the uncertain numbers); and four things that
+used to be fixed: the sizes of the random spreads (ocean mixing SD of ln 0.35,
+β multiplied by 0.6–1.5, sensitivity SD of ln 0.25) and the batch time step
+(0.2 years). Defaults are the old values, so results are unchanged. Rows not
+used by the chosen kind of experiment are hidden. Tick one setting to vary it
+and give from / to / step (+ adds the step, × multiplies by it; up to 60
+steps, previewed as you type); the "Future scenario: each one in turn" row is
+vary-only and steps through the six futures. Every other setting stays at the
+value shown, and a run uses exactly what the table shows. Unticking goes back
+to Repeat. One-click experiments fill the whole table in from the default
+settings (no longer from the left panel), and **↺ Use my left-panel settings**
+copies the left panel into it. When a sweep varies β, mixing or sensitivity,
+that value is held fixed while the others are still picked at random.
+
 Batch experiments and typical results:
 
 | Question | Result | Compared with |

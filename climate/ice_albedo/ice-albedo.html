@@ -113,9 +113,34 @@
   #bsum td, #bsum th { padding: 1px 4px; border-bottom: 1px solid var(--line); text-align: right; font-size: 12px; }
   #bsum td:first-child, #bsum th:first-child { text-align: left; }
   #bsum p { margin: 6px 0; }
-  #bnote { margin-top: 8px; padding: 7px 9px; background: var(--panel-2); border-left: 3px solid var(--accent); border-radius: 5px; color: #dfe3d6; }
+  #bNote { margin-top: 8px; padding: 7px 9px; background: var(--panel-2); border-left: 3px solid var(--accent); border-radius: 5px; color: #dfe3d6; }
   .prog { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; flex: 1; min-width: 120px; }
   .prog span { display: block; height: 100%; width: 0; background: var(--accent); }
+  /* Batch run: two columns, set-up on the left (experiments and the settings table), results on the right */
+  #batch { gap: 8px 12px; }
+  #batch.open { display: grid; grid-template-columns: minmax(330px, 40%) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  #batch .bhead { grid-column: 1 / -1; }
+  #batch .bhead .hint { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  #bsetup { overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding-right: 4px; min-height: 0; }
+  #bresults { display: flex; flex-direction: column; gap: 7px; min-height: 0; }
+  #bsetup #bexp { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  #bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(180px, 1fr) minmax(0, 42%); gap: 8px; }
+  /* Batch settings table: every starting setting, with a tick box to choose the one that is varied */
+  #bSetBox { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--panel-2); margin-top: 0; color: var(--text); }
+  #bSetBox > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
+  #bSetBox .bhint { font-size: 11.5px; color: var(--muted); margin: 3px 0 5px; }
+  #bOpts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; margin-bottom: 5px; }
+  #bOpts label { display: inline-flex; gap: 5px; align-items: center; }
+  #bTbl { display: grid; grid-template-columns: 1fr; gap: 3px 14px; }
+  .bt { display: flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 2px 4px; border-radius: 6px; flex-wrap: wrap; }
+  .bt.on { background: rgba(241,175,40,.13); outline: 1px solid var(--accent); }
+  .bt label { flex: 1; min-width: 150px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .bt input[type=number] { width: 78px !important; }
+  .bt .bsw { display: none; gap: 5px; align-items: center; flex-wrap: wrap; }
+  .bt.on .bsw { display: inline-flex; }
+  .bt.on .bval { display: none; }
+  .bt .bcount { color: var(--muted); font-size: 11.5px; }
+  #bTbl .bt input[type=number] { width: 90px !important; }
 
   /* Resizable, hideable side panels */
   .splitter { position: relative; cursor: col-resize; touch-action: none; }
@@ -266,39 +291,38 @@
 <div id="batch" role="dialog" aria-label="Batch run">
   <div class="bhead">
     <h3>📊 Batch run</h3>
-    <span class="hint">Runs the model with no drawing (0.5-year steps), using the settings on the left (an experiment button sets them for you). Each run starts from the chosen state (first settled for 150 years at the run's settings, without noise), then runs for the chosen number of years with random weather noise.</span>
+    <span class="hint">Runs the model with no drawing (0.5-year steps unless the table says otherwise). Each run starts from the chosen state (first settled for 150 years at the run's settings, without noise), then runs for the chosen number of years with random weather noise. Every setting used is in the table: experiments fill it in, and you can change any of it.</span>
     <button id="bClose" style="margin-left:auto">✕ Close</button>
   </div>
-  <div id="bexp"></div>
-  <div class="brow">
-    <label>Mode <select id="bMode"><option value="repeat">Repeat (same settings, different random weather)</option><option value="sweep">Sweep (change one setting in steps)</option></select></label>
-    <label>Record <select id="bOut"></select></label>
-    <label>Start <select id="bStart"><option value="warm">warm (today-like)</option><option value="snow">snowball</option></select></label>
-    <label>Years per run <input type="number" id="bYears" min="20" max="5000" value="300" style="width:70px"></label>
+  <div id="bsetup">
+    <div id="bexp"></div>
+    <div class="brow">
+      <label>Mode <select id="bMode"><option value="repeat">Repeat (same settings, different random weather)</option><option value="sweep">Sweep (vary the ticked setting in steps)</option></select></label>
+      <label>Record <select id="bOut"></select></label>
+      <span id="bRepeatOpts"><label>Runs <select id="bRuns"><option>20</option><option selected>100</option><option>200</option><option>500</option><option>1000</option></select></label></span>
+    </div>
+    <details id="bSetBox" open>
+      <summary>Starting settings: tick the one to vary</summary>
+      <div class="bhint">Every setting a run uses is listed. Tick one to sweep it from → to in steps (+ adds the step each time, × multiplies by it); every other setting stays at the value shown. What you see is what runs.</div>
+      <div id="bOpts"></div>
+      <div id="bTbl"></div>
+      <div class="brow" style="margin-top:5px"><span id="bSweepOpts"><label>Repeats at each step <input type="number" id="bReps" min="1" max="100" value="3" style="width:60px"></label>
+        <label title="Each step starts from where the previous step ended, going there and back again, so the planet 'remembers' its state"><input type="checkbox" id="bBack"> there and back (keep the climate between steps)</label></span>
+        <button id="bLeft" title="Fill the table from the settings on the left panel">↺ Use my left-panel settings</button></div>
+    </details>
   </div>
-  <div class="brow">
-    <span id="bRepeatOpts" class="brow">
-      <label>Runs <select id="bRuns"><option>20</option><option selected>100</option><option>200</option><option>500</option><option>1000</option></select></label>
-    </span>
-    <span id="bSweepOpts" class="brow">
-      <label>Change <select id="bVar"></select></label>
-      <label>from <input type="number" id="bFrom" step="any"></label>
-      <label>to <input type="number" id="bTo" step="any"></label>
-      <label>steps <input type="number" id="bSteps" min="2" max="41" value="8" style="width:56px"></label>
-      <label>repeats <input type="number" id="bReps" min="1" max="100" value="3" style="width:56px"></label>
-      <label title="Each step starts from where the previous step ended, going there and back again, so the planet 'remembers' its state"><input type="checkbox" id="bBack"> there and back (keep the climate between steps)</label>
-    </span>
-  </div>
-  <div class="brow">
-    <button id="bRun" class="primary">▶ Run batch</button>
-    <button id="bStop" disabled>■ Stop</button>
-    <div class="prog"><span id="bProg"></span></div>
-    <span id="bStatus" class="hint">Ready</span>
-    <button id="bCsv" disabled>⬇ Download CSV</button>
-  </div>
-  <div id="bbody">
-    <div id="bchartBox"><canvas id="bchart"></canvas></div>
-    <div id="bside"><div id="bsum" class="hint">Pick an experiment above, or set up your own, then press <b>Run batch</b>.</div><div id="bnote" style="display:none"></div></div>
+  <div id="bresults">
+    <div class="brow">
+      <button id="bRun" class="primary">▶ Run batch</button>
+      <button id="bStop" disabled>■ Stop</button>
+      <div class="prog"><span id="bProg"></span></div>
+      <span id="bStatus" class="hint">Ready</span>
+      <button id="bCsv" disabled>⬇ Download CSV</button>
+    </div>
+    <div id="bbody">
+      <div id="bchartBox"><canvas id="bchart"></canvas></div>
+      <div id="bside"><div id="bsum" class="hint">Pick an experiment, or set up your own, then press <b>Run batch</b>.</div><div id="bNote" style="display:none"></div></div>
+    </div>
   </div>
 </div>
 
@@ -483,10 +507,11 @@ const snowProfile = () => Float64Array.from(LAT, l => -35 - 20 * Math.sin(l * RA
 // Spin up (no noise) for 150 years, so the planet starts settled. Cached, because batch runs reuse it.
 const spinCache = new Map();
 function spunUp(p, start) {
-  const key = [p.S, p.co2, p.D, p.a2, p.surf, start].join("|");
+  const spin = p.spin ?? 150, dt = p.dt ?? 0.5;            // 150 years in 0.5-year steps (batch table settings)
+  const key = [p.S, p.co2, p.D, p.a2, p.surf, start, spin, dt].join("|");
   if (spinCache.has(key)) return Float64Array.from(spinCache.get(key));
   const T = start === "snow" ? snowProfile() : warmProfile(), C = heatCaps(p.surf);
-  for (let t = 0; t < 150; t += 0.5) stepT(T, p, C, 0.5, 0);
+  for (let t = 0; t < spin; t += dt) stepT(T, p, C, dt, 0);
   if (spinCache.size > 400) spinCache.clear();
   spinCache.set(key, Float64Array.from(T));
   return T;
@@ -911,7 +936,7 @@ function frame(now) {
    previous step ended (state). Runs p.years years with yearly weather noise.
    ===================================================================== */
 function runOnce(p, seed, out, state) {
-  const rng = mulberry32(seed), C = heatCaps(p.surf), dt = 0.5;
+  const rng = mulberry32(seed), C = heatCaps(p.surf), dt = p.dt ?? 0.5;          // the batch time step (0.5 years unless the table says otherwise)
   const T = state ? Float64Array.from(state) : spunUp(p, p.start);       // settled for 150 years (no noise) at these settings
   let tip = NaN, nf = 0;
   for (let t = 0; t < p.years - 1e-9; t += dt) {
@@ -931,13 +956,24 @@ function runOnce(p, seed, out, state) {
 /* =====================================================================
    15. BATCH RUNS: settings, theory and experiments
    ===================================================================== */
+// Every starting setting a batch run uses, for the batch settings table (get = read it from a set of parameters, set = write it)
 const VARS = {
-  S:     { label: "Sunlight", unit: "% of today", min: 60, max: 150, set: (p, v) => (p.S = v) },
-  co2:   { label: "CO₂", unit: "ppm", min: 50, max: 1e7, log: true, set: (p, v) => (p.co2 = v) },
-  D:     { label: "Heat transport D", unit: "W/m² per °C", min: 0.05, max: 2, set: (p, v) => (p.D = v) },
-  a2:    { label: "Ice albedo", unit: "", min: 0.3, max: 0.9, set: (p, v) => (p.a2 = v) },
-  noise: { label: "Weather noise", unit: "W/m²", min: 0, max: 30, set: (p, v) => (p.noise = v) },
+  S:     { label: "Sunlight", unit: "% of today", min: 60, max: 150, get: p => p.S, set: (p, v) => (p.S = v) },
+  co2:   { label: "CO₂", unit: "ppm", min: 50, max: 1e7, log: true, get: p => p.co2, set: (p, v) => (p.co2 = v) },
+  D:     { label: "Heat transport D", unit: "W/m² per °C", min: 0.05, max: 2, get: p => p.D, set: (p, v) => (p.D = v) },
+  a2:    { label: "Ice albedo", unit: "", min: 0.3, max: 0.9, get: p => p.a2, set: (p, v) => (p.a2 = v) },
+  noise: { label: "Weather noise", unit: "W/m²", min: 0, max: 30, get: p => p.noise, set: (p, v) => (p.noise = v) },
+  years: { label: "Years per run", unit: "years", min: 20, max: 5000, int: true, from: 100, to: 500, get: p => p.years, set: (p, v) => (p.years = Math.round(v)) },
+  spin:  { label: "Settling (spin-up) before each run, no noise", unit: "years", min: 0, max: 2000, int: true, get: p => p.spin, set: (p, v) => (p.spin = Math.round(v)) },
 };
+// Settings that are choices rather than numbers
+const BOPTS = [
+  { k: "surf", label: "Surface", choices: [...el("surf").options].map(o => [o.value, o.text]) },
+  { k: "start", label: "Start", choices: [["warm", "warm (today-like)"], ["snow", "snowball"]] },
+  { k: "dt", label: "Time step", num: true, choices: [[0.5, "0.5 years"], [0.25, "0.25 years"], [0.125, "0.125 years"]] },
+];
+// The batch-only settings the left panel does not have, at their usual values (the slow drift is always off in batch runs)
+const BATCH_EXTRA = { drift: "off", start: "warm", years: 300, spin: 150, dt: 0.5 };
 const OUTCOMES = {
   ice:     { label: "Final ice-edge latitude", unit: "°" },
   Tm:      { label: "Final global mean temperature", unit: "°C" },
@@ -992,35 +1028,131 @@ const EXPERIMENTS = [
 
 /* --- generic batch machinery --- */
 let batchBusy = false, batchStop = false, batchRes = null, expNote = null;
+/* ---- The batch settings table ----
+   TBL holds a value for EVERY starting setting a batch run uses, the settings that are choices, and which
+   setting (if any) is varied, with its range and step. One-click experiments fill it in; a run uses exactly
+   what the table shows. An experiment's sweep keeps its own evenly spaced (or log-spaced) values until you
+   edit the range. Tick a row to vary it: the tick boxes act like radio buttons (one at most), and unticking
+   goes back to Repeat mode. */
+const TBL = { src: {}, vals: {}, opts: {}, vary: null, from: 0, to: 1, kind: "+", step: 1, exact: null };
+const nice = x => (x === 0 || !isFinite(x)) ? x : +(+x).toPrecision(4);
+const tDisp = x => (typeof x === "number" && isFinite(x) && x !== 0) ? +x.toPrecision(7) : x;   // tidy display (7 figures); the table keeps the exact value
+function sweepValues() {               // the values the varied setting takes: from, from+step, … (or from, from×step, …) up to "to"; at most 60
+  const V = VARS[TBL.vary]; if (!V) return [];
+  if (TBL.exact) return TBL.exact.slice();
+  const out = [], up = TBL.to >= TBL.from;
+  if (TBL.kind === "×") {
+    let f = Math.abs(TBL.step); if (!(f > 1) || TBL.from <= 0 || TBL.to <= 0) return [TBL.from];
+    if (!up) f = 1 / f;
+    for (let v = TBL.from, i = 0; i < 60 && (up ? v <= TBL.to * 1.01 : v >= TBL.to * 0.99); i++, v *= f) out.push(nice(v));
+  } else {
+    let d = Math.abs(TBL.step); if (!(d > 0)) return [TBL.from];
+    if (!up) d = -d;
+    for (let i = 0; i < 60; i++) { const v = TBL.from + i * d; if (up ? v > TBL.to + 1e-3 * Math.abs(d) : v < TBL.to - 1e-3 * Math.abs(d)) break; out.push(nice(v)); }
+  }
+  const vals = out.map(v => clamp(V.int ? Math.round(v) : v, V.min, V.max));
+  return vals.filter((v, i) => i === 0 || v !== vals[i - 1]);
+}
+// an experiment's own sweep values (the same formula the batch has always used)
+function expValues(E) {
+  const V = VARS[E.v], lg = V.log && E.from > 0 && E.to > 0, xs = [];
+  for (let s = 0; s < E.steps; s++) xs.push(clamp(lg ? E.from * Math.pow(E.to / E.from, s / (E.steps - 1)) : E.from + (E.to - E.from) * s / (E.steps - 1), V.min, V.max));
+  return xs;
+}
+// Fill the table from a full set of parameters p (an experiment's, or the left panel's); E = an experiment with a sweep
+function fillTable(p, E) {
+  TBL.src = { ...p }; TBL.vals = {}; TBL.opts = {}; TBL.exact = null;
+  for (const [k, V] of Object.entries(VARS)) TBL.vals[k] = V.get(p);
+  for (const O of BOPTS) TBL.opts[O.k] = p[O.k];
+  if (E && E.v) {
+    const lg = VARS[E.v].log && E.from > 0 && E.to > 0;
+    TBL.vary = E.v; TBL.from = E.from; TBL.to = E.to;
+    if (lg) { TBL.kind = "×"; TBL.step = nice(Math.pow(E.to / E.from, 1 / (E.steps - 1))); } else { TBL.kind = "+"; TBL.step = nice((E.to - E.from) / (E.steps - 1)); }
+    TBL.exact = expValues(E);
+  } else TBL.vary = null;
+  renderTable();
+}
+function renderTable() {
+  el("bOpts").innerHTML = BOPTS.map(O => O.bool
+    ? `<label><input type="checkbox" data-o="${O.k}" ${TBL.opts[O.k] ? "checked" : ""}> ${O.label}</label>`
+    : `<label>${O.label} <select data-o="${O.k}">${O.choices.map(([v, t]) => `<option value="${v}" ${String(TBL.opts[O.k]) === String(v) ? "selected" : ""}>${t}</option>`).join("")}</select></label>`).join("");
+  el("bTbl").innerHTML = Object.entries(VARS).map(([k, V]) => {
+    const on = TBL.vary === k, u = V.unit ? ` (${V.unit})` : "";
+    return `<div class="bt${on ? " on" : ""}" data-k="${k}"><label ${on ? "data-ws-change" : ""}><input type="checkbox" data-vary="${k}" ${on ? "checked" : ""}> ${V.tlabel || V.label}${u}</label>` +
+      `<input type="number" class="bval" data-v="${k}" step="any" min="${V.min}" max="${V.max}" value="${tDisp(TBL.vals[k])}">` +
+      `<span class="bsw">from <input type="number" data-ws="from" data-r="from" step="any" value="${on ? tDisp(TBL.from) : ""}"> to <input type="number" data-ws="to" data-r="to" step="any" value="${on ? tDisp(TBL.to) : ""}">
+        step <select data-ws="step type" data-r="kind"><option value="+" ${TBL.kind === "+" ? "selected" : ""}>+</option><option value="×" ${TBL.kind === "×" ? "selected" : ""}>×</option></select>
+        <input type="number" data-ws="step" data-r="step" step="any" value="${on ? TBL.step : ""}"> <span class="bcount bsteps"></span></span></div>`;
+  }).join("");
+  updateCount();
+}
+function updateCount() {
+  const span = TBL.vary && el("bTbl").querySelector(`.bt[data-k="${TBL.vary}"] .bsteps`);
+  if (span) { const xs = sweepValues(); span.textContent = `→ ${xs.length} steps: ${xs.slice(0, 4).map(v => +v.toPrecision(4)).join(", ")}${xs.length > 4 ? " … " + +xs[xs.length - 1].toPrecision(4) : ""}`; }
+}
+function tableEdited() { expNote = null; document.querySelectorAll("#bexp button").forEach(b => b.classList.remove("on")); }
+function startVary(k) {                  // a sensible first range when a setting is ticked
+  const V = VARS[k], cur = TBL.vals[k];
+  TBL.vary = k; TBL.exact = null;
+  if (V.log && cur > 0) { TBL.kind = "×"; TBL.from = nice(Math.max(V.min, cur / 2)); TBL.to = nice(Math.min(V.max, cur * 4)); TBL.step = 2; return; }
+  TBL.kind = "+";
+  if (V.from !== undefined) { TBL.from = V.from; TBL.to = V.to; }
+  else if (cur > 0) { TBL.from = nice(Math.max(V.min, cur / 2)); TBL.to = nice(Math.min(V.max, cur * 2)); }
+  else { TBL.from = V.min; TBL.to = nice(Math.min(V.max, V.min + 1)); }
+  TBL.step = nice((TBL.to - TBL.from) / 4); if (V.int) TBL.step = Math.max(1, Math.round(TBL.step));
+}
+// the settings for a run: the set the table was filled from, then every choice and every value in the table
+function tableParams() {
+  const b = { ...TBL.src };
+  for (const O of BOPTS) if (TBL.opts[O.k] !== undefined) b[O.k] = TBL.opts[O.k];
+  for (const [k, x] of Object.entries(TBL.vals)) { const V = VARS[k]; if (typeof x === "number" && isFinite(x)) b[V.key || k] = clamp(V.int ? Math.round(x) : x, V.min, V.max); }
+  return b;
+}
+function hookTable() {
+  el("bSetBox").addEventListener("input", e => {
+    const t = e.target;
+    if (t.dataset.vary) {
+      if (t.checked) { startVary(t.dataset.vary); el("bMode").value = "sweep"; } else { TBL.vary = null; el("bMode").value = "repeat"; }
+      renderTable(); syncBatchUI(); tableEdited(); return;
+    }
+    if (t.dataset.v) TBL.vals[t.dataset.v] = +t.value;
+    if (t.dataset.o) TBL.opts[t.dataset.o] = t.type === "checkbox" ? t.checked : (BOPTS.find(O => O.k === t.dataset.o).num ? +t.value : t.value);
+    if (t.dataset.r) { TBL.exact = null; TBL[t.dataset.r] = t.dataset.r === "kind" ? t.value : +t.value; }
+    updateCount(); tableEdited();
+  });
+}
 function batchCfg() {
-  return { mode: el("bMode").value, out: el("bOut").value, runs: +el("bRuns").value, v: el("bVar").value, start: el("bStart").value,
-           years: clamp(Math.round(+el("bYears").value), 20, 5000), back: el("bBack").checked,
-           from: +el("bFrom").value, to: +el("bTo").value, steps: clamp(Math.round(+el("bSteps").value), 2, 41), reps: clamp(Math.round(+el("bReps").value), 1, 100) };
+  const sweep = el("bMode").value === "sweep" && TBL.vary, xs = sweep ? sweepValues() : [], p = tableParams();
+  return { mode: sweep ? "sweep" : "repeat", out: el("bOut").value, runs: +el("bRuns").value, v: TBL.vary, start: p.start, years: p.years, back: el("bBack").checked,
+           xs, from: TBL.from, to: TBL.to, steps: xs.length, reps: clamp(Math.round(+el("bReps").value) || 1, 1, 100) };
 }
 function loadExperiment(i) {
   const E = EXPERIMENTS[i];
-  el("bMode").value = E.mode; el("bOut").value = E.out; el("bStart").value = E.start; el("bYears").value = E.years;
+  el("bMode").value = E.mode; el("bOut").value = E.out;
   if (E.runs) el("bRuns").value = E.runs;
   el("bBack").checked = !!E.back;
-  if (E.v) { el("bVar").value = E.v; el("bFrom").value = E.from; el("bTo").value = E.to; el("bSteps").value = E.steps; el("bReps").value = E.reps; }
+  if (E.v) el("bReps").value = E.reps;
   if (E.set) { setControls(E.set); document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); }
+  // the table is filled from the experiment's complete settings (as the left panel now shows them), plus the batch-only ones
+  fillTable({ ...params(), ...BATCH_EXTRA, start: E.start, years: E.years }, E.mode === "sweep" ? E : null);
   expNote = E.note;
   document.querySelectorAll("#bexp button").forEach((b, k) => b.classList.toggle("on", k === i));
   syncBatchUI();
 }
 function syncBatchUI() {
+  if (el("bMode").value === "sweep" && !TBL.vary) { startVary("S"); renderTable(); }   // a sweep needs a ticked setting
+  if (el("bMode").value === "repeat" && TBL.vary) { TBL.vary = null; renderTable(); }
   const sweep = el("bMode").value === "sweep";
   el("bRepeatOpts").style.display = sweep ? "none" : ""; el("bSweepOpts").style.display = sweep ? "" : "none";
 }
 function runBatch() {
-  const c = batchCfg(), base = { ...params(), drift: "off", start: c.start, years: c.years };
+  const c = batchCfg(), base = { ...tableParams(), drift: "off" };       // exactly the settings the table shows
   const jobs = [];
   if (c.mode === "repeat") for (let k = 0; k < c.runs; k++) jobs.push({ p: base, x: null, rep: k, seed: 1000 + k * 7919, branch: 0 });
   else {
-    const V = VARS[c.v], lg = V.log && c.from > 0 && c.to > 0, xs = [];
-    for (let s = 0; s < c.steps; s++) xs.push(clamp(lg ? c.from * Math.pow(c.to / c.from, s / (c.steps - 1)) : c.from + (c.to - c.from) * s / (c.steps - 1), V.min, V.max));
+    const V = VARS[c.v], xs = c.xs;
     const path = xs.map(x => ({ x, branch: 0 }));
-    if (c.back) for (let s = c.steps - 2; s >= 0; s--) path.push({ x: xs[s], branch: 1 });
+    if (c.back) for (let s = xs.length - 2; s >= 0; s--) path.push({ x: xs[s], branch: 1 });
     // with "there and back", each repeat walks the whole path in order, carrying the climate along
     for (let r = 0; r < c.reps; r++) path.forEach((q, s) => { const p = { ...base }; V.set(p, q.x); jobs.push({ p, x: q.x, branch: q.branch, rep: r, step: s, seed: 2000 + s * 104729 + r * 7919 }); });
     if (!c.back) jobs.sort((a, b) => a.step - b.step || a.rep - b.rep);
@@ -1060,7 +1192,7 @@ const BR_COL = ["#00aec3", "#ff6b6b"];
 function drawBatch() {
   const { ctx, w, h } = fitCanvas(el("bchart"));
   ctx.clearRect(0, 0, w, h);
-  const note = el("bnote"); note.style.display = expNote ? "" : "none"; note.innerHTML = expNote ? `<b>What this shows.</b> ${expNote}` : "";
+  const note = el("bNote"); note.style.display = expNote ? "" : "none"; note.innerHTML = expNote ? `<b>What this shows.</b> ${expNote}` : "";
   if (!batchRes || !batchRes.rows.length) return;
   const c = batchRes.cfg, O = OUTCOMES[c.out], unit = O.unit ? ` (${O.unit})` : "", base = batchRes.base;
   let html = "";
@@ -1189,22 +1321,20 @@ function placeBatch() {
 }
 (function initBatch() {
   el("bOut").innerHTML = Object.entries(OUTCOMES).map(([k, o]) => `<option value="${k}">${o.label}${o.unit ? " (" + o.unit + ")" : ""}</option>`).join("");
-  el("bVar").innerHTML = Object.entries(VARS).map(([k, v]) => `<option value="${k}">${v.label}${v.unit ? " (" + v.unit + ")" : ""}</option>`).join("");
   el("bexp").innerHTML = EXPERIMENTS.map((e, i) => `<button data-i="${i}">${e.q}</button>`).join("");
   document.querySelectorAll("#bexp button").forEach(b => b.addEventListener("click", () => loadExperiment(+b.dataset.i)));
-  el("bMode").addEventListener("input", () => { expNote = null; syncBatchUI(); drawBatch(); });
-  ["bOut", "bVar"].forEach(id => el(id).addEventListener("input", () => {
-    expNote = null; document.querySelectorAll("#bexp button").forEach(b => b.classList.remove("on"));
-    if (id === "bVar") { const k = el("bVar").value, V = VARS[k], p = params(), cur = { S: p.S, co2: p.co2, D: p.D, a2: p.a2, noise: p.noise }[k];
-      el("bFrom").value = +(V.log ? cur / 2 : Math.max(V.min, cur * 0.8)).toPrecision(3); el("bTo").value = +(V.log ? cur * 4 : Math.min(V.max, cur * 1.2 || 5)).toPrecision(3); }
-    drawBatch();
-  }));
+  el("bMode").addEventListener("input", () => { tableEdited(); syncBatchUI(); drawBatch(); });
+  el("bOut").addEventListener("input", () => { tableEdited(); drawBatch(); });
+  ["bRuns", "bReps", "bBack"].forEach(id => el(id).addEventListener("input", () => { tableEdited(); drawBatch(); }));
+  hookTable();
+  el("bLeft").addEventListener("click", () => { fillTable({ ...params(), ...BATCH_EXTRA }, null); el("bMode").value = "repeat"; syncBatchUI(); tableEdited(); drawBatch(); });
   el("btnBatch").addEventListener("click", () => { setRunning(false); placeBatch(); el("batch").classList.add("open"); if (!batchRes) loadExperiment(0); drawBatch(); });
   el("bClose").addEventListener("click", () => { el("batch").classList.remove("open"); });
   el("bRun").addEventListener("click", runBatch);
   el("bStop").addEventListener("click", () => { batchStop = true; });
   el("bCsv").addEventListener("click", downloadCSV);
   window.addEventListener("resize", () => { if (el("batch").classList.contains("open")) { placeBatch(); drawBatch(); } });
+  fillTable({ ...params(), ...BATCH_EXTRA }, null);
   syncBatchUI();
 })();
 

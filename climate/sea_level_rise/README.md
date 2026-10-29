@@ -103,6 +103,24 @@ Projection runs use a 0.5-year step and no map. Storm runs simulate years of
 random Gumbel storms. There are two modes, Repeat and Sweep, and results
 download as CSV.
 
+**Batch settings table.** The batch panel lists every starting setting a run
+uses. Projections: scenario, warming by 2100 for "Slider warming", the
+thermal expansion, glacier, Greenland and Antarctic sensitivities, the
+ice-cliff collapse and its starting temperature, ground water and dams, and
+"vary the uncertain numbers", plus things that used to be fixed: the five
+random spreads above (SD 0.22, 0.2, 0.25, 0.4 and 0.6) and the time step (0.5
+years). Storm floods: the coast, the sea level rise, and two things that used
+to be fixed: the storm spread (Gumbel scale β, the coast's own value) and the
+years of storms in each run (100 for floods per century, 2,000 for the return
+period). Defaults are the old values, so results are unchanged, and only the
+rows the chosen kind of experiment uses are shown. Tick one setting to vary it
+and give from / to / step (+ adds the step, × multiplies by it; up to 60
+steps, previewed as you type); every other setting stays at the value shown,
+and a run uses exactly what the table shows. Unticking goes back to Repeat.
+One-click experiments fill the whole table in from the default settings (the
+storm experiments used to take the coast from the map), and **↺ Use my
+left-panel settings** copies the left panel (and the coast on the map) into it.
+
 | Batch experiment | Result | Theory / IPCC |
 |---|---|---|
 | SSP1-2.6, 2100 (500 runs) | mean 0.47 m; 17–83% 0.39–0.54 m; 93% of runs inside the IPCC range | AR6 0.44 m (likely 0.32–0.62) |
