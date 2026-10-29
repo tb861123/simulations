@@ -62,6 +62,10 @@ Batch runs use the restricted model with **800 test stars** and no drawing. Merg
 
 All six experiments run in under 3 seconds each.
 
+**Batch settings table.** The batch panel lists every starting setting a run uses: the orbit (chosen closest approach, or the measured Milky Way–Andromeda orbit), dark matter halos on/off, and the random variation between runs; galaxy A's mass, mass ratio, halo mass, closest approach and approach speed (or, for the Milky Way–Andromeda orbit, Andromeda's sideways speed, approach speed of 109.3 km/s and distance of 785 kpc), both discs' tilts and tilt directions, the size of the "disc orientations ±" variation (10° by default) and the number of test stars per run (800 by default). The last four used to be fixed in the code; their defaults are the old values, so every experiment gives the same result. Sweeping galaxy A's tilt tilts both discs, as before. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in, and **↺ Use my left-panel settings** copies the left panel into it.
+
+The outcomes *time of first close pass* and *closest approach reached* now work in batch runs: before, a run with no test stars stopped after its first time step, so these two were always blank. (No one-click experiment records them.)
+
 ## Limitations
 
 - In the restricted model, real halos are replaced by rigid spheres plus a friction formula, so merger times are uncertain by tens of percent.

@@ -79,4 +79,6 @@ Each run simulates planet b alone, with new noise and a random transit time. It 
 
 Results can be downloaded as CSV.
 
+**Batch settings table.** The batch panel lists every starting setting a run uses: star, telescope, star spots, flares and random seed; planet radius, mass and period, inclination, noise multiplier, observing time, radial-velocity precision and number of radial-velocity measurements, and the detection threshold (SNR, 7 by default: it used to be fixed). Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in, and **↺ Use my left-panel settings** copies the left panel into it.
+
 **Known limitation:** at very high SNR the trapezoid template sits a little shallow compared with the true round-cornered transit, so hot-Jupiter radii come out about 1–2% small (e.g. 11.0 vs 11.2 R⊕).

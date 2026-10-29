@@ -56,7 +56,9 @@ A full run takes about a minute even at top speed, so the **📊 Batch** button
 top of the batch panel: 100 planetesimals (not the slider value), a gas
 lifetime of 1 million years, a time step twice as long (1/10 of an orbit at
 0.3 AU), no cloud prologue, no asteroids or comets, Medium quality (see
-below), and each run stops 20 million years after the gas has gone. Other settings come from the left panel.
+below), and each run stops 20 million years after the gas has gone. The other
+settings start at the page's opening disc; every setting is in the batch
+settings table (below).
 **One run takes about 8–20 seconds**, so each experiment takes 1–2 minutes.
 The interactive simulation pauses during a batch and is not changed (each
 batch run has its own simulation object).
@@ -84,6 +86,8 @@ Hill radii (about the minimum spacing for long-term stability; Chambers et al.
 1996). Giant planets (≥ 50 M⊕) always count, because they can sit closer and
 stay stable (Jupiter and Saturn are 8 apart). Our Solar System passes this test
 with all 8 planets. The raw count is still available.
+
+**Batch settings table.** The batch panel lists every starting setting a disc uses: star mass, disc mass, number of planetesimals, outer radius, fall-off exponent, stirring, mutual-gravity threshold, collision radius, gas, gas lifetime, critical core mass, late-stage boost, the time-step factor and how long a run continues after the gas has gone, plus the disc seed. The reduced batch settings (100 planetesimals, 1 Myr of gas, a 2× time step, stopping 20 Myr after the gas) are the defaults, so every experiment gives the same result; bigger values make runs much slower. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in, and **↺ Use my left-panel settings** copies the left panel into it. (Copying the left panel keeps the four reduced batch settings.)
 
 One-click batch experiments (results from a test run with the default settings):
 

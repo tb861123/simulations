@@ -99,11 +99,31 @@
   details li { margin-bottom: 4px; }
 
   /* Batch run overlay */
-  #batch { position: fixed; left: 12px; right: 12px; top: 52px; bottom: 12px; z-index: 50; display: none; grid-template-columns: 330px minmax(0, 1fr);
+  #batch { position: fixed; left: 12px; right: 12px; top: 52px; bottom: 12px; z-index: 50; display: none; grid-template-columns: minmax(360px, 38%) minmax(0, 1fr);
            gap: 12px; background: rgba(12,15,10,.98); border: 1px solid var(--accent); border-radius: 12px; padding: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.7); }
   #batch.open { display: grid; }
-  #bLeft { overflow-y: auto; min-height: 0; padding-right: 4px; }
-  #bRight { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
+  #bsetup { overflow-y: auto; min-height: 0; padding-right: 4px; }
+  #bresults { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
+  #bsetup .bexp { grid-template-columns: 1fr 1fr; }
+  #bresults .brun { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #bresults .brun #bProg { flex: 1; min-width: 120px; margin: 0; }
+  /* Batch settings table: every starting setting, with a tick box to choose the one that is varied */
+  #bSetBox { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--panel-2); margin-top: 0; color: var(--text); }
+  #bSetBox > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
+  #bSetBox .bhint { font-size: 11.5px; color: var(--muted); margin: 3px 0 5px; }
+  #bOpts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; margin-bottom: 5px; }
+  #bOpts label { display: inline-flex; gap: 5px; align-items: center; }
+  #bTbl { display: grid; grid-template-columns: 1fr; gap: 3px 14px; }
+  .bt { display: flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 2px 4px; border-radius: 6px; flex-wrap: wrap; }
+  .bt.on { background: rgba(241,175,40,.13); outline: 1px solid var(--accent); }
+  .bt label { flex: 1; min-width: 150px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .bt input[type=number] { width: 78px !important; }
+  .bt .bsw { display: none; gap: 5px; align-items: center; flex-wrap: wrap; }
+  .bt.on .bsw { display: inline-flex; }
+  .bt.on .bval { display: none; }
+  .bt .bcount { color: var(--muted); font-size: 11.5px; }
+  #bSetBox select, #bSetBox input[type=number] { font: inherit; font-size: 12.5px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 2px 4px; }
+  #bSetBox .bt input[type=number] { flex: none; }
   #bHead { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   #bHead h3 { margin: 0; font-size: 17px; }
   .bexp { display: grid; gap: 5px; }
@@ -118,7 +138,7 @@
   #bChart { position: absolute; inset: 0; width: 100%; height: 100%; }
   #bProg { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; margin: 6px 0; }
   #bProg span { display: block; height: 100%; width: 0; background: var(--accent); }
-  #bSummary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; }
+  #bSummary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
   #bSummary .tile .v { font-size: 13px; }
   #bNote { font-size: 12.5px; color: #dfe3d6; max-height: 120px; overflow-y: auto; }
   #bNote p { margin: 0 0 5px; }
@@ -300,28 +320,27 @@
 
 <!-- ======================= BATCH RUN OVERLAY ======================= -->
 <div id="batch" role="dialog" aria-label="Batch run">
-  <div id="bLeft">
+  <div id="bsetup">
     <h2>Batch experiments</h2>
     <div class="bexp" id="bExps"></div>
     <h2 class="gap">Set up your own</h2>
     <div id="bBase"></div>
-    <div class="brow"><button id="bUseCurrent" style="flex:1" title="Use whatever is set in the left-hand panel">Use the current left-panel settings</button></div>
-    <div class="brow"><label>Mode</label><select id="bMode"><option value="repeat">Repeat (same settings, many runs)</option><option value="sweep">Sweep (change one setting)</option></select></div>
+    <div class="brow"><label>Mode</label><select id="bMode"><option value="repeat">Repeat (same settings, many runs)</option><option value="sweep">Sweep (vary the ticked setting in steps)</option></select></div>
     <div id="bRepeatRow" class="brow"><label>Runs</label><select id="bN"><option>20</option><option selected>50</option><option>100</option><option>200</option><option>500</option></select></div>
-    <div class="brow"><label>Vary</label><select id="bVary"></select></div>
-    <div id="bSweepRows">
-      <div class="brow"><label>Sweep</label><select id="bVar"></select></div>
-      <div class="brow"><label>From</label><input type="number" id="bFrom" step="any"><label style="min-width:0">to</label><input type="number" id="bTo" step="any"></div>
-      <div class="brow"><label>Steps</label><input type="number" id="bSteps" min="2" max="20" value="6"><label style="min-width:0">repeats</label><input type="number" id="bReps" min="1" max="20" value="3"></div>
-    </div>
     <div class="brow"><label>Record</label><select id="bOut"></select></div>
-    <div class="brow"><button id="bRun" class="primary" style="flex:1">▶ Run batch</button><button id="bStop" disabled>■ Stop</button></div>
-    <div id="bProg"><span></span></div>
-    <div class="hint" id="bInfo"></div>
-    <p class="hint">Batch runs use the restricted model with <b>800 test stars</b> (not thousands) and 1 Myr steps, and skip the drawing, so they finish quickly. Results about the cores (merger times) use no stars at all. Fewer stars means more scatter.</p>
+    <details id="bSetBox" open>
+      <summary>Starting settings: tick the one to vary</summary>
+      <div class="bhint">Every setting a run uses is listed. Tick one to sweep it from → to in steps (+ adds the step each time, × multiplies by it); every other setting stays at the value shown. What you see is what runs.</div>
+      <div id="bOpts"></div>
+      <div id="bTbl"></div>
+      <div class="brow" style="margin-top:5px"><span id="bSweepOpts" style="display:contents"><label style="min-width:0">Repeats at each step</label><input type="number" id="bReps" min="1" max="20" value="3"></span>
+        <button id="bLeft" title="Fill the table from the settings on the left panel">↺ Use my left-panel settings</button></div>
+    </details>
+    <p class="hint">Batch runs use the restricted model with <b>800 test stars</b> by default (not thousands; set in the table) and 1 Myr steps, and skip the drawing, so they finish quickly. Results about the cores (merger times) use no stars at all. Fewer stars means more scatter.</p>
   </div>
-  <div id="bRight">
+  <div id="bresults">
     <div id="bHead"><h3 id="bTitle">Batch run</h3><span><a id="bCsv" href="#" download="galaxy-batch.csv" style="color:var(--accent);margin-right:10px">Download CSV</a><button id="bClose">✕ Close</button></span></div>
+    <div class="brun"><button id="bRun" class="primary">▶ Run batch</button><button id="bStop" disabled>■ Stop</button><div id="bProg"><span></span></div><span class="hint" id="bInfo"></span></div>
     <div id="bChartBox"><canvas id="bChart"></canvas></div>
     <div id="bSummary"></div>
     <div id="bNote"></div>
@@ -835,7 +854,7 @@ function runOnce(p, seed, opt) {
     step(S);
     if (opt.nStars && !meas && S.periT != null && S.t >= S.periT + AFTER_PERI) { meas = measure(S); meas.coll = expectedCollisions(S); }
     const starsDone = !opt.nStars || meas;
-    if (starsDone && (!opt.needMerge || S.merged)) break;
+    if (starsDone && (!opt.needMerge || S.merged) && (!opt.needPeri || S.periT != null)) break;
   }
   if (opt.nStars && !meas) { meas = measure(S); meas.coll = expectedCollisions(S); }
   return {
@@ -1244,14 +1263,32 @@ document.querySelectorAll(".speed button").forEach(b => (b.onclick = () => setSp
    the same set-up many times with random variations; "Sweep" changes one
    setting in steps. Results are compared with theory where there is one.
    ===================================================================== */
+// EVERY numeric starting setting, for the batch settings table ("orbit" = only used with that orbit choice;
+// axis = the graph's axis label when it is swept)
 const BVARS = [
-  { key: "rp", label: "Closest approach (kpc)", from: 5, to: 60 },
-  { key: "vfac", label: "Approach speed (× escape)", from: 0.6, to: 1.8 },
-  { key: "ratio", label: "Mass ratio B : A", from: 0.1, to: 1 },
-  { key: "haloX", label: "Halo mass (× visible)", from: 2, to: 20 },
-  { key: "tiltA", label: "Tilt of both discs (°)", from: 0, to: 180, both: true },
-  { key: "vtan", label: "Andromeda sideways speed (km/s)", from: 0, to: 140 },
+  { key: "massA", label: "Mass of galaxy A (× 10¹⁰ M☉)", min: 1, max: 20 },
+  { key: "ratio", label: "Mass ratio B : A", min: 0.05, max: 1 },
+  { key: "haloX", label: "Halo mass (× visible)", min: 0, max: 25 },
+  { key: "rp", label: "Closest approach (kpc)", min: 0, max: 60, orbit: "peri" },
+  { key: "vfac", label: "Approach speed (× escape)", min: 0.5, max: 2, orbit: "peri" },
+  { key: "vtan", label: "Andromeda sideways speed (km/s)", min: 0, max: 150, orbit: "mwm31" },
+  { key: "vrad", label: "Andromeda approach speed (km/s)", min: 50, max: 200, orbit: "mwm31" },
+  { key: "d0", label: "Andromeda distance today (kpc)", min: 500, max: 1000, orbit: "mwm31" },
+  { key: "tiltA", label: "Tilt of galaxy A (°): sweeping it tilts both discs", axis: "Tilt of both discs (°)", min: 0, max: 180, both: true },
+  { key: "turnA", label: "Tilt direction of galaxy A (°)", min: 0, max: 360 },
+  { key: "tiltB", label: "Tilt of galaxy B (°)", min: 0, max: 180 },
+  { key: "turnB", label: "Tilt direction of galaxy B (°)", min: 0, max: 360 },
+  { key: "jit", label: "\"Disc orientations ±\" variation: up to ± (°)", min: 0, max: 90, vary: "jitter" },
+  { key: "bStars", label: "Test stars per run (star outcomes)", min: 50, max: 8000, int: true },
 ];
+// the settings that are choices rather than numbers
+const BOPTS = [
+  { k: "orbit", label: "Orbit", choices: [["peri", "Choose the closest approach"], ["mwm31", "Milky Way & Andromeda (measured today)"]] },
+  { k: "halo", label: "Dark matter halos", bool: true },
+  { k: "vary", label: "Random variation between runs", choices: null },
+];
+// every one-click experiment starts from the basic set-up, its preset, and these batch settings
+const BATCH_BASE = { selfGrav: false, gas: false, vrad: 109.3, d0: 785, jit: 10, bStars: 800 };
 const BOUT = [
   { key: "strip", label: "Stars stripped from their galaxy (%)", stars: true, theory: p => theoryStrip(p, "strip"), theoryName: "impulse approximation (no resonance)" },
   { key: "tail", label: "Stars in tidal tails (%)", stars: true, theory: p => theoryStrip(p, "tail"), theoryName: "impulse approximation (no resonance)" },
@@ -1263,13 +1300,14 @@ const BOUT = [
 ];
 const BVARY = {
   seed: { label: "Only the random star positions", f: () => {} },
-  jitter: { label: "Disc orientations ±10°", f: (p, r) => { p.tiltA = Math.max(0, Math.min(180, p.tiltA + 20 * (r() - 0.5))); p.tiltB = Math.max(0, Math.min(180, p.tiltB + 20 * (r() - 0.5))); p.turnA = 360 * r(); p.turnB = 360 * r(); } },
+  jitter: { label: "Disc orientations ± (size in the table, 10° by default)", f: (p, r) => { p.tiltA = Math.max(0, Math.min(180, p.tiltA + 2 * p.jit * (r() - 0.5))); p.tiltB = Math.max(0, Math.min(180, p.tiltB + 2 * p.jit * (r() - 0.5))); p.turnA = 360 * r(); p.turnB = 360 * r(); } },
   pro: { label: "Random prograde orientations (tilt 0–45°)", f: (p, r) => { p.tiltA = 45 * r(); p.tiltB = 45 * r(); p.turnA = 360 * r(); p.turnB = 360 * r(); } },
   retro: { label: "Random retrograde orientations (tilt 135–180°)", f: (p, r) => { p.tiltA = 180 - 45 * r(); p.tiltB = 180 - 45 * r(); p.turnA = 360 * r(); p.turnB = 360 * r(); } },
   any: { label: "Completely random orientations", f: (p, r) => { p.tiltA = Math.acos(2 * r() - 1) * 180 / Math.PI; p.tiltB = Math.acos(2 * r() - 1) * 180 / Math.PI; p.turnA = 360 * r(); p.turnB = 360 * r(); } },
   mw: { label: "Milky Way–Andromeda measurement errors", f: (p, r) => {
       // Gaia + Hubble (van der Marel et al. 2019): sideways speed 57 (+35/−31) km/s; radial speed −109.3 ± 4.4 km/s;
       // distance 785 ± 25 kpc; masses uncertain by about ±20%.
+      // (these replace the table's Andromeda speeds and distance in every run)
       p.vtan = Math.max(0, 57 + 33 * gauss(r)); p.vrad = 109.3 + 4.4 * gauss(r); p.d0 = 785 + 25 * gauss(r);
       const f = Math.exp(0.2 * gauss(r)); p.massA *= f; p.ratio = Math.min(1, Math.max(0.3, p.ratio * Math.exp(0.2 * gauss(r))));
     } },
@@ -1289,50 +1327,126 @@ const BEXP = [
     note: "Hardly ever. Stars are tiny compared with the space between them: the Sun is about 1.4 million km across, but the nearest star is 40 million million km away. Shrink the Sun to a grain of sand, and the next grain is 10 km away. So even when two galaxies of a hundred billion stars each pass through each other, only a handful of stars, if any, collide. The simulation's number varies with the orientation of the discs; the theory is a rough straight-line estimate." },
 ];
 const B = { running: false, stop: false, results: [], cfg: null, base: null, baseName: "", prev: null, exp: null };
+/* ---- The batch settings table ----
+   TBL holds the settings it was filled from (src), a value for every setting, the choices, and the varied
+   setting (if any) with its range and step. A one-click experiment fills in the whole table (from BASE, its
+   preset and BATCH_BASE, never from the left panel), and a run uses exactly what the table shows. An
+   experiment's sweep keeps its own evenly spaced values until you edit the range. */
+const TBL = { src: {}, vals: {}, opts: {}, vary: null, from: 0, to: 1, kind: "+", step: 1, exact: null };
+const bNice = x => (x === 0 || !isFinite(x)) ? x : +(+x).toPrecision(4);
+const bDisp = x => (typeof x === "number" && isFinite(x) && x !== 0) ? +x.toPrecision(10) : x;
+const bVarOf = k => BVARS.find(v => v.key === k);
+const bShown = V => (!V.orbit || V.orbit === TBL.opts.orbit) && (!V.vary || V.vary === TBL.opts.vary);
+// the values the varied setting takes: from, from+step, … (or from, from×step, …) up to "to"; at most 60
+function bSweepValues() {
+  const V = bVarOf(TBL.vary); if (!V) return [];
+  if (TBL.exact) return TBL.exact.slice();       // an experiment's own values, until the range is edited
+  const out = [], up = TBL.to >= TBL.from;
+  if (TBL.kind === "×") {
+    let f = Math.abs(TBL.step); if (!(f > 1) || TBL.from <= 0 || TBL.to <= 0) return [TBL.from];
+    if (!up) f = 1 / f;
+    for (let v = TBL.from, i = 0; i < 60 && (up ? v <= TBL.to * 1.01 : v >= TBL.to * 0.99); i++, v *= f) out.push(bNice(v));
+  } else {
+    let d = Math.abs(TBL.step); if (!(d > 0)) return [TBL.from];
+    if (!up) d = -d;
+    for (let i = 0; i < 60; i++) { const v = TBL.from + i * d; if (up ? v > TBL.to + 1e-3 * Math.abs(d) : v < TBL.to - 1e-3 * Math.abs(d)) break; out.push(bNice(v)); }
+  }
+  const vals = out.map(v => Math.min(V.max, Math.max(V.min, V.int ? Math.round(v) : v)));
+  return vals.filter((v, i) => i === 0 || v !== vals[i - 1]);
+}
+// Fill the table from a full set of settings; c = an experiment's sweep (its own values: 'steps' evenly spaced)
+function bFillTable(p, c) {
+  TBL.src = Object.assign({}, p); TBL.vals = {}; TBL.opts = {}; TBL.exact = null;
+  for (const V of BVARS) TBL.vals[V.key] = p[V.key];
+  for (const O of BOPTS) TBL.opts[O.k] = p[O.k];
+  if (c && c.var) {
+    TBL.vary = c.var; TBL.from = c.from; TBL.to = c.to; TBL.kind = "+"; TBL.step = bNice((c.to - c.from) / Math.max(1, c.steps - 1));
+    TBL.exact = []; for (let s = 0; s < c.steps; s++) TBL.exact.push(c.from + (c.to - c.from) * s / Math.max(1, c.steps - 1));
+  } else TBL.vary = null;
+  bRenderTable();
+}
+function bRenderTable() {
+  el("bOpts").innerHTML = BOPTS.map(O => O.bool
+    ? `<label><input type="checkbox" data-o="${O.k}" ${TBL.opts[O.k] ? "checked" : ""}> ${O.label}</label>`
+    : `<label>${O.label} <select data-o="${O.k}">${(O.choices || Object.entries(BVARY).map(([k, v]) => [k, v.label])).map(([v, t]) => `<option value="${v}" ${String(TBL.opts[O.k]) === String(v) ? "selected" : ""}>${t}</option>`).join("")}</select></label>`).join("");
+  el("bTbl").innerHTML = BVARS.filter(bShown).map(V => {
+    const k = V.key, on = TBL.vary === k;
+    return `<div class="bt${on ? " on" : ""}" data-k="${k}"><label ${on ? "data-ws-change" : ""}><input type="checkbox" data-vary="${k}" ${on ? "checked" : ""}> ${V.label}</label>` +
+      `<input type="number" class="bval" data-v="${k}" step="any" min="${V.min}" max="${V.max}" value="${bDisp(TBL.vals[k])}">` +
+      `<span class="bsw">from <input type="number" data-ws="from" data-r="from" step="any" value="${on ? bDisp(TBL.from) : ""}"> to <input type="number" data-ws="to" data-r="to" step="any" value="${on ? bDisp(TBL.to) : ""}">
+        step <select data-ws="step type" data-r="kind"><option value="+" ${TBL.kind === "+" ? "selected" : ""}>+</option><option value="×" ${TBL.kind === "×" ? "selected" : ""}>×</option></select>
+        <input type="number" data-ws="step" data-r="step" step="any" value="${on ? TBL.step : ""}"> <span class="bcount bsteps"></span></span></div>`;
+  }).join("");
+  bUpdateCount();
+}
+function bUpdateCount() {
+  const span = TBL.vary && el("bTbl").querySelector(`.bt[data-k="${TBL.vary}"] .bsteps`);
+  if (span) { const xs = bSweepValues(); span.textContent = `→ ${xs.length} steps: ${xs.slice(0, 4).map(v => +v.toPrecision(4)).join(", ")}${xs.length > 4 ? " … " + +xs[xs.length - 1].toPrecision(4) : ""}`; }
+}
+function bStartVary(k) {               // a sensible first range when a setting is ticked
+  const V = bVarOf(k), cur = TBL.vals[k];
+  TBL.vary = k; TBL.kind = "+"; TBL.exact = null;
+  if (cur > 0) { TBL.from = bNice(Math.max(V.min, cur / 2)); TBL.to = bNice(Math.min(V.max, cur * 2)); } else { TBL.from = V.min; TBL.to = bNice(Math.min(V.max, V.min + 10)); }
+  TBL.step = bNice((TBL.to - TBL.from) / 4); if (V.int) TBL.step = Math.max(1, Math.round(TBL.step));
+}
+// changing the set-up by hand leaves the chosen experiment
+function bEdited() {
+  if (!B.exp) return;
+  B.exp = null; el("bExps").querySelectorAll("button").forEach(b => b.classList.remove("on"));
+  el("bTitle").textContent = "Your own batch run"; el("bNote").innerHTML = ""; bSetBase(null, "your own settings (in the table)");
+}
+// the settings for a run: what the table was filled from, then every choice and every value in the table
+function bTableBase() {
+  const p = Object.assign({}, TBL.src);
+  for (const [k, v] of Object.entries(TBL.opts)) if (v !== undefined) p[k] = v;
+  for (const [k, v] of Object.entries(TBL.vals)) { const V = bVarOf(k); if (isFinite(v)) p[k] = Math.min(V.max, Math.max(V.min, V.int ? Math.round(v) : v)); }
+  return p;
+}
 function bFill() {
   el("bExps").innerHTML = BEXP.map((e, k) => `<button data-k="${k}">${e.q}<small>${e.cfg.mode === "sweep" ? "Sweep" : "Repeat"} · base: ${PRESETS[e.base].name}</small></button>`).join("");
   el("bExps").querySelectorAll("button").forEach(b => (b.onclick = () => bLoadExp(+b.dataset.k)));
-  el("bVar").innerHTML = BVARS.map(v => `<option value="${v.key}">${v.label}</option>`).join("");
   el("bOut").innerHTML = BOUT.map(o => `<option value="${o.key}">${o.label}</option>`).join("");
-  el("bVary").innerHTML = Object.entries(BVARY).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+  bFillTable(Object.assign({}, BASE, BATCH_BASE, { vary: "seed" }), null);
 }
-function bSetBase(params, name) { B.base = params; B.baseName = name; el("bBase").innerHTML = `Base settings: <b>${name}</b>`; }
+function bSetBase(params, name) { B.baseName = name; el("bBase").innerHTML = `Base settings: <b>${name}</b>`; }
 function bLoadExp(k) {
   const e = BEXP[k]; B.exp = e;
   el("bExps").querySelectorAll("button").forEach((b, j) => b.classList.toggle("on", j === k));
   const pr = PRESETS[e.base];
-  bSetBase(Object.assign({}, BASE, pr.s, { selfGrav: false, gas: false }), pr.name);
   const c = e.cfg;
+  bSetBase(null, pr.name);
+  bFillTable(Object.assign({}, BASE, pr.s, BATCH_BASE, { vary: c.vary }), c.mode === "sweep" ? c : null);
   el("bMode").value = c.mode;
   if (c.n) { if (![...el("bN").options].some(o => o.value === String(c.n))) el("bN").add(new Option(String(c.n))); el("bN").value = String(c.n); }
-  if (c.var) { el("bVar").value = c.var; el("bFrom").value = c.from; el("bTo").value = c.to; el("bSteps").value = c.steps; el("bReps").value = c.reps; }
-  el("bOut").value = c.out; el("bVary").value = c.vary;
+  if (c.var) el("bReps").value = c.reps;
+  el("bOut").value = c.out;
   bModeRows();
   el("bTitle").textContent = e.q;
   el("bNote").innerHTML = `<p>${e.note}</p>`;
 }
 function bModeRows() {
+  if (el("bMode").value === "sweep" && !TBL.vary) { const V = BVARS.find(bShown); bStartVary(V.key); bRenderTable(); }
+  if (el("bMode").value === "repeat" && TBL.vary) { TBL.vary = null; bRenderTable(); }
   const sw = el("bMode").value === "sweep";
-  el("bSweepRows").style.display = sw ? "" : "none"; el("bRepeatRow").style.display = sw ? "none" : "";
+  el("bSweepOpts").style.display = sw ? "contents" : "none"; el("bRepeatRow").style.display = sw ? "none" : "";
 }
 function bJobs(cfg) {
   const jobs = [];
   if (cfg.mode === "repeat") for (let i = 0; i < cfg.n; i++) jobs.push({ i, x: null });
-  else for (let s = 0; s < cfg.steps; s++) {
-    const x = cfg.from + (cfg.to - cfg.from) * s / Math.max(1, cfg.steps - 1);
-    for (let r = 0; r < cfg.reps; r++) jobs.push({ i: s * cfg.reps + r, x });
-  }
+  else cfg.xs.forEach((x, s) => { for (let r = 0; r < cfg.reps; r++) jobs.push({ i: s * cfg.reps + r, x }); });
   return jobs;
 }
 function bRunOpts(cfg, base) {
   const out = BOUT.find(o => o.key === cfg.out);
   const mw = base.orbit === "mwm31";
-  return { nStars: out.stars ? 800 : 0, needMerge: !!out.merge, tMax: out.merge || out.key === "periT" || out.key === "periD" ? (mw ? 10000 : 4000) : (mw ? 10000 : 3000) };
+  return { nStars: out.stars ? base.bStars : 0, needPeri: out.key === "periT" || out.key === "periD", needMerge: !!out.merge, tMax: out.merge || out.key === "periT" || out.key === "periD" ? (mw ? 10000 : 4000) : (mw ? 10000 : 3000) };
 }
 function bStart() {
   if (B.running) return;
-  const cfg = { mode: el("bMode").value, n: +el("bN").value, var: el("bVar").value, from: +el("bFrom").value, to: +el("bTo").value,
-                steps: Math.max(2, Math.min(20, +el("bSteps").value || 6)), reps: Math.max(1, Math.min(20, +el("bReps").value || 1)), out: el("bOut").value, vary: el("bVary").value };
+  B.base = bTableBase();                       // every setting, straight from the table
+  const sw = el("bMode").value === "sweep" && TBL.vary, xs = sw ? bSweepValues() : [];
+  const cfg = { mode: sw ? "sweep" : "repeat", n: +el("bN").value, var: TBL.vary, xs, from: xs.length ? Math.min(...xs) : 0, to: xs.length ? Math.max(...xs) : 1,
+                steps: xs.length, reps: Math.max(1, Math.min(20, +el("bReps").value || 1)), out: el("bOut").value, vary: B.base.vary };
   if (B.results.length && B.cfg && B.cfg.mode === "repeat") B.prev = { cfg: B.cfg, vals: B.results.map(r => r[B.cfg.out]).filter(isFinite), label: el("bTitle").textContent };
   B.cfg = cfg; B.results = []; B.running = true; B.stop = false; B.opts = bRunOpts(cfg, B.base);
   B.theory = null;
@@ -1416,7 +1530,7 @@ function bDraw() {
     let yLo = Math.min(0, ...allV, ...thPts.map(q => q[1])), yHi = Math.max(...allV, ...thPts.map(q => q[1]), 1e-9) * 1.12;
     const xlo = Math.min(cfg.from, cfg.to), xhi = Math.max(cfg.from, cfg.to), xp = (xhi - xlo) * 0.05 || 1;
     const X = x => L + (x - xlo + xp) / (xhi - xlo + 2 * xp) * (W - L - R), Y = y => H - Bm - (y - yLo) / (yHi - yLo) * (H - T - Bm);
-    axes(ctx, dpr, W, H, L, R, T, Bm, xlo - xp, xhi + xp, yLo, yHi, BVARS.find(v => v.key === cfg.var).label, out.label);
+    const xv = bVarOf(cfg.var); axes(ctx, dpr, W, H, L, R, T, Bm, xlo - xp, xhi + xp, yLo, yHi, xv.axis || xv.label, out.label);
     if (thPts.length) { ctx.strokeStyle = "#5fd3e6"; ctx.lineWidth = 2.5 * dpr; ctx.beginPath(); thPts.forEach((q, k) => k ? ctx.lineTo(X(q[0]), Y(q[1])) : ctx.moveTo(X(q[0]), Y(q[1]))); ctx.stroke(); }
     const means = [];
     for (const x of xs) {
@@ -1477,14 +1591,36 @@ function legend(ctx, dpr, x, y, items) {
   for (const [c, t] of items) { ctx.fillStyle = c; ctx.fillRect(x, y + 3 * dpr, 14 * dpr, 8 * dpr); ctx.fillStyle = "#dfe3d6"; ctx.fillText(t, x + 18 * dpr, y + 11 * dpr); x += ctx.measureText(t).width + 34 * dpr; }
 }
 bFill();
-el("btnBatch").onclick = () => { el("batch").classList.add("open"); setRunning(false); if (!B.exp) bLoadExp(0); bDraw(); };
+el("btnBatch").onclick = () => { el("batch").classList.add("open"); setRunning(false); if (!B.opened) { B.opened = true; bLoadExp(0); } bDraw(); };
 el("bClose").onclick = () => { B.stop = true; el("batch").classList.remove("open"); };
 el("bRun").onclick = bStart;
 el("bStop").onclick = () => { B.stop = true; };
-el("bMode").onchange = bModeRows;
+el("bMode").onchange = () => { bEdited(); bModeRows(); };
 el("bOut").onchange = () => { if (B.cfg) { B.cfg.out = el("bOut").value; bDraw(); } };
-el("bUseCurrent").onclick = () => { const p = readParams(); bSetBase(Object.assign(p, { selfGrav: false, gas: false }), "current left-panel settings"); B.exp = null; el("bExps").querySelectorAll("button").forEach(b => b.classList.remove("on")); el("bTitle").textContent = "Your own batch run"; };
-el("bVar").onchange = () => { const v = BVARS.find(q => q.key === el("bVar").value); el("bFrom").value = v.from; el("bTo").value = v.to; };
+["bN", "bReps"].forEach(id => el(id).addEventListener("change", bEdited));
+el("bSetBox").addEventListener("input", e => {
+  if (B.running) return;
+  const t = e.target;
+  if (t.dataset.vary) {              // the tick boxes act like radio buttons: one varied setting at most
+    if (t.checked) { bStartVary(t.dataset.vary); el("bMode").value = "sweep"; } else { TBL.vary = null; el("bMode").value = "repeat"; }
+    bEdited(); bRenderTable(); bModeRows(); return;
+  }
+  if (t.dataset.v) TBL.vals[t.dataset.v] = +t.value;
+  if (t.dataset.o) {                 // a new orbit or variation can change which settings are used
+    TBL.opts[t.dataset.o] = t.type === "checkbox" ? t.checked : t.value;
+    if (TBL.vary && !bShown(bVarOf(TBL.vary))) { TBL.vary = null; el("bMode").value = "repeat"; }
+    bEdited(); bRenderTable(); bModeRows(); return;
+  }
+  if (t.dataset.r) { TBL.exact = null; TBL[t.dataset.r] = t.dataset.r === "kind" ? t.value : +t.value; }
+  bUpdateCount(); bEdited();
+});
+el("bLeft").onclick = () => {
+  if (B.running) return;
+  const p = readParams();
+  B.exp = { q: "" }; bEdited(); bSetBase(null, "current left-panel settings");
+  bFillTable(Object.assign({}, BASE, BATCH_BASE, p, { selfGrav: false, gas: false, vary: TBL.opts.vary || "seed" }), null);
+  el("bMode").value = "repeat"; bModeRows();
+};
 window.addEventListener("keydown", e => { if (e.key === "Escape" && el("batch").classList.contains("open")) el("bClose").click(); });
 
 /* =====================================================================

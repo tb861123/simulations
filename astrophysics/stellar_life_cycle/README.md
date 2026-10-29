@@ -155,7 +155,7 @@ many stars without drawing. The model has no randomness, so:
   luminosity from the spectrum ÷ the model's luminosity, and the observed
   surface temperature.
 - **Black-body measurements** use a model spectrometer with 100, 400
-  (default) or 1,600 channels spread evenly in log λ from 10 nm to 1 mm, at a
+  (default) or any other number of channels spread evenly in log λ from 10 nm to 1 mm, at a
   random offset each run. λmax is the centre of the brightest channel; the
   power is π ∫B dλ. Repeat observes each star at a random moment of its life
   (1,000–60,000 K); a Sweep of mass, metallicity or wind observes it halfway
@@ -163,8 +163,13 @@ many stars without drawing. The model has no randomness, so:
   pure black body of radius 1 R☉. The spectrometer setting is fixed per
   experiment and does not depend on the display quality.
 - By default batches use a Sun-like composition, normal winds and no
-  companion; a tick box uses the left panel's settings instead. The star on
-  screen is not changed. Results download as CSV.
+  companion. The star on screen is not changed. Results download as CSV.
+- **Batch settings table.** The batch panel lists every starting setting:
+  in Repeat, the lightest and heaviest random masses; in Sweep, the starting
+  mass, the black-body temperature (used only when it is swept), the random
+  scatter on/off and its sizes (0.2 dex in metallicity and 30% in wind by
+  default: these used to be fixed); and always metallicity, wind strength,
+  close companion, cluster age and spectrometer channels. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in, and **↺ Use my left-panel settings** copies the left panel into it.
 
 One-click batch experiments (each takes under a second; the last four are
 the black-body experiments):
