@@ -79,6 +79,8 @@ This simulation replaces `chem_sims/07_Le_Chateliers.html`. From that page it to
 
 ## Batch experiments
 
+**Batch settings table.** The batch panel lists every starting setting a run uses: reaction, temperature, volume, starting pressure (0 = set by the volume), number of particles (0 = set by the amount), amount, catalyst, what the mixture starts as, the run length, how long Kc and the yield are averaged over, the first random seed, and whether A ⇌ B runs as moving particles instead of numbers only (it was always numbers only before). Defaults are the old values, so every experiment gives exactly the same results as before. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in from fixed default settings (a preset plus the experiment's own changes), never from the left panel, so they give the same results in any order and do not change the left panel; clicking one only fills the table, and **▶ Run batch** runs it. **↺ Use my left-panel settings** copies the left panel into the table instead.
+
 A ⇌ B runs as numbers only (same chances, no positions), so it is very fast. The others run
 the full particle model with no drawing. Each experiment sets every input itself, so its result is the same whatever is in the left panel or was run before. Results from testing (seed 1):
 

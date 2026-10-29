@@ -80,6 +80,8 @@ questions with mark schemes. It also adds the marble-chips practical graphs.
 
 ## Batch experiments
 
+**Batch settings table.** The batch panel lists every starting setting a run uses: temperature, particles of A and B, volume, activation energy, pieces of solid, reaction type, solid (surface) reaction, catalyst, orientation, the first random seed, and the batch-only settings that were hidden before: stop once the rate is timed, keep the mixture unchanged, collisions to count, longest run (6000 ps) and the share of the limiting reactant used to time the rate (it was a fixed 20%; the theory uses the same share). Defaults are the old values, so every experiment gives exactly the same results as before. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in from fixed default settings (a preset plus the experiment's own changes), never from the left panel, so they give the same results in any order and do not change the left panel; clicking one only fills the table, and **▶ Run batch** runs it. **↺ Use my left-panel settings** copies the left panel into the table instead.
+
 Batch runs use the same particle model with no drawing (seeded random numbers, so a run
 can be repeated exactly). There are two modes: **Repeat** (a histogram) and **Sweep** (mean
 ± 1 SD at each step, with the theory line and a best-fit line). Each mode shows a summary

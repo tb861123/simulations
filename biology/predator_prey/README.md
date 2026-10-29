@@ -30,7 +30,7 @@ grazes a 50 m × 50 m area centred on itself, grass regrows at the same rate
 per week and a full field holds the same grass, so populations behave the
 same at every setting (no-fox carrying capacity 671–677 rabbits at all four).
 **Batch runs always use Low**, whatever the setting, so their results are
-repeatable.
+repeatable (the batch settings table can change it).
 
 **Readouts:** measured cycle period, Lotka–Volterra period 2π/√(ad), how far
 fox peaks lag behind rabbit peaks, recent peak sizes, animals per hectare and
@@ -70,6 +70,8 @@ All assumptions and simplifications are listed in the app under **How the
 model works (and what it leaves out)**.
 
 ## Batch run
+
+**Batch settings table.** The batch panel lists every starting setting a run uses: field size, rabbits, foxes and voles at the start, refuges, grass regrowth, rabbit breeding, hunting success, fox energy needs, fox maturity age, culling, years per run, the rules (realistic or Lotka–Volterra-like) and the random seed, plus four things that used to be fixed: the Lotka–Volterra-like cubs per rabbit eaten (0.1) and fox death chance (0.04 per week; the 2π/√(ad) theory uses it too), rabbits safe per warren (6) and the batch grass resolution (1 cell per patch = Low). Defaults are the old values, so every experiment gives exactly the same results as before. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in from fixed default settings (a preset plus the experiment's own changes), never from the left panel, so they give the same results in any order and do not change the left panel; clicking one only fills the table, and **▶ Run batch** runs it. **↺ Use my left-panel settings** copies the left panel into the table instead.
 
 **📊 Batch run** repeats the model many times (Repeat) or changes one setting
 in steps (Sweep). Results can be downloaded as CSV. Experiments:

@@ -79,6 +79,8 @@ offline.
 
 ## Batch experiments (magma)
 
+**Batch settings table.** The batch panel lists every starting setting a run uses: cooling rate, starting temperature, impurities, the temperature cooling stops at, the nucleation-rate factor, hold time and the undercooling held (a hold time above 0 now switches on the cool-and-hold mode), the first random seed, plus three that used to be fixed: slice width and height (20 × 13 mm, or 10 × 6.5 mm in the glass experiment) and the cell size (0.1 mm). Defaults are the old values, so every experiment gives exactly the same results as before. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in from fixed default settings (a preset plus the experiment's own changes), never from the left panel, so they give the same results in any order and do not change the left panel; clicking one only fills the table, and **▶ Run batch** runs it. **↺ Use my left-panel settings** copies the left panel into the table instead.
+
 Each run uses the standard 0.1 mm cells (200 × 130, whatever the picture detail is set to) with no drawing, so results can be repeated exactly. Results from testing (seed 1):
 
 | Experiment | Result | JMAK theory |

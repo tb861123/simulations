@@ -56,6 +56,8 @@ model works (and what it leaves out)**.
 
 ## Batch run
 
+**Batch settings table.** The batch panel lists every starting setting a run uses: disease (choosing one fills in its six values), R0, latent period, infectious period, days infectious before symptoms, share with no symptoms, share who die, population, starting infected, vaccinated %, vaccine efficacy, distancing, masks, cases isolating, how long immunity lasts, day limit, how people mix and the random seed, plus four things that used to be fixed: contacts per day with no measures (10), the share of contacts isolation removes (0.9), the gamma shape of illness lengths (3; the outbreak-chance theory uses it too, so shape 1 gives the classic 1 − 1/R) and the batch time step (0.25 days). Defaults are the old values, so every experiment gives exactly the same results as before. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in from fixed default settings (a preset plus the experiment's own changes), never from the left panel, so they give the same results in any order and do not change the left panel; clicking one only fills the table, and **▶ Run batch** runs it. **↺ Use my left-panel settings** copies the left panel into the table instead.
+
 **📊 Batch run** repeats the epidemic many times (Repeat) or changes one
 setting in steps (Sweep) and compares with theory. Results can be downloaded
 as CSV. Experiments:

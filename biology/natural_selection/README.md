@@ -64,6 +64,8 @@ model works (and what it leaves out)**.
 
 ## Batch run
 
+**Batch settings table.** The batch panel lists every starting setting a run uses: species, allele followed, starting frequency, one-copy start, heterozygote look, population limit, generations per run, habitat, habitat change and the generation it happens, predators and how many, temperature, warming, drought seed supply, mate preference, mutation rate and the random seed (the habitat, predator and allele lists follow the species), plus three things that used to be fixed: hunting risk per predator (0.07), young per surviving adult (3) and the finch beak's environmental SD (0.45 mm; the breeder's equation theory uses it too). Defaults are the old values, so every experiment gives exactly the same results as before. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in from fixed default settings (a preset plus the experiment's own changes), never from the left panel, so they give the same results in any order and do not change the left panel; clicking one only fills the table, and **▶ Run batch** runs it. **↺ Use my left-panel settings** copies the left panel into the table instead.
+
 **📊 Batch run** repeats the model many times with different random seeds
 (Repeat) or changes one setting in steps (Sweep), then compares the results
 with theory. Results can be downloaded as CSV. Experiments:
