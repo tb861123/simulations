@@ -87,8 +87,11 @@ real instrument's (ruler ±0.5 mm across 10 fringes, tape ±5 mm, slit separatio
 ±0.01 mm, spectrometer ±0.1°, finding a resonance ±1 %, length ±2 mm, phone
 frequency app ±(1 Hz + 0.2 %)). Repeat mode gives a histogram against the true
 value; sweep mode plots mean ± 1 SD against the theory curve, with the
-best-fit gradient (and the log–log gradient for power laws). Results download
-as CSV.
+best-fit gradient (and the log–log gradient for power laws, when the sweep uses
+× steps). Results download as CSV. A batch seed box gives a different (but
+repeatable) set of random errors.
+
+**Batch settings table.** The batch panel lists every setting the chosen experiment uses: the experiment type (double slit, single slit, grating, vibrating string, open or closed pipe, two speakers, Doppler siren) and, for that type, wavelength, slit separation or slit width, screen distance; grating lines per mm and order; harmonic number, length, string tension and mass per metre, or air temperature; wave speed and frequency; source frequency and source speed; and the instrument errors for that practical (ruler, tape, slit separation or width, spectrometer angle, finding a resonance, length, phone app) and the number of fringes measured across, with the defaults above. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One click on an experiment fills in the whole table (press ▶ Run batch to run it). **↺ Use my left-panel settings** copies the left panel into the table.
 
 One-click experiments (results with the default seed 1):
 

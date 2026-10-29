@@ -43,6 +43,8 @@ Point charges and masses; a flat 2-D slice of a 3-D field (line spacing is only 
 
 Run with **📊 Batch run**. Each experiment sets all its own inputs. Batch runs use exact formulas and fixed integration settings, not the Quality setting.
 
+**Batch settings table.** The panel lists every setting the chosen outcome uses: for field probes, the distance, the charge (or mass), the probe's reading error (3% by default) and its position error (1 cm by default); for orbits, the central mass, orbit radius, launch speed, the random spread in launch speed and, for the energy test, the time steps per orbit and number of orbits; for binary stars, both masses, the separation and the measurement errors in d and T. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill in the whole table (press ▶ Run batch to run), and **↺ Use my left-panel settings** copies the left panel into it.
+
 | Experiment | What it tests | Typical result |
 |---|---|---|
 | Does E fall as 1/r²? | probe with 3% meter error and ±1 cm position error, r = 0.5–5 m | log–log gradient −2.00 (theory −2) |

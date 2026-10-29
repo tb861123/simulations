@@ -148,13 +148,17 @@ discs overlap slightly, so they behave about 1% smaller than their real size.
 The **📊 Batch run** button opens a panel that runs the model many times with no
 drawing (using a seeded random number generator so results can be repeated).
 *Repeat* mode runs the same settings with different random starts and draws a
-histogram; *Sweep* mode steps one setting (box width, temperature, number of
-molecules, molecule mass, acid gas Mr or tube temperature) and plots mean ± 1 SD with the theory curve, with
-optional log axes and a fitted gradient. Each batch reports n, mean, SD, standard
+histogram; *Sweep* mode steps any one setting in the batch settings table and plots
+mean ± 1 SD with the theory curve, with optional log axes and a fitted gradient. Each batch reports n, mean, SD, standard
 error, min, max, the theory value and the difference (in % and in standard errors),
 and can be downloaded as CSV. Batch runs of the box use one gas, unheated walls and a fixed piston.
 Each one-click experiment sets every input itself (from fixed defaults), so the
 experiments give the same results whatever is on the left panel and in any order.
+
+**Batch settings table.** The panel lists every setting the chosen outcome uses: for the box, the gas, box
+width, temperature, number of molecules and molecule mass (plus the piston speed for the adiabatic squeeze,
+20 m/s by default); for the diffusion tube, the acid gas Mr, the tube temperature and the number of molecules
+per cm (35 by default). Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill in the whole table (press ▶ Run batch to run), and **↺ Use my left-panel settings** copies the left panel into it.
 
 Built-in experiments and typical results (on a laptop; each under about 30 s):
 

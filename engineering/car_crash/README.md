@@ -141,16 +141,24 @@ at half speed.
 **📊 Batch run** (in either mode) lists the experiments of both modes;
 choosing one from the other mode switches the page to that mode. Each
 one-click experiment starts from fixed default settings, never from the left
-panel. Your own runs use the current settings of the current mode.
+panel.
+
+**Batch settings table.** The panel lists every setting the current mode uses for the chosen outcome, and
+follows whichever mode's experiment or outcome is chosen. Car crash: what you hit, the other vehicle, speed,
+both masses, crumple length and crush force (or set automatically), occupant mass, seat position, seatbelt,
+slack, stretch, pretensioner, load limiter, airbag and its firing time, random masses, and the sizes of the
+random variation between crashes. Collisions lab: collision type, both masses and speeds, e, light-gate error;
+2D masses, speed, impact parameter, restitution and protractor error; cradle balls, balls pulled back, ball
+mass, speed and restitution. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill in the whole table (press ▶ Run batch to run), and **↺ Use my left-panel settings** copies the left panel into it. Repeat-mode random variation and the with/without comparisons
+stay as switches above the table (a comparison overrides the one setting it compares).
 
 ### Car crash
 
 **📊 Batch run** runs whole crashes headlessly (`runOnce(params, seed)`,
-seeded mulberry32). Repeat mode can add random variation (occupant mass
-±18%, seat position ±5 cm, belt slack +0–6 cm, speed ±3 mph) and compare
-with/without airbag, seatbelt, pretensioner or crumple zone. Sweep mode
-changes speed, crumple length, crush force, either mass, airbag timing or
-belt slack. Theory overlays, summary statistics, fits and CSV download.
+seeded mulberry32). Repeat mode can add random variation (by default occupant
+mass ±18%, seat position ±5 cm, belt slack +0–6 cm, speed ±3 mph; all four are
+settings in the table) and compare with/without airbag, seatbelt, pretensioner
+or crumple zone. Sweep mode varies any one setting in the table. Theory overlays, summary statistics, fits and CSV download.
 
 Car crash batch experiments (results from testing, unchanged by the
 Collisions lab merge):
@@ -170,8 +178,8 @@ Collisions lab merge):
 A model air-track practical: each speed is measured by a light gate with a
 random error (SD 2% unless stated), and 2D angles with a protractor (SD 1°).
 Repeat mode can choose a random set-up for every run (masses 0.2–5 kg, speeds
-1–5 m/s, impact parameter). Sweeps: e, mass of object 2, speed, light-gate
-error, impact parameter, balls pulled back, ball restitution.
+1–5 m/s, impact parameter). Sweep mode varies any one setting in the table,
+including the light-gate and protractor errors.
 
 | Experiment | Result |
 |---|---|

@@ -119,7 +119,7 @@
   #batch.open { display: flex; }
   #batch .bhead { display: flex; gap: 10px; align-items: center; }
   #batch .bhead h2 { margin: 0; font-size: 15px; color: var(--accent); }
-  #batch .bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 12px; }
+  #batch .bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(360px, 38%) minmax(0, 1fr); gap: 12px; }
   #batch .bside { overflow-y: auto; padding-right: 4px; }
   #batch .bmain { display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow-y: auto; }
   #batch .bexp { display: grid; gap: 4px; }
@@ -186,7 +186,24 @@
   .exq.open .ms { display: block; }
   .exq .ms div { margin: 1px 0 1px 6px; }
   .exq .ans { color: #8fd694; font-weight: 700; margin-top: 3px; }
-  #batch .bgroup { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 6px 0 2px; }
+  /* Batch settings table: every starting setting, with a tick box to choose the one that is varied */
+  #bSetBox { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--panel-2); margin-top: 0; color: var(--text); }
+  #bSetBox > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
+  #bSetBox .bhint { font-size: 11.5px; color: var(--muted); margin: 3px 0 5px; }
+  #bOpts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; margin-bottom: 5px; }
+  #bOpts label { display: inline-flex; gap: 5px; align-items: center; }
+  #bTbl { display: grid; grid-template-columns: 1fr; gap: 3px 14px; }
+  .bt { display: flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 2px 4px; border-radius: 6px; flex-wrap: wrap; }
+  .bt.on { background: rgba(241,175,40,.13); outline: 1px solid var(--accent); }
+  .bt label { flex: 1; min-width: 150px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .bt input[type=number] { width: 78px !important; }
+  .bt .bsw { display: none; gap: 5px; align-items: center; flex-wrap: wrap; }
+  .bt.on .bsw { display: inline-flex; }
+  .bt.on .bval { display: none; }
+  .bt .bcount { color: var(--muted); font-size: 11.5px; }
+  #bSetBox select, #bSetBox input[type=number] { font: inherit; font-size: 12.5px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 2px 4px; }
+  #batch .bexp { grid-template-columns: 1fr 1fr; }
+  #batch .bgroup { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 6px 0 2px; }
 </style>
 </head>
 <body class="mode-crash lvl-std lt-1d">
@@ -606,46 +623,56 @@ function setupPanels(KEY, DEF) {
    BATCH RUN — run the model many times with no drawing and compare with theory
    ---------------------------------------------------------------------
    The simulation supplies cfg:
-     outcomes   [{key,label,unit,dec,threshold:{v,label}}]  what each run measures
-     sweepVars  [{key,label,unit,min,max,from,to,steps,int}] what a sweep can change
+     outcomes   [{key,label,unit,dec,threshold:{v,label},mode}]   what each run measures
+     sweepVars  [{key,label,unit,min,max,int,mode,outs}]   EVERY numeric starting setting (the batch settings table)
+     choices    [{k,label,choices:[[v,text]]|bool,mode,outs}] the settings that are choices, not numbers
      compares   [{key,label,a:{..},b:{..},la,lb}]           optional "with vs without"
-     baseParams()           -> the current settings of the simulation
+     baseParams()           -> the current settings of the simulation (left panel)
      runOnce(params, seed)  -> {outcomeKey: number, ...}   one headless run
      theory(ctx)            -> {curves:[{label,f}], vlines:[{x,label}], value, label}
      experiments [{name,q,note,set:{mode,n,sweep,from,to,steps,reps,outcome,compare,vary,params}}]
+   The batch settings table lists every setting the current simulation (car crash or collisions lab) uses for the
+   chosen outcome. A one-click experiment fills in the whole table (from fixed defaults, never from the left panel)
+   and a run uses exactly what the table shows. Tick one setting to sweep it from → to in steps (+ adds the step,
+   × multiplies by it); an experiment's sweep keeps its own evenly spaced values until you edit the range.
    Runs are done in small chunks with setTimeout so the page never freezes.
    ===================================================================== */
 const GROUP_COL = ["#00aec3", "#f1af28"], THEORY_COL = ["#e83181", "#ff9ccc"], THRESH_COL = "#de252a";
 function setupBatch(cfg) {
   const box = $("batch");
-  const S = { mode: "repeat", n: cfg.defaultN || 100, sweep: cfg.sweepVars[0].key, from: cfg.sweepVars[0].from, to: cfg.sweepVars[0].to,
-    steps: cfg.sweepVars[0].steps || 10, reps: cfg.defaultReps || 3, outcome: cfg.outcomes[0].key, compare: "none", vary: true, logX: false, logY: false,
-    over: {}, exp: -1, rows: [], running: false, stopFlag: false, total: 0, meta: null };
+  const S = { mode: "repeat", n: cfg.defaultN || 100, sweep: null, reps: cfg.defaultReps || 3, outcome: cfg.outcomes[0].key, compare: "none", vary: true, logX: false, logY: false,
+    exp: -1, rows: [], running: false, stopFlag: false, total: 0, meta: null };
+  // the batch settings table: src = the full set of settings it was filled from; vals/opts = what it shows
+  const TBL = { src: {}, vals: {}, opts: {}, vary: null, from: 0, to: 1, kind: "+", step: 1, exact: null };
+  const nice = x => (x === 0 || !isFinite(x)) ? x : +(+x).toPrecision(4);
   const optHTML = (arr, sel) => arr.map(o => `<option value="${o.key}"${o.key === sel ? " selected" : ""}>${o.label}${o.unit ? ` (${o.unit})` : ""}</option>`).join("");
   box.innerHTML = `
-  <div class="bhead"><h2>Batch run</h2><span class="hint" style="flex:1">Run the model many times with no animation, then compare the results with theory.</span><button id="bClose">✕ Close</button></div>
+  <div class="bhead"><h2>Batch run</h2><span class="hint" style="flex:1">Run the model many times with no animation, then compare the results with theory. Every setting used is in the table: experiments fill it in, and you can change any of it.</span><button id="bClose">✕ Close</button></div>
   <div class="bbody">
-    <div class="bside">
+    <div class="bside" id="bsetup">
       <h2>Batch experiments</h2>
       <div class="bexp" id="bExp">${(cfg.groups || [["crash", ""]]).map(([m, title]) => (title ? `<div class="bgroup">${title}</div>` : "") + cfg.experiments.map((e, k) => (e.mode || "crash") === m ? `<button data-k="${k}">${e.name}<small>${e.q}</small></button>` : "").join("")).join("")}</div>
       <h2 class="gap">Set up your own</h2>
       <div class="brow"><button id="bmRepeat">Repeat</button><button id="bmSweep">Sweep</button></div>
+      <div class="brow"><label>Record</label><select id="bOut" style="flex:1"></select></div>
       <div id="bRepeatOpts">
         <div class="brow"><label>Number of runs</label><select id="bN">${cfg.repeatN.map(v => `<option${v === S.n ? " selected" : ""}>${v}</option>`).join("")}</select></div>
         <label class="chk"><input type="checkbox" id="bVary" checked> <span id="bVaryLab"></span></label>
       </div>
-      <div id="bSweepOpts">
-        <div class="brow"><label>Change</label><select id="bVar" style="flex:1">${optHTML(cfg.sweepVars, S.sweep)}</select></div>
-        <div class="brow"><label>from</label><input type="number" id="bFrom" step="any"><label>to</label><input type="number" id="bTo" step="any"></div>
-        <div class="brow"><label>steps</label><input type="number" id="bSteps" min="2" max="60" style="width:56px"><label>repeats per step</label><input type="number" id="bReps" min="1" max="200" style="width:56px"></div>
-        <div class="brow"><label class="chk" style="margin:0"><input type="checkbox" id="bLogX"> log x</label><label class="chk" style="margin:0"><input type="checkbox" id="bLogY"> log y</label></div>
-      </div>
       ${cfg.compares ? `<div class="brow" id="bCmpRow"><label>Compare</label><select id="bCmp" style="flex:1">${[{ key: "none", label: "No comparison" }].concat(cfg.compares).map(o => `<option value="${o.key}">${o.label}</option>`).join("")}</select></div>` : ""}
-      <div class="brow"><label>Record</label><select id="bOut" style="flex:1">${optHTML(cfg.outcomes, S.outcome)}</select></div>
+      <details id="bSetBox" open>
+        <summary>Starting settings: tick the one to vary</summary>
+        <div class="bhint">Every setting the chosen outcome uses is listed. Tick one to sweep it from → to in steps (+ adds the step each time, × multiplies by it); every other setting stays at the value shown. What you see is what runs (a comparison then overrides the setting it compares).</div>
+        <div id="bOpts"></div>
+        <div id="bTbl"></div>
+        <div class="brow" style="margin-top:5px"><span id="bSweepOpts" style="display:contents"><label>Repeats at each step</label><input type="number" id="bReps" min="1" max="200" style="width:56px"></span>
+          <label class="chk" style="margin:0"><input type="checkbox" id="bLogX"> log x</label><label class="chk" style="margin:0"><input type="checkbox" id="bLogY"> log y</label></div>
+        <div class="brow"><button id="bLeft" title="Fill the table from the settings on the left panel">↺ Use my left-panel settings</button></div>
+      </details>
       <div class="bnow" id="bNow"></div>
       <div class="hint" style="margin-top:6px">${cfg.timeNote || ""}</div>
     </div>
-    <div class="bmain">
+    <div class="bmain" id="bresults">
       <div class="brow" style="margin:0"><button class="primary" id="bRun">▶ Run batch</button><button id="bStop" disabled>■ Stop</button>
         <div class="prog"><span id="bBar"></span></div><span class="hint" id="bProg">ready</span><button id="bCSV" disabled>⬇ Download CSV</button></div>
       <div class="bchart"><canvas id="bChart"></canvas></div>
@@ -655,77 +682,146 @@ function setupBatch(cfg) {
       <a id="bDl" style="display:none"></a>
     </div>
   </div>`;
-  const sv = () => cfg.sweepVars.find(v => v.key === S.sweep), oc = () => cfg.outcomes.find(o => o.key === S.outcome);
+  const oc = () => cfg.outcomes.find(o => o.key === S.outcome);
   // two simulations share this panel: only the outcomes and settings of the current one are offered
   const mOf = o => o.mode || "crash";
+  const shown = X => mOf(X) === S.sim && (!X.outs || X.outs.includes(S.outcome));
+  const varOf = k => cfg.sweepVars.find(v => v.key === k);
   S.sim = cfg.getMode ? cfg.getMode() : "crash";
   function fillSelects() {
     $("bOut").innerHTML = optHTML(cfg.outcomes.filter(o => mOf(o) === S.sim), S.outcome);
-    $("bVar").innerHTML = optHTML(cfg.sweepVars.filter(o => mOf(o) === S.sim), S.sweep);
     $("bVaryLab").textContent = typeof cfg.varyLabel === "function" ? cfg.varyLabel(S.sim) : cfg.varyLabel || "";
     if ($("bCmpRow")) $("bCmpRow").style.display = S.sim === "crash" ? "" : "none";
   }
   function setSim(m) {
     S.sim = m;
     if (!cfg.outcomes.some(o => o.key === S.outcome && mOf(o) === m)) S.outcome = cfg.outcomes.find(o => mOf(o) === m).key;
-    if (!cfg.sweepVars.some(o => o.key === S.sweep && mOf(o) === m)) { const v = cfg.sweepVars.find(o => mOf(o) === m); S.sweep = v.key; S.from = v.from; S.to = v.to; S.steps = v.steps || 10; }
     if (m !== "crash") S.compare = "none";
     fillSelects();
   }
-  function syncMode() { S.exp = -1; S.over = {}; setSim(cfg.getMode()); S.rows = []; S.meta = null; syncUI(); render(); $("bNote").innerHTML = "Choose a batch experiment on the left, or set up your own, then press <b>Run batch</b>."; }
+  // ---- the batch settings table ----
+  function sweepValues() {          // the values the varied setting takes (at most 60)
+    const V = varOf(TBL.vary); if (!V) return [];
+    if (TBL.exact) return TBL.exact.slice();
+    const out = [], up = TBL.to >= TBL.from;
+    if (TBL.kind === "×") {
+      let f = Math.abs(TBL.step); if (!(f > 1) || TBL.from <= 0 || TBL.to <= 0) return [TBL.from];
+      if (!up) f = 1 / f;
+      for (let v = TBL.from, i = 0; i < 60 && (up ? v <= TBL.to * 1.01 : v >= TBL.to * 0.99); i++, v *= f) out.push(nice(v));
+    } else {
+      let d = Math.abs(TBL.step); if (!(d > 0)) return [TBL.from];
+      if (!up) d = -d;
+      for (let i = 0; i < 60; i++) { const v = TBL.from + i * d; if (up ? v > TBL.to + 1e-3 * Math.abs(d) : v < TBL.to - 1e-3 * Math.abs(d)) break; out.push(nice(v)); }
+    }
+    const vals = out.map(v => clamp(V.int ? Math.round(v) : v, V.min, V.max));
+    return vals.filter((v, i) => i === 0 || v !== vals[i - 1]);
+  }
+  function fillTable(p, E) {        // from a full set of settings (an experiment's, or the left panel's)
+    TBL.src = Object.assign({}, p); TBL.vals = {}; TBL.opts = {}; TBL.exact = null;
+    for (const V of cfg.sweepVars) TBL.vals[V.key] = p[V.key];
+    for (const O of cfg.choices) TBL.opts[O.k] = p[O.k];
+    if (E) {
+      const V = varOf(E.sweep), from = E.from ?? V.from, to = E.to ?? V.to, steps = E.steps || 10, lg = !!E.logX && from > 0 && to > 0;
+      TBL.vary = E.sweep; TBL.from = from; TBL.to = to;
+      if (lg) { TBL.kind = "×"; TBL.step = nice(Math.pow(to / from, 1 / (steps - 1))); } else { TBL.kind = "+"; TBL.step = nice((to - from) / (steps - 1)); }
+      TBL.exact = [];               // the experiment's own values (as many as its steps)
+      for (let i = 0; i < steps; i++) { let x = from + (to - from) * i / (steps - 1); if (lg) x = from * Math.pow(to / from, i / (steps - 1)); if (V.int) x = Math.round(x); TBL.exact.push(x); }
+    } else TBL.vary = null;
+    renderTable();
+  }
+  function renderTable() {
+    $("bOpts").innerHTML = cfg.choices.filter(shown).map(O => O.bool
+      ? `<label class="chk" style="margin:0 0 4px"><input type="checkbox" data-o="${O.k}" ${TBL.opts[O.k] ? "checked" : ""}> ${O.label}</label>`
+      : `<div class="brow" style="margin:0 0 4px"><label>${O.label}</label><select data-o="${O.k}" style="flex:1">${O.choices.map(([v, t]) => `<option value="${v}" ${String(TBL.opts[O.k]) === String(v) ? "selected" : ""}>${t}</option>`).join("")}</select></div>`).join("");
+    $("bTbl").innerHTML = cfg.sweepVars.filter(shown).map(V => {
+      const k = V.key, on = TBL.vary === k, u = V.unit ? ` (${V.unit})` : "";
+      return `<div class="bt${on ? " on" : ""}" data-k="${k}"><label ${on ? "data-ws-change" : ""}><input type="checkbox" data-vary="${k}" ${on ? "checked" : ""}> ${V.label}${u}</label>` +
+        `<input type="number" class="bval" data-v="${k}" step="any" min="${V.min}" max="${V.max}" value="${TBL.vals[k]}">` +
+        `<span class="bsw">from <input type="number" data-ws="from" data-r="from" step="any" value="${on ? TBL.from : ""}"> to <input type="number" data-ws="to" data-r="to" step="any" value="${on ? TBL.to : ""}">
+          step <select data-ws="step type" data-r="kind"><option value="+" ${TBL.kind === "+" ? "selected" : ""}>+</option><option value="×" ${TBL.kind === "×" ? "selected" : ""}>×</option></select>
+          <input type="number" data-ws="step" data-r="step" step="any" value="${on ? TBL.step : ""}"> <span class="bcount bsteps"></span></span></div>`;
+    }).join("");
+    updateCount();
+  }
+  function updateCount() {
+    const span = TBL.vary && $("bTbl").querySelector(`.bt[data-k="${TBL.vary}"] .bsteps`);
+    if (span) { const xs = sweepValues(); span.textContent = `→ ${xs.length} steps: ${xs.slice(0, 4).map(v => +v.toPrecision(4)).join(", ")}${xs.length > 4 ? " … " + +xs[xs.length - 1].toPrecision(4) : ""}`; }
+  }
+  function startVary(k) {           // a sensible first range when a setting is ticked
+    const V = varOf(k), cur = TBL.vals[k];
+    TBL.vary = k; TBL.exact = null; TBL.kind = "+"; S.logX = false;
+    if (cur > 0) { TBL.from = nice(Math.max(V.min, cur / 2)); TBL.to = nice(Math.min(V.max, cur * 2)); } else { TBL.from = V.min; TBL.to = nice(Math.min(V.max, V.min + 10)); }
+    TBL.step = nice((TBL.to - TBL.from) / 4); if (V.int) TBL.step = Math.max(1, Math.round(TBL.step));
+  }
+  // the settings for a run: the set the table was filled from, then every choice and every value it shows
+  function params() {
+    const p = Object.assign({}, TBL.src);
+    for (const O of cfg.choices) if (mOf(O) === S.sim && TBL.opts[O.k] !== undefined) p[O.k] = TBL.opts[O.k];
+    for (const V of cfg.sweepVars) { const x = TBL.vals[V.key]; if (mOf(V) === S.sim && x !== undefined && isFinite(x)) p[V.key] = clamp(V.int ? Math.round(x) : x, V.min, V.max); }
+    return p;
+  }
+  function syncMode() { S.exp = -1; setSim(cfg.getMode()); fillTable(cfg.baseParams(), null); S.mode = "repeat"; S.rows = []; S.meta = null; syncUI(); render(); $("bNote").innerHTML = "Choose a batch experiment on the left, or set up your own, then press <b>Run batch</b>."; }
   const cmp = () => (cfg.compares || []).find(c => c.key === S.compare);
   function syncUI() {
+    if (S.mode === "sweep" && !TBL.vary) { const V = cfg.sweepVars.find(shown); if (V) { startVary(V.key); renderTable(); } }
+    if (S.mode === "repeat" && TBL.vary) { TBL.vary = null; renderTable(); }
     $("bmRepeat").classList.toggle("on", S.mode === "repeat"); $("bmSweep").classList.toggle("on", S.mode === "sweep");
-    $("bRepeatOpts").style.display = S.mode === "repeat" ? "" : "none"; $("bSweepOpts").style.display = S.mode === "sweep" ? "" : "none";
+    $("bRepeatOpts").style.display = S.mode === "repeat" ? "" : "none"; $("bSweepOpts").style.display = S.mode === "sweep" ? "contents" : "none";
     $("bN").value = S.n; if ($("bVary")) $("bVary").checked = S.vary;
-    $("bVar").value = S.sweep; $("bFrom").value = S.from; $("bTo").value = S.to; $("bSteps").value = S.steps; $("bReps").value = S.reps;
-    $("bLogX").checked = S.logX; $("bLogY").checked = S.logY;
+    $("bReps").value = S.reps; $("bLogX").checked = S.logX; $("bLogY").checked = S.logY;
     if ($("bCmp")) $("bCmp").value = S.compare; $("bOut").value = S.outcome;
     document.querySelectorAll("#bExp button").forEach(b => b.classList.toggle("on", +b.dataset.k === S.exp));
     const p = params();
-    $("bNow").innerHTML = `<b>Settings used:</b> ${cfg.describe ? cfg.describe(p) : ""}${Object.keys(S.over).length ? ' <span class="hint">(set by the experiment; the main controls are not changed)</span>' : ' <span class="hint">(your current settings)</span>'}`;
+    $("bNow").innerHTML = `<b>Settings used:</b> ${cfg.describe ? cfg.describe(p) : ""}${S.exp >= 0 ? ' <span class="hint">(set by the experiment; the main controls are not changed)</span>' : ""}`;
   }
-  const custom = () => { S.exp = -1; syncUI(); };
+  const custom = () => { if (S.exp >= 0) $("bNote").innerHTML = "Your own set-up (changed from the experiment): press <b>Run batch</b>."; S.exp = -1; syncUI(); };
   $("bmRepeat").onclick = () => { S.mode = "repeat"; custom(); }; $("bmSweep").onclick = () => { S.mode = "sweep"; custom(); };
   $("bN").onchange = e => { S.n = +e.target.value; custom(); };
   if ($("bVary")) $("bVary").onchange = e => { S.vary = e.target.checked; custom(); };
-  $("bVar").onchange = e => { S.sweep = e.target.value; const v = sv(); S.from = v.from; S.to = v.to; S.steps = v.steps || 10; custom(); };
-  $("bFrom").onchange = e => { S.from = +e.target.value; custom(); }; $("bTo").onchange = e => { S.to = +e.target.value; custom(); };
-  $("bSteps").onchange = e => { S.steps = clamp(Math.round(+e.target.value), 2, 60); custom(); };
   $("bReps").onchange = e => { S.reps = clamp(Math.round(+e.target.value), 1, 200); custom(); };
   $("bLogX").onchange = e => { S.logX = e.target.checked; render(); }; $("bLogY").onchange = e => { S.logY = e.target.checked; render(); };
   if ($("bCmp")) $("bCmp").onchange = e => { S.compare = e.target.value; custom(); };
-  $("bOut").onchange = e => { S.outcome = e.target.value; render(); };
+  $("bOut").onchange = e => { S.outcome = e.target.value; if (TBL.vary && !shown(varOf(TBL.vary))) { TBL.vary = null; S.mode = "repeat"; } renderTable(); render(); syncUI(); };
+  $("bSetBox").addEventListener("input", e => {
+    const t = e.target;
+    if (t.dataset.vary) {           // the tick boxes act like radio buttons: one varied setting at most
+      if (t.checked) { startVary(t.dataset.vary); S.mode = "sweep"; } else { TBL.vary = null; S.mode = "repeat"; }
+      renderTable(); custom(); return;
+    }
+    if (t.dataset.v) TBL.vals[t.dataset.v] = +t.value;
+    if (t.dataset.o) TBL.opts[t.dataset.o] = t.type === "checkbox" ? t.checked : t.value;
+    if (t.dataset.r) { TBL.exact = null; TBL[t.dataset.r] = t.dataset.r === "kind" ? t.value : +t.value; if (t.dataset.r === "kind") S.logX = t.value === "×"; }
+    if (t.dataset.v || t.dataset.o || t.dataset.r) { updateCount(); custom(); }
+  });
+  $("bLeft").onclick = () => { if (S.running) return; S.mode = "repeat"; fillTable(cfg.baseParams(), null); custom(); };
   document.querySelectorAll("#bExp button").forEach(b => (b.onclick = () => {
+    if (S.running) return;
     const e = cfg.experiments[+b.dataset.k], s = e.set;
     if ((e.mode || "crash") !== S.sim) { if (cfg.setMode) cfg.setMode(e.mode || "crash"); setSim(e.mode || "crash"); }
-    Object.assign(S, { mode: s.mode, n: s.n || S.n, outcome: s.outcome || S.outcome, compare: s.compare || "none", vary: s.vary !== false, logX: !!s.logX, logY: !!s.logY, over: s.params || {}, exp: +b.dataset.k });
-    if (s.mode === "sweep") { S.sweep = s.sweep; const v = sv(); S.from = s.from ?? v.from; S.to = s.to ?? v.to; S.steps = s.steps || v.steps || 10; S.reps = s.reps || 1; }
+    Object.assign(S, { mode: s.mode, n: s.n || S.n, outcome: s.outcome || S.outcome, compare: s.compare || "none", vary: s.vary !== false, logX: !!s.logX, logY: !!s.logY, exp: +b.dataset.k });
+    if (s.mode === "sweep") S.reps = s.reps || 1;
+    // a one-click experiment starts from fixed defaults (never from the left panel), plus its own settings
+    fillTable(Object.assign({}, cfg.expBase ? cfg.expBase(e.mode || "crash") : cfg.baseParams(), s.params || {}), s.mode === "sweep" ? s : null);
     S.rows = []; S.meta = null; syncUI(); render();
     $("bNote").innerHTML = `<b>${e.q}</b> ${e.note}`;
   }));
   $("bClose").onclick = () => close();
   function open() { box.classList.add("open"); if (cfg.onOpen) cfg.onOpen(); syncUI(); render(); }
   function close() { S.stopFlag = true; box.classList.remove("open"); }
-  // a one-click experiment starts from fixed defaults (never from the left panel); your own runs use the current settings
-  const params = () => Object.assign({}, S.exp >= 0 && cfg.expBase ? cfg.expBase(cfg.experiments[S.exp].mode || "crash") : cfg.baseParams(), S.over);
 
   // ---- running ----
   function run() {
     if (S.running) return;
-    const base = params(), c = cmp();
+    const sweep = S.mode === "sweep" && TBL.vary, base = params(), c = cmp();
     const groups = c ? [{ label: c.la, p: c.a }, { label: c.lb, p: c.b }] : [{ label: "", p: {} }];
-    const jobs = [], v = sv();
+    const jobs = [], xs = sweep ? sweepValues() : [];
+    S.sweep = sweep ? TBL.vary : null;
     groups.forEach((g, gi) => {
-      if (S.mode === "repeat") for (let r = 0; r < S.n; r++) jobs.push({ g: gi, x: r + 1, seed: 1000 + r });
-      else for (let i = 0; i < S.steps; i++) {
-        let x = S.from + (S.to - S.from) * i / (S.steps - 1);
-        if (S.logX && S.from > 0 && S.to > 0) x = S.from * Math.pow(S.to / S.from, i / (S.steps - 1));
-        if (v.int) x = Math.round(x);
-        for (let r = 0; r < S.reps; r++) jobs.push({ g: gi, x, seed: 1 + i * 997 + r });
-      }
+      if (!sweep) for (let r = 0; r < S.n; r++) jobs.push({ g: gi, x: r + 1, seed: 1000 + r });
+      else xs.forEach((x, i) => { for (let r = 0; r < S.reps; r++) jobs.push({ g: gi, x, seed: 1 + i * 997 + r }); });
     });
-    S.rows = []; S.meta = { noFit: S.exp >= 0 && !!cfg.experiments[S.exp].set.noFit, mode: S.mode, sweep: S.sweep, groups, base, vary: S.vary, sim: S.sim }; S.running = true; S.stopFlag = false; S.total = jobs.length;
+    const mode = sweep ? "sweep" : "repeat";
+    S.rows = []; S.meta = { noFit: S.exp >= 0 && !!cfg.experiments[S.exp].set.noFit, mode, sweep: S.sweep, groups, base, vary: S.vary, sim: S.sim }; S.running = true; S.stopFlag = false; S.total = jobs.length;
     $("bRun").disabled = true; $("bStop").disabled = false; $("bCSV").disabled = true;
     let k = 0, lastDraw = 0;
     const t0 = performance.now();
@@ -733,8 +829,8 @@ function setupBatch(cfg) {
       const tc = performance.now();
       while (k < jobs.length && performance.now() - tc < 30 && !S.stopFlag) {
         const j = jobs[k++], g = groups[j.g];
-        const p = Object.assign({}, base, g.p, { _batch: true, _vary: S.mode === "repeat" && S.vary });
-        if (S.mode === "sweep") p[S.sweep] = j.x;
+        const p = Object.assign({}, base, g.p, { _batch: true, _vary: mode === "repeat" && S.vary });
+        if (mode === "sweep") p[S.sweep] = j.x;
         if (cfg.fixParams) cfg.fixParams(p);
         let out; try { out = cfg.runOnce(p, j.seed); } catch (err) { console.error(err); out = {}; }
         S.rows.push(Object.assign({ group: j.g, x: j.x, seed: j.seed }, out));
@@ -847,6 +943,7 @@ function setupBatch(cfg) {
   }
   window.addEventListener("resize", () => render());
   fillSelects();
+  try { fillTable(cfg.baseParams(), null); } catch (e) { fillTable({}, null); }   // the left panel may not be ready yet
   syncUI();
   return { open, close, render, state: S, syncMode };
 }
@@ -1017,10 +1114,11 @@ function runOnce(p, seed) {
   const rng = mulberry32(hashSeed("crash" + seed));
   if (p._vary) {
     // real crashes vary: people's size, where they sit, how the belt is worn, and the exact speed
-    p.occ = clamp(p.occ * (1 + 0.18 * gauss(rng)), 45, 130);
-    p.seat = clamp(p.seat + 0.05 * gauss(rng), 0.33, 0.8);
-    if (p.belt) p.slack = clamp(p.slack + 6 * rng(), 0, 20);
-    p.mph = clamp(p.mph + 3 * gauss(rng), 5, 90);
+    // (the sizes of these random changes are settings in the batch table; defaults ±18%, ±5 cm, +0–6 cm, ±3 mph)
+    p.occ = clamp(p.occ * (1 + p.vOcc / 100 * gauss(rng)), 45, 130);
+    p.seat = clamp(p.seat + p.vSeat * gauss(rng), 0.33, 0.8);
+    if (p.belt) p.slack = clamp(p.slack + p.vSlack * rng(), 0, 20);
+    p.mph = clamp(p.mph + p.vMph * gauss(rng), 5, 90);
   }
   if (p.randMass) { p.mass = Math.round(800 + 2200 * rng()); p.otherMass = Math.round(Math.exp(Math.log(700) + rng() * Math.log(40000 / 700))); }
   const r = simulate(p, true), st = occupantStop(r, p);
@@ -1860,11 +1958,13 @@ function theory(ctx) {
   if (ctx.outcome === "pErr") return { value: 0, label: "Theory: no change (momentum conserved)" };
   return null;
 }
+// batch runs: how much real crashes vary from one to the next (used by "Random variation")
+const CRASH_VARY = { vOcc: 18, vSeat: 0.05, vSlack: 6, vMph: 3 };
 const BATCH = setupBatch({
   file: "car-crash",
   getMode: () => MODE, setMode: m => setMode(m, true),
   groups: [["crash", "Car crash"], ["lab", "Collisions lab"]],
-  expBase: m => (m === "lab" ? Object.assign({}, LAB_BASE) : Object.assign({}, base, { _mode: "crash" })),
+  expBase: m => (m === "lab" ? Object.assign({}, LAB_BASE) : Object.assign({}, base, CRASH_VARY, { _mode: "crash" })),
   outcomes: [
     { key: "hic", label: "Head Injury Criterion HIC15", unit: "", dec: 0, threshold: { v: 1000, label: "HIC 1000 (serious)" } },
     { key: "risk", label: "Chance of serious head injury", unit: "%", dec: 1 },
@@ -1883,31 +1983,59 @@ const BATCH = setupBatch({
     { mode: "lab", key: "angleSum", label: "2D: angle between the paths φ₂ − φ₁ (measured)", unit: "°", dec: 1 },
     { mode: "lab", key: "ballsOut", label: "Newton's cradle: balls that swing out", unit: "", dec: 2 },
   ],
+  // EVERY numeric starting setting, for the batch settings table (mode "lab" = the collisions lab; outs = the outcomes it is used for)
   sweepVars: [
-    { key: "mph", label: "Impact speed", unit: "mph", from: 10, to: 70, steps: 13, int: true },
-    { key: "crL", label: "Crumple zone length", unit: "m", from: 0.2, to: 1.0, steps: 9 },
-    { key: "crF", label: "Crush force", unit: "kN", from: 100, to: 1000, steps: 10, int: true },
-    { key: "otherMass", label: "Other vehicle's mass", unit: "kg", from: 600, to: 40000, steps: 14, int: true },
-    { key: "mass", label: "Your car's mass", unit: "kg", from: 800, to: 3000, steps: 12, int: true },
-    { key: "bagT", label: "Airbag firing time", unit: "ms", from: 10, to: 90, steps: 9, int: true },
-    { key: "slack", label: "Belt slack", unit: "cm", from: 0, to: 15, steps: 8, int: true },
-    { mode: "lab", key: "e", label: "Coefficient of restitution e", unit: "", from: 0, to: 1, steps: 11 },
-    { mode: "lab", key: "m2", label: "Mass of object 2", unit: "kg", from: 0.1, to: 10, steps: 13 },
-    { mode: "lab", key: "u1", label: "Speed of object 1", unit: "m/s", from: 1, to: 10, steps: 10 },
-    { mode: "lab", key: "errV", label: "Light-gate error SD", unit: "%", from: 0, to: 10, steps: 6 },
-    { mode: "lab", key: "b", label: "2D: impact parameter b/(r₁ + r₂)", unit: "", from: 0, to: 0.95, steps: 20 },
-    { mode: "lab", key: "k", label: "Cradle: balls pulled back k", unit: "", from: 1, to: 4, steps: 4, int: true },
-    { mode: "lab", key: "ec", label: "Cradle: restitution of the balls", unit: "", from: 0.8, to: 1, steps: 9 },
+    { key: "mph", label: "Impact speed", unit: "mph", min: 5, max: 90, int: true },
+    { key: "mass", label: "Your car's mass", unit: "kg", min: 500, max: 5000, int: true },
+    { key: "crL", label: "Crumple zone length", unit: "m", min: 0.05, max: 1.5 },
+    { key: "crF", label: "Crush force", unit: "kN", min: 50, max: 3000, int: true },
+    { key: "otherMass", label: "Other vehicle's mass", unit: "kg", min: 300, max: 60000, int: true },
+    { key: "occ", label: "Occupant mass", unit: "kg", min: 40, max: 130 },
+    { key: "seat", label: "Seat position: head to steering wheel", unit: "m", min: 0.33, max: 0.8 },
+    { key: "slack", label: "Belt slack", unit: "cm", min: 0, max: 20, int: true },
+    { key: "stretch", label: "Belt stretch", unit: "%", min: 1, max: 40 },
+    { key: "bagT", label: "Airbag firing time", unit: "ms", min: 0, max: 200, int: true },
+    { key: "vOcc", label: "Random variation: occupant mass SD", unit: "%", min: 0, max: 50 },
+    { key: "vSeat", label: "Random variation: seat position SD", unit: "m", min: 0, max: 0.2 },
+    { key: "vSlack", label: "Random variation: extra belt slack, up to", unit: "cm", min: 0, max: 20 },
+    { key: "vMph", label: "Random variation: speed SD", unit: "mph", min: 0, max: 20 },
+    { mode: "lab", key: "m1", label: "Mass of object 1", unit: "kg", min: 0.01, max: 100, outs: ["pRatio", "keLost", "eMeas", "keToTarget"] },
+    { mode: "lab", key: "m2", label: "Mass of object 2", unit: "kg", min: 0.01, max: 100, outs: ["pRatio", "keLost", "eMeas", "keToTarget"] },
+    { mode: "lab", key: "u1", label: "Speed of object 1", unit: "m/s", min: -50, max: 50, outs: ["pRatio", "keLost", "eMeas", "keToTarget"] },
+    { mode: "lab", key: "u2", label: "Speed of object 2", unit: "m/s", min: -50, max: 50, outs: ["pRatio", "keLost", "eMeas", "keToTarget"] },
+    { mode: "lab", key: "e", label: "Coefficient of restitution e", unit: "", min: 0, max: 1, outs: ["pRatio", "keLost", "eMeas", "keToTarget"] },
+    { mode: "lab", key: "errV", label: "Light-gate error SD", unit: "%", min: 0, max: 20, outs: ["pRatio", "keLost", "eMeas", "keToTarget"] },
+    { mode: "lab", key: "m1b", label: "2D: mass of ball 1", unit: "kg", min: 0.01, max: 100, outs: ["angleSum"] },
+    { mode: "lab", key: "m2b", label: "2D: mass of ball 2", unit: "kg", min: 0.01, max: 100, outs: ["angleSum"] },
+    { mode: "lab", key: "ub", label: "2D: speed of ball 1", unit: "m/s", min: 0.1, max: 50, outs: ["angleSum"] },
+    { mode: "lab", key: "b", label: "2D: impact parameter b/(r₁ + r₂)", unit: "", min: 0, max: 0.99, outs: ["angleSum"] },
+    { mode: "lab", key: "eb", label: "2D: restitution", unit: "", min: 0, max: 1, outs: ["angleSum"] },
+    { mode: "lab", key: "errA", label: "2D: protractor error SD", unit: "°", min: 0, max: 10, outs: ["angleSum"] },
+    { mode: "lab", key: "n", label: "Cradle: number of balls", unit: "", min: 2, max: 10, int: true, outs: ["ballsOut"] },
+    { mode: "lab", key: "k", label: "Cradle: balls pulled back k", unit: "", min: 1, max: 9, int: true, outs: ["ballsOut"] },
+    { mode: "lab", key: "mc", label: "Cradle: mass of each ball", unit: "kg", min: 0.01, max: 5, outs: ["ballsOut"] },
+    { mode: "lab", key: "vc", label: "Cradle: speed at the bottom", unit: "m/s", min: 0.1, max: 10, outs: ["ballsOut"] },
+    { mode: "lab", key: "ec", label: "Cradle: restitution of the balls", unit: "", min: 0, max: 1, outs: ["ballsOut"] },
+  ],
+  // the settings that are choices rather than numbers
+  choices: [
+    { k: "target", label: "Crash into", choices: [["wall", "A rigid concrete wall"], ["parked", "A parked vehicle"], ["headon", "An oncoming vehicle"]] },
+    { k: "otherType", label: "Other vehicle", choices: Object.entries(VEH).map(([k, v]) => [k, v.name]) },
+    { k: "auto", label: "Crush force set automatically (90% of the zone used)", bool: true },
+    { k: "belt", label: "Seatbelt", bool: true }, { k: "pretens", label: "Belt pretensioner", bool: true }, { k: "limiter", label: "Belt load limiter", bool: true },
+    { k: "airbag", label: "Airbag", bool: true }, { k: "randMass", label: "Random masses for both vehicles in every run", bool: true },
+    { mode: "lab", k: "type", label: "Collision type", choices: [["elastic", "Elastic (e = 1)"], ["inelastic", "Perfectly inelastic (e = 0)"], ["custom", "Custom (use e)"]], outs: ["pRatio", "keLost", "eMeas", "keToTarget"] },
+    { mode: "lab", k: "randE", label: "Random e (0.5–1) in random set-ups", bool: true, outs: ["pRatio", "keLost", "eMeas", "keToTarget"] },
   ],
   repeatN: [50, 100, 200, 500, 1000], defaultN: 200,
-  varyLabel: m => (m === "lab" ? "Random set-ups: masses 0.2–5 kg, speeds 1–5 m/s and (2D) impact parameter chosen at random for every run" : "Random variation: occupant mass (±18%), seat position (±5 cm), belt slack (+0–6 cm), speed (±3 mph)"),
+  varyLabel: m => (m === "lab" ? "Random set-ups: masses 0.2–5 kg, speeds 1–5 m/s and (2D) impact parameter chosen at random for every run" : "Random variation: occupant mass, seat position, belt slack and speed (sizes set in the table)"),
   compares: [
     { key: "airbag", label: "Without vs with airbag", a: { airbag: false }, b: { airbag: true }, la: "No airbag", lb: "Airbag" },
     { key: "belt", label: "Without vs with seatbelt", a: { belt: false }, b: { belt: true }, la: "No belt", lb: "Seatbelt" },
     { key: "pretens", label: "Without vs with pretensioner", a: { pretens: false }, b: { pretens: true }, la: "No pretensioner", lb: "Pretensioner" },
     { key: "crumple", label: "Rigid front vs crumple zone", a: { crL: 0.05, crF: 1500, auto: false }, b: {}, la: "Rigid front", lb: "Crumple zone" },
   ],
-  baseParams: () => (MODE === "lab" ? labParams() : Object.assign(params(), { _mode: "crash" })),
+  baseParams: () => (MODE === "lab" ? labParams() : Object.assign(params(), CRASH_VARY, { _mode: "crash" })),
   runOnce: (p, seed) => (p._mode === "lab" ? labRunOnce(p, seed) : runOnce(p, seed)),
   theory: ctx => (ctx.params._mode === "lab" ? labTheory(ctx) : theory(ctx)),
   describe: p => p._mode === "lab" ? `1D: m₁ = ${nf(p.m1)} kg at ${p.u1} m/s, m₂ = ${nf(p.m2)} kg at ${p.u2} m/s, e = ${p.type === "elastic" ? 1 : p.type === "inelastic" ? 0 : p.e}; 2D: ${p.m1b} kg into ${p.m2b} kg, b = ${p.b}, e = ${p.eb}; cradle: ${p.k} of ${p.n} balls, e = ${p.ec}; light gates ±${p.errV}%, protractor ±${p.errA}°` : `${p.mph} mph into ${p.target === "wall" ? "a wall" : `${p.target === "headon" ? "an oncoming" : "a parked"} ${p.otherMass} kg vehicle`}, ${p.mass} kg car, crumple ${Math.round(p.crL * 100)} cm at ${p.auto ? "auto" : p.crF + " kN"}, ${p.occ} kg occupant, ${p.belt ? `belt (${p.slack} cm slack${p.pretens ? ", pretensioner" : ""})` : "no belt"}, ${p.airbag ? `airbag at ${p.bagT} ms` : "no airbag"}`,

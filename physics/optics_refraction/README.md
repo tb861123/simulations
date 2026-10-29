@@ -75,7 +75,9 @@ questions, each with marks, hints and a mark scheme.
 reading errors (protractor ±1°, TIR onset ±0.5°, spectrometer ±0.1°, ruler
 ±2 mm on u, sharpest image ±5 mm; the fibre test launches 200 random rays per
 run). Histograms for repeats, mean ± 1 SD against theory for sweeps, CSV
-download.
+download. A batch seed box gives a different (but repeatable) set of random errors.
+
+**Batch settings table.** The batch panel lists every setting the chosen experiment uses: the experiment type (glass block by sin i / sin r or by the critical angle, prism, converging lens, diverging lens, optical fibre) and, for that type, n₁, n₂ and the angle of incidence; prism material, apex angle and wavelength; object distance and focal length; core and cladding refractive index; and the instrument errors for that practical (protractor, TIR onset, spectrometer, ruler on u, sharpest image) and the number of rays per fibre run, with the defaults above. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One click on an experiment fills in the whole table (press ▶ Run batch to run it). **↺ Use my left-panel settings** copies the left panel into the table.
 
 One-click experiments (default seed 1):
 

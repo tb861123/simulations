@@ -116,6 +116,30 @@
   #bNote { margin-top: 8px; padding: 7px 9px; background: var(--panel-2); border-left: 3px solid var(--accent); border-radius: 5px; color: #dfe3d6; }
   .prog { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; flex: 1; min-width: 120px; }
   .prog span { display: block; height: 100%; width: 0; background: var(--accent); }
+  /* Batch run: two columns, set-up on the left (experiments and the settings table), results on the right */
+  #batch { gap: 8px 12px; }
+  #batch.open { display: grid; grid-template-columns: minmax(330px, 40%) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  #batch .bhead { grid-column: 1 / -1; }
+  #batch .bhead .hint { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  #bsetup { overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding-right: 4px; min-height: 0; }
+  #bresults { display: flex; flex-direction: column; gap: 7px; min-height: 0; }
+  #bsetup #bexp { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  #bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(180px, 1fr) minmax(0, 42%); gap: 8px; }
+  /* Batch settings table: every starting setting, with a tick box to choose the one that is varied */
+  #bSetBox { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--panel-2); margin-top: 0; color: var(--text); }
+  #bSetBox > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
+  #bSetBox .bhint { font-size: 11.5px; color: var(--muted); margin: 3px 0 5px; }
+  #bOpts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; margin-bottom: 5px; }
+  #bOpts label { display: inline-flex; gap: 5px; align-items: center; }
+  #bTbl { display: grid; grid-template-columns: 1fr; gap: 3px 14px; }
+  .bt { display: flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 2px 4px; border-radius: 6px; flex-wrap: wrap; }
+  .bt.on { background: rgba(241,175,40,.13); outline: 1px solid var(--accent); }
+  .bt label { flex: 1; min-width: 150px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .bt input[type=number] { width: 78px !important; }
+  .bt .bsw { display: none; gap: 5px; align-items: center; flex-wrap: wrap; }
+  .bt.on .bsw { display: inline-flex; }
+  .bt.on .bval { display: none; }
+  .bt .bcount { color: var(--muted); font-size: 11.5px; }
 
   /* Tabs, Standard/Advanced level, info boxes, exam practice */
   #tabs { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -440,34 +464,39 @@
 <div id="batch" role="dialog" aria-label="Batch run">
   <div class="bhead">
     <h3>📊 Batch run</h3>
-    <span class="hint">Run the model many times with no drawing, then compare with theory. Uses the gas, number of molecules, temperature and width on the left (one gas, walls not heated, piston still) unless an experiment sets them.</span>
+    <span class="hint">Run the model many times with no drawing, then compare with theory (one gas, walls not heated, piston still). Every setting used is in the table: experiments fill it in, and you can change any of it.</span>
     <button id="bClose" style="margin-left:auto">✕ Close</button>
   </div>
-  <div id="bexp"></div>
-  <div class="brow">
-    <label>Mode <select id="bMode"><option value="repeat">Repeat (same settings, different random starts)</option><option value="sweep">Sweep (change one setting in steps)</option></select></label>
-    <label>Record <select id="bOut"></select></label>
-    <span id="bRepeatOpts"><label>Runs <select id="bRuns"><option>10</option><option selected>20</option><option>50</option><option>100</option></select></label></span>
-    <span id="bSweepOpts" class="brow">
-      <label>Change <select id="bVar"></select></label>
-      <label>from <input type="number" id="bFrom"></label>
-      <label>to <input type="number" id="bTo"></label>
-      <label>steps <input type="number" id="bSteps" min="2" max="15" value="5" style="width:56px"></label>
-      <label>repeats <input type="number" id="bReps" min="1" max="20" value="3" style="width:56px"></label>
-    </span>
+  <div id="bsetup">
+    <div id="bexp"></div>
+    <div class="brow">
+      <label>Mode <select id="bMode"><option value="repeat">Repeat (same settings, different random starts)</option><option value="sweep">Sweep (vary the ticked setting in steps)</option></select></label>
+      <label>Record <select id="bOut"></select></label>
+      <span id="bRepeatOpts"><label>Runs <select id="bRuns"><option>10</option><option selected>20</option><option>50</option><option>100</option></select></label></span>
+    </div>
+    <details id="bSetBox" open>
+      <summary>Starting settings: tick the one to vary</summary>
+      <div class="bhint">Every setting the chosen outcome uses is listed. Tick one to sweep it from → to in steps (+ adds the step each time, × multiplies by it); every other setting stays at the value shown. What you see is what runs.</div>
+      <div id="bOpts"></div>
+      <div id="bTbl"></div>
+      <div class="brow" style="margin-top:5px"><span id="bSweepOpts"><label>Repeats at each step <input type="number" id="bReps" min="1" max="20" value="3" style="width:60px"></label></span>
+        <button id="bLeft" title="Fill the table from the settings on the left panel">↺ Use my left-panel settings</button></div>
+    </details>
   </div>
-  <div class="brow">
-    <button id="bRun" class="primary">▶ Run batch</button>
-    <button id="bStop" disabled>■ Stop</button>
-    <div class="prog"><span id="bProg"></span></div>
-    <span id="bStatus" class="hint">Ready</span>
-    <label><input type="checkbox" id="bLogX"> log x</label>
-    <label><input type="checkbox" id="bLogY"> log y</label>
-    <button id="bCsv" disabled>⬇ Download CSV</button>
-  </div>
-  <div id="bbody">
-    <div id="bchartBox"><canvas id="bchart"></canvas></div>
-    <div id="bside"><div id="bsum" class="hint">Pick an experiment above, or set up your own, then press <b>Run batch</b>.</div><div id="bNote" style="display:none"></div></div>
+  <div id="bresults">
+    <div class="brow">
+      <button id="bRun" class="primary">▶ Run batch</button>
+      <button id="bStop" disabled>■ Stop</button>
+      <div class="prog"><span id="bProg"></span></div>
+      <span id="bStatus" class="hint">Ready</span>
+      <label><input type="checkbox" id="bLogX"> log x</label>
+      <label><input type="checkbox" id="bLogY"> log y</label>
+      <button id="bCsv" disabled>⬇ Download CSV</button>
+    </div>
+    <div id="bbody">
+      <div id="bchartBox"><canvas id="bchart"></canvas></div>
+      <div id="bside"><div id="bsum" class="hint">Pick an experiment, or set up your own, then press <b>Run batch</b>.</div><div id="bNote" style="display:none"></div></div>
+    </div>
   </div>
 </div>
 
@@ -722,7 +751,7 @@ function runOnce(p, seed, out) {
   if (out === "zone") { const r = runRing(p, seed, true); return { seed, value: r.zone }; }
   if (out === "Tad") {
     // start 100 nm wide, then push the piston slowly (20 m/s) to the chosen width; no heat flows through the walls
-    const S2 = makeSystem({ ...q, W: 100 }, rng); S2.piston = "move"; S2.targetW = p.W; S2.pistonSpeed = 20;
+    const S2 = makeSystem({ ...q, W: 100 }, rng); S2.piston = "move"; S2.targetW = p.W; S2.pistonSpeed = p.sqSpeed;   // 20 m/s by default
     // start at exactly the set temperature (random starting speeds would otherwise make it a few per cent off)
     const f0 = Math.sqrt(p.T / kineticT(S2)); for (let i = 0; i < S2.n; i++) { S2.vx[i] *= f0; S2.vy[i] *= f0; }
     while (Math.abs(S2.W - p.W) > 1e-9 && S2.t < 20000) stepSys(S2, chooseDt(S2), rng);
@@ -1287,14 +1316,19 @@ const OUTCOMES = {
   zone:     { label: "Ring settles, 3.5 h (fraction from NH₃ end)", unit: "", theory: p => grahamFrac(p.acidM), theory2: p => frontsFrac(p.acidM), theory2Label: "first sight (√D fronts)" },
   ringTime: { label: "Time for the white ring to appear", unit: "min", theory: p => ringTimeTheory(p) },
 };
+// Every starting setting the batch table shows (get = read it from a set of parameters, set = write it); outs = the outcomes it is used for
 const VARS = {
-  W:    { label: "Box width", unit: "nm", set: (p, v) => { p.W = v; }, get: p => p.W, min: 15, max: 110 },
-  T:    { label: "Temperature", unit: "K", set: (p, v) => { p.T = v; }, get: p => p.T, min: 20, max: 2000 },
-  N:    { label: "Number of molecules", unit: "", set: (p, v) => { p.N = Math.round(v); }, get: p => p.N, min: 20, max: 1500, int: true },
-  mass: { label: "Molecule mass", unit: "u", set: (p, v) => { p.mass = v; }, get: p => p.mass || GASES[p.gasA].m, min: 2, max: 300 },
-  acidM:{ label: "Acid gas Mr (diffusion tube)", unit: "", set: (p, v) => { p.acidM = v; }, get: p => p.acidM, min: 17, max: 250 },
-  TC:   { label: "Temperature (diffusion tube)", unit: "°C", set: (p, v) => { p.TC = v; }, get: p => p.TC, min: 0, max: 100 },
+  W:    { label: "Box width", unit: "nm", set: (p, v) => { p.W = v; }, get: p => p.W, min: 15, max: 110, outs: ["Z", "pressure", "meanSpeed", "coll", "mfp", "speeds", "D", "mix", "Tad"] },
+  T:    { label: "Temperature", unit: "K", set: (p, v) => { p.T = v; }, get: p => p.T, min: 20, max: 2000, outs: ["Z", "pressure", "meanSpeed", "coll", "mfp", "speeds", "D", "mix", "Tad"] },
+  N:    { label: "Number of molecules", unit: "", set: (p, v) => { p.N = Math.round(v); }, get: p => p.N, min: 20, max: 1500, int: true, outs: ["Z", "pressure", "meanSpeed", "coll", "mfp", "speeds", "D", "mix", "Tad"] },
+  mass: { label: "Molecule mass", unit: "u", set: (p, v) => { p.mass = v; }, get: p => p.mass || GASES[p.gasA].m, min: 2, max: 300, outs: ["Z", "pressure", "meanSpeed", "coll", "mfp", "speeds", "D", "mix", "Tad"] },
+  sqSpeed: { label: "Piston speed during the squeeze", unit: "m/s", set: (p, v) => { p.sqSpeed = v; }, get: p => p.sqSpeed, min: 1, max: 500, outs: ["Tad"] },
+  acidM:{ label: "Acid gas Mr (diffusion tube)", unit: "", set: (p, v) => { p.acidM = v; }, get: p => p.acidM, min: 17, max: 250, outs: ["ring", "zone", "ringTime"] },
+  TC:   { label: "Temperature (diffusion tube)", unit: "°C", set: (p, v) => { p.TC = v; }, get: p => p.TC, min: 0, max: 100, outs: ["ring", "zone", "ringTime"] },
+  c0:   { label: "Molecules per cm (diffusion tube)", unit: "", set: (p, v) => { p.c0 = Math.round(v); }, get: p => p.c0, min: 5, max: 100, int: true, outs: ["ring", "zone", "ringTime"] },
 };
+// Settings that are choices rather than numbers
+const BOPTS = [{ k: "gasA", label: "Gas", choices: Object.entries(GASES).map(([k, g]) => [k, g.name]), outs: ["Z", "pressure", "meanSpeed", "coll", "mfp", "speeds", "D", "mix", "Tad"] }];
 const EXPERIMENTS = [
   { q: "Does pV = NkT hold?", mode: "repeat", out: "Z", runs: 50, set: { gasA: "N2", N: 400, T: 300, W: 50 },
     note: "Each run measures pressure from wall hits for 300 ps. The average is close to 1 but a few per cent higher, because molecules take up a little room and get in each other's way (the yellow line includes this). Single runs scatter by about 1% because only a few thousand wall hits are counted. The model lands about 1% below the yellow line: collisions are found one small time step late, after the discs have overlapped slightly, so they act a little smaller than their real size." },
@@ -1323,40 +1357,114 @@ const EXPERIMENTS = [
 ];
 
 let batchBusy = false, batchStop = false, batchRes = null;
+/* ---- The batch settings table ----
+   TBL holds a value for every setting, the choices, and which setting (if any) is varied, with its range and step.
+   One-click experiments fill it in (from BATCH_DEFAULTS, never from the left panel); a run uses exactly what it
+   shows. An experiment's sweep keeps its own evenly spaced (or log-spaced) values until you edit the range. */
+const TBL = { src: {}, vals: {}, opts: {}, vary: null, from: 0, to: 1, kind: "+", step: 1, exact: null };
+const nice = x => (x === 0 || !isFinite(x)) ? x : +(+x).toPrecision(4);
+const shownV = k => !VARS[k].outs || VARS[k].outs.includes(el("bOut").value);
+const shownO = O => !O.outs || O.outs.includes(el("bOut").value);
+function sweepValues() {               // the values the varied setting takes: from, from+step, … (or ×step) up to "to"; at most 60
+  const V = VARS[TBL.vary]; if (!V) return [];
+  if (TBL.exact) return TBL.exact.slice();
+  const out = [], up = TBL.to >= TBL.from;
+  if (TBL.kind === "×") {
+    let f = Math.abs(TBL.step); if (!(f > 1) || TBL.from <= 0 || TBL.to <= 0) return [TBL.from];
+    if (!up) f = 1 / f;
+    for (let v = TBL.from, i = 0; i < 60 && (up ? v <= TBL.to * 1.01 : v >= TBL.to * 0.99); i++, v *= f) out.push(nice(v));
+  } else {
+    let d = Math.abs(TBL.step); if (!(d > 0)) return [TBL.from];
+    if (!up) d = -d;
+    for (let i = 0; i < 60; i++) { const v = TBL.from + i * d; if (up ? v > TBL.to + 1e-3 * Math.abs(d) : v < TBL.to - 1e-3 * Math.abs(d)) break; out.push(nice(v)); }
+  }
+  const vals = out.map(v => clamp(V.int ? Math.round(v) : v, V.min, V.max));
+  return vals.filter((v, i) => i === 0 || v !== vals[i - 1]);
+}
 function batchCfg() {
-  return { mode: el("bMode").value, out: el("bOut").value, runs: +el("bRuns").value, v: el("bVar").value,
-           from: +el("bFrom").value, to: +el("bTo").value, steps: clamp(Math.round(+el("bSteps").value), 2, 15), reps: clamp(Math.round(+el("bReps").value), 1, 20) };
+  const sweep = el("bMode").value === "sweep" && TBL.vary, xs = sweep ? sweepValues() : [];
+  return { mode: sweep ? "sweep" : "repeat", out: el("bOut").value, runs: +el("bRuns").value, v: TBL.vary, xs,
+           from: xs.length ? xs[0] : 0, to: xs.length ? xs[xs.length - 1] : 1, steps: xs.length, reps: clamp(Math.round(+el("bReps").value) || 1, 1, 20) };
+}
+// Fill the table from a full set of parameters (an experiment's, or the left panel's)
+function fillTable(p, E) {
+  TBL.src = { ...p }; TBL.vals = {}; TBL.opts = {}; TBL.exact = null;
+  for (const [k, V] of Object.entries(VARS)) TBL.vals[k] = V.get(p);
+  for (const O of BOPTS) TBL.opts[O.k] = p[O.k];
+  if (E && E.v) {
+    const V = VARS[E.v], lg = E.logx && E.from > 0 && E.to > 0;
+    TBL.vary = E.v; TBL.from = E.from; TBL.to = E.to;
+    if (lg) { TBL.kind = "×"; TBL.step = nice(Math.pow(E.to / E.from, 1 / (E.steps - 1))); } else { TBL.kind = "+"; TBL.step = nice((E.to - E.from) / (E.steps - 1)); }
+    TBL.exact = [];       // the experiment's own values
+    for (let s = 0; s < E.steps; s++) { let v = lg ? E.from * Math.pow(E.to / E.from, s / (E.steps - 1)) : E.from + (E.to - E.from) * s / (E.steps - 1); v = clamp(v, V.min, V.max); if (V.int) v = Math.round(v); TBL.exact.push(v); }
+  } else TBL.vary = null;
+  renderTable();
+}
+function renderTable() {
+  el("bOpts").innerHTML = BOPTS.filter(shownO).map(O => `<label>${O.label} <select data-o="${O.k}">${O.choices.map(([v, t]) => `<option value="${v}" ${TBL.opts[O.k] === v ? "selected" : ""}>${t}</option>`).join("")}</select></label>`).join("");
+  el("bTbl").innerHTML = Object.entries(VARS).filter(([k]) => shownV(k)).map(([k, V]) => {
+    const on = TBL.vary === k, u = V.unit ? ` (${V.unit})` : "";
+    return `<div class="bt${on ? " on" : ""}" data-k="${k}"><label ${on ? "data-ws-change" : ""}><input type="checkbox" data-vary="${k}" ${on ? "checked" : ""}> ${V.label}${u}</label>` +
+      `<input type="number" class="bval" data-v="${k}" step="any" min="${V.min}" max="${V.max}" value="${TBL.vals[k]}">` +
+      `<span class="bsw">from <input type="number" data-ws="from" data-r="from" step="any" value="${on ? TBL.from : ""}"> to <input type="number" data-ws="to" data-r="to" step="any" value="${on ? TBL.to : ""}">
+        step <select data-ws="step type" data-r="kind"><option value="+" ${TBL.kind === "+" ? "selected" : ""}>+</option><option value="×" ${TBL.kind === "×" ? "selected" : ""}>×</option></select>
+        <input type="number" data-ws="step" data-r="step" step="any" value="${on ? TBL.step : ""}"> <span class="bcount bsteps"></span></span></div>`;
+  }).join("");
+  updateCount();
+}
+function updateCount() {
+  const span = TBL.vary && el("bTbl").querySelector(`.bt[data-k="${TBL.vary}"] .bsteps`);
+  if (span) { const xs = sweepValues(); span.textContent = `→ ${xs.length} steps: ${xs.slice(0, 4).map(v => fmt(v, 4)).join(", ")}${xs.length > 4 ? " … " + fmt(xs[xs.length - 1], 4) : ""}`; }
+}
+function tableEdited() { expNote = null; expSet = null; document.querySelectorAll("#bexp button").forEach(b => b.classList.remove("on")); }
+function startVary(k) {                  // a sensible first range when a setting is ticked
+  const V = VARS[k], cur = TBL.vals[k];
+  TBL.vary = k; TBL.kind = "+"; TBL.exact = null;
+  if (cur > 0) { TBL.from = nice(Math.max(V.min, cur / 2)); TBL.to = nice(Math.min(V.max, cur * 2)); } else { TBL.from = V.min; TBL.to = nice(Math.min(V.max, V.min + 10)); }
+  TBL.step = nice((TBL.to - TBL.from) / 4); if (V.int) TBL.step = Math.max(1, Math.round(TBL.step));
+  el("bLogX").checked = false;
 }
 let expSet = null, expNote = null;
 function loadExperiment(i) {
   const E = EXPERIMENTS[i];
   el("bMode").value = E.mode; el("bOut").value = E.out;
   if (E.runs) el("bRuns").value = E.runs;
-  if (E.v) { el("bVar").value = E.v; el("bFrom").value = E.from; el("bTo").value = E.to; el("bSteps").value = E.steps; el("bReps").value = E.reps; }
+  if (E.v) el("bReps").value = E.reps;
   el("bLogX").checked = !!E.logx; el("bLogY").checked = !!E.logy;
   expSet = E.set; expNote = E.note;
+  fillTable({ ...BATCH_DEFAULTS, ...E.set }, E.mode === "sweep" ? E : null);
   document.querySelectorAll("#bexp button").forEach((b, k) => b.classList.toggle("on", k === i));
   syncBatchUI();
 }
 function syncBatchUI() {
+  if (el("bMode").value === "sweep" && !TBL.vary) { const k = Object.keys(VARS).find(shownV); if (k) { startVary(k); renderTable(); } }
+  if (el("bMode").value === "repeat" && TBL.vary) { TBL.vary = null; renderTable(); }
   const sweep = el("bMode").value === "sweep";
   el("bRepeatOpts").style.display = sweep ? "none" : ""; el("bSweepOpts").style.display = sweep ? "" : "none";
 }
 // Every one-click experiment starts from these complete defaults (never from the left panel), so experiments can be run in any order
-const BATCH_DEFAULTS = { gasA: "N2", gasB: "none", fracB: 0.5, N: 400, T: 300, W: 50, start: "mb", partition: false, big: false, heat: false, piston: "hold", pistonSpeed: 100, pext: 0.4, seed: "1", acidM: 36.5, TC: 25 };
-function baseParams() { return expSet ? { ...BATCH_DEFAULTS, ...expSet } : { ...BATCH_DEFAULTS, ...readParams(), fracB: 0.5 }; }
+const BATCH_DEFAULTS = { gasA: "N2", gasB: "none", fracB: 0.5, N: 400, T: 300, W: 50, start: "mb", partition: false, big: false, heat: false, piston: "hold", pistonSpeed: 100, pext: 0.4, seed: "1", acidM: 36.5, TC: 25, sqSpeed: 20, c0: 35 };
+// the parameters for a run: the set the table was filled from, then every choice and every value in the table
+function baseParams() {
+  const b = { ...BATCH_DEFAULTS, ...TBL.src };
+  for (const [k, v] of Object.entries(TBL.opts)) b[k] = v;
+  for (const [k, v] of Object.entries(TBL.vals)) {
+    const V = VARS[k]; if (!isFinite(v)) continue; const x = clamp(V.int ? Math.round(v) : v, V.min, V.max);
+    if (k === "mass") { if (x !== GASES[b.gasA].m) b.mass = x; else delete b.mass; }   // the gas's own mass unless you change it
+    else V.set(b, x);
+  }
+  return b;
+}
 function runBatch() {
   const c = batchCfg(), base = baseParams();
   const jobs = [];
   if (c.mode === "repeat") for (let k = 0; k < c.runs; k++) jobs.push({ p: base, x: null, seed: 1000 + k * 7919 });
   else {
-    const V = VARS[c.v], lg = el("bLogX").checked && c.from > 0 && c.to > 0;
-    for (let s = 0; s < c.steps; s++) {
-      let v = lg ? c.from * Math.pow(c.to / c.from, s / (c.steps - 1)) : c.from + (c.to - c.from) * s / (c.steps - 1);
-      v = clamp(v, V.min, V.max); if (V.int) v = Math.round(v);
+    const V = VARS[c.v];
+    c.xs.forEach((v, s) => {
       const p = { ...base }; V.set(p, v);
       for (let r = 0; r < c.reps; r++) jobs.push({ p, x: v, seed: 2000 + s * 104729 + r * 7919 });
-    }
+    });
   }
   batchRes = { cfg: c, base, rows: [], dist: [] };
   batchBusy = true; batchStop = false;
@@ -1475,11 +1583,26 @@ function placeBatch() {
 }
 (function initBatch() {
   el("bOut").innerHTML = Object.entries(OUTCOMES).map(([k, o]) => `<option value="${k}">${o.label}${o.unit ? " (" + o.unit + ")" : ""}</option>`).join("");
-  el("bVar").innerHTML = Object.entries(VARS).map(([k, v]) => `<option value="${k}">${v.label}${v.unit ? " (" + v.unit + ")" : ""}</option>`).join("");
   el("bexp").innerHTML = EXPERIMENTS.map((e, i) => `<button data-i="${i}">${e.q}</button>`).join("");
   document.querySelectorAll("#bexp button").forEach(b => b.addEventListener("click", () => loadExperiment(+b.dataset.i)));
-  el("bMode").addEventListener("input", () => { expNote = null; expSet = null; syncBatchUI(); });
-  ["bOut", "bVar"].forEach(id => el(id).addEventListener("input", () => { expNote = null; expSet = null; document.querySelectorAll("#bexp button").forEach(b => b.classList.remove("on")); if (id === "bVar") { const V = VARS[el("bVar").value]; el("bFrom").value = V.min; el("bTo").value = Math.min(V.max, V.min * 5); } }));
+  el("bMode").addEventListener("input", () => { tableEdited(); syncBatchUI(); });
+  el("bOut").addEventListener("input", () => { tableEdited(); if (TBL.vary && !shownV(TBL.vary)) { TBL.vary = null; el("bMode").value = "repeat"; } renderTable(); syncBatchUI(); });
+  ["bRuns", "bReps"].forEach(id => el(id).addEventListener("input", tableEdited));
+  el("bSetBox").addEventListener("input", e => {
+    const t = e.target;
+    if (t.dataset.vary) {            // the tick boxes act like radio buttons: one varied setting at most
+      if (t.checked) { startVary(t.dataset.vary); el("bMode").value = "sweep"; } else { TBL.vary = null; el("bMode").value = "repeat"; }
+      renderTable(); syncBatchUI(); tableEdited(); return;
+    }
+    if (t.dataset.v) TBL.vals[t.dataset.v] = +t.value;
+    if (t.dataset.o) {               // a new gas: its own molecule mass, unless you had typed a different one
+      if (t.dataset.o === "gasA" && TBL.vals.mass === GASES[TBL.opts.gasA].m) TBL.vals.mass = GASES[t.value].m;
+      TBL.opts[t.dataset.o] = t.value; renderTable();
+    }
+    if (t.dataset.r) { TBL.exact = null; TBL[t.dataset.r] = t.dataset.r === "kind" ? t.value : +t.value; if (t.dataset.r === "kind") el("bLogX").checked = t.value === "×"; }
+    updateCount(); tableEdited();
+  });
+  el("bLeft").addEventListener("click", () => { tableEdited(); fillTable({ ...BATCH_DEFAULTS, ...readParams(), fracB: 0.5 }, null); el("bMode").value = "repeat"; syncBatchUI(); });
   ["bLogX", "bLogY"].forEach(id => el(id).addEventListener("input", drawBatch));
   el("btnBatch").addEventListener("click", () => { placeBatch(); el("batch").classList.add("open"); if (!batchRes) loadExperiment(0); drawBatch(); });
   el("bClose").addEventListener("click", () => { el("batch").classList.remove("open"); });
@@ -1487,6 +1610,7 @@ function placeBatch() {
   el("bStop").addEventListener("click", () => { batchStop = true; });
   el("bCsv").addEventListener("click", downloadCSV);
   window.addEventListener("resize", () => { if (el("batch").classList.contains("open")) { placeBatch(); drawBatch(); } });
+  fillTable(BATCH_DEFAULTS, null);
   syncBatchUI();
 })();
 
@@ -1509,8 +1633,8 @@ function escapeText(T) {
 // Ring time scaling theory: t ∝ T^−1.5, drawn through the model's own mean at 25 °C (worked out once per acid gas)
 const ringRef = {};
 function ringTimeTheory(p) {
-  const k = p.acidM.toFixed(2);
-  if (!ringRef[k]) { let s = 0; for (let i = 0; i < 6; i++) s += runRing({ acidM: p.acidM, TC: 25 }, 99991 + i * 31).time; ringRef[k] = s / 6; }
+  const k = p.acidM.toFixed(2) + "|" + (p.c0 ?? 35);
+  if (!ringRef[k]) { let s = 0; for (let i = 0; i < 6; i++) s += runRing({ acidM: p.acidM, TC: 25, c0: p.c0 }, 99991 + i * 31).time; ringRef[k] = s / 6; }
   return ringRef[k] * Math.pow(298.15 / (p.TC + 273.15), 1.5);
 }
 
@@ -2028,7 +2152,7 @@ function reactionZone(S) { let s = 0, sx = 0; for (let b = 0; b < TUBE_L; b++) {
 const frontsFrac = Macid => Math.pow(Macid, 0.25) / (Math.pow(M_NH3, 0.25) + Math.pow(Macid, 0.25));
 const tubeDt = S => Math.min(2, 0.25 / (2 * Math.max(S.DA, S.DB)));   // each step moves a molecule about 0.5 cm
 function runRing(p, seed, settle) {
-  const S = makeTube({ Macid: p.acidM, TC: p.TC, c0: 35 }, mulberry32(seed));    // batch runs always use 35 molecules per cm (the "High" setting)
+  const S = makeTube({ Macid: p.acidM, TC: p.TC, c0: p.c0 ?? 35 }, mulberry32(seed));    // batch runs use 35 molecules per cm (the "High" setting) unless the table says otherwise
   const tEnd = settle ? 3.5 * 3600 : 4 * 3600;
   while ((settle ? S.t < tEnd : isNaN(S.ringT)) && S.t < tEnd) stepTube(S, (settle ? 2 : 1) * tubeDt(S));   // settled runs: steps of ~0.7 cm, still smaller than a 1 cm slice
   return { frac: S.ringX / TUBE_L, time: S.ringT / 60, zone: reactionZone(S) / TUBE_L };

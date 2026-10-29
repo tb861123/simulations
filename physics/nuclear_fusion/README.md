@@ -108,6 +108,14 @@ leaves out the D–T resonance.
 
 ## Batch experiments
 
+**📊 Batch run** runs the model many times with no drawing: Repeat gives a histogram against theory, Sweep
+steps one setting and plots mean ± 1 SD against the theory line, with summary statistics and CSV download.
+
+**Batch settings table.** The panel lists every setting the chosen outcome uses: the reaction, tunnelling on
+or off, the temperature and (for reaction rates and waiting times) the pressure, both as log₁₀ values, and
+(for the Monte Carlo outcomes) the number of collisions simulated per run. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill in the whole table (press ▶ Run batch to run), and **↺ Use my left-panel settings** copies the left panel into it. The number of runs,
+runs per step and random seed sit above the table.
+
 | Question | What it shows |
 |---|---|
 | Is the Sun hot enough without quantum tunnelling? | The classical chance is about 10⁻¹⁹⁰ at the Sun's core; with tunnelling it is about 10⁻⁵ |
