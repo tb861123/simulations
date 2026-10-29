@@ -80,7 +80,9 @@ In microlensing mode they also include θ_E (mas), t_E (days), the current and p
 
 ## Batch experiments
 
-Batch runs skip all drawing. Microlensing uses a point source and 1600 samples per event. The binary equation is only solved near the star and the planet's caustics (it gives the same result, 8× faster). Ring measurements always use fixed 100 × 100 pixel images, and image searches use a fixed 120 × 120 grid, whatever the quality setting. This keeps batch results reproducible.
+**Batch settings table.** The batch panel lists every starting setting the chosen measurement uses. Ring and image runs: lens mass, lens and source redshifts, source offset u, ring image noise, and two numbers that used to be fixed: the ring source size (0.12 Einstein radii) and the random scatter of its position (0.06). Microlensing runs: lens star mass and distance, source distance, proper motion, u₀, path angle, planet on/off, planet mass and distance, light-curve noise, the range for random u₀, what changes between runs, and three more that used to be fixed: light-curve samples (1600) and the detection rule (brightness change above 5% for 3 samples in a row). Their defaults are the old values, so results are unchanged. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in (from fixed defaults, seed 1), and **↺ Use my left-panel settings** copies the left panel into it.
+
+Batch runs skip all drawing. Microlensing uses a point source and (by default) 1600 samples per event. The binary equation is only solved near the star and the planet's caustics (it gives the same result, 8× faster). Ring measurements always use fixed 100 × 100 pixel images, and image searches use a fixed 120 × 120 grid, whatever the quality setting. This keeps batch results reproducible.
 
 | Experiment | Result | Theory |
 |---|---|---|

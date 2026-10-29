@@ -58,7 +58,11 @@ The model leaves out warps, non-circular motion, disc thickness and pressure sup
 
 ## Batch run
 
-Each run makes noisy synthetic observations from the current model, which is the "truth", and fits the halo mass automatically. The theory comes from the Fisher matrix (how much the speeds change with the halo mass), plus χ² statistics.
+Each run makes noisy synthetic observations from a "true" galaxy and fits the halo mass automatically.
+
+**Batch settings table.** The batch panel lists every starting setting a run uses: halo shape, "fit the radius too" and random seed; trial ÷ true halo mass, number of observed points, measurement error, furthest point, true halo mass and halo radius; and the visible galaxy (bulge, disc and gas masses and sizes, central black hole). Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in (from fixed defaults, seed 1), and **↺ Use my left-panel settings** copies the left panel into it.
+
+ The theory comes from the Fisher matrix (how much the speeds change with the halo mass), plus χ² statistics.
 
 | Experiment | Typical result |
 |---|---|

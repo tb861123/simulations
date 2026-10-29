@@ -65,7 +65,7 @@ Press **📊 Batch run**. Each run is a whole new survey followed by a fit, so i
 
 - **Modes:** Repeat (histogram) and Sweep (mean ± SD or standard error).
 - **Outcomes:** fitted H0, Hubble time, quoted uncertainty, pull, and whether the true H0 is within 1σ.
-- **Sweep variables:** number of galaxies, calibration error, brightness scatter, peculiar velocity, furthest galaxy, true H0.
+- **Batch settings table.** The batch panel lists every starting setting a survey uses: the universe model, standard candle and random seed; number of galaxies, calibration error, brightness scatter, peculiar velocity, furthest galaxy, true H0 and the fit limit (0 = fit every galaxy); and three numbers that used to be fixed: the closest galaxy (1 Mpc), the redshift measuring error (30 km/s) and the peculiar-velocity allowance the fitter assumes (250 km/s). Their defaults are the old values, so results are unchanged. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in (from fixed defaults, seed 1), and **↺ Use my left-panel settings** copies the left panel into it. (The redshift calculator in the right panel has no batch experiments.)
 
 The theory comes from 400 noise-free "expected" galaxies. It gives the expected fit, including the calibration bias and a small regression-dilution bias. The spread uses the standard formula for the error of a weighted fit (each galaxy's weight × its true scatter).
 

@@ -75,12 +75,14 @@ independent. All of these are listed in the app, under "How the model works".
 
 Press **📊 Batch run**. It runs the same model many times with no animation:
 **Repeat** (the same settings with new random numbers) or **Sweep** (step one
-setting, on a linear or log scale). You choose the outcome to record. The
+setting, adding or multiplying by a step). You choose the outcome to record. The
 results show a histogram or a scatter with mean ± 1 SD error bars, with the
 theory curve on top. For sweeps you can use log–log axes with a fitted
 gradient. A summary table gives the mean, SD, standard error, theory, and the
 difference in % and in standard errors. **Download CSV** saves the raw
 results.
+
+**Batch settings table.** The batch panel lists every starting setting of the chosen model: rows of pegs, chance of bouncing right and number of balls for the Galton board; population, sample size n and samples per run for the sample means machine; and the random seed. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in (from fixed defaults, seed 1), and **↺ Use my left-panel settings** copies the left panel into it. (A drawn population still comes from the bars you drew on the left.)
 
 Batch experiments (results from testing, seed 1):
 

@@ -92,8 +92,11 @@ Press **📊 Batch run**. It runs whole days with no animation, in three modes:
 - **Compare**: each day is run with separate queues *and* with one snake,
   using the same customers. This is a paired comparison.
 
-You can choose from nine outcomes, and choose to ignore customers who arrive
-in the first hour (warm-up). The results show a histogram or a scatter with
+You can choose from nine outcomes.
+
+**Batch settings table.** The batch panel lists every starting setting of a day: arrival pattern, service-time distribution, queue layout, jockeying, express till, giving up and random seed; arrival rate, tills, mean service time, service CV, trolleys, self-checkouts, give-up limit, spare-till rule, self-checkout speed, spare tills and the length of the day; the warm-up (60 minutes: it used to be a tick box) and the trolley factor (a trolley takes 4× as long as a basket: it used to be fixed). Defaults are the old values, so results are unchanged. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in (from fixed defaults, seed 1), and **↺ Use my left-panel settings** copies the left panel into it.
+
+ The results show a histogram or a scatter with
 mean ± 1 SD error bars and the theory curve, plus a summary of the mean, SD,
 standard error, theory and the difference in standard errors. **Download CSV**
 saves the raw results.
