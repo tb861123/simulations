@@ -80,7 +80,7 @@ changing a simulation's batch experiments.
 | [`engineering/earthquake_buildings/`](engineering/earthquake_buildings/) | Tall buildings in earthquakes: resonance, tuned mass dampers, base isolation | Open `earthquake-buildings.html` |
 | [`engineering/traffic_flow/`](engineering/traffic_flow/) | Traffic flow and phantom jams, smart motorways, lane closures | Open `traffic-flow.html` |
 | [`engineering/car_crash/`](engineering/car_crash/) | Car crash safety: crumple zones, seatbelts and airbags (momentum and impulse), plus a collisions lab (also listed under Physics) | Open `car-crash.html` |
-| [`engineering/fluid_dynamics/`](engineering/fluid_dynamics/) | 2D CFD: the Hess–Smith panel method for flow around aerofoils | `pip install -r requirements.txt`, then `python main.py` |
+| [`engineering/aerofoil_flow/`](engineering/aerofoil_flow/) | Aerofoil flow: lift from shape, angle of attack and spin with the Hess–Smith panel method, plus starting vortex, flap and Kármán street (also listed under Physics) | Open `aerofoil-flow.html` |
 
 ## Medical and anatomical
 
@@ -122,7 +122,9 @@ changing a simulation's batch experiments.
 
 ## History
 
-`engineering/fluid_dynamics/`, `chemistry/chem_sims/` and `physics/physics_sims/`
+`engineering/fluid_dynamics/` (now retired), `chemistry/chem_sims/` and `physics/physics_sims/`
 were moved here from their own repositories (`tb861123/Fluid_dynamics`,
 `tb861123/chem_sims` and `tb861123/physics-sims`) with their full commit
-history. Use `git log --follow -- <folder>` to see a project's history.
+history. Use `git log --follow -- <folder>` to see a project's history. The Python
+fluid dynamics app has since been replaced by `engineering/aerofoil_flow/`;
+its code is still in the history.
