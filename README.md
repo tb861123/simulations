@@ -54,7 +54,6 @@ changing a simulation's batch experiments.
 | [`physics/nuclear_fission/`](physics/nuclear_fission/) | Nuclear fission: chain reactions, k, critical mass, control rods | Open `nuclear-fission.html` |
 | [`physics/particle_physics/`](physics/particle_physics/) | Particle physics: quarks, leptons, conservation laws, Feynman diagrams | Open `particle-physics.html` |
 | [`physics/nuclear_fusion/`](physics/nuclear_fusion/) | Fusion on a potential-energy diagram: the Coulomb barrier, quantum tunnelling, the Gamow peak, and the temperature and pressure needed in stars and reactors | Open `nuclear-fusion.html` |
-| [`physics/physics_sims/`](physics/physics_sims/) | 28 WJEC Physics simulations (Streamlit app) | `python setup_env.py` once, then `streamlit run Home.py` |
 
 ## Chemistry
 
@@ -127,9 +126,11 @@ changing a simulation's batch experiments.
 
 ## History
 
-`engineering/fluid_dynamics/` (now retired), `chemistry/chem_sims/` and `physics/physics_sims/`
+`engineering/fluid_dynamics/` (now retired), `chemistry/chem_sims/` and `physics/physics_sims/` (now retired)
 were moved here from their own repositories (`tb861123/Fluid_dynamics`,
 `tb861123/chem_sims` and `tb861123/physics-sims`) with their full commit
 history. Use `git log --follow -- <folder>` to see a project's history. The Python
 fluid dynamics app has since been replaced by `engineering/aerofoil_flow/`;
-its code is still in the history.
+its code is still in the history. The WJEC Streamlit app has likewise been
+replaced by the single-file physics simulations (every one of its 28 pages
+was converted or merged).

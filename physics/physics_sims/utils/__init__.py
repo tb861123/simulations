@@ -1,1 +1,0 @@
-# Physics simulations utility package
