@@ -95,9 +95,24 @@ for real dosing.
 
 ## Batch experiments
 
-Each one loads the relevant preset, then runs. The default mutation rate is
+Each one fills the batch settings table from a preset's settings (without changing the left panel); press **▶ Run batch** to run it. The default mutation rate is
 μ = 10⁻⁸ per new cell, with 10⁸ bacteria at the start. Results below are from
 the default seeds.
+
+**Batch settings table.** The batch panel lists every starting setting a run
+uses: drug, second drug, dose, dose interval, course length, the day the
+patient stops (99 = finishes), missed doses, immune strength, bacteria at the
+start, resistance already there, mutation rate, fitness cost, plasmids, "a
+virus", and the patient number (random seed), plus two things that used to be
+fixed: the days watched after the course (7) and the time step (0.1 h).
+Defaults are the old values, so results are unchanged. Tick one setting to
+vary it and give from / to / step (+ adds the step, × multiplies by it; up to
+60 steps, previewed as you type); every other setting stays at the value
+shown, and a run uses exactly what the table shows. Unticking goes back to
+Repeat. One-click experiments fill the whole table in from fixed default
+settings, never from the left panel, so they give the same results in any
+order; **↺ Use my left-panel settings** copies the left panel into the table
+instead.
 
 | Question | Set-up | Result |
 |---|---|---|

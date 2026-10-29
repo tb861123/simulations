@@ -88,6 +88,21 @@ arrivals, reaction time), optional comparisons (variable limits, lorries,
 cell vs smooth model), histograms or mean ± 1 SD with theory overlays,
 summary statistics, fits and CSV download.
 
+**Batch settings table.** The batch panel lists every starting setting a run
+uses: road, lanes, driver model, density, arrivals, slip road, lorries, road
+works, speed limit, variable limits, dawdling, reaction time and "capacity:
+try 13 densities", plus two things that used to be fixed: the settling time
+(10 min) and the measuring time (15 min; the smooth model uses half of each).
+Defaults are the old values, so results are unchanged. The experiments start
+from the page's opening preset ("Phantom jam") with their own settings on top.
+Tick one setting to vary it and give from / to / step (+ adds the step, ×
+multiplies by it; up to 60 steps, previewed as you type); every other setting
+stays at the value shown, and a run uses exactly what the table shows.
+Unticking goes back to Repeat. One-click experiments fill the whole table in
+from fixed default settings, never from the left panel, so they give the same
+results in any order; **↺ Use my left-panel settings** copies the left panel
+into the table instead.
+
 Batch experiments (results from testing):
 
 | Experiment | Result |

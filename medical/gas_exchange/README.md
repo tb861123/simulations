@@ -91,6 +91,23 @@ metabolism, cardiac output, breathing control, dead space and lung size all
 vary randomly (seeded, so results repeat). Results below are from the default
 seed.
 
+**Batch settings table.** The batch panel lists every starting setting a run
+uses: altitude, acclimatised, exercise, athlete, surface area, membrane
+thickness, airway narrowing, haemoglobin, carbon monoxide, smoker, Bohr shift,
+automatic breathing (and the manual rate, tidal volume and cardiac output used
+when it is off), "no person-to-person differences", and the ten
+person-to-person spreads that used to be fixed (SD as a % of the average:
+haemoglobin 7, area 10, thickness 10, P50 4, oxygen use 10, cardiac output 10,
+low-O₂ breathing response 35, dead space 15, fitness 10, lung size 8).
+Defaults are the old values, so results are unchanged. Tick one setting to
+vary it and give from / to / step (+ adds the step, × multiplies by it; up to
+60 steps, previewed as you type); every other setting stays at the value
+shown, and a run uses exactly what the table shows. Unticking goes back to
+Repeat. One-click experiments fill the whole table in from fixed default
+settings, never from the left panel, so they give the same results in any
+order; **↺ Use my left-panel settings** copies the left panel into the table
+instead.
+
 | Question | Result |
 |---|---|
 | Does diffusion follow Fick's law? (sweep thickness 0.3–4 µm, rate where blood enters) | Matches Fick's law (∝ 1/thickness) within 1–3% up to 1.6 µm. Fitted log–log gradient −0.85 (theory −1). Above about 2 µm the model is higher, because blood returns from the body with less oxygen, so the pressure difference is bigger. |

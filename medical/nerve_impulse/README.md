@@ -87,12 +87,28 @@ illustrations, not to scale. The full list is inside the simulation under
 
 ## Batch run
 
-**📊 Batch run** opens a panel over the centre view. Clicking an experiment runs it; **▶ Run batch** repeats the chosen experiment until you change the set-up yourself. Mode A repeats a set-up
+**📊 Batch run** opens a panel over the centre view. Clicking an experiment fills in its set-up; **▶ Run batch** runs it (and runs your own set-up once you change anything). Mode A repeats a set-up
 with random channel noise. Mode B sweeps one input (stimulus strength,
 diameter, temperature, gap between pulses, Na⁺ block, myelin damage,
 internode length or pulse length). Results show as a histogram or a scatter
 graph with mean ± 1 SD error bars, with theory overlaid, fits and a CSV
 download.
+
+**Batch settings table.** The batch panel lists every starting setting a run
+uses: stimulus strength, pulse length, stimulus pattern, gap between two
+pulses, train rate and number of pulses, axon diameter, myelin, internode
+length, temperature, myelin damage, Na⁺ and K⁺ block, channel noise and its
+channel-number divider (1), "quick runs", and the batch axon's resolution that
+used to be fixed (100 pieces, or 14 internodes of 4 pieces). Defaults are the
+old values, so results are unchanged. Each batch now uses fixed seeds (it used
+a random starting seed before), so a batch gives the same result every time.
+Tick one setting to vary it and give from / to / step (+ adds the step, ×
+multiplies by it; up to 60 steps, previewed as you type); every other setting
+stays at the value shown, and a run uses exactly what the table shows.
+Unticking goes back to Repeat. One-click experiments fill the whole table in
+from fixed default settings, never from the left panel, so they give the same
+results in any order; **↺ Use my left-panel settings** copies the left panel
+into the table instead.
 
 | Experiment | Theory | Result |
 |---|---|---|
@@ -100,5 +116,5 @@ download.
 | Unmyelinated: does speed ∝ √diameter? | log–log gradient 0.5 | Gradient 0.500, R² = 1.0000 (1 µm: 0.93 m/s, 1 mm: 29.3 m/s at 18.5 °C) |
 | Myelinated: does speed ∝ diameter? | log–log gradient 1 | Gradient 0.999 (2 µm: 11.5 m/s, 20 µm: 115 m/s) |
 | How does temperature change the speed? | v ∝ √(gate rate), Q10 = 1.73 | Conducts at every step from 0 to 42 °C (9.0 → 46.5 m/s). Fitted Q10 = 1.53: lower, because channel currents speed up less than the gates |
-| Do noisy channels make firing a matter of chance? | Sharp step (no noise) at 83.7 µA/cm² | S-curve: 50% firing at about 82–85 µA/cm², SD about 2–5 µA/cm² (it varies from batch to batch because the noise is random) |
+| Do noisy channels make firing a matter of chance? | Sharp step (no noise) at 83.7 µA/cm² | S-curve: 50% firing at about 82–85 µA/cm², SD about 2–5 µA/cm² (it depends on the random seeds; batches now use fixed seeds, so it repeats exactly) |
 | How soon can a second impulse follow? | (no simple formula) | No second impulse at gaps of 2.5 ms or less; full-size (96–98 mV) second impulse from 3 ms |

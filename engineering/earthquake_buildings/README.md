@@ -85,12 +85,29 @@ earthquakes lack the pulses and long surface waves of real records.
 The **📊 Batch run** button opens a panel that runs the model many times with
 no drawing (`runOnce(params, seed)`, seeded mulberry32 random numbers).
 Repeat mode runs many random earthquakes (optionally varying the quake size by
-±30%), with an optional with/without comparison (damper, isolation, bracing,
+±30%, a setting in the table), with an optional with/without comparison (damper, isolation, bracing,
 added damping). Sweep mode changes one setting (shaking frequency, storeys,
 rock acceleration, damper tuning, added damping). Results show a histogram or
 mean ± 1 SD, the theory overlay, summary statistics (n, mean, SD, standard
 error, min, max, theory, difference in % and in standard errors, % of runs
 past the cracking limit) and fits. Results can be downloaded as CSV.
+
+**Batch settings table.** The batch panel lists every starting setting a run
+uses: the building (storeys, frame material, bracing, added damping, the tuned
+mass damper's mass, tuning and damping, Den Hartog tuning, base isolation
+period and damping), the ground motion (sine frequency and size, sweep top
+frequency, earthquake magnitude, rock acceleration, soil, "shake at the
+frame's own frequency"), and two things that used to be fixed: the random
+quake-size spread (30%) and the largest time step (10 ms). Defaults are the
+old values, so results are unchanged. The experiments start from the page's
+opening preset ("Short stiff vs tall bendy") with their own settings on top.
+Tick one setting to vary it and give from / to / step (+ adds the step, ×
+multiplies by it; up to 60 steps, previewed as you type); every other setting
+stays at the value shown, and a run uses exactly what the table shows.
+Unticking goes back to Repeat. One-click experiments fill the whole table in
+from fixed default settings, never from the left panel, so they give the same
+results in any order; **↺ Use my left-panel settings** copies the left panel
+into the table instead.
 
 Batch experiments (results from testing):
 

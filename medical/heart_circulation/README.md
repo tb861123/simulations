@@ -95,6 +95,23 @@ stiffness, heart rate, contractility and blood volume). Mode B sweeps one
 input. Results show as a histogram or as a scatter graph with mean ± 1 SD
 error bars, with theory overlaid, a summary table and a CSV download.
 
+**Batch settings table.** The batch panel lists every starting setting a run
+uses: heart rate, contractility, heart failure, valve problem and how bad it
+is, hole between the ventricles, blood volume, blood loss, arteriole
+resistance, artery stiffness, exercise and reflexes, plus things that used to
+be fixed: the seconds of heartbeats run before measuring (20, or 40 with
+reflexes) and the random-patient spreads (ages 18–80; SD 8% stiffness, 8%
+resistance, 8 beats/min, 6% contractility, 3.5% blood volume). Defaults are
+the old values, so results are unchanged. Each batch now uses fixed seeds (it
+used a random starting seed before), so a batch gives the same result every
+time. Tick one setting to vary it and give from / to / step (+ adds the step,
+× multiplies by it; up to 60 steps, previewed as you type); every other
+setting stays at the value shown, and a run uses exactly what the table shows.
+Unticking goes back to Repeat. One-click experiments fill the whole table in
+from fixed default settings, never from the left panel, so they give the same
+results in any order; **↺ Use my left-panel settings** copies the left panel
+into the table instead.
+
 | Experiment | What it shows | Typical result |
 |---|---|---|
 | Does a faster heart always pump more blood? | CO vs HR against the naïve CO = HR × SV | CO peaks at about 6 L/min near 100–120 beats/min, then falls to about 3.5 L/min at 220 |
