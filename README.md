@@ -66,6 +66,8 @@ changing a simulation's batch experiments.
 | [`chemistry/organic_chemistry/`](chemistry/organic_chemistry/) | Crude oil, cracking and polymers: fractional distillation, combustion, alkenes and addition polymerisation | Open `organic-chemistry.html` |
 | [`chemistry/periodic_groups/`](chemistry/periodic_groups/) | Groups 1 and 7: alkali metals with water, halogens and displacement, trends down a group | Open `periodic-groups.html` |
 | [`chemistry/reactivity_metals/`](chemistry/reactivity_metals/) | Reactivity series, metal displacement, and extracting metals (blast furnace, electrolysis) | Open `reactivity-metals.html` |
+| [`chemistry/electrolysis/`](chemistry/electrolysis/) | Electrolysis of molten and aqueous electrolytes, products at each electrode, half-equations and Faraday's law | Open `electrolysis.html` |
+| [`chemistry/energy_changes/`](chemistry/energy_changes/) | Energy changes: reaction profiles, calorimetry, fuels and bond energies | Open `energy-changes.html` |
 | [`chemistry/crystallisation/`](chemistry/crystallisation/) | Cooling rate and crystal size: granite, basalt, obsidian, salt crystals, dendrites | Open `crystallisation.html` |
 | [`chemistry/chem_sims/`](chemistry/chem_sims/) | 20 Edexcel iGCSE Chemistry (4CH1) simulations | Double-click `run.bat`, or open `index.html` |
 
