@@ -216,6 +216,10 @@
     <div class="ctl"><label>Days to simulate (graphs and batch) <output id="o_days"></output></label><input type="range" id="days" min="30" max="1000" step="10" value="200"></div>
     <button id="btnBatch" class="primary" style="width:100%">📊 Batch run…</button>
 
+    <h2 class="gap">Display</h2>
+    <div class="ctl"><label>Picture quality</label><select id="quality"><option value="0">Low (squares, fastest)</option><option value="1" selected>Medium</option><option value="2">High (infectious people glow)</option><option value="3">Ultra (glow, extra-sharp)</option></select>
+      <div class="hint">Only the drawing changes: the people, the epidemic, the graphs and batch runs are the same at every level. Try Low with a big population on a slow computer.</div></div>
+
     <details>
       <summary>How the model works (and what it leaves out)</summary>
       <ul>
@@ -1143,8 +1147,31 @@ function advance(real) {
   }
 }
 const COL = ["#a4cbe6", "#f1af28", "#de252a", "#76b82a", "#555555", "#a86dab"];
+// QUALITY (picture only): Low draws people as squares on a canvas at most 1 pixel per screen point;
+// Medium is the standard picture; High adds a soft glow round infectious people; Ultra also draws
+// the picture at up to twice the screen's pixel density on ordinary screens (smoother edges).
+const QUAL = [{ px: 1, sq: true }, { px: 0 }, { px: 0, glow: true }, { px: 0, glow: true, ss: 2 }];
+const qual = () => QUAL[+el("quality").value] || QUAL[1];
+function viewCanvas(c, q) {
+  const sys = window.devicePixelRatio || 1;
+  const dpr = q.px ? Math.min(sys, q.px) : q.ss ? Math.max(sys, Math.min(q.ss, sys * 1.5)) : sys;
+  const W = Math.max(1, Math.round(c.clientWidth * dpr)), H = Math.max(1, Math.round(c.clientHeight * dpr));
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  return { ctx: c.getContext("2d"), W, H, dpr };
+}
+let glowSprite = null;
+function glowFor(rad) {   // a soft red glow, drawn once and then copied (much faster than a gradient per person)
+  const size = Math.ceil(rad * 2);
+  if (glowSprite && glowSprite.width === size) return glowSprite;
+  const c = document.createElement("canvas"); c.width = c.height = size;
+  const x = c.getContext("2d"), gr = x.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  gr.addColorStop(0, "rgba(255,90,70,0.55)"); gr.addColorStop(1, "rgba(255,90,70,0)");
+  x.fillStyle = gr; x.fillRect(0, 0, size, size);
+  return (glowSprite = c);
+}
 function drawView() {
-  const { ctx: g, W, H, dpr } = fitCanvas(el("view")), m = live.m;
+  const q = qual();
+  const { ctx: g, W, H, dpr } = q.px === 0 && !q.ss ? fitCanvas(el("view")) : viewCanvas(el("view"), q), m = live.m;
   g.fillStyle = "#0e120d"; g.fillRect(0, 0, W, H);
   const pad = 10 * dpr, X = x => pad + x * (W - 2 * pad), Y = y => pad + y * (H - 2 * pad);
   if (m.p.mix === "network") {   // houses
@@ -1157,6 +1184,15 @@ function drawView() {
   for (const l of m.links) { if (l.a < 0) continue; const a = 1 - (m.t - l.t) / 1.5; g.strokeStyle = `rgba(255,120,100,${0.7 * a})`; g.beginPath(); g.moveTo(X(m.x[l.a]), Y(m.y[l.a])); g.lineTo(X(m.x[l.b]), Y(m.y[l.b])); g.stroke(); }
   const r = clamp(Math.sqrt((W * H) / m.N) * 0.16, 1.8 * dpr, 6 * dpr);
   const jig = m.p.mix === "mixed" ? 1 : 0, ts = m.t;
+  if (q.glow) {   // High and Ultra: infectious people glow
+    const gs = glowFor(r * 4.5), h = gs.width / 2;
+    for (let i = 0; i < m.N; i++) {
+      if (m.state[i] !== I_) continue;
+      let x = m.x[i], y = m.y[i];
+      if (jig) { x = (x + 0.004 * Math.sin(ts * 3 + i)) ; y = (y + 0.004 * Math.cos(ts * 2.3 + i * 1.3)); }
+      g.drawImage(gs, X(x) - h, Y(y) - h);
+    }
+  }
   for (let s of [S_, R_, V_, D_, E_, I_]) {
     for (let i = 0; i < m.N; i++) {
       if (m.state[i] !== s) continue;
@@ -1164,6 +1200,7 @@ function drawView() {
       if (jig) { x = (x + 0.004 * Math.sin(ts * 3 + i)) ; y = (y + 0.004 * Math.cos(ts * 2.3 + i * 1.3)); }
       const isoNow = s === I_ && m.isoFlag[i] && ts >= m.sym[i];
       g.fillStyle = isoNow ? "#ff9ec4" : COL[s];
+      if (q.sq) { const h = s === I_ ? r * 1.15 : r * 0.9; g.fillRect(X(x) - h, Y(y) - h, 2 * h, 2 * h); if (isoNow) { g.strokeStyle = "#fff"; g.lineWidth = 1 * dpr; g.strokeRect(X(x) - h, Y(y) - h, 2 * h, 2 * h); } continue; }
       g.beginPath(); g.arc(X(x), Y(y), s === I_ ? r * 1.3 : r, 0, 7); g.fill();
       if (isoNow) { g.strokeStyle = "#fff"; g.lineWidth = 1 * dpr; g.stroke(); }
     }
@@ -1223,6 +1260,10 @@ function updateUI() {
   if (p.wane > 0 && m.t > 0) st += `<p>Immunity fades, so recovered people slowly return to S, letting new waves start.</p>`;
   el("story").innerHTML = st;
 }
+// QUALITY: remember the picture quality in this browser
+const Q_KEY = "epidemics-quality";
+try { const v = localStorage.getItem(Q_KEY); if (["0", "1", "2", "3"].includes(v)) el("quality").value = v; } catch (e) {}
+el("quality").addEventListener("change", () => { try { localStorage.setItem(Q_KEY, el("quality").value); } catch (e) {} });
 let lastNow = performance.now();
 function frame(now) {
   const real = Math.min(0.1, (now - lastNow) / 1000); lastNow = now;

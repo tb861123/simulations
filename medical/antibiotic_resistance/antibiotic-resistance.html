@@ -253,6 +253,13 @@
       <input type="text" id="seed" value="1" style="width:100%">
       <div class="hint">Same seed + same settings = same patient. <button id="btnSeed" style="padding:1px 8px;font-size:11.5px">New random patient</button></div>
     </div>
+
+    <h2 class="gap">Display</h2>
+    <div class="ctl">
+      <label>Picture quality (bacteria drawn)</label>
+      <select id="quality"><option value="0">Low (half as many)</option><option value="1" selected>Medium</option><option value="2">High (twice as many)</option><option value="3">Ultra (three times as many)</option></select>
+      <div class="hint">Only the picture changes (it does not start a new patient): each drawn rod stands for fewer real bacteria at higher quality. The numbers, graphs and batch runs are the same at every level.</div>
+    </div>
   </section>
 
   <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
@@ -1101,11 +1108,15 @@ function setPreset(i) {
   el("presets").querySelectorAll("button").forEach((b, k) => b.classList.toggle("on", k === i));
 }
 // Any change to a setting starts a new patient
-document.querySelectorAll("#left input, #left select").forEach(c => c.addEventListener(c.type === "range" ? "input" : "change", () => {
+document.querySelectorAll("#left input, #left select").forEach(c => c.id !== "quality" && c.addEventListener(c.type === "range" ? "input" : "change", () => {
   if (c.id === "drug") { fillDrug2(); setDrugDefaults(); }
   el("presets").querySelectorAll("button").forEach(b => b.classList.remove("on"));
   newPatient();
 }));
+// QUALITY: remembered in this browser; changing it redraws the sample at once without a new patient
+const Q_KEY = "antibiotic-resistance-quality";
+try { const v = localStorage.getItem(Q_KEY); if (["0", "1", "2", "3"].includes(v)) el("quality").value = v; } catch (e) {}
+el("quality").addEventListener("change", () => { try { localStorage.setItem(Q_KEY, el("quality").value); } catch (e) {} if (sim) syncSprites(true); });
 el("btnSeed").addEventListener("click", () => { el("seed").value = String(Math.floor(Math.random() * 100000)); newPatient(); });
 
 // ---------- The live patient ----------
@@ -1136,7 +1147,11 @@ document.querySelectorAll(".speed button").forEach(b => b.addEventListener("clic
 // ---------- Sample of bacteria drawn in the dish ----------
 // Up to 40 bacteria: draw every one. Above that, the number drawn grows with log10(N).
 const shownTarget = [0, 0, 0, 0, 0];
-function shownFor(N) { return N <= 40 ? N : Math.round(40 + 28 * Math.log10(N / 40)); }
+// QUALITY (picture only): Low draws half as many, High twice and Ultra three times as many (but never fewer
+// than 40, and every bacterium when there are 40 or fewer). The model's numbers don't depend on this.
+const QUAL = [0.5, 1, 2, 3];
+const qk = () => QUAL[+el("quality").value] || 1;
+function shownFor(N) { return N <= 40 ? N : Math.max(40, Math.round(qk() * (40 + 28 * Math.log10(N / 40)))); }
 function counts() { const c = [0, 0, 0, 0, 0]; for (let g = 0; g < G; g++) c[catOfG(g)] += sim.n[g]; return c; }
 function randInDish(r = 0.9) { const a = viewRng() * 6.283, d = Math.sqrt(viewRng()) * r; return [d * Math.cos(a), d * Math.sin(a)]; }
 function syncSprites(instant) {
@@ -1150,7 +1165,7 @@ function syncSprites(instant) {
     if (c[k] > 0) target = Math.max(1, target);
     target = Math.min(target, Math.ceil(c[k]));
     shownTarget[k] = target;
-    let diff = target - alive[k], lim = instant ? 1e9 : 4;
+    let diff = target - alive[k], lim = instant ? 1e9 : Math.ceil(4 * qk());
     while (diff > 0 && lim-- > 0) { addSprite(k, instant); diff--; }
     while (diff < 0 && lim-- > 0) {
       const cand = sprites.filter(s => s.cat === k && !s.dying);
@@ -1233,7 +1248,7 @@ function drawView(now) {
     for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(x + Math.cos(k * 2.1) * rr * 0.35, y + Math.sin(k * 2.1) * rr * 0.35, rr * 0.25, 0, 7); ctx.fill(); }
   }
   // bacteria: rounded rods
-  const L = Math.max(6 * dpr, R * 0.05), Wd = L * 0.42;
+  const L = Math.max(6 * dpr, R * 0.05 * Math.min(1, Math.pow(qk(), -0.25))), Wd = L * 0.42;   // QUALITY: slightly smaller rods when more are drawn
   for (const s of sprites) {
     const [x, y] = P(s.x, s.y);
     let sc = 0.5 + 0.5 * s.born, alpha = 1, col = CATS[s.cat].color, broken = false;

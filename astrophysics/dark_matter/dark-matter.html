@@ -206,6 +206,10 @@
     <div class="ctl"><label>Furthest point <output id="o_rmax"></output></label><input type="range" id="rmax" min="3" max="80" step="1" value="30"></div>
     <div class="ctl"><label>Random seed</label><input type="text" id="seed" value="1" style="width:100%"></div>
 
+    <h2 class="gap">Display</h2>
+    <div class="ctl"><label>Quality (stars in the animation)</label><select id="quality"><option value="0">Low (about 900 stars)</option><option value="1" selected>Medium (about 1800)</option><option value="2">High (about 3700)</option><option value="3">Ultra (about 7400)</option></select>
+      <div class="hint">Only the moving picture changes: the rotation curve, fits and batch runs do not use the animated stars.</div></div>
+
     <details>
       <summary>How the model works (and what it leaves out)</summary>
       <ul>
@@ -217,7 +221,7 @@
         <li><b>MOND:</b> the Newtonian pull of the visible matter g<sub>N</sub> = v<sub>visible</sub>²/r is boosted: g = g<sub>N</sub> [½ + √(¼ + a₀/g<sub>N</sub>)] (the "simple" interpolating function), a₀ = 1.2 × 10⁻¹⁰ m/s².</li>
         <li><b>Fitting:</b> χ² = Σ ((v<sub>observed</sub> − v<sub>model</sub>) / error)². For a good fit χ² is about the number of points. The automatic fit changes only the halo (its mass, and the radius if ticked), keeping the visible matter fixed: a coarse search, then a golden-section search.</li>
         <li><b>Mystery galaxy and batch data:</b> made from the model on the left: speeds at evenly spaced radii, plus random errors (normal distribution, chosen SD).</li>
-        <li><b>The animation:</b> stars and gas clouds on circular orbits at the model speed, with 2-armed spirals drawn in at the start (they wind up, because the inner parts go round faster — real spiral arms are density waves that don't wind up). "Observed speeds, visible gravity only" gives each star its observed speed but only the visible matter's pull (treated as a sphere), stepped forward with the leapfrog method.</li>
+        <li><b>The animation:</b> (Quality sets how many stars are drawn, from about 900 to 7400; it changes only the picture) stars and gas clouds on circular orbits at the model speed, with 2-armed spirals drawn in at the start (they wind up, because the inner parts go round faster — real spiral arms are density waves that don't wind up). "Observed speeds, visible gravity only" gives each star its observed speed but only the visible matter's pull (treated as a sphere), stepped forward with the leapfrog method.</li>
         <li><b>Edge-on view and slit:</b> colours show the speed along our line of sight: blue coming towards us, red going away. The slit spectrum plots the Hα line (656.3 nm) shifted by Δλ = λ v/c for stars along the slit.</li>
         <li><b>Not modelled:</b> non-circular motions, warps, the thickness of discs, pressure support in gas, the bar of the Milky Way, how mass-to-light ratios are measured, adiabatic contraction of halos, and other evidence for dark matter (lensing, the cosmic microwave background, galaxy clusters). The observed curves are approximate, rounded re-creations for teaching.</li>
       </ul>
@@ -906,18 +910,23 @@ const stars = [];
 const sim = { t: 0, running: true, Rv: 30, vt: null, vtVis: null, mode: "full", model: null, flown: 0 };
 const PLANETS = [["Mercury", 0.387, "#b9b2a6"], ["Venus", 0.723, "#e8cf9a"], ["Earth", 1, "#5aa0e8"], ["Mars", 1.524, "#d0643c"], ["Jupiter", 5.2, "#d8b088"], ["Saturn", 9.58, "#e6d39a"], ["Uranus", 19.2, "#9fd8e0"], ["Neptune", 30.1, "#5b7fe0"]];
 function viewRadius() { const d = currentData(); return Math.max(...d.map(p => p[0])) * 1.08; }
+// QUALITY: how many animated stars to draw (× the Medium number) and how bright each one is,
+// so that crowded pictures don't burn out to white. Only the picture uses these stars.
+// High and Ultra also use a faster way of drawing (see drawStarsFast), so that thousands of stars stay smooth.
+const QUAL = [{ k: 0.5, a: 1 }, { k: 1, a: 1 }, { k: 2, a: 0.8, fast: true }, { k: 3, a: 0.68, fast: true }];
+const qual = () => QUAL[+el("quality").value] || QUAL[1];
 function initStars() {
   stars.length = 0; sim.t = 0; sim.flown = 0;
   const m = readModel(), rng = mulberry32(hashSeed((el("seed").value || "1") + "|stars"));
   sim.Rv = viewRadius();
-  const Rv = sim.Rv, add = (r, phi, kind, col, size = 1) => stars.push({ r, phi, kind, col, size, z: 0, x: 0, y: 0, vx: 0, vy: 0, gone: false });
+  const Rv = sim.Rv, K = qual().k, add = (r, phi, kind, col, size = 1) => stars.push({ r, phi, kind, col, size, z: 0, x: 0, y: 0, vx: 0, vy: 0, gone: false });
   if (isSolar()) {
     for (const [name, a, col] of PLANETS) { const s = add(a, rng() * 6.283, "planet", col, 3.2); stars[stars.length - 1].name = name; }
-    for (let i = 0; i < 160; i++) add(2.1 + 1.2 * rng(), rng() * 6.283, "rock", "#8c8070", 0.8);
-    for (let i = 0; i < 120; i++) add(31 + 15 * rng(), rng() * 6.283, "rock", "#7f93a8", 0.8);
+    for (let i = 0; i < Math.round(160 * K); i++) add(2.1 + 1.2 * rng(), rng() * 6.283, "rock", "#8c8070", 0.8);
+    for (let i = 0; i < Math.round(120 * K); i++) add(31 + 15 * rng(), rng() * 6.283, "rock", "#7f93a8", 0.8);
   } else {
     const pitch = Math.tan(18 * Math.PI / 180);
-    const nB = m.Mb > 0 ? Math.round(1800 * clamp(m.Mb / (m.Mb + m.Md + 1), 0.05, 0.25)) : 0;
+    const nB = m.Mb > 0 ? Math.round(1800 * K * clamp(m.Mb / (m.Mb + m.Md + 1), 0.05, 0.25)) : 0;
     for (let i = 0; i < nB; i++) { const u = Math.sqrt(rng() * 0.98); const r = Math.min(Rv, m.ab * u / (1 - u)); add(r, rng() * 6.283, "bulge", rng() < 0.5 ? "#ffd27a" : "#ffe6b0"); }
     const disc = (n, Rd, kind, cols) => {
       for (let i = 0; i < n; i++) {
@@ -926,10 +935,13 @@ function initStars() {
         add(R, phi, kind, cols[Math.floor(rng() * cols.length)]);
       }
     };
-    disc(1100, m.Rd, "disc", ["#cfe0ff", "#ffffff", "#a4cbe6", "#fff1d6"]);
-    disc(420, m.Rg, "gas", ["#76b82a", "#ff6f9a", "#6fb3ff"]);
-    for (let i = 0; i < 160; i++) add(Rv * (0.35 + 0.65 * Math.sqrt(rng())), rng() * 6.283, "gas", "#5a8fd0");      // faint outer hydrogen clouds
+    disc(Math.round(1100 * K), m.Rd, "disc", ["#cfe0ff", "#ffffff", "#a4cbe6", "#fff1d6"]);
+    disc(Math.round(420 * K), m.Rg, "gas", ["#76b82a", "#ff6f9a", "#6fb3ff"]);
+    for (let i = 0; i < Math.round(160 * K); i++) add(Rv * (0.35 + 0.65 * Math.sqrt(rng())), rng() * 6.283, "gas", "#5a8fd0");      // faint outer hydrogen clouds
   }
+  // High/Ultra: keep stars of the same colour together, so the colour is set once per group when drawing
+  // (stars are added together with "lighter" blending, so the order doesn't change the picture)
+  if (qual().fast) stars.sort((a, b) => (a.kind + a.col < b.kind + b.col ? -1 : a.kind + a.col > b.kind + b.col ? 1 : 0));
   for (const s of stars) { s.z = (s.kind === "bulge" ? 0.5 : 0.06) * gauss(rng) * (s.kind === "bulge" ? Math.max(0.3, s.r) : Rv * 0.05 + s.r * 0.03); s.x = s.r * Math.cos(s.phi); s.y = s.r * Math.sin(s.phi); }
   startFly();
 }
@@ -988,11 +1000,25 @@ function drawFaceOn(ctx, R, d) {
     ctx.fillStyle = gR; ctx.beginPath(); ctx.arc(cx, cy, Math.max(4, 4 * m.Rd * s), 0, 7); ctx.fill();
   }
   ctx.globalCompositeOperation = "lighter";
-  for (const st of stars) {
+  const qa = qual().a;                           // QUALITY: dimmer stars when there are more of them
+  if (qual().fast) {
+    // High/Ultra: set the colour only when it changes, and snap squares to whole pixels (much quicker to fill)
+    let lc = "", la = -1;
+    for (const st of stars) {
+      if (st.gone) continue;
+      const X = cx + st.x * s, Y = cy - st.y * s;
+      if (X < R.x - 5 || X > R.x + R.w + 5 || Y < R.y - 5 || Y > R.y + R.h + 5) continue;
+      const z = st.size * d * (st.kind === "bulge" ? 1.7 : st.kind === "gas" ? 2 : 1.6), a = st.kind === "planet" ? 1 : (st.kind === "gas" ? 0.6 : 0.85) * qa;
+      if (st.col !== lc) { ctx.fillStyle = lc = st.col; }
+      if (a !== la) { ctx.globalAlpha = la = a; }
+      if (st.kind === "planet") { ctx.beginPath(); ctx.arc(X, Y, z, 0, 7); ctx.fill(); }
+      else { const zz = Math.max(1, Math.round(z)); ctx.fillRect(Math.round(X - zz / 2), Math.round(Y - zz / 2), zz, zz); }
+    }
+  } else for (const st of stars) {
     if (st.gone) continue;
     const X = cx + st.x * s, Y = cy - st.y * s;
     if (X < R.x - 5 || X > R.x + R.w + 5 || Y < R.y - 5 || Y > R.y + R.h + 5) continue;
-    ctx.fillStyle = st.col; ctx.globalAlpha = st.kind === "gas" ? 0.6 : 0.85;
+    ctx.fillStyle = st.col; ctx.globalAlpha = (st.kind === "gas" ? 0.6 : 0.85) * qa;
     const z = st.size * d * (st.kind === "bulge" ? 1.7 : st.kind === "gas" ? 2 : 1.6);
     if (st.kind === "planet") { ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(X, Y, z, 0, 7); ctx.fill(); }
     else ctx.fillRect(X - z / 2, Y - z / 2, z, z);
@@ -1022,12 +1048,13 @@ function drawEdgeOn(ctx, R, d, sc) {
   // the spectrograph slit along the long axis
   ctx.strokeStyle = "rgba(241,175,40,0.7)"; ctx.setLineDash([4 * d, 3 * d]); ctx.strokeRect(R.x + 6 * d, cy - 4 * d, R.w - 12 * d, 8 * d); ctx.setLineDash([]);
   ctx.globalCompositeOperation = "lighter";
-  const zs = Math.min(s, (R.h * 0.4) / (sim.Rv * 0.12 + 0.5));
-  for (const st of stars) {
+  const zs = Math.min(s, (R.h * 0.4) / (sim.Rv * 0.12 + 0.5)), qa = qual().a;
+  if (qual().fast) drawStarsFast(ctx, stars.filter(st => !st.gone).map(st => { const X = cx + st.x * s; return X < R.x || X > R.x + R.w ? null : [X, cy - st.z * zs * 0.8, (st.kind === "planet" ? 3 : 1.2) * d, st.vy / K / vmax]; }), 0.7 * qa);
+  else for (const st of stars) {
     if (st.gone) continue;
     const X = cx + st.x * s, Y = cy - st.z * zs * 0.8;
     if (X < R.x || X > R.x + R.w) continue;
-    ctx.fillStyle = dopplerCol(st.vy / K, vmax); ctx.globalAlpha = 0.7;
+    ctx.fillStyle = dopplerCol(st.vy / K, vmax); ctx.globalAlpha = 0.7 * qa;
     const z = (st.kind === "planet" ? 3 : 1.2) * d; ctx.fillRect(X - z / 2, Y - z / 2, z, z);
   }
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
@@ -1038,6 +1065,19 @@ function drawEdgeOn(ctx, R, d, sc) {
   ctx.restore();
 }
 // Position–velocity diagram: what a spectrograph slit records (Hα line shifted by the Doppler effect)
+// QUALITY (High, Ultra): draw many Doppler-coloured stars quickly. Each item is [x, y, size, f], where f is the
+// speed towards (−) or away from (+) us as a share of the top speed. Stars go into 33 colour bins from blue to
+// red, each bin is filled with one colour, and squares are snapped to whole pixels.
+function drawStarsFast(ctx, items, alpha) {
+  const bins = Array.from({ length: 33 }, () => []);
+  for (const it of items) if (it) bins[Math.round((clamp(it[3], -1, 1) + 1) * 16)].push(it);
+  ctx.globalAlpha = alpha;
+  bins.forEach((b, k) => {
+    if (!b.length) return;
+    ctx.fillStyle = dopplerCol(k / 16 - 1, 1);
+    for (const [X, Y, z] of b) { const zz = Math.max(1, Math.round(z)); ctx.fillRect(Math.round(X - zz / 2), Math.round(Y - zz / 2), zz, zz); }
+  });
+}
 function drawSlit(ctx, R, d) {
   const K = isSolar() ? AU_PER_YR : KPC_PER_MYR, vmax = Math.max(...sim.vt, 1) * 1.25, lam0 = 656.28, c = 299792.458;
   const dl = lam0 * vmax / c;
@@ -1046,10 +1086,12 @@ function drawSlit(ctx, R, d) {
   ax.clip();
   polyline(ctx, [[ax.L, ax.Y(lam0)], [ax.R, ax.Y(lam0)]], "rgba(255,255,255,0.25)", 1 * d, [4 * d, 3 * d]);
   ctx.globalCompositeOperation = "lighter";
-  for (const st of stars) {
+  const qa = qual().a;
+  if (qual().fast) drawStarsFast(ctx, stars.filter(st => !st.gone && Math.abs(st.x) <= sim.Rv).map(st => { const v = st.vy / K; return [ax.X(st.x), ax.Y(lam0 * (1 + v / c)), 2 * d, v / (vmax / 1.25)]; }), 0.55 * qa);
+  else for (const st of stars) {
     if (st.gone || Math.abs(st.x) > sim.Rv) continue;
     const v = st.vy / K, X = ax.X(st.x), Y = ax.Y(lam0 * (1 + v / c));
-    ctx.fillStyle = dopplerCol(v, vmax / 1.25); ctx.globalAlpha = 0.55; ctx.fillRect(X - d, Y - d, 2 * d, 2 * d);
+    ctx.fillStyle = dopplerCol(v, vmax / 1.25); ctx.globalAlpha = 0.55 * qa; ctx.fillRect(X - d, Y - d, 2 * d, 2 * d);
   }
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
   ctx.restore();
@@ -1224,6 +1266,10 @@ el("dataset").addEventListener("change", () => {
 el("amode").addEventListener("change", () => { const old = sim.mode; sim.mode = el("amode").value; if (sim.mode === "fly") startFly(); else if (old === "fly") initStars(); });
 el("btnPlay").onclick = () => { sim.running = !sim.running; el("btnPlay").textContent = sim.running ? "⏸ Pause" : "▶ Play"; };
 el("btnReset").onclick = () => initStars();
+// QUALITY: a new set of stars at the chosen number; the choice is remembered in this browser
+const Q_KEY = "dark-matter-quality";
+try { const q = localStorage.getItem(Q_KEY); if (["0", "1", "2", "3"].includes(q)) el("quality").value = q; } catch (e) {}
+el("quality").addEventListener("change", () => { try { localStorage.setItem(Q_KEY, el("quality").value); } catch (e) {} initStars(); });
 let speed = 1;
 document.querySelectorAll("[data-s]").forEach(b => (b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", x === b)); }));
 el("btnFit").onclick = () => {

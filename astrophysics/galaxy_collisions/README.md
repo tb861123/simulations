@@ -12,7 +12,8 @@ Open `galaxy-collisions.html` in Chrome or Edge. Nothing needs installing, and n
 - **The galaxies:** visible mass of galaxy A, mass ratio B : A, dark matter halos on/off, halo mass (× visible mass).
 - **The orbit:** closest approach (pericentre, kpc) and approach speed (× escape speed). Alternatively, choose "Milky Way & Andromeda (measured today)": 785 kpc apart, closing at 109 km/s, with Andromeda's sideways speed as a slider.
 - **Disc orientations:** tilt and tilt direction of each disc. 0° = prograde (spins with the orbit), 180° = retrograde.
-- **Simulation:** restricted (Toomre) model or self-gravitating N-body model (4000 particles, Barnes–Hut tree). You can also set the number of stars, gas on/off and the random seed. Press **Reset** to apply changes.
+- **Simulation:** restricted (Toomre) model or self-gravitating N-body model (4000 particles, Barnes–Hut tree). You can also set gas on/off and the random seed. Press **Reset** to apply changes.
+- **Quality** (number of stars in the restricted model): Low 2000, Medium 8000 (default), High 16 000, Ultra 24 000. More stars give finer tails and rings but cost more each frame; if the computer can't keep up, the speed note under the picture says so. The Milky Way & Andromeda preset uses half the chosen number because it runs 30× faster. Presets don't change your Quality choice, which is remembered in this browser (press **Reset** to apply a change). Batch runs use their own number of test stars ("Test stars per run"), so Quality doesn't change them.
 - **View:** drag to rotate, scroll or use +/− to zoom, double-click to reset. Top/Side buttons, centre on either galaxy or the centre of mass, and auto zoom.
 - **Speed:** 1× = 15 million years per second; ½× to 30×.
 
@@ -33,7 +34,7 @@ It also has graphs of separation and tails over time.
 Units: kpc, Myr and 10¹⁰ M☉, with G = 0.044985 kpc³ (10¹⁰ M☉)⁻¹ Myr⁻².
 
 - **Each galaxy** has visible matter as a Plummer sphere (g = GMr/(r²+a²)^{3/2}, a ≈ 2.5 kpc for a Milky Way), plus an optional dark halo as a Hernquist sphere (g = GM/(r+a)², a ≈ 30 kpc). Sizes scale as M^{1/3}.
-- **Stars** are massless test particles in an exponential disc, on circular orbits. They are moved with a leapfrog (kick–drift–kick) integrator in 1 Myr steps.
+- **Stars** are massless test particles in an exponential disc, on circular orbits. They are moved with a leapfrog (kick–drift–kick) integrator in 1 Myr steps. The live "stars in tails" and "escaping" percentages are counted over these stars, so they are a little noisier at Low Quality (2000 stars) and smoother at High and Ultra.
 - **The orbit** is set from energy and angular momentum: L = r_p √(2(ε − U(r_p)/μ)).
 - **Dynamical friction** (Chandrasekhar): a = −4πG²M lnΛ ρ [erf X − 2X e^{−X²}/√π] v/v³, with X = v/(√2σ). The mass M is cut to the part inside the tidal radius. The cores are joined when they are closer than their combined core sizes and moving slower than half the local escape speed.
   - lnΛ = 0.5 is lower than the textbook 2–3. With a rigid, never-stripped halo, larger values make every pair merge on the first approach.

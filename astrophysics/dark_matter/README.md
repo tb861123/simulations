@@ -27,6 +27,7 @@ Open `dark-matter.html` in Chrome or Edge. You do not need to install anything o
 - **Halo:** on/off, shape (NFW or pseudo-isothermal), mass out to r₂₀₀ and scale/core radius.
 - **MOND:** a toggle, with a₀ = 1.2 × 10⁻¹⁰ m/s².
 - **Mystery galaxy / batch data:** number of points, error, furthest point and seed.
+- **Display → Quality:** Low / Medium / High / Ultra sets how many stars the animation draws (about 900, 1800, 3700 or 7400; default Medium). Each star is drawn a little dimmer at High and Ultra so the crowded centre doesn't burn out. Only the moving picture changes: the rotation curve, fits and batch runs don't use the animated stars. The choice is remembered in this browser.
 
 ## Presets
 
@@ -51,7 +52,7 @@ All the speeds add as squares: v² = Σ v_i².
 - **Halo mass:** the mass inside r₂₀₀ (200 × the critical density).
 - **MOND ("simple" interpolating function):** g = g_N[½ + √(¼ + a₀/g_N)].
 - **Goodness of fit:** χ² = Σ((v_obs − v_model)/σ)².
-- **Animation:** circular orbits, or leapfrog integration in "fly off" mode.
+- **Animation:** circular orbits, or leapfrog integration in "fly off" mode. The Quality setting only changes how many stars are drawn, not the physics.
 - **Units:** kpc, km/s and M☉, with G = 4.30 × 10⁻⁶ kpc (km/s)²/M☉. 1× speed = 10 million years a second.
 
 The model leaves out warps, non-circular motion, disc thickness and pressure support. The full list is in the app.

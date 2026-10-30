@@ -32,6 +32,15 @@ generation (for example pollution then the Clean Air Act), predator type and
 number, temperature and climate warming, seed supply in a drought, sexual
 selection strength and mutation rate.
 
+**Picture quality** (left panel, under Display): Low / Medium / High / Ultra,
+default Medium. Low draws on a lower-resolution canvas with half as many specks
+in the habitat (fastest); High doubles the habitat detail (more, smaller specks
+of lichen, sand, grass and pebbles) and puts a soft shadow under each animal;
+Ultra triples the detail and draws the picture at up to twice the pixel density
+on ordinary (non-high-DPI) screens. Only the drawing changes: who is caught,
+the graphs and batch runs are identical at every level. The choice is
+remembered in this browser.
+
 **Readouts:** generation, population, frequency of the followed allele,
 selection coefficient, Hardy–Weinberg expectations, deaths, survival rate of
 each phenotype last generation, and (for finches) heritability and the

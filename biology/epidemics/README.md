@@ -24,6 +24,14 @@ only, or households + school/work + community); starting cases; % vaccinated
 and vaccine efficacy; social distancing; masks; % of symptomatic cases who
 isolate; how long immunity lasts (waning immunity).
 
+**Picture quality** (left panel, under Display): Low / Medium / High / Ultra,
+default Medium. Low draws people as squares on a lower-resolution canvas
+(fastest, useful with 5000 people on a slow computer); High adds a soft glow
+round infectious people; Ultra also draws the picture at up to twice the
+pixel density on ordinary (non-high-DPI) screens. Only the drawing changes:
+the epidemic, graphs, readouts and batch runs are identical at every level.
+The choice is remembered in this browser.
+
 **Readouts:** R0, R at the start, R now, herd immunity threshold 1 − 1/R0
 (and the vaccine coverage needed), peak infectious and its day, total
 infected (with the final size equation), chance of a big outbreak, deaths.

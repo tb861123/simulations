@@ -42,6 +42,7 @@ self-contained file that works offline.
 | Fitness cost | How much more slowly resistant cells divide |
 | Plasmids | Lets fully resistant cells pass resistance genes to their neighbours |
 | Random seed | Same seed and settings give the same patient |
+| Picture quality (Display) | Low / Medium / High / Ultra (default Medium): how many rods are drawn in the sample, about ½×, 1×, 2× or 3× the Medium number (never fewer than 40; every bacterium when there are 40 or fewer). Rods are drawn a little smaller at High and Ultra. Only the picture changes: it does not start a new patient, and the numbers, graphs and batch runs are identical at every level. Remembered in this browser. |
 
 ## Presets
 
