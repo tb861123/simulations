@@ -38,6 +38,7 @@ curve with mean μ and SD σ/√n. The parents are:
 - Play/Pause, Reset, **Finish now** (does the rest instantly) and speed
   (½×, 1×, 4×, 15×).
 - The side panels can be resized by dragging the splitters, or hidden.
+- **Picture quality** (Low / Medium / High / Ultra, default Medium): how sharply the live view is drawn. Low draws at standard resolution and redraws about 30 times a second, for slower laptops and tablets; High and Ultra draw at 1.5× and 2× the screen's resolution for smoother edges. Only the drawing changes: the model and batch-run results are identical at every level. The choice is remembered in this browser.
 
 **Readouts:** mean, SD and skewness against theory, % within ±1 SD, the χ²
 goodness-of-fit statistic with its p-value, and the "gap from the normal curve".

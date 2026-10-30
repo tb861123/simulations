@@ -36,6 +36,8 @@ Charging, Auto flip, Play/Pause, Reset, speed, Show electrons, Batch run. The
 right panel has readings, energy efficiency (charging), physics notes, exam
 practice (3 questions, live answers) and "How the model works".
 
+**Picture quality** (Low / Medium / High / Ultra, default Medium): how sharply the live view is drawn. Low draws at standard resolution and redraws about 30 times a second, for slower laptops and tablets; High and Ultra draw at 1.5× and 2× the screen's resolution for smoother edges. Only the drawing changes: the model and batch-run results are identical at every level. The choice is remembered in this browser.
+
 ## The model
 
 τ = RC; discharge V = V₀e^(−t/RC); charge V = V₀(1 − e^(−t/RC));

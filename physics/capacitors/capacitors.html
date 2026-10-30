@@ -246,6 +246,10 @@
         <div class="card" id="tOut"></div>
       </details>
     </div>
+
+    <h2 class="gap">Display</h2>
+    <div class="ctl"><label>Picture quality</label><select id="quality"><option value="0">Low (lightest)</option><option value="1" selected>Medium (default)</option><option value="2">High (sharper)</option><option value="3">Ultra (sharpest)</option></select>
+      <div class="hint">Low draws at standard resolution, 30 times a second: try it if the animation is jerky. Medium matches your screen. High and Ultra draw at 1.5× and 2× for smoother edges. Only the drawing changes: the model and batch runs are the same at every level.</div></div>
   </section>
 
   <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
@@ -326,9 +330,27 @@ function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = 
 // A random number from a normal (bell-shaped) distribution, mean 0, SD 1
 function gauss(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
 
-// Size a canvas for the screen's pixel ratio so lines and text stay sharp (Surface screens at 200%)
-function fitCanvas(cv) {
-  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+/* =====================================================================
+   PICTURE QUALITY (the live view only; the choice is saved in this browser)
+   Each canvas is drawn with a number of canvas pixels per CSS pixel:
+     Low     1, and redrawn every other frame (about 30 times a second): lightest
+     Medium  the screen's own pixel ratio: the normal look (default)
+     High    1.5 × the screen's (at most 2.5): smoother edges and text
+     Ultra   2 × the screen's (at most 3): smoothest, heaviest
+   The model, its time steps and its random numbers are the same at every
+   level, and batch runs never draw the live view, so results do not change.
+   ===================================================================== */
+const QUALITY_KEY = "capacitors-quality";
+let quality = 1;
+try { const q = localStorage.getItem(QUALITY_KEY); if (q !== null && /^[0-3]$/.test(q)) quality = +q; } catch (e) {}
+function livePR() { const d = window.devicePixelRatio || 1; return [1, d, Math.max(d, Math.min(2.5, 1.5 * d)), Math.max(d, Math.min(3, 2 * d))][quality]; }
+let qualSkip = false;
+function skipDraw() { if (quality !== 0) return false; qualSkip = !qualSkip; return qualSkip; }   // Low: true on every other frame
+
+// Size a canvas for the screen's pixel ratio so lines and text stay sharp (Surface screens at 200%).
+// Live canvases use the picture-quality ratio; the batch chart passes the screen's own.
+function fitCanvas(cv, dpr = livePR()) {
+  const r = cv.getBoundingClientRect();
   const w = Math.max(10, Math.round(r.width * dpr)), h = Math.max(10, Math.round(r.height * dpr));
   if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
   const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -670,7 +692,7 @@ const Batch = (function () {
     setTimeout(chunk, 20);
   }
   function draw() {
-    const { ctx, w, h } = fitCanvas(el("bchart"));
+    const { ctx, w, h } = fitCanvas(el("bchart"), window.devicePixelRatio || 1);
     ctx.clearRect(0, 0, w, h);
     const note = el("bNote");
     note.style.display = expNote ? "" : "none"; note.innerHTML = expNote ? `<b>What this shows.</b> ${expNote}` : "";
@@ -1164,6 +1186,9 @@ function refresh() { outputs(); presetInfo(); readings(); notes(); exam(); topba
   el("btnBatch").addEventListener("click", () => Batch.open("C"));
   initLayout("capacitors-sim", () => { drawCircuit(); drawGraphs(); readings(); Batch.refresh(); });
   syncInputs(); buildPresets(); restart(); setLevel("std");
+  // picture quality: show the saved choice, save a new one
+  el("quality").value = String(quality);
+  el("quality").addEventListener("change", () => { quality = +el("quality").value; try { localStorage.setItem(QUALITY_KEY, String(quality)); } catch (e) {} readings(); });
   let last = performance.now(), uiT = 0;
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -1181,7 +1206,7 @@ function refresh() { outputs(); presetInfo(); readings(); notes(); exam(); topba
         else if (!A.charging && A.hold > 1.2) { A.charging = true; A.t = 0; A.hold = 0; }   // as in the old app: recharge after discharging
       }
     }
-    drawCircuit(); drawGraphs();
+    if (!skipDraw()) { drawCircuit(); drawGraphs(); }
     if (now - uiT > 200) { topbar(); uiT = now; }
     requestAnimationFrame(frame);
   }

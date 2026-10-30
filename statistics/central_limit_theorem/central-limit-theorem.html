@@ -233,6 +233,10 @@
       <input class="txt" id="seed" value="1">
     </div>
 
+    <h2 class="gap">Display</h2>
+    <div class="ctl"><label>Picture quality</label><select id="quality"><option value="0">Low (lightest)</option><option value="1" selected>Medium (default)</option><option value="2">High (sharper)</option><option value="3">Ultra (sharpest)</option></select>
+      <div class="hint">Low draws at standard resolution, 30 times a second: try it if the animation is jerky. Medium matches your screen. High and Ultra draw at 1.5× and 2× for smoother edges. Only the drawing changes: the model and batch runs are the same at every level.</div></div>
+
     <details>
       <summary>How the model works (and what it leaves out)</summary>
       <ul>
@@ -572,10 +576,27 @@ function meansStats() { if (M.means.length < 2) return null; return meansOutcome
 /* =====================================================================
    8. DRAWING
    ===================================================================== */
-function fitCanvas(c) { const dpr = window.devicePixelRatio || 1; const W = Math.max(1, Math.round(c.clientWidth * dpr)), H = Math.max(1, Math.round(c.clientHeight * dpr));
+/* =====================================================================
+   PICTURE QUALITY (the live view only; the choice is saved in this browser)
+   Each canvas is drawn with a number of canvas pixels per CSS pixel:
+     Low     1, and redrawn every other frame (about 30 times a second): lightest
+     Medium  the screen's own pixel ratio: the normal look (default)
+     High    1.5 × the screen's (at most 2.5): smoother edges and text
+     Ultra   2 × the screen's (at most 3): smoothest, heaviest
+   The model, its time steps and its random numbers are the same at every
+   level, and batch runs never draw the live view, so results do not change.
+   ===================================================================== */
+const QUALITY_KEY = "central-limit-theorem-quality";
+let quality = 1;
+try { const q = localStorage.getItem(QUALITY_KEY); if (q !== null && /^[0-3]$/.test(q)) quality = +q; } catch (e) {}
+function livePR() { const d = window.devicePixelRatio || 1; return [1, d, Math.max(d, Math.min(2.5, 1.5 * d)), Math.max(d, Math.min(3, 2 * d))][quality]; }
+let qualSkip = false;
+function skipDraw() { if (quality !== 0) return false; qualSkip = !qualSkip; return qualSkip; }   // Low: true on every other frame
+
+// live canvases use the picture-quality pixel ratio; the batch chart passes the screen's own
+function fitCanvas(c, dpr = livePR()) { const W = Math.max(1, Math.round(c.clientWidth * dpr)), H = Math.max(1, Math.round(c.clientHeight * dpr));
   if (c.width !== W || c.height !== H) { c.width = W; c.height = H; } return { ctx: c.getContext("2d"), W, H, dpr }; }
 function fmt(v, d = 2) { if (v === null || v === undefined || !isFinite(v)) return "–"; const a = Math.abs(v); if (a >= 1e5) return v.toExponential(2); if (a >= 100) return v.toFixed(0); if (a >= 10) return v.toFixed(Math.min(d, 1)); return v.toFixed(d); }
-const DPR = () => window.devicePixelRatio || 1;
 
 function drawGalton(ctx, W, H, dpr) {
   const R = G.rows, top = 18 * dpr, axisH = 34 * dpr, binH = H * 0.36, binBase = H - axisH, boardBottom = binBase - binH;
@@ -879,7 +900,7 @@ document.querySelectorAll("[data-s]").forEach(b => (b.onclick = () => { speed = 
 let drawing = false;
 function drawAt(e) {
   if (mode !== "means" || M.d.kind !== "bars") return false;
-  const c = el("view"), r = c.getBoundingClientRect(), dpr = DPR(), x = (e.clientX - r.left) * dpr, y = (e.clientY - r.top) * dpr;
+  const c = el("view"), r = c.getBoundingClientRect(), dpr = livePR(), x = (e.clientX - r.left) * dpr, y = (e.clientY - r.top) * dpr;
   const H = c.height, A = meansAxes(c.width, dpr), pT = 22 * dpr, pB = H * 0.30;
   if (!drawing && (y < pT - 10 * dpr || y > pB + 10 * dpr)) return false;
   const v = A.L + (x - A.L), i = Math.floor((((v - A.L) / (A.Rr - A.L)) * 10) / 0.5);
@@ -1093,7 +1114,7 @@ function statsOf(v) { const n = v.length; if (!n) return null; const m = v.reduc
   return { n, mean: m, sd, se: sd / Math.sqrt(n), min: Math.min(...v), max: Math.max(...v) }; }
 function logTicks(a, b) { const out = []; for (let e = Math.floor(Math.log10(a)); e <= Math.ceil(Math.log10(b)); e++) for (const m of [1, 2, 5]) { const v = m * Math.pow(10, e); if (v >= a * 0.999 && v <= b * 1.001) out.push(v); } return out; }
 function drawBatch() {
-  const { ctx, W, H, dpr } = fitCanvas(el("bChart")), f = s => `${s * dpr}px system-ui`;
+  const { ctx, W, H, dpr } = fitCanvas(el("bChart"), window.devicePixelRatio || 1), f = s => `${s * dpr}px system-ui`;
   ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, W, H);
   if (!B.cfg || !B.rows.length) { ctx.fillStyle = "#a3ab96"; ctx.font = f(14); ctx.textAlign = "center"; ctx.fillText("Pick a batch experiment on the left, or set up your own and press Run batch.", W / 2, H / 2); el("bSummary").innerHTML = ""; return; }
   const cfg = B.cfg, out = el("bOut").value, oDef = BOUTS[cfg.model].find(o => o.key === out) || BOUTS[cfg.model][0];
@@ -1210,6 +1231,10 @@ fillOutcomes(); fillTable(leftSettings(), null); el("bBase").innerHTML = "Table 
 /* =====================================================================
    13. MAIN LOOP
    ===================================================================== */
+// picture quality: show the saved choice, save a new one
+el("quality").value = String(quality);
+el("quality").addEventListener("change", () => { quality = +el("quality").value; try { localStorage.setItem(QUALITY_KEY, String(quality)); } catch (e) {} });
+
 let lastT = performance.now();
 function frame(now) {
   const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
@@ -1218,7 +1243,7 @@ function frame(now) {
     if (mode === "galton") { stepGalton(real * speed); if (G.landed >= G.total && !G.balls.length) setRunning(false); }
     else { stepMeans(real * speed); if (M.means.length >= M.total && (!M.cur || M.cur.age >= 1 || M.rate * speed > 3)) setRunning(false); }
   }
-  if (!batchOpen) { drawView(); drawChart1(); drawChart2(); updateUI(); }
+  if (!batchOpen && !skipDraw()) { drawView(); drawChart1(); drawChart2(); updateUI(); }
   requestAnimationFrame(frame);
 }
 

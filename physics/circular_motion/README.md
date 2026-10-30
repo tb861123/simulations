@@ -38,6 +38,10 @@ offline.
 Each tab has a running story, readouts, information cards, physics notes and
 exam practice.
 
+**Display:**
+
+- **Picture quality** (Low / Medium / High / Ultra, default Medium): how sharply the live view is drawn. Low draws at standard resolution and redraws about 30 times a second, for slower laptops and tablets; High and Ultra draw at 1.5× and 2× the screen's resolution for smoother edges. Only the drawing changes: the model and batch-run results are identical at every level. The choice is remembered in this browser.
+
 ## Presets
 
 Fairground roundabout · Washing machine spin · Car on a roundabout ·

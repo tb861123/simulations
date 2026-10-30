@@ -212,6 +212,8 @@
       <div class="seg" id="yMode"><button data-v="full" class="on">Whole barrier</button><button data-v="zoom">Zoom on the nucleus</button></div>
       <div class="hint">"Whole barrier" shows true proportions: the energy of a typical nucleus is usually a tiny sliver at the bottom.</div>
     </div>
+    <div class="ctl"><label>Picture quality</label><select id="quality"><option value="0">Low (lightest)</option><option value="1" selected>Medium (default)</option><option value="2">High (sharper)</option><option value="3">Ultra (sharpest)</option></select>
+      <div class="hint">Low draws at standard resolution, 30 times a second: try it if the animation is jerky. Medium matches your screen. High and Ultra draw at 1.5× and 2× for smoother edges. Only the drawing changes: the model and batch runs are the same at every level.</div></div>
 
     <details>
       <summary>How the model works (and what it leaves out)</summary>
@@ -584,8 +586,26 @@ function updateStory() {
 /* =====================================================================
    6. CANVAS HELPERS (crisp on high-DPI screens)
    ===================================================================== */
-function fitCanvas(c) {
-  const dpr = window.devicePixelRatio || 1, w = Math.max(2, Math.round(c.clientWidth * dpr)), h = Math.max(2, Math.round(c.clientHeight * dpr));
+/* =====================================================================
+   PICTURE QUALITY (the live view only; the choice is saved in this browser)
+   Each canvas is drawn with a number of canvas pixels per CSS pixel:
+     Low     1, and redrawn every other frame (about 30 times a second): lightest
+     Medium  the screen's own pixel ratio: the normal look (default)
+     High    1.5 × the screen's (at most 2.5): smoother edges and text
+     Ultra   2 × the screen's (at most 3): smoothest, heaviest
+   The model, its time steps and its random numbers are the same at every
+   level, and batch runs never draw the live view, so results do not change.
+   ===================================================================== */
+const QUALITY_KEY = "nuclear-fusion-quality";
+let quality = 1;
+try { const q = localStorage.getItem(QUALITY_KEY); if (q !== null && /^[0-3]$/.test(q)) quality = +q; } catch (e) {}
+function livePR() { const d = window.devicePixelRatio || 1; return [1, d, Math.max(d, Math.min(2.5, 1.5 * d)), Math.max(d, Math.min(3, 2 * d))][quality]; }
+let qualSkip = false;
+function skipDraw() { if (quality !== 0) return false; qualSkip = !qualSkip; return qualSkip; }   // Low: true on every other frame
+
+// live canvases use the picture-quality pixel ratio; the batch chart passes the screen's own
+function fitCanvas(c, dpr = livePR()) {
+  const w = Math.max(2, Math.round(c.clientWidth * dpr)), h = Math.max(2, Math.round(c.clientHeight * dpr));
   if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
   const ctx = c.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return { ctx, w: c.clientWidth, h: c.clientHeight };
 }
@@ -1022,10 +1042,13 @@ function hookControls() {
   el("btnOne").onclick = () => { if (NUCL.phase === "idle" || NUCL.phase === "wait") sendOne(); };
   el("btnReset").onclick = resetCounts;
 }
+// picture quality: show the saved choice, save a new one
+el("quality").value = String(quality);
+el("quality").addEventListener("change", () => { quality = +el("quality").value; try { localStorage.setItem(QUALITY_KEY, String(quality)); } catch (e) {} drawGamow(); drawLadder(); });
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  step(dt); drawWell(); updateCounters();
+  step(dt); if (!skipDraw()) { drawWell(); updateCounters(); }
   requestAnimationFrame(frame);
 }
 
@@ -1265,7 +1288,7 @@ function bCsv() {
 function stats(v) { v = v.filter(isFinite); const n = v.length; if (!n) return { n: 0 }; const m = v.reduce((a, b) => a + b, 0) / n; const sd = n > 1 ? Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / (n - 1)) : 0; return { n, m, sd, se: sd / Math.sqrt(n), min: Math.min(...v), max: Math.max(...v) }; }
 function groups() { const g = new Map(); for (const r of B.res) { if (!g.has(r.x)) g.set(r.x, { x: r.x, v: [], th: r.th }); g.get(r.x).v.push(r.v); } return [...g.values()].map(q => ({ ...q, s: stats(q.v) })); }
 function drawBatch() {
-  const { ctx, w, h } = fitCanvas(el("bChart")); ctx.clearRect(0, 0, w, h);
+  const { ctx, w, h } = fitCanvas(el("bChart"), window.devicePixelRatio || 1); ctx.clearRect(0, 0, w, h);
   const L = 70, R = w - 16, T = 24, Bm = h - 42; ctx.font = "12px system-ui";
   const c = B.cfg; if (!c || !B.res.length) { ctx.fillStyle = "#a3ab96"; ctx.textAlign = "center"; ctx.fillText(B.exp >= 0 ? "Press ▶ Run batch to run this experiment." : "Choose an experiment on the left, or set one up yourself.", w / 2, h / 2); return; }
   const o = OUTS[c.out];

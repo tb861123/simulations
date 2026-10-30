@@ -50,6 +50,7 @@ needed.
   scale it runs from 0 to 200 fm. A nucleus that turns back further out than
   that is reported as turning back off the right-hand edge. Energy can show
   the whole barrier at true proportions, or zoom in on the incoming nucleus.
+- **Picture quality** (Low / Medium / High / Ultra, default Medium): how sharply the live view is drawn. Low draws at standard resolution and redraws about 30 times a second, for slower laptops and tablets; High and Ultra draw at 1.5× and 2× the screen's resolution for smoother edges. Only the drawing changes: the model and batch-run results are identical at every level. The choice is remembered in this browser.
 
 ## Readouts
 

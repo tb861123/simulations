@@ -350,6 +350,10 @@
         </ul>
       </details>
     </div>
+
+    <h2 class="gap">Display</h2>
+    <div class="ctl"><label>Picture quality</label><select id="quality"><option value="0">Low (lightest)</option><option value="1" selected>Medium (default)</option><option value="2">High (sharper)</option><option value="3">Ultra (sharpest)</option></select>
+      <div class="hint">Low draws at standard resolution, 30 times a second: try it if the animation is jerky. Medium matches your screen. High and Ultra draw at 1.5× and 2× for smoother edges. Only the drawing changes: the model and batch runs are the same at every level.</div></div>
   </section>
 
   <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
@@ -501,9 +505,27 @@ function linFit(xs, ys) {
   const r = (n * sxy - sx * sy) / Math.sqrt(d * Math.max(1e-300, n * syy - sy * sy));
   return { a, b, r2: r * r };
 }
+/* =====================================================================
+   PICTURE QUALITY (the live view only; the choice is saved in this browser)
+   Each canvas is drawn with a number of canvas pixels per CSS pixel:
+     Low     1, and redrawn every other frame (about 30 times a second): lightest
+     Medium  the screen's own pixel ratio: the normal look (default)
+     High    1.5 × the screen's (at most 2.5): smoother edges and text
+     Ultra   2 × the screen's (at most 3): smoothest, heaviest
+   The model, its time steps and its random numbers are the same at every
+   level, and batch runs never draw the live view, so results do not change.
+   ===================================================================== */
+const QUALITY_KEY = "car-crash-quality";
+let quality = 1;
+try { const q = localStorage.getItem(QUALITY_KEY); if (q !== null && /^[0-3]$/.test(q)) quality = +q; } catch (e) {}
+function livePR() { const d = window.devicePixelRatio || 1; return [1, d, Math.max(d, Math.min(2.5, 1.5 * d)), Math.max(d, Math.min(3, 2 * d))][quality]; }
+let qualSkip = false;
+function skipDraw() { if (quality !== 0) return false; qualSkip = !qualSkip; return qualSkip; }   // Low: true on every other frame
+
 // Make a canvas match its on-screen size (sharp on high-DPI screens). Returns [ctx, width, height, dpr].
+// Live canvases use the picture-quality ratio; the batch chart uses the screen's own.
 function fitCanvas(c) {
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = c.id === "bChart" ? window.devicePixelRatio || 1 : livePR();
   const W = Math.max(1, Math.round(c.clientWidth * dpr)), H = Math.max(1, Math.round(c.clientHeight * dpr));
   if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
   const ctx = c.getContext("2d"); ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1902,6 +1924,7 @@ function labFrame(real, now) {
       if (s.over && s.t - s.overT > 0.4 && s.th[s.n - 1] <= 0) { LAB.cr = crInit(p); LAB.crHist = []; }
     }
   }
+  if (skipDraw()) return;                          // Low picture quality: draw every other frame
   const [ctx, W, H, dpr] = fitCanvas($("lView")); ctx.fillStyle = "#070a10"; ctx.fillRect(0, 0, W, H);
   const [ctx2, W2, H2, dpr2] = fitCanvas($("lLow")); ctx2.fillStyle = "#050604"; ctx2.fillRect(0, 0, W2, H2);
   if (LAB.tab === "1d") { const r = lab1D(p); draw1D(ctx, W, H, dpr, r, p); draw1DLow(ctx2, W2, H2, dpr2, r); }
@@ -2084,12 +2107,15 @@ el("btnBatch").onclick = () => BATCH.open();
 /* =====================================================================
    8. THE MAIN LOOP
    ===================================================================== */
+// picture quality: show the saved choice, save a new one
+el("quality").value = String(quality);
+el("quality").addEventListener("change", () => { quality = +el("quality").value; try { localStorage.setItem(QUALITY_KEY, String(quality)); } catch (e) {} });
 let lastT = performance.now();
 function frame(now) {
   const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
   if (MODE === "lab") { labFrame(real, now); requestAnimationFrame(frame); return; }
   if (play.running) { play.t += real * speed * 20; if (play.t >= T1 * 1000) { play.t = T1 * 1000; setRunning(false); } }   // 1× = 20 ms of crash per second
-  drawView(); drawG(); drawChart(); updateUI(now);
+  if (!skipDraw()) { drawView(); drawG(); drawChart(); updateUI(now); }
   requestAnimationFrame(frame);
 }
 setupPanels("car-crash-layout");

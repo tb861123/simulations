@@ -37,6 +37,8 @@ the Magnus effect with spin −200 to +200 rad/s. Display: velocity components,
 time markers, colour by speed, equal axis scales. Play/pause, launch, speed
 ¼×–4×.
 
+**Picture quality** (Low / Medium / High / Ultra, default Medium): how sharply the live view is drawn. Low draws at standard resolution and redraws about 30 times a second, for slower laptops and tablets; High and Ultra draw at 1.5× and 2× the screen's resolution for smoother edges. Only the drawing changes: the model and batch-run results are identical at every level. The choice is remembered in this browser.
+
 ## Presets
 
 Kick at 45° · 30° and 60° (same range) · Off a cliff · Dropped vs thrown ·
