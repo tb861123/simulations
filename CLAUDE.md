@@ -10,7 +10,7 @@ holds one folder per simulation:
 | Subject folder | Simulations |
 |---|---|
 | `physics/` | `gas_in_a_box`, `double_pendulum`, `nuclear_fusion`, `states_of_matter`, `youngs_modulus`, `projectile_motion`, `circular_motion`, `waves`, `optics_refraction`, `fields_orbits`, `photoelectric_effect`, `atomic_spectra`, `radioactive_decay`, `nuclear_fission`, `particle_physics`, `circuits`, `capacitors`, `magnetism_induction` |
-| `chemistry/` | `collision_theory`, `dynamic_equilibrium`, `crystallisation`, `atomic_structure`, `bonding`, `organic_chemistry`, `periodic_groups`, `reactivity_metals`, `electrolysis`, `energy_changes`, `chem_sims` (Edexcel iGCSE: `run.bat` / `index.html`) |
+| `chemistry/` | `collision_theory`, `dynamic_equilibrium`, `crystallisation`, `atomic_structure`, `bonding`, `organic_chemistry`, `periodic_groups`, `reactivity_metals`, `electrolysis`, `energy_changes`, `acids_salts_tests`, `chromatography` |
 | `biology/` | `natural_selection`, `epidemics`, `predator_prey` |
 | `engineering/` | `earthquake_buildings`, `traffic_flow`, `car_crash`, `aerofoil_flow` |
 | `medical/` | `heart_circulation`, `nerve_impulse`, `antibiotic_resistance`, `gas_exchange` |
@@ -18,7 +18,7 @@ holds one folder per simulation:
 | `astrophysics/` | `planet_formation`, `stellar_life_cycle`, `exoplanet_hunting`, `galaxy_collisions`, `expanding_universe`, `gravitational_lensing`, `dark_matter` |
 | `statistics/` | `central_limit_theorem`, `queues` |
 
-Unless noted, a simulation is one self-contained HTML file: open it in Chrome
+Every simulation is one self-contained HTML file: open it in Chrome
 or Edge.
 
 The old repos (`Fluid_dynamics`, `chem_sims`, `physics-sims`) are retired.
@@ -50,9 +50,9 @@ silently undone.
 End every change with an explicit line saying which applies:
 
 - **No setup needed**: only code, HTML or docs changed. Pull and run.
-- **Re-run setup**: a project's `requirements.txt` changed, or its setup
-  script changed (`chemistry/chem_sims/setup.bat`). Name the
-  folder and the command.
+- **Re-run setup**: only if a project ever gains a `requirements.txt` or
+  setup script again and it changes. Name the folder and the command.
+  (Every simulation is currently a single HTML file with nothing to install.)
 
 ## Audience and style
 

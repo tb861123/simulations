@@ -68,8 +68,9 @@ changing a simulation's batch experiments.
 | [`chemistry/reactivity_metals/`](chemistry/reactivity_metals/) | Reactivity series, metal displacement, and extracting metals (blast furnace, electrolysis) | Open `reactivity-metals.html` |
 | [`chemistry/electrolysis/`](chemistry/electrolysis/) | Electrolysis of molten and aqueous electrolytes, products at each electrode, half-equations and Faraday's law | Open `electrolysis.html` |
 | [`chemistry/energy_changes/`](chemistry/energy_changes/) | Energy changes: reaction profiles, calorimetry, fuels and bond energies | Open `energy-changes.html` |
+| [`chemistry/acids_salts_tests/`](chemistry/acids_salts_tests/) | Acids, alkalis, titration, making salts, and a chemical tests lab (flame tests, ions, gases, unknowns) | Open `acids-salts-tests.html` |
+| [`chemistry/chromatography/`](chemistry/chromatography/) | Paper chromatography: Rf values, identifying components, solvent choice and measurement error | Open `chromatography.html` |
 | [`chemistry/crystallisation/`](chemistry/crystallisation/) | Cooling rate and crystal size: granite, basalt, obsidian, salt crystals, dendrites | Open `crystallisation.html` |
-| [`chemistry/chem_sims/`](chemistry/chem_sims/) | 20 Edexcel iGCSE Chemistry (4CH1) simulations | Double-click `run.bat`, or open `index.html` |
 
 ## Biology
 
@@ -128,11 +129,12 @@ changing a simulation's batch experiments.
 
 ## History
 
-`engineering/fluid_dynamics/` (now retired), `chemistry/chem_sims/` and `physics/physics_sims/` (now retired)
+`engineering/fluid_dynamics/` (now retired), `chemistry/chem_sims/` (now retired) and `physics/physics_sims/` (now retired)
 were moved here from their own repositories (`tb861123/Fluid_dynamics`,
 `tb861123/chem_sims` and `tb861123/physics-sims`) with their full commit
 history. Use `git log --follow -- <folder>` to see a project's history. The Python
 fluid dynamics app has since been replaced by `engineering/aerofoil_flow/`;
 its code is still in the history. The WJEC Streamlit app has likewise been
 replaced by the single-file physics simulations (every one of its 28 pages
-was converted or merged).
+was converted or merged), and so has the Edexcel iGCSE chemistry app: its
+20 pages became the single-file chemistry simulations.
