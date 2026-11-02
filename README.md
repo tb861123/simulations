@@ -119,6 +119,7 @@ changing a simulation's batch experiments.
 | [`astrophysics/expanding_universe/`](astrophysics/expanding_universe/) | Hubble's law, redshift and the age of the universe | Open `expanding-universe.html` |
 | [`astrophysics/gravitational_lensing/`](astrophysics/gravitational_lensing/) | Gravitational lensing: Einstein rings, arcs, microlensing, Eddington 1919 | Open `gravitational-lensing.html` |
 | [`astrophysics/dark_matter/`](astrophysics/dark_matter/) | Evidence for dark matter from galaxy rotation curves | Open `dark-matter.html` |
+| [`astrophysics/three_body_chaos/`](astrophysics/three_body_chaos/) | Newtonian three-body scattering: a computed outcome map (every pixel a real simulation), boundary discovery, zoom, validation, comparison, save and export | Open `three-body-chaos.html` (built from a React/TypeScript project in `source/`) |
 
 ## Statistics
 
