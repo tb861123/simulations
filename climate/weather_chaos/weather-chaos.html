@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weather Chaos and the Butterfly Effect</title>
+<style>
+:root{--bg:#0b1019;--panel:#111826;--panel2:#171f31;--line:#26324a;--txt:#e3e9f4;--mut:#8b9bb5;--a:#4dabf7;--b:#ffa94d;--ok:#51cf66;--bad:#ff6b6b;color-scheme:dark}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--txt);font:13px/1.45 system-ui,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:12px;padding:6px 14px;background:#0e1522;border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
+h1{font-size:16px;margin:0}h2{font-size:15px;margin:0}h3{font-size:12.5px;margin:10px 0 4px;color:#cfe3ff}
+.sub{color:var(--mut);font-size:12px}@media(max-width:1500px){.sub{display:none}}.grow{flex:1}
+button,select,input{font:inherit;color:inherit}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:4px 10px;cursor:pointer}
+button:hover:not(:disabled){border-color:#3b82c4}button:disabled{opacity:.45;cursor:default}
+button.primary{background:#2f6fae;border-color:var(--a);color:#fff}
+.seg{display:inline-flex}.seg button{border-radius:0;margin-left:-1px}.seg button:first-child{border-radius:5px 0 0 5px;margin:0}.seg button:last-child{border-radius:0 5px 5px 0}.seg button.on{background:#2f6fae;border-color:var(--a);color:#fff}
+select,input[type=text],input[type=number]{background:#0b1019;border:1px solid var(--line);border-radius:4px;padding:3px 6px}
+input[type=range]{accent-color:var(--a);width:100%}
+main{flex:1;min-height:0;display:none;grid-template-columns:270px minmax(0,1fr);gap:0}
+main.show{display:grid}
+aside{background:var(--panel);border-right:1px solid var(--line);padding:8px 12px 16px;overflow-y:auto}
+.ctl{margin:7px 0}.ctl label{display:flex;justify-content:space-between;color:#c3cfe0;font-size:12px}.ctl b{color:var(--txt);font-weight:600}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.hint{color:var(--mut);font-size:12px;margin:4px 0}
+.stage{display:grid;gap:6px;padding:6px;min-height:0;min-width:0}
+#s63{grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr 1fr}
+#s96{grid-template-columns:minmax(260px,.9fr) 1.1fr 1.1fr;grid-template-rows:auto 1fr 1fr}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;position:relative;min-height:0;min-width:0;display:flex;flex-direction:column}
+.card h4{margin:0;padding:5px 9px 0;font-size:12px;font-weight:600;color:#cfe3ff}
+.card p{margin:0;padding:0 9px 4px;font-size:11.5px;color:var(--mut)}
+.card .cv{flex:1;min-height:0;position:relative}.card canvas{position:absolute;inset:0;width:100%;height:100%}
+.bar{grid-column:1/-1;display:flex;gap:6px 18px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.bar span{color:var(--mut)}.bar b{color:var(--txt);font-variant-numeric:tabular-nums}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.overlay{position:fixed;inset:0;background:#000b;z-index:50;display:none;align-items:center;justify-content:center}.overlay.open{display:flex}
+.dlg{background:var(--panel);border:1px solid #3b82c4;border-radius:10px;width:min(980px,96vw);max-height:94vh;overflow-y:auto;padding:12px 18px}
+.dlg ul{padding-left:18px;margin:4px 0}.dlg li{margin:2px 0}
+.exps{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:8px 0}
+.exp{text-align:left;display:flex;flex-direction:column;gap:2px;padding:7px 10px}.exp b{font-weight:600}.exp span{color:var(--mut);font-size:12px}.exp.on{border-color:var(--a);background:#13314f}
+.bset{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.bset label{display:flex;gap:5px;align-items:center}
+table{border-collapse:collapse;width:100%;font-size:12px}th,td{border-bottom:1px solid var(--line);padding:2px 6px;text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-weight:500}
+.btable{max-height:190px;overflow:auto}.bnote{margin-top:8px;color:#c3cfe0;font-size:12.5px}.status{font-size:12px;color:#c3cfe0;margin:4px 0}
+code{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#cfe3ff}
+</style>
+</head>
+<body>
+<header>
+  <h1>Weather Chaos and the Butterfly Effect</h1>
+  <span class="sub">Tiny differences at the start grow until the forecast is useless</span>
+  <span class="grow"></span>
+  <div class="seg" id="tabs"><button id="tab63" class="on">Lorenz 63: convection</button><button id="tab96">Lorenz 96: weather map</button></div>
+  <button id="btnBatch">📊 Batch run</button>
+  <button id="btnAbout">How the model works</button>
+</header>
+
+<!-- =============================== LORENZ 63 =============================== -->
+<main id="p63" class="show">
+  <aside>
+    <h3>Two forecasts that start almost the same</h3>
+    <p class="hint">Blue is the "true" atmosphere. Orange starts a tiny distance away: the size of one butterfly flap. Press ▶ and watch.</p>
+    <div class="row">
+      <button id="a_play" class="primary">▶ Play</button><button id="a_restart">↺ Restart</button><button id="a_new" title="Choose a different starting weather">New start</button>
+    </div>
+    <div class="ctl"><label>Mode</label>
+      <div class="seg" id="a_mode"><button data-v="twin" class="on">Twin forecasts</button><button data-v="ens">Ensemble</button></div></div>
+    <div class="ctl"><label>Starting difference δ <b id="a_dv"></b></label><input type="range" id="a_delta" min="-12" max="-1" step="0.1" value="-6"></div>
+    <div class="ctl" id="a_nwrap" style="display:none"><label>Ensemble members <b id="a_nv"></b></label><input type="range" id="a_n" min="5" max="300" step="5" value="100"></div>
+    <div class="ctl"><label>Heating ρ <b id="a_rv"></b></label><input type="range" id="a_rho" min="0" max="50" step="0.5" value="28"></div>
+    <div class="ctl"><label>"Forecast has failed" when apart by <b id="a_tv"></b></label><input type="range" id="a_thr" min="0.5" max="10" step="0.5" value="1"></div>
+    <div class="ctl"><label>Speed <b id="a_sv"></b></label><input type="range" id="a_speed" min="-2" max="3" step="1" value="0"></div>
+    <div class="ctl"><label>View of the attractor</label>
+      <select id="a_view"><option value="xz">x against z (butterfly)</option><option value="xy">x against y</option><option value="yz">y against z</option></select></div>
+    <h3>How much does better data help?</h3>
+    <p class="hint">Runs the forecast for many starting differences and plots how long each stays useful.</p>
+    <button id="a_hor">Measure forecast horizon</button>
+    <p class="hint" id="a_horTxt"></p>
+  </aside>
+  <section class="stage" id="s63">
+    <div class="bar">
+      <span>time <b id="r_t">0</b></span>
+      <span id="r_sepWrap">apart by <b id="r_sep">–</b></span>
+      <span>forecasts failed at <b id="r_fail">not yet</b></span>
+      <span id="r_days"></span>
+    </div>
+    <div class="card"><h4>The attractor: the state of the atmosphere over time</h4><p><span class="sw" style="background:var(--a)"></span>true <span class="sw" style="background:var(--b);margin-left:10px"></span>perturbed / ensemble</p><div class="cv"><canvas id="c63attr"></canvas></div></div>
+    <div class="card"><h4>One variable, x (convective overturning), against time</h4><p>The lines lie on top of each other, then split apart.</p><div class="cv"><canvas id="c63time"></canvas></div></div>
+    <div class="card"><h4 id="c63sepT">How far apart? (log scale)</h4><p id="c63sepP">Each gridline is ×10. A straight rising line means exponential growth.</p><div class="cv"><canvas id="c63sep"></canvas></div></div>
+    <div class="card"><h4>Forecast horizon against starting difference</h4><p>Press "Measure forecast horizon" on the left.</p><div class="cv"><canvas id="c63hor"></canvas></div></div>
+  </section>
+</main>
+
+<!-- =============================== LORENZ 96 =============================== -->
+<main id="p96">
+  <aside>
+    <h3>A ring of weather stations</h3>
+    <p class="hint">40 stations round a line of latitude. Winds carry weather round the ring, friction damps it and a forcing F (heating) drives it. Perturb one station slightly and watch the error spread.</p>
+    <div class="row"><button id="b_play" class="primary">▶ Play</button><button id="b_restart">↺ Restart</button><button id="b_new">New start</button></div>
+    <div class="ctl"><label>Mode</label>
+      <div class="seg" id="b_mode"><button data-v="twin" class="on">Twin forecasts</button><button data-v="ens">Ensemble</button></div></div>
+    <div class="ctl"><label>Forcing F <b id="b_fv"></b></label><input type="range" id="b_F" min="0" max="14" step="0.5" value="8"></div>
+    <div class="ctl"><label>Stations <b id="b_kv"></b></label><select id="b_K" style="width:100%"><option>20</option><option>30</option><option selected>40</option><option>60</option></select></div>
+    <div class="ctl"><label>Size of the butterfly flap δ <b id="b_dv"></b></label><input type="range" id="b_delta" min="-6" max="0" step="0.1" value="-3"></div>
+    <div class="ctl"><label>Where it flaps <b id="b_pv"></b></label><input type="range" id="b_pos" min="0" max="39" step="1" value="10"></div>
+    <div class="ctl"><label>Perturb</label>
+      <select id="b_where" style="width:100%"><option value="one">one station only (a butterfly)</option><option value="all">every station by a tiny random amount</option></select></div>
+    <div class="ctl" id="b_nwrap" style="display:none"><label>Ensemble members <b id="b_nv"></b></label><input type="range" id="b_n" min="5" max="50" step="5" value="20"></div>
+    <div class="ctl"><label>"Forecast has failed" when RMS error reaches <b id="b_tv"></b></label><input type="range" id="b_thr" min="0.2" max="4" step="0.1" value="1"></div>
+    <div class="ctl"><label>Station to watch <b id="b_wv"></b></label><input type="range" id="b_watch" min="0" max="39" step="1" value="30"></div>
+    <div class="ctl"><label>Speed <b id="b_sv"></b></label><input type="range" id="b_speed" min="-2" max="3" step="1" value="0"></div>
+    <p class="hint">Time scale (Lorenz &amp; Emanuel 1998): 1 time unit ≈ 5 days.</p>
+  </aside>
+  <section class="stage" id="s96">
+    <div class="bar">
+      <span>day <b id="q_t">0</b></span>
+      <span>RMS difference <b id="q_rms">–</b></span>
+      <span>forecast failed after <b id="q_fail">not yet</b></span>
+      <span>error doubling time <b id="q_dbl">–</b></span>
+      <span>saturation (unrelated states) <b id="q_sat">–</b></span>
+    </div>
+    <div class="card" style="grid-row:span 2"><h4>Weather map round the ring</h4><p>Outer: true. Middle: <span id="q_mid">perturbed</span>. Inner: difference. ★ = the butterfly.</p><div class="cv"><canvas id="c96ring"></canvas></div></div>
+    <div class="card"><h4>True weather: station against time (Hovmöller)</h4><p>Red high, blue low. Time runs down. Patterns drift round the ring.</p><div class="cv"><canvas id="c96hovA"></canvas></div></div>
+    <div class="card"><h4>Error: how the difference spreads</h4><p>Log colour of |perturbed − true|. Starts as one dot (▲), then fills the ring.</p><div class="cv"><canvas id="c96hovD"></canvas></div></div>
+    <div class="card"><h4 id="c96errT">RMS error against time (log scale)</h4><p id="c96errP">Dashed line: the error two unrelated states would have.</p><div class="cv"><canvas id="c96err"></canvas></div></div>
+    <div class="card"><h4>One station over time</h4><p id="c96spP">True (white) and perturbed (orange).</p><div class="cv"><canvas id="c96spag"></canvas></div></div>
+  </section>
+</main>
+
+<!-- =============================== BATCH RUN =============================== -->
+<div id="batch" class="overlay" role="dialog" aria-label="Batch run"><div class="dlg" id="bbox">
+  <div class="row"><h2>📊 Batch run</h2><span class="seg"><button id="bModeRep">Repeat</button><button id="bModeSwp">Sweep</button></span><span class="grow"></span><button id="bClose" aria-label="Close batch run">✕</button></div>
+  <p class="hint">Runs the model many times without drawing: either repeating with new random starting points, or sweeping one setting. Every experiment uses a fixed seed, so the numbers are reproducible. Results show the mean, SD and standard error and are compared with theory where there is some.</p>
+  <div class="exps" id="exps"></div>
+  <div class="bset">
+    <label>Runs <select id="bRuns"><option>10</option><option selected>20</option><option>50</option><option>100</option></select></label>
+    <label>Seed <input type="text" id="bSeed" value="2024" size="7"></label>
+    <span class="grow"></span>
+    <button id="bRun" class="primary">▶ Run batch</button><button id="bStop" disabled>■ Stop</button><button id="bCsv" disabled>⬇ Download CSV</button>
+  </div>
+  <div id="bStatus" class="status">Ready</div>
+  <div id="bres" style="display:none"><div style="height:230px;position:relative"><canvas id="bplot" style="position:absolute;inset:0;width:100%;height:100%"></canvas></div>
+    <ul id="bsum"></ul><div class="btable"><table id="btab"></table></div></div>
+  <div id="bnote" class="bnote"></div>
+</div></div>
+
+<!-- =============================== ABOUT =============================== -->
+<div id="about" class="overlay" role="dialog" aria-label="How the model works"><div class="dlg">
+  <div class="row"><h2>How the model works</h2><span class="grow"></span><button id="aClose">✕</button></div>
+  <h3>Why weather is hard to predict</h3>
+  <p>The equations of the atmosphere are deterministic: the same start always gives the same future. But in a <b>chaotic</b> system two starts that differ by a tiny amount drift apart exponentially, roughly doubling their difference every fixed time (the <i>error doubling time</i>). We can never measure the atmosphere perfectly, so after some days the forecast is no better than guessing. Edward Lorenz found this in 1961 when a rounded number (0.506 instead of 0.506127) changed a whole simulated winter. It is often called the <b>butterfly effect</b>.</p>
+  <h3>Lorenz 63: convection in three numbers</h3>
+  <p><code>dx/dt = σ(y − x)</code>, <code>dy/dt = x(ρ − z) − y</code>, <code>dz/dt = xy − βz</code> with σ = 10, β = 8/3. x is the strength of the overturning of a heated layer of air, y the temperature difference between rising and sinking air, z how far the temperature profile departs from a straight line, and ρ the heating. Below ρ ≈ 24.7 the motion settles down; above it, it is chaotic and never repeats. The largest Lyapunov exponent at ρ = 28 is λ ≈ 0.906 per time unit, so a small difference grows like e<sup>λt</sup>.</p>
+  <h3>Lorenz 96: a ring of weather stations</h3>
+  <p><code>dX<sub>k</sub>/dt = (X<sub>k+1</sub> − X<sub>k−2</sub>) X<sub>k−1</sub> − X<sub>k</sub> + F</code>, for stations k = 1…K arranged in a ring. The first term is <i>advection</i> (winds moving weather round), −X<sub>k</sub> is friction, F is heating. It has no real geography but looks like waves drifting round a latitude circle. With F = 8 and 40 stations it is chaotic with λ ≈ 1.7 per time unit; one time unit is about 5 days, which gives an error doubling time of about 2 days, close to the real atmosphere.</p>
+  <h3>Ensembles</h3>
+  <p>Forecasters run many forecasts from slightly different starts. If they stay together the forecast is confident; if they spread out it is not. The <b>ensemble mean</b> is a better forecast than a single run once the members have spread, because averaging cancels unpredictable details.</p>
+  <h3>Assumptions and simplifications</h3>
+  <ul>
+    <li>Both models are toys. They are not weather forecast models and use no real units or geography. The days shown for Lorenz 96 come from the 5-days-per-unit scaling above and for Lorenz 63 are only an illustration.</li>
+    <li>They are integrated with a fixed-step fourth-order Runge–Kutta method (step 0.01). Even the step size changes a long chaotic run in detail, which is itself the point.</li>
+    <li>"Forecast failed" means the two runs differ by more than the threshold you choose. There is nothing special about the number.</li>
+    <li>The Lyapunov exponent is an <i>average</i> growth rate. Over short times the growth fluctuates, so the measured horizons scatter around the theory line.</li>
+    <li>Once the difference is as big as the attractor it cannot grow further (saturation): the runs are then as unrelated as any two random states.</li>
+    <li>Real weather also has a gentler limit than this: the real atmosphere has many scales of motion, so the achievable forecast length is roughly two weeks however good the data.</li>
+  </ul>
+</div></div>
+
+<script>
+"use strict";
+/* ======================================================================================
+   Weather Chaos and the Butterfly Effect
+   Two classic toy models of the atmosphere, both by Edward Lorenz:
+     Lorenz 63  - three variables describing a heated layer of air (convection)
+     Lorenz 96  - a ring of K "weather stations" with advection, friction and forcing
+   Everything is plain JavaScript (no libraries). Each model is stepped with the
+   fourth-order Runge-Kutta method (RK4).
+   ====================================================================================== */
+const $ = id => document.getElementById(id);
+const DPR = Math.min(2, window.devicePixelRatio || 1);
+
+/* ---------------- numerics: a generic RK4 stepper for any state vector ---------------- */
+// f(s, out) writes ds/dt into out. The returned function advances s IN PLACE by dt.
+function makeRK4(n, f) {
+  const k1 = new Float64Array(n), k2 = new Float64Array(n), k3 = new Float64Array(n), k4 = new Float64Array(n), t = new Float64Array(n);
+  return function (s, dt) {
+    f(s, k1);
+    for (let i = 0; i < n; i++) t[i] = s[i] + 0.5 * dt * k1[i];
+    f(t, k2);
+    for (let i = 0; i < n; i++) t[i] = s[i] + 0.5 * dt * k2[i];
+    f(t, k3);
+    for (let i = 0; i < n; i++) t[i] = s[i] + dt * k3[i];
+    f(t, k4);
+    for (let i = 0; i < n; i++) s[i] += dt / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
+  };
+}
+const DT = 0.01;                                   // time step used everywhere
+
+// small seeded random numbers so batch experiments are reproducible
+function mulberry32(a) { return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function gauss(rng) { return Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng()); }
+
+/* ---------------- Lorenz 63 ---------------- */
+const P63 = { sigma: 10, beta: 8 / 3, rho: 28 };
+const LAMBDA63 = 0.9056;                           // largest Lyapunov exponent for sigma=10, beta=8/3, rho=28
+const step63 = makeRK4(3, (s, o) => { o[0] = P63.sigma * (s[1] - s[0]); o[1] = s[0] * (P63.rho - s[2]) - s[1]; o[2] = s[0] * s[1] - P63.beta * s[2]; });
+// A point on the attractor: start anywhere, run 20 time units so the transient has died away.
+function spun63(seed) { const rng = mulberry32(seed), s = Float64Array.of(1 + rng(), 1 + rng(), 20 + rng()); for (let i = 0; i < 2000; i++) step63(s, DT); return s; }
+function dist(a, b) { let q = 0; for (let i = 0; i < a.length; i++) q += (a[i] - b[i]) ** 2; return Math.sqrt(q); }
+// Time until two runs that start `delta` apart (random direction) are further apart than thr.
+function horizon63(start, delta, dir, thr, tmax) {
+  const A = Float64Array.from(start), B = Float64Array.from(start); let n = Math.hypot(dir[0], dir[1], dir[2]);
+  for (let i = 0; i < 3; i++) B[i] += delta * dir[i] / n;
+  let prev = delta, t = 0;
+  while (t < tmax) { step63(A, DT); step63(B, DT); t += DT; const d = dist(A, B); if (d > thr) return t - DT * (d - thr) / (d - prev); prev = d; }
+  return tmax;
+}
+
+/* ---------------- Lorenz 96 ---------------- */
+const P96 = { K: 40, F: 8 };
+const DAYS_PER_UNIT = 5;                           // Lorenz & Emanuel (1998)
+const LAMBDA96_REF = 1.67;                         // literature value for K=40, F=8
+let step96 = null, step96K = 0;
+// ds_k/dt = (s_{k+1} - s_{k-2}) s_{k-1} - s_k + F   (indices wrap round the ring)
+function get96(K) {
+  if (step96K !== K) { step96K = K; step96 = makeRK4(K, (s, o) => { const F = P96.F; for (let k = 0; k < K; k++) o[k] = (s[(k + 1) % K] - s[(k + K - 2) % K]) * s[(k + K - 1) % K] - s[k] + F; }); }
+  return step96;
+}
+function rms(a, b) { let q = 0; for (let i = 0; i < a.length; i++) q += (a[i] - b[i]) ** 2; return Math.sqrt(q / a.length); }
+// Spin up from a slightly disturbed rest state, then measure the "climate": mean and SD of X.
+function spun96(K, F, seed) {
+  P96.K = K; P96.F = F; const st = get96(K), rng = mulberry32(seed), s = new Float64Array(K);
+  for (let k = 0; k < K; k++) s[k] = F + 0.5 * gauss(rng);
+  for (let i = 0; i < 1500; i++) st(s, DT);        // 15 time units
+  return s;
+}
+function climate96(K, F) {                          // mean and SD of X over a long run, for the colour scale and the saturation level
+  const s = spun96(K, F, 7), st = get96(K); let sum = 0, sum2 = 0, n = 0;
+  for (let i = 0; i < 4000; i++) { st(s, DT); if (i % 10 === 0) for (let k = 0; k < K; k++) { sum += s[k]; sum2 += s[k] * s[k]; n++; } }
+  const m = sum / n; return { mean: m, sd: Math.sqrt(Math.max(1e-12, sum2 / n - m * m)) };
+}
+// Leading Lyapunov exponent by the Benettin method: follow a reference run and a nearby run,
+// every tau measure the separation, record ln(growth), then shrink the separation back to d0.
+function lyap96(K, F, seed, T) {
+  const s = spun96(K, F, seed), st = get96(K), rng = mulberry32(seed + 99), d0 = 1e-6, p = new Float64Array(K);
+  let nn = 0; for (let k = 0; k < K; k++) { p[k] = gauss(rng); nn += p[k] * p[k]; }
+  const q = new Float64Array(K); for (let k = 0; k < K; k++) q[k] = s[k] + d0 * p[k] / Math.sqrt(nn);
+  let sum = 0; const tau = 20;                      // renormalise every 20 steps = 0.2 time units
+  for (let n = 0; n < Math.round(T / DT / tau); n++) {
+    for (let i = 0; i < tau; i++) { st(s, DT); st(q, DT); }
+    const d = dist(s, q); sum += Math.log(d / d0);
+    for (let k = 0; k < K; k++) q[k] = s[k] + (q[k] - s[k]) * d0 / d;
+  }
+  return sum / (Math.round(T / DT / tau) * tau * DT);
+}
+
+/* ---------------- colour helpers ---------------- */
+function lerp3(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+function ramp(stops, t) { t = Math.max(0, Math.min(1, t)); const f = t * (stops.length - 1), i = Math.min(stops.length - 2, Math.floor(f)); const c = lerp3(stops[i], stops[i + 1], f - i); return `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`; }
+const DIV = [[33, 102, 172], [146, 197, 222], [247, 247, 247], [244, 165, 130], [178, 24, 43]];     // blue - white - red
+const SEQ = [[13, 8, 135], [126, 3, 168], [204, 71, 120], [248, 149, 64], [240, 249, 33]];            // dark purple - yellow
+
+/* ---------------- canvas helpers ---------------- */
+const canvases = {};
+function fitCanvas(c) { const r = c.parentElement.getBoundingClientRect(); const w = Math.max(40, Math.round(r.width * DPR)), h = Math.max(40, Math.round(r.height * DPR)); if (c.width !== w || c.height !== h) { c.width = w; c.height = h; return true; } return false; }
+function ctxOf(id) { const c = $(id); fitCanvas(c); const x = c.getContext('2d'); x.setTransform(DPR, 0, 0, DPR, 0, 0); return { c, x, w: c.width / DPR, h: c.height / DPR }; }
+function niceTicks(lo, hi, n = 5) { const span = hi - lo; if (!(span > 0)) return [lo]; const raw = span / n, mag = 10 ** Math.floor(Math.log10(raw)), f = raw / mag, st = (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * mag, o = []; for (let v = Math.ceil(lo / st - 1e-9) * st; v <= hi + st * 1e-9; v += st) o.push(Math.abs(v) < st * 1e-9 ? 0 : v); return o; }
+/* Line chart. series: [{x[],y[],colour,dash,width,err[]}]; opts: xLabel,yLabel,logy,logx,xmin,xmax,ymin,ymax,vlines:[{x,colour,label}],hlines */
+function lineChart(ctxo, series, o) {
+  const { x, w, h } = ctxo; x.clearRect(0, 0, w, h);
+  const L = 46, R = 10, T = 8, B = 30, pw = w - L - R, ph = h - T - B;
+  const tx = v => o.logx ? Math.log10(v) : v, ty = v => o.logy ? Math.log10(v) : v;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const s of series) for (let i = 0; i < s.x.length; i++) { const yy = s.y[i]; if (!Number.isFinite(yy) || (o.logy && yy <= 0) || (o.logx && s.x[i] <= 0)) continue; x0 = Math.min(x0, tx(s.x[i])); x1 = Math.max(x1, tx(s.x[i])); y0 = Math.min(y0, ty(yy)); y1 = Math.max(y1, ty(yy)); }
+  if (o.xmin !== undefined) x0 = tx(o.xmin); if (o.xmax !== undefined) x1 = tx(o.xmax); if (o.ymin !== undefined) y0 = ty(o.ymin); if (o.ymax !== undefined) y1 = ty(o.ymax);
+  if (!Number.isFinite(x0)) { x.fillStyle = '#6b7a93'; x.font = '12px system-ui'; x.fillText('no data yet', L + 10, T + 20); return; }
+  if (x1 <= x0) x1 = x0 + 1; if (y1 <= y0) { y1 = y0 + 1; y0 -= 1; }
+  const px = v => L + (tx(v) - x0) / (x1 - x0) * pw, py = v => T + ph - (ty(v) - y0) / (y1 - y0) * ph;
+  x.font = '11px system-ui'; x.strokeStyle = '#26324a'; x.fillStyle = '#8b9bb5'; x.lineWidth = 1;
+  x.textAlign = 'right'; x.textBaseline = 'middle';
+  const yt = o.logy ? Array.from({ length: Math.max(0, Math.floor(y1) - Math.ceil(y0) + 1) }, (_, i) => Math.ceil(y0) + i) : niceTicks(y0, y1, 4);
+  for (const t of yt) { const yy = T + ph - (t - y0) / (y1 - y0) * ph; x.beginPath(); x.moveTo(L, yy); x.lineTo(L + pw, yy); x.stroke(); x.fillText(o.logy ? '1e' + t : String(+t.toPrecision(3)), L - 4, yy); }
+  x.textAlign = 'center'; x.textBaseline = 'top';
+  const xt = o.logx ? Array.from({ length: Math.floor(x1) - Math.ceil(x0) + 1 }, (_, i) => Math.ceil(x0) + i) : niceTicks(x0, x1, 6);
+  for (const t of xt) { const xx = L + (t - x0) / (x1 - x0) * pw; x.fillText(o.logx ? '1e' + t : String(+t.toPrecision(3)), xx, T + ph + 3); }
+  x.fillText(o.xLabel || '', L + pw / 2, T + ph + 16);
+  x.save(); x.translate(11, T + ph / 2); x.rotate(-Math.PI / 2); x.textBaseline = 'top'; x.fillText(o.yLabel || '', 0, -4); x.restore();
+  x.save(); x.beginPath(); x.rect(L, T, pw, ph); x.clip();
+  for (const hl of o.hlines || []) { x.strokeStyle = hl.colour; x.setLineDash([5, 4]); x.beginPath(); x.moveTo(L, py(hl.y)); x.lineTo(L + pw, py(hl.y)); x.stroke(); x.setLineDash([]); }
+  for (const vl of o.vlines || []) { const xx = px(vl.x); x.strokeStyle = vl.colour; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(xx, T); x.lineTo(xx, T + ph); x.stroke(); x.setLineDash([]); }
+  for (const s of series) {
+    x.strokeStyle = s.colour; x.fillStyle = s.colour; x.lineWidth = s.width || 1.6; x.setLineDash(s.dash || []); x.beginPath(); let pen = false;
+    for (let i = 0; i < s.x.length; i++) { const yy = s.y[i]; if (!Number.isFinite(yy) || (o.logy && yy <= 0) || (o.logx && s.x[i] <= 0)) { pen = false; continue; } if (pen) x.lineTo(px(s.x[i]), py(yy)); else { x.moveTo(px(s.x[i]), py(yy)); pen = true; } }
+    if (!s.dots) x.stroke();
+    x.setLineDash([]);
+    if (s.dots || s.err) for (let i = 0; i < s.x.length; i++) { const yy = s.y[i]; if (!Number.isFinite(yy) || (o.logy && yy <= 0)) continue; if (s.err && Number.isFinite(s.err[i])) { x.beginPath(); x.moveTo(px(s.x[i]), py(Math.max(1e-300, yy - s.err[i]))); x.lineTo(px(s.x[i]), py(yy + s.err[i])); x.stroke(); } x.beginPath(); x.arc(px(s.x[i]), py(yy), 2.6, 0, 6.3); x.fill(); }
+  }
+  x.restore();
+  x.setLineDash([]);
+}
+
+/* ======================================================================================
+   LORENZ 63 TAB
+   ====================================================================================== */
+const A = { mode: 'twin', playing: false, t: 0, delta: 1e-6, thr: 1, speed: 1, seed: 1, view: 'xz', N: 100,
+  a: null, b: null, ens: null, hist: { t: [], xa: [], xb: [], sep: [], spread: [], ex: [] }, fail: null, ranges: { x: [-25, 25], y: [-30, 30], z: [0, 55] }, hor: null };
+function a_init() {
+  const base = spun63(A.seed * 1000 + 3), rng = mulberry32(A.seed * 7 + 1);
+  A.a = Float64Array.from(base); A.b = Float64Array.from(base); A.b[0] += A.delta;
+  A.ens = []; for (let i = 0; i < A.N; i++) { const m = Float64Array.from(base); for (let k = 0; k < 3; k++) m[k] += A.delta * gauss(rng); A.ens.push(m); }
+  A.t = 0; A.fail = null; A.hist = { t: [], xa: [], xb: [], sep: [], spread: [], ex: [], exAll: [] }; A.pts = []; A.pa = A.pb = null; a_record();
+  const c = $('c63attr'); fitCanvas(c); c.getContext('2d').clearRect(0, 0, c.width, c.height);
+  a_drawStatic();
+}
+function a_spread() { // RMS distance of the members from their own mean: the "ensemble spread"
+  const m = [0, 0, 0]; for (const e of A.ens) for (let k = 0; k < 3; k++) m[k] += e[k] / A.ens.length;
+  let q = 0; for (const e of A.ens) for (let k = 0; k < 3; k++) q += (e[k] - m[k]) ** 2; return Math.sqrt(q / A.ens.length);
+}
+function a_record() {
+  const h = A.hist; h.t.push(A.t); h.xa.push(A.a[0]); h.xb.push(A.mode === 'twin' ? A.b[0] : A.ens[0][0]);
+  h.sep.push(dist(A.a, A.b)); h.spread.push(a_spread());
+  if (A.mode === 'ens') h.ex.push(A.ens.map(e => e[0]));
+  const s = A.mode === 'twin' ? h.sep[h.sep.length - 1] : h.spread[h.spread.length - 1];
+  if (A.fail === null && s > A.thr) A.fail = A.t;
+}
+function a_advance(n) {
+  for (let i = 0; i < n; i++) {
+    step63(A.a, DT); if (A.mode === 'twin') step63(A.b, DT); else for (const e of A.ens) step63(e, DT);
+    A.t += DT;
+    if (A.mode === 'twin') A.pts.push(Float64Array.from(A.a), Float64Array.from(A.b)); else if (i % 5 === 4) A.pts.push(Float64Array.from(A.a));
+    if (i % 5 === 4) { a_record(); }
+  }
+}
+function proj(s) { const v = A.view; const [i, j] = v === 'xz' ? [0, 2] : v === 'xy' ? [0, 1] : [1, 2]; return [s[i], s[j], v === 'xz' ? 'x' : v === 'xy' ? 'x' : 'y', v === 'xz' ? 'z' : v === 'xy' ? 'y' : 'z']; }
+function a_drawStatic() {
+  const { c, x, w, h } = ctxOf('c63attr'); const v = A.view, xr = A.ranges[v[0]], yr = A.ranges[v[1]];
+  x.clearRect(0, 0, w, h); x.fillStyle = '#6b7a93'; x.font = '11px system-ui'; x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+  x.fillText(`${v[0]} →   ${v[1]} ↑`, 8, h - 6);
+}
+function a_drawAttractor() {
+  const { c, x, w, h } = ctxOf('c63attr'), v = A.view, xr = A.ranges[v[0]], yr = A.ranges[v[1]];
+  const X = s => 8 + (s[v === 'yz' ? 1 : 0] - xr[0]) / (xr[1] - xr[0]) * (w - 16);
+  const Y = s => h - 16 - (s[v === 'xz' ? 2 : v === 'xy' ? 1 : 2] - yr[0]) / (yr[1] - yr[0]) * (h - 26);
+  x.fillStyle = 'rgba(17,24,38,0.05)'; x.fillRect(0, 0, w, h);                // old drawing fades slowly away: a comet tail
+  if (A.mode === 'twin') {
+    // draw every sub-step since the last frame as a short line, so the path is smooth however fast we run
+    let pa = A.pa, pb = A.pb;
+    for (let i = 0; i + 1 < A.pts.length; i += 2) {
+      const sa = A.pts[i], sb = A.pts[i + 1];
+      if (pa) { x.lineWidth = 1.4; x.strokeStyle = '#4dabf7'; x.beginPath(); x.moveTo(X(pa), Y(pa)); x.lineTo(X(sa), Y(sa)); x.stroke(); x.strokeStyle = '#ffa94d'; x.beginPath(); x.moveTo(X(pb), Y(pb)); x.lineTo(X(sb), Y(sb)); x.stroke(); }
+      pa = sa; pb = sb;
+    }
+    A.pa = Float64Array.from(A.a); A.pb = Float64Array.from(A.b); A.pts = [];
+    for (const [s, col] of [[A.a, '#4dabf7'], [A.b, '#ffa94d']]) { x.fillStyle = col; x.beginPath(); x.arc(X(s), Y(s), 3.4, 0, 6.3); x.fill(); }
+  } else {
+    A.pts = []; x.fillStyle = 'rgba(255,169,77,0.75)'; for (const e of A.ens) x.fillRect(X(e) - 1, Y(e) - 1, 2.4, 2.4);
+    x.fillStyle = '#4dabf7'; x.beginPath(); x.arc(X(A.a), Y(A.a), 3.6, 0, 6.3); x.fill();
+  }
+  x.fillStyle = '#6b7a93'; x.font = '11px system-ui'; x.textAlign = 'left'; x.fillText(`${v[0]} →   ${v[1]} ↑`, 8, h - 4);
+}
+function a_drawCharts() {
+  const h = A.hist, win = 30, tmax = Math.max(win, A.t), tmin = tmax - win;
+  // x(t)
+  const ser = [];
+  if (A.mode === 'twin') { ser.push({ x: h.t, y: h.xa, colour: '#4dabf7', width: 2 }, { x: h.t, y: h.xb, colour: '#ffa94d', width: 1.6 }); }
+  else { const n = Math.min(A.ens.length, 40); for (let m = 0; m < n; m++) ser.push({ x: h.t, y: h.ex.map(r => r[m]), colour: 'rgba(255,169,77,0.35)', width: 1 }); ser.push({ x: h.t, y: h.xa, colour: '#4dabf7', width: 2 }); }
+  lineChart(ctxOf('c63time'), ser, { xLabel: 'time', yLabel: 'x', xmin: tmin, xmax: tmax, ymin: -22, ymax: 22, vlines: A.fail !== null ? [{ x: A.fail, colour: '#ff6b6b' }] : [] });
+  // separation / spread, log scale, with the theoretical slope
+  const yv = A.mode === 'twin' ? h.sep : h.spread, t0 = A.mode === 'twin' ? A.delta : A.delta * Math.sqrt(3) * 0.8;
+  const tt = [0, Math.max(A.t, 1)], th = [t0, t0 * Math.exp(LAMBDA63 * tt[1])];
+  const sat = 20;
+  const series = [{ x: h.t, y: yv, colour: A.mode === 'twin' ? '#ffd43b' : '#ffa94d', width: 2 }];
+  if (Math.abs(P63.rho - 28) < 0.01) series.push({ x: tt, y: th, colour: '#adb5bd', dash: [5, 4], width: 1.2 });
+  lineChart(ctxOf('c63sep'), series, { xLabel: 'time', yLabel: A.mode === 'twin' ? 'distance apart' : 'ensemble spread', logy: true, xmin: 0, xmax: Math.max(A.t, 10), ymin: Math.min(1e-12, A.delta / 10), ymax: 100, hlines: [{ y: A.thr, colour: '#ff6b6b' }, { y: sat, colour: '#51cf66' }] });
+  $('c63sepP').textContent = (Math.abs(P63.rho - 28) < 0.01 ? 'Dashed grey: growth at the Lyapunov rate e^(0.906 t). ' : '') + 'Red: your "failed" threshold. Green: size of the attractor (growth stops).';
+  $('c63sepT').textContent = A.mode === 'twin' ? 'How far apart are the two forecasts? (log scale)' : 'How spread out is the ensemble? (log scale)';
+  // read-outs
+  $('r_t').textContent = A.t.toFixed(1);
+  $('r_sep').textContent = (A.mode === 'twin' ? dist(A.a, A.b) : a_spread()).toExponential(2);
+  $('r_sepWrap').firstChild.textContent = A.mode === 'twin' ? 'apart by ' : 'spread ';
+  $('r_fail').textContent = A.fail === null ? 'not yet' : `t = ${A.fail.toFixed(2)} (${(A.fail * LAMBDA63).toFixed(1)} Lyapunov times)`;
+  // weather translation, only an illustration: scale time so one error-doubling time is 2 days, as in the real atmosphere
+  const dbl = Math.LN2 / LAMBDA63;
+  $('r_days').textContent = A.fail === null ? '' : `If one error-doubling time (${dbl.toFixed(2)} units) were the real atmosphere's ≈ 2 days, this forecast lasts ≈ ${(A.fail / dbl * 2).toFixed(0)} days.`;
+}
+function a_drawHorizon() {
+  if (!A.hor) { lineChart(ctxOf('c63hor'), [], {}); return; }
+  const H = A.hor;
+  lineChart(ctxOf('c63hor'), [{ x: H.d, y: H.mean, colour: '#4dabf7', dots: true, err: H.se, width: 1.5 }, { x: H.d, y: H.theory, colour: '#ffd43b', dash: [5, 4] }], { xLabel: 'starting difference δ (log scale)', yLabel: 'forecast lasts (time)', logx: true, ymin: 0 });
+}
+function a_loop(ts) {
+  if (!$('p63').classList.contains('show')) return;
+  if (A.playing) { const n = Math.round(5 * A.speed); a_advance(n); a_drawAttractor(); a_drawCharts(); }
+}
+function a_setupUI() {
+  const upd = () => {
+    A.delta = 10 ** +$('a_delta').value; $('a_dv').textContent = A.delta.toExponential(1);
+    A.N = +$('a_n').value; $('a_nv').textContent = A.N;
+    P63.rho = +$('a_rho').value; $('a_rv').textContent = P63.rho + (P63.rho < 24.7 ? ' (settles down)' : '');
+    A.thr = +$('a_thr').value; $('a_tv').textContent = A.thr;
+    A.speed = 2 ** +$('a_speed').value; $('a_sv').textContent = A.speed + '×';
+    A.view = $('a_view').value;
+  };
+  ['a_delta', 'a_n', 'a_rho', 'a_view'].forEach(id => $(id).addEventListener('input', () => { upd(); a_init(); a_drawCharts(); }));
+  ['a_thr', 'a_speed'].forEach(id => $(id).addEventListener('input', () => { upd(); a_drawCharts(); }));
+  $('a_play').onclick = () => { A.playing = !A.playing; $('a_play').textContent = A.playing ? '⏸ Pause' : '▶ Play'; };
+  $('a_restart').onclick = () => { a_init(); a_drawCharts(); };
+  $('a_new').onclick = () => { A.seed++; a_init(); a_drawCharts(); };
+  $('a_mode').onclick = e => { const b = e.target.closest('button'); if (!b) return; A.mode = b.dataset.v; [...$('a_mode').children].forEach(x => x.classList.toggle('on', x === b)); $('a_nwrap').style.display = A.mode === 'ens' ? '' : 'none'; a_init(); a_drawCharts(); };
+  $('a_hor').onclick = async () => {
+    $('a_horTxt').textContent = 'Running 9 × 20 forecasts…'; await tick();
+    const ds = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10], thr = A.thr, saved = P63.rho; P63.rho = 28;
+    const res = await expHorizonSweep63({ runs: 20, seed: 5, ds, thr }, () => false, () => { }); P63.rho = saved;
+    A.hor = { d: ds, mean: res.mean, se: res.se, theory: ds.map(d => Math.log(thr / d) / LAMBDA63) };
+    const per = (A.hor.mean[ds.length - 1] - A.hor.mean[0]) / 8;
+    $('a_horTxt').textContent = `Each 10× better measurement adds only ≈ ${per.toFixed(1)} time units (theory ln10/λ = ${(Math.LN10 / LAMBDA63).toFixed(2)}). A million times better data buys about ${(6 * per).toFixed(0)} time units.`;
+    a_drawHorizon();
+  };
+  upd();
+}
+
+/* ======================================================================================
+   LORENZ 96 TAB
+   ====================================================================================== */
+const B = { mode: 'twin', playing: false, t: 0, K: 40, F: 8, delta: 1e-3, pos: 10, where: 'one', N: 20, thr: 1, watch: 30, speed: 1, seed: 1,
+  a: null, b: null, ens: [], clim: null, rowsA: [], rowsD: [], hist: null, fail: null, dbl: null, rowT: 0 };
+const HROWS = 120, ROWDT = 0.1;                    // Hovmöller: 120 rows of 0.1 time units = 12 units = 60 days
+function b_perturb(base, rng, delta, where, pos, K) {
+  const s = Float64Array.from(base);
+  if (where === 'one') s[pos % K] += delta; else for (let k = 0; k < K; k++) s[k] += delta * gauss(rng);
+  return s;
+}
+function b_init() {
+  const K = B.K; P96.K = K; P96.F = B.F; get96(K);
+  B.clim = climate96(K, B.F);
+  const base = spun96(K, B.F, B.seed * 11 + 5), rng = mulberry32(B.seed * 13 + 2);
+  B.a = Float64Array.from(base); B.b = b_perturb(base, rng, B.delta, B.where, B.pos, K);
+  B.ens = []; for (let i = 0; i < B.N; i++) B.ens.push(b_perturb(base, rng, B.delta, B.where === 'one' ? 'all' : B.where, B.pos, K));
+  B.t = 0; B.fail = null; B.dbl = null; B.rowT = 0; B.rowsA = []; B.rowsD = [];
+  B.hist = { t: [], rms: [], spread: [], meanErr: [], watchA: [], watchB: [], watchE: [] };
+  b_record(); b_row();
+}
+function b_other() { return B.mode === 'twin' ? B.b : b_ensMean(); }
+function b_ensMean() { const m = new Float64Array(B.K); for (const e of B.ens) for (let k = 0; k < B.K; k++) m[k] += e[k] / B.ens.length; return m; }
+function b_spread() { const m = b_ensMean(); let q = 0; for (const e of B.ens) for (let k = 0; k < B.K; k++) q += (e[k] - m[k]) ** 2; return Math.sqrt(q / (B.ens.length * B.K)); }
+function b_record() {
+  const h = B.hist, o = b_other(), r = rms(B.a, o);
+  h.t.push(B.t); h.rms.push(r); h.watchA.push(B.a[B.watch % B.K]);
+  if (B.mode === 'twin') h.watchB.push(B.b[B.watch % B.K]); else { h.spread.push(b_spread()); h.watchE.push(B.ens.map(e => e[B.watch % B.K])); }
+  if (B.fail === null && r > B.thr) B.fail = B.t;
+  // error doubling time from the growth of ln(RMS) while the error is still small compared with saturation
+  const sat = Math.SQRT2 * B.clim.sd;
+  const idx = []; for (let i = 0; i < h.t.length; i++) if (h.rms[i] > 3 * h.rms[0] && h.rms[i] < 0.2 * sat) idx.push(i);
+  if (idx.length >= 6) { let sx = 0, sy = 0, sxx = 0, sxy = 0; for (const i of idx) { const y = Math.log(h.rms[i]); sx += h.t[i]; sy += y; sxx += h.t[i] ** 2; sxy += h.t[i] * y; } const n = idx.length, g = (n * sxy - sx * sy) / (n * sxx - sx * sx); B.dbl = g > 0 ? Math.LN2 / g : null; }
+}
+function b_row() {
+  const o = b_other();
+  B.rowsA.push(Float32Array.from(B.a)); B.rowsD.push(Float32Array.from(B.a, (v, k) => Math.abs(v - o[k]))); if (B.rowsA.length > HROWS) { B.rowsA.shift(); B.rowsD.shift(); }
+}
+function b_advance(n) {
+  const st = get96(B.K); P96.F = B.F;
+  for (let i = 0; i < n; i++) {
+    st(B.a, DT); if (B.mode === 'twin') st(B.b, DT); else for (const e of B.ens) st(e, DT);
+    B.t += DT; if (i % 10 === 9) b_record();
+    if (B.t - B.rowT >= ROWDT - 1e-9) { B.rowT += ROWDT; b_row(); }
+  }
+}
+function b_drawRing() {
+  const { x, w, h } = ctxOf('c96ring'); x.clearRect(0, 0, w, h);
+  const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 10, K = B.K, m = B.clim.mean, sd = B.clim.sd;
+  const o = b_other();
+  const rings = [{ r0: 0.72, r1: 1.0, s: B.a, kind: 'val' }, { r0: 0.46, r1: 0.70, s: o, kind: 'val' }, { r0: 0.18, r1: 0.44, s: B.a, kind: 'diff' }];
+  for (const rg of rings) for (let k = 0; k < K; k++) {
+    const a0 = 2 * Math.PI * (k - 0.5) / K - Math.PI / 2, a1 = 2 * Math.PI * (k + 0.5) / K - Math.PI / 2;
+    x.fillStyle = rg.kind === 'val' ? ramp(DIV, (rg.s[k] - m) / (5 * sd) + 0.5) : ramp(SEQ, (Math.log10(Math.abs(B.a[k] - o[k]) + 1e-12) + 6) / 7);
+    x.beginPath(); x.arc(cx, cy, rg.r1 * R, a0, a1); x.arc(cx, cy, rg.r0 * R, a1, a0, true); x.closePath(); x.fill();
+  }
+  if (B.where === 'one') { const a = 2 * Math.PI * B.pos / K - Math.PI / 2; x.fillStyle = '#ffd43b'; x.font = '16px system-ui'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('★', cx + 1.07 * R * Math.cos(a) * 0.95, cy + 1.07 * R * Math.sin(a) * 0.95); }
+  const aw = 2 * Math.PI * (B.watch % K) / K - Math.PI / 2; x.strokeStyle = '#fff'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(cx + 0.7 * R * Math.cos(aw), cy + 0.7 * R * Math.sin(aw)); x.lineTo(cx + 1.0 * R * Math.cos(aw), cy + 1.0 * R * Math.sin(aw)); x.stroke();
+  x.fillStyle = '#e3e9f4'; x.font = '13px system-ui'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(`day ${(B.t * DAYS_PER_UNIT).toFixed(1)}`, cx, cy);
+}
+function b_drawHov(id, rows, kind) {
+  const { x, w, h } = ctxOf(id); x.clearRect(0, 0, w, h);
+  const K = B.K, cw = w / K, ch = (h - 14) / HROWS, m = B.clim.mean, sd = B.clim.sd, y0 = 0;     // time runs DOWN from the top; it scrolls once full
+  for (let r = 0; r < rows.length; r++) for (let k = 0; k < K; k++) {
+    const v = rows[r][k]; x.fillStyle = kind === 'val' ? ramp(DIV, (v - m) / (5 * sd) + 0.5) : ramp(SEQ, (Math.log10(v + 1e-12) + 6) / 7);
+    x.fillRect(k * cw, y0 + r * ch, cw + 0.6, ch + 0.6);
+  }
+  x.fillStyle = '#8b9bb5'; x.font = '11px system-ui'; x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.fillText('station →', 4, h - 3); x.textAlign = 'right'; x.fillText(`time ↓ (${HROWS * ROWDT * DAYS_PER_UNIT} days shown)`, w - 4, h - 3);
+  if (B.where === 'one') { x.fillStyle = '#ffd43b'; x.beginPath(); x.moveTo((B.pos + 0.5) * cw - 5, h - 14); x.lineTo((B.pos + 0.5) * cw + 5, h - 14); x.lineTo((B.pos + 0.5) * cw, h - 22); x.fill(); }   // ▲ marks the butterfly's station
+}
+function b_drawCharts() {
+  const hh = B.hist, td = hh.t.map(t => t * DAYS_PER_UNIT), sat = Math.SQRT2 * B.clim.sd;
+  const ser = [{ x: td, y: hh.rms, colour: '#ffd43b', width: 2 }];
+  if (B.mode === 'ens') { ser[0].colour = '#ff8787'; ser.push({ x: td, y: hh.spread, colour: '#ffa94d', width: 2 }); }
+  $('c96errT').textContent = B.mode === 'twin' ? 'RMS error against time (log scale)' : 'Ensemble-mean error and spread (log scale)';
+  $('c96errP').textContent = B.mode === 'twin' ? 'Red dashed: your "failed" level. Green dashed: error of two unrelated states.' : 'Red: error of the ensemble mean. Orange: spread of the members.';
+  lineChart(ctxOf('c96err'), ser, { xLabel: 'days', yLabel: 'RMS', logy: true, xmin: 0, xmax: Math.max(B.t * DAYS_PER_UNIT, 30), ymin: Math.min(hh.rms[0] || 1e-3, 1e-3) / 3, ymax: sat * 2, hlines: [{ y: B.thr, colour: '#ff6b6b' }, { y: sat, colour: '#51cf66' }] });
+  const sp = [];
+  if (B.mode === 'twin') sp.push({ x: td, y: hh.watchA, colour: '#e3e9f4', width: 2.2 }, { x: td, y: hh.watchB, colour: '#ffa94d', width: 1.6 });
+  else { for (let mI = 0; mI < Math.min(B.N, 30); mI++) sp.push({ x: td, y: hh.watchE.map(r => r[mI]), colour: 'rgba(255,169,77,0.4)', width: 1 }); sp.push({ x: td, y: hh.watchA, colour: '#e3e9f4', width: 2.2 }); }
+  $('c96spP').textContent = `Station ${B.watch}. ` + (B.mode === 'twin' ? 'True (white) and perturbed (orange).' : 'True (white) and ensemble members (orange): a "spaghetti plot".');
+  lineChart(ctxOf('c96spag'), sp, { xLabel: 'days', yLabel: `X at station ${B.watch}`, xmin: Math.max(0, B.t * DAYS_PER_UNIT - 60), xmax: Math.max(B.t * DAYS_PER_UNIT, 60), vlines: B.fail !== null ? [{ x: B.fail * DAYS_PER_UNIT, colour: '#ff6b6b' }] : [] });
+  const r = hh.rms[hh.rms.length - 1];
+  $('q_t').textContent = (B.t * DAYS_PER_UNIT).toFixed(1); $('q_rms').textContent = r.toExponential(2);
+  $('q_fail').textContent = B.fail === null ? 'not yet' : `${(B.fail * DAYS_PER_UNIT).toFixed(1)} days`;
+  $('q_dbl').textContent = B.dbl === null ? '–' : `${(B.dbl * DAYS_PER_UNIT).toFixed(1)} days`;
+  $('q_sat').textContent = sat.toFixed(2);
+}
+function b_drawAll() { b_drawRing(); b_drawHov('c96hovA', B.rowsA, 'val'); b_drawHov('c96hovD', B.rowsD, 'diff'); b_drawCharts(); }
+function b_loop() { if (!$('p96').classList.contains('show')) return; if (B.playing) { b_advance(Math.round(10 * B.speed)); b_drawAll(); } }
+function b_setupUI() {
+  const upd = () => {
+    B.F = +$('b_F').value; $('b_fv').textContent = B.F + (B.F < 5 ? ' (too weak for chaos)' : '');
+    B.K = +$('b_K').value; $('b_kv').textContent = B.K; $('b_pos').max = $('b_watch').max = B.K - 1;
+    B.delta = 10 ** +$('b_delta').value; $('b_dv').textContent = B.delta.toExponential(1);
+    B.pos = Math.min(B.K - 1, +$('b_pos').value); $('b_pv').textContent = 'station ' + B.pos;
+    B.where = $('b_where').value; B.N = +$('b_n').value; $('b_nv').textContent = B.N;
+    B.thr = +$('b_thr').value; $('b_tv').textContent = B.thr;
+    B.watch = Math.min(B.K - 1, +$('b_watch').value); $('b_wv').textContent = B.watch;
+    B.speed = 2 ** +$('b_speed').value; $('b_sv').textContent = B.speed + '×';
+    $('q_mid').textContent = B.mode === 'twin' ? 'perturbed' : 'ensemble mean';
+  };
+  ['b_F', 'b_K', 'b_delta', 'b_pos', 'b_where', 'b_n', 'b_watch'].forEach(id => $(id).addEventListener('input', () => { upd(); b_init(); b_drawAll(); }));
+  ['b_thr', 'b_speed'].forEach(id => $(id).addEventListener('input', () => { upd(); b_drawAll(); }));
+  $('b_play').onclick = () => { B.playing = !B.playing; $('b_play').textContent = B.playing ? '⏸ Pause' : '▶ Play'; };
+  $('b_restart').onclick = () => { b_init(); b_drawAll(); };
+  $('b_new').onclick = () => { B.seed++; b_init(); b_drawAll(); };
+  $('b_mode').onclick = e => { const b = e.target.closest('button'); if (!b) return; B.mode = b.dataset.v; [...$('b_mode').children].forEach(x => x.classList.toggle('on', x === b)); $('b_nwrap').style.display = B.mode === 'ens' ? '' : 'none'; upd(); b_init(); b_drawAll(); };
+  upd();
+}
+
+/* ======================================================================================
+   BATCH RUN: many headless runs, summarised as mean, SD and standard error
+   ====================================================================================== */
+const tick = () => new Promise(r => setTimeout(r, 0));
+const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
+const sdev = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / (a.length - 1)); };
+const sem = a => sdev(a) / Math.sqrt(Math.max(1, a.length));
+
+// E1 / E2: forecast horizon of Lorenz 63 for a given starting difference, over random starting weather
+async function expHorizonSweep63(o, stop, progress) {
+  const out = { mean: [], se: [], sd: [], n: [], all: [] }; const THR = o.thr ?? 1; const saved = P63.rho; P63.rho = 28;
+  const base = spun63(11);
+  for (let i = 0; i < o.ds.length && !stop(); i++) {
+    const rng = mulberry32(o.seed * 101 + 7), h = [];                       // same starting weather for every δ: a fair comparison
+    for (let r = 0; r < o.runs; r++) {
+      const s = Float64Array.from(base), nAdv = Math.floor(rng() * 3000); for (let q = 0; q < nAdv; q++) step63(s, DT);
+      h.push(horizon63(s, o.ds[i], [gauss(rng), gauss(rng), gauss(rng)], THR, 80));
+    }
+    out.mean.push(mean(h)); out.se.push(sem(h)); out.sd.push(sdev(h)); out.n.push(h.length); out.all.push(h); progress(i + 1, o.ds.length); await tick();
+  }
+  P63.rho = saved; return out;
+}
+const EXPS = [
+  { id: 'horizon63', mode: 'repeat', title: 'How long does a Lorenz-63 forecast last?', sub: 'Repeat: random starting weather, starting difference 10⁻⁶; time until the two forecasts are 1 apart.',
+    note: 'Theory: a difference δ grows like δ·e^(λt), so the forecast fails when δ·e^(λt) reaches the threshold: t = ln(threshold/δ)/λ, with λ = 0.906. The measured times scatter because the real growth rate varies from place to place on the attractor (some starting points are more predictable than others). In the test run the measured mean was about 1.5 time units (≈10%) BELOW this theory, many standard errors away, so the simple formula is not the whole story: a likely cause is that an error in a random direction grows faster than e^(λt) for a short time before it lines up with the fastest-growing direction (transient growth). That explanation was not separately tested. The standard error shrinks as 1/√runs. Mean and SD describe the scatter between starting points; the standard error tells you how well the mean is known.' },
+  { id: 'sweep63', mode: 'sweep', sweepName: 'starting difference δ', logx: true, xs: [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10], title: 'Do 1000× better measurements give 1000× longer forecasts?', sub: 'Sweep δ from 10⁻² down to 10⁻¹⁰ in Lorenz 63; failure threshold 1.',
+    note: 'No. The forecast time rises only by about ln(10)/λ ≈ 2.5 time units for every factor of 10 improvement, because errors grow exponentially. The measured slope matches this; the measured times all sit a roughly constant 1 to 2 time units below the theory line (see the previous experiment). Making the initial data a billion times better buys only about 20 extra time units (roughly 8 error-doubling times). This is why weather forecasts have a limit of about two weeks, however good the instruments.' },
+  { id: 'lyap96', mode: 'sweep', sweepName: 'forcing F', xs: [2, 3, 4, 5, 6, 8, 10, 12, 14], title: 'How chaotic is Lorenz 96 as the heating F increases?', sub: 'Sweep F (40 stations): measured growth rate of tiny errors (Lyapunov exponent).',
+    note: 'For small F the weather settles to a steady state and tiny errors die away (negative growth rate). The growth rate crosses zero near F ≈ 3 to 4 and then rises steadily with F (clearly chaotic from F ≈ 5). At F = 8 the literature value for 40 stations is about 1.67 per time unit, an error doubling time of about 2.1 days at 5 days per unit, which is close to what is observed in the real atmosphere. The exponent is measured by following two nearby runs and rescaling their separation (Benettin method).' },
+  { id: 'butterfly96', mode: 'repeat', title: 'How long does a one-station butterfly take to ruin a Lorenz-96 forecast?', sub: 'Repeat: random starting weather and random station, δ = 0.001 at ONE station; days until the RMS error reaches 1.',
+    note: 'Theory with the growth rate 1.67/unit and the starting RMS δ/√K gives t = ln(threshold·√K/δ)/λ. The measured value can differ a little because a perturbation at one station first has to spread out before it grows at the full rate. The SD shows that some days are more predictable than others.' },
+  { id: 'ensemble96', mode: 'sweep', sweepName: 'ensemble members N', xs: [2, 4, 8, 16, 32, 64], title: 'How much does averaging an ensemble improve a forecast?', sub: 'Sweep N: error of the ensemble mean divided by the error of a single member, at day 10.',
+    note: 'If the truth and the members are equally likely possibilities, the ensemble mean has mean-square error σ²(1 + 1/N), while a single member has 2σ². The ratio of RMS errors is therefore √((1 + 1/N)/2): 0.79 for N = 4 and tending to 0.71 for many members. Compare like with like: the ratio uses the AVERAGE squared errors over all runs (averaging the ratio run by run is biased low), and its standard error comes from resampling the runs (bootstrap). Averaging removes unpredictable details, which is why forecasters run ensembles.' },
+];
+let curExp = EXPS[0], batchRes = null, stopFlag = false, batchBusy = false;
+function buildExps() {
+  // buttons are created once; later calls only update which one is highlighted
+  if (!$('exps').children.length) EXPS.forEach(e => { const b = document.createElement('button'); b.className = 'exp'; b.innerHTML = `<b></b><span></span>`; b.firstChild.textContent = e.title; b.lastChild.textContent = e.sub; b.onclick = () => { if (batchBusy) return; curExp = e; batchRes = null; buildExps(); showRes(); }; $('exps').appendChild(b); });
+  [...$('exps').children].forEach((b, i) => b.classList.toggle('on', EXPS[i] === curExp));
+  $('bModeRep').classList.toggle('on', curExp.mode === 'repeat'); $('bModeSwp').classList.toggle('on', curExp.mode === 'sweep');
+  $('bRuns').parentElement.style.display = ''; 
+  $('bnote').textContent = batchRes ? curExp.note : 'Pick an experiment above and press Run. ' + curExp.note;
+}
+async function runExperiment(e, o, stop, progress) {
+  const R = { header: [], rows: [], plot: { x: [], mean: [], se: [], theory: null, logx: !!e.logx, logy: false, xLabel: '', yLabel: '' }, summary: [] };
+  const rngSeed = o.seed;
+  if (e.id === 'horizon63') {
+    const delta = 1e-6, thr = 1, base = spun63(11), rng = mulberry32(rngSeed), h = []; const th = Math.log(thr / delta) / LAMBDA63; const saved = P63.rho; P63.rho = 28;
+    R.header = ['run', 'start (after t)', 'forecast lasts (time)', 'in Lyapunov times'];
+    for (let r = 0; r < o.runs && !stop(); r++) {
+      const s = Float64Array.from(base), nAdv = Math.floor(rng() * 3000); for (let q = 0; q < nAdv; q++) step63(s, DT);
+      const t = horizon63(s, delta, [gauss(rng), gauss(rng), gauss(rng)], thr, 80); h.push(t);
+      R.rows.push([r + 1, +(nAdv * DT).toFixed(2), t, t * LAMBDA63]); R.plot.x.push(r + 1); R.plot.mean.push(t); R.plot.se.push(0); progress(r + 1, o.runs); await tick();
+    }
+    P63.rho = saved; R.plot.theory = h.map(() => th); R.plot.xLabel = 'run'; R.plot.yLabel = 'forecast lasts (time units)';
+    R.summary = [`mean = ${mean(h).toFixed(2)}, SD = ${sdev(h).toFixed(2)}, standard error = ${sem(h).toFixed(2)} (${h.length} runs)`, `theory ln(thr/δ)/λ = ${th.toFixed(2)}  (difference ${(mean(h) - th).toFixed(2)} = ${((mean(h) - th) / sem(h)).toFixed(1)} standard errors)`];
+  } else if (e.id === 'sweep63') {
+    const r = await expHorizonSweep63({ runs: o.runs, seed: rngSeed, ds: e.xs, thr: 1 }, stop, progress);
+    R.header = ['δ', 'mean time', 'SD', 'SE', 'n', 'theory']; const th = e.xs.map(d => Math.log(1 / d) / LAMBDA63);
+    r.mean.forEach((m, i) => { R.rows.push([e.xs[i], m, r.sd[i], r.se[i], r.n[i], th[i]]); R.plot.x.push(e.xs[i]); R.plot.mean.push(m); R.plot.se.push(r.se[i]); });
+    R.plot.theory = th.slice(0, r.mean.length); R.plot.xLabel = 'starting difference δ'; R.plot.yLabel = 'forecast lasts (time units)';
+    if (r.mean.length > 2) { const lx = e.xs.slice(0, r.mean.length).map(d => -Math.log10(d)), n = lx.length, mx = mean(lx), my = mean(r.mean); const sl = lx.reduce((s, x, i) => s + (x - mx) * (r.mean[i] - my), 0) / lx.reduce((s, x) => s + (x - mx) ** 2, 0); R.summary = [`gain per factor of 10 in accuracy = ${sl.toFixed(2)} time units  (theory ln10/λ = ${(Math.LN10 / LAMBDA63).toFixed(2)})`, `improving δ by 10⁸ (from 10⁻² to 10⁻¹⁰) buys ${(r.mean[n - 1] - r.mean[0]).toFixed(1)} time units`]; }
+  } else if (e.id === 'lyap96') {
+    R.header = ['F', 'mean λ', 'SD', 'SE', 'n', 'doubling time (days)', 'literature (F=8)'];
+    for (let i = 0; i < e.xs.length && !stop(); i++) {
+      const F = e.xs[i], v = []; for (let r = 0; r < o.runs; r++) v.push(lyap96(40, F, rngSeed + r * 17, 30));
+      const m = mean(v); R.rows.push([F, m, sdev(v), sem(v), v.length, m > 0 ? Math.LN2 / m * DAYS_PER_UNIT : NaN, F === 8 ? LAMBDA96_REF : NaN]);
+      R.plot.x.push(F); R.plot.mean.push(m); R.plot.se.push(sem(v)); progress(i + 1, e.xs.length); await tick();
+    }
+    R.plot.theory = R.plot.x.map(F => (F === 8 ? LAMBDA96_REF : NaN)); R.plot.xLabel = 'forcing F'; R.plot.yLabel = 'growth rate of errors λ (per time unit)';
+    const i8 = R.plot.x.indexOf(8); if (i8 >= 0) R.summary.push(`F = 8: λ = ${R.plot.mean[i8].toFixed(2)} ± ${R.plot.se[i8].toFixed(2)} (SE) against literature ≈ ${LAMBDA96_REF}; doubling time ${(Math.LN2 / R.plot.mean[i8] * DAYS_PER_UNIT).toFixed(1)} days`);
+    const zero = R.rows.find(r => r[1] < 0.02); if (zero) R.summary.push(`F = ${zero[0]}: λ ≈ ${zero[1].toFixed(2)}: no chaos, errors do not grow`);
+  } else if (e.id === 'butterfly96') {
+    const K = 40, F = 8, delta = 1e-3, thr = 1, th = Math.log(thr * Math.sqrt(K) / delta) / LAMBDA96_REF;
+    const s0 = spun96(K, F, 3), st = get96(K), rng = mulberry32(rngSeed), h = []; P96.F = F;
+    R.header = ['run', 'station', 'start (after days)', 'forecast lasts (days)', 'time units'];
+    for (let r = 0; r < o.runs && !stop(); r++) {
+      const s = Float64Array.from(s0), nAdv = Math.floor(rng() * 5000); for (let q = 0; q < nAdv; q++) st(s, DT);
+      const p = Math.floor(rng() * K), q2 = Float64Array.from(s); q2[p] += delta; let t = 0, prev = delta / Math.sqrt(K), res = 60;
+      while (t < 60) { st(s, DT); st(q2, DT); t += DT; const d = rms(s, q2); if (d > thr) { res = t - DT * (d - thr) / (d - prev); break; } prev = d; }
+      h.push(res); R.rows.push([r + 1, p, +(nAdv * DT * DAYS_PER_UNIT).toFixed(1), res * DAYS_PER_UNIT, res]); R.plot.x.push(r + 1); R.plot.mean.push(res * DAYS_PER_UNIT); R.plot.se.push(0); progress(r + 1, o.runs); await tick();
+    }
+    R.plot.theory = h.map(() => th * DAYS_PER_UNIT); R.plot.xLabel = 'run'; R.plot.yLabel = 'forecast lasts (days)';
+    R.summary = [`mean = ${(mean(h) * DAYS_PER_UNIT).toFixed(1)} days, SD = ${(sdev(h) * DAYS_PER_UNIT).toFixed(1)}, standard error = ${(sem(h) * DAYS_PER_UNIT).toFixed(1)} (${h.length} runs)`, `theory ln(thr·√K/δ)/λ = ${(th * DAYS_PER_UNIT).toFixed(1)} days (λ = ${LAMBDA96_REF})`];
+  } else if (e.id === 'ensemble96') {
+    const K = 40, F = 8, sigma0 = 0.02, T = 2, s0 = spun96(K, F, 3), st = get96(K); P96.F = F; R.header = ['N', 'ratio (pooled)', 'SD of per-run ratios', 'SE (bootstrap)', 'n', 'theory √((1+1/N)/2)'];
+    for (let i = 0; i < e.xs.length && !stop(); i++) {
+      const N = e.xs[i], rng = mulberry32(rngSeed * 31 + 5), msMean = [], msOne = [];
+      for (let r = 0; r < o.runs; r++) {
+        const s = Float64Array.from(s0), nAdv = Math.floor(rng() * 5000); for (let q = 0; q < nAdv; q++) st(s, DT);
+        const mk = () => { const m = Float64Array.from(s); for (let k = 0; k < K; k++) m[k] += sigma0 * gauss(rng); return m; };   // truth and members are equally likely draws from the analysis uncertainty
+        const truth = mk(), mem = Array.from({ length: N }, mk);
+        for (let q = 0; q < Math.round(T / DT); q++) { st(truth, DT); for (const m of mem) st(m, DT); }
+        const mu = new Float64Array(K); for (const m of mem) for (let k = 0; k < K; k++) mu[k] += m[k] / N;
+        let single = 0; for (const m of mem) single += rms(m, truth) ** 2; single /= N;
+        msMean.push(rms(mu, truth) ** 2); msOne.push(single);
+      }
+      // theory is a ratio of AVERAGE squared errors, so compare like with like: sqrt(sum of mean-sq errors / sum of single-member mean-sq errors)
+      const pooled = (idx) => Math.sqrt(idx.reduce((a, j) => a + msMean[j], 0) / idx.reduce((a, j) => a + msOne[j], 0));
+      const n = msMean.length, all = Array.from({ length: n }, (_, j) => j), ratio = pooled(all), brng = mulberry32(rngSeed + 77), boot = [];
+      for (let b = 0; b < 300; b++) boot.push(pooled(all.map(() => Math.floor(brng() * n))));   // bootstrap: resample the runs to get the standard error
+      const per = msMean.map((v, j) => Math.sqrt(v / msOne[j]));
+      R.rows.push([N, ratio, sdev(per), sdev(boot), n, Math.sqrt((1 + 1 / N) / 2)]); R.plot.x.push(N); R.plot.mean.push(ratio); R.plot.se.push(sdev(boot)); progress(i + 1, e.xs.length); await tick();
+    }
+    R.plot.theory = R.plot.x.map(N => Math.sqrt((1 + 1 / N) / 2)); R.plot.xLabel = 'ensemble members N'; R.plot.yLabel = 'RMS error: ensemble mean ÷ single member'; R.plot.logx = true;
+    R.summary = [`N = ${R.plot.x[R.plot.x.length - 1]}: ratio ${R.plot.mean[R.plot.mean.length - 1].toFixed(3)} ± ${R.plot.se[R.plot.se.length - 1].toFixed(3)} (SE), theory ${R.plot.theory[R.plot.theory.length - 1].toFixed(3)}; with many members the mean is about 0.71 (1/√2) times as wrong as one forecast`];
+  }
+  return R;
+}
+function showRes() {
+  const R = batchRes; $('bres').style.display = R ? '' : 'none'; if (!R) return;
+  const ser = [{ x: R.plot.x, y: R.plot.mean, colour: '#4dabf7', dots: true, err: curExp.mode === 'sweep' ? R.plot.se : null, width: 1.4 }];
+  if (R.plot.theory) ser.push({ x: R.plot.x, y: R.plot.theory, colour: '#ffd43b', dash: [5, 4], width: 1.5, dots: curExp.id === 'lyap96' });
+  const cv = $('bplot'); cv.parentElement.style.display = ''; const c = ctxOf('bplot');
+  lineChart(c, ser, { xLabel: R.plot.xLabel, yLabel: R.plot.yLabel.slice(0, 44), logx: R.plot.logx, logy: false, ymin: curExp.id === 'lyap96' ? Math.min(0, ...R.plot.mean) : undefined });
+  $('bsum').innerHTML = R.summary.map(s => `<li>${s}</li>`).join('');
+  const f = v => typeof v === 'number' ? (Number.isFinite(v) ? (Math.abs(v) < 1e-3 && v !== 0 || Math.abs(v) >= 1e5 ? v.toExponential(3) : String(+v.toPrecision(5))) : '') : v;
+  $('btab').innerHTML = '<tr>' + R.header.map(h => `<th>${h}</th>`).join('') + '</tr>' + R.rows.map(r => '<tr>' + r.map(v => `<td>${f(v)}</td>`).join('') + '</tr>').join('');
+}
+async function runBatch() {
+  if (batchBusy) return; batchBusy = true; stopFlag = false; $('bRun').disabled = true; $('bStop').disabled = false; $('bCsv').disabled = true; const t0 = performance.now();
+  const o = { runs: +$('bRuns').value, seed: Number($('bSeed').value) || 1 };
+  try {
+    batchRes = await runExperiment(curExp, o, () => stopFlag, (d, t) => { $('bStatus').textContent = `Running… ${d} of ${t} (${((performance.now() - t0) / 1000).toFixed(1)} s)`; });
+    $('bStatus').textContent = `${stopFlag ? 'Stopped' : 'Done'} in ${((performance.now() - t0) / 1000).toFixed(1)} s · ${batchRes.rows.length} rows`;
+    buildExps(); showRes(); $('bCsv').disabled = !batchRes.rows.length;
+  } catch (err) { $('bStatus').textContent = 'Error: ' + err.message; }
+  batchBusy = false; $('bRun').disabled = false; $('bStop').disabled = true;
+}
+function downloadCSV() {
+  if (!batchRes) return; const o = { runs: +$('bRuns').value, seed: $('bSeed').value };
+  const lines = [`# ${curExp.title}`, `# runs/settings per row = ${o.runs}, seed = ${o.seed}; RK4 step ${DT}; Lorenz 63 sigma=10 beta=8/3 rho=28; Lorenz 96 K=40 (1 time unit = ${DAYS_PER_UNIT} days)`, ...batchRes.summary.map(s => '# ' + s), batchRes.header.join(',')];
+  for (const r of batchRes.rows) lines.push(r.map(v => typeof v === 'number' && !Number.isFinite(v) ? '' : v).join(','));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([lines.join('\n') + '\n'], { type: 'text/csv' })); a.download = `batch-${curExp.id}.csv`; document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 500);
+}
+
+/* ======================================================================================
+   Start-up
+   ====================================================================================== */
+function showTab(which) {
+  $('p63').classList.toggle('show', which === 63); $('p96').classList.toggle('show', which === 96);
+  $('tab63').classList.toggle('on', which === 63); $('tab96').classList.toggle('on', which === 96);
+  requestAnimationFrame(() => { if (which === 63) { a_drawStatic(); a_drawCharts(); a_drawHorizon(); } else b_drawAll(); });
+}
+$('tab63').onclick = () => showTab(63); $('tab96').onclick = () => showTab(96);
+$('btnBatch').onclick = () => { A.playing = B.playing = false; $('a_play').textContent = $('b_play').textContent = '▶ Play'; $('batch').classList.add('open'); buildExps(); showRes(); };
+$('bClose').onclick = () => $('batch').classList.remove('open');
+$('btnAbout').onclick = () => $('about').classList.add('open'); $('aClose').onclick = () => $('about').classList.remove('open');
+$('bRun').onclick = runBatch; $('bStop').onclick = () => { stopFlag = true; }; $('bCsv').onclick = downloadCSV;
+window.addEventListener('resize', () => { if ($('p63').classList.contains('show')) { a_drawStatic(); a_drawCharts(); a_drawHorizon(); } else b_drawAll(); if ($('batch').classList.contains('open')) showRes(); });
+a_setupUI(); b_setupUI(); a_init(); a_drawCharts(); a_drawHorizon();
+setTimeout(() => { b_init(); }, 0);
+(function frame(ts) { a_loop(ts); b_loop(); requestAnimationFrame(frame); })();
+// handle for tests / curious users
+window.__wc = { A, B, step63, spun63, horizon63, lyap96, spun96, runExperiment, EXPS, P63, LAMBDA63, climate96 };
+</script>
+</body>
+</html>

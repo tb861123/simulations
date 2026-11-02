@@ -107,6 +107,7 @@ changing a simulation's batch experiments.
 | [`climate/carbon_cycle/`](climate/carbon_cycle/) | The carbon cycle and CO₂ from 1750 to 2300 under emissions scenarios | Open `carbon-cycle.html` |
 | [`climate/sea_level_rise/`](climate/sea_level_rise/) | Sea level rise: where the water comes from, flooding and storm surges | Open `sea-level-rise.html` |
 | [`climate/forest_fire/`](climate/forest_fire/) | How a woodland fire spreads with wind, dryness, slope, trees, undergrowth, firebreaks and rivers | Open `forest-fire.html` |
+| [`climate/weather_chaos/`](climate/weather_chaos/) | The butterfly effect: Lorenz 63 and Lorenz 96 models, twin forecasts, ensembles, and why forecast skill is limited | Open `weather-chaos.html` |
 
 ## Astrophysics
 
