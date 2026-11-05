@@ -129,6 +129,15 @@ changing a simulation's batch experiments.
 | [`statistics/central_limit_theorem/`](statistics/central_limit_theorem/) | Galton board and the central limit theorem (and where it fails) | Open `central-limit-theorem.html` |
 | [`statistics/queues/`](statistics/queues/) | Supermarket queues and queueing theory | Open `queues.html` |
 
+## Economics
+
+Standard level follows Edexcel International GCSE Economics (4EC1); Advanced follows Edexcel A level Economics A (9EC0).
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`economics/supply_demand/`](economics/supply_demand/) | Supply, demand and elasticity: a trading market finds equilibrium; shifts, PED, PES, YED, XED | Open `supply-demand.html` |
+| [`economics/taxes_price_controls/`](economics/taxes_price_controls/) | Indirect taxes, subsidies, maximum and minimum prices: incidence, shortages, deadweight loss | Open `taxes-price-controls.html` |
+
 ## History
 
 `engineering/fluid_dynamics/` (now retired), `chemistry/chem_sims/` (now retired) and `physics/physics_sims/` (now retired)

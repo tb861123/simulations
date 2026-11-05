@@ -17,6 +17,7 @@ holds one folder per simulation:
 | `climate/` | `greenhouse_effect`, `ice_albedo`, `carbon_cycle`, `sea_level_rise`, `forest_fire`, `weather_chaos` |
 | `astrophysics/` | `planet_formation`, `stellar_life_cycle`, `exoplanet_hunting`, `galaxy_collisions`, `expanding_universe`, `gravitational_lensing`, `dark_matter`, `three_body_chaos` |
 | `statistics/` | `central_limit_theorem`, `queues` |
+| `economics/` | `supply_demand`, `taxes_price_controls` |
 
 Every simulation is one self-contained HTML file: open it in Chrome
 or Edge.
@@ -56,7 +57,8 @@ End every change with an explicit line saying which applies:
 
 ## Audience and style
 
-These are teaching simulations for school students (GCSE / iGCSE / WJEC).
+These are teaching simulations for school students (GCSE / iGCSE / WJEC, and
+A level for economics and PE, with a Standard / Advanced level switch).
 Comment code so a student can follow the science. List a model's
 assumptions and simplifications inside the simulation itself.
 
