@@ -138,6 +138,15 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 | [`economics/supply_demand/`](economics/supply_demand/) | Supply, demand and elasticity: a trading market finds equilibrium; shifts, PED, PES, YED, XED | Open `supply-demand.html` |
 | [`economics/taxes_price_controls/`](economics/taxes_price_controls/) | Indirect taxes, subsidies, maximum and minimum prices: incidence, shortages, deadweight loss | Open `taxes-price-controls.html` |
 
+## Physical Education
+
+Standard level follows OCR GCSE (9–1) Physical Education (J587); Advanced follows OCR A level Physical Education (H555).
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`physical_education/energy_systems/`](physical_education/energy_systems/) | Energy systems and recovery: ATP-PC, glycolytic and aerobic systems, energy continuum, EPOC (also listed under Biology) | Open `energy-systems.html` |
+| [`physical_education/training_adaptation/`](physical_education/training_adaptation/) | Training and adaptation: Q = SV × HR, principles and methods of training, adaptations, tapering (also listed under Biology) | Open `training-adaptation.html` |
+
 ## History
 
 `engineering/fluid_dynamics/` (now retired), `chemistry/chem_sims/` (now retired) and `physics/physics_sims/` (now retired)
