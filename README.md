@@ -148,6 +148,8 @@ Standard level follows OCR GCSE (9–1) Physical Education (J587); Advanced foll
 |---|---|---|
 | [`physical_education/energy_systems/`](physical_education/energy_systems/) | Energy systems and recovery: ATP-PC, glycolytic and aerobic systems, energy continuum, EPOC (also listed under Biology) | Open `energy-systems.html` |
 | [`physical_education/training_adaptation/`](physical_education/training_adaptation/) | Training and adaptation: Q = SV × HR, principles and methods of training, adaptations, tapering (also listed under Biology) | Open `training-adaptation.html` |
+| [`physical_education/sport_biomechanics/`](physical_education/sport_biomechanics/) | Sport biomechanics: levers, planes and axes, stability, impulse, projectiles, drag and lift, angular momentum (also listed under Physics) | Open `sport-biomechanics.html` |
+| [`physical_education/fitness_testing/`](physical_education/fitness_testing/) | Fitness testing: 12 fitness tests on a simulated squad, ratings, reliability, validity, typical error | Open `fitness-testing.html` |
 
 ## History
 
