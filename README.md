@@ -137,6 +137,8 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 |---|---|---|
 | [`economics/supply_demand/`](economics/supply_demand/) | Supply, demand and elasticity: a trading market finds equilibrium; shifts, PED, PES, YED, XED | Open `supply-demand.html` |
 | [`economics/taxes_price_controls/`](economics/taxes_price_controls/) | Indirect taxes, subsidies, maximum and minimum prices: incidence, shortages, deadweight loss | Open `taxes-price-controls.html` |
+| [`economics/firms_competition/`](economics/firms_competition/) | Firms, costs and competition: cost and revenue curves, economies of scale, market structures, game theory, cartels | Open `firms-competition.html` |
+| [`economics/labour_market/`](economics/labour_market/) | The labour market: wage determination, minimum wage, unions, monopsony, wage differences, division of labour | Open `labour-market.html` |
 
 ## Physical Education
 
