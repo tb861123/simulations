@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Luck, Skill and Results</title>
+<!--
+  LUCK, SKILL AND RESULTS — a teaching model for PE
+  =================================================
+  One self-contained file: no libraries, no internet needed.
+  Standard (GCSE): OCR GCSE (9–1) Physical Education J587: use of data
+  (collecting, presenting and analysing quantitative data: tables, bar charts,
+  line graphs, means and percentages), ethics in sport and drugs in sport
+  (performance-enhancing drugs, testing, the consequences of a positive test),
+  and sports psychology (why performers win and lose).
+  Advanced (A level): OCR A level Physical Education H555 adds attribution
+  theory (Weiner: luck is external and unstable, ability internal and stable),
+  learned helplessness, the ethics of drug testing (strict liability, false
+  positives), home advantage and the effect of an audience, and data analysis
+  at A level: variance, correlation, regression to the mean, sample size, and
+  Bayes' theorem for test results.
+
+  Simulated teams each have a true strength. Goals in a match are random
+  (a Poisson process), so results mix skill and luck. Units: points (3 for a
+  win, 1 for a draw), goals, points per game, % of seasons, % of athletes.
+  Team strengths and test accuracies are illustrative; real data are given
+  with sources (Premier League results, WADA testing figures).
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 250px) 10px minmax(0, 1fr) 10px var(--rw, 280px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  h2 .nc { text-transform: none; letter-spacing: 0; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: var(--ink-dark); }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select, input[type=number] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .chk { display: flex; gap: 6px; align-items: center; font-size: 13px; margin-bottom: 7px; }
+  .chk input { accent-color: var(--accent); }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .seg { display: flex; gap: 4px; margin-bottom: 6px; }
+  .seg button { flex: 1; padding: 4px 6px; font-size: 12.5px; }
+  body.lvl-std .advOnly, body.lvl-adv .stdOnly { display: none !important; }
+  .advdiv { color: #c39bff; font-weight: 600; font-size: 12.5px; margin: 12px 0 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .info { background: #16212b; border: 1px solid #2b4152; color: #cfe3f2; border-radius: 6px; padding: 5px 8px; font-size: 12.5px; margin: 4px 0 8px; }
+  .info:empty { display: none; }
+  .card { background: #16212b; border-left: 3px solid #00aec3; border-radius: 5px; padding: 5px 8px; font-size: 12.5px; margin-top: 6px; color: #dfe9f0; }
+  .card.warn { border-left-color: var(--accent); background: #2a2410; color: #f5e7c4; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  .topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  .clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .badge { font-weight: 700; font-size: 12.5px; border-radius: 999px; padding: 1px 10px; background: #2a3024; color: var(--muted); }
+  .wrapC { position: relative; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  .wrapC canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .ctools { position: absolute; left: 8px; top: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
+  .ctools button { padding: 3px 9px; font-size: 12.5px; background: rgba(20,24,17,.88); }
+  .ctools button.on { background: var(--accent); }
+  .crow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 6px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .chartBox { position: relative; height: 185px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+  details p { margin: 6px 0; }
+  .eq { font-family: "Cambria Math", "Times New Roman", serif; font-size: 14px; color: var(--text); margin: 2px 0 2px 8px; }
+  table.data { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  table.data td, table.data th { padding: 2px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+  table.data td:first-child, table.data th:first-child { text-align: left; }
+  table.data th { color: var(--muted); font-weight: 600; }
+  table.data tr.on td { color: var(--accent); font-weight: 700; }
+
+  /* Exam practice */
+  .exhead { font-size: 11.5px; color: var(--accent); text-transform: uppercase; letter-spacing: .05em; margin-top: 10px; }
+  .exq { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; margin-top: 7px; color: var(--text); font-size: 12.5px; }
+  .exq .qh { display: flex; gap: 8px; justify-content: space-between; align-items: flex-start; }
+  .exq .mk { flex: none; background: var(--accent); color: var(--ink-dark); border-radius: 4px; padding: 0 6px; font-size: 11px; font-weight: 700; }
+  .exq .ht { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  .exq button { margin-top: 5px; padding: 2px 8px; font-size: 12px; }
+  .exq .ms { display: none; margin-top: 5px; border-top: 1px dashed var(--line); padding-top: 4px; }
+  .exq.open .ms { display: block; }
+  .exq .ms div { margin: 1px 0 1px 6px; }
+  .exq .ans { color: #8fd694; font-weight: 700; margin-top: 3px; }
+
+  /* Batch run overlay (covers the centre and right panels) */
+  #batch { display: none; position: fixed; z-index: 30; background: var(--panel); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px;
+           flex-direction: column; gap: 7px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+  #batch.open { display: flex; }
+  #batch .bhead { display: flex; align-items: center; gap: 10px; }
+  #batch .bhead h3 { margin: 0; white-space: nowrap; font-size: 17px; color: var(--accent); }
+  #batch .brow { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; }
+  #batch .brow label { display: inline-flex; gap: 5px; align-items: center; }
+  #batch input[type=number] { width: 78px; }
+  #bexp { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 5px; }
+  #bexp button { text-align: left; font-size: 12px; padding: 5px 7px; line-height: 1.25; }
+  #bexp button small { display: block; color: var(--muted); font-size: 11px; }
+  #bexp button.on small { color: var(--ink-dark); }
+  #bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 32%); gap: 10px; }
+  #bchartBox { position: relative; min-height: 0; background: #050604; border-radius: 8px; }
+  #bchart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bside { overflow-y: auto; font-size: 12.5px; min-height: 0; }
+  #bsum table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #bsum td, #bsum th { padding: 1px 4px; border-bottom: 1px solid var(--line); text-align: right; font-size: 12px; }
+  #bsum td:first-child, #bsum th:first-child { text-align: left; }
+  #bNote { margin-top: 8px; padding: 7px 9px; background: var(--panel-2); border-left: 3px solid var(--accent); border-radius: 5px; color: #dfe3d6; }
+  .prog { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; flex: 1; min-width: 120px; }
+  .prog span { display: block; height: 100%; width: 0; background: var(--accent); }
+  /* Batch run: two columns, set-up on the left (experiments and the settings table), results on the right */
+  #batch { gap: 8px 12px; }
+  #batch.open { display: grid; grid-template-columns: minmax(330px, 40%) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  #batch .bhead { grid-column: 1 / -1; }
+  #batch .bhead .hint { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  #bsetup { overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding-right: 4px; min-height: 0; }
+  #bresults { display: flex; flex-direction: column; gap: 7px; min-height: 0; }
+  #bsetup #bexp { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  #bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(180px, 1fr) minmax(0, 42%); gap: 8px; }
+  /* Batch settings table: every starting setting, with a tick box to choose the one that is varied */
+  #bSetBox { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--panel-2); margin-top: 0; color: var(--text); }
+  #bSetBox > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
+  #bSetBox .bhint { font-size: 11.5px; color: var(--muted); margin: 3px 0 5px; }
+  #bOpts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; margin-bottom: 5px; }
+  #bOpts label { display: inline-flex; gap: 5px; align-items: center; }
+  #bTbl { display: grid; grid-template-columns: 1fr; gap: 3px 14px; }
+  .bt { display: flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 2px 4px; border-radius: 6px; flex-wrap: wrap; }
+  .bt.on { background: rgba(241,175,40,.13); outline: 1px solid var(--accent); }
+  .bt label { flex: 1; min-width: 150px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .bt input[type=number] { width: 78px !important; }
+  .bt .bsw { display: none; gap: 5px; align-items: center; flex-wrap: wrap; }
+  .bt.on .bsw { display: inline-flex; }
+  .bt.on .bval { display: none; }
+  .bt .bcount { color: var(--muted); font-size: 11.5px; }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+
+
+
+  /* ---- luck and skill extras ---- */
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tabs button { padding: 3px 9px; font-size: 12.5px; }
+  .mtabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .mtabs button { flex: 1 1 auto; font-weight: 700; font-size: 12.5px; padding: 4px 5px; white-space: nowrap; }
+  #centre:fullscreen .mtabs { padding-right: 200px; }
+  .mo { display: none; }
+  body.m-lg .mo-lg, body.m-rm .mo-rm, body.m-ss .mo-ss, body.m-dt .mo-dt { display: block; }
+  body.m-lg .mo-lea, body.m-rm .mo-lea, body.m-ss .mo-lea { display: block; }
+  .links a { color: #a4cbe6; }
+  .spec { display: inline-block; font-size: 10.5px; border-radius: 4px; padding: 0 5px; margin-left: 4px; background: #2a3024; color: #dfe3d6; font-weight: 400; vertical-align: 1px; text-transform: none; letter-spacing: 0; }
+  .spec.a { background: #3b2a44; color: #e6d4f2; }
+  .src { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+  #story p { margin: 0 0 6px; }
+</style>
+</head>
+<body class="lvl-std m-lg">
+<header>
+  <h1>Luck, Skill and Results</h1>
+  <span class="sub">Simulated teams with true strengths play whole seasons: how often does the best team win the league or the cup? Home advantage, regression to the mean, sample size, and drug tests and base rates.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: PRESETS AND CONTROLS ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Level</h2>
+    <div class="seg" id="lvl"><button data-lvl="std">Standard (GCSE)</button><button data-lvl="adv">Advanced (A level)</button></div>
+    <div class="hint" id="lvlHint"></div>
+
+    <h2 class="gap">Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <div class="mo mo-lea">
+      <h2 class="gap">The league</h2>
+      <div class="ctl"><label>Teams <output id="o_teams"></output></label><input type="range" id="teams" min="8" max="24" step="2"></div>
+      <div class="ctl"><label>How different the teams are (spread of strength) <output id="o_spread"></output></label><input type="range" id="spread" min="0" max="1.2" step="0.05"><div class="hint">0 = every team equally good: results are pure luck.</div></div>
+      <div class="ctl"><label>Extra edge for the best team <output id="o_edge"></output></label><input type="range" id="edge" min="0" max="1.5" step="0.05"></div>
+      <div class="ctl"><label>Home advantage <output id="o_home"></output></label><input type="range" id="home" min="0" max="0.8" step="0.05"><div class="hint" id="homeHint"></div></div>
+      <div class="ctl"><label>Goals per team per match <output id="o_goals"></output></label><input type="range" id="goals" min="0.4" max="4" step="0.05"><div class="hint">Fewer goals → more luck (football about 1.35; hockey and basketball score far more).</div></div>
+      <div class="ctl mo mo-rm"><label>Matches in a "month" <output id="o_month"></output></label><input type="range" id="month" min="2" max="8" step="1"></div>
+      <div class="ctl"><label>New random teams (seed) <output id="o_seed"></output></label><input type="range" id="seed" min="1" max="50" step="1"></div>
+    </div>
+
+    <div class="mo mo-dt">
+      <h2 class="gap">The athletes and the test</h2>
+      <div class="ctl"><label>Athletes tested <output id="o_ath"></output></label><input type="range" id="ath" min="200" max="5000" step="100"></div>
+      <div class="ctl"><label>Share who dope (base rate) <output id="o_prev"></output></label><input type="range" id="prev" min="0.1" max="40" step="0.1"><div class="hint">Nobody knows the real figure: positive tests are under 1% of samples, but anonymous surveys suggest far more.</div></div>
+      <div class="ctl"><label>Test catches a doper (sensitivity) <output id="o_sens"></output></label><input type="range" id="sens" min="10" max="100" step="1"></div>
+      <div class="ctl"><label>Clean athletes wrongly flagged (false-positive rate) <output id="o_fpr"></output></label><input type="range" id="fpr" min="0" max="10" step="0.1"></div>
+      <label class="chk"><input type="checkbox" id="retest"> Re-test every positive with a second, independent test</label>
+      <div class="ctl"><label>Athletes drawn (quality)</label><select id="qual"><option value="100">Low (100 figures)</option><option value="200" selected>Medium (200)</option><option value="400">High (400)</option></select><div class="hint">Only changes the picture; the counts use every athlete.</div></div>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE ======================= -->
+  <section class="panel" id="centre">
+    <div class="mtabs" id="modes"></div>
+    <div class="topbar">
+      <span class="clock" id="clock">Season 1</span>
+      <span class="stat" id="st1"></span>
+      <span class="stat" id="st2"></span>
+      <span class="badge" id="badge"></span>
+    </div>
+    <div class="wrapC" id="wrapA" style="flex:1.15"><canvas id="cvA" aria-label="The match and the table"></canvas></div>
+    <div class="tabs" id="views"></div>
+    <div class="wrapC" id="wrapB" style="flex:1"><canvas id="cvB" aria-label="Graph"></canvas></div>
+    <div class="legend" id="legend"></div>
+    <div class="crow">
+      <button id="btnPlay" class="primary">⏸ Pause</button>
+      <button id="btnReset" title="Start again">↺ Reset</button>
+      <button id="btnSkip" title="Jump to the end of the season">⏭ Finish</button>
+      <span class="speed" id="speed"></span>
+      <button id="btnBatch" style="margin-left:auto">📊 Batch run</button>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT: READINGS ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readings</button>
+    <h2>What's happening</h2>
+    <div class="story" id="story"></div>
+    <h2 class="gap">Readings</h2>
+    <div class="tiles" id="tiles"></div>
+    <div id="extra"></div>
+    <h2 class="gap">Where this is in the specification</h2>
+    <div class="hint" id="specs"></div>
+    <h2 class="gap">Key ideas</h2>
+    <div class="hint" id="ideas"></div>
+    <div class="hint links" style="margin-top:8px">Attribution, confidence and audiences: <a href="../arousal_performance/arousal-performance.html">Arousal, Anxiety and Performance</a>. Test results and data: <a href="../fitness_testing/fitness-testing.html">Fitness Testing</a>.</div>
+
+    <details id="exam" open>
+      <summary>📝 Exam practice</summary>
+      <div class="hint" style="margin-top:4px">Questions marked "On screen" use the numbers in the simulation now.</div>
+      <div id="examQs"></div>
+    </details>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Teams</b> have a true strength s drawn from a bell curve (spread = its SD), strongest first; the best team can be given an extra edge. Names are made up and shuffled, so a name tells you nothing about strength.</li>
+        <li><b>Matches</b>: each side's goals are a Poisson random number with mean λ = g × e^(±(s_home − s_away) ÷ 2 ± h ÷ 2), where g is the average goals per team and h the home advantage. With g = 1.35 (2.7 goals a match) and h = 0.3 about 47% of matches are home wins, close to the Premier League before 2020. The exact chances of a win, draw or loss come from adding up the chance of every scoreline.</li>
+        <li><b>League</b>: every team plays every other twice, home and away, in a random fixture order; 3 points for a win, 1 for a draw; ties on points split by goal difference, then goals scored. <b>Cup</b>: the 16 strongest teams, a random draw, one match per tie (a coin toss decides who is at home; the final is at a neutral ground), penalties are a 50 : 50 lottery.</li>
+        <li><b>Theory</b>: the cup-winning chance is exact (worked out through the bracket from the chance of winning each tie). The league-winning chance uses a normal approximation: each team's points total is treated as normal with the mean and variance from its fixtures, independently of the others. The spread of points from luck alone and the expected points per game are exact.</li>
+        <li><b>Manager of the month</b>: the season is split into months of M matches; the team with most points per game (then goal difference) wins. "Next month" is its following M matches; its expected points come from its true strength against those opponents.</li>
+        <li><b>Sample size</b>: the correlation between points per game and true quality after n matches; theory r = √(σq² ÷ (σq² + σe² ÷ n)), where σq² is the spread of true quality and σe² the luck in one match's points (classical test theory: observed = true + error).</li>
+        <li><b>Drug testing</b>: each athlete dopes with the chance set by the base rate. A test is positive for a doper with chance = sensitivity, and for a clean athlete with chance = false-positive rate. The re-test is assumed independent of the first test (in reality the B sample is the same urine, so its errors are not independent). PPV = sens × prev ÷ (sens × prev + fpr × (1 − prev)). Sensitivity, false-positive rate and the share who dope are illustrative: none is known exactly.</li>
+        <li><b>Left out</b>: form that really changes during a season (injuries, transfers, a new manager), red cards, tactics, fixture congestion, matches that are not independent, extra time in the cup, and real penalty skill. Real teams' strengths change; here they are fixed for a season, so any "form" you see is luck.</li>
+      </ul>
+    </details>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   SHARED TOOLS — small helpers, charts, panel layout, exam questions
+   and the batch-run engine. (The physics is further down the file.)
+   ===================================================================== */
+const el = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+// Repeatable random numbers (the same seed always gives the same sequence)
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+// A random number from a normal (bell-shaped) distribution, mean 0, SD 1
+function gauss(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+
+// Size a canvas for the screen's pixel ratio so lines and text stay sharp (Surface screens at 200%)
+function fitCanvas(cv) {
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const w = Math.max(10, Math.round(r.width * dpr)), h = Math.max(10, Math.round(r.height * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: r.width, h: r.height };
+}
+function niceStep(range, n) { const raw = range / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+function fmt(v, sig = 3) {
+  if (v === null || v === undefined || !isFinite(v)) return "–"; if (v === 0) return "0";
+  const a = Math.abs(v); if (a >= 1e6 || a < 1e-3) return v.toExponential(sig - 1).replace("e+", "e");
+  return (+v.toPrecision(sig)).toLocaleString("en-GB", { maximumFractionDigits: 6 });
+}
+function ticksFor(a, b, log) {
+  if (log) {
+    const out = [], lo = Math.floor(Math.log10(a)), hi = Math.ceil(Math.log10(b)), few = hi - lo <= 2;
+    for (let e = lo; e <= hi; e++) for (const m of few ? [1, 2, 5] : [1]) { const v = m * Math.pow(10, e); if (v >= a * 0.999 && v <= b * 1.001) out.push(v); }
+    return out;
+  }
+  const st = niceStep(b - a || 1, 5), out = []; for (let v = Math.ceil(a / st) * st; v <= b + st * 1e-6; v += st) out.push(Math.abs(v) < st * 1e-9 ? 0 : v); return out;
+}
+// Draw axes with grid, ticks and labels; returns functions X(v), Y(v) that map data to pixels
+function axes(ctx, w, h, o) {
+  const L = o.L || 54, R = o.R || 10, T = o.T || 8, B = o.B || 34;
+  const fx = o.xlog ? Math.log10 : v => v, fy = o.ylog ? Math.log10 : v => v;
+  const X = v => L + (fx(v) - fx(o.x0)) / (fx(o.x1) - fx(o.x0)) * (w - L - R);
+  const Y = v => h - B - (fy(v) - fy(o.y0)) / (fy(o.y1) - fy(o.y0)) * (h - T - B);
+  ctx.font = "11px system-ui, sans-serif"; ctx.lineWidth = 1;
+  for (const v of (o.xticks || ticksFor(o.x0, o.x1, o.xlog))) { const x = X(v); ctx.strokeStyle = "#232920"; ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, h - B); ctx.stroke(); if (!o.noXT) { ctx.fillStyle = "#a3ab96"; ctx.textAlign = "center"; ctx.fillText(o.xfmt ? o.xfmt(v) : fmt(v), x, h - B + 13); } }
+  for (const v of (o.yticks || ticksFor(o.y0, o.y1, o.ylog))) { const y = Y(v); ctx.strokeStyle = "#232920"; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke(); ctx.fillStyle = "#a3ab96"; ctx.textAlign = "right"; ctx.fillText(o.yfmt ? o.yfmt(v) : fmt(v), L - 4, y + 3.5); }
+  ctx.strokeStyle = "#5a6352"; ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, h - B); ctx.lineTo(w - R, h - B); ctx.stroke();
+  ctx.fillStyle = "#cfd5c4"; ctx.textAlign = "center"; ctx.fillText(o.xlabel || "", L + (w - L - R) / 2, h - 6);
+  ctx.save(); ctx.translate(11, T + (h - T - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(o.ylabel || "", 0, 0); ctx.restore();
+  return { X, Y, L, R, T, B };
+}
+function line(ctx, pts, col, width = 2, dash) {
+  ctx.strokeStyle = col; ctx.lineWidth = width; ctx.setLineDash(dash || []); ctx.beginPath();
+  let started = false; for (const [x, y] of pts) { if (!isFinite(x) || !isFinite(y)) { started = false; continue; } if (started) ctx.lineTo(x, y); else { ctx.moveTo(x, y); started = true; } }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+function clip(ctx, ax, w, h) { ctx.save(); ctx.beginPath(); ctx.rect(ax.L, ax.T, w - ax.L - ax.R, h - ax.T - ax.B); ctx.clip(); }
+function tile(k, v, s) { return `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s || ""}</div></div>`; }
+function arrow(ctx, x0, y0, x1, y1, col, wd = 2, head = 8) {
+  const a = Math.atan2(y1 - y0, x1 - x0), L = Math.hypot(x1 - x0, y1 - y0); if (L < 2) return;
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = wd; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - head * Math.cos(a - 0.4), y1 - head * Math.sin(a - 0.4)); ctx.lineTo(x1 - head * Math.cos(a + 0.4), y1 - head * Math.sin(a + 0.4)); ctx.closePath(); ctx.fill();
+}
+// Exam questions with marks, hint and a "Show mark scheme" toggle. Open mark schemes stay open when the numbers change.
+const examOpen = new Set();
+function renderExam(box, groups) {
+  let html = "", n = 0;
+  for (const g of groups) {
+    if (g.title) html += `<div class="exhead">${g.title}</div>`;
+    g.qs.forEach((q, i) => {
+      const id = (g.id || "q") + i; n++;
+      html += `<div class="exq${examOpen.has(id) ? " open" : ""}" data-id="${id}"><div class="qh"><span><b>Q${n}.</b> ${q.q}</span><span class="mk">${q.marks} mark${q.marks === 1 ? "" : "s"}</span></div>` +
+        (q.hint ? `<div class="ht">💡 Hint: ${q.hint}</div>` : "") + `<button>${examOpen.has(id) ? "Hide" : "Show"} mark scheme</button>` +
+        `<div class="ms">${(q.working || []).map(s => `<div>→ ${s}</div>`).join("")}<div class="ans">${q.answerLabel === false ? "" : "Answer: "}${q.answer}</div></div></div>`;
+    });
+  }
+  box.innerHTML = html;
+  box.querySelectorAll(".exq button").forEach(b => b.addEventListener("click", () => {
+    const d = b.parentElement, id = d.dataset.id; d.classList.toggle("open");
+    if (d.classList.contains("open")) examOpen.add(id); else examOpen.delete(id);
+    b.textContent = (d.classList.contains("open") ? "Hide" : "Show") + " mark scheme";
+  }));
+}
+
+// Resizable, hideable side panels (remembered in this browser)
+function initLayout(KEY, onChange) {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const STRIP = 30, MIN = 170, DEF = { lw: 250, rw: 280, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY + "-v2") || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY + "-v2", JSON.stringify(st)); } catch (e) {}
+    if (onChange) onChange();
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+}
+
+/* =====================================================================
+   BATCH RUN — run the model many times with no drawing, then compare
+   the results with theory.
+     REPEAT: the same settings N times with different random seeds
+             → histogram, mean, SD, standard error, theory.
+     SWEEP : tick one setting in the table and step it from → to
+             (+ adds the step, × multiplies by it), several runs at each
+             step → mean ± 1 SD at each step, with the theory line.
+   The batch settings table lists EVERY starting setting the model uses.
+   A one-click experiment fills in the whole table (from fixed defaults,
+   never from the left panel), and a run uses exactly what the table shows.
+   An experiment's sweep uses its own evenly spaced values (from → to in
+   'steps' values, log-spaced on log axes) until you edit the range.
+   C = { defaults, current(), outcomes, vars, opts, experiments, runOnce(p, seed, out), fileName, hint, runChoices }
+     vars: { key: { label, unit, min, max, int, outs: [outcome keys it matters for] } }
+     opts: [{ k, label, bool } | { k, label, choices: [[value, text], …] }]   (non-numeric settings)
+   ===================================================================== */
+const Batch = (function () {
+  let C = null, res = null, busy = false, stop = false, expI = -1;
+  const TBL = { vals: {}, opts: {}, vary: null, from: 0, to: 1, kind: "+", step: 1, exact: null };
+  const st = a => { const v = a.filter(x => x !== null && x !== undefined && isFinite(x)), n = v.length; if (!n) return { n: 0 }; const mean = v.reduce((s, x) => s + x, 0) / n; const sd = n > 1 ? Math.sqrt(v.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1)) : 0; return { n, mean, sd, se: sd / Math.sqrt(n), min: Math.min(...v), max: Math.max(...v) }; };
+  const linfit = (xs, ys) => { const n = xs.length; let sx = 0, sy = 0, sxx = 0, sxy = 0; for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; sxx += xs[i] ** 2; sxy += xs[i] * ys[i]; } const b = (n * sxy - sx * sy) / (n * sxx - sx * sx); return { b, a: (sy - b * sx) / n }; };
+  const unitOf = u => (u ? ` (${u})` : "");
+  const nice = x => (x === 0 || !isFinite(x)) ? x : +(+x).toPrecision(4);
+  const optsOf = () => C.opts || [];
+  const disp = x => (typeof x === "number" && isFinite(x) && x !== 0) ? +x.toPrecision(10) : x;   // tidy display; the table keeps the exact value
+  function init(cfg) {
+    C = cfg;
+    const d = document.createElement("div"); d.id = "batch"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Batch run");
+    d.innerHTML = `
+      <div class="bhead"><h3>📊 Batch run</h3><span class="hint">${cfg.hint}</span><button id="bClose" style="margin-left:auto">✕ Close</button></div>
+      <div id="bsetup">
+        <div id="bexp"></div>
+        <div class="brow">
+          <label>Mode <select id="bMode"><option value="repeat">Repeat (new random numbers each run)</option><option value="sweep">Sweep (vary the ticked setting in steps)</option></select></label>
+          <label>Record <select id="bOut">${Object.entries(cfg.outcomes).map(([k, o]) => `<option value="${k}">${o.label}${unitOf(o.unit)}</option>`).join("")}</select></label>
+          <span id="bRepeatOpts"><label>Runs <select id="bRuns">${cfg.runChoices.map(n => `<option>${n}</option>`).join("")}</select></label></span>
+        </div>
+        <details id="bSetBox" open>
+          <summary>Starting settings: tick the one to vary</summary>
+          <div class="bhint">Every setting the model uses for this outcome is listed. Tick one to sweep it from → to in steps (+ adds the step each time, × multiplies by it); every other setting stays at the value shown. What you see is what runs.</div>
+          <div id="bOpts"></div>
+          <div id="bTbl"></div>
+          <div class="brow" style="margin-top:5px"><span id="bSweepOpts"><label>Repeats at each step <input type="number" id="bReps" min="1" max="200" value="5" style="width:60px"></label></span>
+            <button id="bLeft" title="Fill the table from the settings on the left panel">↺ Use my left-panel settings</button></div>
+        </details>
+      </div>
+      <div id="bresults">
+        <div class="brow">
+          <button id="bRun" class="primary">▶ Run batch</button>
+          <button id="bStop" disabled>■ Stop</button>
+          <div class="prog"><span id="bProg"></span></div>
+          <span id="bStatus" class="hint">Ready</span>
+          <label><input type="checkbox" id="bLogX"> log x</label>
+          <label><input type="checkbox" id="bLogY"> log y</label>
+          <button id="bCsv" disabled>⬇ Download CSV</button>
+        </div>
+        <div id="bbody">
+          <div id="bchartBox"><canvas id="bchart"></canvas></div>
+          <div id="bside"><div id="bsum" class="hint">Pick an experiment, or set up your own, then press <b>Run batch</b>.</div><div id="bNote" style="display:none"></div></div>
+        </div>
+      </div>`;
+    document.body.appendChild(d);
+    el("bexp").innerHTML = cfg.experiments.map((e, i) => `<button data-i="${i}">${e.q}${e.sub ? `<small>${e.sub}</small>` : ""}</button>`).join("");
+    document.querySelectorAll("#bexp button").forEach(b => b.addEventListener("click", () => load(+b.dataset.i)));
+    el("bMode").addEventListener("input", () => { edited(); sync(); });
+    el("bOut").addEventListener("input", () => { edited(); if (TBL.vary && !visible(TBL.vary)) { TBL.vary = null; el("bMode").value = "repeat"; } renderTable(); sync(); });
+    el("bRuns").addEventListener("input", edited);
+    el("bReps").addEventListener("input", edited);
+    ["bLogX", "bLogY"].forEach(id => el(id).addEventListener("input", draw));
+    el("bClose").addEventListener("click", () => d.classList.remove("open"));
+    el("bRun").addEventListener("click", run);
+    el("bStop").addEventListener("click", () => { stop = true; });
+    el("bCsv").addEventListener("click", csv);
+    el("bSetBox").addEventListener("input", e => {
+      const t = e.target;
+      if (t.dataset.vary) {              // the tick boxes act like radio buttons: one varied setting at most
+        if (t.checked) { startVary(t.dataset.vary); el("bMode").value = "sweep"; } else { TBL.vary = null; el("bMode").value = "repeat"; }
+        renderTable(); sync(); edited(); return;
+      }
+      if (t.dataset.v) TBL.vals[t.dataset.v] = +t.value;
+      if (t.dataset.o) TBL.opts[t.dataset.o] = t.type === "checkbox" ? (t.checked ? 1 : 0) : t.value;
+      if (t.dataset.r) { TBL.exact = null; TBL[t.dataset.r] = t.dataset.r === "kind" ? t.value : +t.value; if (t.dataset.r === "kind") el("bLogX").checked = t.value === "×"; }
+      updateCount(); edited();
+    });
+    el("bLeft").addEventListener("click", () => { expI = -1; markExp(); fillTable({ ...C.defaults, ...C.current() }, null); el("bMode").value = "repeat"; sync(); });
+    fillTable({ ...C.defaults, ...C.current() }, null);
+    sync();
+  }
+  const visible = k => { const V = C.vars[k]; return !V.outs || V.outs.includes(el("bOut").value); };
+  // the values the varied setting takes: from, from+step, … (or from, from×step, …) up to "to"; at most 60
+  function sweepValues() {
+    const out = [], up = TBL.to >= TBL.from, V = C.vars[TBL.vary];
+    if (!V) return [];
+    if (TBL.exact) return TBL.exact.slice();       // an experiment's own values, until the range is edited
+    if (TBL.kind === "×") {
+      let f = Math.abs(TBL.step); if (!(f > 1) || TBL.from <= 0 || TBL.to <= 0) return [TBL.from];
+      if (!up) f = 1 / f;
+      for (let v = TBL.from, i = 0; i < 60 && (up ? v <= TBL.to * 1.01 : v >= TBL.to * 0.99); i++, v *= f) out.push(nice(v));
+    } else {
+      let dd = Math.abs(TBL.step); if (!(dd > 0)) return [TBL.from];
+      if (!up) dd = -dd;
+      for (let i = 0; i < 60; i++) { const v = TBL.from + i * dd; if (up ? v > TBL.to + 1e-3 * Math.abs(dd) : v < TBL.to - 1e-3 * Math.abs(dd)) break; out.push(nice(v)); }
+    }
+    const vals = out.map(v => clamp(V.int ? Math.round(v) : v, V.min, V.max));
+    return vals.filter((v, i) => i === 0 || v !== vals[i - 1]);
+  }
+  // Fill the table from a full set of parameters (an experiment's, or the left panel's)
+  function fillTable(p, E) {
+    TBL.vals = {}; TBL.opts = {};
+    TBL.exact = null;
+    for (const k of Object.keys(C.vars)) TBL.vals[k] = p[k];
+    for (const O of optsOf()) TBL.opts[O.k] = p[O.k];
+    if (E && E.v) {
+      TBL.vary = E.v; TBL.from = E.from; TBL.to = E.to;
+      if (E.logx && E.from > 0 && E.to > 0) { TBL.kind = "×"; TBL.step = nice(Math.pow(E.to / E.from, 1 / (E.steps - 1))); }
+      else { TBL.kind = "+"; TBL.step = nice((E.to - E.from) / (E.steps - 1)); }
+      // the experiment's exact values: 'steps' evenly spaced values (log-spaced on log axes), repeats dropped
+      const V = C.vars[E.v], lg = E.logx && E.from > 0 && E.to > 0; TBL.exact = []; let last = null;
+      for (let s = 0; s < E.steps; s++) {
+        let v = lg ? E.from * Math.pow(E.to / E.from, s / (E.steps - 1)) : E.from + (E.to - E.from) * s / (E.steps - 1);
+        v = clamp(v, V.min, V.max); if (V.int) v = Math.round(v);
+        if (v !== last) TBL.exact.push(v); last = v;
+      }
+    } else TBL.vary = null;
+    renderTable();
+  }
+  function renderTable() {
+    el("bOpts").innerHTML = optsOf().filter(O => !O.outs || O.outs.includes(el("bOut").value)).map(O => O.bool
+      ? `<label><input type="checkbox" data-o="${O.k}" ${TBL.opts[O.k] ? "checked" : ""}> ${O.label}</label>`
+      : `<label>${O.label} <select data-o="${O.k}">${O.choices.map(([v, t]) => `<option value="${v}" ${String(TBL.opts[O.k]) === String(v) ? "selected" : ""}>${t}</option>`).join("")}</select></label>`).join("");
+    el("bTbl").innerHTML = Object.entries(C.vars).filter(([k]) => visible(k)).map(([k, V]) => {
+      const on = TBL.vary === k, u = V.unit ? ` (${V.unit})` : "";
+      return `<div class="bt${on ? " on" : ""}" data-k="${k}"><label ${on ? "data-ws-change" : ""}><input type="checkbox" data-vary="${k}" ${on ? "checked" : ""}> ${V.label}${u}</label>` +
+        `<input type="number" class="bval" data-v="${k}" step="any" min="${V.min}" max="${V.max}" value="${disp(TBL.vals[k])}">` +
+        `<span class="bsw">from <input type="number" data-ws="from" data-r="from" step="any" value="${on ? TBL.from : ""}"> to <input type="number" data-ws="to" data-r="to" step="any" value="${on ? TBL.to : ""}">
+          step <select data-ws="step type" data-r="kind"><option value="+" ${TBL.kind === "+" ? "selected" : ""}>+</option><option value="×" ${TBL.kind === "×" ? "selected" : ""}>×</option></select>
+          <input type="number" data-ws="step" data-r="step" step="any" value="${on ? TBL.step : ""}"> <span class="bcount bsteps"></span></span></div>`;
+    }).join("");
+    updateCount();
+  }
+  function updateCount() {
+    const span = TBL.vary && el("bTbl").querySelector(`.bt[data-k="${TBL.vary}"] .bsteps`);
+    if (span) { const xs = sweepValues(); span.textContent = `→ ${xs.length} steps: ${xs.slice(0, 4).map(v => fmt(v, 4)).join(", ")}${xs.length > 4 ? " … " + fmt(xs[xs.length - 1], 4) : ""}`; }
+  }
+  function startVary(k) {                 // a sensible first range when a setting is ticked
+    const V = C.vars[k], cur = TBL.vals[k];
+    TBL.vary = k; TBL.kind = "+"; TBL.exact = null;
+    if (cur > 0) { TBL.from = nice(Math.max(V.min, cur / 2)); TBL.to = nice(Math.min(V.max, cur * 2)); }
+    else { TBL.from = V.min; TBL.to = nice(Math.min(V.max, V.min + 10)); }
+    TBL.step = nice((TBL.to - TBL.from) / 4); if (V.int) TBL.step = Math.max(1, Math.round(TBL.step));
+    el("bLogX").checked = false;
+  }
+  function edited() { expI = -1; markExp(); }
+  function markExp() { document.querySelectorAll("#bexp button").forEach(b => b.classList.toggle("on", +b.dataset.i === expI)); }
+  function sync() {
+    if (el("bMode").value === "sweep" && !TBL.vary) { const k = Object.keys(C.vars).find(visible); if (k) { startVary(k); renderTable(); } }
+    if (el("bMode").value === "repeat" && TBL.vary) { TBL.vary = null; renderTable(); }
+    const sw = el("bMode").value === "sweep"; el("bRepeatOpts").style.display = sw ? "none" : ""; el("bSweepOpts").style.display = sw ? "" : "none";
+  }
+  function load(i) {
+    const E = C.experiments[i];
+    el("bMode").value = E.mode; el("bOut").value = E.out;
+    if (E.runs) el("bRuns").value = E.runs;
+    if (E.v) el("bReps").value = E.reps;
+    el("bLogX").checked = !!E.logx; el("bLogY").checked = !!E.logy;
+    fillTable({ ...C.defaults, ...E.set }, E.mode === "sweep" ? E : null);
+    expI = i; markExp(); sync();
+    el("bStatus").textContent = "Experiment set up: press ▶ Run batch";
+  }
+  function open() { place(); el("batch").classList.add("open"); if (!res && expI < 0) load(0); draw(); }
+  function place() {
+    const c = el("centre").getBoundingClientRect(), r = el("right").getBoundingClientRect(), b = el("batch");
+    b.style.left = c.left + "px"; b.style.top = c.top + "px"; b.style.width = (r.right - c.left) + "px"; b.style.height = c.height + "px";
+  }
+  // the parameters for a run: defaults, then the experiment's settings (or the left panel), then every value in the table
+  function base() {
+    const E = expI >= 0 ? C.experiments[expI] : null;
+    const b = E ? { ...C.defaults, ...E.set } : { ...C.defaults, ...C.current() };
+    for (const [k, v] of Object.entries(TBL.vals)) { const V = C.vars[k]; if (V && isFinite(v)) b[k] = clamp(V.int ? Math.round(v) : v, V.min, V.max); }
+    for (const [k, v] of Object.entries(TBL.opts)) if (v !== undefined) b[k] = v;
+    return b;
+  }
+  function run() {
+    if (busy) return;
+    const out = el("bOut").value, b = base(), jobs = [];
+    const sweep = el("bMode").value === "sweep" && TBL.vary, xs = sweep ? sweepValues() : [];
+    const cfg = { mode: sweep ? "sweep" : "repeat", out, v: TBL.vary, xs, from: xs.length ? Math.min(...xs) : 0, to: xs.length ? Math.max(...xs) : 1,
+                  reps: clamp(Math.round(+el("bReps").value) || 1, 1, 200), runs: +el("bRuns").value, exp: expI };
+    if (cfg.mode === "repeat") for (let k = 0; k < cfg.runs; k++) jobs.push({ p: b, x: null, seed: 1000 + k * 7919 });
+    else for (const v of xs) {
+      const p = { ...b, [cfg.v]: v };
+      // the SAME random numbers at every step, so only the swept setting changes
+      for (let r = 0; r < cfg.reps; r++) jobs.push({ p, x: v, seed: 2000 + r * 7919 });
+    }
+    res = { cfg, base: b, rows: [] }; busy = true; stop = false;
+    el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").disabled = true;
+    document.querySelectorAll("#bexp button").forEach(x => x.disabled = true);
+    let k = 0; const t0 = performance.now();
+    const chunk = () => {
+      const tc = performance.now();
+      while (k < jobs.length && performance.now() - tc < 50 && !stop) { const j = jobs[k++], r = C.runOnce(j.p, j.seed, out); res.rows.push({ x: j.x, seed: j.seed, ...r }); }
+      el("bProg").style.width = (100 * k / jobs.length) + "%";
+      el("bStatus").textContent = `${k} of ${jobs.length} runs · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+      draw();
+      if (k < jobs.length && !stop) setTimeout(chunk, 0);
+      else { busy = false; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").disabled = !res.rows.length; el("bStatus").textContent += stop ? " · stopped" : " · done"; document.querySelectorAll("#bexp button").forEach(x => x.disabled = false); draw(); }
+    };
+    setTimeout(chunk, 20);
+  }
+  function draw() {
+    const { ctx, w, h } = fitCanvas(el("bchart"));
+    ctx.clearRect(0, 0, w, h);
+    const note = el("bNote"), E = res && res.cfg.exp >= 0 ? C.experiments[res.cfg.exp] : null;
+    if (!res || !res.rows.length) { note.style.display = "none"; return; }
+    const c = res.cfg, O = C.outcomes[c.out], unit = unitOf(O.unit);
+    const leg = (col, t, dash) => `<span style="margin-right:10px;white-space:nowrap"><i style="display:inline-block;width:14px;height:${dash ? 2 : 10}px;background:${col};margin-right:4px;vertical-align:${dash ? 3 : -1}px"></i>${t}</span>`;
+    const logX = el("bLogX").checked, logY = el("bLogY").checked;
+    let html = "";
+    if (c.mode === "repeat") {
+      const vals = res.rows.map(r => r.value).filter(isFinite); if (!vals.length) { el("bsum").textContent = "No usable results."; return; }
+      const S = st(vals), thv = st(res.rows.map(r => r.theory)).mean, tsd = st(res.rows.map(r => r.theorySD)).mean;
+      let lo = Math.min(S.min, isFinite(thv) ? thv : S.min), hi = Math.max(S.max, isFinite(thv) ? thv : S.max);
+      if (isFinite(tsd) && tsd > 0) { lo = Math.min(lo, thv - 3.2 * tsd); hi = Math.max(hi, thv + 3.2 * tsd); }
+      if (hi - lo < 1e-12) { hi = lo + Math.abs(lo || 1) * 0.1; }
+      const pad = (hi - lo) * 0.04; lo -= pad; hi += pad;
+      const nb = clamp(Math.round(Math.sqrt(vals.length) * 1.6), 6, 30), bw = (hi - lo) / nb, cnt = new Array(nb).fill(0);
+      for (const v of vals) cnt[Math.min(nb - 1, Math.max(0, Math.floor((v - lo) / bw)))]++;
+      let ymax = Math.max(...cnt);
+      if (isFinite(tsd) && tsd > 0) ymax = Math.max(ymax, vals.length * bw / (tsd * Math.sqrt(2 * Math.PI)));
+      const ax = axes(ctx, w, h, { x0: lo, x1: hi, y0: 0, y1: ymax * 1.12, xlabel: O.label + unit, ylabel: "number of runs", L: 52 });
+      ctx.fillStyle = "#00aec3cc";
+      for (let b = 0; b < nb; b++) { const x0 = ax.X(lo + b * bw), x1 = ax.X(lo + (b + 1) * bw); ctx.fillRect(x0 + 0.5, ax.Y(cnt[b]), Math.max(1, x1 - x0 - 1), ax.Y(0) - ax.Y(cnt[b])); }
+      if (isFinite(tsd) && tsd > 0 && isFinite(thv)) { const pts = []; for (let k = 0; k <= 160; k++) { const x = lo + (hi - lo) * k / 160; pts.push([ax.X(x), ax.Y(vals.length * bw * Math.exp(-0.5 * ((x - thv) / tsd) ** 2) / (tsd * Math.sqrt(2 * Math.PI)))]); } line(ctx, pts, "#a4cbe6", 2); }
+      if (isFinite(thv)) line(ctx, [[ax.X(thv), ax.T], [ax.X(thv), ax.Y(0)]], "#f1af28", 2.5);
+      line(ctx, [[ax.X(S.mean), ax.T], [ax.X(S.mean), ax.Y(0)]], "#e83181", 2, [3, 3]);
+      const dp = thv ? 100 * (S.mean - thv) / thv : NaN, dse = S.se > 0 ? (S.mean - thv) / S.se : NaN;
+      html += `<div style="margin-bottom:6px">${leg("#00aec3cc", "runs")}${leg("#e83181", "mean", 1)}${isFinite(thv) ? leg("#f1af28", "theory: " + O.theoryLabel, 1) : ""}${isFinite(tsd) && tsd > 0 ? leg("#a4cbe6", "predicted spread (normal curve)", 1) : ""}</div>`;
+      html += `<table><tr><th>Runs (n)</th><td>${S.n}</td></tr><tr><th>Mean</th><td>${fmt(S.mean, 4)}</td></tr><tr><th>SD</th><td>${fmt(S.sd, 3)}</td></tr><tr><th>Standard error</th><td>${fmt(S.se, 2)}</td></tr>` +
+        `<tr><th>Min / max</th><td>${fmt(S.min, 3)} / ${fmt(S.max, 3)}</td></tr><tr><th>Theory</th><td>${fmt(thv, 4)}</td></tr>` +
+        (isFinite(tsd) && tsd > 0 ? `<tr><th>Theory SD</th><td>${fmt(tsd, 3)}</td></tr>` : "") +
+        (isFinite(dp) ? `<tr><th>Difference</th><td>${dp >= 0 ? "+" : ""}${dp.toFixed(1)}%</td></tr>` : "") +
+        `<tr><th>…in standard errors</th><td>${isFinite(dse) ? dse.toFixed(1) : "–"}</td></tr></table>`;
+    } else {
+      const V = C.vars[c.v];
+      const groups = new Map(); for (const r of res.rows) { if (!groups.has(r.x)) groups.set(r.x, { x: r.x, v: [], th: [], th2: [] }); const g = groups.get(r.x); g.v.push(r.value); g.th.push(r.theory); g.th2.push(r.theory2); }
+      const G = [...groups.values()].map(g => ({ ...g, ...st(g.v), thm: st(g.th).mean, th2m: st(g.th2).mean })).filter(g => g.n);
+      if (!G.length) { el("bsum").textContent = "No usable results."; return; }
+      const allY = res.rows.map(r => r.value).filter(isFinite).concat(G.map(g => g.thm).filter(isFinite)).concat(G.map(g => g.th2m).filter(isFinite));
+      let x0 = Math.min(c.from, c.to), x1 = Math.max(c.from, c.to); if (x0 === x1) x1 = x0 + 1;
+      let y0 = Math.min(...allY), y1 = Math.max(...allY);
+      if (logY) { const gm = G.map(g => g.mean).filter(v => v > 0); y0 = Math.max(y0 / 1.4, 1e-12, gm.length ? Math.min(...gm) / 30 : 0); y1 *= 1.4; }   // single runs far below the means (e.g. an error of almost exactly 0) fall off the bottom
+      else { const pd = (y1 - y0) * 0.12 || Math.abs(y1) * 0.1 || 1; y0 = y0 >= 0 && y0 < 0.4 * y1 ? 0 : y0 - pd; y1 += pd; }
+      if (logX) { x0 /= 1.15; x1 *= 1.15; } else { const pd = (x1 - x0) * 0.05; x0 -= pd; x1 += pd; if (x0 < 0 && c.from >= 0) x0 = 0; }
+      const ax = axes(ctx, w, h, { x0, x1, y0, y1, xlog: logX, ylog: logY, xlabel: V.label + unitOf(V.unit), ylabel: O.label + unit, L: 58, xfmt: V.xfmt, xticks: V.xfmt && !logX ? G.map(g => g.x) : undefined });
+      clip(ctx, ax, w, h);
+      line(ctx, G.filter(g => isFinite(g.thm)).map(g => [ax.X(g.x), ax.Y(g.thm)]), "#f1af28", 2.2);
+      const has2 = G.some(g => isFinite(g.th2m));
+      if (has2) line(ctx, G.filter(g => isFinite(g.th2m)).map(g => [ax.X(g.x), ax.Y(g.th2m)]), "#a3ab96", 1.6, [5, 4]);
+      ctx.fillStyle = "rgba(0,174,195,.4)"; for (const r of res.rows) if (isFinite(r.value)) { ctx.beginPath(); ctx.arc(ax.X(r.x), ax.Y(r.value), 2.5, 0, 6.2832); ctx.fill(); }
+      ctx.strokeStyle = "#ffffff"; ctx.fillStyle = "#e83181"; ctx.lineWidth = 1.5;
+      for (const g of G) { const X = ax.X(g.x), lo = logY && g.mean - g.sd <= 0 ? g.mean * 0.5 : g.mean - g.sd; if (g.sd > 0) { ctx.beginPath(); ctx.moveTo(X, ax.Y(lo)); ctx.lineTo(X, ax.Y(g.mean + g.sd)); ctx.stroke(); } ctx.beginPath(); ctx.arc(X, ax.Y(g.mean), 4, 0, 6.2832); ctx.fill(); }
+      ctx.restore();
+      html += `<div style="margin-bottom:6px">${leg("rgba(0,174,195,.6)", "each run")}${leg("#e83181", "mean ± 1 SD")}${G.some(g => isFinite(g.thm)) ? leg("#f1af28", "theory: " + O.theoryLabel, 1) : ""}${has2 ? leg("#a3ab96", O.theory2Label || "second theory", 1) : ""}</div>`;
+      html += `<table><tr><th>${V.label}</th><th>n</th><th>mean</th><th>SD</th><th>theory</th>${has2 ? "<th>theory 2</th>" : ""}</tr>` +
+        G.map(g => `<tr><td>${V.xfmt ? V.xfmt(g.x) : fmt(g.x, 3)}</td><td>${g.n}</td><td>${fmt(g.mean, 4)}</td><td>${fmt(g.sd, 2)}</td><td>${fmt(g.thm, 4)}</td>${has2 ? `<td>${fmt(g.th2m, 4)}</td>` : ""}</tr>`).join("") + "</table>";
+      const ok = G.filter(g => g.x > 0 && g.mean > 0);
+      if (ok.length >= 2 && logX && logY) html += `<p><b>Gradient of the log–log graph:</b> ${linfit(ok.map(g => Math.log10(g.x)), ok.map(g => Math.log10(g.mean))).b.toFixed(3)}${O.gradient && O.gradient[c.v] !== undefined ? ` (theory ${O.gradient[c.v]})` : ""}.</p>`;
+      else if (G.length >= 2 && !logX && !logY && !O.noFit && !V.noFit) { const f = linfit(G.map(g => g.x), G.map(g => g.mean)); html += `<p><b>Best-fit straight line:</b> gradient ${fmt(f.b, 3)}, intercept ${fmt(f.a, 3)}.</p>`; }
+    }
+    el("bsum").innerHTML = html;
+    note.style.display = E ? "" : "none"; note.innerHTML = E ? `<b>What this shows.</b> ${E.note}` : "";
+  }
+  function csv() {
+    if (!res) return;
+    const c = res.cfg, O = C.outcomes[c.out], V = C.vars[c.v], q = s => `"${String(s).replace(/"/g, '""')}"`;
+    const head = (c.mode === "sweep" ? [V.label + unitOf(V.unit)] : []).concat(["seed", O.label + unitOf(O.unit), "theory", "theory 2"]);
+    const lines = [head.map(q).join(",")].concat(res.rows.map(r => (c.mode === "sweep" ? [r.x] : []).concat([r.seed, r.value, r.theory ?? "", r.theory2 ?? ""]).map(v => typeof v === "number" ? +v.toPrecision(7) : v).join(",")));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" })); a.download = `${C.fileName}-batch-${c.out}.csv`;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+  return { init, open, isBusy: () => busy, refresh: () => { if (el("batch") && el("batch").classList.contains("open")) { place(); draw(); } } };
+})();
+
+
+/* =====================================================================
+   A STYLISED ATHLETE IN 3D
+   ---------------------------------------------------------------------
+   The body is a chain of segments (thigh, shank, foot, trunk, head, upper
+   arm, forearm, hand). Joint angles (radians) give each segment's direction;
+   a simple camera draws it from any side. Segment lengths and masses are
+   standard fractions of height and body mass (Winter, "Biomechanics and
+   Motor Control of Human Movement", after Dempster), so the same figure
+   gives a realistic centre of mass and moment of inertia.
+   Body axes: x forwards, y up, z to the athlete's left.
+   ===================================================================== */
+const FIG = {
+  len: { thigh: 0.245, shank: 0.246, foot: 0.152, ankle: 0.039, trunk: 0.29, neck: 0.05, headR: 0.062, uarm: 0.186, farm: 0.146, hand: 0.1, hip: 0.052, sh: 0.105 },
+  // mass fraction, and where the segment's own centre of mass lies (fraction from the proximal end)
+  mass: { head: 0.081, trunk: 0.497, uarm: 0.028, farm: 0.016, hand: 0.006, thigh: 0.1, shank: 0.0465, foot: 0.0145 },
+  cmf: { uarm: 0.436, farm: 0.43, hand: 0.5, thigh: 0.433, shank: 0.433, foot: 0.5, trunk: 0.5 },
+  rad: { head: 0.06, trunk: 0.075, uarm: 0.026, farm: 0.022, hand: 0.02, thigh: 0.043, shank: 0.03, foot: 0.02 },   // radius of each segment as a fraction of height (for inertia)
+};
+// rotations of a vector [x, y, z]
+const rotX = (v, a) => [v[0], v[1] * Math.cos(a) - v[2] * Math.sin(a), v[1] * Math.sin(a) + v[2] * Math.cos(a)];
+const rotY = (v, a) => [v[0] * Math.cos(a) + v[2] * Math.sin(a), v[1], -v[0] * Math.sin(a) + v[2] * Math.cos(a)];
+const rotZ = (v, a) => [v[0] * Math.cos(a) - v[1] * Math.sin(a), v[0] * Math.sin(a) + v[1] * Math.cos(a), v[2]];
+const vadd = (a, b, k = 1) => [a[0] + k * b[0], a[1] + k * b[1], a[2] + k * b[2]];
+const vsub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const vdot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const vcross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const vlen = a => Math.hypot(a[0], a[1], a[2]);
+const DOWN = [0, -1, 0], UP = [0, 1, 0];
+
+/* A pose: every angle in radians, 0 = standing straight, arms by the sides.
+   tf trunk flexion (lean forwards), tl lateral bend (to the left), tt trunk twist, nf neck flexion
+   for each side (L or R): sf shoulder flexion (arm raised forwards), sa shoulder abduction (sideways), ef elbow flexion,
+                          hf hip flexion (thigh forwards), ha hip abduction, kf knee flexion, af ankle plantar-flexion
+   rs somersault (forwards), rc cartwheel (to the left), rt twist (to the left), about the hips or the centre of mass */
+function pose(o) { const p = { tf: 0, tl: 0, tt: 0, nf: 0, rs: 0, rc: 0, rt: 0 }; for (const s of ["L", "R"]) for (const k of ["sf", "sa", "ef", "hf", "ha", "kf", "af"]) p[k + s] = 0; return Object.assign(p, o || {}); }
+function mixPose(a, b, f) { const o = {}; for (const k of Object.keys(a)) o[k] = a[k] + (b[k] - a[k]) * f; return o; }
+
+// Joint positions (metres) of an athlete of height H with the hip centre at the origin, before the whole-body rotation
+function joints(P, H) {
+  const L = FIG.len, J = {};
+  const trunkR = v => rotZ(rotX(rotY(v, P.tt), P.tl), -P.tf);
+  J.hip = [0, 0, 0];
+  J.neck = trunkR([0, L.trunk * H, 0]);
+  J.head = vadd(J.neck, trunkR(rotZ([0, (L.neck + L.headR) * H, 0], -P.nf)));
+  J.face = trunkR(rotZ([1, 0, 0], -P.nf));
+  for (const s of ["L", "R"]) {
+    const sg = s === "L" ? 1 : -1;
+    J["sh" + s] = vadd(J.neck, trunkR([0, -0.02 * H, sg * L.sh * H]));
+    const ab = v => rotX(v, -sg * P["sa" + s]);
+    const ua = trunkR(ab(rotZ(DOWN, P["sf" + s]))), fa = trunkR(ab(rotZ(DOWN, P["sf" + s] + P["ef" + s])));
+    J["el" + s] = vadd(J["sh" + s], ua, L.uarm * H);
+    J["wr" + s] = vadd(J["el" + s], fa, L.farm * H);
+    J["fi" + s] = vadd(J["wr" + s], fa, L.hand * H);
+    J["hp" + s] = [0, 0, sg * L.hip * H];
+    const abl = v => rotX(v, -sg * P["ha" + s]);
+    const th = abl(rotZ(DOWN, P["hf" + s])), sh = abl(rotZ(DOWN, P["hf" + s] - P["kf" + s])), ft = abl(rotZ(DOWN, P["hf" + s] - P["kf" + s] + Math.PI / 2 - P["af" + s]));
+    J["kn" + s] = vadd(J["hp" + s], th, L.thigh * H);
+    J["an" + s] = vadd(J["kn" + s], sh, L.shank * H);
+    J["he" + s] = vadd(vadd(J["an" + s], sh, L.ankle * H), ft, -0.25 * L.foot * H);
+    J["to" + s] = vadd(J["he" + s], ft, L.foot * H);
+  }
+  return J;
+}
+// The segments: [name, proximal joint, distal joint]
+const SEGS = [["trunk", "hip", "neck"], ["uarm", "shL", "elL"], ["farm", "elL", "wrL"], ["hand", "wrL", "fiL"], ["uarm", "shR", "elR"], ["farm", "elR", "wrR"], ["hand", "wrR", "fiR"],
+  ["thigh", "hpL", "knL"], ["shank", "knL", "anL"], ["foot", "heL", "toL"], ["thigh", "hpR", "knR"], ["shank", "knR", "anR"], ["foot", "heR", "toR"]];
+// Centre of mass: the mass-weighted average of every segment's own centre of mass
+function centreOfMass(J) {
+  let c = vadd([0, 0, 0], J.head, FIG.mass.head);
+  for (const [n, a, b] of SEGS) c = vadd(c, vadd(J[a], vsub(J[b], J[a]), FIG.cmf[n]), FIG.mass[n]);
+  return c;
+}
+// Moment of inertia (kg m²) about an axis (unit vector n) through the centre of mass: I = Σ m r² plus each segment's own
+function inertia(J, n, H, M) {
+  const c = centreOfMass(J); let I = 0;
+  const add = (m, p, u, Ls, R) => {
+    const r = vsub(p, c), perp = vcross(r, n), cb = u ? vdot(u, n) : 0;
+    I += m * vdot(perp, perp) + m * (Ls * Ls / 12 * (1 - cb * cb) + R * R / 2 * cb * cb + R * R / 4 * (1 - cb * cb));
+  };
+  add(FIG.mass.head * M, J.head, null, 0, FIG.rad.head * H);
+  for (const [nm, a, b] of SEGS) { const d = vsub(J[b], J[a]), Ls = vlen(d), u = [d[0] / Ls, d[1] / Ls, d[2] / Ls]; add(FIG.mass[nm] * M, vadd(J[a], d, FIG.cmf[nm]), u, Ls, FIG.rad[nm] * H); }
+  return I;
+}
+// Apply the whole-body rotation (about the centre of mass when aboutCom) and move the figure to 'at' (world, metres)
+function placeJoints(P, H, at, aboutCom) {
+  const J = joints(P, H), piv = aboutCom ? centreOfMass(J) : [0, 0, 0], R = v => rotY(rotX(rotZ(v, -P.rs), P.rc), P.rt), out = {};
+  for (const k of Object.keys(J)) out[k] = k === "face" ? R(J[k]) : vadd(at, R(vsub(J[k], piv)));
+  return out;
+}
+// Put a figure on the ground: shift it so that its lowest point touches y = 0 (hip at x, z)
+function onGround(P, H, x = 0, z = 0) {
+  const J = placeJoints(P, H, [x, 0, z], false);
+  let lo = Infinity; for (const k of Object.keys(J)) if (k !== "face" && k !== "head") lo = Math.min(lo, J[k][1]);
+  lo = Math.min(lo, J.head[1] - FIG.len.headR * H);
+  for (const k of Object.keys(J)) if (k !== "face") J[k] = [J[k][0], J[k][1] - lo, J[k][2]];
+  return J;
+}
+
+/* ---------- the camera: yaw (turn round the vertical) and pitch (look down), orthographic ---------- */
+function camera(cx, cy, scale, yaw = 0, pitch = 0) {
+  const tr = v => rotX(rotY(v, -yaw), pitch);
+  return { scale, tr, P: v => { const q = tr(v); return [cx + scale * q[0], cy - scale * q[1], q[2]]; } };
+}
+function shade(hex, f) { const n = parseInt(hex.slice(1), 16); const c = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(Math.min(255, v * f))); return `rgb(${c[0]},${c[1]},${c[2]})`; }
+const FCOL = { skin: "#c98d63", shirt: "#f1af28", shorts: "#3b3891", shoe: "#00aec3", hair: "#2b1b10" };
+// Draw the figure from joint positions J (world metres). o: { shirt, shorts, ghost (0–1 transparency), lw (line-width factor) }
+function drawFigure(ctx, cam, J, H, o = {}) {
+  const s = cam.scale * H, col = { ...FCOL, ...(o.col || {}) }; if (o.shirt) col.shirt = o.shirt;
+  const items = [];
+  const seg = (a, b, w, c, z) => items.push({ t: "l", a: cam.P(J[a]), b: cam.P(J[b]), w: w * s, c, z });
+  const P = k => cam.P(J[k]);
+  for (const sd of ["L", "R"]) {
+    // the thigh is half shorts, half skin
+    const hp = J["hp" + sd], kn = J["kn" + sd], mid = vadd(hp, vsub(kn, hp), 0.55);
+    items.push({ t: "l", a: cam.P(hp), b: cam.P(mid), w: 0.085 * s, c: col.shorts });
+    items.push({ t: "l", a: cam.P(mid), b: cam.P(kn), w: 0.068 * s, c: col.skin });
+    seg("kn" + sd, "an" + sd, 0.055, col.skin); seg("he" + sd, "to" + sd, 0.045, col.shoe);
+    seg("sh" + sd, "el" + sd, 0.05, col.skin); seg("el" + sd, "wr" + sd, 0.042, col.skin); seg("wr" + sd, "fi" + sd, 0.036, col.skin);
+  }
+  // depth: the mean camera depth of each item; draw the far ones first and shade them darker
+  for (const it of items) it.z = (it.a[2] + it.b[2]) / 2;
+  const zs = items.map(i => i.z), z0 = Math.min(...zs), z1 = Math.max(...zs) + 1e-6;
+  // trunk: a quad from the hips to the shoulders (wide from the front, thin from the side)
+  const tq = [P("hpL"), P("hpR"), P("shR"), P("shL")], tz = (tq[0][2] + tq[1][2] + tq[2][2] + tq[3][2]) / 4;
+  items.push({ t: "q", q: tq, c: col.shirt, z: tz, w: 0.1 * s });
+  const hd = P("head"); items.push({ t: "h", p: hd, z: hd[2] });
+  items.sort((a, b) => a.z - b.z);
+  ctx.save(); if (o.ghost) ctx.globalAlpha = o.ghost;
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (const it of items) {
+    const f = 0.72 + 0.28 * (it.z - z0) / (z1 - z0);
+    if (it.t === "l") { ctx.strokeStyle = shade(it.c, f); ctx.lineWidth = Math.max(1.5, it.w * (o.lw || 1)); ctx.beginPath(); ctx.moveTo(it.a[0], it.a[1]); ctx.lineTo(it.b[0], it.b[1]); ctx.stroke(); }
+    else if (it.t === "q") { ctx.fillStyle = ctx.strokeStyle = shade(it.c, 1); ctx.lineWidth = Math.max(2, it.w * (o.lw || 1)); ctx.beginPath(); it.q.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    else {
+      const r = FIG.len.headR * s * 1.05, fc = cam.tr(J.face), ang = Math.atan2(-fc[1], fc[0]), side = Math.hypot(fc[0], fc[1]);
+      ctx.fillStyle = col.skin; ctx.beginPath(); ctx.arc(it.p[0], it.p[1], r, 0, 6.283); ctx.fill();
+      ctx.fillStyle = col.hair; ctx.beginPath();
+      if (side > 0.3) ctx.arc(it.p[0], it.p[1], r * 1.02, ang + Math.PI * 0.55, ang + Math.PI * 1.45 + 0.35 * Math.sign(fc[0] || 1) * 0, false);
+      else ctx.arc(it.p[0], it.p[1] - r * 0.1, r * 1.0, Math.PI * 1.05, Math.PI * 1.95);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+// A running stride. phase in radians; amp 0 (walking) to 1 (sprinting)
+function runPose(ph, amp, lean = 0.12) {
+  const sw = 0.55 + 0.5 * amp, P = pose({ tf: lean + 0.12 * amp });
+  for (const [s, o] of [["L", 0], ["R", Math.PI]]) {
+    const q = ph + o, fwd = Math.sin(q);
+    P["hf" + s] = 0.15 + sw * fwd;
+    P["kf" + s] = 0.25 + (0.6 + 1.1 * amp) * Math.max(0, Math.sin(q - 1.3)) + 0.25 * Math.max(0, -Math.cos(q));
+    P["af" + s] = 0.25 * Math.max(0, -fwd);
+    P["sf" + s] = -0.85 * sw * fwd; P["ef" + s] = 1.45;
+  }
+  return P;
+}
+
+
+/* =====================================================================
+   1. A MATCH: goals are random (a Poisson process)
+   Each team has a true strength s (0 = an average team). In a match the
+   number of goals each side scores is a Poisson random number with mean
+       home:  λh = g × e^((s_home − s_away) ÷ 2 + h ÷ 2)
+       away:  λa = g × e^((s_away − s_home) ÷ 2 − h ÷ 2)
+   g = average goals per team per match, h = home advantage.
+   Football has few goals, so luck decides many matches: the better team
+   often draws or loses. This is the "Poisson model" used by many sports
+   statisticians (Maher, 1982; Dixon and Coles, 1997).
+   ===================================================================== */
+const MAXG = 12;
+const POIS = (l, k) => { let p = Math.exp(-l); for (let i = 1; i <= k; i++) p *= l / i; return p; };
+// a Poisson random number with mean l (count events until the product of uniforms drops below e^(−l))
+function poisson(rng, l) { const L = Math.exp(-l); let k = 0, p = rng(); while (p > L && k < 30) { k++; p *= rng(); } return k; }
+const rates = (p, sh, sa, neutral) => { const hh = neutral ? 0 : p.home; return [p.goals * Math.exp((sh - sa) / 2 + hh / 2), p.goals * Math.exp((sa - sh) / 2 - hh / 2)]; };
+// Exact chances of a home win, a draw and an away win (sum over every scoreline up to 12–12)
+function matchP(lh, la) {
+  const ph = [], pa = []; for (let k = 0; k <= MAXG; k++) { ph.push(POIS(lh, k)); pa.push(POIS(la, k)); }
+  let H = 0, D = 0, A = 0; for (let i = 0; i <= MAXG; i++) for (let j = 0; j <= MAXG; j++) { const q = ph[i] * pa[j]; if (i > j) H += q; else if (i === j) D += q; else A += q; }
+  const t = H + D + A; return { H: H / t, D: D / t, A: A / t };
+}
+// Expected points, their variance, and the covariance of the two teams' points in one match (3 for a win, 1 for a draw)
+function matchStats(m) {
+  const eh = 3 * m.H + m.D, ea = 3 * m.A + m.D;
+  return { eh, ea, vh: 9 * m.H + m.D - eh * eh, va: 9 * m.A + m.D - ea * ea, cov: m.D - eh * ea };
+}
+
+/* =====================================================================
+   2. A LEAGUE SEASON: every team plays every other twice (home and away)
+   20 teams → 38 matches each, 380 in all, in 38 rounds of 10 matches.
+   ===================================================================== */
+const NAMES = ["Ashby Athletic", "Brookfield United", "Castleton Rovers", "Dunmore Town", "Eastwick City", "Fairport Wanderers", "Glenvale FC", "Harrowgate Albion", "Ironbridge Rangers", "Kingsmere Town",
+  "Lockwood United", "Millbrook City", "Northam Athletic", "Oakridge Rovers", "Pinewood FC", "Queensbury Town", "Riverside United", "Stonebridge City", "Thornbury Albion", "Westford Wanderers",
+  "Yarwood Town", "Zennor United", "Ambleside FC", "Bexley Rovers"];
+const SHIRTS = ["#de252a", "#00aec3", "#f1af28", "#76b82a", "#a86dab", "#f18700", "#e83181", "#a4cbe6", "#53892e", "#abb5b5", "#a2c617", "#ffffff"];
+// The fixture list: the "circle method" (one team stays still, the rest rotate), then the same rounds with home and away swapped
+function fixtures(N, rng) {
+  const n = N % 2 ? N + 1 : N, arr = Array.from({ length: n }, (_, i) => i), R = [];
+  for (let i = n - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }   // random order, so the strongest do not always meet the weakest first
+  for (let r = 0; r < n - 1; r++) {
+    const rd = []; for (let k = 0; k < n / 2; k++) { const a = arr[k], b = arr[n - 1 - k]; if (a < N && b < N) rd.push(r % 2 ? [b, a] : [a, b]); }
+    R.push(rd); arr.splice(1, 0, arr.pop());
+  }
+  return R.concat(R.map(rd => rd.map(([a, b]) => [b, a])));
+}
+// Team strengths: drawn from a bell curve (SD = spread), strongest first; the best team gets an extra edge
+function makeTeams(p, rng) {
+  const N = Math.round(p.teams), s = []; for (let i = 0; i < N; i++) s.push(p.spread * gauss(rng));
+  s.sort((a, b) => b - a); s[0] += p.edge;
+  const names = NAMES.slice(0, N); for (let i = N - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [names[i], names[j]] = [names[j], names[i]]; }
+  return s.map((x, i) => ({ id: i, s: x, name: names[i], shirt: SHIRTS[i % SHIRTS.length] }));
+}
+function makeLeague(p, seed) {
+  const rng = mulberry32(seed), T = makeTeams(p, rng), N = T.length, F = fixtures(N, rng);
+  const L = { p: { ...p }, rng, T, N, F, round: 0, rows: T.map(t => ({ id: t.id, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, Pts: 0, res: [] })), results: [], last: [], hw: 0, dr: 0, aw: 0, champion: -1 };
+  // each team's true quality: its expected points per game over its own fixtures
+  L.q = new Array(N).fill(0); L.varq = new Array(N).fill(0); L.cov = 0; L.pH = 0; L.nM = 0;
+  for (const rd of F) for (const [h, a] of rd) {
+    const [lh, la] = rates(p, T[h].s, T[a].s), m = matchP(lh, la), st = matchStats(m);
+    L.q[h] += st.eh; L.q[a] += st.ea; L.varq[h] += st.vh; L.varq[a] += st.va; L.cov += st.cov; L.pH += m.H; L.nM++;
+  }
+  L.mu = L.q.slice(); L.q = L.q.map(x => x / (2 * (N - 1)));
+  return L;
+}
+function playMatch(L, h, a, neutral) { const [lh, la] = rates(L.p, L.T[h].s, L.T[a].s, neutral); return [poisson(L.rng, lh), poisson(L.rng, la)]; }
+function playRound(L) {
+  if (L.round >= L.F.length) return false;
+  L.last = [];
+  for (const [h, a] of L.F[L.round]) {
+    const [gh, ga] = playMatch(L, h, a), H = L.rows[h], A = L.rows[a];
+    H.P++; A.P++; H.GF += gh; H.GA += ga; A.GF += ga; A.GA += gh;
+    const ph = gh > ga ? 3 : gh === ga ? 1 : 0, pa = ga > gh ? 3 : gh === ga ? 1 : 0;
+    H.Pts += ph; A.Pts += pa; H.res.push(ph); A.res.push(pa);
+    if (ph === 3) { H.W++; A.L++; L.hw++; } else if (pa === 3) { A.W++; H.L++; L.aw++; } else { H.D++; A.D++; L.dr++; }
+    L.last.push({ h, a, gh, ga }); L.results.push({ r: L.round, h, a, gh, ga });
+  }
+  L.round++;
+  if (L.round === L.F.length) L.champion = standings(L)[0].id;
+  return true;
+}
+// The table: points, then goal difference, then goals scored (then the order the teams were listed)
+function standings(L) { return L.rows.slice().sort((a, b) => b.Pts - a.Pts || (b.GF - b.GA) - (a.GF - a.GA) || b.GF - a.GF || a.id - b.id); }
+function playSeason(L) { while (playRound(L)); return L; }
+
+/* =====================================================================
+   3. A KNOCKOUT CUP: the 16 strongest teams, a random draw, one match a
+   tie (a coin toss decides who plays at home), penalties if it is a draw
+   (a 50 : 50 lottery). Four rounds: last 16, quarter-finals, semi-finals,
+   final (the final at a neutral ground).
+   Exact theory: the chance a team wins a tie is
+       q = P(win in 90 minutes) + ½ P(draw)       (averaged over home and away)
+   and the chance it wins the cup comes from working through the bracket
+   (each round: the chance it got there × the chance it beats whoever
+   is likely to be waiting for it).
+   ===================================================================== */
+function tieP(L, i, j, neutral) {
+  const f = (h, a, nt) => { const [lh, la] = rates(L.p, L.T[h].s, L.T[a].s, nt); const m = matchP(lh, la); return m.H + 0.5 * m.D; };
+  return neutral ? f(i, j, true) : 0.5 * (f(i, j, false) + (1 - f(j, i, false)));
+}
+function cupDraw(L) { const ids = Array.from({ length: Math.min(16, L.N) }, (_, i) => i), r = L.rng; for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; } return ids; }
+function playCup(L, draw) {
+  let alive = draw.slice(); const rounds = [];
+  while (alive.length > 1) {
+    const next = [], ties = [], fin = alive.length === 2;
+    for (let k = 0; k < alive.length; k += 2) {
+      const sw = L.rng() < 0.5, h = sw ? alive[k + 1] : alive[k], a = sw ? alive[k] : alive[k + 1], [gh, ga] = playMatch(L, h, a, fin), pens = gh === ga, w = gh > ga ? h : ga > gh ? a : (L.rng() < 0.5 ? h : a);
+      ties.push({ h, a, gh, ga, pens, w }); next.push(w);
+    }
+    rounds.push(ties); alive = next;
+  }
+  return { rounds, winner: alive[0] };
+}
+// Exact chance that team t wins the cup with this draw (dynamic programming over the bracket)
+function cupTheory(L, draw, t) {
+  let P = new Map(draw.map(id => [id, 1])), groups = draw.map(id => [id]);
+  while (groups.length > 1) {
+    const fin = groups.length === 2, nextG = [], nextP = new Map();
+    for (let k = 0; k < groups.length; k += 2) {
+      const A = groups[k], B = groups[k + 1];
+      for (const [X, Y] of [[A, B], [B, A]]) for (const i of X) { let s = 0; for (const j of Y) s += P.get(j) * tieP(L, i, j, fin); nextP.set(i, P.get(i) * s); }
+      nextG.push(A.concat(B));
+    }
+    groups = nextG; P = nextP;
+  }
+  return P.get(t) || 0;
+}
+const Phi = x => { const t = 1 / (1 + 0.2316419 * Math.abs(x)), d = Math.exp(-x * x / 2) / Math.sqrt(2 * Math.PI), q = d * t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429)))); return x >= 0 ? 1 - q : q; };
+// League theory (normal approximation): the best team tops the table if it beats every rival's total;
+// each total ≈ normal with the expected points and variance from its fixtures, treated as independent
+function leagueTheory(L) {
+  let P = 1; for (let j = 1; j < L.N; j++) P *= Phi((L.mu[0] - L.mu[j]) / Math.sqrt(L.varq[0] + L.varq[j] + 1e-9));
+  return P;
+}
+
+/* =====================================================================
+   4. HOW MUCH OF THE TABLE IS LUCK?  (A level: variance)
+   Final points = skill part + luck part, so (for independent parts)
+       variance of points = variance from skill + variance from luck.
+   With every team equally strong, the spread of points is pure luck:
+       E[s²] = mean of each team's luck variance − mean covariance
+   (the two teams in a match share the result, which makes their points
+   slightly negatively related, so we include that term).
+   ===================================================================== */
+function luckSD(L) {
+  const N = L.N, meanV = L.varq.reduce((s, v) => s + v, 0) / N, pairs = N * (N - 1), meanMu = L.mu.reduce((s, v) => s + v, 0) / N;
+  const skillVar = L.mu.reduce((s, v) => s + (v - meanMu) ** 2, 0) / (N - 1), luckVar = Math.max(0, meanV - 2 * L.cov / pairs);
+  return { luck: Math.sqrt(luckVar), total: Math.sqrt(skillVar + luckVar), skillVar, luckVar };
+}
+const sdOf = a => { const n = a.length, m = a.reduce((s, x) => s + x, 0) / n; return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (n - 1)); };
+function corrOf(x, y) { const n = x.length, mx = x.reduce((s, v) => s + v, 0) / n, my = y.reduce((s, v) => s + v, 0) / n; let sxy = 0, sxx = 0, syy = 0; for (let i = 0; i < n; i++) { sxy += (x[i] - mx) * (y[i] - my); sxx += (x[i] - mx) ** 2; syy += (y[i] - my) ** 2; } return sxx > 0 && syy > 0 ? sxy / Math.sqrt(sxx * syy) : 0; }
+// Sample size: after n matches, the correlation between points per game and true quality is about
+//   r = √(σq² ÷ (σq² + σe² ÷ n))      σq² = spread of true quality, σe² = luck variance of one match's points
+function corrTheory(L, n) { const mq = L.q.reduce((x, y) => x + y, 0) / L.N, sq = L.q.reduce((s, v) => s + (v - mq) ** 2, 0) / (L.N - 1), se = L.varq.reduce((s, v) => s + v, 0) / (L.N * 2 * (L.N - 1)); return sq > 0 ? Math.sqrt(sq / (sq + se / n)) : 0; }
+
+/* =====================================================================
+   5. REGRESSION TO THE MEAN: the "manager of the month curse"
+   The season is split into months of M matches. The team with the most
+   points per game that month wins the award. Its points per game NEXT
+   month is compared with its award month. Theory: next month a team
+   gets, on average, what its true strength gives against its next
+   opponents, not what it got in its lucky month.
+   ===================================================================== */
+function goalDiff(L, id, r0, r1) { let g = 0; for (const x of L.results) if (x.r >= r0 && x.r < r1) { if (x.h === id) g += x.gh - x.ga; if (x.a === id) g += x.ga - x.gh; } return g; }
+function monthAwards(L, M) {
+  const out = [], months = Math.floor(L.F.length / M);
+  for (let m = 0; m + 1 < months; m++) {
+    let best = -1, bp = -1, bg = -1e9;
+    for (const r of L.rows) { if (r.res.length < (m + 1) * M) continue; const pts = r.res.slice(m * M, (m + 1) * M).reduce((s, v) => s + v, 0); const gd = goalDiff(L, r.id, m * M, (m + 1) * M); if (pts > bp || (pts === bp && gd > bg)) { best = r.id; bp = pts; bg = gd; } }
+    if (best < 0 || L.rows[best].res.length < (m + 2) * M) break;
+    const nxt = L.rows[best].res.slice((m + 1) * M, (m + 2) * M).reduce((s, v) => s + v, 0);
+    let ex = 0; for (let r = (m + 1) * M; r < (m + 2) * M; r++) for (const [h, a] of L.F[r]) if (h === best || a === best) { const [lh, la] = rates(L.p, L.T[h].s, L.T[a].s), st = matchStats(matchP(lh, la)); ex += h === best ? st.eh : st.ea; }
+    out.push({ m: m + 1, team: best, ppg: bp / M, next: nxt / M, exp: ex / M, q: L.q[best] });
+  }
+  return out;
+}
+
+/* =====================================================================
+   6. DRUG TESTING AND BASE RATES (Bayes' theorem)
+   A population of athletes; a share (the base rate, or prevalence) dope.
+   A test catches a doper with chance = sensitivity, and wrongly flags a
+   clean athlete with chance = false-positive rate (1 − specificity).
+   Of all positive tests, the share that are real dopers is
+       PPV = sens × prev ÷ (sens × prev + fpr × (1 − prev))
+   With a rare condition even a very accurate test gives many false
+   positives: the base-rate fallacy. A second, independent test on the
+   positives updates the odds again.
+   ===================================================================== */
+function ppvTheory(prev, sens, fpr, retest) {
+  const step = q => sens * q / (sens * q + fpr * (1 - q) || 1);
+  let p = step(prev); if (retest) p = step(p); return p;
+}
+function makeTests(p, seed) {
+  const rng = mulberry32(seed + 41), N = Math.round(p.ath), A = [];
+  for (let i = 0; i < N; i++) { const d = rng() < p.prev / 100; let pos = d ? rng() < p.sens / 100 : rng() < p.fpr / 100; if (pos && p.retest) pos = d ? rng() < p.sens / 100 : rng() < p.fpr / 100; A.push({ d, pos }); }
+  return { p: { ...p }, A, N };
+}
+function testCounts(A) { let TP = 0, FP = 0, FN = 0, TN = 0; for (const a of A) { if (a.d && a.pos) TP++; else if (!a.d && a.pos) FP++; else if (a.d) FN++; else TN++; } return { TP, FP, FN, TN }; }
+
+/* ---- real data ---- */
+// Premier League 2024/25 final points (published final table)
+const PL2425 = [["Liverpool", 84], ["Arsenal", 74], ["Manchester City", 71], ["Chelsea", 69], ["Newcastle", 66], ["Aston Villa", 66], ["Nottingham Forest", 65], ["Brighton", 61], ["Bournemouth", 56], ["Brentford", 56],
+  ["Fulham", 54], ["Crystal Palace", 53], ["Everton", 48], ["West Ham", 43], ["Manchester United", 42], ["Wolves", 42], ["Tottenham", 38], ["Leicester", 25], ["Ipswich", 22], ["Southampton", 12]];
+const PL_SD = sdOf(PL2425.map(x => x[1]));
+// Premier League home / draw / away results (380 matches each season)
+const HOMEADV = [["2018/19 (crowds)", 181, 71, 128], ["2020/21 (no crowds)", 144, 83, 153]];
+
+/* =====================================================================
+   7. DRAWING
+   ===================================================================== */
+function txt(ctx, s, x, y, col = "#cfd5c4", font = "12px system-ui, sans-serif", al = "left") { ctx.fillStyle = col; ctx.font = font; ctx.textAlign = al; ctx.fillText(s, x, y); }
+function dot(ctx, x, y, r, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, Math.max(0.1, r), 0, 6.2832); ctx.fill(); }
+function rrect(ctx, x, y, w, h, r) { r = Math.max(0, Math.min(r, w / 2, h / 2)); ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function sub(ctx, x, y, w, h, fn) { ctx.save(); ctx.translate(x, y); ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip(); fn(ctx, w, h); ctx.restore(); }
+function title(ctx, s, x = 8, y = 15, col = "#eef0e8") { txt(ctx, s, x, y, col, "bold 12.5px system-ui"); }
+const pc = (v, d = 0) => isFinite(v) ? v.toFixed(d) + "%" : "–";
+const f2 = v => isFinite(v) ? v.toFixed(2) : "–";
+const short = n => n.replace(/ (Athletic|United|Rovers|Town|City|Wanderers|FC|Albion|Rangers)$/, "");
+// A stylised footballer running (the 3D athlete from the shared figure code, seen from the side)
+function drawPlayer(ctx, x, y, sc, phase, shirt, facing, amp = 0.8) {
+  const cam = camera(x, y, sc, facing > 0 ? 0 : Math.PI, 0.12), J = onGround(runPose(phase, amp), 1.8, 0, 0);
+  drawFigure(ctx, cam, J, 1.8, { shirt, col: { shorts: "#1d1c4a" } });
+}
+function drawStanding(ctx, x, y, sc, shirt) { const cam = camera(x, y, sc, 0.5, 0.1), J = onGround(pose({ saL: 0.15, saR: 0.15, efL: 0.2, efR: 0.2 }), 1.8, 0, 0); drawFigure(ctx, cam, J, 1.8, { shirt, lw: 1.1 }); }
+
+/* ---------- the pitch: one match from this round ---------- */
+function drawPitch(ctx, w, h) {
+  const L = LS.L, now = LS.t, cup = LS.stage === "cup" || LS.stage === "done";
+  const m = cup ? LS.cupShow : (L.last.length ? L.last[LS.feat % L.last.length] : null);
+  const px = 10, py = 40, pw = w - 20, ph = h - py - 10;
+  ctx.fillStyle = "#1f4d22"; rrect(ctx, px, py, pw, ph, 8); ctx.fill();
+  for (let k = 0; k < 8; k++) if (k % 2) { ctx.fillStyle = "#235626"; ctx.fillRect(px + k * pw / 8, py, pw / 8, ph); }
+  ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1.5; ctx.strokeRect(px + 6, py + 6, pw - 12, ph - 12);
+  ctx.beginPath(); ctx.moveTo(px + pw / 2, py + 6); ctx.lineTo(px + pw / 2, py + ph - 6); ctx.stroke(); ctx.beginPath(); ctx.arc(px + pw / 2, py + ph / 2, Math.min(pw, ph) * 0.14, 0, 6.283); ctx.stroke();
+  ctx.strokeRect(px + 6, py + ph * 0.3, pw * 0.1, ph * 0.4); ctx.strokeRect(px + pw - 6 - pw * 0.1, py + ph * 0.3, pw * 0.1, ph * 0.4);
+  if (!m) { title(ctx, "Kick-off soon", 8, 16); return; }
+  const H = L.T[m.h], A = L.T[m.a], sc = Math.min(ph * 0.3, pw * 0.1);
+  // the players chase the ball back and forth
+  const bx = px + pw / 2 + pw * 0.32 * Math.sin(now * 0.9), by = py + ph * 0.72 + ph * 0.05 * Math.sin(now * 2.3);
+  const x1 = bx - pw * 0.08 - pw * 0.05 * Math.sin(now * 0.7), x2 = bx + pw * 0.08 + pw * 0.05 * Math.cos(now * 0.8), dir = Math.cos(now * 0.9);
+  drawPlayer(ctx, x1, py + ph * 0.82, sc, now * 9, H.shirt, dir >= 0 ? 1 : -1);
+  drawPlayer(ctx, x2, py + ph * 0.84, sc, now * 9 + 1.3, A.shirt, dir >= 0 ? 1 : -1);
+  dot(ctx, bx, by, Math.max(3, sc * 0.09), "#ffffff");
+  // scoreboard
+  const sw = Math.min(pw - 20, 360); rrect(ctx, w / 2 - sw / 2, 6, sw, 30, 7); ctx.fillStyle = "#0b0d0a"; ctx.fill();
+  const fs = sw < 300 ? 11 : 12.5;
+  txt(ctx, short(H.name), w / 2 - 34, 26, H.shirt, `bold ${fs}px system-ui`, "right"); txt(ctx, short(A.name), w / 2 + 34, 26, A.shirt, `bold ${fs}px system-ui`, "left");
+  txt(ctx, `${m.gh} – ${m.ga}`, w / 2, 27, "#ffffff", "bold 16px system-ui", "center");
+  if (m.pens) txt(ctx, `${short(L.T[m.w].name)} win on penalties`, w / 2, py + 18, "#f1af28", "bold 11px system-ui", "center");
+  else txt(ctx, cup ? (LS.cupRoundName || "") : `round ${L.round} of ${L.F.length} · ${H.id < A.id ? short(H.name) : short(A.name)} is the stronger team`, w / 2, py + 18, "#ffffffcc", "11px system-ui", "center");
+}
+/* ---------- the league table ---------- */
+function drawTable(ctx, w, h) {
+  const L = LS.L, S = standings(L), N = L.N, rh = Math.min(22, (h - 34) / N), fs = Math.max(9, Math.min(12, rh * 0.62));
+  title(ctx, L.round >= L.F.length ? "Final table" : `Table after ${L.round} of ${L.F.length} rounds`, 8, 15);
+  const cols = w > 380 ? [["P", 0.56], ["W", 0.63], ["D", 0.69], ["L", 0.75], ["GD", 0.83], ["Pts", 0.92]] : [["P", 0.62], ["GD", 0.78], ["Pts", 0.92]];
+  txt(ctx, "true", w - 6, 15, "#a3ab96", "10px system-ui", "right");
+  cols.forEach(([c, f]) => txt(ctx, c, w * f, 28, "#a3ab96", `bold ${fs}px system-ui`, "center"));
+  S.forEach((r, k) => {
+    const y = 34 + k * rh, T = L.T[r.id], best = r.id === 0;
+    if (k % 2) { ctx.fillStyle = "#11150f"; ctx.fillRect(4, y, w - 8, rh); }
+    if (best) { ctx.fillStyle = "rgba(241,175,40,.16)"; ctx.fillRect(4, y, w - 8, rh); }
+    const yy = y + rh * 0.72;
+    txt(ctx, String(k + 1), 22, yy, "#a3ab96", `${fs}px system-ui`, "right");
+    ctx.fillStyle = T.shirt; ctx.fillRect(28, y + rh * 0.25, 4, rh * 0.5);
+    txt(ctx, w > 380 ? T.name : short(T.name), 36, yy, best ? "#f1af28" : "#eef0e8", `${best ? "bold " : ""}${fs}px system-ui`);
+    const vals = { P: r.P, W: r.W, D: r.D, L: r.L, GD: (r.GF - r.GA > 0 ? "+" : "") + (r.GF - r.GA), Pts: r.Pts };
+    cols.forEach(([c, f]) => txt(ctx, String(vals[c]), w * f, yy, c === "Pts" ? "#ffffff" : "#cfd5c4", `${c === "Pts" ? "bold " : ""}${fs}px system-ui`, "center"));
+    const tr = r.id + 1; txt(ctx, "#" + tr, w - 6, yy, tr === k + 1 ? "#76b82a" : Math.abs(tr - k - 1) > 4 ? "#de252a" : "#a3ab96", `${fs - 1}px system-ui`, "right");
+  });
+}
+/* ---------- the cup bracket ---------- */
+function drawBracket(ctx, w, h) {
+  const L = LS.L, C = LS.cup; title(ctx, "The cup: the 16 strongest teams, one match each tie", 8, 15);
+  if (!C) return;
+  const R = C.rounds, shown = LS.cupShown, cw = (w - 16) / 5, top = 28, hgt = h - 14;
+  const names = ["Last 16", "Quarter-finals", "Semi-finals", "Final", "Winner"];
+  for (let r = 0; r < 5; r++) txt(ctx, names[r], 8 + cw * (r + 0.5), top + 8, "#a3ab96", "bold 10.5px system-ui", "center");
+  for (let r = 0; r < 4; r++) {
+    const ties = R[r], n = ties.length, gh = (hgt - top - 20) / n;
+    ties.forEach((t, k) => {
+      const y = top + 16 + gh * (k + 0.5), x = 8 + cw * r, played = r < shown, hh = Math.min(34, gh - 3), fs = Math.max(8, Math.min(10.5, hh * 0.42)), dd = hh * 0.25;
+      for (const [id, dy, g] of [[t.h, -dd, t.gh], [t.a, dd, t.ga]]) {
+        const win = played && t.w === id, T = L.T[id];
+        txt(ctx, short(T.name).slice(0, cw > 110 ? 16 : 10) + (id === 0 ? " ★" : ""), x + 4, y + dy + fs * 0.35, win ? "#ffffff" : played ? "#6b7563" : "#cfd5c4", `${win ? "bold " : ""}${fs}px system-ui`);
+        if (played) txt(ctx, String(g) + (t.pens && win ? "p" : ""), x + cw - 8, y + dy + fs * 0.35, win ? "#f1af28" : "#6b7563", `bold ${fs}px system-ui`, "right");
+      }
+      ctx.strokeStyle = "#323a2b"; ctx.lineWidth = 1; ctx.strokeRect(x + 1, y - hh / 2, cw - 4, hh);
+    });
+  }
+  if (shown >= 4) { const T = L.T[C.winner]; txt(ctx, "🏆", 8 + cw * 4.5, h / 2 - 6, "#fff", "26px system-ui", "center"); txt(ctx, short(T.name), 8 + cw * 4.5, h / 2 + 18, C.winner === 0 ? "#f1af28" : "#fff", "bold 12px system-ui", "center"); txt(ctx, C.winner === 0 ? "the best team" : `true rank #${C.winner + 1}`, 8 + cw * 4.5, h / 2 + 33, "#a3ab96", "10.5px system-ui", "center"); }
+  txt(ctx, `★ = the best team · exact chance it wins this draw: ${pc(100 * C.th, 1)}`, 8, h - 4, "#a3ab96", "10.5px system-ui");
+}
+function drawSceneLeague(ctx, w, h) {
+  const lw = Math.round(w * 0.46);
+  sub(ctx, 0, 0, lw, h, drawPitch);
+  sub(ctx, lw, 0, w - lw, h, LS.stage === "cup" || LS.stage === "done" ? drawBracket : drawTable);
+}
+/* ---------- drug testing: a squad of athletes ---------- */
+function drawSceneDT(ctx, w, h) {
+  const D = LS.D, Q = Math.min(D.N, LS.p.qual), shown = Math.min(Q, Math.floor(LS.dtShown)), tested = Math.min(D.N, Math.floor(LS.dtShown * D.N / Q));
+  title(ctx, `Testing ${D.N.toLocaleString("en-GB")} athletes: the first ${Q} are drawn (${tested.toLocaleString("en-GB")} tested so far)`, 8, 15);
+  let cols = Math.ceil(Math.sqrt(Q * (w - 16) / Math.max(40, h - 40))), rows = Math.ceil(Q / cols); while (rows * ((w - 16) / cols) > h - 40 && cols < Q) { cols++; rows = Math.ceil(Q / cols); }
+  const cw = (w - 16) / cols, ch = Math.min(cw * 1.4, (h - 40) / rows), sc = ch * 0.5;
+  for (let i = 0; i < Q; i++) {
+    const a = D.A[i], x = 8 + (i % cols + 0.5) * cw, y = 30 + (Math.floor(i / cols) + 1) * ch - 3, done = i < shown;
+    const shirt = !done ? "#5a6352" : a.pos ? "#de252a" : "#76b82a";
+    if (sc > 9) drawStanding(ctx, x, y, sc, shirt); else dot(ctx, x, y - ch * 0.4, Math.max(1.5, cw * 0.28), shirt);
+    if (done && a.d) { ctx.strokeStyle = "#e6d4f2"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y - ch * 0.45, Math.max(3, ch * 0.42), 0, 6.283); ctx.stroke(); }
+  }
+  const c = testCounts(D.A.slice(0, tested));
+  txt(ctx, `green: negative · red: positive · ring: really doped.  Positives: ${c.TP + c.FP}, of whom ${c.FP} are clean (false positives)`, 8, h - 4, "#cfd5c4", "11px system-ui");
+}
+
+/* ---------- bottom views ---------- */
+function drawPoints(ctx, w, h) {
+  const L = LS.L, x1 = Math.max(...L.q) * 1.08 + 0.1;
+  title(ctx, `Points per game so far against true quality (after ${L.round} rounds)`, 8, 15);
+  const ax = axes(ctx, w, h, { x0: 0, x1, y0: 0, y1: 3, T: 32, L: 40, B: 28, R: 10, xlabel: "true quality: expected points per game", ylabel: "points per game", xfmt: v => v.toFixed(1), yfmt: v => v.toFixed(1) });
+  line(ctx, [[ax.X(0), ax.Y(0)], [ax.X(Math.min(3, x1)), ax.Y(Math.min(3, x1))]], "#f1af28", 1.6, [5, 4]);
+  for (const r of L.rows) if (r.P) dot(ctx, ax.X(L.q[r.id]), ax.Y(r.Pts / r.P), r.id === 0 ? 6 : 4, r.id === 0 ? "#f1af28" : L.T[r.id].shirt);
+  const r = corrOf(L.rows.map(r => r.P ? r.Pts / r.P : 0), L.q);
+  txt(ctx, `gold line: points = true quality (no luck) · correlation r = ${f2(r)} · early in the season luck scatters teams far from the line`, 8, 28, "#a3ab96", "10.5px system-ui");
+}
+function drawTally(ctx, w, h) {
+  const S = LS.seasons, n = S.length, m = k => n ? 100 * S.filter(s => s[k]).length / n : NaN, t = k => n ? 100 * S.reduce((a, s) => a + s[k], 0) / n : NaN;
+  title(ctx, `Seasons so far: ${n}. How often did the best team win?`, 8, 15);
+  const ax = axes(ctx, w, h, { x0: 0, x1: 2, y0: 0, y1: 108, T: 32, L: 40, B: 28, R: 10, xticks: [], noXT: true, yticks: [0, 20, 40, 60, 80, 100], ylabel: "% of seasons" });
+  const bars = [["the league", m("bestL"), t("thL")], ["the cup", m("bestC"), t("thC")]], bw = (ax.X(1) - ax.X(0)) * 0.45;
+  bars.forEach(([nm, v, th], i) => {
+    if (isFinite(v)) { ctx.fillStyle = "#00aec3cc"; ctx.fillRect(ax.X(i + 0.5) - bw / 2, ax.Y(v), bw, ax.Y(0) - ax.Y(v)); txt(ctx, pc(v), ax.X(i + 0.5), Math.max(ax.T + 10, ax.Y(v) - 4), "#eef0e8", "bold 11px system-ui", "center"); }
+    if (isFinite(th)) { line(ctx, [[ax.X(i + 0.5) - bw / 2 - 8, ax.Y(th)], [ax.X(i + 0.5) + bw / 2 + 8, ax.Y(th)]], "#f1af28", 2.5); txt(ctx, `theory ${pc(th)}`, ax.X(i + 0.5) + bw / 2 + 10, ax.Y(th) + 4, "#f1af28", "10.5px system-ui"); }
+    txt(ctx, nm, ax.X(i + 0.5), h - 12, "#cfd5c4", "11px system-ui", "center");
+  });
+  txt(ctx, n ? "blue: what happened · gold: theory (league: normal approximation; cup: exact). Few seasons → a lot of luck in the % too." : "Finish a season (⏭ or 20×) to start counting.", 8, 28, "#a3ab96", "10.5px system-ui");
+}
+function drawRealPL(ctx, w, h) {
+  const L0 = LS.pureLuck, mean = PL2425.reduce((s, x) => s + x[1], 0) / 20;
+  title(ctx, "Real data: Premier League 2024/25 final points", 8, 15);
+  const ax = axes(ctx, w, h, { x0: 0, x1: 20, y0: 0, y1: 95, T: 32, L: 40, B: 30, R: 10, xticks: [], noXT: true, ylabel: "points" });
+  ctx.fillStyle = "rgba(241,175,40,.15)"; ctx.fillRect(ax.L, ax.Y(mean + 2 * L0), w - ax.L - ax.R, ax.Y(mean - 2 * L0) - ax.Y(mean + 2 * L0));
+  const bw = (ax.X(1) - ax.X(0)) * 0.7;
+  PL2425.forEach(([n, pts], i) => { ctx.fillStyle = pts > mean + 2 * L0 || pts < mean - 2 * L0 ? "#00aec3" : "#00aec377"; ctx.fillRect(ax.X(i + 0.5) - bw / 2, ax.Y(pts), bw, ax.Y(0) - ax.Y(pts)); txt(ctx, String(pts), ax.X(i + 0.5), ax.Y(pts) - 3, "#cfd5c4", "9.5px system-ui", "center"); if (bw > 14) { ctx.save(); ctx.translate(ax.X(i + 0.5) + 3, ax.Y(0) - 4); ctx.rotate(-Math.PI / 2); txt(ctx, n, 0, 0, "#0b0d0a", "bold 9.5px system-ui"); ctx.restore(); } });
+  line(ctx, [[ax.L, ax.Y(mean)], [w - ax.R, ax.Y(mean)]], "#f1af28", 1.4, [4, 3]);
+  txt(ctx, `gold band: mean ± 2 SD if every team were equally good (luck alone, SD ${L0.toFixed(1)}). Real SD ${PL_SD.toFixed(1)}: most of the spread is skill.`, 8, 28, "#a3ab96", "10.5px system-ui");
+}
+function drawHome(ctx, w, h) {
+  const L = LS.L, n = L.hw + L.dr + L.aw, rows = HOMEADV.map(([s, H, D, A]) => [s, 100 * H / 380, 100 * D / 380, 100 * A / 380]).concat(n ? [["this model, this season", 100 * L.hw / n, 100 * L.dr / n, 100 * L.aw / n]] : []);
+  title(ctx, "Home advantage: Premier League results with and without crowds", 8, 15);
+  const top = 38, rh = Math.min(34, (h - top - 30) / 3), x0 = 150, bw = w - x0 - 20;
+  rows.forEach(([s, H, D, A], k) => {
+    const y = top + k * (rh + 8); txt(ctx, s, 8, y + rh * 0.62, "#cfd5c4", "11px system-ui");
+    let x = x0; for (const [v, c] of [[H, "#76b82a"], [D, "#a3ab96"], [A, "#de252a"]]) { ctx.fillStyle = c; ctx.fillRect(x, y, bw * v / 100, rh); if (bw * v / 100 > 40) txt(ctx, `${v.toFixed(1)}%`, x + bw * v / 200, y + rh * 0.65, "#0b0d0a", "bold 11px system-ui", "center"); x += bw * v / 100; }
+  });
+  txt(ctx, "green: home win · grey: draw · red: away win. 2020/21 was played almost entirely behind closed doors (COVID-19).", 8, h - 8, "#a3ab96", "10.5px system-ui");
+  txt(ctx, "2018/19: 181 home wins, 71 draws, 128 away · 2020/21: 144, 83, 153 (380 matches each)", 8, 29, "#a3ab96", "10.5px system-ui");
+}
+function drawAwards(ctx, w, h) {
+  const A = LS.awards, M = LS.p.month, all = LS.allAwards, n = A.length;
+  title(ctx, `Manager of the month: points per game, award month and next month (${M} matches a month)`, 8, 15);
+  const ax = axes(ctx, w, h, { x0: 0.5, x1: Math.max(8, n) + 0.5, y0: 0, y1: 3.2, T: 32, L: 40, B: 28, R: 10, xlabel: "award (month)", ylabel: "points per game", xticks: Array.from({ length: Math.max(8, n) }, (_, k) => k + 1), yfmt: v => v.toFixed(1) });
+  const avg = LS.L.q.reduce((s, v) => s + v, 0) / LS.L.N; line(ctx, [[ax.L, ax.Y(avg)], [w - ax.R, ax.Y(avg)]], "#a3ab96", 1, [3, 3]);
+  A.forEach((a, k) => {
+    const x = ax.X(k + 1); line(ctx, [[x, ax.Y(a.ppg)], [x + 10, ax.Y(a.next)]], "#5a6352", 1.4);
+    dot(ctx, x, ax.Y(a.ppg), 5, "#f1af28"); dot(ctx, x + 10, ax.Y(a.next), 5, "#00aec3");
+    line(ctx, [[x + 4, ax.Y(a.exp)], [x + 16, ax.Y(a.exp)]], "#ffffff", 2);
+  });
+  const S = k => all.length ? all.reduce((s, a) => s + a[k], 0) / all.length : NaN;
+  txt(ctx, "gold: award month · blue: next month · white: expected from true strength · grey: average team" + (all.length ? ` · all ${all.length} awards: ${f2(S("ppg"))} → ${f2(S("next"))}` : ""), 8, 28, "#a3ab96", "10.5px system-ui");
+}
+function drawCorr(ctx, w, h) {
+  const L = LS.L, C = LS.corrHist, n = L.F.length;
+  title(ctx, "How well does the table reflect true strength? Correlation after each round", 8, 15);
+  const ax = axes(ctx, w, h, { x0: 0, x1: n, y0: 0, y1: 1, T: 32, L: 40, B: 28, R: 10, xlabel: "matches played", ylabel: "correlation r", yfmt: v => v.toFixed(1) });
+  const th = []; for (let k = 1; k <= n; k++) th.push([ax.X(k), ax.Y(corrTheory(L, k))]); line(ctx, th, "#f1af28", 2, [6, 4]);
+  line(ctx, C.map(([k, r]) => [ax.X(k), ax.Y(Math.max(0, r))]), "#00aec3", 2.2);
+  txt(ctx, "gold: theory √(σq² ÷ (σq² + σe² ÷ n)) · blue: this season. A few matches tell you little: 'form' over 5 games is mostly luck.", 8, 28, "#a3ab96", "10.5px system-ui");
+}
+function drawLuckShare(ctx, w, h) {
+  const L = LS.L, q = luckSD(L), tot = q.skillVar + q.luckVar, luckSh = tot > 0 ? 100 * q.luckVar / tot : 100;
+  const plLuck = 100 * LS.pureLuck ** 2 / PL_SD ** 2;
+  title(ctx, "How much of the final table is luck? (variance of points)", 8, 15);
+  const top = 40, bx = 180, bw = Math.max(60, w - bx - 16);
+  [["this model", luckSh], ["Premier League 2024/25", plLuck]].forEach(([n, v], k) => { const y = top + k * 46; txt(ctx, n, 8, y + 18, "#cfd5c4", "11.5px system-ui"); ctx.fillStyle = "#e83181"; ctx.fillRect(bx, y, bw * v / 100, 26); ctx.fillStyle = "#00aec3"; ctx.fillRect(bx + bw * v / 100, y, bw * (100 - v) / 100, 26); txt(ctx, `luck ${pc(v)}`, bx + 6, y + 17, "#0b0d0a", "bold 11px system-ui"); txt(ctx, `skill ${pc(100 - v)}`, bx + bw - 6, y + 17, "#0b0d0a", "bold 11px system-ui", "right"); });
+  txt(ctx, `variance = SD². Model: luck SD ${q.luck.toFixed(1)} points, total SD ${q.total.toFixed(1)}. Real: luck SD about ${LS.pureLuck.toFixed(1)} (if all teams were equal), observed ${PL_SD.toFixed(1)}.`, 8, top + 112, "#a3ab96", "10.5px system-ui");
+  txt(ctx, "Luck share = luck variance ÷ total variance (skill and luck add as variances, not SDs).", 8, top + 128, "#a3ab96", "10.5px system-ui");
+}
+function drawForm(ctx, w, h) {
+  const L = LS.L, ids = [0, Math.floor(L.N / 2), L.N - 1];
+  title(ctx, "Form guide: every result so far for three teams (W green, D grey, L red)", 8, 15);
+  const top = 40, rh = Math.min(30, (h - top - 30) / 3 - 10), n = L.F.length, cw = (w - 170) / n;
+  ids.forEach((id, k) => {
+    const r = L.rows[id], y = top + k * (rh + 14); txt(ctx, `${short(L.T[id].name)} (true #${id + 1})`, 8, y + rh * 0.65, id === 0 ? "#f1af28" : "#cfd5c4", "11px system-ui");
+    let best = 0, cur = 0; r.res.forEach((v, j) => { ctx.fillStyle = v === 3 ? "#76b82a" : v === 1 ? "#a3ab96" : "#de252a"; ctx.fillRect(160 + j * cw, y, Math.max(1, cw - 1), rh); if (v === 3) { cur++; best = Math.max(best, cur); } else cur = 0; });
+    txt(ctx, `longest winning run ${best}`, w - 8, y - 2, "#a3ab96", "10px system-ui", "right");
+  });
+  txt(ctx, "Even the best team has bad runs, and weak teams have good ones, although no team's strength changes during the season.", 8, h - 8, "#a3ab96", "10.5px system-ui");
+}
+function drawTree(ctx, w, h) {
+  const D = LS.D, p = D.p, c = testCounts(D.A), N = D.N, dop = c.TP + c.FN, cl = c.FP + c.TN, adv = isAdv();
+  title(ctx, `What a positive test means: ${N.toLocaleString("en-GB")} athletes (natural frequencies)`, 8, 15);
+  const bx = (x, y, s, col, s2) => { ctx.font = "bold 11.5px system-ui"; const tw = Math.max(ctx.measureText(s).width, s2 ? ctx.measureText(s2).width * 0.95 : 0) + 14; rrect(ctx, x - tw / 2, y - 14, tw, s2 ? 34 : 22, 6); ctx.fillStyle = "#1c2118"; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke(); txt(ctx, s, x, y + 1, col, "bold 11.5px system-ui", "center"); if (s2) txt(ctx, s2, x, y + 15, "#a3ab96", "10.5px system-ui", "center"); };
+  const x0 = w * 0.12, x1 = w * 0.38, x2 = w * 0.66, y0 = h * 0.5, ya = h * 0.27, yb = h * 0.73;
+  const ln = (a, b, c2, d) => line(ctx, [[a, b], [c2, d]], "#5a6352", 1.5);
+  ln(x0, y0, x1, ya); ln(x0, y0, x1, yb); ln(x1, ya, x2, ya - 34); ln(x1, ya, x2, ya + 30); ln(x1, yb, x2, yb - 30); ln(x1, yb, x2, yb + 34);
+  bx(x0, y0, `${N.toLocaleString("en-GB")} athletes`, "#eef0e8");
+  bx(x1, ya, `${dop} dope`, "#c39bff", `${pc(p.prev, 1)} base rate`); bx(x1, yb, `${cl.toLocaleString("en-GB")} clean`, "#a4cbe6");
+  bx(x2, ya - 34, `${c.TP} positive`, "#de252a", "true positives"); bx(x2, ya + 30, `${c.FN} negative`, "#76b82a", "missed dopers");
+  bx(x2, yb - 30, `${c.FP} positive`, "#de252a", "FALSE positives"); bx(x2, yb + 34, `${c.TN.toLocaleString("en-GB")} negative`, "#76b82a", "true negatives");
+  const pos = c.TP + c.FP, ppv = pos ? 100 * c.TP / pos : NaN, th = 100 * ppvTheory(p.prev / 100, p.sens / 100, p.fpr / 100, p.retest);
+  const xr = w * 0.88;
+  txt(ctx, "Of the positives,", xr, y0 - 30, "#cfd5c4", "11.5px system-ui", "center");
+  txt(ctx, pc(ppv, 0), xr, y0, "#f1af28", "bold 24px system-ui", "center");
+  txt(ctx, "really doped", xr, y0 + 18, "#cfd5c4", "11.5px system-ui", "center");
+  txt(ctx, `${c.TP} ÷ (${c.TP} + ${c.FP})`, xr, y0 + 36, "#a3ab96", "11px system-ui", "center");
+  txt(ctx, adv ? `Bayes: ${pc(th, 1)}` : `theory ${pc(th, 1)}`, xr, y0 + 52, "#a3ab96", "11px system-ui", "center");
+  if (p.retest) txt(ctx, "positives shown after the second test", 8, h - 6, "#a3ab96", "10.5px system-ui");
+}
+function drawPPV(ctx, w, h) {
+  const p = LS.D.p, adv = isAdv();
+  title(ctx, "Chance a positive athlete really doped (PPV) against the base rate", 8, 15);
+  const ax = axes(ctx, w, h, { x0: 0.1, x1: 40, y0: 0, y1: 100, xlog: true, T: 32, L: 40, B: 28, R: 10, xlabel: "share of athletes who dope (%, log scale)", ylabel: "PPV (%)", xfmt: v => v < 1 ? v.toFixed(1) : String(Math.round(v)) });
+  for (const [rt, col] of [[false, "#f1af28"], [true, "#76b82a"]]) { const pts = []; for (let k = 0; k <= 100; k++) { const pr = 0.1 * Math.pow(400, k / 100); pts.push([ax.X(pr), ax.Y(100 * ppvTheory(pr / 100, p.sens / 100, p.fpr / 100, rt))]); } line(ctx, pts, col, rt ? 1.6 : 2.4, rt ? [5, 4] : null); }
+  const c = testCounts(LS.D.A), pos = c.TP + c.FP; if (pos) dot(ctx, ax.X(clamp(p.prev, 0.1, 40)), ax.Y(100 * c.TP / pos), 5.5, "#00aec3");
+  line(ctx, [[ax.X(0.8), ax.T], [ax.X(0.8), ax.Y(0)]], "#e83181", 1.2, [3, 3]); txt(ctx, "0.8%: WADA positive (AAF) rate, 2023", ax.X(0.8) + 4, ax.Y(8), "#e83181", "10.5px system-ui");
+  txt(ctx, `gold: one test · green dashed: with an independent re-test · blue: this population.${adv ? " PPV = sens × p ÷ (sens × p + fpr × (1 − p))" : ""}`, 8, 28, "#a3ab96", "10.5px system-ui");
+}
+function drawWADA(ctx, w, h) {
+  title(ctx, "Real data: WADA anti-doping testing figures", 8, 15);
+  const top = 40, bw = Math.max(60, w - 240);
+  [["2022", 0.77], ["2023", 0.80]].forEach(([y, v], k) => { const yy = top + k * 34; txt(ctx, y, 8, yy + 16, "#cfd5c4", "11.5px system-ui"); ctx.fillStyle = "#e83181"; ctx.fillRect(60, yy, bw * v / 1.2, 22); txt(ctx, v.toFixed(2) + "% of samples", 66 + bw * v / 1.2, yy + 16, "#eef0e8", "bold 11px system-ui"); });
+  const tx = ["An adverse analytical finding (AAF) is a sample in which a lab found a banned substance. Not every AAF becomes a doping violation:",
+    "some athletes have a therapeutic use exemption (TUE) for a medicine, some cases are contamination or are dropped.",
+    "A low AAF rate does not mean few athletes dope: tests miss substances that have cleared the body, and anonymous surveys",
+    "of elite athletes have estimated that far more than 1% doped in the past year (uncertain: estimates vary widely).",
+    "Strict liability: athletes are responsible for whatever is in their sample, so a false positive can end a career."];
+  tx.forEach((s, k) => txt(ctx, s, 8, top + 88 + 15 * k, "#a3ab96", "10.5px system-ui"));
+  txt(ctx, "Source: WADA 2023 Anti-Doping Testing Figures report (all accredited labs: 0.80% AAFs, up from 0.77% in 2022).", 8, h - 8, "#a3ab96", "10.5px system-ui");
+}
+
+/* =====================================================================
+   8. THE LIVE SIMULATION: modes, presets, controls and readings
+   ===================================================================== */
+const MODES = [["lg", "🏆 League or cup?"], ["rm", "📉 Regression to the mean"], ["ss", "📊 Sample size"], ["dt", "💊 Drug tests"]];
+const SPEEDS = { lg: [1, 2, 5, 20], rm: [1, 2, 5, 20], ss: [1, 2, 5, 20], dt: [1, 2, 5] };
+const PDEF = { teams: 20, spread: 0.55, edge: 0, home: 0.3, goals: 1.35, month: 4, seed: 1, ath: 1000, prev: 2, sens: 80, fpr: 1, retest: 0, qual: 200 };
+const LS = { mode: "lg", p: { ...PDEF }, L: null, stage: "league", acc: 0, t: 0, feat: 0, cup: null, cupShown: 0, cupShow: null, cupRoundName: "", seasons: [], awards: [], allAwards: [], corrHist: [],
+  D: null, dtShown: 0, view: { lg: "points", rm: "awards", ss: "corr", dt: "tree" }, playing: true, speed: 1, preset: -1, pureLuck: 8, seasonNo: 1, wait: 0 };
+const isAdv = () => document.body.classList.contains("lvl-adv");
+let examKey = "";
+try { const q = localStorage.getItem("luck-and-skill-quality"); if (["100", "200", "400"].includes(q)) PDEF.qual = +q; } catch (e) {}
+LS.p.qual = PDEF.qual;
+
+const PRESETS = [
+  { name: "Who wins the league?", desc: "skill and luck over a season", mode: "lg", view: "points", set: {},
+    story: "Twenty teams, each with a fixed true strength, play a 38-match season. Goals are rare and random, so any single match is close to a lottery: the better team wins only about half the time. Over 38 matches the luck evens out and the table looks more and more like the true strengths (the 'true' column and the scatter graph). Watch how far teams sit from the gold line early in the season." },
+  { name: "League or cup?", desc: "which does the best team win?", mode: "lg", view: "tally", set: {},
+    story: "After each league season the 16 strongest teams play a knockout cup: one match per tie and penalties if it is a draw. The best team must win four matches in a row, and one bad day ends its run. So the best team wins the LEAGUE (38 matches) far more often than the CUP. Press 20× and let many seasons run: the tally compares what happens with the theory." },
+  { name: "A dominant team", desc: "a big edge for the best", mode: "lg", view: "tally", set: { edge: 0.35 },
+    story: "The best team is now clearly stronger than everyone else, like a club with far more money than its rivals. It wins the league almost every season. But even a dominant team often goes out of a knockout cup: four one-off matches give many chances for a goalkeeper's mistake, a red card or a penalty shoot-out." },
+  { name: "Pure luck", desc: "every team equally good", mode: "lg", view: "pl", set: { spread: 0 },
+    story: "Every team is exactly as good as every other. Yet the table still spreads out: someone finishes top with 60-odd points and someone bottom with about 35. The 'champions' are no better than the team that is relegated: that spread is luck alone. Compare it with the real Premier League (bottom graph): its points spread out more than twice as far, so most of the real table is skill." },
+  { name: "Home advantage", desc: "the crowd's effect", mode: "lg", view: "home", set: { home: 0.3 },
+    story: "Teams score more at home: a familiar ground, no travel, and above all a crowd (social facilitation, and referees influenced by crowd noise). Here home advantage makes about 47% of matches home wins, as in the Premier League in 2018/19 (47.6%). In 2020/21, played behind closed doors, home wins fell to 37.9%: fewer than away wins." },
+  { name: "Empty stadiums", desc: "no home advantage", mode: "lg", view: "home", set: { home: 0 },
+    story: "With home advantage set to zero, home and away wins become equally likely (about 39% each, with the rest draws), close to what happened in the Premier League's 2020/21 season without crowds. Compare the bars: the model's season sits near the 2020/21 row." },
+  { name: "Manager of the month curse", desc: "regression to the mean", mode: "rm", view: "awards", set: {},
+    story: "Each 'month' (4 matches) the team with the best record wins Manager of the Month. Next month it usually does worse: the 'curse'. There is no curse: a team that tops one month was probably good AND lucky. The luck does not carry over, so next month it falls back towards its true level (white marks): regression to the mean. The same thing explains the 'Sports Illustrated cover jinx' and why sacking a manager after a bad run often seems to 'work'." },
+  { name: "Form is mostly luck", desc: "streaks with fixed strength", mode: "ss", view: "form", set: {},
+    story: "No team's strength changes during this season, yet every team has hot and cold streaks: winning runs, losing runs. Commentators call it form, confidence or momentum, but here it is luck. Real form does exist (injuries, a new manager), but it is much smaller than the random runs you would see anyway." },
+  { name: "How many games tell you?", desc: "sample size", mode: "ss", view: "corr", set: {},
+    story: "After a few matches the table says little about how good the teams really are: the correlation with true strength is weak. It grows as matches are played: about 0.65 after 5 matches, 0.85 halfway through and 0.9 after all 38. This is the law of large numbers: luck averages out over many trials. It is why a coach should judge a player or team over a long run, not on one game." },
+  { name: "A positive test", desc: "what does it prove?", mode: "dt", view: "tree", set: {},
+    story: "1,000 athletes are tested; 2% of them dope (illustrative). The test catches 80% of dopers and wrongly flags 1% of clean athletes. That sounds accurate, but there are 49 times as many clean athletes as dopers, so the 1% of them flagged is about 10 people, against about 16 real dopers caught. More than a third of positives are clean athletes! A doping ban is serious, which is why labs confirm results and why the B sample matters." },
+  { name: "Rare cheating", desc: "the base-rate fallacy", mode: "dt", view: "ppv", set: { prev: 0.5, ath: 4000 },
+    story: "Now only 1 athlete in 200 dopes. Even with the same accurate test, most positives are now false: the chance a positive athlete really doped falls to about 29%. When the thing you test for is rare, false positives outnumber true ones: the base-rate fallacy. Tick the independent re-test: positives must pass two tests, which cuts false positives a hundredfold." },
+  { name: "How much is luck?", desc: "A level: variance", mode: "ss", view: "luck", lvl: "adv", set: {},
+    story: "Final points = skill + luck, and the two add as VARIANCES (SD²). If every team were equally good the Premier League's points would spread with an SD of about 8 points from luck alone; the real SD in 2024/25 was 18.6. So luck explains only about (8 ÷ 18.6)² ≈ 19% of the variance of the final table, and skill about 81%. In a single match the balance is the other way round." },
+];
+
+/* ---------------- building and resetting ---------------- */
+function newSeason(keep) {
+  const p = LS.p; LS.L = makeLeague(p, 1000 * p.seed + LS.seasonNo); LS.stage = "league"; LS.acc = 0; LS.feat = 0; LS.cup = null; LS.cupShown = 0; LS.cupShow = null; LS.awards = []; LS.corrHist = []; LS.wait = 0;
+  if (!keep) { LS.seasons = []; LS.allAwards = []; }
+  LS.pureLuck = luckSD(makeLeague({ ...p, spread: 0, edge: 0, teams: 20 }, 7)).luck;
+  examKey = "";
+}
+function newTests() { LS.D = makeTests(LS.p, LS.p.seed); LS.dtShown = 0; examKey = ""; }
+function rebuild() { LS.seasonNo = 1; newSeason(false); newTests(); }
+function endSeason() {
+  const L = LS.L, rec = { bestL: L.champion === 0, thL: leagueTheory(L), bestC: false, thC: NaN };
+  if (LS.cup) { rec.bestC = LS.cup.winner === 0; rec.thC = LS.cup.th; }
+  LS.seasons.push(rec); LS.allAwards = LS.allAwards.concat(monthAwards(L, LS.p.month)); LS.stage = "done"; LS.wait = 0;
+}
+function startCup() { const L = LS.L, draw = cupDraw(L), C = playCup(L, draw); C.th = cupTheory(L, draw, 0); LS.cup = C; LS.stage = "cup"; LS.cupShown = 0; showCupTie(); }
+const CUPR = ["Last 16", "Quarter-final", "Semi-final", "Final"];
+function showCupTie() { const C = LS.cup, r = Math.min(3, LS.cupShown), ties = C.rounds[r]; LS.cupShow = ties.find(t => t.h === 0 || t.a === 0) || ties[0]; LS.cupRoundName = CUPR[r]; }
+function stepRound() {
+  const L = LS.L; if (!playRound(L)) return;
+  LS.feat++; LS.corrHist.push([L.round, corrOf(L.rows.map(r => r.Pts / r.P), L.q)]);
+  if (LS.mode === "rm") LS.awards = monthAwards(L, LS.p.month);
+  if (L.round >= L.F.length) { if (LS.mode === "lg") startCup(); else endSeason(); }
+  examKey = "";
+}
+function finishSeason() { if (LS.stage === "done") return; while (LS.stage === "league") stepRound(); if (LS.stage === "cup") { LS.cupShown = 4; showCupTie(); endSeason(); } }
+
+/* ---------------- modes, levels and presets ---------------- */
+function setViews() {
+  const V = { lg: [["points", "📈 Points vs quality"], ["tally", "📊 League or cup?"], ["pl", "📊 Premier League data"], ["home", "🏟 Home advantage"]],
+    rm: [["awards", "📉 Manager of the month"], ["points", "📈 Points vs quality"]],
+    ss: [["corr", "📈 Correlation vs matches"], ["form", "📋 Form guide"]].concat(isAdv() ? [["luck", "📊 How much is luck?"]] : []),
+    dt: [["tree", "🌳 Tree of results"], ["ppv", "📈 PPV vs base rate"], ["wada", "📊 WADA data"]] }[LS.mode];
+  if (!V.some(v => v[0] === LS.view[LS.mode])) LS.view[LS.mode] = V[0][0];
+  el("views").innerHTML = V.map(([k, t]) => `<button data-v="${k}" class="${LS.view[LS.mode] === k ? "on" : ""}">${t}</button>`).join("");
+  el("views").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { LS.view[LS.mode] = b.dataset.v; setViews(); }));
+}
+function setSpeeds() { el("speed").innerHTML = "Speed " + SPEEDS[LS.mode].map(s => `<button data-s="${s}">${s}×</button>`).join(""); el("speed").querySelectorAll("button").forEach(b => b.addEventListener("click", () => setSpeed(+b.dataset.s))); setSpeed(1); }
+function setSpeed(s) { LS.speed = s; el("speed").querySelectorAll("button").forEach(x => x.classList.toggle("on", +x.dataset.s === s)); el("speed").title = LS.mode === "dt" ? "1× = all the athletes drawn are tested in about 12 seconds" : "1× = one round of matches a second"; }
+function setPlayBtn() { el("btnPlay").textContent = LS.playing ? "⏸ Pause" : "▶ Play"; }
+function setMode(m) {
+  LS.mode = m; for (const [k] of MODES) document.body.classList.toggle("m-" + k, k === m);
+  document.querySelectorAll("#modes button").forEach(b => b.classList.toggle("on", b.dataset.m === m));
+  el("btnSkip").textContent = m === "dt" ? "⏭ Test everyone" : "⏭ Finish the season";
+  setViews(); setSpeeds(); rebuild(); LS.playing = true; setPlayBtn(); specs(); ideas();
+}
+function setLevel(l) {
+  document.body.classList.toggle("lvl-adv", l === "adv"); document.body.classList.toggle("lvl-std", l === "std");
+  document.querySelectorAll("#lvl button").forEach(b => b.classList.toggle("on", b.dataset.lvl === l));
+  try { localStorage.setItem("luck-and-skill-level", l); } catch (e) {}
+  el("lvlHint").textContent = l === "adv" ? "A level (H555): attribution (luck is external and unstable), variance and the share of luck, correlation and sample size, regression to the mean, Bayes' theorem for drug tests, strict liability." : "GCSE (J587): use of data (tables, graphs, means, percentages), drugs in sport and testing, the ethics of a positive test, home advantage and the crowd.";
+  examKey = ""; setViews(); specs(); ideas();
+}
+function setPreset(k) {
+  const P = PRESETS[k]; if (P.lvl) setLevel(P.lvl);
+  LS.p = { ...PDEF, qual: LS.p.qual, ...P.set }; LS.preset = k; LS.view[P.mode] = P.view;
+  document.querySelectorAll("#presets button").forEach((b, i) => b.classList.toggle("on", i === k));
+  syncLeft(); setMode(P.mode);
+}
+function own() { LS.preset = -1; document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); examKey = ""; }
+
+/* ---------------- the left panel ---------------- */
+const SL = { teams: v => String(v), spread: v => v.toFixed(2) + (v === 0 ? " (all equal)" : ""), edge: v => "+" + v.toFixed(2), home: v => v.toFixed(2), goals: v => v.toFixed(2), month: v => v + " matches", seed: v => String(v),
+  ath: v => v.toLocaleString("en-GB"), prev: v => v.toFixed(1) + "%", sens: v => v + "%", fpr: v => v.toFixed(1) + "%" };
+const LEAGUE_KEYS = ["teams", "spread", "edge", "home", "goals", "month", "seed"], DT_KEYS = ["ath", "prev", "sens", "fpr"];
+function syncLeft() { const p = LS.p; for (const k of Object.keys(SL)) el(k).value = p[k]; el("retest").checked = !!p.retest; el("qual").value = String(p.qual); labels(); }
+function labels() {
+  for (const k of Object.keys(SL)) el("o_" + k).textContent = SL[k](+el(k).value);
+  const p = LS.p, m = matchP(...rates(p, 0, 0)); el("homeHint").textContent = `Two equal teams: home win ${pc(100 * m.H)}, draw ${pc(100 * m.D)}, away win ${pc(100 * m.A)}.`;
+}
+
+/* ---------------- readings, story and key ideas ---------------- */
+const spec = (t, a) => `<span class="spec${a ? " a" : ""}">${t}</span>`;
+function ui() {
+  const m = LS.mode, p = LS.p, adv = isAdv(); let tl = "", st1 = "", st2 = "", now = "", badge = "";
+  if (m !== "dt") {
+    const L = LS.L, S = standings(L), top = S[0], b = L.rows[0], n = LS.seasons.length, bL = n ? 100 * LS.seasons.filter(s => s.bestL).length / n : NaN, bC = n ? 100 * LS.seasons.filter(s => s.bestC).length / n : NaN;
+    el("clock").textContent = `Season ${LS.seasonNo}`; st1 = LS.stage === "cup" ? `cup: <b>${LS.cupRoundName}</b>` : `round <b>${L.round}</b> of ${L.F.length}`; st2 = `leader <b>${short(L.T[top.id].name)}</b> (${top.Pts} pts)`;
+    badge = LS.stage === "league" ? (top.id === 0 ? "best team top" : "an upset so far") : LS.stage === "cup" ? "cup" : "season over";
+    const r = corrOf(L.rows.map(r => r.P ? r.Pts / r.P : 0), L.q), mh = L.hw + L.dr + L.aw;
+    tl = tile("Best team", short(L.T[0].name), `${b.W}W ${b.D}D ${b.L}L · ${b.Pts} pts`) + tile("Its expected points", (L.q[0] * b.P).toFixed(0), `true quality ${f2(L.q[0])} per game`) +
+      tile("Table vs strength", "r = " + f2(r), "correlation, 1 = perfect") + tile("Home wins", mh ? pc(100 * L.hw / mh) : "–", `draws ${mh ? pc(100 * L.dr / mh) : "–"}`);
+    if (m === "lg") tl += tile("Best team won the league", isFinite(bL) ? pc(bL) : "–", `${n} season${n === 1 ? "" : "s"} · theory ${pc(100 * leagueTheory(L))}`) + tile("Best team won the cup", isFinite(bC) ? pc(bC) : "–", LS.cup ? `this draw: ${pc(100 * LS.cup.th)}` : "after the league");
+    if (m === "rm") { const A = LS.allAwards.concat(LS.stage === "done" ? [] : LS.awards), av = k => A.length ? A.reduce((s, a) => s + a[k], 0) / A.length : NaN; tl += tile("Award month", f2(av("ppg")), "points per game, winners") + tile("Next month", f2(av("next")), `expected ${f2(av("exp"))}`); }
+    if (m === "ss" || adv) { const q = luckSD(L); tl += tile("Luck SD of points", q.luck.toFixed(1), "if all teams were equal") + tile("Expected SD", q.total.toFixed(1), "skill + luck"); }
+    now = LS.stage === "league" ? (L.round < 8 ? "Early in the season: the table is mostly luck." : top.id === 0 ? "The best team leads, as its strength says it should." : `${short(L.T[top.id].name)} (true rank #${top.id + 1}) leads: luck is beating skill so far.`) :
+      LS.stage === "cup" ? (LS.cupShow && (LS.cupShow.h === 0 || LS.cupShow.a === 0) ? `The best team is playing the ${LS.cupRoundName.toLowerCase()}. One bad day and it is out.` : "The best team is out of the cup!") :
+      `Season over. League: ${L.champion === 0 ? "the best team won" : `won by true #${L.champion + 1}`}${LS.cup ? `; cup: ${LS.cup.winner === 0 ? "the best team won" : `won by true #${LS.cup.winner + 1}`}` : ""}.`;
+  } else {
+    const D = LS.D, c = testCounts(D.A), pos = c.TP + c.FP, th = 100 * ppvTheory(p.prev / 100, p.sens / 100, p.fpr / 100, p.retest);
+    el("clock").textContent = `${D.N.toLocaleString("en-GB")} athletes`; st1 = `positive <b>${pos}</b>`; st2 = `really doped <b>${pos ? pc(100 * c.TP / pos) : "–"}</b>`; badge = "drug testing";
+    tl = tile("Dopers", String(c.TP + c.FN), pc(p.prev, 1) + " base rate") + tile("Positive tests", String(pos), pc(100 * pos / D.N, 2) + " of samples") + tile("True positives", String(c.TP), "dopers caught") + tile("False positives", String(c.FP), "clean athletes flagged") +
+      tile("Missed dopers", String(c.FN), "false negatives") + tile("Positives who doped", pos ? pc(100 * c.TP / pos) : "–", `theory (PPV) ${pc(th, 1)}`);
+    now = c.FP > c.TP ? "Most positive tests here are FALSE: the clean athletes vastly outnumber the dopers." : `${pc(100 * c.FP / Math.max(1, pos))} of positives are clean athletes.`;
+  }
+  el("st1").innerHTML = st1; el("st2").innerHTML = st2; const bd = el("badge"); bd.textContent = badge; bd.style.background = "#f1af28"; bd.style.color = "#14133b";
+  el("tiles").innerHTML = tl;
+  const P = LS.preset >= 0 ? PRESETS[LS.preset] : null;
+  el("story").innerHTML = `<p>${P && P.mode === m ? P.story : "Your own settings: change the teams or the test on the left."}</p><p style="color:var(--accent)">${now}</p>`;
+  el("extra").innerHTML = m === "dt" ? `<h2 class="gap">Real data</h2><div class="hint">WADA 2023: 0.80% of samples were adverse analytical findings (0.77% in 2022). The true share of athletes who dope is not known; anonymous surveys give much higher estimates, but they are uncertain.<div class="src">Source: WADA, 2023 Anti-Doping Testing Figures.</div></div>`
+    : `<h2 class="gap">Real data</h2><div class="hint">Premier League 2024/25: champions Liverpool 84 points, Southampton bottom with 12; SD of points ${PL_SD.toFixed(1)}. Home wins: 47.6% (2018/19) and 37.9% (2020/21, no crowds).<div class="src">Source: the published Premier League final tables and results (check against the official table).</div></div>`;
+}
+function legend() {
+  const L = LS.mode === "dt" ? [["#76b82a", "negative test"], ["#de252a", "positive test"], ["#e6d4f2", "ring: really doped"], ["#f1af28", "theory"]]
+    : [["#f1af28", "the best team / theory"], ["#00aec3", "measured"], ["#76b82a", "true rank = table position"], ["#de252a", "5+ places out"]];
+  el("legend").innerHTML = L.map(([c, s]) => `<span><i style="background:${c}"></i>${s}</span>`).join("");
+}
+function specs() {
+  el("specs").innerHTML = {
+    lg: `${spec("J587")} Use of data: reading a league table, percentages, bar charts; home advantage and the crowd. ${spec("H555", 1)} Attribution (a cup exit is often luck, external and unstable); social facilitation and home advantage; analysing data over a sample. Not named in either specification: the Poisson model itself, used here as a tool.`,
+    rm: `${spec("J587")} Use of data: means and line graphs. ${spec("H555", 1)} Attribution theory (Weiner): crediting or blaming ability for what was luck; learned helplessness; the self-serving bias. Regression to the mean is a data-analysis idea that supports this; it is not named in the specifications.`,
+    ss: `${spec("J587")} Use of data: why one result is not enough (reliability, repeating tests). ${spec("H555", 1)} Data analysis: correlation and sample size; variance and the share of luck (beyond the specification, for stretch).`,
+    dt: `${spec("J587")} Drugs in sport: performance-enhancing drugs, why athletes take them, testing and the consequences of a positive test; ethics and fair play. ${spec("H555", 1)} Ethics and drugs: WADA, testing, strict liability, the arguments for and against; Bayes' theorem (beyond the specification) explains false positives.` }[LS.mode];
+}
+function ideas() {
+  const adv = isAdv(); let s = "";
+  if (LS.mode === "lg") s = "• A result depends on skill AND luck. The fewer the scoring events (goals), the bigger the part luck plays.<br>• A league (many matches) rewards consistent skill; a knockout cup (one match a tie) gives more upsets.<br>• Home advantage: familiar surroundings, no travel, and the crowd (social facilitation; referees influenced by noise). Without crowds in 2020/21 it vanished in the Premier League." + (adv ? "<br>• Attribution: losing a cup tie on penalties is best attributed to an external, unstable cause (luck), which protects motivation." : "");
+  if (LS.mode === "rm") s = "• Regression to the mean: an extreme result is usually followed by a less extreme one, because part of the extreme was luck.<br>• So awards, 'curses', and 'it worked after we changed the manager' are often explained by luck." + (adv ? "<br>• Weiner's attribution model: ability (internal, stable), effort (internal, unstable), task difficulty (external, stable), luck (external, unstable).<br>• A coach who credits a lucky month to ability sets up false expectations; one who blames a team's ability for an unlucky month risks learned helplessness. Predicted next result ≈ mean + r² × (this result − mean)." : "");
+  if (LS.mode === "ss") s = "• The more matches (or trials) you look at, the more luck averages out and the more results reflect true ability (reliability).<br>• Five matches of 'form' are mostly luck; a whole season is a much fairer test.<br>• In fitness testing too, repeat a test and take the mean to reduce random error." + (adv ? "<br>• Variance of results = variance of skill + variance of luck. Correlation r = √(σ² skill ÷ (σ² skill + σ² luck ÷ n))." : "");
+  if (LS.mode === "dt") s = "• Performance-enhancing drugs (e.g. anabolic steroids, EPO, stimulants, beta blockers, diuretics, narcotic analgesics, peptide hormones) and blood doping are banned by WADA.<br>• Reasons athletes dope: pressure to win, money, a belief that others do; disadvantages: health risks, bans, loss of reputation and sponsors, it is cheating.<br>• No test is perfect: a few clean athletes test positive (false positives) and some dopers are missed (false negatives).<br>• When doping is rare, a good share of positives can be false, so results are confirmed (B sample, retesting) before a ban." + (adv ? "<br>• Bayes: P(doped | positive) = P(positive | doped) × P(doped) ÷ P(positive).<br>• Strict liability: athletes are responsible for any banned substance in their body, however it got there." : "");
+  el("ideas").innerHTML = s;
+}
+
+/* ---------------- exam questions (Standard J587, Advanced H555) ---------------- */
+function exam() {
+  const p = LS.p, adv = isAdv(), L = LS.L, b = L.rows[0], key = [adv, LS.mode, L.round, LS.seasons.length, p.prev, p.sens, p.fpr, p.ath, p.retest, p.month].join("|"); if (key === examKey) return; examKey = key;
+  const pts = 3 * b.W + b.D, nP = Math.max(1, b.P), n = LS.seasons.length, wL = LS.seasons.filter(s => s.bestL).length, wC = LS.seasons.filter(s => s.bestC).length;
+  const D = LS.D, c = testCounts(D.A), pos = c.TP + c.FP, ppvM = pos ? 100 * c.TP / pos : 0;
+  const top5 = PL2425.slice(0, 5).map(x => x[1]), m5 = top5.reduce((s, v) => s + v, 0) / 5;
+  const std = [
+    { q: `On screen. The best team (${L.T[0].name}) has won ${b.W}, drawn ${b.D} and lost ${b.L} of its ${b.P} matches. A win is worth 3 points and a draw 1. Calculate its points, its points per game and the percentage of its matches it has won.`, marks: 3,
+      working: [`Points = 3 × ${b.W} + 1 × ${b.D} = ${pts} [1]`, `Points per game = ${pts} ÷ ${nP} = ${(pts / nP).toFixed(2)} [1]`, `Won = ${b.W} ÷ ${nP} × 100 = ${pc(100 * b.W / nP, 1)} [1]`], answer: `${pts} points, ${(pts / nP).toFixed(2)} per game, ${pc(100 * b.W / nP, 1)} won` },
+    { q: n ? `On screen. In ${n} simulated season${n === 1 ? "" : "s"} the best team won the league ${wL} time${wL === 1 ? "" : "s"} and the cup ${wC} time${wC === 1 ? "" : "s"}. Calculate each as a percentage and explain why the best team wins the league more often than a knockout cup.` : "In 20 simulated seasons the best team won the league 12 times and the cup 5 times. Calculate each as a percentage and explain why the best team wins the league more often than a knockout cup.", marks: 4,
+      working: n ? [`League: ${wL} ÷ ${n} × 100 = ${pc(100 * wL / n)} [1]`, `Cup: ${wC} ÷ ${n} × 100 = ${pc(100 * wC / n)} [1]`, "A league is decided over many matches, so luck evens out [1]", "In a knockout one bad result (or a penalty shoot-out) ends the run, so upsets are more likely [1]"] : ["League 12 ÷ 20 × 100 = 60% [1]", "Cup 5 ÷ 20 × 100 = 25% [1]", "A league is decided over many matches, so luck evens out [1]", "In a knockout one bad result (or a penalty shoot-out) ends the run [1]"], answer: n ? `${pc(100 * wL / n)} and ${pc(100 * wC / n)}` : "60% and 25%" },
+    { q: "In the 2018/19 Premier League season home teams won 181 of the 380 matches. In 2020/21, played without crowds, they won 144. Calculate the percentage of home wins in each season and suggest a reason for the difference.", marks: 4,
+      working: ["181 ÷ 380 × 100 = 47.6% [1]", "144 ÷ 380 × 100 = 37.9% [1]", "Without crowds home teams lost the support and encouragement of the crowd [1]", "e.g. less pressure on referees, away teams less intimidated [1]"], answer: "47.6% and 37.9%" },
+    { q: `The top five teams in the 2024/25 Premier League finished with ${top5.join(", ")} points. Calculate the mean and the range.`, marks: 2,
+      working: [`Mean = (${top5.join(" + ")}) ÷ 5 = ${m5.toFixed(1)} [1]`, `Range = ${Math.max(...top5)} − ${Math.min(...top5)} = ${Math.max(...top5) - Math.min(...top5)} [1]`], answer: `mean ${m5.toFixed(1)}, range ${Math.max(...top5) - Math.min(...top5)}` },
+    { q: `On screen (drug testing). ${D.N.toLocaleString("en-GB")} athletes were tested and ${pos} tested positive, but only ${c.TP} of them had really doped. Calculate the percentage of positive tests that were correct, and explain why a positive test should be confirmed before an athlete is banned.`, marks: 4,
+      working: [`${c.TP} ÷ ${pos || 1} × 100 = ${pc(ppvM, 1)} [1]`, `So ${pos - c.TP} clean athletes were flagged (false positives) [1]`, "Most athletes are clean, so even a small error rate flags many clean athletes [1]", "A ban ruins a career and reputation, so the result is checked (B sample) to be fair [1]"], answer: pc(ppvM, 1) },
+    { q: "Explain why one month of results is not enough to judge how good a team is.", marks: 3,
+      working: ["A small number of matches is a small sample [1]", "Luck (deflections, refereeing decisions, injuries in a match) has a big effect on a few results [1]", "Over many matches the luck averages out, so a long run of results is more reliable [1]"], answer: "Small samples are dominated by luck." },
+    { q: "Evaluate the reasons why some elite performers take performance-enhancing drugs, and the disadvantages to the performer.", marks: 6,
+      working: ["Reasons: to win / improve performance, financial rewards and sponsorship, pressure from coaches or the media, belief that rivals are doping [1–2]", "Disadvantages: health risks (e.g. heart problems, liver damage with steroids), bans [1–2]", "Loss of reputation and sponsorship; it is cheating, against fair play [1]", "Evaluation: a short-term gain against long-term costs; a judgement [1]"], answer: "Reasons and disadvantages weighed up." },
+  ];
+  const A = LS.allAwards.length ? LS.allAwards : monthAwards(L, p.month), ap = A.length ? A.reduce((s, a) => s + a.ppg, 0) / A.length : 2.6, mean = L.q.reduce((s, v) => s + v, 0) / L.N, rr = corrTheory(L, p.month) ** 2, pred = mean + rr * (ap - mean);
+  const pr = p.prev / 100, se = p.sens / 100, fp = p.fpr / 100, th = ppvTheory(pr, se, fp, false), luckSh = 100 * LS.pureLuck ** 2 / PL_SD ** 2;
+  const advQ = [
+    { q: "Using Weiner's model of attribution, explain how a coach should explain a defeat on penalties to keep players motivated, and the risk of attributing defeats to a lack of ability.", marks: 6,
+      working: ["Weiner: locus of causality (internal / external) and stability (stable / unstable) [1]", "A penalty shoot-out loss can be put down to luck: external and unstable, so it may not happen again [1]", "This protects self-esteem and keeps expectations of future success (self-serving bias) [1]", "Attributing defeats to ability (internal, stable) lowers expectations and motivation [1]", "Repeated stable, internal attributions for failure can lead to learned helplessness [1]", "Attribution retraining: attribute failure to effort or tactics, which can be changed [1]"], answer: "External/unstable attribution for chance defeats; avoid stable internal ones." },
+    { q: `On screen. ${pc(p.prev, 1)} of athletes dope, the test detects ${pc(p.sens)} of dopers, and ${pc(p.fpr, 1)} of clean athletes test positive. Use Bayes' theorem to calculate the probability that an athlete who tests positive really doped.`, marks: 4,
+      working: [`P(positive) = ${se.toFixed(2)} × ${pr.toFixed(3)} + ${fp.toFixed(3)} × ${(1 - pr).toFixed(3)} = ${(se * pr + fp * (1 - pr)).toFixed(4)} [1]`, `P(doped and positive) = ${se.toFixed(2)} × ${pr.toFixed(3)} = ${(se * pr).toFixed(4)} [1]`, `P(doped | positive) = ${(se * pr).toFixed(4)} ÷ ${(se * pr + fp * (1 - pr)).toFixed(4)} [1]`, `= ${pc(100 * th, 1)} [1]`], answer: pc(100 * th, 1) },
+    { q: `If every Premier League team were equally good, luck alone would spread final points with an SD of about ${LS.pureLuck.toFixed(1)}. The real SD in 2024/25 was ${PL_SD.toFixed(1)}. Variances add: total variance = skill variance + luck variance. Calculate the percentage of the variance due to luck.`, marks: 3,
+      working: [`Luck variance = ${LS.pureLuck.toFixed(1)}² = ${(LS.pureLuck ** 2).toFixed(0)}; total variance = ${PL_SD.toFixed(1)}² = ${(PL_SD ** 2).toFixed(0)} [1]`, `Luck share = ${(LS.pureLuck ** 2).toFixed(0)} ÷ ${(PL_SD ** 2).toFixed(0)} × 100 [1]`, `= ${pc(luckSh, 0)}, so about ${pc(100 - luckSh, 0)} is skill [1]`], answer: pc(luckSh, 0) },
+    { q: `On screen. Manager of the Month winners averaged ${f2(ap)} points per game in their award month. The league average is ${f2(mean)} and, for ${p.month}-match months, the share of the difference from average that is skill is r² ≈ ${f2(rr)}. Predict their points per game the next month and explain the 'curse'.`, marks: 4,
+      working: [`Predicted = mean + r² × (award month − mean) = ${f2(mean)} + ${f2(rr)} × (${f2(ap)} − ${f2(mean)}) [1]`, `= ${f2(pred)} points per game [1]`, "The award goes to teams that were good AND lucky that month [1]", "The luck does not carry over, so they fall back towards their true level: regression to the mean, not a curse [1]"], answer: `about ${f2(pred)} points per game` },
+    { q: "Evaluate whether drug testing in elite sport is fair to athletes.", marks: 8,
+      working: ["For: protects clean athletes and fair competition, protects health, deters doping; the WADA code applies to all [1–2]", "Strict liability: athletes are responsible for any substance found, even contamination (e.g. supplements) [1]", "False positives: when doping is rare, a share of positives can be wrong; confirmation (B sample) reduces but does not remove this [1–2]", "Whereabouts rules invade privacy; some substances are hard to detect, so dopers may be missed while clean athletes are caught [1]", "Therapeutic use exemptions can be misused [1]", "Judgement [1]"], answer: "A balanced evaluation with a judgement." },
+  ];
+  const Gs = [{ title: "Standard (GCSE J587)", id: "s", qs: std }];
+  if (adv) Gs.push({ title: "Advanced (A level H555)", id: "a", qs: advQ });
+  renderExam(el("examQs"), Gs);
+}
+
+/* ---------------- controls and the main loop ---------------- */
+(function initControls() {
+  el("presets").innerHTML = PRESETS.map((p, i) => `<button data-i="${i}" class="${p.lvl ? "advOnly" : ""}">${p.name}<small>${p.desc}</small></button>`).join("");
+  document.querySelectorAll("#presets button").forEach(b => b.addEventListener("click", () => setPreset(+b.dataset.i)));
+  for (const k of LEAGUE_KEYS) el(k).addEventListener("input", () => { own(); LS.p[k] = +el(k).value; labels(); if (k !== "month") { LS.seasonNo = 1; newSeason(false); } else LS.awards = monthAwards(LS.L, LS.p.month); });
+  for (const k of DT_KEYS) el(k).addEventListener("input", () => { own(); LS.p[k] = +el(k).value; labels(); newTests(); });
+  el("retest").addEventListener("input", () => { own(); LS.p.retest = el("retest").checked ? 1 : 0; newTests(); });
+  el("qual").addEventListener("input", () => { LS.p.qual = +el("qual").value; try { localStorage.setItem("luck-and-skill-quality", el("qual").value); } catch (e) {} });
+  document.querySelectorAll("#lvl button").forEach(b => b.addEventListener("click", () => setLevel(b.dataset.lvl)));
+  el("modes").innerHTML = MODES.map(([k, t]) => `<button data-m="${k}">${t}</button>`).join("");
+  el("modes").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { own(); setMode(b.dataset.m); }));
+  el("btnPlay").addEventListener("click", () => { LS.playing = !LS.playing; setPlayBtn(); });
+  el("btnReset").addEventListener("click", () => { if (LS.mode === "dt") newTests(); else { LS.seasonNo = 1; newSeason(false); } });
+  el("btnSkip").addEventListener("click", () => { if (LS.mode === "dt") LS.dtShown = LS.p.qual; else finishSeason(); });
+  el("btnBatch").addEventListener("click", () => Batch.open());
+})();
+function tick(dt) {
+  const sp = LS.speed;
+  if (LS.mode === "dt") { LS.dtShown = Math.min(LS.p.qual, LS.dtShown + dt * sp * LS.p.qual / 12); return; }
+  if (LS.stage === "league") { LS.acc += dt * sp; let k = 0; while (LS.acc >= 1 && k++ < 40 && LS.stage === "league") { LS.acc -= 1; stepRound(); } }
+  else if (LS.stage === "cup") { LS.acc += dt * sp; if (LS.acc >= 1.6) { LS.acc = 0; LS.cupShown++; if (LS.cupShown >= 4) { LS.cupShown = 4; showCupTie(); endSeason(); } else showCupTie(); } }
+  else { LS.wait += dt * Math.min(sp, 5); if (LS.wait > 4) { LS.seasonNo++; newSeason(true); } }
+}
+let lastT = performance.now();
+function frame(now) {
+  const real = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now;
+  if (LS.playing) { tick(real); LS.t += real; }
+  const a = fitCanvas(el("cvA")), b = fitCanvas(el("cvB"));
+  a.ctx.clearRect(0, 0, a.w, a.h); b.ctx.clearRect(0, 0, b.w, b.h);
+  if (a.w > 80 && a.h > 80) (LS.mode === "dt" ? drawSceneDT : drawSceneLeague)(a.ctx, a.w, a.h);
+  const DR = { points: drawPoints, tally: drawTally, pl: drawRealPL, home: drawHome, awards: drawAwards, corr: drawCorr, form: drawForm, luck: drawLuckShare, tree: drawTree, ppv: drawPPV, wada: drawWADA };
+  if (b.w > 80 && b.h > 60) DR[LS.view[LS.mode]](b.ctx, b.w, b.h);
+  if (!frame.k || now - frame.k > 250) { ui(); legend(); exam(); frame.k = now; }
+  requestAnimationFrame(frame);
+}
+
+/* =====================================================================
+   9. BATCH RUN SET-UP
+   Each run is one or more whole seasons (or one population of athletes),
+   with no drawing. A new seed gives new teams and new luck.
+   ===================================================================== */
+function seasonsOf(p, seed, fn) { const K = Math.max(1, Math.round(p.seasons)); for (let k = 0; k < K; k++) { const L = makeLeague(p, seed * 37 + k * 101); playSeason(L); fn(L, k); } return K; }
+function runOnce(p, seed, out) {
+  if (out === "spread") { const L = makeLeague(p, seed); playSeason(L); return { value: sdOf(L.rows.map(r => r.Pts)), theory: luckSD(L).total, theory2: PL_SD }; }
+  if (out === "bestL" || out === "bestC") {
+    let wl = 0, wc = 0, tl = 0, tc = 0;
+    const K = seasonsOf(p, seed, L => { wl += L.champion === 0; tl += leagueTheory(L); const d = cupDraw(L); wc += playCup(L, d).winner === 0; tc += cupTheory(L, d, 0); });
+    return out === "bestL" ? { value: 100 * wl / K, theory: 100 * tl / K, theory2: 100 * tc / K } : { value: 100 * wc / K, theory: 100 * tc / K, theory2: 100 * tl / K };
+  }
+  if (out === "motm") {
+    let A = []; seasonsOf(p, seed, L => { A = A.concat(monthAwards(L, Math.round(p.month))); });
+    const av = k => A.length ? A.reduce((s, a) => s + a[k], 0) / A.length : NaN;
+    return { value: av("next"), theory: av("exp"), theory2: av("ppg") };
+  }
+  if (out === "corr") { const L = makeLeague(p, seed), n = Math.min(Math.round(p.played), L.F.length); for (let r = 0; r < n; r++) playRound(L); return { value: corrOf(L.rows.map(r => r.Pts / r.P), L.q), theory: corrTheory(L, n) }; }
+  if (out === "home") { const L = makeLeague(p, seed); playSeason(L); return { value: 100 * L.hw / L.nM, theory: 100 * L.pH / L.nM }; }
+  const D = makeTests(p, seed), c = testCounts(D.A), pos = c.TP + c.FP;
+  return { value: pos ? 100 * c.TP / pos : NaN, theory: 100 * ppvTheory(p.prev / 100, p.sens / 100, p.fpr / 100, p.retest) };
+}
+const LEAGUE_OUTS = ["spread", "bestL", "bestC", "motm", "corr", "home"];
+const BDEF = { ...PDEF, seasons: 20, played: 38, retest: 0 };
+Batch.init({
+  fileName: "luck-and-skill", runChoices: [50, 100, 200, 500],
+  hint: "Simulated seasons with no drawing: each run has new teams and new luck. Every setting used is in the table.",
+  defaults: { ...BDEF },
+  current: () => ({ ...LS.p, seasons: 20, played: 38 }),
+  opts: [{ k: "retest", label: "Re-test positives", bool: true, outs: ["ppv"] }],
+  outcomes: {
+    spread: { label: "SD of final points across teams", unit: "points", theoryLabel: "expected SD (skill + luck)", theory2Label: "real Premier League 2024/25", noFit: true },
+    bestL: { label: "Best team wins the league", unit: "% of seasons", theoryLabel: "league (normal approximation)", theory2Label: "cup (exact)", noFit: true },
+    bestC: { label: "Best team wins the cup", unit: "% of seasons", theoryLabel: "cup (exact)", theory2Label: "league (normal approximation)", noFit: true },
+    motm: { label: "Award winners' points per game next month", unit: "points per game", theoryLabel: "expected from true strength", theory2Label: "their award month", noFit: true },
+    corr: { label: "Correlation of table with true strength", unit: "r", theoryLabel: "√(σq² ÷ (σq² + σe² ÷ n))", noFit: true },
+    home: { label: "Home wins", unit: "% of matches", theoryLabel: "exact chance from the model", noFit: true },
+    ppv: { label: "Positive tests that really doped (PPV)", unit: "%", theoryLabel: "Bayes: sens·p ÷ (sens·p + fpr·(1 − p))", noFit: true },
+  },
+  vars: {
+    teams: { label: "Teams", unit: "", min: 4, max: 24, int: true, outs: LEAGUE_OUTS },
+    spread: { label: "Spread of team strengths (SD)", unit: "", min: 0, max: 3, outs: LEAGUE_OUTS },
+    edge: { label: "Extra edge for the best team", unit: "", min: 0, max: 3, outs: LEAGUE_OUTS },
+    home: { label: "Home advantage h", unit: "", min: 0, max: 2, outs: LEAGUE_OUTS },
+    goals: { label: "Goals per team per match", unit: "", min: 0.1, max: 10, outs: LEAGUE_OUTS },
+    seasons: { label: "Seasons in each run", unit: "", min: 1, max: 200, int: true, outs: ["bestL", "bestC", "motm"] },
+    month: { label: "Matches in a month", unit: "", min: 1, max: 19, int: true, outs: ["motm"] },
+    played: { label: "Matches played", unit: "", min: 1, max: 46, int: true, outs: ["corr"] },
+    ath: { label: "Athletes tested", unit: "", min: 10, max: 100000, int: true, outs: ["ppv"] },
+    prev: { label: "Share who dope (base rate)", unit: "%", min: 0.01, max: 100, outs: ["ppv"] },
+    sens: { label: "Sensitivity", unit: "%", min: 0, max: 100, outs: ["ppv"] },
+    fpr: { label: "False-positive rate", unit: "%", min: 0, max: 100, outs: ["ppv"] },
+  },
+  experiments: [
+    { q: "Pure luck: how spread out is the table?", sub: "200 seasons, all teams equal", mode: "repeat", out: "spread", runs: 200, set: { spread: 0, edge: 0 },
+      note: "Every team is exactly as good as every other, yet each season the final points spread out with an SD of about 8 points (mean about 8.0, theory 8.1): from luck alone a 'champion' finishes about 15 points clear of a mid-table team. The real Premier League in 2024/25 spread out with an SD of 18.6 points, more than twice as much, so most of the real spread must be skill. Because skill and luck add as variances, luck accounts for roughly (8 ÷ 18.6)² ≈ 19% of the real variation. The SD itself varies from season to season (about ±1.3 points) because it is calculated from only 20 teams." },
+    { q: "League or cup: does the best team win?", sub: "best team's edge 0 to 1", mode: "sweep", out: "bestL", v: "edge", from: 0, to: 1, steps: 6, reps: 10, set: { seasons: 20 },
+      note: "Each run is 20 seasons. Even with no extra edge, the strongest team (with the usual spread of strengths) wins the league in about 60% of seasons but the knockout cup in only about 27% (grey line: exact cup theory). Give it an edge of 0.4 and it wins about 95% of leagues but still under half of cups (43%). A league is 38 matches, so luck averages out; a cup is four one-off matches, and one bad day or a penalty shoot-out ends it. The league theory (gold) is a normal approximation that treats teams' totals as independent; it comes out a few points below the simulated seasons, mostly because the real totals are not independent and the leader's rivals take points off one another. Change 'Record' to the cup to see measured cup wins against the exact theory. The % scatters (about ±10) because 20 seasons is still a small sample." },
+    { q: "Is there a manager of the month curse?", sub: "months of 2 to 8 matches", mode: "sweep", out: "motm", v: "month", from: 2, to: 8, steps: 7, reps: 10, set: { seasons: 5 },
+      note: "The award goes to the team with the best record in a 'month'. In its award month the winner averages 2.5 to 3.0 points per game (grey: with short months the winner usually won every match). The month after, it averages only about 1.9 to 2.0: the 'curse'. But that is exactly what its true strength predicts against its next opponents (gold), so there is no curse at all, just regression to the mean. Winning a month needs skill AND luck; the luck does not carry over. The longer the month, the less luck is needed to win it, so the fall is smaller. Points scatter (about ±0.15) because each run is only 5 seasons of awards." },
+    { q: "How many matches until the table is fair?", sub: "correlation after 1 to 38 matches", mode: "sweep", out: "corr", v: "played", from: 1, to: 38, steps: 10, reps: 20, logx: true, set: {},
+      note: "After each number of matches, how closely does the table (points per game) match the teams' true strengths? After 1 match the correlation is only about 0.35; after 5 matches about 0.66; after a full season of 38 about 0.90. The gold curve is the classical test-theory prediction r = √(σq² ÷ (σq² + σe² ÷ n)): the luck in each result (σe²) is divided by the number of matches. The measured correlations sit slightly below the curve at large n, because a correlation calculated from only 20 teams is biased a little low, and who each team happened to play adds extra noise. Conclusion: a few matches of 'form' tell you little; judge over a long run." },
+    { q: "A positive test: guilty?", sub: "base rate 0.2% to 20%", mode: "sweep", out: "ppv", v: "prev", from: 0.2, to: 20, steps: 10, reps: 20, logx: true, set: { ath: 5000 },
+      note: "5,000 athletes are tested with a test that catches 80% of dopers and wrongly flags 1% of clean athletes. When only 0.2% dope, just 12–14% of positive tests are real dopers: the other positives are clean athletes, because there are so many more of them. As doping becomes more common the share rises (about 55% at 1.5%, 95% at 20%). The points follow Bayes' theorem (gold), a little below it on average because a ratio of two small random counts is biased slightly low; they scatter most when doping is rare and there are only a few true positives. Tick 'Re-test positives' in the table: an independent second test raises the PPV dramatically. The real share of athletes who dope is unknown, which is exactly why the meaning of a positive test is hard to judge." },
+    { q: "How big is home advantage?", sub: "home advantage 0 to 0.6", mode: "sweep", out: "home", v: "home", from: 0, to: 0.6, steps: 7, reps: 10, set: {},
+      note: "With no home advantage, home and away wins are equally likely (about 39% each, the rest draws). As h rises, home wins climb in a curve that the seasons follow closely; h = 0.3 gives about 47%, the Premier League's 47.6% in 2018/19. The 2020/21 season without crowds had 37.9% home wins, close to h = 0. Each season scatters by about ±2 points because 380 matches is a sample: the real 2020/21 drop (about 10 points) is far bigger than that, so it is unlikely to be luck." },
+  ],
+  runOnce,
+});
+
+/* =====================================================================
+   10. START
+   ===================================================================== */
+initLayout("luck-and-skill-layout", () => Batch.refresh());
+let lv0 = "std"; try { lv0 = localStorage.getItem("luck-and-skill-level") || "std"; } catch (e) {}
+setLevel(lv0 === "adv" ? "adv" : "std");
+setPreset(0);
+requestAnimationFrame(frame);
+
+</script>
+<!-- VIEW BAR (start): hide/show the side panels and full-screen the simulation. Same block in every simulation. -->
+<style>
+  #viewBar { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-shrink: 0; align-self: center; }
+  #viewBar button { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  #viewBar button.on { border-color: var(--accent); }
+  #viewBar .vbKey { opacity: .55; font-size: 11px; margin-left: 4px; }
+  /* bigger, clearer drag handles between the panels */
+  .splitter::before { width: 4px !important; margin-left: -2px !important; }
+  .splitter::after { content: "⋮"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--muted); font-size: 16px; pointer-events: none; }
+  .splitter button { width: 22px !important; height: 52px !important; font-size: 15px !important; font-weight: 700; background: var(--accent) !important; color: #14133b !important; border: none !important; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  /* full screen: the centre panel fills the screen */
+  #centre:fullscreen { background: var(--bg); padding: 10px; width: 100vw; height: 100vh; box-sizing: border-box; }
+  #centre .vbExit { display: none; }
+  #centre:fullscreen .vbExit { display: block; position: absolute; top: 10px; right: 12px; z-index: 50; }
+  #centre:fullscreen { position: relative; }
+  #vbTip { position: fixed; top: 52px; right: 14px; z-index: 60; max-width: 330px; background: var(--panel-2, #1b2017); border: 1px solid var(--accent);
+           border-radius: 10px; padding: 9px 12px; font-size: 13px; line-height: 1.45; box-shadow: 0 4px 16px rgba(0,0,0,.5); cursor: pointer; }
+</style>
+<script>
+(function () {
+  // Buttons in the header: hide/show the left (controls) and right (readouts) panels, and full screen.
+  // They click the existing ‹ › buttons on the drag handles, so each simulation's own layout code stays in charge.
+  const header = document.querySelector("header"), centre = document.getElementById("centre");
+  const sL = document.getElementById("splitL"), sR = document.getElementById("splitR");
+  const left = sL && sL.previousElementSibling, right = sR && sR.nextElementSibling;   // the panels either side of the drag handles
+  const bL = sL && sL.querySelector("button"), bR = sR && sR.querySelector("button");
+  if (!header || !centre || !left || !right || !bL || !bR) return;
+  const bar = document.createElement("div"); bar.id = "viewBar";
+  bar.innerHTML = '<button id="vbL" title="Hide or show the controls panel (key: [ )"></button>' +
+                  '<button id="vbR" title="Hide or show the readouts panel (key: ] )"></button>' +
+                  '<button id="vbF" title="Show only the simulation, full screen (key: F; Esc to leave)">⛶ Full screen</button>';
+  header.appendChild(bar);
+  const exit = document.createElement("button"); exit.className = "vbExit"; exit.textContent = "✕ Exit full screen (Esc)";
+  centre.appendChild(exit);
+  const vbL = bar.querySelector("#vbL"), vbR = bar.querySelector("#vbR"), vbF = bar.querySelector("#vbF");
+  function label() {
+    const lc = left.classList.contains("collapsed"), rc = right.classList.contains("collapsed");
+    vbL.textContent = lc ? "◧ Show controls" : "◧ Hide controls"; vbL.classList.toggle("on", !lc);
+    vbR.textContent = rc ? "Show readouts ◨" : "Hide readouts ◨"; vbR.classList.toggle("on", !rc);
+  }
+  new MutationObserver(label).observe(left, { attributes: true, attributeFilter: ["class"] });
+  new MutationObserver(label).observe(right, { attributes: true, attributeFilter: ["class"] });
+  label();
+  const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else if (centre.requestFullscreen) centre.requestFullscreen().catch(() => {}); };
+  vbL.onclick = () => bL.click(); vbR.onclick = () => bR.click(); vbF.onclick = full; exit.onclick = full;
+  document.addEventListener("fullscreenchange", () => {
+    vbF.textContent = document.fullscreenElement ? "✕ Exit full screen" : "⛶ Full screen";
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 60);    // canvases re-measure themselves
+  });
+  // The batch-run window lives outside the full-screen area, so leave full screen when it is opened
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("button");
+    if (document.fullscreenElement && b && /Batch run/.test(b.textContent)) document.exitFullscreen();
+  }, true);
+  document.addEventListener("keydown", e => {
+    const t = e.target.tagName; if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA" || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "f" || e.key === "F") { full(); e.preventDefault(); }
+    else if (e.key === "[") bL.click(); else if (e.key === "]") bR.click();
+  });
+  // A one-time tip so people notice the panels can be hidden or resized
+  let seen = false; try { seen = localStorage.getItem("sims-viewbar-tip") === "1"; } catch (e) {}
+  if (!seen) {
+    const tip = document.createElement("div"); tip.id = "vbTip";
+    tip.innerHTML = "<b>Make the simulation bigger:</b> hide the side panels with the buttons above (or the yellow ‹ › tabs), drag the ⋮ bars to resize them, or press <b>⛶ Full screen</b>. Click to close.";
+    document.body.appendChild(tip);
+    const close = () => { tip.remove(); try { localStorage.setItem("sims-viewbar-tip", "1"); } catch (e) {} };
+    tip.onclick = close; setTimeout(close, 12000);
+  }
+})();
+</script>
+<!-- VIEW BAR (end) -->
+
+</body>
+</html>

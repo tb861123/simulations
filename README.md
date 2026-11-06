@@ -147,6 +147,7 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 | [`economics/running_the_economy/`](economics/running_the_economy/) | Running the economy: macro objectives, business cycle, monetary and fiscal policy, money creation, real UK data, Phillips curve | Open `running-the-economy.html` |
 | [`economics/externalities/`](economics/externalities/) | Market failure: externalities, welfare loss, taxes, subsidies, regulation, tradable permits, public goods, information failure | Open `externalities.html` |
 | [`economics/trade_exchange_rates/`](economics/trade_exchange_rates/) | Trade and exchange rates: comparative advantage, terms of trade, tariffs, quotas, floating and fixed rates, J-curve | Open `trade-exchange-rates.html` |
+| [`economics/inequality/`](economics/inequality/) | Inequality and redistribution: Lorenz curve and Gini, income vs wealth, poverty, UK taxes and benefits, Kuznets and Laffer curves (also listed under Statistics) | Open `inequality.html` |
 
 ## Physical Education
 
@@ -160,6 +161,7 @@ Standard level follows OCR GCSE (9–1) Physical Education (J587); Advanced foll
 | [`physical_education/fitness_testing/`](physical_education/fitness_testing/) | Fitness testing: 12 fitness tests on a simulated squad, ratings, reliability, validity, typical error | Open `fitness-testing.html` |
 | [`physical_education/skill_acquisition/`](physical_education/skill_acquisition/) | Skill acquisition: your own reaction test and Hick's law, information processing, practice, guidance and feedback, classification, schema | Open `skill-acquisition.html` |
 | [`physical_education/arousal_performance/`](physical_education/arousal_performance/) | Arousal and performance: inverted-U, drive, catastrophe, ZOF, stress management, social facilitation, Ringelmann, attribution | Open `arousal-performance.html` |
+| [`physical_education/luck_and_skill/`](physical_education/luck_and_skill/) | Luck, skill and results: leagues vs cups, home advantage, regression to the mean, sample size, drug-test false positives (also listed under Statistics) | Open `luck-and-skill.html` |
 
 ## History
 
