@@ -98,7 +98,9 @@ changing a simulation's batch experiments.
 | [`medical/antibiotic_resistance/`](medical/antibiotic_resistance/) | Antibiotic resistance evolving during a course of treatment | Open `antibiotic-resistance.html` |
 | [`medical/gas_exchange/`](medical/gas_exchange/) | Lungs and gas exchange: Fick's law, altitude, exercise, lung disease | Open `gas-exchange.html` |
 
-## Climate science
+## Climate and physical geography
+
+Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edexcel A level Geography (9GE0) at Advanced.
 
 | Folder | What it is | How to run |
 |---|---|---|
@@ -108,6 +110,8 @@ changing a simulation's batch experiments.
 | [`climate/sea_level_rise/`](climate/sea_level_rise/) | Sea level rise: where the water comes from, flooding and storm surges | Open `sea-level-rise.html` |
 | [`climate/forest_fire/`](climate/forest_fire/) | How a woodland fire spreads with wind, dryness, slope, trees, undergrowth, firebreaks and rivers | Open `forest-fire.html` |
 | [`climate/weather_chaos/`](climate/weather_chaos/) | The butterfly effect: Lorenz 63 and Lorenz 96 models, twin forecasts, ensembles, and why forecast skill is limited | Open `weather-chaos.html` |
+| [`climate/flooding_hydrographs/`](climate/flooding_hydrographs/) | Flooding and storm hydrographs: drainage basins, lag time, urbanisation, flood management, return periods, water budgets | Open `flooding-hydrographs.html` |
+| [`climate/river_landforms/`](climate/river_landforms/) | Rivers and landforms: Bradshaw model, Hjulström curve, meanders and oxbow lakes, waterfalls, river fieldwork | Open `river-landforms.html` |
 
 ## Astrophysics
 
