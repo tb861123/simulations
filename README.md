@@ -141,6 +141,8 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 | [`economics/labour_market/`](economics/labour_market/) | The labour market: wage determination, minimum wage, unions, monopsony, wage differences, division of labour | Open `labour-market.html` |
 | [`economics/circular_flow/`](economics/circular_flow/) | The circular flow and the multiplier: five sectors, injections and withdrawals, AD = C+I+G+X−M, AD/AS, accelerator | Open `circular-flow.html` |
 | [`economics/running_the_economy/`](economics/running_the_economy/) | Running the economy: macro objectives, business cycle, monetary and fiscal policy, money creation, real UK data, Phillips curve | Open `running-the-economy.html` |
+| [`economics/externalities/`](economics/externalities/) | Market failure: externalities, welfare loss, taxes, subsidies, regulation, tradable permits, public goods, information failure | Open `externalities.html` |
+| [`economics/trade_exchange_rates/`](economics/trade_exchange_rates/) | Trade and exchange rates: comparative advantage, terms of trade, tariffs, quotas, floating and fixed rates, J-curve | Open `trade-exchange-rates.html` |
 
 ## Physical Education
 

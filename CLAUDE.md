@@ -17,7 +17,7 @@ holds one folder per simulation:
 | `climate/` | `greenhouse_effect`, `ice_albedo`, `carbon_cycle`, `sea_level_rise`, `forest_fire`, `weather_chaos` |
 | `astrophysics/` | `planet_formation`, `stellar_life_cycle`, `exoplanet_hunting`, `galaxy_collisions`, `expanding_universe`, `gravitational_lensing`, `dark_matter`, `three_body_chaos` |
 | `statistics/` | `central_limit_theorem`, `queues` |
-| `economics/` | `supply_demand`, `taxes_price_controls`, `firms_competition`, `labour_market`, `circular_flow`, `running_the_economy` |
+| `economics/` | `supply_demand`, `taxes_price_controls`, `firms_competition`, `labour_market`, `circular_flow`, `running_the_economy`, `externalities`, `trade_exchange_rates` |
 | `physical_education/` | `energy_systems`, `training_adaptation`, `sport_biomechanics`, `fitness_testing`, `skill_acquisition`, `arousal_performance` |
 
 Every simulation is one self-contained HTML file: open it in Chrome
