@@ -139,6 +139,8 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 | [`economics/taxes_price_controls/`](economics/taxes_price_controls/) | Indirect taxes, subsidies, maximum and minimum prices: incidence, shortages, deadweight loss | Open `taxes-price-controls.html` |
 | [`economics/firms_competition/`](economics/firms_competition/) | Firms, costs and competition: cost and revenue curves, economies of scale, market structures, game theory, cartels | Open `firms-competition.html` |
 | [`economics/labour_market/`](economics/labour_market/) | The labour market: wage determination, minimum wage, unions, monopsony, wage differences, division of labour | Open `labour-market.html` |
+| [`economics/circular_flow/`](economics/circular_flow/) | The circular flow and the multiplier: five sectors, injections and withdrawals, AD = C+I+G+X−M, AD/AS, accelerator | Open `circular-flow.html` |
+| [`economics/running_the_economy/`](economics/running_the_economy/) | Running the economy: macro objectives, business cycle, monetary and fiscal policy, money creation, real UK data, Phillips curve | Open `running-the-economy.html` |
 
 ## Physical Education
 
