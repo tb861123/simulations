@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import './style.css';
 import { Lab } from './lab.ts';
 import { InlineWorker, type WorkerLike } from './scheduler.ts';
@@ -16,4 +17,7 @@ const factory = (): WorkerLike => {
 const lab = new Lab(factory, Math.max(1, Math.min(8, cores - 1)));
 lab.loadAppearance(); lab.startAutosave();
 (window as any).__lab = lab;       // handle for the browser test-suite and for curious users
-createRoot(document.getElementById('root')!).render(<App lab={lab} />);
+// Render synchronously, so the page's panels exist when the shared view-bar script (added after this one by
+// scripts/inline-build.mjs) looks for them.
+const root = createRoot(document.getElementById('root')!);
+flushSync(() => root.render(<App lab={lab} />));

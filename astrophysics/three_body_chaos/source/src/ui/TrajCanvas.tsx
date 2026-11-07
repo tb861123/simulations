@@ -33,6 +33,7 @@ export function TrajCanvas({ lab, items, tRef, trail, trailStart, cam, showVel, 
       raf = requestAnimationFrame(draw);
       const L = live.current; const t = tRef.current;
       const W = cv.clientWidth, H = height, dpr = window.devicePixelRatio || 1;
+      if (W < 20 || H < 20) return;   // panel hidden or squeezed: nothing to draw (and no camera scale of zero)
       const sig = [t, W, H, dpr, L.trail, trailStart.current, L.cam.mode, L.cam.track, L.cam.frame, L.showVel, L.showAcc, L.showBinary, L.items.map((i) => i.data.key).join(), L.lab.appearance.bodies.join(), view.current.cx, view.current.cy, view.current.s].join('|');
       if (sig === lastSig) return; lastSig = sig;
       if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }

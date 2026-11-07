@@ -149,6 +149,7 @@ export function SetupPanel({ lab }: { lab: Lab }) {
         <summary>Compute budget</summary>
         <label className="inline">Workers <input type="range" min={1} max={navigator.hardwareConcurrency || 4} value={lab.scheduler.budget} onChange={(e) => lab.setWorkers(+e.target.value)} /> {lab.scheduler.budget} of {navigator.hardwareConcurrency || '?'} logical CPUs</label>
         <p className="hint">Map memory ≈ {(lab.memoryBytes() / 1048576).toFixed(0)} MB of {(900).toFixed(0)} MB limit (oldest zoom layers are dropped beyond it).</p>
+        <p className="hint" id="noQuality"><b>Why there is no picture-quality setting:</b> almost all the time goes on the simulations, not on drawing, so a lower drawing quality would not make the lab faster. The map is painted from the real results at screen resolution, so drawing it more coarsely would only hide results. To make the lab lighter on a slow laptop, use fewer workers above or a coarser map resolution.</p>
       </details>
 
       <details>

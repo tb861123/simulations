@@ -20,10 +20,26 @@ atmospheres by Edward Lorenz show it.
    mean. One time unit is taken as 5 days (Lorenz & Emanuel 1998), so the error doubling time at F = 8 comes out near 2 days,
    as in the real atmosphere.
 
+## Screen layout
+
+Controls on the left, graphs in the centre, readouts on the right. The header's **◧ Hide controls**, **Hide readouts ◨**
+and **⛶ Full screen** buttons (keys `[`, `]`, `F`) hide the side panels or show only the graphs; the ⋮ bars between the
+panels drag to resize them (double-click resets), and the layout is remembered in the browser. A one-time tip points this out.
+There is **no quality setting**, on purpose: the pictures are cheap to draw (a few lines, at most 300 dots and two grids of
+4,800 coloured cells), so the left panel says so instead.
+
 ## 📊 Batch run
 
-Five one-click experiments run many seeded simulations without drawing (repeat with new random starts, or sweep one setting),
-show mean, SD and standard error against theory, and export CSV:
+The batch window has the set-up on the left and the results on the right (▶ Run batch at the top, visible without scrolling
+at 1280×720). Choose what to **Record** (Lorenz-63 forecast length, Lorenz-96 growth rate λ, Lorenz-96 forecast length, or
+the ensemble-mean error ratio) and the **starting settings table** lists every starting setting that model uses (ρ, σ, β,
+δ, failure threshold and give-up time for Lorenz 63; F, K, δ, threshold, measuring time, ensemble size N, starting
+uncertainty σ₀, lead time and where to perturb for Lorenz 96). Edit any value; tick one to sweep it from → to in steps
+(+ or ×); **↺ Use my left-panel settings** copies the sliders. Theory lines are drawn only where the theory applies
+(λ = 0.906 is known only for σ = 10, β = 8/3, ρ = 28; λ ≈ 1.67 only for 40 stations and F = 8).
+
+Five one-click experiments set the table for you, run many seeded simulations without drawing (repeat with new random
+starts, or sweep one setting), show mean, SD and standard error against theory, and export CSV:
 
 | Experiment | Theory compared |
 |---|---|

@@ -83,8 +83,21 @@ simulation if the batch experiments changed.
 
 **📊 Batch run** (header): four one-click experiments (outcome-fraction scatter, energy error vs tolerance,
 fast fly-by energy transfer, outcome sensitivity to tiny changes in *b*) that run many real simulations headlessly
-and compare with theory using mean, SD and standard error, with CSV download. Printable worksheets are in
-`worksheets.html`.
+and compare with theory using mean, SD and standard error, with CSV download. The window has the set-up on the left and
+the results on the right (▶ Run batch at the top, visible without scrolling at 1280×720). Choose what to **Record**, and the
+**starting settings table** lists every starting setting of the binary–single scattering set-up that outcome uses (G,
+masses, radii, A–B separation, eccentricity, C's starting x, horizon, rtol and rtol ÷ atol, the frame, the ranges b, v and φ
+are drawn from, or the fixed b, v, φ and nudge δ). Edit any value; tick one to sweep it from → to in steps (+ or ×); **↺ Use
+my left-panel settings** copies the left panel. Theory lines are drawn only where the theory applies (error ∝ rtol when rtol
+is swept, ∝ 1/v when v is swept, → 1 for the nudge test). Printable worksheets are in `worksheets.html`.
+
+**Screen layout.** The header's **◧ Hide controls**, **Hide readouts ◨** and **⛶ Full screen** buttons (keys `[`, `]`, `F`)
+hide the settings and inspector panels or show only the map; the ⋮ bars between the panels drag to resize them
+(double-click resets), and the layout is remembered in the browser. This is the same view bar as every other simulation in
+the repository: `source/viewbar.html` is a copy of the shared block, added to the built file by `scripts/inline-build.mjs`
+(so it is missing from `npm run dev`). There is **no picture-quality setting**, on purpose: almost all the time goes on the
+simulations, and the map is painted from the real results at screen resolution, so the left panel (Compute budget) explains
+this and points to the worker count and map resolution instead.
 
 ## Physical model
 
@@ -179,7 +192,7 @@ worksheets.html                    printable batch-experiment worksheets (tools/
 VALIDATION.md  CHECKLIST.md        evidence, limitations, owner review checklist
 BENCHMARK.json                     measured throughput with hardware context
 examples/                          reproducible example investigation
-source/                            React + TypeScript + Vite project (src/, tests/, scripts/)
+source/                            React + TypeScript + Vite project (src/, tests/, scripts/, viewbar.html)
 ```
 
 Source modules (`source/src`): `physics.ts` (gravity, diagnostics), `dop853.ts` + `dop853-coeffs.ts` (integrator),

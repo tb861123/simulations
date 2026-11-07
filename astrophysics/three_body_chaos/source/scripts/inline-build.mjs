@@ -12,6 +12,11 @@ let script = '';
 html = html.replace(/<script type="module"[^>]*src="\.\/(assets\/[^"]+\.js)"[^>]*><\/script>/g, (_, f) => { script += esc(readFileSync(join(dist, f), 'utf8')); return ''; });
 if (!script) throw new Error('no module script found in dist/index.html');
 html = html.replace('</body>', () => `<script type="module">${script}</script></body>`); // function form: the script contains $& / $' sequences
+// The shared VIEW BAR block (Hide controls / Hide readouts / Full screen), copied unchanged from the other
+// simulations into ../viewbar.html. Its script becomes a module so that it runs AFTER the app module above
+// (modules run in document order) and finds the panels the app has rendered.
+const viewbar = readFileSync(resolve(here, '../viewbar.html'), 'utf8').replace('<script>', '<script type="module">');
+html = html.replace('</body>', () => viewbar + '</body>');
 const out = resolve(here, '../../three-body-chaos.html');
 writeFileSync(out, html);
 console.log('wrote', out, (html.length / 1048576).toFixed(2), 'MB;', readdirSync(join(dist, 'assets')).length, 'asset files inlined');

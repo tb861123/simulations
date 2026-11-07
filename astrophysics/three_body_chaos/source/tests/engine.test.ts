@@ -10,7 +10,7 @@ import { OUT } from '../src/simulate.ts';
 import { classifyAgreement } from '../src/validation.ts';
 import { buildInitial, clampParam, DEFAULT_PHYSICS, DEFAULT_NUMERICS } from '../src/initial.ts';
 import { handle } from '../src/worker-core.ts';
-import { BATCH_EXPS, runBatch } from '../src/batch.ts';
+import { BATCH_EXPS, expSpec, runBatch } from '../src/batch.ts';
 import { checkSnapshot, snapshotToBlob, bytesToSnapshot } from '../src/persist.ts';
 import { normaliseHex, parseChannel, parseHex, toHex, hsvToRgb, rgbToHsv } from '../src/colours.ts';
 
@@ -252,12 +252,12 @@ test('input limits: clamping and rejection with explanations; ETA formatting bey
 test('batch mode: reproducible, headless, mean/SD/SE with theory', async () => {
   const exec = async (req: any) => (handle(req).res as any).cols;
   const exp = BATCH_EXPS[0];
-  const a = await runBatch(exp, { runs: 4, samples: 20, seed: 11 }, exec, () => {}, () => false);
-  const b = await runBatch(exp, { runs: 4, samples: 20, seed: 11 }, exec, () => {}, () => false);
+  const a = await runBatch(expSpec(exp, { runs: 4, samples: 20, seed: 11 }), exec, () => {}, () => false);
+  const b = await runBatch(expSpec(exp, { runs: 4, samples: 20, seed: 11 }), exec, () => {}, () => false);
   assert.deepEqual(a.rows, b.rows); assert.equal(a.rows.length, 4); assert.ok(a.summary.some((s) => s.includes('binomial')));
-  const sweep = await runBatch(BATCH_EXPS[2], { runs: 1, samples: 12, seed: 5 }, exec, () => {}, () => false);
+  const sweep = await runBatch(expSpec(BATCH_EXPS[2], { runs: 1, samples: 12, seed: 5 }), exec, () => {}, () => false);
   assert.equal(sweep.rows.length, BATCH_EXPS[2].xs!.length); assert.ok(sweep.plot.theory!.length === sweep.rows.length);
-  const stopped = await runBatch(BATCH_EXPS[1], { runs: 1, samples: 10, seed: 5 }, exec, () => {}, () => true); assert.equal(stopped.rows.length, 0);
+  const stopped = await runBatch(expSpec(BATCH_EXPS[1], { runs: 1, samples: 10, seed: 5 }), exec, () => {}, () => true); assert.equal(stopped.rows.length, 0);
   void DEFAULT_NUMERICS; void DEFAULT_PHYSICS; void completeStride;
 });
 
