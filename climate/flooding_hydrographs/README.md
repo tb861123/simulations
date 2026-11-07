@@ -136,8 +136,8 @@ storage; it is a teaching model, not the Flood Estimation Handbook.
 
 The case-study basins' settings (area, slope, rock, shape, drainage density)
 are the model's estimates of each basin's character; the model's peaks for
-Boscastle (about 170 m³/s, somewhat above the best estimate of about
-140 m³/s) and Storm Desmond (about 1700–1800 m³/s) are of the right size, but
+Boscastle (about 140 m³/s, matching the best estimate; the preset spreads
+125 mm of rain evenly over the basin) and Storm Desmond (about 1700–1800 m³/s) are of the right size, but
 it is not calibrated on gauge records.
 
 ## Batch run
