@@ -4,16 +4,20 @@ A single, self-contained HTML file (`arousal-performance.html`) for PE. Open
 `arousal-performance.html` in Chrome or Edge, with no install and no internet.
 
 Standard level follows OCR GCSE (9–1) Physical Education (J587) sports
-psychology: mental preparation for performance (imagery, mental rehearsal,
-selective attention, positive thinking) and goal setting. The rest of the
+psychology: mental preparation for performance (J587 2.2 Mental preparation:
+imagery, mental rehearsal, selective attention, positive thinking; these are
+on the GCSE spec and tagged "J587 2.2 Mental preparation") and goal setting.
+"Arousal" itself is not in J587. The rest of the
 Standard level introduces topics that are NOT on J587, kept simple and tagged
 in the key ideas and exam questions:
 
-- **Not on J587: A level (H555)**: arousal and the inverted-U theory (gross and
+- **Not on J587: A level (H555 2.2)**: arousal and the inverted-U theory (gross and
   fine skills, beginners and experts), stress management techniques as such
   (deep breathing), drive theory, catastrophe theory, the zone of optimal
   functioning, social facilitation and inhibition, the Ringelmann effect,
-  social loafing and Steiner's model.
+  social loafing and Steiner's model. Arousal, drive theory, the inverted-U
+  and catastrophe theory are tagged H555 2.2 Individual differences; the
+  Ringelmann effect and social loafing are on H555 2.2 too.
 - **Not on J587: beyond the GCSE spec**: introverts and extroverts. Advanced follows OCR A level Physical Education (H555): adds
 cognitive and somatic anxiety (multidimensional anxiety theory), more stress
 management techniques, evaluation apprehension and home advantage,
@@ -37,7 +41,7 @@ rate, sweat and (at A level) worried thoughts show their arousal:
   league match, dull friendly, trial in front of scouts) in which importance,
   the crowd, rising pressure and every miss push arousal and worry up. Use a
   technique once before the start or whenever arousal leaves the zone: the
-  J587 mental preparation techniques (imagery / mental rehearsal, selective
+  J587 2.2 mental preparation techniques (imagery / mental rehearsal, selective
   attention, positive thinking), deep breathing (tagged A level), psyching up; at A level progressive
   muscle relaxation, biofeedback, thought stopping, centring. Graphs: arousal
   (A level: somatic and cognitive anxiety) against the athlete's best zone;

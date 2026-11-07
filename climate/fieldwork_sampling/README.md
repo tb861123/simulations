@@ -15,10 +15,15 @@ extension at this level.
 sampling frameworks, standard deviation and standard error, the three 9GE0
 statistical tests (Spearman's rank, Student's t-test and chi-squared) with
 significance levels, Type I and Type II errors and the power of a test,
-reliability and validity. Student's t-test (two samples, with working and
-critical values) is the primary test for a difference between two groups.
-Mann–Whitney U is kept for comparison and tagged "other boards (OCR); not on
-9GE0".
+reliability and validity. 9GE0 skills cited: Spearman's rank 2A(5), 4A(5),
+4B(5); Student's t-test 2A(8), 2B(5); chi-squared 2B(10). Student's t-test
+(two samples, with working and critical values) is the primary test for a
+difference between two groups, shown with Edexcel's formula
+t = (x̄₁ − x̄₂) ÷ √(s₁²/n₁ + s₂²/n₂). Standard deviations divide by n (Pearson's
+worked standard deviation divides by n), for the t-test and wherever SD is
+shown at Advanced; the degrees of freedom n₁ + n₂ − 2 are labelled "check
+against an Edexcel mark scheme; the formula is given in the exam".
+Mann–Whitney U is kept and tagged "alternative test for non-normal data, listed by Pearson as relevant for the NEA; not a specified 9GE0 exam technique".
 
 ## What it shows
 
@@ -42,7 +47,7 @@ Tabs at the top of the centre panel:
   A level chi-squared (observed vs expected), Student's t-test (first zone vs
   last zone, e.g. town centre vs suburbs: each group's values, mean and ± 1 SD,
   then t on a number line with the two-tailed critical values) and, for
-  comparison, Mann–Whitney U (other boards, e.g. OCR; not on 9GE0). The right
+  comparison, Mann–Whitney U (alternative test for non-normal data, listed by Pearson as relevant for the NEA; not a specified 9GE0 exam technique). The right
   panel shows the full working and data table (ranks, d, d²; O and E; means,
   SDs, t, df and critical values; rank sums and U).
 - **🎲 Many fieldtrips**: the same plan done by class after class: the spread
@@ -62,7 +67,7 @@ and Landslides.
   Stratified sampling · Opportunistic: near the car parks · Too few sites ·
   River width downstream · Town centre: environmental quality · Is your data
   reliable? · Chi-squared: pebble shape by zone (A level) · Student's t-test:
-  centre vs suburbs (A level) · Mann–Whitney U (other boards, e.g. OCR; A
+  centre vs suburbs (A level) · Mann–Whitney U (non-normal data; A
   level) · How many sites do you need? · No real pattern: false alarms (A
   level).
 - Field site (with its hypothesis and null hypothesis), sampling method
@@ -82,14 +87,17 @@ and Landslides.
 - Each site: a trend along it (scaled by the strength slider) plus fixed
   local differences; each item measured differs at random; then measuring
   error; picking by eye adds bias.
-- Quartiles at the (n + 1)/4 positions; SD with n − 1; least-squares line;
+- Quartiles at the (n + 1)/4 positions; SD dividing by n (Pearson's worked
+  method); least-squares line;
   Spearman's rank with tied ranks averaged, two-tailed critical values (Zar
   1972; above n = 30 from Student's t); chi-squared 3 × 3 with standard
   critical values and a warning when E < 5; Student's t-test (two samples,
-  unpaired) on the first and last zones, t = (x̄₁ − x̄₂) ÷ √(s₁²/n₁ + s₂²/n₂),
-  df = n₁ + n₂ − 2, two-tailed critical values from the t distribution (e.g.
-  2.228 for df = 10 at 0.05; with equal group sizes this is the pooled-variance
-  Student's t); Mann–Whitney U (not on 9GE0) with exact critical values from
+  unpaired) on the first and last zones, t = (x̄₁ − x̄₂) ÷ √(s₁²/n₁ + s₂²/n₂)
+  with each SD dividing by n, df = n₁ + n₂ − 2 (check against an Edexcel mark
+  scheme; the formula is given in the exam), two-tailed critical values from
+  the t distribution (e.g. 2.228 for df = 10 at 0.05; dividing by n makes t a
+  little bigger than the textbook pooled Student's t, by √(6 ÷ 5) with 6 sites
+  per group); Mann–Whitney U (not a specified 9GE0 exam technique) with exact critical values from
   the distribution of U.
 - The truth (true mean, whole-site rs, bias of opportunistic sampling) comes
   from a survey of 3000 places; power predicted with Fisher's z and
@@ -124,9 +132,11 @@ tick one to sweep; Repeat or Sweep; CSV download). One-click experiments:
 6. **Chi-squared when there is no link** (A level): mean 4.03, SD 2.85 against
    df = 4 and √(2df) = 2.83.
 7. **Student's t-test when there is no difference** (A level): 500 trips of 18
-   stratified sites, west end vs east end (df = 10) with no real pattern:
-   t mean −0.02, SD 1.15 against theory 0 and √(df ÷ (df − 2)) = 1.12
-   (−0.4 standard errors); about 5% of trips pass the critical value ±2.228.
+   stratified sites, west end vs east end (df = 10) with no real pattern,
+   SDs dividing by n: t mean −0.03, SD 1.26 against theory 0 and
+   √(df ÷ (df − 2)) × √(6 ÷ 5) = 1.22 (−0.4 standard errors); about 7% of
+   trips (not 5%) pass the critical value ±2.228, because dividing by n makes
+   t about 10% bigger with 6 sites per group.
 
 Re-run `tools/worksheets/run-batch-experiments.js` (and the worksheet
 generator) if these experiments change.

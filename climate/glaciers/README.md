@@ -20,12 +20,13 @@ tab tooltips.
 **Advanced** follows Pearson Edexcel A level Geography (9GE0) Topic 2:
 *Landscape Systems, Processes and Change*, Option 2A: *Glaciated Landscapes
 and Change*: glacier mass balance as a system and
-glacier budgets (net balance, cumulative balance, accumulation area ratio),
-ice movement by internal deformation and basal sliding, warm- and cold-based
-glaciers, response times, corrie aspect, the shape of glacial troughs,
+glacier budgets (net balance, cumulative balance, accumulation area ratio;
+9GE0 2A.4a–c and skill (3) "calculate simple mass balance and equilibrium
+line position"), ice movement by internal deformation and basal sliding,
+warm- and cold-based glaciers (2A.5a–c, 2A.8c, skill (7)), response times, corrie aspect, the shape of glacial troughs,
 fluvioglacial landforms (esker, outwash plain), periglacial processes
 (permafrost, active layer, ice wedges, patterned ground, solifluction) and
-threats to glaciated landscapes.
+threats to glaciated landscapes (2A.11c).
 
 ## What it shows
 
@@ -114,9 +115,10 @@ assumption and what is left out.
 
 ## Data and sources (rounded)
 
-- Swiss glaciers lost about 6% of their ice in 2022 and 4% in 2023; Great
-  Aletsch Glacier about 22 km long, about 3 km of retreat since the 1870s.
-  GLAMOS. Reference glaciers negative every year for over 30 years: World
+- Swiss glaciers lost 6% of their volume in 2022 and more than 4% in 2023
+  (10% in two years; GLAMOS / SCNAT, 28 Sep 2023), and 2.5% in 2024
+  (GLAMOS). Great Aletsch Glacier about 22 km long, about 3 km of retreat
+  since the 1870s (approximate). Reference glaciers negative every year for over 30 years: World
   Glacier Monitoring Service.
 - Alpine warming since 1850 of about 2 °C used in the model is a rounded,
   simplified path.

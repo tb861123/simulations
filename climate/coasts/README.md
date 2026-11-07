@@ -19,7 +19,8 @@ energy and power, breaker types (Iribarren number), lithology and structure,
 sea-level change (eustatic and isostatic) and emergent and submergent coasts,
 the Bruun rule, Shoreline Management Plans (hold the line, advance the line,
 managed realignment, no active intervention), ICZM and cost–benefit analysis
-with discounting. The level hint in the page says which topic each level
+with discounting. 9GE0 2B.12c names Happisburgh (and Chattogram) as place
+contexts. The level hint in the page says which topic each level
 serves.
 
 ## What it shows
@@ -128,6 +129,7 @@ assumption and what is left out.
 - Spurn Head about 5.5 km, breached in the storm surge of 5 December 2013.
   Yorkshire Wildlife Trust.
 - Happisburgh: no active intervention policy (Kelling to Lowestoft Ness SMP).
+  A named place context in 9GE0 2B.12c (with Chattogram).
 - Dorset: Old Harry Rocks (Old Harry's Wife fell in 1896), Swanage Bay,
   Lulworth Cove, Durdle Door, Chesil Beach (about 29 km); Jurassic Coast World
   Heritage Site since 2001. Jurassic Coast Trust; BGS.

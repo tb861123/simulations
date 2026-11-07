@@ -8,15 +8,14 @@ and no internet.
 Topic 1B *River landscapes and processes*: the drainage basin (watershed,
 source, tributaries, confluence, mouth), storm hydrographs, the physical and
 human factors that affect flood risk, hard and soft engineering, and UK flood
-examples. Flood frequency (recurrence intervals, return periods) is an A level
-idea: 1GA0 does not name recurrence intervals, though its numerical skills
-mention flood frequency (e.g. 1:200 flood events). At Standard it is a gentle
-introduction only, tagged "A level idea; GCSE numerical skills mention 1:200
-flood frequency".
+examples. Flood frequency (recurrence intervals, return periods) is on the
+GCSE spec as a numerical skill, tagged "1GA0 Mathematics and Statistics
+Skills: magnitude and frequency (e.g. 1:200 flood events)".
 **Advanced** follows Pearson Edexcel A level Geography (9GE0) Topic 5 *The
 water cycle and water insecurity*: the drainage basin as an open system,
 infiltration-excess and saturation-excess overland flow, human impacts on the
-water cycle, water budgets, river regimes, drought (meteorological,
+water cycle, water budgets (named A level content: 9GE0 5.3a, skill 3: water
+budget graphs, so the water budget tab is Advanced only), river regimes, drought (meteorological,
 agricultural, hydrological), recurrence intervals and climate change. Switch
 with the **Level** buttons.
 

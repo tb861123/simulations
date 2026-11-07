@@ -19,9 +19,11 @@ simple and tagged in the key ideas and exam questions:
 
 Advanced follows OCR A level Physical Education (H555) skill acquisition: the
 continuity and organisation continua, Fitts and Posner's stages of learning,
-the guidance hypothesis, anticipation, the multi-store memory model (Atkinson
-and Shiffrin; H555 spells it "Shiffren"), schema theory and transfer. The
-working memory model is shown beside it, tagged beyond the spec, for
+the guidance hypothesis, anticipation, memory models (H555 2.1: the
+multi-store model of Atkinson and Shiffrin, which H555 spells "Shiffren", with
+selective attention, and Craik and Lockhart's levels of processing model,
+related to learning and performing skills), schema theory and transfer. The
+working memory model is shown beside them, tagged beyond the spec, for
 comparison. Switch with the **Level** buttons;
 the A level tab and presets appear when Advanced is chosen.
 
@@ -43,8 +45,8 @@ Five tabs at the top of the centre panel, each with a stylised performer:
   A dummy (feint) shows the single-channel hypothesis: the real move waits
   for the dummy to be processed (the PRP). Graphs: a timeline of the stages
   against the ball's arrival; the PRP against the gap; at A level the
-  multi-store model (on H555) and the working memory model (beyond the spec,
-  for comparison).
+  multi-store model and Craik and Lockhart's levels of processing (both on
+  H555 2.1) and the working memory model (beyond the spec, for comparison).
 - **📈 Practice**: a squad of 4–20 simulated beginners practises one of 12
   skills over several days. Choose whole / part / progressive part, the rest
   between attempts (massed or distributed), fixed or variable practice, the
@@ -67,7 +69,8 @@ Five tabs at the top of the centre panel, each with a stylised performer:
 
 Right panel: the story, live readings, your results table, key ideas, exam
 practice (7 GCSE-level questions, the ones on A level or enrichment topics
-tagged as such, and 5 A level questions, the last on the multi-store model, all with mark
+tagged as such, and 6 A level questions, the last two on the multi-store model and the
+levels of processing model, all with mark
 schemes; several
 built from the numbers on screen: response time, the % increase in choice
 reaction time from your own results, the PRP delay) and "How the model works
@@ -172,7 +175,9 @@ with no errors; re-run it if the batch experiments change.
 - Guidance hypothesis: Salmoni, Schmidt and Walter (1984); Winstein and
   Schmidt (1990). Schema theory: Schmidt (1975). Stages of learning: Fitts and
   Posner (1967). Working memory model: Baddeley and Hitch (1974). Multi-store
-  model: Atkinson and Shiffrin (1968). PRP: Welford (1952).
+  model: Atkinson and Shiffrin (1968). Levels of processing: Craik, F. I. M.
+  and Lockhart, R. S. (1972), Journal of Verbal Learning and Verbal Behavior
+  11, 671–684. PRP: Welford (1952).
 - Ball speeds and distances (tennis court 23.8 m, cricket pitch 20.12 m,
   penalty spot 11 m) are standard; average ball speeds and movement times are
   illustrative.

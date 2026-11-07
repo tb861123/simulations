@@ -104,11 +104,11 @@ Landforms, Glaciers and Earthquakes and Buildings.
   year, up to about 34 mm a year with high groundwater (1998–2002); management
   over £3 million a year. Isle of Wight Council Ventnor geotechnical study
   (2000); Carey et al., Landslides (2014).
-- Aberfan, 21 October 1966: tip No. 7, begun 1958, on a spring (its height
-  is disputed: sources differ, see the Tribunal report; the tip drawn in the
-  model is an illustrative height); about 105 000–117 000 m³ of spoil
-  travelled about 500 m; 144
-  deaths, 116 of them children. Davies Tribunal report (1967); BGS.
+- Aberfan, 21 October 1966: tip No. 7 was 34 m (111 ft) high, begun 1958,
+  about 297,000 cubic yards of spoil, built over springs (Davies Tribunal
+  report, 3 Aug 1967, via secondary accounts; one account says 100 ft). The
+  model tip is drawn 34 m high to match. About 105 000–117 000 m³ of spoil
+  travelled about 500 m; 144 deaths, 116 of them children. BGS.
 - Rest and Be Thankful, A83: 4 August 2020, about 100 mm of rain, about 6000
   tonnes of debris, about 2000 tonnes caught in catch pits, road shut about
   five weeks; more than £13 million invested in mitigation to date (August

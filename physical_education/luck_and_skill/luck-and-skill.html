@@ -24,8 +24,9 @@
   (a Poisson process), so results mix skill and luck. Units: points (3 for a
   win, 1 for a draw), goals, points per game, % of seasons, % of athletes.
   Team strengths and test accuracies are illustrative; real data are given
-  with sources (Premier League results, WADA testing figures), labelled
-  approximate in the sim.
+  with sources (Premier League 2024/25 final table, WADA testing figures);
+  the 2018/19 and 2020/21 home / draw / away splits are unverified and
+  labelled approximate in the sim.
 -->
 <style>
   :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
@@ -1058,7 +1059,8 @@ function makeTests(p, seed) {
 function testCounts(A) { let TP = 0, FP = 0, FN = 0, TN = 0; for (const a of A) { if (a.d && a.pos) TP++; else if (!a.d && a.pos) FP++; else if (a.d) FN++; else TN++; } return { TP, FP, FN, TN }; }
 
 /* ---- real data ---- */
-// Premier League 2024/25 final points (published final table)
+// Premier League 2024/25 final points (Premier League final table, checked 7 Nov 2026).
+// Sum 1047 points = 3 × 380 − draws, so 93 of the 380 matches were draws; SD of points (n − 1) = 18.6
 const PL2425 = [["Liverpool", 84], ["Arsenal", 74], ["Manchester City", 71], ["Chelsea", 69], ["Newcastle", 66], ["Aston Villa", 66], ["Nottingham Forest", 65], ["Brighton", 61], ["Bournemouth", 56], ["Brentford", 56],
   ["Fulham", 54], ["Crystal Palace", 53], ["Everton", 48], ["West Ham", 43], ["Manchester United", 42], ["Wolves", 42], ["Tottenham", 38], ["Leicester", 25], ["Ipswich", 22], ["Southampton", 12]];
 const PL_SD = sdOf(PL2425.map(x => x[1]));
@@ -1196,7 +1198,7 @@ function drawTally(ctx, w, h) {
 }
 function drawRealPL(ctx, w, h) {
   const L0 = LS.pureLuck, mean = PL2425.reduce((s, x) => s + x[1], 0) / 20;
-  title(ctx, "Real data: Premier League 2024/25 final points (published table; approximate)", 8, 15);
+  title(ctx, "Real data: Premier League 2024/25 final points (source: Premier League final table)", 8, 15);
   const ax = axes(ctx, w, h, { x0: 0, x1: 20, y0: 0, y1: 95, T: 32, L: 40, B: 30, R: 10, xticks: [], noXT: true, ylabel: "points" });
   ctx.fillStyle = "rgba(241,175,40,.15)"; ctx.fillRect(ax.L, ax.Y(mean + 2 * L0), w - ax.L - ax.R, ax.Y(mean - 2 * L0) - ax.Y(mean + 2 * L0));
   const bw = (ax.X(1) - ax.X(0)) * 0.7;
@@ -1206,7 +1208,7 @@ function drawRealPL(ctx, w, h) {
 }
 function drawHome(ctx, w, h) {
   const L = LS.L, n = L.hw + L.dr + L.aw, rows = HOMEADV.map(([s, H, D, A]) => [s, 100 * H / 380, 100 * D / 380, 100 * A / 380]).concat(n ? [["this model, this season", 100 * L.hw / n, 100 * L.dr / n, 100 * L.aw / n]] : []);
-  title(ctx, "Home advantage: Premier League results with and without crowds (published results; approximate)", 8, 15);
+  title(ctx, "Home advantage: Premier League results with and without crowds (unverified, approximate)", 8, 15);
   const top = 38, rh = Math.min(34, (h - top - 30) / 3), x0 = 150, bw = w - x0 - 20;
   rows.forEach(([s, H, D, A], k) => {
     const y = top + k * (rh + 8); txt(ctx, s, 8, y + rh * 0.62, "#cfd5c4", "11px system-ui");
@@ -1287,15 +1289,16 @@ function drawPPV(ctx, w, h) {
 }
 function drawWADA(ctx, w, h) {
   title(ctx, "Real data: WADA anti-doping testing figures", 8, 15);
-  const top = 40, bw = Math.max(60, w - 240);
-  [["2022", 0.77], ["2023", 0.80]].forEach(([y, v], k) => { const yy = top + k * 34; txt(ctx, y, 8, yy + 16, "#cfd5c4", "11.5px system-ui"); ctx.fillStyle = "#e83181"; ctx.fillRect(60, yy, bw * v / 1.2, 22); txt(ctx, v.toFixed(2) + "% of samples", 66 + bw * v / 1.2, yy + 16, "#eef0e8", "bold 11px system-ui"); });
+  const top = 32, bw = Math.max(60, w - 240);
+  [["2022", 0.77], ["2023", 0.80]].forEach(([y, v], k) => { const yy = top + k * 30; txt(ctx, y, 8, yy + 16, "#cfd5c4", "11.5px system-ui"); ctx.fillStyle = "#e83181"; ctx.fillRect(60, yy, bw * v / 1.2, 22); txt(ctx, v.toFixed(2) + "% of samples", 66 + bw * v / 1.2, yy + 16, "#eef0e8", "bold 11px system-ui"); });
   const tx = ["An adverse analytical finding (AAF) is a sample in which a lab found a banned substance. Not every AAF becomes a doping violation:",
     "some athletes have a therapeutic use exemption (TUE) for a medicine, some cases are contamination or are dropped.",
+    "AAFs are not the same as sanctioned violations. AAFs and atypical findings combined: 0.93% (2022) → 0.96% (2023).",
     "A low AAF rate does not mean few athletes dope: tests miss substances that have cleared the body, and anonymous surveys",
     "of elite athletes have estimated that far more than 1% doped in the past year (uncertain: estimates vary widely).",
     "Strict liability: athletes are responsible for whatever is in their sample, so a false positive can end a career."];
-  tx.forEach((s, k) => txt(ctx, s, 8, top + 88 + 15 * k, "#a3ab96", "10.5px system-ui"));
-  txt(ctx, "Source: WADA 2023 Anti-Doping Testing Figures report (all accredited labs: about 0.80% AAFs, 0.77% in 2022; approximate).", 8, h - 8, "#a3ab96", "10.5px system-ui");
+  tx.forEach((s, k) => txt(ctx, s, 8, Math.min(top + 88, h - 22 - 14 * tx.length) + 14 * k, "#a3ab96", "10.5px system-ui"));
+  txt(ctx, "Source: WADA 2023 Anti-Doping Testing Figures report (all accredited labs: 0.80% AAFs in 2023, 0.77% in 2022).", 8, h - 8, "#a3ab96", "10.5px system-ui");
 }
 
 /* =====================================================================
@@ -1436,8 +1439,8 @@ function ui() {
   el("tiles").innerHTML = tl;
   const P = LS.preset >= 0 ? PRESETS[LS.preset] : null;
   el("story").innerHTML = `<p>${P && P.mode === m ? P.story : "Your own settings: change the teams or the test on the left."}</p><p style="color:var(--accent)">${now}</p>`;
-  el("extra").innerHTML = m === "dt" ? `<h2 class="gap">Real data</h2><div class="hint">WADA 2023: 0.80% of samples were adverse analytical findings (0.77% in 2022). The true share of athletes who dope is not known; anonymous surveys give much higher estimates, but they are uncertain.<div class="src">Source: WADA, 2023 Anti-Doping Testing Figures (figures approximate, rounded).</div></div>`
-    : `<h2 class="gap">Real data</h2><div class="hint">Premier League 2024/25: champions Liverpool 84 points, Southampton bottom with 12; SD of points ${PL_SD.toFixed(1)}. Home wins: 47.6% (2018/19) and 37.9% (2020/21, no crowds).<div class="src">Source: the published Premier League final tables and results; approximate (check against the official table).</div></div>`;
+  el("extra").innerHTML = m === "dt" ? `<h2 class="gap">Real data</h2><div class="hint">WADA 2023: 0.80% of samples were adverse analytical findings (AAFs; 0.77% in 2022). AAFs and atypical findings combined: 0.93% (2022) → 0.96% (2023). AAFs are not the same as sanctioned violations: some have a TUE, some are contamination or are dropped. The true share of athletes who dope is not known; anonymous surveys give much higher estimates, but they are uncertain.<div class="src">Source: WADA, 2023 Anti-Doping Testing Figures (all accredited laboratories, rounded).</div></div>`
+    : `<h2 class="gap">Real data</h2><div class="hint">Premier League 2024/25: champions Liverpool 84 points, Southampton bottom with 12; SD of points ${PL_SD.toFixed(1)}; 1047 points in all, so 93 of the 380 matches were draws. Home wins: 47.6% (2018/19) and 37.9% (2020/21, no crowds).<div class="src">Source: Premier League, 2024/25 final table. The 2018/19 and 2020/21 home / draw / away splits are unverified: approximate, from published season results.</div></div>`;
 }
 function legend() {
   const L = LS.mode === "dt" ? [["#76b82a", "negative test"], ["#de252a", "positive test"], ["#e6d4f2", "ring: really doped"], ["#f1af28", "theory"]]

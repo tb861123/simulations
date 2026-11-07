@@ -26,6 +26,16 @@ from a 15 s pulse count). Each has its protocol, equipment, component
 (health- or skill-related), maximal or submaximal, and its rating table with
 the source.
 
+Each test is tagged with the OCR spec that names it, from the test lists in
+J587 1.2.a (Cooper 12 minute run/walk, multi-stage fitness test, press-up,
+sit-up, 30 m sprint, grip dynamometer, 1RM, standing or vertical jump, sit and
+reach, Illinois agility, stork stand, wall throw, ruler drop) and H555 1.2.b
+(direct gas analysis VO₂ max, NCF multi-stage fitness test, Queen's College
+step test, Cooper 12 minute run, grip dynamometer, 1RM, press-up or sit-up,
+vertical jump, sit and reach, goniometer). The **Harvard step test** and the
+**YMCA sit-up protocol and norms** are tagged "not named in the OCR specs".
+OCR prescribes no norm tables: those used here are approximate, with sources.
+
 Graph tabs: **Squad results** (bar chart coloured by rating, mean and
 median lines), **Ratings** (frequency of each rating), **Retest** (the same
 test a week later, against the line of perfect agreement; A level adds the

@@ -30,7 +30,9 @@ itself. Seven tabs at the top of the centre panel:
   (frontal plane, frontal axis); a full twist, a golf swing, a discus turn
   (transverse plane, longitudinal axis), using OCR's axis names (frontal,
   transverse, longitudinal). The plane is drawn through the centre of
-  mass with its axis at right angles. Graph: the joint angle through one
+  mass with its axis at right angles. The plane–axis pairing is not stated
+  in the OCR spec text, so the sim notes: "OCR lists the planes and axes;
+  check the pairing against an OCR mark scheme". Graph: the joint angle through one
   repetition.
 - **⚖️ Stability** (A level, H555 1.3.a; not on J587): standing, a wide split stance, the sprinter's
   set position, an arabesque, a handstand and the Fosbury flop. The centre of

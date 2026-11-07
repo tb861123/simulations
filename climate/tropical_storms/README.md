@@ -14,9 +14,13 @@ or cold water, the Saffir–Simpson scale; hazards (wind, storm surge,
 rainfall, landslides) and impacts in countries at different levels of
 development (Typhoon Haiyan 2013, Hurricane Katrina 2005, Cyclone Idai 2019);
 responses (prediction, preparation, protection); and how climate change may
-affect storms. Drought is also in 1GA0 Topic 2 (2.7c, 2.8a): a short card
-under the climate graph gives its causes and impacts and links to the water
-budget and drought tab of `climate/flooding_hydrographs`. UK weather hazards
+affect storms. Drought is also in 1GA0 Topic 2 (2.7a–c and 2.8a–c, with
+skill (5) graphs of medium-term rainfall trends): a short card under the
+climate graph gives its causes and impacts and the GCSE treatment (rainfall
+against the long-term average, a simple surplus / deficit idea, also 1GA0
+6.8c), and links to the water budget and drought tab of
+`climate/flooding_hydrographs` (formal P − ET water budgets are A level,
+9GE0 5.3a). UK weather hazards
 are summarised beside the London climate graph, tagged "beyond the spec"
 because they are not a named 1GA0 topic.
 
@@ -128,9 +132,11 @@ assumption and what is left out.
 
 - NOAA Climate Prediction Center: Atlantic averages 1991–2020 (14.4 named
   storms, 7.2 hurricanes, 3.2 major hurricanes; ACE about 120).
-- Typhoon Haiyan 2013: NDRRMC final report (2014): about 6 300 deaths plus
-  about 1 000 missing, 16 million affected, 4.1 million displaced, damage
-  about US$2.2 bn; winds about 315 km/h (JTWC, 1-minute); surge 5–6 m.
+- Typhoon Haiyan 2013: NDRRMC final report (April 2014): 6,300 dead, 1,061
+  missing, 28,689 injured; 16 million affected, 4.1 million displaced, damage
+  about US$2.2 bn; winds about 315 km/h (JTWC, 1-minute); storm surge over
+  5 m at Tacloban (IFRC final report MDRPH014, June 2017), locally up to about
+  7 m (field surveys).
 - Hurricane Katrina 2005: NOAA NHC report (Knabb et al.); NCEI (damage about
   US$125 bn); deaths about 1 830; surge up to about 8.5 m; 80% of New
   Orleans flooded.
