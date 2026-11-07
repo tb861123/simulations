@@ -26,12 +26,13 @@ itself. Seven tabs at the top of the centre panel:
   and the mechanical advantage of the five examples compared.
 - **🧭 Planes and axes** (GCSE and A level): a 3D athlete (drag to turn it)
   doing running, a biceps curl, a squat and jump, a kick, a front somersault
-  (sagittal plane, frontal axis); a star jump, a cartwheel, a side bend
-  (frontal plane, sagittal axis); a full twist, a golf swing, a discus turn
-  (transverse plane, vertical axis). The plane is drawn through the centre of
+  (sagittal plane, transverse axis); a star jump, a cartwheel, a side bend
+  (frontal plane, frontal axis); a full twist, a golf swing, a discus turn
+  (transverse plane, longitudinal axis), using OCR's axis names (frontal,
+  transverse, longitudinal). The plane is drawn through the centre of
   mass with its axis at right angles. Graph: the joint angle through one
   repetition.
-- **⚖️ Stability** (A level): standing, a wide split stance, the sprinter's
+- **⚖️ Stability** (A level, H555 1.3.a; not on J587): standing, a wide split stance, the sprinter's
   set position, an arabesque, a handstand and the Fosbury flop. The centre of
   mass, the line of gravity and the base of support are drawn; a push can
   topple the athlete about the edge of the base. In the flop the centre of

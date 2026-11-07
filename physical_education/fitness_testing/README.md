@@ -36,14 +36,16 @@ hamstring flexibility, force-plate peak power) and **Profile** (one
 performer's rating on every test, health- and skill-related).
 
 Right panel: the story, live statistics (mean, median, mode, range; A level
-SD, typical error, CV, smallest worthwhile change and sensitivity), the
+SD and sensitivity; typical error, CV and the smallest worthwhile change,
+tagged "beyond the spec" because H555 does not name them), the
 results table (click a name to follow that performer), the rating table, the
 components of fitness and their tests, key ideas (reliability, validity,
 protocols, quantitative / qualitative, objective / subjective; maximal /
 submaximal, direct / indirect at A level), exam practice (6 GCSE and 6 A
 level questions with mark schemes, built from the data on screen: mean,
 median, mode and range, rating a score, Lewis power, typical error and CV,
-interpreting a change, ruler-drop time, bleep-test VO₂ max) and "How the
+interpreting a change (the Lewis, TE / CV and smallest-worthwhile-change
+questions are tagged beyond the spec), ruler-drop time, bleep-test VO₂ max) and "How the
 model works (and what it leaves out)".
 
 ## Controls
@@ -114,7 +116,8 @@ value) with no drawing. Every setting is in the table; tick one to sweep it.
 ## Data sources
 
 Normative tables (the widely reproduced teaching versions, stated in the
-simulation for each test): Davis, B. et al. (2000), *Physical Education and
+simulation for each test and labelled approximate there; published versions
+differ): Davis, B. et al. (2000), *Physical Education and
 the Study of Sport*, as reproduced by BrianMac (Mackenzie, B., 101
 Performance Evaluation Tests, 2005) and Topend Sports: multi-stage fitness
 test, Illinois agility, 30 m sprint (16–19 years); BrianMac sit and reach,

@@ -46,4 +46,4 @@ Results can be downloaded as CSV. Every setting a run uses is in the batch setti
 
 ## Data sources
 
-Premier League final table 2024/25 (Liverpool 84 points … Southampton 12; check against the official table) and season results for 2018/19 (181 home wins, 71 draws, 128 away wins) and 2020/21 (144, 83, 153); WADA, *2023 Anti-Doping Testing Figures* (0.80% adverse analytical findings, 0.77% in 2022). The true share of athletes who dope is unknown; the test accuracies used are illustrative.
+All real figures are approximate and labelled with their source in the sim. Premier League final table 2024/25 (Liverpool 84 points … Southampton 12; check against the official table) and season results for 2018/19 (181 home wins, 71 draws, 128 away wins) and 2020/21 (144, 83, 153); WADA, *2023 Anti-Doping Testing Figures* (0.80% adverse analytical findings, 0.77% in 2022). The true share of athletes who dope is unknown; the test accuracies used are illustrative.

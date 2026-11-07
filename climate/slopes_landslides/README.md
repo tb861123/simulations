@@ -8,10 +8,10 @@ Component 1 Topic 1A *Coastal landscapes and processes* and Topic 1B *River
 landscapes and processes*: mechanical, chemical and biological weathering and
 mass movement (sliding, slumping, rockfalls; soil creep), and how they shape
 cliffs and valley sides, with UK examples.
-**Advanced** follows Pearson Edexcel A level Geography (9GE0) Topic 2B
-*Coastal landscapes and change* (sub-aerial processes: weathering and mass
-movement, managing risk) and Topic 2A *Glaciated landscapes and change*
-(freeze–thaw, solifluction): weathering against climate (a Peltier-style
+**Advanced** follows Pearson Edexcel A level Geography (9GE0) Topic 2:
+*Landscape Systems, Processes and Change*, Option 2B: *Coastal Landscapes and
+Change* (sub-aerial processes: weathering and mass movement, managing risk)
+and Option 2A: *Glaciated Landscapes and Change* (freeze–thaw, solifluction): weathering against climate (a Peltier-style
 diagram), the factor of safety, pore water pressure, kinds of slope failure,
 rainfall thresholds (Caine 1980) and landslide management.
 
@@ -97,18 +97,22 @@ Landforms, Glaciers and Earthquakes and Buildings.
 ## Data and sources (rounded)
 
 - Holbeck Hall, Scarborough, 3–5 June 1993: rotational slip in glacial till,
-  about one million tonnes; cracks from April. British Geological Survey case
+  about one million tonnes; the 60 m cliff was cut back about 70 m (BGS);
+  cracks from April. British Geological Survey case
   study; Scarborough News (2018).
 - Ventnor Undercliff: about 6000 residents; slow movement about 5–10 mm a
   year, up to about 34 mm a year with high groundwater (1998–2002); management
   over £3 million a year. Isle of Wight Council Ventnor geotechnical study
   (2000); Carey et al., Landslides (2014).
-- Aberfan, 21 October 1966: tip No. 7, about 34 m high, begun 1958, on a
-  spring; about 105 000–117 000 m³ of spoil travelled about 500–600 m; 144
+- Aberfan, 21 October 1966: tip No. 7, begun 1958, on a spring (its height
+  is disputed: sources differ, see the Tribunal report; the tip drawn in the
+  model is an illustrative height); about 105 000–117 000 m³ of spoil
+  travelled about 500 m; 144
   deaths, 116 of them children. Davies Tribunal report (1967); BGS.
 - Rest and Be Thankful, A83: 4 August 2020, about 100 mm of rain, about 6000
   tonnes of debris, about 2000 tonnes caught in catch pits, road shut about
-  five weeks; more than £13 million spent on mitigation. BEAR Scotland and
+  five weeks; more than £13 million invested in mitigation to date (August
+  2020). BEAR Scotland and
   Transport Scotland as reported by STV News and The Scotsman (2020).
 - Chalk cliff retreat in East Sussex about 0.3–0.5 m a year (Dornbusch et al.
   2008). Caine (1980) threshold I = 14.82 D^−0.39. Cruden and Varnes (1996)

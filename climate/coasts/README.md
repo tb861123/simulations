@@ -13,8 +13,8 @@ arches, stacks and stumps, wave-cut notches and platforms) and deposition
 (beaches, spits, bars, tombolos, saltmarsh); hard and soft engineering and
 managed retreat; a UK coast (Holderness, with Mappleton, Spurn Head, the
 Dorset coast and Happisburgh).
-**Advanced** follows Pearson Edexcel A level Geography (9GE0) Topic 2B *Coastal
-landscapes and change*: littoral (sediment) cells and sediment budgets, wave
+**Advanced** follows Pearson Edexcel A level Geography (9GE0) Topic 2: *Landscape
+Systems, Processes and Change*, Option 2B: *Coastal Landscapes and Change*: littoral (sediment) cells and sediment budgets, wave
 energy and power, breaker types (Iribarren number), lithology and structure,
 sea-level change (eustatic and isostatic) and emergent and submergent coasts,
 the Bruun rule, Shoreline Management Plans (hold the line, advance the line,
@@ -121,8 +121,9 @@ assumption and what is left out.
 ## Data and sources (rounded)
 
 - Holderness: about 61 km of boulder clay cliffs, average retreat about
-  1.8 m/yr, more than 25 villages lost since Roman times; Mappleton 1991
-  scheme, two rock groynes and rock armour, about £2 million. East Riding of
+  1.8 m/yr (sources give 1.5–2 m/yr), more than 25 villages lost since Roman
+  times; Mappleton 1991 scheme, two rock groynes and rock armour, about
+  £2 million (£1.9–2.1 million in different sources). East Riding of
   Yorkshire Council; Environment Agency; Humber Estuary SMP.
 - Spurn Head about 5.5 km, breached in the storm surge of 5 December 2013.
   Yorkshire Wildlife Trust.
@@ -133,7 +134,7 @@ assumption and what is left out.
 - Slapton Sands and Slapton Ley (Devon). Field Studies Council.
 - Medmerry managed realignment (2013), about £28 million, about 180 ha.
   Environment Agency.
-- Global sea level rose about 0.20 m 1901–2018, about 3.7 mm/yr 2006–2018
+- Global sea level rose about 0.20 m (likely range 0.15–0.25 m) 1901–2018, about 3.7 mm/yr 2006–2018
   (IPCC AR6 WG1, 2021). Sognefjord about 200 km long and 1300 m deep.
 - Costs (sea wall £8000/m, rock armour and groynes £2000/m each,
   nourishment £15/m³), house and land values, village house numbers and

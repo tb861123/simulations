@@ -104,7 +104,9 @@ Cycle.
 ## Data and sources (rounded)
 
 - USGS world earthquake averages a year: M8+ 1, M7–7.9 15, M6–6.9 134,
-  M5–5.9 1 319.
+  M5–5.9 1 319 (so about 16 M7+; newer USGS figures give about 18 M7.0+ a
+  year since about 1900, so the sim says "about 15–18 a year depending on the
+  period").
 - Haiti 2010: EM-DAT (about 220 000 deaths; estimates 100 000–316 000);
   Government of Haiti PDNA (damage about US$7.8 bn). Chile 2010: 525 deaths,
   about US$30 bn. Nepal 2015: Government of Nepal PDNA, about 9 000 deaths,
@@ -115,7 +117,8 @@ Cycle.
 - Eyjafjallajökull 2010: VEI 4, column 6–9 km, about 100 000 flights
   cancelled, airline losses about US$1.7 bn (IATA, Eurocontrol, Icelandic Met
   Office). Mount St Helens 1980: VEI 5, 57 deaths (USGS). Pinatubo 1991: VEI
-  6, about 850 deaths (USGS, PHIVOLCS). Kīlauea 2018: about 700 homes
+  6, about 850 deaths (USGS, PHIVOLCS); 9GE0 1.7c names the Philippines as a
+  multiple-hazard zone. Kīlauea 2018: about 700 homes
   destroyed (USGS HVO).
 - HDI values approximate (UNDP). Plate speeds approximate.
 
@@ -125,7 +128,8 @@ Cycle.
 tick one to sweep; Repeat or Sweep; CSV download). One-click experiments:
 
 1. **How many big earthquakes a year?** 500 years: mean 14.91 M7+, SD 3.9
-   against Gutenberg–Richter 14.69 and Poisson SD 3.83 (+1.5%); USGS about 16.
+   against Gutenberg–Richter 14.69 and Poisson SD 3.83 (+1.5%); USGS about
+   15–18 a year, depending on the period.
 2. **Finding the distance from S − P**: 20–600 km, best-fit gradient 1.00;
    SD grows from 5 km to 40 km with distance.
 3. **Does shaking fall with distance?** Mw 7.0: means within 0.2 of

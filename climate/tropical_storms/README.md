@@ -14,12 +14,17 @@ or cold water, the Saffir–Simpson scale; hazards (wind, storm surge,
 rainfall, landslides) and impacts in countries at different levels of
 development (Typhoon Haiyan 2013, Hurricane Katrina 2005, Cyclone Idai 2019);
 responses (prediction, preparation, protection); and how climate change may
-affect storms. UK weather hazards are summarised beside the London climate
-graph.
+affect storms. Drought is also in 1GA0 Topic 2 (2.7c, 2.8a): a short card
+under the climate graph gives its causes and impacts and links to the water
+budget and drought tab of `climate/flooding_hydrographs`. UK weather hazards
+are summarised beside the London climate graph, tagged "beyond the spec"
+because they are not a named 1GA0 topic.
 
-**Advanced**: as far as we know, Edexcel A level Geography (9GE0) has **no
-weather hazards topic**, and the level hint in the page says so. This level
-goes further for interest and links: Topic 1 (the Philippines as a
+**Advanced**: Edexcel A level Geography (9GE0) has **no weather hazards
+topic**, and the level hint in the page says so: tropical cyclones appear only
+incidentally, in 2B.9b (storm surges, Option 2B: Coastal Landscapes and
+Change) and 1.7c (the Philippines as a multiple-hazard zone). This level goes
+further for interest and links: Topic 1 (1.7c, the Philippines as a
 multiple-hazard zone; risk, Park and PAR models), Topic 5 (atmospheric
 circulation; storms as a cause of floods) and Topic 6 (warming oceans). It
 adds the Coriolis parameter f = 2Ω sin φ, Hadley cell width against the
@@ -136,7 +141,7 @@ assumption and what is left out.
   Service Singapore, NOAA NCEI normals (Miami, Utqiaġvik); Cairo and
   Reykjavík approximate.
 - UK hazards: Met Office (Storm Eunice 2022, 196 km/h at the Needles; Storm
-  Desmond 2015, 341 mm in 24 h at Honister; 40.3 °C at Coningsby, 2022);
+  Desmond 2015, 341.4 mm in 24 h at Honister Pass, the UK record; 40.3 °C at Coningsby, 2022);
   Met Éireann (Ophelia 2017).
 - Projections: Knutson et al. (2020), *BAMS*: at 2 °C, about −14% storm
   frequency, +13% share of Category 4–5, +5% intensity, +14% rain rate.

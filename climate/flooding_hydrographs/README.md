@@ -8,8 +8,11 @@ and no internet.
 Topic 1B *River landscapes and processes*: the drainage basin (watershed,
 source, tributaries, confluence, mouth), storm hydrographs, the physical and
 human factors that affect flood risk, hard and soft engineering, and UK flood
-examples. Flood frequency (recurrence intervals) is A level content; at
-Standard it is a gentle introduction only and is labelled that way.
+examples. Flood frequency (recurrence intervals, return periods) is an A level
+idea: 1GA0 does not name recurrence intervals, though its numerical skills
+mention flood frequency (e.g. 1:200 flood events). At Standard it is a gentle
+introduction only, tagged "A level idea; GCSE numerical skills mention 1:200
+flood frequency".
 **Advanced** follows Pearson Edexcel A level Geography (9GE0) Topic 5 *The
 water cycle and water insecurity*: the drainage basin as an open system,
 infiltration-excess and saturation-excess overland flow, human impacts on the
@@ -113,12 +116,15 @@ storage; it is a teaching model, not the Flood Estimation Handbook.
 
 ## Data and sources (rounded)
 
-- Boscastle, 16 Aug 2004: about 200 mm in 8 h (181 mm in 5 h at Otterham);
-  peak flow estimates about 140–180 m³/s; about 100 rescued, 58 properties
-  flooded, 115 cars washed away. Met Office (2004); Environment Agency (2005).
-- Storm Desmond, Dec 2015: 341 mm in 24 h at Honister (UK record); Eden at
-  Sheepmount (NRFA 76007, 2287 km²) about 1700 m³/s; about 2100 properties
-  flooded in Carlisle. Met Office (2016); NRFA; Cumbria County Council.
+- Boscastle, 16 Aug 2004: about 185 mm of rain on high ground (181 mm in 5 h
+  at Otterham); peak flow about 140 m³/s, the best estimate (estimates
+  130–150 m³/s); about 100 rescued, 58 properties flooded, 115 cars washed
+  away. Met Office (2004); Environment Agency (2005); HR Wallingford (2005).
+- Storm Desmond, Dec 2015: 341.4 mm in 24 h at Honister Pass (UK record);
+  record peak flows of about 1700 m³/s on the Eden, Lune and Tyne (CEH); Eden
+  at Sheepmount (NRFA 76007, 2287 km²) about 1700 m³/s (approximate); about
+  2100 properties flooded in Carlisle. Met Office (2016); CEH (2016); NRFA;
+  Cumbria County Council.
 - Somerset Levels, winter 2013–14: wettest Dec–Feb in the England and Wales
   series since 1766; about 65 km² flooded; about 150 homes; 8 km dredged.
   Met Office (2014); Environment Agency / Somerset Rivers Authority.
@@ -130,8 +136,9 @@ storage; it is a teaching model, not the Flood Estimation Handbook.
 
 The case-study basins' settings (area, slope, rock, shape, drainage density)
 are the model's estimates of each basin's character; the model's peaks for
-Boscastle (about 170 m³/s) and Storm Desmond (about 1700–1800 m³/s) are of
-the right size, but it is not calibrated on gauge records.
+Boscastle (about 170 m³/s, somewhat above the best estimate of about
+140 m³/s) and Storm Desmond (about 1700–1800 m³/s) are of the right size, but
+it is not calibrated on gauge records.
 
 ## Batch run
 

@@ -11,11 +11,15 @@ erosion (corries and tarns, arêtes, pyramidal peaks, U-shaped troughs,
 truncated spurs, hanging valleys, ribbon lakes) and deposition (moraines,
 drumlins, erratics); how glaciers advance and retreat; UK glaciated uplands
 (the Lake District, Snowdonia, the Cairngorms) and glaciers retreating today.
-Glacier mass balance and ice flow are A level ideas; at Standard they are kept
-to a gentle explanation (accumulation, ablation, advance and retreat), and the
-level hint says so.
-**Advanced** follows Pearson Edexcel A level Geography (9GE0) Topic 2A
-*Glaciated landscapes and change*: glacier mass balance as a system and
+1GA0 Topic 1C covers plucking, abrasion, transport, deposition, freeze–thaw,
+mass movement, landforms, human impacts and one UK glaciated upland; glacier
+mass balance and ice flow are NOT in it. At Standard they are kept to a gentle
+explanation (accumulation, ablation, advance and retreat) and tagged "beyond
+GCSE / A level (9GE0 Option 2A)" in the key ideas, the level hint and the
+tab tooltips.
+**Advanced** follows Pearson Edexcel A level Geography (9GE0) Topic 2:
+*Landscape Systems, Processes and Change*, Option 2A: *Glaciated Landscapes
+and Change*: glacier mass balance as a system and
 glacier budgets (net balance, cumulative balance, accumulation area ratio),
 ice movement by internal deformation and basal sliding, warm- and cold-based
 glaciers, response times, corrie aspect, the shape of glacial troughs,

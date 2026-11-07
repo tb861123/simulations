@@ -4,15 +4,25 @@ A single, self-contained HTML file (`skill-acquisition.html`) for PE. Open
 `skill-acquisition.html` in Chrome or Edge, with no install and no internet.
 
 Standard level follows OCR GCSE (9–1) Physical Education (J587) sports
-psychology: classification of skills, the basic information processing model,
-guidance and feedback, and reaction time. It also introduces simple and choice
-reaction time, Hick's law, the single-channel hypothesis and psychological
-refractory period, learning curves and the types of practice, kept simple;
-OCR places these in the A level (H555) skill acquisition topic, and each is
-tagged "A level" in the key ideas. Advanced follows OCR A level Physical
-Education (H555) skill acquisition: the continuity and organisation continua,
-Fitts and Posner's stages of learning, the guidance hypothesis, anticipation,
-memory models, schema theory and transfer. Switch with the **Level** buttons;
+psychology: classification of skills on the difficulty and environmental
+continua (J587 names only these two), guidance (visual, verbal, manual,
+mechanical), feedback (intrinsic, extrinsic, knowledge of performance and of
+results, positive, negative) and reaction time. It also introduces, kept
+simple and tagged in the key ideas and exam questions:
+
+- **A level (H555)**, not on J587: the information processing model, the
+  pacing and muscular involvement continua, and the types of practice
+  (massed/distributed, fixed/varied, whole/part/progressive part).
+- **Beyond the OCR specs (enrichment)**, on neither J587 nor H555: Hick's law,
+  the single-channel hypothesis, the psychological refractory period and
+  learning curves.
+
+Advanced follows OCR A level Physical Education (H555) skill acquisition: the
+continuity and organisation continua, Fitts and Posner's stages of learning,
+the guidance hypothesis, anticipation, the multi-store memory model (Atkinson
+and Shiffrin; H555 spells it "Shiffren"), schema theory and transfer. The
+working memory model is shown beside it, tagged beyond the spec, for
+comparison. Switch with the **Level** buttons;
 the A level tab and presets appear when Advanced is chosen.
 
 ## What it shows
@@ -33,7 +43,8 @@ Five tabs at the top of the centre panel, each with a stylised performer:
   A dummy (feint) shows the single-channel hypothesis: the real move waits
   for the dummy to be processed (the PRP). Graphs: a timeline of the stages
   against the ball's arrival; the PRP against the gap; at A level the
-  multi-store and working memory models.
+  multi-store model (on H555) and the working memory model (beyond the spec,
+  for comparison).
 - **📈 Practice**: a squad of 4–20 simulated beginners practises one of 12
   skills over several days. Choose whole / part / progressive part, the rest
   between attempts (massed or distributed), fixed or variable practice, the
@@ -44,7 +55,9 @@ Five tabs at the top of the centre panel, each with a stylised performer:
   level); the same learners with each practice method; the level of each part
   of the skill, the linking between them and adaptability.
 - **🧩 Classifying**: the 12 skills on the difficulty, environment, pacing and
-  muscular-involvement continua (A level adds continuity and organisation),
+  muscular-involvement continua (J587 names only difficulty and environment;
+  pacing and muscular involvement are tagged A level (H555); A level adds
+  continuity and organisation),
   with the reasons, a "test yourself" mode, and at A level the practice the
   classification suggests.
 - **🎯 Schema** (A level): a learner throws a beanbag at targets and builds a
@@ -53,7 +66,9 @@ Five tabs at the top of the centre panel, each with a stylised performer:
   transfer.
 
 Right panel: the story, live readings, your results table, key ideas, exam
-practice (7 GCSE-level and 5 A level questions with mark schemes, several
+practice (7 GCSE-level questions, the ones on A level or enrichment topics
+tagged as such, and 5 A level questions, the last on the multi-store model, all with mark
+schemes; several
 built from the numbers on screen: response time, the % increase in choice
 reaction time from your own results, the PRP delay) and "How the model works
 (and what it leaves out)".
@@ -145,7 +160,7 @@ with no errors; re-run it if the batch experiments change.
 
 ## Data sources
 
-- Typical simple reaction times by stimulus: Kosinski, R. J. (2008, updated
+- Typical simple reaction times by stimulus (approximate): Kosinski, R. J. (2008, updated
   2013), *A literature review on reaction time*, Clemson University,
   summarising Galton and later work (visual 180–200 ms, auditory 140–160 ms,
   touch about 155 ms).

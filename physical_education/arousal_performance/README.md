@@ -4,14 +4,17 @@ A single, self-contained HTML file (`arousal-performance.html`) for PE. Open
 `arousal-performance.html` in Chrome or Edge, with no install and no internet.
 
 Standard level follows OCR GCSE (9–1) Physical Education (J587) sports
-psychology: arousal and the inverted-U theory (gross and fine skills,
-beginners and experts), stress management (deep breathing, mental rehearsal /
-visualisation / imagery, positive self-talk) and personality (introverts and
-extroverts). It also introduces drive theory, catastrophe theory, the zone of
-optimal functioning, social facilitation and inhibition, the Ringelmann
-effect, social loafing and Steiner's model, kept simple; OCR places these in
-the A level (H555) sport psychology topic, and each is tagged "A level" in
-the key ideas. Advanced follows OCR A level Physical Education (H555): adds
+psychology: mental preparation for performance (imagery, mental rehearsal,
+selective attention, positive thinking) and goal setting. The rest of the
+Standard level introduces topics that are NOT on J587, kept simple and tagged
+in the key ideas and exam questions:
+
+- **Not on J587: A level (H555)**: arousal and the inverted-U theory (gross and
+  fine skills, beginners and experts), stress management techniques as such
+  (deep breathing), drive theory, catastrophe theory, the zone of optimal
+  functioning, social facilitation and inhibition, the Ringelmann effect,
+  social loafing and Steiner's model.
+- **Not on J587: beyond the GCSE spec**: introverts and extroverts. Advanced follows OCR A level Physical Education (H555): adds
 cognitive and somatic anxiety (multidimensional anxiety theory), more stress
 management techniques, evaluation apprehension and home advantage,
 leadership (Fiedler), self-efficacy (Bandura) and attribution (Weiner,
@@ -30,11 +33,12 @@ rate, sweat and (at A level) worried thoughts show their arousal:
   optimal functioning. Graphs: success against arousal with the attempts so
   far; arousal and success over time; at A level multidimensional anxiety
   theory (somatic inverted-U, cognitive falling, confidence rising).
-- **🧘 Stress management**: a 3-minute competition (cup final shoot-out,
+- **🧘 Mental preparation** (stress management at A level): a 3-minute competition (cup final shoot-out,
   league match, dull friendly, trial in front of scouts) in which importance,
   the crowd, rising pressure and every miss push arousal and worry up. Use a
-  technique once before the start or whenever arousal leaves the zone: deep
-  breathing, imagery, positive self-talk, psyching up; at A level progressive
+  technique once before the start or whenever arousal leaves the zone: the
+  J587 mental preparation techniques (imagery / mental rehearsal, selective
+  attention, positive thinking), deep breathing (tagged A level), psyching up; at A level progressive
   muscle relaxation, biofeedback, thought stopping, centring. Graphs: arousal
   (A level: somatic and cognitive anxiety) against the athlete's best zone;
   expected success with each technique over 100 competitions.
@@ -65,7 +69,7 @@ out)".
 ## Controls
 
 - **Presets** (12): The inverted-U · Fine or gross skill? · Drive theory ·
-  Catastrophe! · Zone of optimal functioning · Stress management · Psyching up
+  Catastrophe! · Zone of optimal functioning · Mental preparation · Psyching up
   · Audience · Ringelmann effect · Steiner's model · and at A level:
   Attribution · Cognitive and somatic anxiety.
 - The athlete: task, skill level, personality, theory, cognitive anxiety
@@ -136,13 +140,14 @@ with no errors; re-run it if the batch experiments change.
 - Ringelmann's rope-pulling data (1913), as reported by Kravitz, D. A. and
   Martin, B. (1986), *Ringelmann rediscovered*, Journal of Personality and
   Social Psychology 50, 936–941: 100, 93, 85, 77, 70, 63, 56, 49% for 1–8
-  people.
+  people (approximate: Ringelmann's original figures as re-reported).
 - Latané, B., Williams, K. and Harkins, S. (1979), *Many hands make light the
   work*, Journal of Personality and Social Psychology 37, 822–832: shouting and
-  clapping, about 71% per person in pairs, 51% in fours, 40% in sixes.
+  clapping, about 71% per person in pairs, 51% in fours, 40% in sixes
+  (approximate, read from the paper).
 - Premier League results 2018/19 (home 181, draw 71, away 128) and 2020/21,
   played almost entirely without crowds (home 144, draw 83, away 153), from the
-  published season results.
+  published season results (approximate; labelled as such in the sim).
 - Theories: Yerkes and Dodson (1908), Hull (1943), Hardy and Fazey (1987),
   Hanin (1980s), Martens et al. (1990), Zajonc (1965), Cottrell (1968),
   Ingham et al. (1974), Steiner (1972), Fiedler (1967), Bandura (1977),
