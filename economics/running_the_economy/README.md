@@ -6,13 +6,14 @@ Booms and recessions, inflation and unemployment. Set Bank Rate, government spen
 
 ## Levels
 
-- **Standard (GCSE)**: Edexcel International GCSE Economics (4EC1). Macroeconomic objectives (growth, CPI inflation and the 2% target, unemployment, the current account, the budget), the business cycle, fiscal, monetary and supply-side policy, conflicts between objectives, and how banks create money.
-- **Advanced (A level)**: Edexcel A level Economics A (9EC0), Themes 2 and 4. The output gap; short-run and long-run Phillips curves and expectations; a Taylor-style interest-rate rule; quantitative easing and the lower bound; policy time lags; automatic stabilisers; crowding out; the money (credit) multiplier and its limits.
+- **Standard (GCSE)**: Edexcel International GCSE Economics (4EC1). Macroeconomic objectives (growth, CPI inflation and the 2% target, unemployment, the current account, the budget), the business cycle, fiscal, monetary and supply-side policy, conflicts between objectives.
+- **Beyond the spec (enrichment), both levels**: view 2, how banks create money and the money (credit) multiplier. Neither 4EC1 nor 9EC0 covers money creation by banks (9EC0 has only growth of the money supply, 2.1.2e, and QE, 2.6.2b), so the view, its key ideas, its exam question and its batch experiment are tagged "Beyond the spec (enrichment)".
+- **Advanced (A level)**: Edexcel A level Economics A (9EC0), Themes 2 and 4. The output gap; short-run and long-run Phillips curves and expectations; a Taylor-style interest-rate rule (kept as "Taylor-style" and tagged "beyond the spec": 9EC0 does not name the Taylor rule); quantitative easing and the lower bound; policy time lags; automatic stabilisers; crowding out.
 
 ## Views
 
 1. **Run the economy.** A dashboard of the five objectives (green zone = on target), real GDP against its trend with recessions shaded, the phase of the cycle (boom, slowdown, recession, recovery), and (A level) the output gap. Below: CPI inflation, Bank Rate and unemployment (A level: expected inflation too). Shock buttons: confidence boom, credit crunch, energy prices jump, new random future.
-2. **Banks and money.** £100m of new reserves arrives at one of six banks. Each round banks keep a reserve ratio of deposits and lend the rest; part of each payment is kept as cash; the rest is re-deposited. Total money grows towards the theory value. A "demand for loans" slider shows why, in reality (Bank of England, 2014), lending is limited by demand rather than reserves.
+2. **Banks and money (beyond the spec: enrichment).** £100m of new reserves arrives at one of six banks. Each round banks keep a reserve ratio of deposits and lend the rest; part of each payment is kept as cash; the rest is re-deposited. Total money grows towards the theory value. A "demand for loans" slider shows why, in reality (Bank of England, 2014), lending is limited by demand rather than reserves.
 3. **The real UK economy.** CPI inflation (with the 2% ± 1 target), Bank Rate (each change since 1997), unemployment and real GDP growth, 2000–2025, with the 2008–09 and 2020 recessions shaded, plus UK unemployment against inflation (is there a Phillips curve?) and the real Bank Rate. A year slider reads off the values with a note on what happened.
 
 ## Controls
@@ -35,7 +36,8 @@ All model numbers are illustrative. Assumptions and what the model leaves out ar
 
 ## Real data and sources
 
-- CPI inflation, annual average: ONS (series D7G7). Unemployment rate, 16+, annual average: ONS Labour Force Survey (MGSX). Real GDP growth: ONS (IHYP). Bank Rate: Bank of England, official Bank Rate history. Figures rounded; 2025 values are first estimates and may be revised.
+- CPI inflation, annual average: ONS (series D7G7). Unemployment rate, 16+, annual average: ONS Labour Force Survey (MGSX). Real GDP growth: ONS (IHYP). Bank Rate: Bank of England, official Bank Rate history. Figures rounded; 2025 values are first estimates and may be revised (real GDP growth 2025: 1.3%, ONS first estimate). 2024: CPI 2.5%, GDP growth 1.1%, unemployment about 4.3%.
+- Bank of England: Bank Rate cut to 3.75% on 18 December 2025 (5–4 vote); QE peaked at £895bn (total agreed November 2020).
 - Money creation: McLeay, Radia and Thomas, "Money creation in the modern economy", Bank of England Quarterly Bulletin, 2014 Q1.
 
 ## Batch experiments
@@ -47,6 +49,6 @@ All model numbers are illustrative. Assumptions and what the model leaves out ar
 | Long run: expectations catch up (A level; credibility 0) | Inflation ends far above the short-run curve (6.2% vs 2.75% at an aim of 3%) and keeps rising; only at the natural rate does it stay at 2%: the vertical long-run Phillips curve. |
 | Fiscal stimulus, Bank Rate fixed (sweep ΔG 0–3% of GDP) | Output gap rises by 0.80 per 1% of GDP, as the multiplier predicts (all points about 0.1 above the line, from shared random futures). |
 | Fiscal stimulus when the Bank reacts | Gradient 0.43 per 1% of GDP, matching F ÷ (1 + kr(1.5κ + 0.5)): the Bank offsets about half. |
-| Banks create money (sweep reserve ratio 2–20%, log axes) | Means match 1 + (1 − rr) ÷ (rr + c − rr c) to within 0.01 (9.30 at 2%, 3.86 at 20%), far below the textbook 1 ÷ rr because of cash. |
+| Banks create money (beyond the spec: enrichment; sweep reserve ratio 2–20%, log axes) | Means match 1 + (1 − rr) ÷ (rr + c − rr c) to within 0.01 (9.30 at 2%, 3.86 at 20%), far below the textbook 1 ÷ rr because of cash. |
 
 Results can be downloaded as CSV. Re-run `tools/worksheets` if the batch experiments change.

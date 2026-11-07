@@ -17,7 +17,8 @@ Open `firms-competition.html` in Chrome or Edge, with no install and no internet
    (AC, AVC, AFC, MC, AR, MR, with the profit or loss rectangle). Each day the firm moves
    towards its best output, so you can watch MR and MC meet. A price taker (AR = MR = P) or a
    price maker (downward-sloping demand). Business objectives: profit maximisation
-   (MC = MR), revenue maximisation (MR = 0), sales maximisation (AR = AC), survival.
+   (MC = MR), revenue maximisation (MR = 0), sales maximisation (AR = AC), and survival (tagged "beyond the spec":
+   4EC1 1.1.2 names only profit, revenue and sales maximisation).
    Advanced: shutdown point (lowest AVC) and break-even point (lowest AC),
    X-inefficiency, third-degree price discrimination (three diagrams: each group with
    MR = MC, and the whole firm) and first-degree price discrimination.
@@ -33,7 +34,8 @@ Open `firms-competition.html` in Chrome or Edge, with no install and no internet
    average profit. Choose perfect competition, monopolistic competition, oligopoly,
    monopoly or (Advanced) a contestable market, or set the barriers yourself: sunk cost of
    entry, brand loyalty, a legal barrier, market size relative to the efficient size of a
-   firm. Advanced readings: CR4, HHI, P ÷ MC, average cost against its lowest; options for
+   firm. Advanced readings: CR4 (9EC0 3.4.4b), HHI (tagged "beyond the spec": 9EC0 has only
+   n-firm concentration ratios), P ÷ MC, average cost against its lowest; options for
    X-inefficiency and research spending (dynamic efficiency).
 4. **Price game (Advanced).** A payoff matrix (Nash equilibrium starred, dominant
    strategy named) and a repeated match between two strategies: cartel (always high),
@@ -97,7 +99,8 @@ Re-run `tools/worksheets` for this simulation if the batch experiments change.
 
 ## Data sources
 
-Kantar grocery market shares (2025, rounded); UK competition law (Competition Act 1998,
+Worldpanel (formerly Kantar) grocery market shares, mid-2025: Tesco 28.4%, Sainsbury's 15.0%,
+Asda 11.8%, Aldi about 11%, CR4 about 66% (Morrisons and Lidl about 8%, approximate); UK competition law (Competition Act 1998,
 Enterprise Act 2002, CMA fines up to 10% of worldwide turnover, the 25% market-share test
 for investigating monopoly power); OFT fine on British Airways for fuel-surcharge price
 fixing with Virgin Atlantic (£121.5 million, 2007). All other numbers are illustrative.

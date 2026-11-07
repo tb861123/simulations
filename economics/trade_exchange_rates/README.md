@@ -7,7 +7,7 @@ Why countries trade and who gains, what tariffs, quotas and customs unions do, a
 ## Levels
 
 - **Standard (GCSE)**: Edexcel International GCSE Economics (4EC1), the global economy: specialisation; absolute and comparative advantage; opportunity cost; gains from trade and the terms of trade; free trade and protectionism (tariffs, quotas) and the arguments for and against; exchange rates set by demand for and supply of a currency; appreciation and depreciation and their effects on exports, imports and inflation (SPICED / WPIDEC); the current account.
-- **Advanced (A level)**: Edexcel A level Economics A (9EC0), Theme 4: the welfare effects of tariffs and quotas (consumer and producer surplus, revenue, quota rent, deadweight loss); the terms of trade index; trading blocs and customs unions, trade creation and trade diversion; increasing opportunity cost (workers with different skills); fixed and floating exchange rates, central bank intervention and reserves; the Marshall–Lerner condition and the J-curve.
+- **Advanced (A level)**: Edexcel A level Economics A (9EC0), Theme 4: the welfare effects of tariffs and quotas (consumer and producer surplus, revenue, quota rent, deadweight loss); the terms of trade index (9EC0 4.1.4a; A level only); trading blocs and customs unions, trade creation and trade diversion; increasing opportunity cost (workers with different skills); fixed and floating exchange rates, central bank intervention and reserves; the Marshall–Lerner condition and the J-curve.
 
 ## Views
 
@@ -33,8 +33,8 @@ All model numbers are illustrative. Assumptions and what the model leaves out ar
 ## Real data and sources
 
 - Exchange rates: Bank of England Database, annual average spot exchange rates (US dollar into sterling; euro into sterling), rounded to 2 decimal places; 2025 provisional. Dates and approximate intraday levels of big moves: Nov 2007 about $2.11; Jan 2009 about $1.37; 24 June 2016 about $1.49 to $1.32; March 2020 about $1.15; 26 September 2022 a record low near $1.04.
-- Trading partners (2024, approximate shares of total UK trade, goods and services, exports + imports): United States about 17%, Germany 8%, Netherlands 6%, France 5%, China 5%, Ireland 5%; EU about 40% (ONS, "UK trade in numbers" and "UK trade: country by country").
-- ERM: UK left on 16 September 1992; Treasury estimate of the cost about £3.3bn. UK Global Tariff from January 2021; UK–US deal (June 2025): 100,000 UK cars a year at a 10% US tariff.
+- Trading partners, goods exports, 2024 (ONS, "UK trade: country by country"): United States 16.9%, Germany 8.3%, Netherlands 7.7%; France, China and Ireland about 5% each (approximate). EU about 41% of UK goods exports and 46% of imports (HMRC, 2024).
+- ERM: UK left on 16 September 1992; Treasury estimate of the cost about £3.3bn (Treasury papers released under FOI, 2005). UK Global Tariff from January 2021; UK–US deal: from 30 June 2025, a quota of 100,000 UK cars a year at a 10% US tariff, 27.5% above the quota.
 
 ## Batch experiments
 

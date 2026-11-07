@@ -6,7 +6,7 @@ Money flowing between households, firms, banks, government and overseas. Injecti
 
 ## Levels
 
-- **Standard (GCSE)**: Edexcel International GCSE Economics (4EC1). The circular flow, injections (I, G, X) and withdrawals (S, T, M), AD = C + I + G + (X − M), the multiplier 1 ÷ (1 − MPC).
+- **Standard (GCSE)**: Edexcel International GCSE Economics (4EC1). A simple picture of the circular flow, injections (I, G, X) and withdrawals (S, T, M), AD = C + I + G + (X − M). 4EC1 does not include the circular flow in detail or the multiplier calculation (they are 9EC0 2.4.2 and 2.4.4), so the multiplier view, its calculation questions and its reading are tagged "A level (9EC0 2.4.4)" at Standard and kept as background; the level hint says so.
 - **Advanced (A level)**: Edexcel A level Economics A (9EC0), Theme 2. MPC, MPS, MPT, MPM and MPW; multiplier = 1 ÷ (1 − MPC) = 1 ÷ MPW; households who differ; the accelerator; AD/AS with SRAS, classical LRAS and the Keynesian AS curve; output gaps; demand-pull and cost-push shocks.
 
 ## Views
@@ -24,7 +24,7 @@ Money flowing between households, firms, banks, government and overseas. Injecti
 
 ## The model
 
-Each round, firms pay out last round's revenue as incomes (national income Y). Each household splits its income: c × y spent on UK-made goods, s × y saved, t × y taxed, m × y spent on imports, with c + s + t + m = 1 (so MPC on UK goods = 1 − MPW). Firms' revenue = C + I + G + X becomes next round's income. Income settles where J = W, at Y = (I + G + X) ÷ MPW. After a permanent rise in injections of ΔJ, income after n rounds is up by ΔJ (1 − MPCⁿ) ÷ (1 − MPC), and in the long run by ΔJ ÷ MPW. Accelerator: I = I₀ + v × (income this round − income last round).
+Each round, firms pay out last round's revenue as incomes (national income Y). Each household splits its income: c × y spent on UK-made goods, s × y saved, t × y taxed, m × y spent on imports, with c + s + t + m = 1 (so MPC on UK goods = 1 − MPW). Firms' revenue = C + I + G + X becomes next round's income. Income settles where J = W (only implicit in the A level spec, 9EC0 2.4.2a injections and withdrawals), at Y = (I + G + X) ÷ MPW. After a permanent rise in injections of ΔJ, income after n rounds is up by ΔJ (1 − MPCⁿ) ÷ (1 − MPC), and in the long run by ΔJ ÷ MPW. Accelerator: I = I₀ + v × (income this round − income last round).
 
 Households (A level) each have their own MPC (the average plus a random difference) and unequal incomes (log-normal). The economy's real MPC is the income-weighted average. AD/AS: AD = A − b (P − 100); classical SRAS P = W + costs + β (Y − Y*), with W rising when output is above potential; Keynesian AS flat, then curving up to vertical at full capacity.
 

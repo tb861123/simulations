@@ -32,7 +32,8 @@ Open `labour-market.html` in Chrome or Edge, with no install and no internet.
    when the expected-wage gap beats the cost of moving. Scenarios: skills (occupational
    immobility), London vs the North East (geographical immobility), discrimination, a
    union in one market, migration into one market, or identical markets.
-4. **Division of labour.** Two workshops making chairs in four tasks: generalists making
+4. **Division of labour** (4EC1 1.2.2 Productivity and division of labour, in the
+   production section). Two workshops making chairs in four tasks: generalists making
    whole chairs vs specialists passing work along (practice, no switching time, boredom).
 
 Right panel: what's happening, readings (wage, employment, unemployment, wage bill; in
@@ -93,9 +94,10 @@ this simulation if the batch experiments change.
 
 National Minimum Wage and National Living Wage rates (GOV.UK, Low Pay Commission): £3.60
 (1999), £7.20 (2016), £8.72 (2020), £8.91 (2021), £9.50 (2022), £10.42 (2023), £11.44
-(2024), £12.21 (2025), £12.71 (April 2026; 18–20 £10.85, 16–17 and apprentices £8.00).
-ONS ASHE 2024 (median full-time pay about £37,400; gender pay gap 7.0% full-time, 13.1%
-all employees); Department for Business and Trade trade union statistics 2024 (about 22%
-of employees); ONS net migration (peak about 906,000, year to June 2023); the EU bankers'
+(2024), £12.21 (April 2025; 18–20 £10.00, 16–17 and apprentices £7.55), £12.71 (April 2026;
+18–20 £10.85, 16–17 and apprentices £8.00).
+ONS ASHE: median full-time pay £37,439 (2024) and £39,039 (2025, provisional); gender pay
+gap 6.9% full-time and 12.8% all employees in 2025 (7.0% and 13.1% in 2024); Department for
+Business and Trade trade union statistics: 22.0% of employees in 2024, 22.4% in 2025; ONS net migration (peak about 906,000, year to June 2023); the EU bankers'
 bonus cap (UK 2014 to October 2023); public-sector pay freeze 2011–12 and 1% cap to 2017;
 Card and Krueger (1994); Adam Smith's pin factory (1776).

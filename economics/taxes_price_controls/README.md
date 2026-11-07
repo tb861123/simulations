@@ -37,7 +37,8 @@ Open `taxes-price-controls.html` in Chrome or Edge. No install, no internet.
 
 - Standard / Advanced toggle.
 - 12 presets: a tax on each unit; fuel duty + VAT (52.95p a litre and 20%, 2025);
-  sugar levy (24p a litre, 2018); tobacco duty rise; VAT as an ad valorem tax (20% since
+  sugar levy (24p a litre for 8 g+ sugar per 100 ml, 18p for 5 g to under 8 g, 2018;
+  Public Health England, October 2020: average sugar per 100 ml down 43.7%, 2015–2019); tobacco duty rise; VAT as an ad valorem tax (20% since
   2011); Energy Price Guarantee (subsidy, October 2022); rent control (shortage); ticket
   touts (maximum price and black market); minimum unit pricing (Scotland, 65p a unit
   from 2024); farm price support (government buys the surplus); who pays with inelastic
