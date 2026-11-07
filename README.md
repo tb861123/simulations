@@ -116,6 +116,8 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`climate/glaciers/`](climate/glaciers/) | Glaciers: mass balance and ELA, ice flow, corries, U-shaped valleys, moraines, freeze-thaw | Open `glaciers.html` |
 | [`climate/tropical_storms/`](climate/tropical_storms/) | Weather hazards: global circulation, tropical storm formation, Saffir–Simpson, hurricane seasons, surge and impacts | Open `tropical-storms.html` |
 | [`climate/tectonic_hazards/`](climate/tectonic_hazards/) | Tectonic hazards: plate boundaries, earthquakes, tsunami, volcanoes, risk and the Park and PAR models | Open `tectonic-hazards.html` |
+| [`climate/slopes_landslides/`](climate/slopes_landslides/) | Weathering, slopes and landslides: weathering rates, factor of safety, mass movement, rainfall-triggered landslides | Open `slopes-landslides.html` |
+| [`climate/fieldwork_sampling/`](climate/fieldwork_sampling/) | Fieldwork: sampling methods, bias, descriptive statistics, Spearman's rank, chi-squared, Mann–Whitney U, power | Open `fieldwork-sampling.html` |
 
 ## Astrophysics
 
