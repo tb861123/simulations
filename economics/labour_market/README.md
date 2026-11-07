@@ -92,8 +92,9 @@ this simulation if the batch experiments change.
 
 ## Data sources
 
-National Minimum Wage and National Living Wage rates (GOV.UK, Low Pay Commission): £3.60
-(1999), £7.20 (2016), £8.72 (2020), £8.91 (2021), £9.50 (2022), £10.42 (2023), £11.44
+National Minimum Wage and National Living Wage rates (GOV.UK, Low Pay Commission): the NMW
+started on 1 April 1999 at £3.60 for workers aged 22 and over (£3.00 for ages 18–21); the NLW
+started on 1 April 2016 at £7.20 for ages 25 and over; then £8.72 (2020), £8.91 (2021), £9.50 (2022), £10.42 (2023), £11.44
 (2024), £12.21 (April 2025; 18–20 £10.00, 16–17 and apprentices £7.55), £12.71 (April 2026;
 18–20 £10.85, 16–17 and apprentices £8.00).
 ONS ASHE: median full-time pay £37,439 (2024) and £39,039 (2025, provisional); gender pay

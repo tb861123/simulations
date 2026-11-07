@@ -14,7 +14,7 @@ Booms and recessions, inflation and unemployment. Set Bank Rate, government spen
 
 1. **Run the economy.** A dashboard of the five objectives (green zone = on target), real GDP against its trend with recessions shaded, the phase of the cycle (boom, slowdown, recession, recovery), and (A level) the output gap. Below: CPI inflation, Bank Rate and unemployment (A level: expected inflation too). Shock buttons: confidence boom, credit crunch, energy prices jump, new random future.
 2. **Banks and money (beyond the spec: enrichment).** £100m of new reserves arrives at one of six banks. Each round banks keep a reserve ratio of deposits and lend the rest; part of each payment is kept as cash; the rest is re-deposited. Total money grows towards the theory value. A "demand for loans" slider shows why, in reality (Bank of England, 2014), lending is limited by demand rather than reserves.
-3. **The real UK economy.** CPI inflation (with the 2% ± 1 target), Bank Rate (each change since 1997), unemployment and real GDP growth, 2000–2025, with the 2008–09 and 2020 recessions shaded, plus UK unemployment against inflation (is there a Phillips curve?) and the real Bank Rate. A year slider reads off the values with a note on what happened.
+3. **The real UK economy.** CPI inflation (with the 2% ± 1 target), Bank Rate (every change since May 1997, to the rise to 4% on 5 November 2026), unemployment and real GDP growth, 1997–2025, with the 2008–09 and 2020 recessions shaded, plus UK unemployment against inflation (is there a Phillips curve?) and the real Bank Rate. A year slider reads off the values with a note on what happened.
 
 ## Controls
 
@@ -36,8 +36,9 @@ All model numbers are illustrative. Assumptions and what the model leaves out ar
 
 ## Real data and sources
 
-- CPI inflation, annual average: ONS (series D7G7). Unemployment rate, 16+, annual average: ONS Labour Force Survey (MGSX). Real GDP growth: ONS (IHYP). Bank Rate: Bank of England, official Bank Rate history. Figures rounded; 2025 values are first estimates and may be revised (real GDP growth 2025: 1.3%, ONS first estimate). 2024: CPI 2.5%, GDP growth 1.1%, unemployment about 4.3%.
-- Bank of England: Bank Rate cut to 3.75% on 18 December 2025 (5–4 vote); QE peaked at £895bn (total agreed November 2020).
+- Annual data, 1997–2025: revised series, valid as of these releases (later releases may revise them). CPI inflation, annual average: ONS series D7G7 (MM23, 21 October 2026). Unemployment rate, 16+, annual average: ONS series MGSX (Labour Market Statistics, 20 October 2026). Real GDP growth: ONS series IHYP (UK Economic Accounts, 30 September 2026). In these releases 2024 is CPI 2.5%, unemployment 4.3%, GDP growth 1.1%; 2025 is CPI 3.4%, unemployment 4.9%, GDP growth 1.2% (the first estimate was 1.3%).
+- Bank Rate: Bank of England, Official Bank Rate history (IUDBEDR), all 72 changes from 6 May 1997 to 5 November 2026. The 6 May 1997 rise (to 6.25%) was the Chancellor's decision; the cuts on 18 September 2001 and on 11 and 19 March 2020 were made between scheduled MPC meetings. Cut to 3.75% on 18 December 2025 (5–4 vote); **Bank Rate is now 4%**, raised 0.25 on 5 November 2026 (MPC vote 8–1, one member voting for 4.25%).
+- QE peaked at £895bn (total agreed November 2020).
 - Money creation: McLeay, Radia and Thomas, "Money creation in the modern economy", Bank of England Quarterly Bulletin, 2014 Q1.
 
 ## Batch experiments
