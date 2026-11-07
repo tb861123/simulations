@@ -114,6 +114,8 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`climate/river_landforms/`](climate/river_landforms/) | Rivers and landforms: Bradshaw model, Hjulström curve, meanders and oxbow lakes, waterfalls, river fieldwork | Open `river-landforms.html` |
 | [`climate/coasts/`](climate/coasts/) | Coasts: waves, erosion, longshore drift, spits, cliff retreat, Holderness management, sea-level change | Open `coasts.html` |
 | [`climate/glaciers/`](climate/glaciers/) | Glaciers: mass balance and ELA, ice flow, corries, U-shaped valleys, moraines, freeze-thaw | Open `glaciers.html` |
+| [`climate/tropical_storms/`](climate/tropical_storms/) | Weather hazards: global circulation, tropical storm formation, Saffir–Simpson, hurricane seasons, surge and impacts | Open `tropical-storms.html` |
+| [`climate/tectonic_hazards/`](climate/tectonic_hazards/) | Tectonic hazards: plate boundaries, earthquakes, tsunami, volcanoes, risk and the Park and PAR models | Open `tectonic-hazards.html` |
 
 ## Astrophysics
 
