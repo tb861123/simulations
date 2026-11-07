@@ -112,6 +112,8 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`climate/weather_chaos/`](climate/weather_chaos/) | The butterfly effect: Lorenz 63 and Lorenz 96 models, twin forecasts, ensembles, and why forecast skill is limited | Open `weather-chaos.html` |
 | [`climate/flooding_hydrographs/`](climate/flooding_hydrographs/) | Flooding and storm hydrographs: drainage basins, lag time, urbanisation, flood management, return periods, water budgets | Open `flooding-hydrographs.html` |
 | [`climate/river_landforms/`](climate/river_landforms/) | Rivers and landforms: Bradshaw model, Hjulström curve, meanders and oxbow lakes, waterfalls, river fieldwork | Open `river-landforms.html` |
+| [`climate/coasts/`](climate/coasts/) | Coasts: waves, erosion, longshore drift, spits, cliff retreat, Holderness management, sea-level change | Open `coasts.html` |
+| [`climate/glaciers/`](climate/glaciers/) | Glaciers: mass balance and ELA, ice flow, corries, U-shaped valleys, moraines, freeze-thaw | Open `glaciers.html` |
 
 ## Astrophysics
 
