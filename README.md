@@ -87,6 +87,8 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`biology/inheritance/`](biology/inheritance/) | Inheritance: fruit-fly breeding lab, Punnett squares, pedigrees, variation, dihybrid crosses, sex linkage, linkage, epistasis, chi-squared | Open `inheritance.html` |
 | [`biology/dna_cell_division/`](biology/dna_cell_division/) | DNA, protein synthesis and cell division: genetic code, mutations, mitosis, meiosis, root tip mitotic index, replication, lac operon | Open `dna-cell-division.html` |
 | [`biology/ecosystems/`](biology/ecosystems/) | Ecosystems and sampling: food webs, energy transfer, nutrient cycles, quadrats and transects, succession, Simpson's index, sustainability | Open `ecosystems.html` |
+| [`biology/homeostasis/`](biology/homeostasis/) | Homeostasis: blood glucose, insulin and glucagon, diabetes, temperature control, the kidney and ADH, negative and positive feedback | Open `homeostasis.html` |
+| [`biology/immunity/`](biology/immunity/) | Immunity and vaccination: barriers, phagocytes, lymphocytes, antibodies, memory cells, vaccines, herd immunity, blood smears, antibiotic discs | Open `immunity.html` |
 
 ### Medical and anatomical (`medical/` folder)
 
