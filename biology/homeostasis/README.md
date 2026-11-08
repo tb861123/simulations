@@ -4,25 +4,29 @@ A single, self-contained HTML file (`homeostasis.html`) for biology. Open it
 in Chrome or Edge, with no install and no internet.
 
 **Standard** follows Pearson Edexcel International GCSE Biology (4BI1),
-section 2: **2(j) Coordination and response** (homeostasis and negative
-feedback; insulin and glucagon controlling blood glucose; the liver and
-glycogen; thermoregulation by the skin: sweating, vasodilation and
-vasoconstriction, shivering; hormones such as ADH and adrenaline; nervous and
-hormonal control compared) and **2(i) Excretion** (the kidney and nephron,
-ultrafiltration, selective reabsorption of glucose, water reabsorption in the
-collecting duct, ADH and osmoregulation, the composition of urine). Type 1 and
-type 2 diabetes are tagged "check the 4BI1 wording".
+section 2: **2(j) Co-ordination and response** (homeostasis, 2.81; insulin
+controlling blood glucose and the liver's glycogen store, 2.94;
+thermoregulation by the skin: sweating, vasodilation and vasoconstriction,
+shivering, 2.93; hormones such as ADH and adrenaline; nervous and hormonal
+control compared; 2.81, 2.93 and 2.94 carry no B) and **2(i) Excretion**
+(2.72B–2.79B, all Biology only: the kidney and nephron, ultrafiltration,
+selective reabsorption of glucose, water reabsorption in the collecting duct,
+ADH and osmoregulation, the composition of urine). Glucagon, negative
+feedback and the names type 1 and type 2 diabetes are not in the 4BI1
+wording, so at Standard they are tagged "beyond the 4BI1 wording".
 **Advanced** follows OCR A level Biology A (H420) Module 5: **5.1.1
 Communication and homeostasis** (cell signalling, negative and positive
 feedback, endotherms and ectotherms), **5.1.2 Excretion as an example of
-homeostatic control** (the nephron in detail, the loop of Henle and the
-countercurrent multiplier, the collecting duct and ADH, kidney failure,
+homeostatic control** (the nephron in detail, the loop of Henle, the
+collecting duct and ADH, kidney failure,
 dialysis and transplants, urine testing including pregnancy tests with
-monoclonal antibodies) and **5.1.4 Hormonal communication** (insulin
-secretion by beta cells, adrenaline and the second messenger cAMP, control of
-blood glucose, diabetes types 1 and 2 and their treatment, including the
-potential of stem cells). The glucose tolerance test is tagged "widely
-taught; check against the H420 wording".
+monoclonal antibodies), **5.1.4 Hormonal communication** (insulin
+secretion by beta cells, control of blood glucose, diabetes types 1 and 2 and
+their treatment, including the potential of stem cells: 5.1.4(e)) and
+**5.1.5(j)** (adrenaline, adenylyl cyclase and the second messenger cyclic
+AMP). The name "countercurrent multiplier" is tagged as beyond the H420
+5.1.2 wording (enrichment), and the glucose tolerance test as clinical
+enrichment, not in H420.
 
 ## What it shows
 

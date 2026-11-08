@@ -59,7 +59,7 @@ number), not to individual statement numbers.
   circulation, valves, heart rate with exercise and adrenaline, coronary heart
   disease. Valve disease, the pressure–volume loop and the pressure graph are
   tagged "Beyond the spec".
-- **Advanced (H420 3.1.2 Transport in animals; 5.1.5 for control of heart
+- **Advanced (H420 3.1.2 Transport in animals; 5.1.5(k) for control of heart
   rate):** the conduction system drawn on the heart (SAN, AVN, bundle of His,
   Purkyne fibres) lighting up in time with each beat; labels on the Wiggers
   pressure graph where the AV and semilunar valves open and shut, and P, QRS
@@ -150,6 +150,6 @@ into the table instead.
 |---|---|---|
 | Does a faster heart always pump more blood? | CO vs HR against the naïve CO = HR × SV | CO peaks at about 6 L/min near 100–120 beats/min, then falls to about 3.5 L/min at 220 |
 | Is mean pressure = cardiac output × resistance? | MAP vs resistance against MAP = CVP + CO₀ × R | Model bends below the line (the heart pumps less against high resistance), but MAP − CVP = CO × R holds to within 0.2% at every step |
-| How spread out is blood pressure in a population? | 500 random patients against an approximate UK adult distribution (mean 126, SD 17) | Model mean 127–128 mmHg, SD about 15; 18–19% at 140/90 or above |
+| How spread out is blood pressure in a population? | 500 random patients against an illustrative adult distribution (mean 126, SD 17; not from one dated survey: e.g. Health Survey for England 2006 means were 130.8 men, 124.0 women) | Model mean 127–128 mmHg, SD about 15; 18–19% at 140/90 or above |
 | When does blood loss cause shock? | Systolic pressure vs % blood loss, reflexes on | Falls below 90 mmHg at about 28% loss (clinical guide: about 30%, class III) |
 | Why do stiff arteries widen the pulse pressure? | Pulse pressure vs stiffness against PP ∝ 1/compliance | Rises in a straight line, about 17% below the simple theory at 2.6× stiffness |

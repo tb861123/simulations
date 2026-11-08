@@ -58,7 +58,9 @@ number), not to individual statement numbers.
   chains and energy transfer. Predator–prey cycles, the Lotka–Volterra
   equations and the logistic fit are tagged "Beyond the spec".
 - **Advanced (H420 6.3.2 Populations and sustainability; 6.3.1 Ecosystems):**
-  a virtual **mark–release–recapture** practical (PAG3 sampling): set the
+  a virtual **mark–release–recapture** practical, a suitable **PAG3
+  extension** (sampling); the Lincoln index is not explicitly required by H420
+  and is tagged that way in the sim. Set the
   trap catch (5–35%), catch and mark (marked rabbits get a blue ring), let
   the field run, recapture, and the table records n₁, n₂, m, the Lincoln
   index estimate n₁n₂/m and the true number, with the mean and SD of up to 10

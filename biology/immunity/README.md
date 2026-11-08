@@ -9,7 +9,8 @@ system in section **2(h) Transport**: phagocytes ingesting pathogens,
 lymphocytes releasing antibodies specific to the pathogen, vaccination and
 memory cells (antibodies made sooner, faster and in greater quantity), and
 platelets and clotting as a barrier. "Antibiotics kill bacteria, not
-viruses" is tagged "4BI1: check the wording".
+viruses" is correct science but not 4BI1 wording, and is tagged so: 4BI1
+covers viruses at **1.4** and antibiotic resistance in bacteria at **3.39**.
 **Advanced** follows OCR A level Biology A (H420) Module 4, **4.1.1
 Communicable diseases, disease prevention and the immune system**: primary
 non-specific defences, inflammation, phagocytosis (phagosome, lysosome,
@@ -17,7 +18,9 @@ antigen presentation), the specific response (clonal selection and
 expansion; T helper, T killer, B, plasma and memory cells; cytokines),
 antibodies as opsonins, agglutinins and antitoxins, primary and secondary
 responses, active and passive, natural and artificial immunity, autoimmune
-disease, vaccination programmes and antibiotics. Monoclonal antibodies are
+disease, vaccination programmes, plant defences against pathogens (listed,
+not modelled), sources of medicines and the development of new medicines,
+and antibiotics. Monoclonal antibodies are
 tagged "partly beyond H420 4.1.1; pregnancy tests are in 5.1.2".
 Spread through a population and herd immunity are in
 [Epidemics](../epidemics/epidemics.html); this sim is the response inside
@@ -113,14 +116,28 @@ Selection, Heart and Circulation, Homeostasis and Central Limit Theorem.
 
 - UK vaccine coverage: UKHSA / NHS England, Childhood Vaccination Coverage
   Statistics (COVER), England, 2013–14 to 2023–24: MMR first dose by 2 years
-  from about 92.7% to 88.9%; 6-in-1 (three doses) by 1 year from about 94.3%
-  to 91.2%; MMR second dose by 5 years from about 88.3% to 83.9%. Values from
+  from about 92.7% to 88.9%; the primary infant combination vaccine (three
+  doses) by 1 year from about 94.3% to 91.2%. That series changes
+  formulation: the 2013–14 figure is the five-in-one (DTaP/IPV/Hib) and the
+  2023–24 figure the six-in-one (adding hepatitis B), which replaced it for
+  babies born from August 2017. MMR second dose by 5 years from about 88.3% to 83.9%. Values from
   memory: marked approximate in the sim; check the latest release.
 - WHO target: 95% coverage. R₀ ranges (typical textbook values): measles
   12–18, whooping cough 12–17, mumps 4–7, rubella 6–7, polio 5–7, diphtheria
   6–7, COVID-19 (2020 variant) 2.5–3.5, seasonal flu 1.3–1.8.
-- UK routine schedule: approximate, about 2024 (the schedule changes; check
-  the current NHS schedule).
+- UK routine schedule: shown **as of 2026** (England), for babies born on
+  or after 1 January 2025: 8 weeks 6-in-1, MenB, rotavirus; 12 weeks 6-in-1,
+  MenB, rotavirus; 16 weeks 6-in-1, pneumococcal; 1 year MMRV, pneumococcal
+  and MenB boosters; 18 months (new appointment) 6-in-1 booster and second
+  MMRV; 3 years 4 months 4-in-1 pre-school booster; 12–13 years HPV; 14 years
+  3-in-1 booster and MenACWY. July 2025 moved MenB to 8 and 12 weeks and
+  pneumococcal to 16 weeks, and dropped Hib/MenC at 1 year for children born
+  from 1 July 2024; January 2026 brought in MMRV and the 18-month visit. A
+  table in the sim gives the transitional birth cohorts (born 1 July – 31
+  December 2024; 1 September 2022 – 30 June 2024; before 1 September 2022).
+  Compiled from UKHSA / NHS summaries of the changes; the gov.uk schedule
+  itself could not be opened from the build environment, so the cohort
+  details are marked "check the current UKHSA schedule" in the sim.
 - White cell proportions (healthy adult): neutrophils about 60%, lymphocytes
   30%, monocytes 6%, eosinophils 3%, basophils 1% (textbook values; real
   ranges are wide). Sizes: neutrophil about 12 µm, lymphocyte 8–9 µm,

@@ -18,8 +18,9 @@ photolysis, photophosphorylation, ATP and reduced NADP; the Calvin cycle:
 rubisco, RuBP, GP, TP; limiting factors and their effect on GP, RuBP and TP)
 and **5.2.2 Respiration** (glycolysis, the link reaction, the Krebs cycle,
 oxidative phosphorylation and chemiosmosis, anaerobic respiration,
-respiratory substrates and RQ). The compensation point is tagged as widely
-taught (check against the H420 wording). Respirometer work is tagged "A level
+respiratory substrates and RQ). The compensation point is tagged H420: it is
+named in the H420 mathematical requirements (Appendix 5d, M3.4), though not in
+4BI1. Respirometer work is tagged "A level
 practical skills" without a PAG number.
 
 ## What it shows

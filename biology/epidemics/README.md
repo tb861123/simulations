@@ -51,10 +51,13 @@ spec"), and **📝 Exam practice**: 6 GCSE questions, plus 6 A level questions
 at Advanced, each with a mark scheme. Questions marked "Your…" use the numbers
 on screen; **↻ Use the numbers on screen now** rebuilds them. Spec references
 are given to the topic (4BI1 section and sub-section letter, H420 topic
-number), not to individual statement numbers.
+number), not to individual statement numbers, except vaccination (4BI1
+2.63B). The sim quotes MMR coverage only; it shows no five-in-one / six-in-one
+series, so the audit's formulation correction (item 63) needed no data change
+here.
 
 - **Standard (4BI1 2(h) Transport: white blood cells, antibodies, vaccination
-  and memory cells; 1(b) pathogens):** the spread of disease through a
+  and memory cells (statement 2.63B); 1(b) pathogens):** the spread of disease through a
   population (R0, SEIR, herd immunity) is tagged "Beyond the spec" at this
   level.
 - **Advanced (H420 4.1.1 Communicable diseases, disease prevention and the

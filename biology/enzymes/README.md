@@ -6,15 +6,18 @@ Chrome or Edge, with no install and no internet.
 **Standard** follows Pearson Edexcel International GCSE Biology (4BI1),
 section 2(c) *Biological molecules*: 2.10 enzymes as biological catalysts;
 2.11 temperature and the shape of the active site; 2.12 practical:
-temperature and enzyme activity; 2.13B and 2.14B pH and the active site, and
-its practical (B = Biology only, not Double Award). Rates from graphs.
+temperature and enzyme activity; 2.13 pH and the shape of the active site;
+2.14B practical: pH and enzyme activity (B = Biology only, not Double Award;
+only 2.14B carries B). Rates from graphs.
 Substrate concentration is not in 4BI1 and is tagged "Beyond 4BI1".
 **Advanced** follows OCR A level Biology A (H420) Module 2, **2.1.4
-Enzymes**: mechanism (lock and key, induced fit, enzyme–substrate complex,
-activation energy); temperature (Q10), pH, enzyme and substrate concentration;
-cofactors, coenzymes and prosthetic groups; competitive, non-competitive and
+Enzymes**: intracellular and extracellular enzymes; specificity; mechanism
+(lock and key, induced fit, enzyme–substrate complex, activation energy); temperature (Q10), pH, enzyme and substrate concentration;
+cofactors and coenzymes; competitive, non-competitive and
 end-product inhibition; PAG4 rates of enzyme-controlled reactions (initial
 rates from tangents). Vmax is shown; Km is tagged as beyond the H420 wording.
+Prosthetic groups (haem in catalase, Zn²⁺ in carbonic anhydrase) are kept as
+enrichment and tagged as beyond the 2.1.4 enzyme wording.
 
 ## What it shows
 

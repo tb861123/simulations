@@ -24,8 +24,9 @@ and cellular organisation** (the cell cycle, G0, checkpoints, mitosis,
 meiosis with crossing over and independent assortment, root tip squash);
 **6.1.1 Cellular control** (substitution, insertion and deletion mutations and
 their effects; the lac operon). **PAG1** microscopy: the root tip squash and
-mitotic index. cAMP/CRP catabolite repression is tagged "beyond the H420
-wording".
+mitotic index. cAMP itself is named in H420 6.1.1(b) (post-translational
+activation of proteins) and is tagged so; the cAMP–CRP catabolite repression
+of the lac operon is tagged "beyond the H420 wording".
 
 ## What it shows
 
@@ -133,13 +134,19 @@ Limit Theorem.
 
 ## Data and sources
 
-- β-globin (HBB) coding sequence, codons 1–18, and the sickle-cell mutation
-  (codon 6 of the mature protein, GAG → GTG, Glu → Val): standard reference
-  sequence.
+- β-globin (HBB) coding sequence, codons 1–18 (ATG GTG CAT CTG ACT CCT GAG
+  GAG AAG ...), and the sickle-cell mutation GAG → GTG, Glu → Val at base 20
+  (c.20A>T): Glu6Val in the traditional numbering of the mature protein,
+  p.Glu7Val in modern HGVS numbering (which counts the start Met). Standard
+  reference sequence.
 - Meselson and Stahl (1958): ¹⁵N and ¹⁴N DNA densities about 1.724 and
   1.710 g/cm³ in CsCl (approximate).
-- Cell cycle and phase times, mRNA half-life and rates: approximate textbook
-  values; lac operon rates illustrative.
+- Cell cycle and phase times and rates: approximate textbook values; lac
+  operon rates illustrative. The model's lac mRNA half-life (about 1.4 min)
+  is illustrative: lac mRNA is short-lived, but the mean half-life of E. coli
+  mRNAs is about 5 min (genome-wide study, Bernstein et al., PNAS 2002).
+  E. coli doubles about every 20–30 min in rich medium, depending on
+  conditions.
 
 ## Batch run
 

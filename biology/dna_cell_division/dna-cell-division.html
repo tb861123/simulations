@@ -327,7 +327,7 @@
         <li><b>Cell cycle</b>: phase lengths are approximate textbook values. Mitosis is slowed down in the animation compared with interphase; the clock shows real hours. Checkpoints (A level) are simplified to three: G1, G2 and the spindle assembly checkpoint in metaphase.</li>
         <li><b>Root tip squash</b>: the chance that a cell is in each phase = time in that phase ÷ cell cycle time (a steady population). Cells stop cycling between about 1.5 and 3 mm from the tip. Counters miss very early prophase (30% of prophase cells) because it looks like interphase. Real roots also vary from root to root and with the time of day.</li>
         <li><b>Meiosis</b>: homologous pairs line up at random (independent assortment); at A level one chiasma per pair swaps the ends of two non-sister chromatids. Left out: several chiasmata per pair, chromosomes of different sizes and shapes, and non-disjunction in meiosis.</li>
-        <li><b>Lac operon</b> (A level): the operator switches at random between repressed and free; mRNA is made while it is free and broken down with a half-life of about 1.4 minutes; rates are approximate. The culture graph is a simple growth model.</li>
+        <li><b>Lac operon</b> (A level): the operator switches at random between repressed and free; mRNA is made while it is free and broken down with a half-life of about 1.4 minutes (illustrative: lac mRNA is short-lived; the mean for E. coli mRNAs is about 5 min, genome-wide study, PNAS 2002); rates are approximate. The culture graph is a simple growth model.</li>
         <li><b>Quality</b> only changes the picture (free nucleotides, shading, detail); the model and the batch runs are the same at every level.</li>
       </ul>
     </details>
@@ -769,9 +769,11 @@ function translate(dna) { const out = []; for (let i = 0; i + 3 <= dna.length; i
 
 /* Genes (coding strand, 5'→3'). The β-globin sequence is the real start of the human HBB gene
    (codons 1–18 counting the start codon; the gene carries on). The sickle-cell mutation changes
-   GAG (glutamic acid) to GTG (valine) at base 20 here (codon 6 of the finished protein, which loses its Met). */
+   GAG (glutamic acid) to GTG (valine) at base 20 here (codon 7 counting ATG). Traditional numbering of the
+   finished protein (which loses its Met) calls it Glu6Val; modern HGVS numbering, which counts the Met,
+   calls it p.Glu7Val (c.20A>T). Reference: HBB coding sequence ATG GTG CAT CTG ACT CCT GAG GAG AAG ... */
 const GENES = {
-  hbb: { name: "β-globin (haemoglobin), first 18 codons", seq: "ATGGTGCACCTGACTCCTGAGGAGAAGTCTGCCGTTACTGCCCTGTGGGGCAAG", more: true },
+  hbb: { name: "β-globin (haemoglobin), first 18 codons", seq: "ATGGTGCATCTGACTCCTGAGGAGAAGTCTGCCGTTACTGCCCTGTGGGGCAAG", more: true },
   demo: { name: "A short made-up gene (11 amino acids)", seq: "ATGGCTTGGAAAGATCGCTTCGGACATTACGAATGA" },
   rnd: { name: "A random gene (new each reset)", seq: null },
 };
@@ -945,12 +947,14 @@ const gamTheory = (n, M) => { const K = Math.pow(2, n); return K * (1 - Math.pow
    lacI (regulator gene) makes the repressor protein, which binds the operator and stops RNA polymerase
    transcribing lacZ (β-galactosidase) and lacY (lactose permease). Lactose (as allolactose) binds the
    repressor, changes its shape and it falls off the operator: the genes are transcribed.
-   Beyond the H420 wording: with glucose present cAMP is low, so the CRP activator is missing and
+   cAMP is named in H420 6.1.1(b), but for activating proteins after translation. Its role here is beyond
+   the H420 wording: with glucose present cAMP is low, so the CRP activator is missing and
    transcription stays low even with lactose (catabolite repression).
    Time in minutes. The operator switches between repressed and free at random:
      repressor binds at KON per min; lets go at KOFF0 + KOFF1 × L²/(L² + KL²) per min (L = lactose, mmol/dm³).
    When free, mRNA is made at KTX × (1 if no glucose, else CAT) per min; each mRNA is broken down at GM per
-   min (half-life about 1.4 min) and is translated into β-galactosidase at KTL per min.
+   min (half-life about 1.4 min: illustrative; lac mRNA is short-lived, while the mean half-life of
+   E. coli mRNAs is about 5 min in a genome-wide study, Bernstein et al., PNAS 2002) and is translated into β-galactosidase at KTL per min.
    Mean mRNA = KTX × c × f ÷ GM where f is the fraction of time the operator is free (approximate values). */
 const LAC = { KON: 2, KOFF0: 0.02, KOFF1: 20, KL: 0.5, KTX: 6, CAT: 0.12, GM: 0.5, KTL: 4, DIL: Math.LN2 / 30, dt: 0.02 };
 const lacKoff = L => LAC.KOFF0 + LAC.KOFF1 * L * L / (L * L + LAC.KL * LAC.KL);
@@ -976,7 +980,8 @@ function lacStep(Z, L, glu) {
 function lacSample(L, glu, tEnd, seed) { const Z = lacInit(seed); const n = Math.round(tEnd / LAC.dt); for (let k = 0; k < n; k++) lacStep(Z, L, glu); return Z.m; }
 /* The culture (diauxic growth): bacteria use glucose first; when it runs out they switch on the lac genes
    (a lag while β-galactosidase is made) and then grow on lactose. Glucose and lactose in mmol/dm³,
-   bacteria in millions per cm³. Illustrative values: doubling time 30 min on glucose, 40 min on lactose. */
+   bacteria in millions per cm³. Illustrative values: doubling time 30 min on glucose, 40 min on lactose (E. coli doubles every
+   20–30 min or so in rich medium, depending on conditions). */
 function cultureRun(G0, L0, tMax = 360) {
   let N = 5, G = G0, L = L0, e = 0; const out = [[0, N, G, L, e]], dt = 0.5, Y = 0.004;
   for (let t = dt; t <= tMax + 1e-9; t += dt) {
@@ -1415,7 +1420,7 @@ function drawLac(ctx, W, H) {
   const [zx] = at["lacZ (β-galactosidase)"], endx = at.lacA[0] + at.lacA[1];
   const prog = Z.op === 1 ? ((GL.mt * 0.6) % 1) : 0, polx = Z.op === 1 ? lerp(zx, endx, prog) : px + 14;
   ctx.fillStyle = "rgba(241,135,0,0.9)"; ctx.beginPath(); ctx.ellipse(polx, y - 2, 18, 14, 0, 0, 6.283); ctx.fill(); tag(ctx, "RNA polymerase", polx, y - 24, C.org, "center", "10.5px system-ui");
-  if (glu && Qd.detail >= 1) tag(ctx, "glucose present: little cAMP, CRP not bound (beyond the H420 wording)", px, y + 30, "#f2e6a0", "left", "10.5px system-ui");
+  if (glu && Qd.detail >= 1) tag(ctx, "glucose present: little cAMP, CRP not bound (cAMP–CRP control: beyond the H420 wording)", px, y + 30, "#f2e6a0", "left", "10.5px system-ui");
   else if (Qd.detail >= 1) { ctx.fillStyle = "#a86dab"; ctx.beginPath(); ctx.arc(px - 6, y + 14, 7, 0, 6.283); ctx.fill(); }
   // mRNA strands and the enzymes made
   const mY = H * 0.58; for (let k = 0; k < Math.min(Z.m, 14); k++) { const mx = zx + k * 26; ctx.strokeStyle = "#cfa6d6"; ctx.lineWidth = 2; ctx.beginPath(); for (let q = 0; q <= 12; q++) { const xx = mx + q * 2, yy = mY + 5 * Math.sin(q + k + GL.mt * 3); if (q) ctx.lineTo(xx, yy); else ctx.moveTo(xx, yy); } ctx.stroke(); }
@@ -1463,7 +1468,7 @@ const PRESETS = [
   { name: "Making a protein", desc: "transcription and translation", mode: "dna", view: "codon", set: { proc: "synth" },
     story: "Protein synthesis. Transcription (in the nucleus): RNA polymerase copies the gene's template strand into messenger RNA (mRNA), with uracil (U) in place of thymine. The mRNA leaves the nucleus. Translation (at a ribosome): the ribosome reads the mRNA three bases (one codon) at a time; a tRNA with the matching anticodon brings the right amino acid; amino acids join into a chain until a stop codon. The codon table is below." },
   { name: "Sickle-cell mutation", desc: "one base, one amino acid", mode: "dna", view: "prot", set: { proc: "synth", gene: "hbb", mtype: "sub", mpos: 20, mbase: "T" },
-    story: "A mutation is a rare, random change in DNA. In sickle-cell anaemia one base in the β-globin gene changes: GAG becomes GTG, so one amino acid changes from glutamic acid to valine. The haemoglobin molecules stick together when oxygen is low and red blood cells become sickle-shaped. Most mutations have no effect (try other substitutions: some are silent); a few change a protein a lot. Ionising radiation (X-rays, gamma rays, UV) and some chemicals (e.g. in tobacco smoke) make mutations more likely." },
+    story: "A mutation is a rare, random change in DNA. In sickle-cell anaemia one base in the β-globin gene changes: GAG becomes GTG, so one amino acid changes from glutamic acid to valine (Glu6Val in the traditional numbering of the finished protein; p.Glu7Val in modern HGVS numbering, which counts the start methionine). The haemoglobin molecules stick together when oxygen is low and red blood cells become sickle-shaped. Most mutations have no effect (try other substitutions: some are silent); a few change a protein a lot. Ionising radiation (X-rays, gamma rays, UV) and some chemicals (e.g. in tobacco smoke) make mutations more likely." },
   { name: "Mitosis", desc: "two identical cells", mode: "mit", view: "dna", set: { ctype: "onion", n2: "4" },
     story: "Before a cell divides, each chromosome is copied (S phase), so it has two identical sister chromatids. In mitosis the chromosomes condense (prophase), line up across the middle (metaphase), the chromatids are pulled to opposite ends (anaphase), and new nuclei form (telophase); the cytoplasm divides (cytokinesis). Each daughter cell gets an identical set of chromosomes: genetically identical, diploid cells. Mitosis is used for growth, repair, cloning and asexual reproduction." },
   { name: "Counting cells in a root tip", desc: "the mitotic index", mode: "rts", view: "tally", set: { dist: 0.5, mag: "400" },
@@ -1481,7 +1486,7 @@ const PRESETS = [
   { name: "Crossing over", desc: "chiasmata and 2ⁿ", lvl: "adv", mode: "mei", view: "gam", set: { np: "3", co: 1 },
     story: "Two sources of variation in meiosis. Crossing over (prophase I): non-sister chromatids of a homologous pair join at chiasmata and swap sections, so chromatids carry new combinations of alleles. Independent assortment (metaphase I): each pair lines up independently, giving 2ⁿ combinations (2²³ ≈ 8.4 million in humans); in meiosis II the chromatids, now different, also assort independently. With crossing over almost every gamete is unique." },
   { name: "The lac operon", desc: "switching genes on", lvl: "adv", mode: "lac", view: "cell", speed: 5, set: { lacL: 1, glu: 0 },
-    story: "E. coli only makes the enzymes for lactose when lactose is there. The regulator gene lacI makes a repressor protein that binds the operator, so RNA polymerase cannot transcribe the structural genes lacZ (β-galactosidase) and lacY (lactose permease). Lactose binds the repressor, changing its shape, so it can no longer bind the operator: the genes are transcribed and translated. Drag lactose to 0 and back. With glucose present too, transcription stays low (cAMP and CRP, beyond the H420 wording)." },
+    story: "E. coli only makes the enzymes for lactose when lactose is there. The regulator gene lacI makes a repressor protein that binds the operator, so RNA polymerase cannot transcribe the structural genes lacZ (β-galactosidase) and lacY (lactose permease). Lactose binds the repressor, changing its shape, so it can no longer bind the operator: the genes are transcribed and translated. Drag lactose to 0 and back. With glucose present too, transcription stays low (cAMP and CRP: this lac operon mechanism is beyond the H420 wording, though cAMP itself is named in 6.1.1(b))." },
 ];
 
 /* =====================================================================
@@ -1580,7 +1585,7 @@ function ui() {
     if (p.proc === "ms") { const g = Math.min(4, Math.floor(D.mt / 3)), r = D.ms[g], T = msTheory(p.hyp, g); tl += tile("Hybrid DNA (sample)", pct(r.hybrid), `prediction ${pct(T.hybrid)}`) + tile("Light DNA (sample)", pct(r.light), `prediction ${pct(T.light)}`) + tile("Heavy DNA (sample)", pct(r.heavy), `prediction ${pct(T.heavy)}`); }
     const tmpl = s1.split("").map(b => COMP[b]).join("");
     extra = `<div class="card"><b>The sequences</b><div class="seqbox">coding strand 5′ ${seqHTML(s1, mark, true)} 3′<br>template strand 3′ ${seqHTML(tmpl, mark, true)} 5′<br>mRNA 5′ ${seqHTML(toRNA(s1), mark, true)} 3′<br>protein: ${prot.map(a => AA3[a]).join("–")}</div>` +
-      (GENES[p.gene] && GENES[p.gene].more ? `<div class="src">β-globin: the real start of the human HBB gene (codons 1–18); the gene carries on for 147 codons.</div>` : "") + `</div>`;
+      (GENES[p.gene] && GENES[p.gene].more ? `<div class="src">β-globin: the real start of the human HBB coding sequence (codons 1–18); the gene carries on for 147 codons. Sickle cell: GAG → GTG, Glu6Val (traditional numbering) = p.Glu7Val (HGVS numbering, counting the start Met).</div>` : "") + `</div>`;
     now = p.proc === "struct" ? "The two strands are held together by hydrogen bonds between complementary bases." : p.proc === "synth" ? ["RNA polymerase unwinds the DNA and builds mRNA complementary to the template strand.", "The mRNA leaves the nucleus through a nuclear pore.", "The ribosome moves along the mRNA one codon at a time; tRNAs bring amino acids."][D.ph] : p.proc === "rep" ? "Helicase unzips the DNA; DNA polymerase builds a new strand on each old one." : `Generation ${Math.min(4, Math.floor(D.mt / 3))}: compare the bands with what each hypothesis predicts.`;
   } else if (m === "mit") {
     const M = GL.mit, c = CELLS[p.ctype], T = cycleHours(c), stg = MSTAGES[M.st], dna = dnaAt(stg.k, M.f);
@@ -1614,7 +1619,7 @@ function ui() {
     const gEnd = R.find(e => e[2] <= 0.02), on = R.find(e => e[4] > 0.5);
     tl = tile("Operator", Z.op ? "free" : "repressor bound", `free ${(100 * T.f).toFixed(1)}% of the time`) + tile("mRNA now", `${Z.m}`, `mean ${fmt(T.mean, 2)}`) + tile("β-galactosidase", `${Z.b}`, `steady state ≈ ${fmt(T.protein, 2)}`) +
       tile("Lactose", `${(+p.lacL).toFixed(2)} mmol/dm³`, p.glu ? "glucose present too" : "no glucose") + tile("Culture: glucose gone", gEnd ? `${Math.round(gEnd[0])} min` : "–", on ? `lac genes on by ${Math.round(on[0])} min` : "lac genes stay off");
-    extra = `<div class="card"><b>Genes in the lac operon.</b> Structural genes lacZ (β-galactosidase: lactose → glucose + galactose) and lacY (permease: takes lactose into the cell); promoter (where RNA polymerase binds) and operator (where the repressor binds). The regulator gene lacI is outside the operon.<div class="src">Rates approximate (mRNA half-life about 1–2 min; E. coli doubling about 30 min in rich medium).</div></div>`;
+    extra = `<div class="card"><b>Genes in the lac operon.</b> Structural genes lacZ (β-galactosidase: lactose → glucose + galactose) and lacY (permease: takes lactose into the cell); promoter (where RNA polymerase binds) and operator (where the repressor binds). The regulator gene lacI is outside the operon.<div class="src">Rates approximate or illustrative: the model's lac mRNA half-life is about 1.4 min (lac mRNA is short-lived; the mean for E. coli mRNAs is about 5 min, genome-wide study, PNAS 2002); E. coli doubles about every 20–30 min in rich medium.</div></div>`;
     now = Z.op ? "The operator is free: RNA polymerase transcribes lacZ, lacY and lacA as one mRNA." : (+p.lacL > 0 ? "The repressor is on the operator for now; lactose will soon pull it off." : "No lactose: the repressor sits on the operator and the genes are off (a little leaks through).");
   }
   el("st1").innerHTML = st1; el("st2").innerHTML = st2; el("badge").textContent = badge;
@@ -1637,7 +1642,7 @@ function ideas() {
     (a ? `<li>Root tip squash; stages of mitosis; mitotic index = cells in mitosis ÷ total. ${A("2.1.6")} ${spec("H420 PAG1 microscopy", 1)}</li><li>Phase duration = (cells in phase ÷ total) × cell cycle time; magnification = image ÷ actual size. ${A("2.1.1 and maths skills")}</li>` : "");
   else if (m === "mei") h = `<li>Meiosis makes four cells, each with half the number of chromosomes: genetically different haploid gametes. ${G("3.30")}</li><li>Random fertilisation produces genetic variation. ${G("3.31")}</li><li>Humans: diploid 46, haploid 23. ${G("3.32")}</li>` +
     (a ? `<li>Meiosis I and II; homologous chromosomes; crossing over at chiasmata; independent assortment of homologues and of chromatids. ${A("2.1.6")}</li><li>Number of chromosome combinations = 2ⁿ. ${A("2.1.6 / maths skills")}</li>` : "");
-  else h = `<li>The lac operon: regulator gene, repressor, operator, promoter, structural genes lacZ and lacY; lactose as an inducer. ${A("6.1.1")}</li><li>Regulation of gene expression at transcriptional level. ${A("6.1.1")}</li><li>cAMP and CRP (catabolite repression). ${X("Beyond the H420 wording")}</li>`;
+  else h = `<li>The lac operon: regulator gene, repressor, operator, promoter, structural genes lacZ and lacY; lactose as an inducer. ${A("6.1.1")}</li><li>Regulation of gene expression at transcriptional level. ${A("6.1.1")}</li><li>cAMP is named in H420 for activating proteins after translation. ${A("6.1.1(b)")} The cAMP–CRP control of the lac operon (catabolite repression). ${X("Beyond the H420 wording")}</li>`;
   el("ideas").innerHTML = `<ul style="margin:0;padding-left:16px">${h}</ul>`;
 }
 

@@ -8,7 +8,7 @@ section 5 *Use of biological resources*: **5(a) food production**
 (glasshouses and polythene tunnels; carbon dioxide, temperature and light;
 fertilisers; pest control by pesticides and biological control; industrial
 fermenters with aseptic precautions, nutrients, temperature, pH, oxygenation
-and agitation); **5(b) selective breeding**; **5(c) genetic modification**
+and agitation); **5(b) selective breeding**; **5(c) Genetic modification (genetic engineering)**
 (restriction enzymes, ligase, plasmid vectors, human insulin from bacteria,
 GM crops); **5(d) cloning** (micropropagation, Dolly). These are cited at
 topic level on purpose: the point numbers were not checked against the
@@ -18,7 +18,8 @@ DNA profiling **PAG6**, genetic engineering, gene therapy, ethics) and
 **6.2.1 Cloning and biotechnology** (micropropagation, artificial twinning,
 somatic cell nuclear transfer, microorganisms in biotechnology, culturing
 microorganisms, growth curves, serial dilution **PAG7**, immobilised
-enzymes). Content that is on only one specification, or beyond both (the
+enzymes), plus **6.1.2(h)** artificial selection, its consequences and
+conserving genetic resources (links to **4.2.1** biodiversity). Content that is on only one specification, or beyond both (the
 breeder's equation, economic optimum of fertiliser), is tagged in the sim.
 
 ## What it shows
@@ -127,6 +128,8 @@ Respiration, and Ecosystems.
 
 - UK wheat yields 1950–2023 (t/ha): approximate, from memory of DEFRA cereal
   and oilseed production statistics; marked "check before quoting" in the sim.
+  The 1950 value (about 2.6 t/ha) could not be confirmed from the primary
+  dataset and is labelled approximate / unverified.
 - Dolly: 277 fused eggs, 29 embryos, 1 lamb, born 5 July 1996 (Wilmut et
   al., Nature, 1997).
 - Human insulin from GM bacteria first approved 1982 (Humulin).
@@ -135,9 +138,14 @@ Respiration, and Ecosystems.
   the world.
 - Human Genome Project: about 3 billion base pairs, finished 2003, about 3
   billion US dollars (approximate).
-- GM crops on roughly 190 million hectares in 2019 (ISAAA, approximate);
-  Golden Rice 2 up to about 30 µg β-carotene per g (Paine et al., 2005,
-  approximate); approved in the Philippines in 2021.
+- GM crops on roughly 190 million hectares: the ISAAA 2019 estimate, not a
+  current-year figure. Golden Rice 2 up to about 30 µg β-carotene per g
+  (Paine et al., 2005, approximate). The Philippines issued a cultivation
+  permit in 2021; the Court of Appeals revoked it in April 2024 and the
+  ruling is contested, so the sim does not present it as approved today.
+- Artificial selection's consequences (loss of genetic diversity) and
+  conserving genetic resources are tagged H420 6.1.2(h), with a link to
+  4.2.1 (biodiversity).
 - Fertiliser and grain prices, glasshouse costs, all model rates:
   illustrative.
 

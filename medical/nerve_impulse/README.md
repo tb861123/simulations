@@ -54,7 +54,7 @@ on screen; **↻ Use the numbers on screen now** rebuilds them. Spec references
 are given to the topic (4BI1 section and sub-section letter, H420 topic
 number), not to individual statement numbers.
 
-- **Standard (4BI1 2(j) Coordination and response):** neurones, impulses,
+- **Standard (4BI1 2(j) Co-ordination and response):** neurones, impulses,
   reflex arcs, synapses, nervous vs hormonal control. The ion-channel
   mechanism and myelin are tagged "Beyond 4BI1 (A level H420 5.1.3)".
 - **Advanced (H420 5.1.3 Neuronal communication):** a **synapse at the end of

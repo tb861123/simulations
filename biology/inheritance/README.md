@@ -7,13 +7,18 @@ in Chrome or Edge, with no install and no internet.
 section **3(b) Inheritance**: genes and alleles; dominant and recessive;
 homozygous and heterozygous; genotype and phenotype; codominance; monohybrid
 crosses with genetic diagrams and Punnett squares; ratios and probabilities;
-family pedigrees; sex determination; variation (genetic and environmental).
-"Continuous and discontinuous" is named in H420 6.1.2; whether 4BI1 uses those
-words is flagged in the sim as "check the 4BI1 wording".
+family pedigrees; sex determination; genetic and environmental variation
+(3.33) and polygenic inheritance (3.22). 4BI1 does not name continuous and
+discontinuous variation, so the sim tags it "Not named in 4BI1" at Standard;
+it is named in H420 6.1.2(d) and 4.2.2(f).
 **Advanced** follows OCR A level Biology A (H420) Module 6, **6.1.2 Patterns
-of inheritance**: continuous and discontinuous variation and their genetic
-basis; dihybrid, codominant, multiple-allele, sex-linked and autosomally
-linked inheritance; epistasis; the chi-squared test; Hardy–Weinberg.
+of inheritance**: genetic and environmental variation; continuous and
+discontinuous variation and their genetic basis (also 4.2.2(f)); meiosis and
+random fertilisation as sources of variation; dihybrid, codominant, multiple-allele, sex-linked and autosomally
+linked inheritance; epistasis; the chi-squared test; Hardy–Weinberg. 6.1.2 also covers
+stabilising and directional selection, genetic drift, bottleneck and founder
+effects, speciation and artificial selection; these are listed in the sim and
+modelled in `biology/natural_selection`.
 Recombination frequency is tagged "widely taught; check the H420 wording".
 
 ## What it shows
@@ -103,8 +108,10 @@ Central Limit Theorem and Fieldwork and Sampling.
   Federation of Hemophilia).
 - Red–green colour blindness: about 8% of men and 0.5% of women of northern
   European descent.
-- ABO blood groups in the UK: O 48%, A 38%, B 10%, AB 4% (NHS Blood and
-  Transplant).
+- ABO blood groups in the UK: O 48%, A 38%, B 10%, AB 4%, labelled
+  **illustrative** (approximate; not one dated dataset). NHS Blood Donation
+  (2017) gives O about 48% and B about 10%; the Welsh Blood Service gives UK
+  proportions of O 44%, A 42%, B 10%, AB 4%.
 - Height of adult men in England: mean about 175 cm, SD about 7 cm (Health
   Survey for England 2019).
 - Drosophila b–vg distance about 17 map units; Morgan's white-eye cross, 1910.

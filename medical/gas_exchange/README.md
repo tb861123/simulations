@@ -57,7 +57,7 @@ number), not to individual statement numbers.
 
 - **Standard (4BI1 2(g) Gas exchange, with 2(d) diffusion and 2(h) red blood
   cells):** ventilation by the intercostal muscles and diaphragm, alveolar
-  adaptations, smoking, the exercise-and-breathing practical. Altitude, the
+  adaptations, smoking, the exercise-and-breathing-rate practical (4BI1 2.50). Altitude, the
   pulse oximeter and capillary transit time are tagged "Beyond the spec".
 - **Advanced (H420 3.1.1 Exchange surfaces; 3.1.2 Transport in animals):**
   lung-volume braces on the spirometer (tidal volume, IRV, ERV, vital

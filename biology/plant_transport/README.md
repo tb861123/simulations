@@ -8,17 +8,20 @@ section 2: **2(h) Transport in flowering plants** (phloem carries sucrose and
 amino acids, xylem carries water and mineral ions, water uptake by root hair
 cells, transpiration and the effect of humidity, wind, temperature and light,
 and the practical on transpiration from a leafy shoot); **2(g)** stomata;
-**2(j) Coordination and response** (geotropism of roots and stems,
+**2(j) Co-ordination and response** (geotropism of roots and stems,
 phototropism of stems, auxin). These are cited at topic level on purpose: the
 point numbers were not checked against the Pearson specification.
 **Advanced** follows OCR A level Biology A (H420): **3.1.3 Transport in
-plants** (xylem, phloem, transpiration, the potometer **PAG5**, root pressure,
-apoplast and symplast, the Casparian strip, cohesion–tension, xerophytes and
-hydrophytes, translocation by mass flow with active loading) and **5.1.5
-Plant and animal responses** (auxin, gibberellins, abscisic acid, ethene,
+plants** (xylem, phloem, transpiration, the potometer **PAG5**, apoplast and
+symplast, cohesion–tension, xerophytes and hydrophytes, translocation as an
+energy-requiring process with active loading of sucrose) and **5.1.5 Plant
+and animal responses** (auxin and gibberellins, which the wording names;
 apical dominance, stomatal closure, commercial uses, phototropism and
-geotropism **PAG11**). Content on only one specification is tagged in the sim
-("A level (H420 …)", "Beyond the spec").
+geotropism **PAG11**). The Casparian strip, root pressure and the phrase
+"mass flow" (3.1.3), and abscisic acid and ethene by name (5.1.5), are not in
+the precise H420 wording: the sim keeps them as enrichment and tags them
+"Beyond the H420 wording (enrichment)". Content on only one specification is
+tagged in the sim ("A level (H420 …)", "Beyond the spec").
 
 ## What it shows
 
@@ -139,7 +142,7 @@ Nerve Impulse and Central Limit Theorem.
   root pressure about 0.1–0.2 MPa: typical textbook values from memory,
   marked approximate in the sim.
 - Auxin response curves for roots, buds and stems: shape only, after Thimann
-  (1937). Went (1928) agar block test.
+  (1948). Went (1928) agar block test.
 - All model rates are illustrative.
 
 ## Batch run
