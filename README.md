@@ -89,6 +89,8 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`biology/ecosystems/`](biology/ecosystems/) | Ecosystems and sampling: food webs, energy transfer, nutrient cycles, quadrats and transects, succession, Simpson's index, sustainability | Open `ecosystems.html` |
 | [`biology/homeostasis/`](biology/homeostasis/) | Homeostasis: blood glucose, insulin and glucagon, diabetes, temperature control, the kidney and ADH, negative and positive feedback | Open `homeostasis.html` |
 | [`biology/immunity/`](biology/immunity/) | Immunity and vaccination: barriers, phagocytes, lymphocytes, antibodies, memory cells, vaccines, herd immunity, blood smears, antibiotic discs | Open `immunity.html` |
+| [`biology/plant_transport/`](biology/plant_transport/) | Plant transport and responses: xylem, phloem, transpiration and the potometer, translocation, tropisms, auxin and other plant hormones | Open `plant-transport.html` |
+| [`biology/biotechnology/`](biology/biotechnology/) | Biotechnology and genetic engineering: food production, selective breeding, fermenters, GM insulin and crops, cloning, PCR and gel electrophoresis | Open `biotechnology.html` |
 
 ### Medical and anatomical (`medical/` folder)
 
