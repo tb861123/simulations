@@ -72,13 +72,24 @@ changing a simulation's batch experiments.
 | [`chemistry/chromatography/`](chemistry/chromatography/) | Paper chromatography: Rf values, identifying components, solvent choice and measurement error | Open `chromatography.html` |
 | [`chemistry/crystallisation/`](chemistry/crystallisation/) | Cooling rate and crystal size: granite, basalt, obsidian, salt crystals, dendrites | Open `crystallisation.html` |
 
-## Biology
+## Biology and medicine
+
+Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level and OCR A level Biology A (H420) at Advanced. The medical sims live in `medical/` but appear in this section of the front page.
 
 | Folder | What it is | How to run |
 |---|---|---|
 | [`biology/natural_selection/`](biology/natural_selection/) | Natural selection in six species (moths, beetles, hares, finches, guppies, snails) with predators and changing habitats | Open `natural-selection.html` |
 | [`biology/epidemics/`](biology/epidemics/) | Epidemics, vaccination and herd immunity (SEIR) | Open `epidemics.html` |
 | [`biology/predator_prey/`](biology/predator_prey/) | Foxes, rabbits and grass: population cycles and Lotka–Volterra | Open `predator-prey.html` |
+
+### Medical and anatomical (`medical/` folder)
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`medical/heart_circulation/`](medical/heart_circulation/) | The heart and double circulation: valves, blood pressure, pressure–volume loop | Open `heart-circulation.html` |
+| [`medical/nerve_impulse/`](medical/nerve_impulse/) | Nerve impulses (Hodgkin–Huxley): myelin, threshold, refractory period, MS | Open `nerve-impulse.html` |
+| [`medical/antibiotic_resistance/`](medical/antibiotic_resistance/) | Antibiotic resistance evolving during a course of treatment | Open `antibiotic-resistance.html` |
+| [`medical/gas_exchange/`](medical/gas_exchange/) | Lungs and gas exchange: Fick's law, altitude, exercise, lung disease | Open `gas-exchange.html` |
 
 ## Engineering
 
@@ -88,15 +99,6 @@ changing a simulation's batch experiments.
 | [`engineering/traffic_flow/`](engineering/traffic_flow/) | Traffic flow and phantom jams, smart motorways, lane closures | Open `traffic-flow.html` |
 | [`engineering/car_crash/`](engineering/car_crash/) | Car crash safety: crumple zones, seatbelts and airbags (momentum and impulse), plus a collisions lab (also listed under Physics) | Open `car-crash.html` |
 | [`engineering/aerofoil_flow/`](engineering/aerofoil_flow/) | Aerofoil flow: lift from shape, angle of attack and spin with the Hess–Smith panel method, plus starting vortex, flap and Kármán street (also listed under Physics) | Open `aerofoil-flow.html` |
-
-## Medical and anatomical
-
-| Folder | What it is | How to run |
-|---|---|---|
-| [`medical/heart_circulation/`](medical/heart_circulation/) | The heart and double circulation: valves, blood pressure, pressure–volume loop | Open `heart-circulation.html` |
-| [`medical/nerve_impulse/`](medical/nerve_impulse/) | Nerve impulses (Hodgkin–Huxley): myelin, threshold, refractory period, MS | Open `nerve-impulse.html` |
-| [`medical/antibiotic_resistance/`](medical/antibiotic_resistance/) | Antibiotic resistance evolving during a course of treatment | Open `antibiotic-resistance.html` |
-| [`medical/gas_exchange/`](medical/gas_exchange/) | Lungs and gas exchange: Fick's law, altitude, exercise, lung disease | Open `gas-exchange.html` |
 
 ## Climate and physical geography
 

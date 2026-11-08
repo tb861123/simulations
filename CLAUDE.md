@@ -13,7 +13,7 @@ holds one folder per simulation:
 | `chemistry/` | `collision_theory`, `dynamic_equilibrium`, `crystallisation`, `atomic_structure`, `bonding`, `organic_chemistry`, `periodic_groups`, `reactivity_metals`, `electrolysis`, `energy_changes`, `acids_salts_tests`, `chromatography` |
 | `biology/` | `natural_selection`, `epidemics`, `predator_prey` |
 | `engineering/` | `earthquake_buildings`, `traffic_flow`, `car_crash`, `aerofoil_flow` |
-| `medical/` | `heart_circulation`, `nerve_impulse`, `antibiotic_resistance`, `gas_exchange` |
+| `medical/` (shown under "Biology and medicine" on the front page) | `heart_circulation`, `nerve_impulse`, `antibiotic_resistance`, `gas_exchange` |
 | `climate/` | `greenhouse_effect`, `ice_albedo`, `carbon_cycle`, `sea_level_rise`, `forest_fire`, `weather_chaos`, `flooding_hydrographs`, `river_landforms`, `coasts`, `glaciers`, `tropical_storms`, `tectonic_hazards`, `slopes_landslides`, `fieldwork_sampling` |
 | `astrophysics/` | `planet_formation`, `stellar_life_cycle`, `exoplanet_hunting`, `galaxy_collisions`, `expanding_universe`, `gravitational_lensing`, `dark_matter`, `three_body_chaos` |
 | `statistics/` | `central_limit_theorem`, `queues` |
@@ -59,7 +59,7 @@ End every change with an explicit line saying which applies:
 ## Audience and style
 
 These are teaching simulations for school students (GCSE / iGCSE / WJEC, and
-A level for economics, PE and physical geography, with a Standard / Advanced level switch).
+A level for economics, PE, physical geography and biology, with a Standard / Advanced level switch).
 Comment code so a student can follow the science. List a model's
 assumptions and simplifications inside the simulation itself.
 
