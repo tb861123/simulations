@@ -11,7 +11,7 @@ holds one folder per simulation:
 |---|---|
 | `physics/` | `gas_in_a_box`, `double_pendulum`, `nuclear_fusion`, `states_of_matter`, `youngs_modulus`, `projectile_motion`, `circular_motion`, `waves`, `optics_refraction`, `fields_orbits`, `photoelectric_effect`, `atomic_spectra`, `radioactive_decay`, `nuclear_fission`, `particle_physics`, `circuits`, `capacitors`, `magnetism_induction` |
 | `chemistry/` | `collision_theory`, `dynamic_equilibrium`, `crystallisation`, `atomic_structure`, `bonding`, `organic_chemistry`, `periodic_groups`, `reactivity_metals`, `electrolysis`, `energy_changes`, `acids_salts_tests`, `chromatography` |
-| `biology/` | `natural_selection`, `epidemics`, `predator_prey`, `membranes`, `enzymes` |
+| `biology/` | `natural_selection`, `epidemics`, `predator_prey`, `membranes`, `enzymes`, `photosynthesis_respiration`, `inheritance` |
 | `engineering/` | `earthquake_buildings`, `traffic_flow`, `car_crash`, `aerofoil_flow` |
 | `medical/` (shown under "Biology and medicine" on the front page) | `heart_circulation`, `nerve_impulse`, `antibiotic_resistance`, `gas_exchange` |
 | `climate/` | `greenhouse_effect`, `ice_albedo`, `carbon_cycle`, `sea_level_rise`, `forest_fire`, `weather_chaos`, `flooding_hydrographs`, `river_landforms`, `coasts`, `glaciers`, `tropical_storms`, `tectonic_hazards`, `slopes_landslides`, `fieldwork_sampling` |

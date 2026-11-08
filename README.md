@@ -83,6 +83,8 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`biology/predator_prey/`](biology/predator_prey/) | Foxes, rabbits and grass: population cycles and Lotka–Volterra | Open `predator-prey.html` |
 | [`biology/membranes/`](biology/membranes/) | Membranes and movement: diffusion, osmosis, active transport, SA:V, potato osmosis, water potential, membrane permeability | Open `membranes.html` |
 | [`biology/enzymes/`](biology/enzymes/) | Enzymes: lock and key, temperature, pH, substrate concentration, inhibitors, Vmax, Q10, amylase and catalase practicals | Open `enzymes.html` |
+| [`biology/photosynthesis_respiration/`](biology/photosynthesis_respiration/) | Photosynthesis and respiration: limiting factors, pondweed practical, gas exchange in leaves, respirometer, RQ, Calvin and Krebs cycles | Open `photosynthesis-respiration.html` |
+| [`biology/inheritance/`](biology/inheritance/) | Inheritance: fruit-fly breeding lab, Punnett squares, pedigrees, variation, dihybrid crosses, sex linkage, linkage, epistasis, chi-squared | Open `inheritance.html` |
 
 ### Medical and anatomical (`medical/` folder)
 
