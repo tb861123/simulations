@@ -81,6 +81,8 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`biology/natural_selection/`](biology/natural_selection/) | Natural selection in six species (moths, beetles, hares, finches, guppies, snails) with predators and changing habitats | Open `natural-selection.html` |
 | [`biology/epidemics/`](biology/epidemics/) | Epidemics, vaccination and herd immunity (SEIR) | Open `epidemics.html` |
 | [`biology/predator_prey/`](biology/predator_prey/) | Foxes, rabbits and grass: population cycles and Lotka–Volterra | Open `predator-prey.html` |
+| [`biology/membranes/`](biology/membranes/) | Membranes and movement: diffusion, osmosis, active transport, SA:V, potato osmosis, water potential, membrane permeability | Open `membranes.html` |
+| [`biology/enzymes/`](biology/enzymes/) | Enzymes: lock and key, temperature, pH, substrate concentration, inhibitors, Vmax, Q10, amylase and catalase practicals | Open `enzymes.html` |
 
 ### Medical and anatomical (`medical/` folder)
 
