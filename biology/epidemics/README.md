@@ -1,7 +1,7 @@
 # Epidemics and Vaccination
 
 A single, self-contained HTML file (`epidemics.html`) for GCSE and iGCSE
-biology. It shows how an infectious disease spreads from person to person and
+biology, with a Standard (GCSE) / Advanced (A level) switch. It shows how an infectious disease spreads from person to person and
 how vaccination, social distancing, masks and isolation slow it down. No
 installation and no internet are needed: open `epidemics.html` in Chrome or
 Edge, with no install. Pick a preset and press **Start**.
@@ -35,6 +35,37 @@ The choice is remembered in this browser.
 **Readouts:** R0, R at the start, R now, herd immunity threshold 1 − 1/R0
 (and the vaccine coverage needed), peak infectious and its day, total
 infected (with the final size equation), chance of a big outbreak, deaths.
+
+## Levels and specification
+
+**Standard / Advanced switch** (top of the left panel, remembered in the
+browser). Standard keeps the GCSE simulation as it was; Advanced keeps all of
+it and adds A level views, readings, key ideas, presets and exam questions.
+Advanced-only presets are hidden at Standard. Batch runs are the same at both
+levels.
+
+Levels: Standard = Pearson Edexcel International GCSE Biology (4BI1);
+Advanced = OCR A level Biology A (H420). The right panel has **Key ideas**,
+each tagged with its spec ("4BI1 …", "A level (H420 …)" or "Beyond the
+spec"), and **📝 Exam practice**: 6 GCSE questions, plus 6 A level questions
+at Advanced, each with a mark scheme. Questions marked "Your…" use the numbers
+on screen; **↻ Use the numbers on screen now** rebuilds them. Spec references
+are given to the topic (4BI1 section and sub-section letter, H420 topic
+number), not to individual statement numbers.
+
+- **Standard (4BI1 2(h) Transport: white blood cells, antibodies, vaccination
+  and memory cells; 1(b) pathogens):** the spread of disease through a
+  population (R0, SEIR, herd immunity) is tagged "Beyond the spec" at this
+  level.
+- **Advanced (H420 4.1.1 Communicable diseases, disease prevention and the
+  immune system):** an **antibody-response graph** (illustrative shapes:
+  primary, secondary and passive), readings for the share protected by the
+  vaccine (coverage × efficacy) against the herd immunity threshold and the
+  coverage needed ((1 − 1/R0) ÷ efficacy), and England's MMR coverage for
+  measles: about 89% first dose by age 2 and 84% second dose by age 5,
+  2023–24 (UKHSA COVER; approximate, from memory: check the latest figures).
+- **A level presets:** Measles: England's MMR coverage, Just below herd
+  immunity (R0 3, 60% immune), Just above herd immunity (75% immune).
 
 ## Presets
 

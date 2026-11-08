@@ -2,7 +2,7 @@
 
 A single, self-contained HTML file (`nerve-impulse.html`) that shows how an
 action potential is made and how it travels along an axon, for GCSE / iGCSE /
-WJEC biology. Open `nerve-impulse.html` in Chrome or Edge. Nothing needs to be
+WJEC biology, with a Standard (GCSE) / Advanced (A level) switch. Open `nerve-impulse.html` in Chrome or Edge. Nothing needs to be
 installed and no internet is needed.
 
 ## What it shows
@@ -36,6 +36,38 @@ Axon diameter (0.2 µm to 1 mm), myelinated on/off, gap between nodes
 frequency), myelin damage (multiple sclerosis), sodium-channel blocker on one
 patch (local anaesthetic, TTX), potassium-channel blocker (TEA), and random
 channel noise. Changes restart the run.
+
+## Levels and specification
+
+**Standard / Advanced switch** (top of the left panel, remembered in the
+browser). Standard keeps the GCSE simulation as it was; Advanced keeps all of
+it and adds A level views, readings, key ideas, presets and exam questions.
+Advanced-only presets are hidden at Standard. Batch runs are the same at both
+levels.
+
+Levels: Standard = Pearson Edexcel International GCSE Biology (4BI1);
+Advanced = OCR A level Biology A (H420). The right panel has **Key ideas**,
+each tagged with its spec ("4BI1 …", "A level (H420 …)" or "Beyond the
+spec"), and **📝 Exam practice**: 6 GCSE questions, plus 6 A level questions
+at Advanced, each with a mark scheme. Questions marked "Your…" use the numbers
+on screen; **↻ Use the numbers on screen now** rebuilds them. Spec references
+are given to the topic (4BI1 section and sub-section letter, H420 topic
+number), not to individual statement numbers.
+
+- **Standard (4BI1 2(j) Coordination and response):** neurones, impulses,
+  reflex arcs, synapses, nervous vs hormonal control. The ion-channel
+  mechanism and myelin are tagged "Beyond 4BI1 (A level H420 5.1.3)".
+- **Advanced (H420 5.1.3 Neuronal communication):** a **synapse at the end of
+  the axon** (right panel): each impulse that arrives (far end passes −20 mV)
+  opens Ca²⁺ channels, releases ACh and adds an EPSP (10 mV, peaking 5 ms
+  later) to the next neurone; EPSPs add up, and at −55 mV the next neurone
+  fires. Left-panel options add a second presynaptic neurone (spatial
+  summation) or an inhibitory neurone (IPSPs of −8 mV). Readings: highest
+  impulse frequency = 1000 ÷ refractory period, and whether the next neurone
+  fires. The synapse is an illustrative add-on in the live view only; batch
+  runs are unchanged.
+- **A level presets:** One impulse: an EPSP; Temporal summation; Spatial
+  summation; Inhibitory synapse.
 
 ## Presets
 

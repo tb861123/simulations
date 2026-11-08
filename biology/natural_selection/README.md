@@ -1,7 +1,7 @@
 # Natural Selection
 
 A single, self-contained HTML file (`natural-selection.html`) for GCSE and
-iGCSE biology. It shows how predators, habitat, climate and food decide which
+iGCSE biology, with a Standard (GCSE) / Advanced (A level) switch. It shows how predators, habitat, climate and food decide which
 alleles are passed on. No installation and no internet are needed: open
 `natural-selection.html` in Chrome or Edge, with no install. Pick a preset
 and press **Start**.
@@ -45,6 +45,41 @@ remembered in this browser.
 selection coefficient, Hardy–Weinberg expectations, deaths, survival rate of
 each phenotype last generation, and (for finches) heritability and the
 predicted response.
+
+## Levels and specification
+
+**Standard / Advanced switch** (top of the left panel, remembered in the
+browser). Standard keeps the GCSE simulation as it was; Advanced keeps all of
+it and adds A level views, readings, key ideas, presets and exam questions.
+Advanced-only presets are hidden at Standard. Batch runs are the same at both
+levels.
+
+Levels: Standard = Pearson Edexcel International GCSE Biology (4BI1);
+Advanced = OCR A level Biology A (H420). The right panel has **Key ideas**,
+each tagged with its spec ("4BI1 …", "A level (H420 …)" or "Beyond the
+spec"), and **📝 Exam practice**: 6 GCSE questions, plus 6 A level questions
+at Advanced, each with a mark scheme. Questions marked "Your…" use the numbers
+on screen; **↻ Use the numbers on screen now** rebuilds them. Spec references
+are given to the topic (4BI1 section and sub-section letter, H420 topic
+number), not to individual statement numbers.
+
+- **Standard (4BI1 3(b) Inheritance):** alleles, dominance, genotype and
+  phenotype, variation, mutation, natural selection and evolution. The
+  selection equation, Kimura's fixation chance and the breeder's equation are
+  tagged "Beyond the spec".
+- **Advanced (H420 4.2.2 Classification and evolution; 6.1.2 Patterns of
+  inheritance):** a **Hardy–Weinberg and χ² table** for the colour gene
+  (observed genotypes against p², 2pq, q² from the same animals; χ², degrees
+  of freedom and the 0.05 critical value), for the young and, during each
+  hunting season, for the survivors; the **survivors' beak depths** drawn as
+  an outline on the finch histogram during the hunting season; and two finch
+  seed supplies, **only medium seeds** (stabilising selection) and **only
+  small and large seeds** (disruptive selection). These two habitats are also
+  extra choices in the batch table; the existing experiments are unchanged.
+- **A level presets:** Hardy–Weinberg check, Selection upsets Hardy–Weinberg,
+  Directional selection, Stabilising selection, Disruptive selection.
+  Speciation is covered in the key ideas and exam questions (the model has
+  random mating, so it cannot split into two species).
 
 ## Presets
 

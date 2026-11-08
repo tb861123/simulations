@@ -1,7 +1,7 @@
 # Foxes and Rabbits
 
 A single, self-contained HTML file (`predator-prey.html`) for GCSE and iGCSE
-biology. It shows predator–prey cycles on a field of grass and compares them
+biology, with a Standard (GCSE) / Advanced (A level) switch. It shows predator–prey cycles on a field of grass and compares them
 with the Lotka–Volterra equations and logistic growth. No installation and
 no internet are needed: open `predator-prey.html` in Chrome or Edge, with no
 install. Pick a preset and press **Start**.
@@ -35,6 +35,38 @@ repeatable (the batch settings table can change it).
 **Readouts:** measured cycle period, Lotka–Volterra period 2π/√(ad), how far
 fox peaks lag behind rabbit peaks, recent peak sizes, animals per hectare and
 per km², and (with no foxes) the logistic fit and carrying capacity.
+
+## Levels and specification
+
+**Standard / Advanced switch** (top of the left panel, remembered in the
+browser). Standard keeps the GCSE simulation as it was; Advanced keeps all of
+it and adds A level views, readings, key ideas, presets and exam questions.
+Advanced-only presets are hidden at Standard. Batch runs are the same at both
+levels.
+
+Levels: Standard = Pearson Edexcel International GCSE Biology (4BI1);
+Advanced = OCR A level Biology A (H420). The right panel has **Key ideas**,
+each tagged with its spec ("4BI1 …", "A level (H420 …)" or "Beyond the
+spec"), and **📝 Exam practice**: 6 GCSE questions, plus 6 A level questions
+at Advanced, each with a mark scheme. Questions marked "Your…" use the numbers
+on screen; **↻ Use the numbers on screen now** rebuilds them. Spec references
+are given to the topic (4BI1 section and sub-section letter, H420 topic
+number), not to individual statement numbers.
+
+- **Standard (4BI1 4(a) The organism in the environment; 4(b) Feeding
+  relationships):** populations, biotic and abiotic factors, quadrats, food
+  chains and energy transfer. Predator–prey cycles, the Lotka–Volterra
+  equations and the logistic fit are tagged "Beyond the spec".
+- **Advanced (H420 6.3.2 Populations and sustainability; 6.3.1 Ecosystems):**
+  a virtual **mark–release–recapture** practical (PAG3 sampling): set the
+  trap catch (5–35%), catch and mark (marked rabbits get a blue ring), let
+  the field run, recapture, and the table records n₁, n₂, m, the Lincoln
+  index estimate n₁n₂/m and the true number, with the mean and SD of up to 10
+  estimates. Trapping uses its own random numbers, so the field and batch
+  runs are unchanged (a "marked" flag is carried with each animal). Readings
+  for limiting factors: grass left and the share of rabbits caught.
+- **A level presets:** Mark–release–recapture, Competition for grass
+  (rabbits and voles), Bigger field, bigger K.
 
 ## Presets
 

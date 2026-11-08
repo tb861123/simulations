@@ -2,7 +2,7 @@
 
 A single, self-contained HTML file (`heart-circulation.html`) that shows how
 the heart pumps blood round the double circulation, for GCSE / iGCSE / WJEC
-biology. Open `heart-circulation.html` in Chrome or Edge. Nothing needs to be
+biology, with a Standard (GCSE) / Advanced (A level) switch. Open `heart-circulation.html` in Chrome or Edge. Nothing needs to be
 installed and no internet is needed.
 
 ## What it shows
@@ -37,6 +37,40 @@ stenosis, leaky aortic, mitral stenosis) and its severity, hole in the heart
 arteriole resistance (narrowed arteries / vasodilation), artery stiffness
 (age), exercise level, the baroreceptor reflex (on/off) and sound. Changes
 take effect at once without restarting.
+
+## Levels and specification
+
+**Standard / Advanced switch** (top of the left panel, remembered in the
+browser). Standard keeps the GCSE simulation as it was; Advanced keeps all of
+it and adds A level views, readings, key ideas, presets and exam questions.
+Advanced-only presets are hidden at Standard. Batch runs are the same at both
+levels.
+
+Levels: Standard = Pearson Edexcel International GCSE Biology (4BI1);
+Advanced = OCR A level Biology A (H420). The right panel has **Key ideas**,
+each tagged with its spec ("4BI1 …", "A level (H420 …)" or "Beyond the
+spec"), and **📝 Exam practice**: 6 GCSE questions, plus 6 A level questions
+at Advanced, each with a mark scheme. Questions marked "Your…" use the numbers
+on screen; **↻ Use the numbers on screen now** rebuilds them. Spec references
+are given to the topic (4BI1 section and sub-section letter, H420 topic
+number), not to individual statement numbers.
+
+- **Standard (4BI1 2(h) Transport):** structure of the heart, double
+  circulation, valves, heart rate with exercise and adrenaline, coronary heart
+  disease. Valve disease, the pressure–volume loop and the pressure graph are
+  tagged "Beyond the spec".
+- **Advanced (H420 3.1.2 Transport in animals; 5.1.5 for control of heart
+  rate):** the conduction system drawn on the heart (SAN, AVN, bundle of His,
+  Purkyne fibres) lighting up in time with each beat; labels on the Wiggers
+  pressure graph where the AV and semilunar valves open and shut, and P, QRS
+  and T on the ECG; readings for the R–R interval (heart rate = 60 ÷ R–R),
+  PR interval, pulmonary artery pressure and peak LV pressure; a **Heart
+  rhythm** control: normal sinus rhythm, atrial fibrillation (no P waves,
+  irregular QRS) and ectopic beats (every 5th beat early with a wide QRS,
+  then a compensatory pause). Rhythms are live view only; batch runs always
+  use a normal rhythm.
+- **A level presets:** Reading the cardiac cycle (¼ speed), Adrenaline
+  (sympathetic), Atrial fibrillation, Ectopic beats.
 
 ## Presets
 

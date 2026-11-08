@@ -1,6 +1,6 @@
 # Antibiotic resistance during an infection
 
-A teaching simulation (GCSE / iGCSE biology) of how antibiotic resistance can
+A teaching simulation (GCSE / iGCSE biology, with a Standard (GCSE) / Advanced (A level) switch) of how antibiotic resistance can
 evolve inside one patient during a course of antibiotics. Students see bacteria
 dividing and dying in a sample of infected tissue, the drug level rising and
 falling after each tablet, and resistant strains taking over when the
@@ -43,6 +43,36 @@ self-contained file that works offline.
 | Plasmids | Lets fully resistant cells pass resistance genes to their neighbours |
 | Random seed | Same seed and settings give the same patient |
 | Picture quality (Display) | Low / Medium / High / Ultra (default Medium): how many rods are drawn in the sample, about ½×, 1×, 2× or 3× the Medium number (never fewer than 40; every bacterium when there are 40 or fewer). Rods are drawn a little smaller at High and Ultra. Only the picture changes: it does not start a new patient, and the numbers, graphs and batch runs are identical at every level. Remembered in this browser. |
+
+## Levels and specification
+
+**Standard / Advanced switch** (top of the left panel, remembered in the
+browser). Standard keeps the GCSE simulation as it was; Advanced keeps all of
+it and adds A level views, readings, key ideas, presets and exam questions.
+Advanced-only presets are hidden at Standard. Batch runs are the same at both
+levels.
+
+Levels: Standard = Pearson Edexcel International GCSE Biology (4BI1);
+Advanced = OCR A level Biology A (H420). The right panel has **Key ideas**,
+each tagged with its spec ("4BI1 …", "A level (H420 …)" or "Beyond the
+spec"), and **📝 Exam practice**: 6 GCSE questions, plus 6 A level questions
+at Advanced, each with a mark scheme. Questions marked "Your…" use the numbers
+on screen; **↻ Use the numbers on screen now** rebuilds them. Spec references
+are given to the topic (4BI1 section and sub-section letter, H420 topic
+number), not to individual statement numbers.
+
+- **Standard (4BI1 3(b): evolution by natural selection, antibiotic
+  resistance):** the fixed "Key ideas" list is now tagged; MIC, the
+  therapeutic window and the mutant selection window are "Beyond the spec".
+- **Advanced (H420 4.1.1: antibiotics, resistance, MRSA and C. difficile;
+  4.2.2: the evolution of drug resistance):** readings for the number of
+  generations and the chance that resistant mutants are present before
+  treatment (1 − e^(−μN)); a virtual **antibiotic-disc practical**: pour a
+  plate and measure the clear-zone diameters for sensitive, partly and fully
+  resistant lawns (illustrative zone sizes, random error SD 0.6 mm, rounded to
+  0.5 mm), with mean and SD over repeats.
+- **A level presets:** Mutants before treatment, Hospital (MRSA-like),
+  Resistance costs.
 
 ## Presets
 

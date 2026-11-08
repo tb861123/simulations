@@ -1,6 +1,6 @@
 # Lungs and gas exchange
 
-A teaching simulation (GCSE / iGCSE biology) of breathing and gas exchange in
+A teaching simulation (GCSE / iGCSE biology, with a Standard (GCSE) / Advanced (A level) switch) of breathing and gas exchange in
 the alveoli. It shows the ribs and diaphragm moving, a spirometer trace, and a
 zoomed-in alveolus where red blood cells travel along a capillary as oxygen
 diffuses in and carbon dioxide diffuses out. Students can change altitude,
@@ -37,6 +37,37 @@ acclimatised, exercise (0–100% of maximum), fitness (average / trained
 athlete), alveolar surface area (10–100 m²), membrane thickness (0.2–5 µm),
 airway narrowing (asthma), haemoglobin (5–21 g/dL), carbon monoxide (COHb
 0–60%), smoker, and the Bohr shift on or off.
+
+## Levels and specification
+
+**Standard / Advanced switch** (top of the left panel, remembered in the
+browser). Standard keeps the GCSE simulation as it was; Advanced keeps all of
+it and adds A level views, readings, key ideas, presets and exam questions.
+Advanced-only presets are hidden at Standard. Batch runs are the same at both
+levels.
+
+Levels: Standard = Pearson Edexcel International GCSE Biology (4BI1);
+Advanced = OCR A level Biology A (H420). The right panel has **Key ideas**,
+each tagged with its spec ("4BI1 …", "A level (H420 …)" or "Beyond the
+spec"), and **📝 Exam practice**: 6 GCSE questions, plus 6 A level questions
+at Advanced, each with a mark scheme. Questions marked "Your…" use the numbers
+on screen; **↻ Use the numbers on screen now** rebuilds them. Spec references
+are given to the topic (4BI1 section and sub-section letter, H420 topic
+number), not to individual statement numbers.
+
+- **Standard (4BI1 2(g) Gas exchange, with 2(d) diffusion and 2(h) red blood
+  cells):** ventilation by the intercostal muscles and diaphragm, alveolar
+  adaptations, smoking, the exercise-and-breathing practical. Altitude, the
+  pulse oximeter and capillary transit time are tagged "Beyond the spec".
+- **Advanced (H420 3.1.1 Exchange surfaces; 3.1.2 Transport in animals):**
+  lung-volume braces on the spirometer (tidal volume, IRV, ERV, vital
+  capacity), a **soda-lime spirometer** option whose trace falls by the
+  oxygen used (a dashed line through the troughs gives O₂ uptake), the
+  **fetal haemoglobin** curve on the dissociation graph (P50 2.5 kPa,
+  approximate), and readings for vital capacity, ventilation rate = tidal
+  volume × breathing rate, reserve volumes and P50 in the lungs and tissues.
+- **A level presets:** Measure vital capacity, O₂ uptake at rest, O₂ uptake in
+  exercise (both with soda lime), No Bohr shift.
 
 ## Presets
 
