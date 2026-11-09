@@ -2,8 +2,17 @@
 
 A single, self-contained HTML file (`gas-in-a-box.html`) for teaching the
 kinetic theory of gases, the gas laws, thermodynamics, heat engines and
-diffusion (GCSE / iGCSE physics and chemistry, with an A-level "Advanced"
-level). It needs no install and no internet: **open `gas-in-a-box.html` in
+diffusion, at two levels:
+
+- **Standard (iGCSE):** Pearson Edexcel International GCSE Physics (4PH1)
+  Section 5(d) Ideal gas molecules (pressure from molecules, absolute zero and
+  the Kelvin scale, temperature and average kinetic energy, p₁V₁ = p₂V₂,
+  p₁/T₁ = p₂/T₂) and 5(b) pressure = force/area; diffusion from Edexcel
+  International GCSE Chemistry (4CH1) Topic 1.
+- **Advanced (A level):** WJEC Eduqas kinetic theory and thermal physics: the
+  ideal gas equation pV = nRT = NkT, p = ⅓ρc², mean KE = 3/2 kT, internal
+  energy (U = 3/2 nRT for an ideal monatomic gas), the first law ΔU = Q − W and
+  work = pΔV. Heat engines, Carnot and entropy are tagged "Beyond the spec". It needs no install and no internet: **open `gas-in-a-box.html` in
 Chrome or Edge**.
 
 It replaces three older pages: the WJEC Streamlit pages *Kinetic Theory*
@@ -23,7 +32,7 @@ Tabs along the top of the centre view:
 | ⚙️ Heat engines | Otto, Diesel and Stirling cycles with numbered states, the work area, efficiency against the Carnot limit and a state table; a dot runs round the cycle while the cylinder animates each stroke |
 | 🧪 Diffusion | iGCSE chemistry: the ammonia + hydrogen chloride tube (white NH₄Cl ring), potassium manganate(VII) spreading in still water, the effect of temperature and of molecular mass, with a guided tour |
 
-**Level: Standard / Advanced** (top right). Advanced adds the A-level content
+**Level: Standard (iGCSE) / Advanced (A level)** (top of the left panel, with a hint naming the spec; it used to be top right). Advanced adds the A-level content
 from the old pages: thermostat (target temperature + Heat/Cool), the p against
 1/A (Boyle) graph, the mean free path, the choice of γ (diatomic/monatomic), the
 Carnot cycle overlay, the Diesel cut-off ratio, Otto vs Diesel comparison, Otto
@@ -32,8 +41,16 @@ efficiency against compression ratio, and the advanced physics notes
 theorem, refrigerators, real vs ideal engines).
 
 **📐 Physics notes** (right panel) give the spec reference, key equations and
-explanation for the current tab. **📝 Exam practice** has the old pages'
-questions, grouped by topic, with marks, hints and "Show mark scheme" working.
+explanation for the current tab. A **key ideas** box tags each idea with its
+spec (iGCSE 4PH1, A level Eduqas, beyond the spec). **📝 Exam practice**:
+at Standard, iGCSE questions (pressure from molecules, kelvin and absolute
+zero, p₁V₁ = p₂V₂ and p₁/T₁ = p₂/T₂ from the Gas laws tab's numbers, why
+heating raises the pressure, temperature and kinetic energy, p = F/A) and the
+diffusion questions; at Advanced, the old pages' kinetic theory, gas process
+and diffusion questions plus a new set on internal energy and the first law
+(U = 3/2 nRT, W = pΔV, Q = ΔU + W, adiabatic cooling). Three Molecules presets
+were added: Cold gas (50 K), Hot gas (900 K) and, at Advanced, First law: heat
+a fixed box. All with marks, hints and "Show mark scheme" working.
 The kinetic theory and gas processes answers are recalculated live from the
 current slider values.
 

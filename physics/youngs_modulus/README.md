@@ -1,8 +1,18 @@
 # Young's Modulus and Stress–Strain
 
-A single, self-contained HTML file for WJEC Eduqas A level Physics, Component 1,
-Topic 3 (Deformation of Solids). It needs no install and no internet: **open
-`youngs-modulus.html` in Chrome or Edge**.
+A single, self-contained HTML file for iGCSE and A level physics. It needs no
+install and no internet: **open `youngs-modulus.html` in Chrome or Edge**.
+
+- **Standard (iGCSE):** Pearson Edexcel International GCSE Physics (4PH1),
+  Section 1(c): the practical on how extension varies with applied force for
+  springs, metal wires and rubber bands, Hooke's law (the straight part of the
+  graph) and elastic behaviour.
+- **Advanced (A level):** WJEC Eduqas A level Physics, Component 1, Topic 3
+  (Deformation of Solids): stress, strain, Young's modulus, stress–strain
+  curves, hysteresis, strain energy, and the specified practical to find the
+  Young modulus of a metal wire (the Batch run).
+
+A key-ideas box tags each idea (iGCSE 4PH1, A level Eduqas, beyond the spec).
 
 It replaces the old WJEC Streamlit page *Young's Modulus & Stress-Strain*
 (`physics_sims/pages/20_Youngs_Modulus.py`) and keeps all of its controls,
@@ -16,7 +26,7 @@ left permanently longer.
 
 ## Controls
 
-- **Level:** Standard (GCSE) or Advanced (A level).
+- **Level:** Standard (iGCSE) or Advanced (A level), with a hint naming the spec.
 - **Material:** steel, copper, aluminium, rubber, bone, glass (typical values below).
 - **Cross-section area A** 0.1–5 mm² (diameter shown), **original length L₀** 0.1–2 m.
 - **Applied force F** 0–10 000 N, plus a fine slider (0–500 N) for thin or weak wires.
@@ -60,7 +70,21 @@ left permanently longer.
 
 Steel: Hooke's law · Copper beyond yield · Permanent stretch (load copper to 180 N
 then unload) · Pull steel to breaking · Glass: brittle · Rubber band (J-curve) ·
-Thick steel bar (5 mm²) · Bone · Aluminium alloy.
+Thick steel bar (5 mm²) · Bone · Aluminium alloy · Elastic: load, unload
+(copper to 60 N, below its elastic limit) · iGCSE practical: wire (2 m thin
+steel wire, auto-loaded) · Hysteresis loop (Advanced only: copper loaded to
+180 N and unloaded, with the loop shown).
+
+## Exam practice
+
+Built from the numbers on screen, with mark schemes.
+
+- **Standard (iGCSE 4PH1):** describe the extension-against-force practical,
+  doubling the force (Hooke's law), elastic behaviour, reading a
+  force–extension graph, rubber against steel, the weight of a hanging mass.
+- **Advanced (A level, Eduqas):** the three questions from the old page
+  (extension, stress, definition of E), plus the spring constant and strain
+  energy of your wire, the hysteresis loop, and ductile versus brittle.
 
 ## The model
 

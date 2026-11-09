@@ -8,6 +8,26 @@ Refraction" (all five of its tabs).
 Open `optics-refraction.html` in Chrome or Edge, with no install and no
 internet needed.
 
+## Levels
+
+- **Standard (iGCSE):** Pearson Edexcel International GCSE Physics (4PH1)
+  Section 3(d) Light and sound: reflection and refraction, the glass-block
+  practical, n = sin i / sin r, critical angle sin c = 1/n, total internal
+  reflection in optical fibres and prisms; and the visible spectrum (3(c)).
+- **Advanced (A level):** WJEC Eduqas refraction of light: n = c/v,
+  n₁ sin θ₁ = n₂ sin θ₂, critical angle and TIR, optical fibres (cladding,
+  multimode dispersion). Lenses, Cauchy dispersion, minimum deviation and
+  Fresnel reflection are tagged "Beyond the spec" (as far as we know they are
+  in neither spec).
+
+The level switch (labelled Standard (iGCSE) / Advanced (A level)) has a hint
+naming the spec, and a key-ideas box (right panel) tags each idea.
+**Exam practice:** at Standard, seven iGCSE questions built from the numbers
+on screen (refractive index from sin i / sin r, critical angle from 1/n, the
+conditions for TIR, the glass-block practical, optical fibres, dispersion,
+the law of reflection); at Advanced, the Snell's law, lens and fibre sets
+from the old page. The 12 presets are shared by both levels.
+
 ## The five modes
 
 - **Snell's law & TIR.** Choose a material pair (air → water, glass, diamond;

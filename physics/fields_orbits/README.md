@@ -1,6 +1,11 @@
 # Fields and Orbits
 
-A teaching simulation for WJEC Eduqas A level Physics (Component 2, Topic 6 Fields; Component 2, Topic 8 Orbits and the wider Universe; Component 3, Topic 11 binary stars). It replaces two pages of the old WJEC Streamlit app: **05 Electric & Gravitational Fields** and **09 Orbital Motion**.
+A teaching simulation for iGCSE and A level physics.
+
+- **Standard (iGCSE):** Pearson Edexcel International GCSE Physics (4PH1): Section 8(b) Motion in the Universe (g differs between planets and moons; gravity keeps moons, planets, satellites and comets in orbit; comets' elliptical orbits; orbital speed = 2πr/T), Section 1 (weight = mg) and Section 2 (electric charge: like charges repel, unlike attract). Field strength and potential formulas and binary stars are A level, so Standard keeps those tabs as a gentle introduction.
+- **Advanced (A level):** WJEC Eduqas A level Physics (Component 2, Topic 6 Fields, including electric potential V = kQ/r and gravitational potential Vg = −GM/r; Component 2, Topic 8 Orbits and the wider Universe; Component 3, Topic 11 binary stars).
+
+The level hint changes with the tab and the level, and a key-ideas box tags each idea (iGCSE 4PH1, A level Eduqas, beyond the spec). It replaces two pages of the old WJEC Streamlit app: **05 Electric & Gravitational Fields** and **09 Orbital Motion**.
 
 ## How to run
 
@@ -23,7 +28,7 @@ Four modes, chosen with the tabs at the top of the main view:
 
 ## Controls
 
-- Left panel: level, presets (7 electric, 7 gravitational, 11 orbit, 6 binary), charges or masses (position, size, sign), probe position, launch settings, central mass, r₀ (log slider), v₀/v_circular, planet mass, Hohmann target radius, dark-matter halo speed and galaxy mass, the binary stars' masses, separation, phase, trail and inclination.
+- Left panel: level (Standard (iGCSE) / Advanced (A level)), presets (7 electric, 7 gravitational, 12 orbit, 6 binary; "Mars around the Sun" is new, for orbital speed = 2πr/T), charges or masses (position, size, sign), probe position, launch settings, central mass, r₀ (log slider), v₀/v_circular, planet mass, Hohmann target radius, dark-matter halo speed and galaxy mass, the binary stars' masses, separation, phase, trail and inclination.
 - Centre: mode tabs, layer toggles, Play/Pause, Reset, Clear, speed ½×–4×, Quality, Batch run.
 - Right panel: what's happening, readings, graphs (field vs distance log–log, energy against time, rotation curve, radial velocity), physics notes, exam practice with live mark schemes, and "How the model works".
 
@@ -38,6 +43,13 @@ Four modes, chosen with the tabs at the top of the main view:
 ## Assumptions and simplifications
 
 Point charges and masses; a flat 2-D slice of a 3-D field (line spacing is only a rough guide to strength); colour map on a squashed (asinh) scale; dropped test particles show direction only. Orbits: Newtonian point masses, no other bodies, drag or relativity; central bodies not to scale; 1× shows one orbit in about 10 s. Binary stars: circular orbits, no mass transfer or gravitational-wave decay. Galaxy: visible mass at the centre, dark matter as a flat speed. Full list inside the simulation.
+
+## Exam practice
+
+Built from the numbers on screen, with mark schemes, for the open tab.
+
+- **Standard (iGCSE 4PH1):** electric: attraction and repulsion, charging by friction, earthing when refuelling, force and distance; gravity: weight on the Earth and the Moon, why g differs, field direction; orbits: orbital speed = 2πr/T from the live orbit, the force that keeps a satellite up, comets against planets, why Mars takes longer; binary stars: why both move, same period.
+- **Advanced (A level, Eduqas):** the old app's field-strength, force, orbital speed, period, escape speed and binary star questions, plus electric potential and work W = qV, why field lines cross equipotentials at right angles, gravitational potential (and why it is negative), and a satellite's potential, kinetic and total energy.
 
 ## Batch experiments
 

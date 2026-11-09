@@ -1,23 +1,36 @@
-# Pendulums and Oscillations
+# Simple Harmonic Motion
 
-A single, self-contained HTML file (`double-pendulum.html`) for teaching
-oscillations. It needs no install and no internet: **open `double-pendulum.html`
+A single, self-contained HTML file (`simple-harmonic-motion.html`) for teaching
+oscillations. It needs no install and no internet: **open `simple-harmonic-motion.html`
 in Chrome or Edge**. Two tabs at the top of the centre panel switch between:
 
-1. **Simple harmonic motion**: a simple pendulum or a mass on a spring, with
-   Standard (GCSE) and Advanced (A level) levels. Replaces the old WJEC Streamlit
+1. **Simple harmonic motion** (the default tab): a simple pendulum or a mass
+   on a spring, with Standard (iGCSE) and Advanced (A level) levels. Replaces the old WJEC Streamlit
    page *Simple Harmonic Motion* (`physics_sims/pages/02_Simple_Harmonic_Motion.py`).
-2. **Double pendulum**: chaos and the limits of prediction (below).
+2. **Double pendulum (chaos)**: chaos and the limits of prediction (below).
+   Chaos is beyond both specs.
 
-The page remembers which tab you used last.
+A first visit opens the SHM tab; after that the page remembers which tab you
+used last.
 
 # Part 1: Simple harmonic motion
 
-WJEC Eduqas A level Physics, Component 1, Topic 6 (Vibrations), sections (a)–(q).
+- **Standard (iGCSE):** simple harmonic motion is not in Pearson Edexcel
+  International GCSE Physics (4PH1), so Standard is a gentle introduction
+  using 4PH1 ideas: period and frequency f = 1/T (Section 3), KE = ½mv² and
+  GPE = mgh (Section 4), Hooke's law and weight = mg (Section 1), and timing
+  many swings to cut the random error.
+- **Advanced (A level):** WJEC Eduqas A level Physics, Component 1, Topic 6
+  (Vibrations), sections (a)–(q): SHM, x, v and a graphs, T = 2π√(m/k) and
+  2π√(L/g), energy in SHM, damped and forced oscillations, resonance and
+  Barton's pendulums; the Batch run models the specified practicals (timing a
+  pendulum or a mass on a spring).
+
+A key-ideas box tags each idea (iGCSE 4PH1, A level Eduqas, beyond the spec).
 
 ## Controls
 
-- **Level:** Standard (ideal SHM) or Advanced (adds damping, forcing, big swings).
+- **Level:** Standard (iGCSE: ideal SHM) or Advanced (A level: adds damping, forcing, big swings, Barton's pendulums), with a hint naming the spec.
 - **System:** simple pendulum (length 0.1–5 m, starting angle 1°–80°, gravity on
   Earth, Moon, Mars or Jupiter) or spring–mass (k = 1–200 N/m, x₀ = 0.01–0.5 m);
   mass 0.1–5 kg. Drag the bob or the mass on the picture to set a new start.
@@ -27,7 +40,11 @@ WJEC Eduqas A level Physics, Component 1, Topic 6 (Vibrations), sections (a)–(
   over-damped); real-world examples (car suspension comfort/sport, tuned mass damper,
   door closer, old clock, seismograph); forced oscillation with driving frequency
   ratio ω/ω₀ (0.1–3) and the amplitude–frequency response curve with peak and Q;
-  large-angle comparison (solves θ'' = −(g/L) sin θ exactly).
+  large-angle comparison (solves θ'' = −(g/L) sin θ exactly); **Barton's
+  pendulums**: a heavy driver and eight light pendulums of different lengths
+  (0.4–1.75 × the driver's length) drawn on the right. The one with the same
+  length resonates and lags a quarter of a cycle; shorter ones swing nearly in
+  phase, longer ones nearly in antiphase.
 - Play/Pause, Restart, speed ¼×–4× (1× = real time), "+ Add pendulum" (up to two
   more pendulums, 10% longer and 8% shorter, so you can watch them drift out of step),
   and a **Look back** slider while paused, to step through the last few periods
@@ -38,19 +55,27 @@ WJEC Eduqas A level Physics, Component 1, Topic 6 (Vibrations), sections (a)–(
 Animated pendulum (angle arc, weight, velocity and driving-force arrows, damping
 envelope, scale bar) or spring (driven wall, velocity and restoring-force arrows);
 x, v and a against time with the ideal-SHM and envelope curves; phase portrait
-(v against x) with the ideal ellipse; KE / PE / total energy bars; tiles for T, f,
+(v against x) with the ideal ellipse; KE / PE / total energy as bars ("Now"),
+**against time** or **against displacement** (with the ideal parabolas
+½kx² and ½k(A² − x²) dashed); tiles for T, f,
 ω₀, measured period, x, v, a, energies and Q; a "what's happening" commentary and
 the key-insight cards; Physics notes (spec reference, equations, explanation, and the
-advanced context in Advanced); **📝 Exam practice**: the old page's 3 questions
-(period, maximum speed, maximum acceleration), with numbers from the current
-settings, marks, hint and a "Show mark scheme" toggle.
+advanced context in Advanced); **📝 Exam practice**, built from the current
+settings with marks, hints and a "Show mark scheme" toggle. Standard: frequency
+from f = 1/T, why time 10 swings, GPE and speed at the bottom of a swing (or
+weight and extension for the spring), energy changes in a swing, what changes
+a pendulum's period. Advanced: the old page's 3 questions (period, maximum
+speed, maximum acceleration) plus the definition of SHM, KE at half the
+amplitude, Barton's pendulums and the resonance curve with damping.
 
 ## Presets
 
 Classroom pendulum (T = 2.006 s) · Seconds pendulum (L = 0.994 m, T = 2.000 s) ·
 Pendulum on the Moon · Spring and mass (T = 0.993 s) · Four times the mass (T doubles) ·
 Big swing 60° (exact T = 2.153 s, 7% long) · Car suspension (ζ = 0.25) ·
-Door closer (ζ = 1) · Overdamped (ζ = 2) · Resonance (ζ = 0.1, driven at ω₀: 5× amplitude).
+Door closer (ζ = 1) · Overdamped (ζ = 2) · Resonance (ζ = 0.1, driven at ω₀: 5× amplitude) ·
+Energy in a swing (Standard: 0.5 kg bob from 15°, energy against time) ·
+Barton's pendulums (Advanced, energy against displacement).
 
 ## The model
 
@@ -75,12 +100,13 @@ the start and the end of each stopwatch timing. Results from the test run:
 | Where does the small-angle approximation fail? (10°–80°, exact equation) | matches the exact formula at every angle; 0.2% longer than 2π√(L/g) at 10°, 1.7% at 30°, 7.3% at 60°, 13.8% at 80° |
 | Resonance (ζ = 0.1, ω/ω₀ = 0.2–2.5) | peak 5.00× at ω = ω₀ (theory 5.00); every point within 0.2% of 1/√[(1−r²)² + (2ζr)²] |
 | How quickly does damping shrink the swings? (ζ = 0–0.6) | next swing ÷ first = 1, 0.532, 0.277, …, 0.0090: equal to e^(−2πζ/√(1−ζ²)) to 4 significant figures |
+| Is T = 2π√(m/k)? (spring timed by hand: m = 0.1–3.2 kg, k = 20 N/m, 10 timings of 10 oscillations each, SD 0.1 s) | NEW (Nov 2026): means 0.440, 0.624, 0.884, 1.252, 1.773, 2.509 s against theory 0.444, 0.628, 0.889, 1.257, 1.777, 2.513 s (each 0.004 s low, about 1.4 SE: the same reaction times are reused at every mass); SD 0.0097 s (predicted 0.014 s); log–log gradient 0.502 (theory 0.5) |
 
 # Part 2: Double pendulum
 
-A single, self-contained HTML file (`double-pendulum.html`) for teaching chaos
+A single, self-contained HTML file (`simple-harmonic-motion.html`) for teaching chaos
 and the limits of prediction. It needs no install and no internet: **open
-`double-pendulum.html` in Chrome or Edge**. Pick a preset; it starts swinging
+`simple-harmonic-motion.html` in Chrome or Edge**. Pick a preset; it starts swinging
 straight away.
 
 Two (or up to 50) double pendulums start a tiny fraction of a degree apart.

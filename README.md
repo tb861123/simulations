@@ -37,7 +37,7 @@ changing a simulation's batch experiments.
 | Folder | What it is | How to run |
 |---|---|---|
 | [`physics/gas_in_a_box/`](physics/gas_in_a_box/) | Kinetic theory: Maxwell–Boltzmann speeds, gas laws, p–V processes and heat engines, Brownian motion, diffusion (also listed under Chemistry) | Open `gas-in-a-box.html` |
-| [`physics/double_pendulum/`](physics/double_pendulum/) | Pendulums and oscillations: simple harmonic motion, damping and resonance, then double-pendulum chaos | Open `double-pendulum.html` |
+| [`physics/simple_harmonic_motion/`](physics/simple_harmonic_motion/) | Simple harmonic motion: pendulums and springs, SHM graphs and energy, damping, forced oscillation and resonance, Barton's pendulums; plus a double-pendulum chaos tab | Open `simple-harmonic-motion.html` |
 | [`physics/states_of_matter/`](physics/states_of_matter/) | States of matter: particles, heating and cooling curves, specific heat capacity and latent heat (also listed under Chemistry) | Open `states-of-matter.html` |
 | [`physics/youngs_modulus/`](physics/youngs_modulus/) | Young's modulus: Hooke's law, stress–strain curves, breaking, Searle's method | Open `youngs-modulus.html` |
 | [`physics/projectile_motion/`](physics/projectile_motion/) | Projectile motion: range, angle and time of flight, with air resistance, spin and wind | Open `projectile-motion.html` |

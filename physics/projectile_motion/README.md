@@ -1,7 +1,20 @@
 # Projectile Motion
 
-A teaching simulation for GCSE and A level kinematics (WJEC Eduqas A level
-Physics, Component 1, Topic 2, sections (f) and (g)). Launch a ball and watch
+A teaching simulation for iGCSE and A level kinematics.
+
+- **Standard (iGCSE):** Pearson Edexcel International GCSE Physics (4PH1),
+  Section 1 Forces and motion, 1(b) Movement and position (speed, acceleration,
+  velocity–time graphs, v² = u² + 2as) and 1(c) Forces (weight = mg, falling
+  objects and terminal velocity), with kinetic and gravitational potential
+  energy from Section 4. 4PH1 does not name angled projectiles, so Standard
+  treats the flight as two straight-line motions.
+- **Advanced (A level):** WJEC Eduqas A level Physics, Component 1, Topic 2
+  (Kinematics), sections (f) and (g); terminal velocity (Dynamics); drag
+  and the Magnus effect are tagged "Beyond the spec". The physics of sport
+  (Eduqas Option C) is covered in [Sport Biomechanics](../../physical_education/sport_biomechanics/).
+
+A key-ideas box tags every idea with its spec (iGCSE 4PH1, A level Eduqas, or
+beyond the spec). Launch a ball and watch
 the horizontal and vertical motions work independently, then add air
 resistance, spin and wind. It replaces the old WJEC Streamlit page
 `01_Projectile_Motion.py`.
@@ -29,7 +42,7 @@ offline.
 
 ## Controls
 
-Level (Standard GCSE / Advanced A level); launch speed 1–80 m/s, angle 0–90°,
+Level (Standard (iGCSE) / Advanced (A level), with a hint naming the spec); launch speed 1–80 m/s, angle 0–90°,
 launch height 0–100 m, gravity (Earth, Moon, Mars, Jupiter). Advanced: air
 resistance on/off, real objects (football, golf ball, cannonball, basketball,
 tennis ball, javelin, shuttlecock, or custom C_D, area and mass), wind, and
@@ -61,9 +74,16 @@ Tennis topspin · Shuttlecock · Cannonball · Head wind.
 
 ## Exam practice
 
-The three questions from the old page (maximum height, range, time of flight,
-using the live speed and angle), plus a horizontal launch from a cliff,
-complementary angles, and (with drag on) a terminal velocity question.
+Built from the numbers on screen, with mark schemes.
+
+- **Standard (iGCSE 4PH1):** sideways distance from speed × time, the
+  acceleration from (v − u)/t, height from v² = u² + 2as, the velocity–time
+  graph (gradient and area), KE and GPE of a football, a skydiver reaching
+  terminal velocity, and weight on the Moon. Standard also shows two extra
+  readings: the time to the top and the height from v² = u² + 2as.
+- **Advanced (A level, Eduqas Component 1, kinematics):** the three questions from the old page
+  (maximum height, range, time of flight), a horizontal launch from a cliff,
+  complementary angles, and (with drag on) a terminal velocity question.
 
 ## Batch run
 

@@ -4,6 +4,14 @@ A single, self-contained HTML file: **open `states-of-matter.html` in Chrome or
 Edge**, with no install and no internet. It is listed under both Physics and
 Chemistry.
 
+**Levels.** Standard (iGCSE): Pearson Edexcel International GCSE Physics (4PH1),
+Section 5(c) Change of state: particles in the three states, heating and changes
+of state, temperature–time graphs, specific heat capacity (ΔQ = mcΔT) and its
+practical; also Edexcel International GCSE Chemistry (4CH1) Topic 1. Advanced
+(A level): WJEC Eduqas thermal physics: internal energy, specific latent heat
+(Q = mL) and the method of mixtures. A key-ideas box tags each idea with its
+spec (iGCSE 4PH1, A level Eduqas, beyond the spec).
+
 It merges and replaces two old pages, keeping all of their controls,
 explanations and exam questions:
 
@@ -24,8 +32,9 @@ inspect it.
 
 ## Controls
 
-- **Level:** Standard (GCSE / iGCSE) or Advanced (A level: time per stage,
-  method of mixtures calculator, advanced physics notes).
+- **Level:** Standard (iGCSE) or Advanced (A level: time per stage,
+  method of mixtures calculator, advanced physics notes), with a hint naming
+  the spec.
 - **Guided tour** (5 steps: solid, melting, liquid, boiling, gas) from the chemistry page.
 - **What controls the substance?**
   - *Set the temperature:* temperature slider, or drag the thermometer (as on the
@@ -59,7 +68,21 @@ model works (and what it leaves out)".
 
 Ice to steam (heating curve) · Steam to ice (cooling curve) · A solid (−30 °C) ·
 A liquid (45 °C) · A gas (160 °C) · Ethanol · Lead · Iron (5 kW) · Poor insulation
-(500 W, 8 W/K: levels off at about 82 °C and never boils).
+(500 W, 8 W/K: levels off at about 82 °C and never boils) · iGCSE practical:
+melting (0.2 kg of ice, 100 W, temperature–time graph) · iGCSE practical: c of
+aluminium (1 kg block, 50 W heater) · Method of mixtures (Advanced only).
+
+## Exam practice
+
+Built from the numbers on screen, with mark schemes.
+
+- **Standard (iGCSE 4PH1):** ΔQ = mcΔT, finding c from a heater practical,
+  describing the specific heat capacity practical, the temperature–time graph
+  of melting ice, particles in the three states, evaporation against boiling;
+  plus the chemistry particle-theory questions.
+- **Advanced (A level, Eduqas):** the old physics page's latent heat and
+  heating-time questions, the method of mixtures, internal energy, and the
+  chemistry questions.
 
 ## The model
 

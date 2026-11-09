@@ -1,7 +1,18 @@
 # Circular Motion
 
-A teaching simulation for GCSE and A level circular motion (WJEC Eduqas A
-level Physics, Component 1, Topic 3, sections (a)–(k)). Four situations, chosen
+A teaching simulation for iGCSE and A level circular motion.
+
+- **Standard (iGCSE):** Pearson Edexcel International GCSE Physics (4PH1) does
+  not name circular motion, so Standard uses the 4PH1 ideas behind it:
+  velocity as a vector (changing direction is an acceleration), resultant
+  force and F = ma, Newton's first law (Section 1), and orbital speed = 2πr/T
+  (Section 8(b) Motion in the Universe).
+- **Advanced (A level):** WJEC Eduqas A level Physics, Component 1, Topic 3
+  (Circular Motion), sections (a)–(k). Rotating frames and pseudo-forces are
+  tagged "Beyond the spec".
+
+The level switch has a hint naming the spec, and a key-ideas box tags each
+idea (iGCSE 4PH1, A level Eduqas, beyond the spec). Four situations, chosen
 by the tabs at the top of the centre panel. It replaces the old WJEC
 Streamlit page `15_Circular_Motion.py`.
 
@@ -49,6 +60,7 @@ Electron in a magnetic field · Conical pendulum (from above) · Banked bend ·
 Talladega, 33° · Loop: just makes it · Loop: too slow · Steam engine governor
 · Chair-swing ride · Short demo pendulum. (These are all the presets from the
 old page's two drop-down lists, plus two for banking and two for the loop.)
+The 12 presets work at both levels.
 
 ## The model
 
@@ -73,9 +85,16 @@ not 580g.
 
 ## Exam practice
 
-The three questions from the old page (centripetal force and period from the
-ball-on-a-string values, ideal banking angle from the banked-track values),
-plus the minimum speed for a loop and a conical pendulum period.
+Built from the numbers on screen, with mark schemes.
+
+- **Standard (iGCSE 4PH1):** speed from 2πr/T, why constant speed in a circle
+  is an acceleration, F = ma for the ball, the path when the string breaks,
+  the Moon's orbital speed, a car skidding on an icy roundabout, and speed
+  versus velocity.
+- **Advanced (A level, Eduqas Component 1, circular motion):** the three questions from the old page
+  (centripetal force and period from the ball-on-a-string values, ideal
+  banking angle from the banked-track values), plus the minimum speed for a
+  loop and a conical pendulum period.
 
 ## Batch run
 

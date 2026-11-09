@@ -8,6 +8,32 @@ Doppler Effect).
 
 Open `waves.html` in Chrome or Edge, with no install and no internet needed.
 
+## Levels
+
+- **Standard (iGCSE):** Pearson Edexcel International GCSE Physics (4PH1)
+  Section 3 Waves: 3(b) Properties of waves (transverse and longitudinal,
+  amplitude, wavelength, frequency, period, v = fλ, f = 1/T, the Doppler
+  effect, diffraction through a gap) and 3(d) Light and sound (sound is
+  longitudinal, 20 Hz–20 kHz, pitch and frequency, measuring the speed of
+  sound). Interference, stationary waves and gratings are A level; Standard
+  uses those views to see v = fλ and pitch.
+- **Advanced (A level):** WJEC Eduqas wave properties: superposition,
+  stationary waves (nodes, antinodes, harmonics in strings and pipes),
+  Young's double slit, single-slit diffraction and the diffraction grating
+  d sin θ = nλ, with the specified practicals (grating, Young's slits, the
+  speed of sound by stationary waves). The sound Doppler formula and Mach
+  cones are tagged "Beyond the spec".
+
+The level switch (left panel, labelled Standard (iGCSE) / Advanced (A level))
+has a hint naming the spec. A key-ideas box (right panel) tags each idea.
+**Exam practice:** at Standard, seven iGCSE questions built from the numbers
+on screen (wavelength and period from v = fλ and f = 1/T, transverse against
+longitudinal, pitch, the Doppler effect for the ambulance, diffraction
+through a gap, the speed-of-sound practical, the hearing range); at
+Advanced, the four A level sets as before (current mode first), with a new
+stationary-wave theory question (how it forms; stationary against
+progressive waves). The 12 presets are shared by both levels.
+
 ## The four modes
 
 - **Interference.** Young's double slit or single-slit diffraction. The top
