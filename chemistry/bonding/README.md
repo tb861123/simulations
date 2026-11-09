@@ -13,6 +13,21 @@ structures.
 
 Open `bonding.html` in Chrome or Edge. There is nothing to install and it works offline.
 
+## Levels (Standard / Advanced)
+
+A **Standard (iGCSE) / Advanced (A level)** switch sits at the top of the left panel. Standard follows Pearson Edexcel International GCSE Chemistry (4CH1); Advanced follows Pearson Edexcel A level Chemistry (9CH0) and keeps everything in Standard. The choice is remembered in the browser. Key ideas carry spec tags (grey-green 4CH1, purple 9CH0, blue-grey beyond both). Exam practice has questions with mark schemes at both levels; questions marked "Your…" use the numbers on screen. Batch runs are the same at both levels.
+
+- **Standard:** 4CH1 Section 1(f) Ionic, 1(g) Covalent and 1(h) Metallic bonding, with structure
+  and properties.
+- **Advanced:** 9CH0 Topic 2 Bonding and structure, kept moderate (shapes of molecules and
+  intermolecular forces have their own simulation): extra readings (electronegativity difference,
+  bond polarity, polar or non-polar molecule; ionic radii and polarising power), six A level
+  presets (H–Cl; polar bonds in non-polar CO₂; ionic or covalent; polarisation in Al₂O₃; dative
+  bond in NH₄⁺; Al₂Cl₆) and seven A level exam questions. **A level box** (under the readings):
+  *Electronegativity* (any two atoms, the shared pair drawn shifting, δ+/δ−, and where the bond
+  sits from non-polar to ionic) and *Dative bonds* (NH₄⁺, H₃O⁺, NH₃BF₃, CO, Al₂Cl₆, with the lone
+  pair being donated).
+
 ## Controls
 
 - **Type of bonding:** Ionic, Covalent or Metallic (sets the substance list).

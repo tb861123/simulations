@@ -13,6 +13,22 @@ burning fuels makes is in **Organic chemistry** (`../organic_chemistry/`).
 
 Open `energy-changes.html` in Chrome or Edge. No install, no internet.
 
+## Levels (Standard / Advanced)
+
+A **Standard (iGCSE) / Advanced (A level)** switch sits at the top of the left panel. Standard follows Pearson Edexcel International GCSE Chemistry (4CH1); Advanced follows Pearson Edexcel A level Chemistry (9CH0) and keeps everything in Standard. The choice is remembered in the browser. Key ideas carry spec tags (grey-green 4CH1, purple 9CH0, blue-grey beyond both). Exam practice has questions with mark schemes at both levels; questions marked "Your…" use the numbers on screen. Batch runs are the same at both levels.
+
+- **Standard:** 4CH1 Section 3(a) Energetics, parts 1–4 (profiles, the cup, fuels, bond energies).
+- **Advanced:** adds three parts. **5 · Hess**: six Hess cycles (CP8, decomposing KHCO₃ via two
+  reactions with HCl, as a virtual practical with thermometer and balance errors and percentage
+  uncertainties; ΔfH of methane and ethanol from combustion data; ΔrH from formation data;
+  hydrating copper(II) sulfate). **6 · Born–Haber**: cycles for NaCl, KCl, LiF, MgCl₂, CaCl₂,
+  MgO and AgCl, lattice energy compared with the ionic model (polarisation), and lattice energy
+  against charge and ion size. **7 · ΔS, ΔG**: seven reactions with ΔS(system), ΔS(surroundings),
+  ΔS(total), ΔG = ΔH − TΔS against temperature, the feasibility temperature and ΔG = −RT ln K.
+  Seven A level presets, and A level exam questions in every part (in parts 1–4: standard
+  enthalpy definitions, mean bond enthalpies, calorimetry uncertainty). 9CH0 Topic 8 Energetics I
+  and Topic 13 Energetics II.
+
 ## What it shows
 
 1. **Profiles.** The old page's reaction profile with a moving "reaction" you can drag:

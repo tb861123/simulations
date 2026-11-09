@@ -11,6 +11,22 @@ measured Kc, yields and van 't Hoff plot with theory.
 Open `dynamic-equilibrium.html` in Chrome or Edge. There is nothing to install and it works
 offline.
 
+## Levels (Standard / Advanced)
+
+A **Standard (iGCSE) / Advanced (A level)** switch sits at the top of the left panel. Standard follows Pearson Edexcel International GCSE Chemistry (4CH1); Advanced follows Pearson Edexcel A level Chemistry (9CH0) and keeps everything in Standard. The choice is remembered in the browser. Key ideas carry spec tags (grey-green 4CH1, purple 9CH0, blue-grey beyond both). Exam practice has questions with mark schemes at both levels; questions marked "Your…" use the numbers on screen. Batch runs are the same at both levels.
+
+- **Standard:** 4CH1 Section 3(c) Reversible reactions and equilibria: reversible reactions,
+  dynamic equilibrium, and (separate Chemistry) the effect of temperature, pressure and a
+  catalyst on the position of equilibrium. Six iGCSE exam questions.
+- **Advanced:** 9CH0 Topic 10 Equilibrium I and Topic 11 Equilibrium II. Extra readings (the
+  Kc expression, Kp and its units, mole fractions, K at T + 50 K), A level key equations, six A
+  level presets (Kc from an ICE table; Kp for the Haber mixture; half as much: same Kc;
+  pressure: K stays put; temperature changes K; Kc by titration) and six A level exam questions.
+- **A level box** (under the readings): an *ICE table* for the live mixture with Kc substituted
+  and Kp from partial pressures; *K and temperature* (ln Kc against 1/T for the reaction, with
+  the current temperature); *Kc by titration*, a virtual ethyl ethanoate experiment (a week's
+  equilibration, then NaOH titration with a blank for the HCl catalyst, ±0.05 cm³ titre error).
+
 ## Reactions
 
 | Reaction | Forward step | Reverse step | ΔH in the model |
@@ -35,7 +51,7 @@ offline.
 - **Position of equilibrium** gauge with a "shifting left/right" arrow. Hover over a
   molecule to see what it is.
 - **Key equations** (Le Chatelier's rules and the Kc expression for the chosen reaction)
-  and **Exam practice** (three questions with mark schemes). Some presets make a change
+  and **Exam practice** (questions with mark schemes at both levels). Some presets make a change
   part-way through (a message appears in the box when they do).
 - **Conditions** (change at once): temperature, volume (a piston), catalyst.
 - **Add or remove** 10 particles of any species.

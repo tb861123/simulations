@@ -11,6 +11,23 @@ a catalyst change the rate, then run the model hundreds of times and compare it 
 Open `collision-theory.html` in Chrome or Edge. There is nothing to install and it works
 offline.
 
+## Levels (Standard / Advanced)
+
+A **Standard (iGCSE) / Advanced (A level)** switch sits at the top of the left panel. Standard follows Pearson Edexcel International GCSE Chemistry (4CH1); Advanced follows Pearson Edexcel A level Chemistry (9CH0) and keeps everything in Standard. The choice is remembered in the browser. Key ideas carry spec tags (grey-green 4CH1, purple 9CH0, blue-grey beyond both). Exam practice has questions with mark schemes at both levels; questions marked "Your…" use the numbers on screen. Batch runs are the same at both levels.
+
+- **Standard:** 4CH1 Section 3(b) Rates of reaction: collision theory; surface area, concentration,
+  temperature and catalysts; activation energy; the marble chips + acid and hydrogen peroxide
+  catalyst practicals. Six iGCSE exam questions.
+- **Advanced:** 9CH0 Topic 9 Kinetics I and Topic 16 Kinetics II. Extra readings (the rate
+  equation rate = k[A][B], the rate constant, ln k, pseudo-first order), A level key equations,
+  six A level presets (order: double A; order: double both; pseudo-first order; initial rates
+  CP13; Arrhenius CP14; rate-determining step) and seven A level exam questions.
+- **A level practicals box** (under the readings): *Initial rates (CP13)*, the iodine–propanone
+  reaction timed until the iodine colour goes, with measurement error, giving the orders, the
+  rate equation and k with units; *Activation energy (CP14)*, a clock reaction at several
+  water-bath temperatures with ln(1/t) against 1/T and Ea ± its uncertainty; *Rate-determining
+  step*, five mechanisms (iodine–propanone, SN1, SN2, NO₂ + F₂, NO₂ + CO).
+
 ## Controls
 
 - **Presets** (13): Standard, Cold, Hot, Dilute, Concentrated, High pressure, High Ea,
@@ -25,8 +42,8 @@ offline.
   3.75 cm³ of CO₂ and the flask loses 0.0069 g.
 - **Drag the Ea line** on the collision-energy graph to change the activation energy.
   Hover over a particle to see its speed and kinetic energy.
-- **Key equations** box and **Exam practice** (three exam-style questions with mark
-  schemes) at the bottom of the right panel. Extra readings: the rate compared with the
+- **Key equations** box and **Exam practice** (questions with mark schemes at both levels)
+  at the bottom of the right panel. Extra readings: the rate compared with the
   Standard preset, and what a 10 °C rise would do to the rate.
 - **Conditions** (change at once): temperature (250–1000 K), volume of the box (a piston),
   activation energy (0–30 kJ/mol), catalyst (halves Ea), "must hit the right way round".

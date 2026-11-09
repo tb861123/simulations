@@ -16,6 +16,23 @@ Replaces the old pages `chem_sims/10_Acids_Bases_Salts.html` and
 
 Open `acids-salts-tests.html` in Chrome or Edge. No install, no internet.
 
+## Levels (Standard / Advanced)
+
+A **Standard (iGCSE) / Advanced (A level)** switch sits at the top of the left panel. Standard follows Pearson Edexcel International GCSE Chemistry (4CH1); Advanced follows Pearson Edexcel A level Chemistry (9CH0) and keeps everything in Standard. The choice is remembered in the browser. Key ideas carry spec tags (grey-green 4CH1, purple 9CH0, blue-grey beyond both). Exam practice has questions with mark schemes at both levels; questions marked "Your…" use the numbers on screen. Batch runs are the same at both levels.
+
+- **Standard:** 4CH1 Section 2(f) Acids, alkalis and titrations, 2(g) Acids, bases and salt
+  preparations and 2(h) Chemical tests: parts A and B as before.
+- **Advanced:** 9CH0 Topic 12 Acid–base equilibria in full. *pH scale*: Kw, the pH of strong
+  acids and bases, Ka / pKa and the pH of a weak acid (the √(Ka c) approximation against the exact
+  value), neutral pH at 50 °C. *Titration*: the half-equivalence point marked on the pH curve
+  (pH = pKa), a **CP9** button (half-neutralise, then read the pH meter, ±0.02) giving Ka, and
+  the right indicator for each acid–base pair. A new **Buffers** view: an ethanoate, ammonium or
+  HA buffer and pure water side by side, 1 or 5 cm³ of 0.10 mol/dm³ HCl or NaOH at a time, both
+  pH meters, the reserves of weak acid and conjugate base, the buffer equation, and pH against
+  the amount added. Seven A level presets (Kw: strong acid and base; weak acid Ka; CP9; strong
+  acid, weak base; buffer vs water; an alkaline buffer; a buffer runs out) and A level exam
+  questions on the pH, titration and buffer views.
+
 ## What it shows
 
 **A · Acids and salts**

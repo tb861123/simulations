@@ -10,6 +10,20 @@ a time, the way a mass spectrometer does.
 Open `atomic-structure.html` in Chrome or Edge. There is nothing to install and it works
 offline.
 
+## Levels (Standard / Advanced)
+
+A **Standard (iGCSE) / Advanced (A level)** switch sits at the top of the left panel. Standard follows Pearson Edexcel International GCSE Chemistry (4CH1); Advanced follows Pearson Edexcel A level Chemistry (9CH0) and keeps everything in Standard. The choice is remembered in the browser. Key ideas carry spec tags (grey-green 4CH1, purple 9CH0, blue-grey beyond both). Exam practice has questions with mark schemes at both levels; questions marked "Your…" use the numbers on screen. Batch runs are the same at both levels.
+
+- **Standard:** 4CH1 Section 1(c) Atomic structure and 1(d) The Periodic Table (with ions).
+- **Advanced:** 9CH0 Topic 1 Atomic structure and the periodic table. Extra readings (the s, p, d
+  configuration and first IE), six A level presets (s, p, d: potassium; copper, an exception, then
+  Cu²⁺; successive IEs of aluminium; first IE dips at Al and S; TOF chlorine; TOF Cl₂ molecular
+  ions) and nine A level exam questions. **A level box** (under the readings): orbital boxes for
+  the atom or ion on screen (Hund's rule, 4s before 3d, Cu's exception, ions losing 4s first);
+  successive ionisation energies (log scale, coloured by shell) and first IEs for H to Kr;
+  a time-of-flight mass spectrometer (ions with the same kinetic energy, flight times, a spectrum
+  from a random sample of detected ions, Ar from the peaks, X₂⁺ molecular-ion peaks).
+
 ## Controls
 
 - **Presets** (12): Hydrogen; Carbon 2,4; Sodium 2,8,1; Sodium ion Na⁺; Chloride ion Cl⁻;
