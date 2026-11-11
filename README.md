@@ -54,6 +54,8 @@ changing a simulation's batch experiments.
 | [`physics/nuclear_fission/`](physics/nuclear_fission/) | Nuclear fission: chain reactions, k, critical mass, control rods | Open `nuclear-fission.html` |
 | [`physics/particle_physics/`](physics/particle_physics/) | Particle physics: quarks, leptons, conservation laws, Feynman diagrams | Open `particle-physics.html` |
 | [`physics/nuclear_fusion/`](physics/nuclear_fusion/) | Fusion on a potential-energy diagram: the Coulomb barrier, quantum tunnelling, the Gamow peak, and the temperature and pressure needed in stars and reactors | Open `nuclear-fusion.html` |
+| [`physics/heating_insulation/`](physics/heating_insulation/) | Heating and insulating a house: conduction, convection, radiation, insulation costs and payback, cooling-can and Leslie cube practicals, cooling curves | Open `heating-insulation.html` |
+| [`physics/density_pressure/`](physics/density_pressure/) | Density and pressure: density practicals, p = F/A, liquid pressure, floating, gas pressure, terminal velocity | Open `density-pressure.html` |
 
 ## Chemistry
 
@@ -71,6 +73,8 @@ changing a simulation's batch experiments.
 | [`chemistry/acids_salts_tests/`](chemistry/acids_salts_tests/) | Acids, alkalis, titration, making salts, and a chemical tests lab (flame tests, ions, gases, unknowns) | Open `acids-salts-tests.html` |
 | [`chemistry/chromatography/`](chemistry/chromatography/) | Paper chromatography: Rf values, identifying components, solvent choice and measurement error | Open `chromatography.html` |
 | [`chemistry/crystallisation/`](chemistry/crystallisation/) | Cooling rate and crystal size: granite, basalt, obsidian, salt crystals, dendrites | Open `crystallisation.html` |
+| [`chemistry/moles_reacting_masses/`](chemistry/moles_reacting_masses/) | Moles, reacting masses and yield: Mr, limiting reactants, empirical formulae and hydrates by experiment, percentage yield, gas volumes, concentration | Open `moles-reacting-masses.html` |
+| [`chemistry/electrochemical_cells/`](chemistry/electrochemical_cells/) | Electrochemical cells: displacement, simple cells, half-cells and E°, feasibility, fuel and lithium-ion cells, redox titrations | Open `electrochemical-cells.html` |
 
 ## Biology and medicine
 
