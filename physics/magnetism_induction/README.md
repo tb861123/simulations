@@ -1,9 +1,31 @@
 # Magnetism and Induction
 
-A teaching simulation of magnetic forces and electromagnetic induction for
-WJEC Eduqas A level Physics (Component 2, Topic 7, Magnetic fields, sections
-(a)–(n)). It replaces page 12 (Magnetic Fields & Induction) of the old WJEC
-Streamlit app.
+A teaching simulation of magnetic forces and electromagnetic induction. It
+replaces page 12 (Magnetic Fields & Induction) of the old WJEC Streamlit app.
+
+## Levels
+
+- **Standard (iGCSE):** Pearson Edexcel International GCSE Physics (4PH1)
+  Section 6 Magnetism and electromagnetism: the motor effect and Fleming's
+  left-hand rule, the d.c. motor and commutator, electromagnetic induction and
+  what increases the induced voltage, generators, and transformers
+  (Vp/Vs = np/ns, VpIp = VsIs, step-up for transmission).
+- **Advanced (A level):** WJEC Eduqas magnetic fields (F = BIL sin θ,
+  F = Bqv, circular orbits) and electromagnetic induction (flux, flux linkage,
+  Faraday's and Lenz's laws): the old page's Component 2, Topic 7, sections
+  (a)–(n). Torque on a coil, back-EMF and transformer losses are tagged
+  "Beyond the spec".
+
+The level switch (Standard (iGCSE) / Advanced (A level)) has a hint naming the
+spec, and a key-ideas box tags each idea. The 18 presets work at both levels.
+
+**Exam practice.** Standard: nine iGCSE questions (motor effect and how to make
+it bigger, Fleming's left-hand rule, reversing the current and a wire along the
+field, the d.c. motor and commutator, induction and three ways to increase it,
+Vs from the Transformer tab's turns and voltage, Is from VpIp = VsIs, why the
+National Grid uses high voltage, why transformers need a.c.). Advanced: the old
+page's three questions plus F = BIL sin θ at the wire's angle, the radius of an
+electron's orbit, Lenz's law and energy, and flux and flux linkage.
 
 ## How to run
 
@@ -27,7 +49,7 @@ Presets for each tab (the old page's MRI, cyclotron and Earth's field;
 step-up, step-down, isolation and phone-charger transformers; toy, car starter,
 e-bike and servo motors; plus extra teaching presets), all the old sliders,
 Play/Pause, Reset, speed, Batch run. The right panel has readings, graphs,
-physics notes, exam practice (3 questions, live answers) and "How the model
+physics notes, exam practice (live answers) and "How the model
 works".
 
 ## The model

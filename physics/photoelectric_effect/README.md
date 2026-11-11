@@ -1,8 +1,25 @@
 # Photoelectric Effect
 
-A single, self-contained HTML file for WJEC Eduqas A level Physics, Component 2,
-Topic 6 (Photons and wave–particle duality). It needs no install and no internet:
+A single, self-contained HTML file. It needs no install and no internet:
 **open `photoelectric-effect.html` in Chrome or Edge**.
+
+## Levels
+
+- **Standard (iGCSE):** the photoelectric effect and photons are **not** in
+  Pearson Edexcel International GCSE Physics (4PH1), and the level hint says
+  so. Standard uses the sim for 4PH1 ideas it touches: the EM spectrum and
+  v = fλ, the dangers of ultraviolet, electrons as negative charges, and
+  Q = It. Six iGCSE questions (frequency from the lamp's wavelength, the
+  region of the spectrum, UV dangers, the charge left on the plate, Q = It
+  for a photocurrent, red against violet light on caesium).
+- **Advanced (A level):** WJEC Eduqas photons (the old page's Component 2,
+  Topic 6): E = hf, φ, f₀, KE_max = hf − φ, stopping potential, the V_s–f
+  graph, wave–particle duality. The old page's three questions plus Millikan's
+  graph, brightness against frequency, and the de Broglie wavelength of the
+  fastest photoelectrons.
+
+The level switch has a hint naming the spec, and a key-ideas box tags each
+idea. The 12 presets work at both levels.
 
 It replaces the old WJEC Streamlit page *Photoelectric Effect*
 (`physics_sims/pages/13_Photoelectric_Effect.py`) and keeps its controls, graphs,

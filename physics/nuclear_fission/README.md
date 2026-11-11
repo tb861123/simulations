@@ -1,8 +1,25 @@
 # Nuclear Fission and Chain Reactions
 
-A single, self-contained HTML file for WJEC Eduqas A level Physics, Component 3,
-Topic 6 (Nuclear physics). No install and no internet are needed:
+A single, self-contained HTML file. No install and no internet are needed:
 **open `nuclear-fission.html` in Chrome or Edge**.
+
+## Levels
+
+- **Standard (iGCSE):** Pearson Edexcel International GCSE Physics (4PH1)
+  7(c) Fission and fusion: slow neutron absorbed by U-235, two radioactive
+  daughter nuclei, 2–3 neutrons and energy; the chain reaction; moderator and
+  control rods; balanced nuclear equations.
+- **Advanced (A level):** WJEC Eduqas nuclear energy (the old page's
+  Component 3, Topic 6): E = mc², mass defect, binding energy per nucleon,
+  energy from fission. k and critical mass are tagged "Beyond the spec".
+
+The level switch has a hint naming the spec, and a key-ideas box tags each
+idea. **Exam practice:** Standard has seven iGCSE questions (what happens in
+fission, the chain reaction, completing the nuclear equation, control rods and
+moderator, the chain from the on-screen k, advantages and disadvantages,
+fission against fusion); Advanced has the old page's three plus energy from
+binding energies per nucleon, the binding-energy curve, and energy from 1 kg of
+fuel. Three presets were added (rods out, rods in, k = 0.9): 12 in all.
 
 It replaces the old WJEC Streamlit page *Nuclear Fission*
 (`physics_sims/pages/23_Nuclear_Fission.py`) and keeps all of its controls,
@@ -19,7 +36,7 @@ slowed down about 100 million times.
 
 ## Controls
 
-- **Level:** Standard (GCSE) or Advanced (A level).
+- **Level:** Standard (iGCSE) or Advanced (A level).
 - **Fuel:** U-235 or Pu-239.
 - **How k is set:** *Choose k* (0.5–2.0, as on the old page; the sphere size that
   gives it is worked out) or *From the fuel mass* (1–160 kg sphere).
@@ -44,6 +61,7 @@ slowed down about 100 million times.
 
 Critical: a reactor · Subcritical · Supercritical · Bomb-like · Too small: 10 kg U-235 ·
 Critical mass of U-235 · Plutonium: 10 kg · Control rods hold k at 1 ·
+Pull the control rods out · Rods pushed in: shut down · Only just subcritical ·
 Where does the energy come from?
 
 ## The model

@@ -1,8 +1,24 @@
 # Radioactive Decay and Decay Chains
 
-A single, self-contained HTML file for WJEC Eduqas A level Physics, Component 3,
-Topic 6 (Nuclear decay), with the decay-chain extension that links to Topic 7.
-No install and no internet are needed: **open `radioactive-decay.html` in Chrome or Edge**.
+A single, self-contained HTML file. No install and no internet are needed:
+**open `radioactive-decay.html` in Chrome or Edge**.
+
+## Levels
+
+- **Standard (iGCSE):** Pearson Edexcel International GCSE Physics (4PH1)
+  7(a) and 7(b) Radioactivity: random decay, activity in Bq, half-life,
+  background radiation and the Geiger–Müller tube, α, β and γ with their
+  nuclear equations, uses and dangers. Nine iGCSE questions (three half-lives
+  from the on-screen sample, what half-life means, randomness, activity in Bq,
+  background correction, α decay of U-238, β⁻ decay, comparing α, β and γ, the
+  Tc-99m tracer and contamination against irradiation).
+- **Advanced (A level):** WJEC Eduqas nuclear decay (the old page's Component 3,
+  Topic 6): λ, A = λN, N = N₀e^(−λt), T½ = ln 2/λ, the ln N against t graph
+  (gradient −λ) and half-life from it, carbon dating. The old page's six
+  questions plus N after a given time, the ln N graph, and carbon dating.
+- Decay chains beyond one step (Bateman equations, equilibrium) are tagged
+  "Beyond the spec". The level switch has a hint naming the spec, and a
+  key-ideas box tags each idea. The 12 presets work at both levels.
 
 It replaces two old WJEC Streamlit pages, *Nuclear Decay*
 (`physics_sims/pages/04_Nuclear_Decay.py`) and *Radioactive Decay Chains*

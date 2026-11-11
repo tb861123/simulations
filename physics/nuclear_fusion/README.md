@@ -11,6 +11,29 @@ or positron flies away.
 Open `nuclear-fusion.html` in Chrome or Edge, with no install and no internet
 needed.
 
+## Levels (new)
+
+A Standard (iGCSE) / Advanced (A level) switch at the top of the left panel,
+with a hint naming the spec, a key-ideas box with spec tags, physics notes and
+exam questions with mark schemes (right panel).
+
+- **Standard (iGCSE):** Pearson Edexcel International GCSE Physics (4PH1)
+  7(c) Fission and fusion: fusion is the energy source of stars; it needs a
+  very high temperature and pressure because the positive nuclei repel; it is
+  hard to achieve on Earth. Also 5(d) (kelvin temperature ∝ mean kinetic
+  energy) and 8(c) (stars fuse hydrogen into helium). Seven questions: what
+  fusion is, why it needs high temperature, doubling the kelvin temperature,
+  why pressure helps, completing the D–T equation, why fusion power is hard,
+  fusion against fission.
+- **Advanced (A level):** WJEC Eduqas nuclear energy (mass defect, E = mc²),
+  fields of force (the barrier U = kQ₁Q₂/r) and kinetic theory (3/2 kT). Six
+  questions built from the chosen reaction and temperature: the barrier
+  height, the temperature at which 3/2 kT equals it, the mean kinetic energy
+  now, the D–T energy from masses, the binding-energy curve, and why the Sun
+  still fuses. The Gamow peak chart is shown at Advanced only.
+- Tunnelling, the Gamow peak and reaction rates are tagged "Beyond the spec".
+  The 14 reaction presets and 7 places work at both levels.
+
 ## What you can do
 
 - **Choose a reaction.** 14 presets cover hydrogen–hydrogen (the Sun's p + p),

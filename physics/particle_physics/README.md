@@ -1,8 +1,24 @@
 # Particle Physics
 
-A single, self-contained HTML file for WJEC Eduqas A level Physics, Component 3,
-Topic 7 (Particles and nuclear structure). No install and no internet are needed:
+A single, self-contained HTML file. No install and no internet are needed:
 **open `particle-physics.html` in Chrome or Edge**.
+
+## Levels
+
+- **Standard (iGCSE):** quarks, leptons and conservation laws are **not** in
+  Pearson Edexcel International GCSE Physics (4PH1), and the level hint says
+  so. Standard uses the sim for the 4PH1 Section 7 ideas it shows: protons,
+  neutrons and electrons (relative masses and charges), atomic and mass
+  numbers, isotopes, and β⁻ decay. Six iGCSE questions.
+- **Advanced (A level):** WJEC Eduqas particles and nuclear structure (the old
+  page's Component 3, Topic 7): quarks, leptons, hadrons, the four forces, and
+  conservation of Q, B and L. The old page's four questions plus classifying
+  particles, μ⁻ → e⁻ + γ, e⁺e⁻ annihilation photons, and the four forces.
+  Strangeness, lepton-family numbers and Feynman diagrams are tagged "Beyond
+  the spec" (to be checked).
+
+The level switch has a hint naming the spec, and a key-ideas box tags each
+idea. A 12th preset was added (Pion decay: π⁺ → μ⁺ + νμ).
 
 It replaces the old WJEC Streamlit page *Particle Physics*
 (`physics_sims/pages/25_Particle_Physics.py`) and keeps its three tabs, data,
@@ -27,7 +43,7 @@ notes and exam questions.
 ## Presets
 
 Proton: uud · Neutron: udd · Mesons · Strange particles · β⁻ decay: allowed? ·
-Forbidden: p → e⁺ + γ · Strangeness changes (Λ⁰ → p + π⁻) · Kaon production ·
+Forbidden: p → e⁺ + γ · Strangeness changes (Λ⁰ → p + π⁻) · Kaon production · Pion decay ·
 Feynman: β⁻ decay · Feynman: annihilation · Feynman: muon decay.
 
 ## The model

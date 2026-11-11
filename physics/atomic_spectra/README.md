@@ -14,6 +14,24 @@ It does not repeat what other simulations cover, and links to them instead:
 black-body spectra and Wien's law are in `../../astrophysics/stellar_life_cycle/`,
 and red-shift of spectral lines is in `../../astrophysics/expanding_universe/`.
 
+## Levels
+
+- **Standard (iGCSE):** Pearson Edexcel International GCSE Physics (4PH1).
+  Energy levels and line spectra are not in 4PH1, and the level hint says so.
+  Standard uses the sim for 4PH1 Section 3(c) The electromagnetic spectrum:
+  the order of the spectrum, the same speed in a vacuum, visible colours,
+  v = fλ, and the uses and dangers of infrared and ultraviolet.
+- **Advanced (A level):** WJEC Eduqas photons (E = hf, the electronvolt,
+  energy levels, line spectra, ionisation) and **lasers**: a new laser box
+  (right panel, Advanced only) shows a 3-level (ruby) or 4-level (Nd:YAG)
+  system with a pumping slider, the populations of the laser levels, and
+  whether there is a population inversion. The Rydberg formula and orbit radii
+  are tagged "Beyond the spec".
+
+The level switch (Standard (iGCSE) / Advanced (A level)) has a hint naming the
+spec, and a key-ideas box tags each idea. The 12 presets are shared by both
+levels.
+
 ## What you see
 
 - **Bohr atom** (not to scale): the electron orbits on its level. In "discharge
@@ -46,8 +64,14 @@ and red-shift of spectral lines is in `../../astrophysics/expanding_universe/`.
   (8 → 1); helium; sodium yellow doublet; neon sign; sodium absorption.
 
 Readouts: E initial/final, ΔE (eV and J), λ, frequency, series and region, the
-ionisation energy, physics notes (Standard and Advanced), and the old page's 3 exam
-questions with live mark schemes for the chosen transition.
+ionisation energy, physics notes (Standard and Advanced), and exam questions with
+live mark schemes: at Standard, seven iGCSE questions on the EM spectrum (f = v/λ
+for the chosen line, its neighbours in the spectrum, the order, UV and IR uses and
+dangers, what all EM waves share); at Advanced, the old page's 3 questions for the
+chosen transition plus line spectra and ionisation energy, and seven laser
+questions (stimulated emission, population inversion and pumping, 3- against
+4-level lasers using the laser box setting, photons per second from a laser
+pointer, the mirrors, properties of laser light, diode lasers).
 
 ## The model
 

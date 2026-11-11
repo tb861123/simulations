@@ -1,8 +1,22 @@
 # Capacitor Charge and Discharge
 
-A teaching simulation of an RC circuit for WJEC Eduqas A level Physics
-(Component 2, Topic 4, Capacitance, sections (i) and (j)). It replaces page 03
-(Capacitor Charge & Discharge) of the old WJEC Streamlit app.
+A teaching simulation of an RC circuit. It replaces page 03 (Capacitor Charge
+& Discharge) of the old WJEC Streamlit app.
+
+## Levels
+
+- **Standard (iGCSE):** capacitors are **not** in Pearson Edexcel International
+  GCSE Physics (4PH1), and the level hint says so. Standard uses the circuit to
+  practise the 4PH1 Section 2 ideas it shows: Q = It, V = IR, E = QV, P = IV,
+  power = energy ÷ time, and conventional current against electrons.
+- **Advanced (A level):** WJEC Eduqas A level Physics, Component 2, Topic 4
+  (Capacitance), sections (i) and (j): Q = CV, exponential charge and
+  discharge, the time constant RC, ln V against t (the specified practical),
+  energy ½CV² as the area under the Q–V graph, series and parallel. Leakage,
+  filters and the RC calculator are tagged "Beyond the spec".
+
+The level switch (Standard (iGCSE) / Advanced (A level)) has a hint naming
+the spec, and a key-ideas box tags each idea.
 
 ## How to run
 
@@ -29,12 +43,25 @@ dotted curve) and an RC target calculator.
 
 ## Controls
 
-Presets (the old page's camera flash, defibrillator, power-supply smoother and
+Presets (12: the old page's camera flash, defibrillator, power-supply smoother and
 audio crossover, plus a 10 s lab capacitor, charging through 1 kΩ, a leaky
-capacitor and series vs parallel), C, R and V₀ (log sliders), Discharging /
+capacitor, series vs parallel, charging wastes half the energy, a touch-screen
+sensor, a supercapacitor backup, and ln V against t (Advanced)), C, R and V₀ (log sliders), Discharging /
 Charging, Auto flip, Play/Pause, Reset, speed, Show electrons, Batch run. The
 right panel has readings, energy efficiency (charging), physics notes, exam
-practice (3 questions, live answers) and "How the model works".
+practice (live answers) and "How the model works".
+
+## Exam practice
+
+- **Standard (iGCSE 4PH1, Section 2 ideas):** seven questions from the circuit's
+  numbers: the starting current from V = IR, Q = It (the time the charge would
+  last at the starting current), E = QV for the cell, P = IV, how and why the
+  current dies away, average power = energy ÷ time, electrons against
+  conventional current.
+- **Advanced (A level, Eduqas capacitance):** the old page's three questions
+  (time constant, maximum charge, energy stored) plus the p.d. after a given
+  time, the quarter-energy at half p.d. and the time it takes (RC ln 2), the
+  ln V against t practical, and why the energy is ½QV.
 
 **Picture quality** (Low / Medium / High / Ultra, default Medium): how sharply the live view is drawn. Low draws at standard resolution and redraws about 30 times a second, for slower laptops and tablets; High and Ultra draw at 1.5× and 2× the screen's resolution for smoother edges. Only the drawing changes: the model and batch-run results are identical at every level. The choice is remembered in this browser.
 
