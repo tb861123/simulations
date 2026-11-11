@@ -2009,12 +2009,15 @@ requestAnimationFrame(frame);
           every section folds. Folding and the chosen tab are remembered in this browser only.
    Each simulation can set window.TIDY = { std: "...", adv: "...", live: [], graphs: [], learn: [],
    practical: [], settings: [], readings: 6, move: { "<id or CSS selector>": "graphs" },
-   hint: "#lvlHint", presets: "#presets", levelHead: "Level", readingsHead: ["Readings"], readingsGrid: "<CSS selector>" }
+   hint: "#lvlHint", presets: "#presets" (may match several containers; a .pgroup label just before each goes too),
+   levelHead: "Level", readingsHead: ["Readings"], readingsGrid: "<CSS selector>",
+   advTest: "body.lvl-adv" (a selector that matches only at A level), left: "#left", right: "#right" }
    before this runs (headings are matched by their start; a moved <h2> takes its folding body with it). */
 function tidyRun() {
   "use strict";
-  const CFG = Object.assign({ std: "", adv: "", live: [], graphs: [], learn: [], practical: [], exam: [], settings: [], readings: 6, move: {}, hint: "#lvlHint", presets: "#presets", levelHead: "Level", readingsHead: ["Readings"], readingsGrid: "" }, window.TIDY || {});
-  const L = document.getElementById("left"), R = document.getElementById("right");
+  const CFG = Object.assign({ std: "", adv: "", live: [], graphs: [], learn: [], practical: [], exam: [], settings: [], readings: 6, move: {}, hint: "#lvlHint", presets: "#presets", levelHead: "Level", readingsHead: ["Readings"], readingsGrid: "",
+    advTest: "body.lvl-adv", left: "#left", right: "#right" }, window.TIDY || {});
+  const L = document.querySelector(CFG.left), R = document.querySelector(CFG.right);
   if (!L || !R || L.dataset.tidy) return;
   L.dataset.tidy = "1";
   const KEY = "tidy:" + location.pathname.split("/").slice(-2).join("/") + ":";
@@ -2025,7 +2028,14 @@ function tidyRun() {
   const txt = el => (el ? el.textContent : "").replace(/\s+/g, " ").trim();
   const head = el => el.tagName === "H2" ? txt(el) : el.tagName === "DETAILS" ? txt(el.querySelector("summary")) : (el.querySelector && el.querySelector("h2") ? txt(el.querySelector("h2")) : "");
   const starts = (t, list) => list.some(s => t.toLowerCase().startsWith(s.toLowerCase()));
-  const isAdv = () => document.body.classList.contains("lvl-adv");
+  const isAdv = () => !!document.querySelector(CFG.advTest);
+  /* Things to refresh when the level (or a mode) may have changed: after any click or change, and when <body>'s class changes */
+  const refreshers = [];
+  let refreshQueued = false;
+  const refresh = () => { if (refreshQueued) return; refreshQueued = true; setTimeout(() => { refreshQueued = false; refreshers.forEach(f => f()); }, 30); };
+  new MutationObserver(refresh).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  document.addEventListener("click", refresh, true);
+  document.addEventListener("change", refresh, true);
   const nudge = () => { window.dispatchEvent(new Event("resize")); };
 
   /* Wrap each <h2> and the siblings after it (up to the next heading or block that holds one) in a folding group. */
@@ -2064,13 +2074,14 @@ function tidyRun() {
       sum.innerHTML = (s || (isAdv() ? "A level" : "GCSE")) + '<span class="tidyI" title="What this level covers">ⓘ</span>';
     };
     line();
-    new MutationObserver(line).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    refreshers.push(line);
     det.addEventListener("toggle", nudge);
   }
 
   /* ---- Left: presets menu ---- */
-  const pre = CFG.presets ? document.querySelector(CFG.presets) : null;
-  if (pre) {
+  const pres = CFG.presets ? [...document.querySelectorAll(CFG.presets)] : [];
+  if (pres.length) {
+    const pre = pres[0];
     const pH = [...L.querySelectorAll("h2")].find(h => /^presets/i.test(txt(h)));
     if (pH) pH.classList.add("tidyHide");
     const btn = document.createElement("button"); btn.type = "button"; btn.className = "tidyPresetsBtn";
@@ -2078,18 +2089,19 @@ function tidyRun() {
     pre.before(btn);
     const menu = document.createElement("div"); menu.className = "tidyMenu tidyHide";
     menu.innerHTML = '<p class="tidyMenuHint">Hover over a preset to see what it sets up.</p>';
-    menu.appendChild(pre); document.body.appendChild(menu);
-    const titles = () => pre.querySelectorAll("button").forEach(b => {
+    pres.forEach(p => { let g = p.previousElementSibling; if (g === btn) g = btn.previousElementSibling; if (g && g.matches(".pgroup")) menu.appendChild(g); menu.appendChild(p); });
+    document.body.appendChild(menu);
+    const titles = () => menu.querySelectorAll("button").forEach(b => {
       const sm = b.querySelector("small"); if (sm && !b.title) b.title = txt(sm);
     });
     const cur = () => {
-      const on = pre.querySelector("button.on");
+      const on = menu.querySelector("button.on");
       let t = "";
       if (on) { const c = on.cloneNode(true); c.querySelectorAll("small").forEach(s => s.remove()); t = txt(c); }
       btn.querySelector(".cur").textContent = t;
     };
     titles(); cur();
-    new MutationObserver(() => { titles(); cur(); }).observe(pre, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+    new MutationObserver(() => { titles(); cur(); }).observe(menu, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
     const close = () => menu.classList.add("tidyHide");
     const open = () => {
       const r = btn.getBoundingClientRect();
@@ -2153,6 +2165,7 @@ function tidyRun() {
     if (k.tagName === "H2" && kids[i + 1] && kids[i + 1].classList.contains("tidyBody")) { groups.push([k, kids[i + 1]]); i++; }
     else groups.push([k]);
   }
+  const order = new Map(); [...document.querySelectorAll("*")].forEach((e, i) => order.set(e, i));
   // elements a simulation asks to move (e.g. charts that sit under the readings) go to their own tab
   Object.entries(CFG.move).forEach(([key, tab]) => {
     const list = /^[A-Za-z][\w-]*$/.test(key) ? [document.getElementById(key)] : [...R.querySelectorAll(key)];
@@ -2171,7 +2184,7 @@ function tidyRun() {
   TABS.forEach(([k, name]) => {
     if (!panes[k] || !panes[k].length) return;
     const p = document.createElement("div"); p.className = "tidyPane"; p.dataset.tab = k;
-    panes[k].forEach(n => p.appendChild(n));
+    panes[k].sort((a, b) => (order.get(a) || 0) - (order.get(b) || 0)).forEach(n => p.appendChild(n));
     paneEls[k] = p;
     const b = document.createElement("button"); b.type = "button"; b.textContent = name; b.dataset.tab = k;
     bar.appendChild(b);
@@ -2187,17 +2200,23 @@ function tidyRun() {
   };
   bar.addEventListener("click", e => { const b = e.target.closest("button"); if (b) show(b.dataset.tab); });
   // a tab whose contents are all for the other level (e.g. A level practicals at Standard) is hidden
+  // ... and so is a tab whose contents are all hidden just now (e.g. charts only shown in another mode)
+  const shown = el => getComputedStyle(el).display !== "none";
+  const visible = c => {
+    if (c.matches(".tidyBody")) return (!c.previousElementSibling || shown(c.previousElementSibling)) && [...c.children].some(shown);
+    if (c.matches("h2.tidyH") && c.nextElementSibling && c.nextElementSibling.matches(".tidyBody")) return shown(c) && [...c.nextElementSibling.children].some(shown);
+    return shown(c);
+  };
   const levelTabs = () => {
-    const off = isAdv() ? ".stdOnly" : ".advOnly";
     let cur = store.get("tab", "live");
     bar.querySelectorAll("button").forEach(b => {
-      const empty = [...paneEls[b.dataset.tab].children].every(c => c.matches(off) || c.matches(".tidyBody") && c.previousElementSibling && c.previousElementSibling.matches(off));
+      const empty = ![...paneEls[b.dataset.tab].children].some(visible);
       b.classList.toggle("tidyHide", empty);
       if (empty && b.dataset.tab === cur) cur = null;
     });
     if (!cur) show("live");
   };
-  new MutationObserver(levelTabs).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  refreshers.push(levelTabs);
   if (Object.keys(paneEls).length < 2) bar.classList.add("tidyHide");
   show(store.get("tab", "live"));
   levelTabs();
@@ -2208,7 +2227,7 @@ function tidyRun() {
   if (rH || CFG.readingsGrid) {
     const body = rH && rH.nextElementSibling;
     const grid = CFG.readingsGrid ? R.querySelector(CFG.readingsGrid) : body && [...body.children].sort((a, b) => b.children.length - a.children.length)[0];
-    if (grid && grid.children.length > CFG.readings) {
+    if (grid) {
       const tg = document.createElement("button"); tg.type = "button"; tg.className = "tidyMoreR";
       grid.after(tg);
       let all = store.get("allReadings", "0") === "1";
@@ -2225,8 +2244,7 @@ function tidyRun() {
       tg.addEventListener("click", () => { all = !all; store.set("allReadings", all ? "1" : "0"); apply(); nudge(); });
       apply();
       new MutationObserver(apply).observe(grid, { childList: true });
-      new MutationObserver(apply).observe(document.body, { attributes: true, attributeFilter: ["class"] });
-      bar.addEventListener("click", () => setTimeout(apply, 0));
+      refreshers.push(apply);
     }
   }
   nudge();
