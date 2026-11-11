@@ -13,6 +13,20 @@ metals are in the **Reactivity and Extracting Metals** simulation (`../reactivit
 
 Open `periodic-groups.html` in Chrome or Edge. No install, no internet.
 
+## Levels (Standard / Advanced)
+
+A **Standard (iGCSE) / Advanced (A level)** switch sits at the top of the left panel. Standard follows Pearson Edexcel International GCSE Chemistry (4CH1); Advanced follows Pearson Edexcel A level Chemistry (9CH0) and keeps everything in Standard. The choice is remembered in the browser. Key ideas carry spec tags (grey-green 4CH1, purple 9CH0, blue-grey beyond the spec). The presets listed below are shown at both levels; Advanced adds its own presets and an A level box under the readings. Batch runs are the same at both levels.
+
+- **Standard:** 4CH1 Section 2(a) Group 1 and 2(b) Group 7.
+- **Advanced:** 9CH0 Topic 4. Seven A level presets (Group 2 ionisation energy; hydroxides and sulfates;
+  thermal stability of carbonates; flame tests; halides + concentrated H₂SO₄; chlorine + NaOH: bleach;
+  unknown salt, CP7) and nine A level exam questions. **A level box:** *Group 2* (ionisation energies,
+  radii, solubility of hydroxides and sulfates, reactions with water), *Thermal stability* (a virtual
+  practical: heat carbonates and nitrates of Groups 1 and 2, time the gas test, graph against charge ÷
+  radius), *Flame tests* (flame colour and emission lines, energy per mole of photons), *Group 7 redox*
+  (NaCl, NaBr, NaI with concentrated H₂SO₄; Cl₂ with cold and hot NaOH and with water) and *Unknown
+  (CP7)* (flame test, NaOH, Na₂CO₃, acid + limewater, AgNO₃ then NH₃, BaCl₂, then check your answer).
+
 ## What it shows
 
 **Group 1 · Alkali metals.** Choose lithium to caesium, the mass of the piece, the volume

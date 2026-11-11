@@ -11,6 +11,18 @@ Replaces the old page `chem_sims/20_Chromatography.html`.
 
 Open `chromatography.html` in Chrome or Edge. No install, no internet.
 
+## Levels (Standard / Advanced)
+
+A **Standard (iGCSE) / Advanced (A level)** switch sits at the top of the left panel. Standard follows Pearson Edexcel International GCSE Chemistry (4CH1); Advanced follows Pearson Edexcel A level Chemistry (9CH0) and keeps everything in Standard. The choice is remembered in the browser. Key ideas carry spec tags (grey-green 4CH1, purple 9CH0, blue-grey beyond the spec). The presets listed below are shown at both levels; Advanced adds its own presets and an A level box under the readings. Batch runs are the same at both levels.
+
+- **Standard:** 4CH1 Section 1(b) Elements, compounds and mixtures (paper chromatography and Rf).
+- **Advanced:** 9CH0 Topic 19 (chromatography), kept moderate. Six A level presets (TLC: painkiller
+  tablets; TLC: is my aspirin pure?; TLC: a more polar eluent; GC: alcohols; GC: a hotter column; GC: %
+  composition) and eight A level exam questions. **A level box:** *TLC plate* (a virtual silica plate:
+  choose the eluent, develop, view under UV, measure the spots with ruler error, Rf table) and *Gas
+  chromatography* (alcohols or alkanes, column temperature, retention times, peak areas and %
+  composition, resolution), with HPLC and GC–MS described.
+
 ## What it shows
 
 - A tank with a lid, the solvent, and a sheet of chromatography paper with five lanes on a

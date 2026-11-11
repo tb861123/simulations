@@ -11,6 +11,22 @@ JMAK (Avrami) theory of nucleation and growth.
 Open `crystallisation.html` in Chrome or Edge. There is nothing to install and it works
 offline.
 
+## Levels (Standard / Advanced)
+
+A **Standard (iGCSE) / Advanced (A level)** switch sits at the top of the left panel. Standard follows Pearson Edexcel International GCSE Chemistry (4CH1); Advanced follows Pearson Edexcel A level Chemistry (9CH0) and keeps everything in Standard. The choice is remembered in the browser. Key ideas carry spec tags (grey-green 4CH1, purple 9CH0, blue-grey beyond the spec). The presets listed below are shown at both levels; Advanced adds its own presets and an A level box under the readings. Batch runs are the same at both levels.
+
+- **Standard:** 4CH1 solubility and solubility curves (Section 1(a)), crystallisation as a separation
+  (1(b)) and making salt crystals (2(g)). The magma part is geology, beyond 4CH1, and is tagged so.
+  New at both levels: tagged key ideas and **Exam practice** (seven iGCSE questions with mark schemes,
+  some using the salt and temperatures on screen).
+- **Advanced:** 9CH0 Topic 13 Energetics II and recrystallisation (the aspirin core practical, CP16). Six
+  A level presets (lattice vs hydration: NaCl; dissolving cools: KCl; hydration wins: CaCl₂;
+  recrystallisation; too much solvent; melting point: is it pure?) and eight A level exam questions.
+  **A level box:** *Lattice, hydration, solution* (an energy-level cycle for six salts, compared with
+  the data-book ΔsolH, plus a virtual cup experiment to measure ΔsolH) and *Recrystallisation (CP16)*
+  (3.00 g of crude aspirin: choose the volume of hot solvent, how cold to cool and whether to wash;
+  yield, mass and melting-point range, graphed against the solvent volume).
+
 ## Controls
 
 - **Presets** (11): Granite, Basalt, Obsidian, Porphyry (slow then erupts), Impure magma,

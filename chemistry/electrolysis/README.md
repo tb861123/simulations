@@ -14,6 +14,20 @@ electrolysis is in the **Reactivity and extracting metals** simulation
 
 Open `electrolysis.html` in Chrome or Edge. No install, no internet.
 
+## Levels (Standard / Advanced)
+
+A **Standard (iGCSE) / Advanced (A level)** switch sits at the top of the left panel. Standard follows Pearson Edexcel International GCSE Chemistry (4CH1); Advanced follows Pearson Edexcel A level Chemistry (9CH0) and keeps everything in Standard. The choice is remembered in the browser. Key ideas carry spec tags (grey-green 4CH1, purple 9CH0, blue-grey beyond the spec). The presets listed below are shown at both levels; Advanced adds its own presets and an A level box under the readings. Batch runs are the same at both levels.
+
+- **Standard:** 4CH1 Section 1(i) Electrolysis (with the gas tests from 2(h)); the Faraday
+  calculations stay marked Chemistry only.
+- **Advanced:** 9CH0 Topic 3 Redox I. Oxidation-number readings for the cell on screen, six A level
+  presets (oxidation numbers: CuSO₄; brine: the overall equation; disproportionation: bleach; water
+  is oxidised: H₂SO₄; building a half-equation; a copper anode is oxidised) and seven A level exam
+  questions. **A level box:** *This cell* (oxidation-number diagram of every element at both
+  electrodes, the half-equations and the overall ionic equation) and *Half-equation builder*
+  (eight reductions and nine oxidations, balanced step by step, then combined so the electrons
+  cancel). Electrode potentials (Topic 14) are left to the separate Electrochemical cells simulation.
+
 ## What it shows
 
 - **The cell**: a d.c. supply with ammeter and voltmeter, electrons moving in the wires,

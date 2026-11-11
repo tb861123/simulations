@@ -16,6 +16,18 @@ displacement are covered in detail in the **Groups 1 and 7** simulation
 
 Open `reactivity-metals.html` in Chrome or Edge. No install, no internet.
 
+## Levels (Standard / Advanced)
+
+A **Standard (iGCSE) / Advanced (A level)** switch sits at the top of the left panel. Standard follows Pearson Edexcel International GCSE Chemistry (4CH1); Advanced follows Pearson Edexcel A level Chemistry (9CH0) and keeps everything in Standard. The choice is remembered in the browser. Key ideas carry spec tags (grey-green 4CH1, purple 9CH0, blue-grey beyond the spec). The presets listed below are shown at both levels; Advanced adds its own presets and an A level box under the readings. Batch runs are the same at both levels.
+
+- **Standard:** 4CH1 Section 2(d) Reactivity series and 2(e) Extraction and uses of metals.
+- **Advanced:** 9CH0 Topic 3 Redox I applied to these reactions and to extraction. Readings for what is
+  oxidised and reduced, six A level presets (Zn + Cu²⁺; balancing electrons: Al + Cu²⁺; acid: H⁺ is the
+  oxidising agent; blast furnace: carbon's jobs; titanium: the Kroll process; copper(I):
+  disproportionation) and seven A level exam questions. **A level box:** *This reaction*
+  (oxidation-number diagram for whatever is on screen) and *Extraction step by step* (iron, aluminium,
+  titanium, copper, tungsten, zinc, and copper(I) disproportionation).
+
 ## What it shows
 
 A strip across the top shows the series K, Na, Li, Ca, Mg, Al, (C), Zn, Fe, (H), Cu, Ag,

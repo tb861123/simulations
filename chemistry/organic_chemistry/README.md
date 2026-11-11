@@ -12,6 +12,21 @@ The parts are linked. The heavy fractions from part 1 are the feed for part 2, a
 
 Open `organic-chemistry.html` in Chrome or Edge. There is nothing to install and it works offline.
 
+## Levels (Standard / Advanced)
+
+A **Standard (iGCSE) / Advanced (A level)** switch sits at the top of the left panel. Standard follows Pearson Edexcel International GCSE Chemistry (4CH1); Advanced follows Pearson Edexcel A level Chemistry (9CH0) and keeps everything in Standard. The choice is remembered in the browser. Key ideas carry spec tags (grey-green 4CH1, purple 9CH0, blue-grey beyond the spec). The presets listed below are shown at both levels; Advanced adds its own presets and an A level box under the readings. Batch runs are the same at both levels.
+
+- **Standard:** 4CH1 Section 4(b) Crude oil, 4(c) Alkanes, 4(d) Alkenes and 4(h) Synthetic polymers.
+- **Advanced:** 9CH0 Topic 6 Organic chemistry I (condensation polymers from Topics 17–18 for comparison).
+  Six A level presets (free-radical substitution; excess chlorine: a mixture; propene + HBr: major
+  product; ethene + steam: ethanol; burning PVC: HCl; poly(ethene): recycle or burn?) and eight A level
+  exam questions. **A level box:** *Free radicals* (a random model of CH₄ + Cl₂ in UV: initiation,
+  propagation, termination, and the mixture of products; mechanisms in depth are left to the separate
+  Organic mechanisms simulation), *Alkene reactions* (four alkenes with H₂, Br₂, HBr, steam, KMnO₄ and
+  polymerisation; major and minor products), *Polymer disposal* (eight polymers and four disposal routes,
+  with CO₂ and acidic gas per kg from the repeat unit, and atom economy) and *Fuels and pollutants*
+  (catalytic converters, reforming, biofuels).
+
 ## Controls
 
 - **Part of the story** (left panel): 1 · Crude oil, 2 · Cracking, 3 · Polymers.
