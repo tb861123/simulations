@@ -56,6 +56,7 @@ changing a simulation's batch experiments.
 | [`physics/nuclear_fusion/`](physics/nuclear_fusion/) | Fusion on a potential-energy diagram: the Coulomb barrier, quantum tunnelling, the Gamow peak, and the temperature and pressure needed in stars and reactors | Open `nuclear-fusion.html` |
 | [`physics/heating_insulation/`](physics/heating_insulation/) | Heating and insulating a house: conduction, convection, radiation, insulation costs and payback, cooling-can and Leslie cube practicals, cooling curves | Open `heating-insulation.html` |
 | [`physics/density_pressure/`](physics/density_pressure/) | Density and pressure: density practicals, p = F/A, liquid pressure, floating, gas pressure, terminal velocity | Open `density-pressure.html` |
+| [`physics/energy_resources/`](physics/energy_resources/) | Energy resources and electricity: power stations, running the GB grid, transformers and transmission losses, wind turbine practical | Open `energy-resources.html` |
 
 ## Chemistry
 
@@ -179,7 +180,7 @@ Standard level follows OCR GCSE (9–1) Physical Education (J587); Advanced foll
 |---|---|---|
 | [`physical_education/energy_systems/`](physical_education/energy_systems/) | Energy systems and recovery: ATP-PC, glycolytic and aerobic systems, energy continuum, EPOC (also listed under Biology) | Open `energy-systems.html` |
 | [`physical_education/training_adaptation/`](physical_education/training_adaptation/) | Training and adaptation: Q = SV × HR, principles and methods of training, adaptations, tapering (also listed under Biology) | Open `training-adaptation.html` |
-| [`physical_education/sport_biomechanics/`](physical_education/sport_biomechanics/) | Sport biomechanics: levers, planes and axes, stability, impulse, projectiles, drag and lift, angular momentum (also listed under Physics) | Open `sport-biomechanics.html` |
+| [`physical_education/sport_biomechanics/`](physical_education/sport_biomechanics/) | Sport biomechanics: levers, planes and axes, stability, impulse, projectiles, drag and lift, angular momentum, and Eduqas Physics Option C at A level (also listed under Physics) | Open `sport-biomechanics.html` |
 | [`physical_education/fitness_testing/`](physical_education/fitness_testing/) | Fitness testing: 12 fitness tests on a simulated squad, ratings, reliability, validity, typical error | Open `fitness-testing.html` |
 | [`physical_education/skill_acquisition/`](physical_education/skill_acquisition/) | Skill acquisition: your own reaction test and Hick's law, information processing, practice, guidance and feedback, classification, schema | Open `skill-acquisition.html` |
 | [`physical_education/arousal_performance/`](physical_education/arousal_performance/) | Arousal and performance: inverted-U, drive, catastrophe, ZOF, stress management, social facilitation, Ringelmann, attribution | Open `arousal-performance.html` |

@@ -10,12 +10,22 @@ the A level tabs appear when Advanced is chosen. The general physics of
 projectiles, drag and spin is in `physics/projectile_motion` (linked from the
 right panel); this simulation keeps to sport.
 
+**Also for A level Physics.** At the Advanced level the simulation also serves
+WJEC Eduqas A level Physics (A420QS) **option C, Sports physics**. The PE
+levels and tags are unchanged; physics ideas carry teal tags ("Eduqas Physics
+option C", or "Eduqas Physics core" for core content such as moments and
+impulse), and the level hint says so. Physics additions: a **🏀 Bounce** tab
+(coefficient of restitution with a drop-and-bounce practical), the moment of
+inertia part by part (I = Σmr²), rotational kinetic energy ½Iω², angular
+impulse and torque, a Bernoulli pressure-difference reading for the spinning
+ball, and 7 physics exam questions.
+
 ## What it shows
 
 A stylised athlete built from 13 body segments plus the head, with standard
 lengths and masses (fractions of height and body mass, after Dempster and
 Winter). Its centre of mass and moment of inertia come from the body shape
-itself. Seven tabs at the top of the centre panel:
+itself. Eight tabs at the top of the centre panel:
 
 - **🦴 Levers** (GCSE and A level): heading a ball (neck, first class), elbow
   extension in a throw (first class), calf raise / take-off (ankle, second
@@ -62,20 +72,39 @@ itself. Seven tabs at the top of the centre panel:
 - **🌀 Rotation** (A level): a diver doing forward 2½ somersaults tuck from
   10 m, a gymnast's back somersault and a figure skater's spin. Tuck, pike or
   layout, how tight, and when to open out. Graphs: ω and I against time, and
-  L = Iω (constant in the air).
+  L = Iω (constant in the air). At A level also **I = Σmr², part by part**
+  (each body part's share of I, open shape against now) and **rotational KE
+  ½Iω²** (rises in the tuck: work done by the muscles); readings add the
+  rotational KE and the angular impulse / average torque at take-off.
+- **🏀 Bounce** (A level Physics, Eduqas option C): tennis ball, basketball,
+  football, golf ball, table tennis ball, cold and warm squash balls, cricket
+  ball; on concrete, a sports-hall floor, artificial or natural grass, or a gym
+  mat; drop height 0.2–2.5 m. A strobe-style picture against a metre rule, with
+  air resistance. The practical: drop and read the bounce by eye (SD 2 cm) or
+  from video (SD 0.5 cm), five drops, or three drops from every height; a
+  results table with e = √(h₂ ÷ h₁) and the mean, SD and SE. Graphs: height
+  against time, h₂ against h₁ (gradient e², with your best line through the
+  origin), the force–time graph at the bounce (impulse = area), and kinetic
+  energy at each bounce (× e² each time).
 
 Right panel: what is happening, live readings, key ideas, exam practice
-(6 GCSE and 6 A level questions with mark schemes, several built from the
+(6 GCSE and 6 A level PE questions with mark schemes, several built from the
 numbers on screen: mechanical advantage, effort from moments, momentum and
-average force, landing impulse, push to topple, best release angle, L = Iω),
+average force, landing impulse, push to topple, best release angle, L = Iω;
+plus 7 A level Physics option C questions: I = Σmr² for a gymnast, rotational
+KE before and after tucking, e and the KE lost from your bounce heights, the
+impulse and average force at your ball's bounce, Bernoulli's pressure
+difference on a spinning ball, angular impulse and torque at take-off, and the
+terminal velocity of a table tennis ball),
 and "How the model works (and what it leaves out)".
 
 ## Controls
 
-- **Presets** (12): Third-class lever · Second-class lever · First-class lever
+- **Presets** (14): Third-class lever · Second-class lever · First-class lever
   · Sagittal plane · Frontal plane · Transverse plane · and at A level: Sprint
   start: impulse · Balance and stability · Shot put: release angle · Free kick
-  with sidespin · Streamlining and lift · Diver: tuck to spin.
+  with sidespin · Streamlining and lift · Diver: tuck to spin · and for A level
+  Physics: Bouncing ball: e · Tucking: I = Σmr², ½Iω².
 - The left panel shows the controls for the tab in use, plus body mass and
   height.
 - Play / Pause, Reset, speed 0.1× to 2× (1× = real time). Short movements
@@ -106,6 +135,15 @@ and "How the model works (and what it leaves out)".
 - Angular motion: L = Iω fixed at take-off; I worked out from the body shape
   every 5 ms (about 14 kg m² layout, 7.6 pike, 4.5 tuck; skater about 3.5
   arms out to 1.2 arms in). A small friction torque slows the skater.
+  Rotational KE = ½Iω² = L²/2I.
+- Bounce (Physics option C): weight and drag ½ρC_dAv² (C_d 0.5) in 1 ms steps;
+  leaving speed = e × arriving speed; h₂ = e²h₁ with no air. Typical e
+  (approximate, from the governing bodies' bounce tests): tennis 0.75 (ITF),
+  basketball 0.85 (FIBA), table tennis 0.90 (ITTF), squash 0.36 at 23 °C and
+  0.54 at 45 °C (WSF); football 0.80, golf 0.80, cricket 0.55 (rough). Surface
+  factors (illustrative): concrete 1, wood 0.97, artificial grass 0.85, grass
+  0.75, gym mat 0.45. Contact force: a half-sine over the contact time
+  (0.6–10 ms, approximate); impulse = m(v_in + v_out).
 
 Left out: muscle forces and joint angles in detail, the weight of the bones
 in levers, air resistance on the diver, twisting somersaults, spin decay, the
@@ -134,12 +172,25 @@ drawing. Every setting is in the table; tick one to sweep it.
 6. **Bend the knees: landing force vs stopping time**: 0.6 m drop; peak force
    falls from about 15 to 2 body weights, matching 1 + πv ÷ (2gt).
 
+Experiments 1–6 are unchanged. Three were added for A level Physics option C
+(new outcomes "bounce height" and "e from one drop"):
+
+7. **Bounce height vs drop height**: tennis ball by eye, 0.2–2.4 m: a straight
+   line of gradient e² ≈ 0.56, dipping slightly below at the top (air
+   resistance).
+8. **How precise is e from one drop?** 500 drops from 1.0 m by eye: SD of e
+   about 0.015; mean 0.737 against the true 0.75 (air resistance: perfect readings give 0.738).
+9. **When e = √(h₂/h₁) fails**: table tennis ball from 0.2–3 m by video:
+   √(h₂/h₁) falls further below the true 0.90 the higher the drop.
+
 ## Data sources
 
 - Winter, D. A. (2009), *Biomechanics and Motor Control of Human Movement*,
   4th edn (segment lengths and masses after Dempster, 1955).
 - Linthorne, N. P. (2001), Optimum release angle in the shot put, *Journal of
   Sports Sciences* 19, 359–372.
+- Bounce tests: ITF ball rules (tennis), FIBA (basketball), ITTF (table
+  tennis), World Squash ball specification; values approximate.
 - Typical drag areas for cyclists and swimmers, and spin lift coefficients
   for footballs (Goff and Carré, 2009) and golf balls, from the sports
   engineering literature; the ski-jump and discus lift models are
