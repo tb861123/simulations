@@ -18,6 +18,10 @@ offline. The originals are untouched in their subject folders.
 | Economics | The Trading Pit | [`supply_demand/supply-demand.html`](supply_demand/supply-demand.html) | Haggling buyers and sellers; tax, price cap and floor |
 | Physical Education | Luck, Skill and the League | [`luck_and_skill/luck-and-skill.html`](luck_and_skill/luck-and-skill.html) | Poisson-goal league and cup; regression to the mean |
 
+Three further simulations built from scratch with the same kit live in the
+main physics folder: `physics/quantum_wave_lab`, `physics/special_relativity`
+and `physics/wind_tunnel`. The gallery lists them too.
+
 ## What every one has
 
 - **Controls**: the live model with sliders, and direct manipulation on the picture (draw, drag, click).

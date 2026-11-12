@@ -177,7 +177,7 @@ const K = (() => {
     const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
     if (saved) document.documentElement.dataset.theme = saved;
     const top = $("header", "k-top"), main = $("main", "k-main");
-    top.innerHTML = `<a class="k-home" href="../index.html" title="Back to the Enhanced gallery">◂ Gallery</a>
+    top.innerHTML = `<a class="k-home" href="${o.home || "../index.html"}" title="Back to the list of simulations">◂ ${o.home ? "All simulations" : "Gallery"}</a>
       <div class="k-title"><span class="k-chip">${o.subject}</span><h1>${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
     const act = top.querySelector(".k-actions");
     const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
