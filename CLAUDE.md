@@ -9,7 +9,7 @@ holds one folder per simulation:
 
 | Subject folder | Simulations |
 |---|---|
-| `physics/` | `gas_in_a_box`, `simple_harmonic_motion`, `nuclear_fusion`, `states_of_matter`, `youngs_modulus`, `projectile_motion`, `circular_motion`, `waves`, `optics_refraction`, `fields_orbits`, `photoelectric_effect`, `atomic_spectra`, `radioactive_decay`, `nuclear_fission`, `particle_physics`, `circuits`, `capacitors`, `magnetism_induction`, `heating_insulation`, `density_pressure`, `energy_resources` |
+| `physics/` | `gas_in_a_box`, `simple_harmonic_motion`, `nuclear_fusion`, `states_of_matter`, `youngs_modulus`, `projectile_motion`, `circular_motion`, `waves`, `optics_refraction`, `fields_orbits`, `photoelectric_effect`, `atomic_spectra`, `radioactive_decay`, `nuclear_fission`, `particle_physics`, `circuits`, `capacitors`, `magnetism_induction`, `heating_insulation`, `density_pressure`, `energy_resources`, `quantum_wave_lab`, `special_relativity`, `wind_tunnel` |
 | `chemistry/` | `collision_theory`, `dynamic_equilibrium`, `crystallisation`, `atomic_structure`, `bonding`, `organic_chemistry`, `periodic_groups`, `reactivity_metals`, `electrolysis`, `energy_changes`, `acids_salts_tests`, `chromatography`, `moles_reacting_masses`, `electrochemical_cells` |
 | `biology/` | `natural_selection`, `epidemics`, `predator_prey`, `membranes`, `enzymes`, `photosynthesis_respiration`, `inheritance`, `dna_cell_division`, `ecosystems`, `homeostasis`, `immunity`, `plant_transport`, `biotechnology` |
 | `engineering/` | `earthquake_buildings`, `traffic_flow`, `car_crash`, `aerofoil_flow` |
@@ -28,6 +28,14 @@ Never commit to them; make every change here. A new simulation goes in its
 own folder inside the right subject folder and gets a row in the root
 `README.md`, a line in the `SIMS` list in the front page `index.html`, and a
 thumbnail `thumbs/<folder>.jpg` (a 640×360 screenshot).
+
+`Enhanced/` holds ten showpiece rebuilds (one per subject) with their own
+gallery `Enhanced/index.html`. They are the one place with a shared toolkit:
+edit `Enhanced/_build/kit.*` or `Enhanced/_build/src/<name>.js`, then run
+`node build.js` from inside `Enhanced/_build/` to regenerate the single-file
+pages. Never edit the built HTML by hand. Three physics simulations
+(`quantum_wave_lab`, `special_relativity`, `wind_tunnel`) are built from the
+same kit into `physics/`.
 
 `tools/worksheets/` holds the teacher-side scripts that run every batch
 experiment and generate each simulation's `worksheets.html`. Re-run them for

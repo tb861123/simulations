@@ -1,0 +1,573 @@
+<!doctype html>
+<!-- Wildfire: one self-contained file, works offline. Built from Enhanced/_build (kit.css, kit.js, src/forest_fire.js); edit those and run "node build.js". -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Wildfire</title>
+<style>
+/* ===== Enhanced simulations: shared look and feel (inlined into every page by build.js) ===== */
+:root{
+  --bg:#0a0f1c; --panel:#111a2c; --panel2:#17223a; --line:#24324f; --text:#e9eef8; --muted:#8fa0bf; --grid:#1f2c47;
+  --accent:#5ad1ff; --accent-ink:#04121c; --good:#6ee7a0; --warn:#ffb454; --bad:#ff6b81;
+  --s0:#5ad1ff; --s1:#ffb454; --s2:#7ee787; --s3:#ff7b9c; --s4:#c4a1ff; --s5:#ffe66d;
+  --shadow:0 10px 30px rgba(0,0,0,.45); --r:12px;
+}
+:root[data-theme=light]{
+  --bg:#eef2f8; --panel:#ffffff; --panel2:#f3f6fb; --line:#d5dceb; --text:#172033; --muted:#5d6b85; --grid:#e3e8f2;
+  --accent:#0b7fc2; --accent-ink:#ffffff; --good:#12924c; --warn:#b86a00; --bad:#d1344d;
+  --s0:#0b7fc2; --s1:#d97a00; --s2:#1b9e4b; --s3:#d6336c; --s4:#7048c8; --s5:#a08800;
+  --shadow:0 8px 24px rgba(30,50,90,.15);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+.k-top{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;min-height:52px}
+.k-home{color:var(--muted);text-decoration:none;font-size:13px;white-space:nowrap}.k-home:hover{color:var(--accent)}
+.k-title{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
+.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+.k-chip{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 9px;white-space:nowrap;align-self:center}
+.k-blurb{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-actions{display:flex;gap:6px;flex:none}
+.k-btn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:.12s;user-select:none}
+.k-btn:hover{border-color:var(--accent);color:var(--accent)}
+.k-btn:active{transform:translateY(1px)}
+.k-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.k-btn.primary:hover{filter:brightness(1.1);color:var(--accent-ink)}
+.k-btn.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel2))}
+.k-btn.small{padding:3px 9px;font-size:12.5px}
+.k-btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.k-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
+.k-left{display:flex;flex-direction:column;min-width:0;min-height:0}
+.k-stage{flex:1;position:relative;min-height:0;background:#060a14;overflow:hidden}
+.k-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.k-dock{flex:none;height:190px;display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.k-dock:empty{display:none}
+.k-dock>*{flex:1;min-width:0;background:var(--panel)}
+.k-chart{position:relative;height:100%;min-height:80px}
+.k-chart canvas{position:absolute;inset:0;width:100%;height:100%}
+.k-side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.k-tabs{display:flex;border-bottom:1px solid var(--line);flex:none}
+.k-tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:10px 4px;cursor:pointer;color:var(--muted);font-weight:600}
+.k-tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.k-pane{flex:1;overflow-y:auto;padding:12px 14px 20px;display:none;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.k-pane.on{display:block}
+.k-group{margin-bottom:14px}
+.k-group>h3{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);margin:0 0 8px;font-weight:700}
+.k-ctl{margin-bottom:10px}
+.k-ctl label{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:2px}
+.k-ctl label b{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.k-ctl small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3;margin-top:1px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:none;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-moz-range-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);margin-top:-6.5px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+.k-seg{display:flex;flex-wrap:wrap;gap:4px}
+.k-seg .k-btn{flex:1 1 auto;padding:5px 8px;font-size:13px;text-align:center}
+.k-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.k-row .k-btn{flex:1 1 auto;text-align:center}
+.k-toggle{display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:9px;font-size:13px;user-select:none}
+.k-toggle i{flex:none;width:34px;height:19px;border-radius:99px;background:var(--line);position:relative;transition:.15s}
+.k-toggle i::after{content:"";position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;background:var(--muted);transition:.15s}
+.k-toggle.on i{background:var(--accent)}.k-toggle.on i::after{left:17px;background:var(--accent-ink)}
+.k-read{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.k-read div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 9px}
+.k-read span{display:block;font-size:11px;color:var(--muted)}
+.k-read b{font-size:16px;font-variant-numeric:tabular-nums;font-weight:650}
+.k-mcard{border:1px solid var(--line);background:var(--panel2);border-radius:var(--r);padding:11px 12px;margin-bottom:10px}
+.k-mcard h4{margin:0 0 4px;font-size:14.5px;display:flex;gap:8px;align-items:center}
+.k-mcard h4 em{font-style:normal;flex:none;width:22px;height:22px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:12px}
+.k-mcard.done h4 em{background:var(--good);color:#04130a}
+.k-mcard p{margin:0 0 8px;color:var(--muted);font-size:13px}
+.k-banner{position:absolute;left:12px;top:12px;max-width:min(520px,70%);background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--accent);border-radius:var(--r);padding:10px 34px 10px 13px;box-shadow:var(--shadow);z-index:5;backdrop-filter:blur(6px);font-size:13.5px}
+.k-banner b{color:var(--accent)}
+.k-banner .x{position:absolute;right:8px;top:6px;cursor:pointer;color:var(--muted);background:none;border:0;font-size:16px}
+.k-banner details{margin-top:6px;color:var(--muted)}.k-banner summary{cursor:pointer;color:var(--warn)}
+.k-tip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(8,14,26,.82);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:99px;padding:6px 16px;font-size:13px;pointer-events:none;z-index:4;transition:opacity .6s;white-space:nowrap}
+.k-hud{position:absolute;right:12px;top:12px;background:rgba(8,14,26,.72);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:10px;padding:7px 11px;font-size:12.5px;z-index:3;pointer-events:none;font-variant-numeric:tabular-nums;line-height:1.5;text-align:right}
+.k-notes h3{font-size:14px;margin:14px 0 4px;color:var(--accent)}.k-notes h3:first-child{margin-top:0}
+.k-notes p,.k-notes li{font-size:13px;color:var(--text)}.k-notes ul{padding-left:18px;margin:4px 0}
+.k-notes code{background:var(--panel2);padding:1px 5px;border-radius:5px;font-size:12.5px}
+.k-overlay{position:fixed;inset:0;background:rgba(3,6,12,.7);display:none;z-index:50;backdrop-filter:blur(3px)}
+.k-overlay.on{display:grid;place-items:center}
+.k-modal{width:min(1180px,95vw);height:min(700px,92vh);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:grid;grid-template-columns:290px 1fr;overflow:hidden}
+.k-blist{border-right:1px solid var(--line);overflow-y:auto;padding:14px}
+.k-blist h2{font-size:16px;margin:0 0 4px}.k-blist>p{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+.k-bitem{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;cursor:pointer}
+.k-bitem.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.k-bitem b{display:block;font-size:13.5px}.k-bitem span{color:var(--muted);font-size:12.5px}
+.k-bmain{display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 16px}
+.k-bhead{display:flex;gap:10px;align-items:flex-start}
+.k-bhead h3{margin:0;font-size:17px;flex:1}.k-bhead p{margin:3px 0 0;color:var(--muted);font-size:13px;font-weight:400}
+.k-bbar{display:flex;gap:10px;align-items:center;margin:10px 0 8px}
+.k-prog{flex:1;height:6px;background:var(--line);border-radius:9px;overflow:hidden}.k-prog i{display:block;height:100%;width:0;background:var(--accent)}
+.k-bchart{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.k-bfoot{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;height:150px;margin-top:10px}
+.k-btable{overflow:auto;border:1px solid var(--line);border-radius:10px;font-size:12.5px}
+.k-btable table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.k-btable th,.k-btable td{padding:3px 8px;text-align:right;border-bottom:1px solid var(--line)}
+.k-btable th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600}
+.k-bnote{overflow:auto;font-size:13px;color:var(--muted);background:var(--panel2);border-radius:10px;padding:9px 12px}
+.k-bnote b{color:var(--text)}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+</style></head><body>
+<script>
+"use strict";
+/* =====================================================================
+   K: the small shared toolkit behind every Enhanced simulation.
+   It builds the page frame (header, stage, chart dock, side panel),
+   the sliders and buttons, the live charts, the Investigations cards
+   and the Batch run window. Each simulation's own code (below this
+   script in the page) holds the science.
+   ===================================================================== */
+const K = (() => {
+  const $ = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const col = i => cssVar("--s" + (i % 6));
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // ---- Repeatable random numbers: the same seed always gives the same run ----
+  function rng(seed) {
+    let a = (seed >>> 0) || 1;
+    const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    r.gauss = () => { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307179586 * r()); };
+    r.int = n => Math.floor(r() * n);
+    r.pick = arr => arr[Math.floor(r() * arr.length)];
+    return r;
+  }
+  // ---- Simple statistics ----
+  const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+  const sd = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); };
+  const se = a => sd(a) / Math.sqrt(a.length || 1);
+  function linfit(pts) { // least-squares straight line through [x,y] points
+    const n = pts.length, mx = mean(pts.map(p => p[0])), my = mean(pts.map(p => p[1]));
+    let sxy = 0, sxx = 0, syy = 0; for (const [x, y] of pts) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; syy += (y - my) ** 2; }
+    const m = sxy / (sxx || 1); return { m, c: my - m * mx, r: sxy / Math.sqrt((sxx * syy) || 1), n };
+  }
+  function download(name, text) { const a = $("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  const sig = (v, n = 3) => { if (v == null || !isFinite(v)) return "–"; if (v === 0) return "0"; const a = Math.abs(v); if (a >= 1e5 || a < 1e-3) return v.toExponential(n - 1); return String(+v.toPrecision(n)); };
+
+  // ---- Controls ----
+  function slider(parent, o) {
+    const w = $("div", "k-ctl"), lab = $("label"), name = $("span", "", o.label), val = $("b"), inp = $("input");
+    inp.type = "range"; inp.min = o.min; inp.max = o.max; inp.step = o.step || 1; inp.value = o.value;
+    const fmt = o.fmt || (v => sig(v, 4) + (o.unit ? " " + o.unit : ""));
+    const show = () => val.innerHTML = fmt(+inp.value);
+    lab.append(name, val); w.append(lab, inp); if (o.tip) w.append($("small", "", o.tip)); parent.append(w); show();
+    inp.addEventListener("input", () => { show(); o.on && o.on(+inp.value); });
+    return { el: w, get value() { return +inp.value; }, set(v, fire) { inp.value = v; show(); if (fire) o.on && o.on(+inp.value); } };
+  }
+  function seg(parent, o) {
+    const w = $("div", "k-ctl"); if (o.label) w.append($("label", "", `<span>${o.label}</span>`));
+    const row = $("div", "k-seg"); w.append(row); if (o.tip) w.append($("small", "", o.tip)); parent.append(w);
+    let value = o.value; const btns = [];
+    const paint = () => btns.forEach(([v, b]) => b.classList.toggle("on", v === value));
+    for (const [v, label, title] of o.options) { const b = $("button", "k-btn", label); if (title) b.title = title; b.onclick = () => { value = v; paint(); o.on && o.on(v); }; row.append(b); btns.push([v, b]); }
+    paint();
+    return { el: w, get value() { return value; }, set(v, fire) { value = v; paint(); if (fire) o.on && o.on(v); } };
+  }
+  function toggle(parent, o) {
+    const w = $("div", "k-toggle" + (o.value ? " on" : ""), `<i></i><span>${o.label}</span>`); parent.append(w); let value = !!o.value;
+    w.onclick = () => { value = !value; w.classList.toggle("on", value); o.on && o.on(value); };
+    return { el: w, get value() { return value; }, set(v, fire) { value = !!v; w.classList.toggle("on", value); if (fire) o.on && o.on(value); } };
+  }
+  function btn(parent, label, on, cls) { const b = $("button", "k-btn " + (cls || ""), label); b.onclick = on; parent.append(b); return b; }
+  function row(parent) { const r = $("div", "k-row"); parent.append(r); return r; }
+  function readout(parent, items) { // small tiles of live numbers
+    const g = $("div", "k-read"), map = {}; parent.append(g);
+    for (const [id, label] of items) { const d = $("div", "", `<span>${label}</span><b>–</b>`); g.append(d); map[id] = d.lastChild; }
+    return { el: g, set(id, v) { if (map[id].textContent !== String(v)) map[id].innerHTML = v; } };
+  }
+  function note(parent, html) { const s = $("small", "", html); s.style.cssText = "display:block;color:var(--muted);margin:-2px 0 10px;font-size:12px;line-height:1.35"; parent.append(s); return s; }
+
+  // ---- A canvas that stays sharp on high-DPI screens and follows its container's size ----
+  function canvas(parent, onresize) {
+    const cv = $("canvas"); parent.append(cv); const c = { el: cv, ctx: cv.getContext("2d"), w: 1, h: 1, dpr: 1 };
+    const fit = () => {
+      const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
+      c.dpr = Math.min(window.devicePixelRatio || 1, 2); c.w = w; c.h = h; cv.width = Math.round(w * c.dpr); cv.height = Math.round(h * c.dpr);
+      c.ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0); onresize && onresize(c);
+    };
+    new ResizeObserver(fit).observe(parent); fit(); return c;
+  }
+  // Pointer handling in the element's own pixel coordinates
+  function pointer(el, h) {
+    const pos = e => { const r = el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, e }; };
+    let down = false;
+    el.addEventListener("pointerdown", e => { down = true; el.setPointerCapture(e.pointerId); h.down && h.down(pos(e)); });
+    el.addEventListener("pointermove", e => { const p = pos(e); if (down) h.drag && h.drag(p); else h.hover && h.hover(p); });
+    const up = e => { if (down) { down = false; h.up && h.up(pos(e)); } };
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+    el.addEventListener("pointerleave", e => h.leave && h.leave(pos(e)));
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+
+  // ---- Charts ----
+  const charts = new Set();
+  function niceTicks(a, b, n) {
+    const span = (b - a) || 1, raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    const step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p, t = [];
+    for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + step * 1e-6; v += step) t.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    return { t, step };
+  }
+  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(0); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
+  /* chart(parent,{title,xLabel,yLabel,xMin,xMax,yMin,yMax,yZero})  then  .draw(series, extra)
+     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r}]
+     extra:  {xMin..yMax overrides, vlines:[{x,color,label,dash}], hlines:[{y,...}], bands:[{x0,x1,color}]} */
+  function chart(parent, o = {}) {
+    const wrap = $("div", "k-chart"), cv = $("canvas"); wrap.append(cv); parent.append(wrap);
+    const ctx = cv.getContext("2d"); let last = [[], {}];
+    const api = { el: wrap, opts: o, draw(series, extra) { last = [series || [], extra || {}]; render(); }, redraw: () => render(), map: null };
+    function render() {
+      const W = wrap.clientWidth, H = wrap.clientHeight; if (W < 40 || H < 40) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      const [series, ex] = last, q = Object.assign({}, o, ex);
+      const text = cssVar("--text"), muted = cssVar("--muted"), grid = cssVar("--grid");
+      // work out the axis ranges from the data unless they are fixed
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const s of series) for (const p of s.pts) { if (!isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
+      for (const l of q.hlines || []) { if (l.y < y0) y0 = l.y; if (l.y > y1) y1 = l.y; }
+      if (!isFinite(x0)) { x0 = 0; x1 = 1; } if (!isFinite(y0)) { y0 = 0; y1 = 1; }
+      if (q.yZero || series.some(s => s.type === "bars")) { y0 = Math.min(0, y0); y1 = Math.max(0, y1); }
+      const py = (y1 - y0) * 0.08 || Math.abs(y1) * 0.1 || 1; if (q.yMin == null && y0 !== 0) y0 -= py; if (q.yMax == null) y1 += py;
+      if (x1 === x0) { x0 -= 0.5; x1 += 0.5; }
+      if (q.xMin != null) x0 = q.xMin; if (q.xMax != null) x1 = q.xMax; if (q.yMin != null) y0 = q.yMin; if (q.yMax != null) y1 = q.yMax;
+      const L = 54, R = 12, T = 24, B = q.xLabel ? 34 : 22, pw = W - L - R, ph = H - T - B;
+      const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + ph - (y - y0) / (y1 - y0) * ph;
+      api.map = { X, Y, x0, x1, y0, y1, L, T, pw, ph };
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; ctx.lineWidth = 1;
+      for (const b of q.bands || []) { ctx.fillStyle = b.color; ctx.fillRect(X(Math.max(x0, b.x0)), T, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)), ph); }
+      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70))), yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.beginPath();
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      for (const v of xt.t) { const x = Math.round(X(v)) + .5; ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.fillText(q.xFmt ? q.xFmt(v) : tickFmt(v, xt.step), x, T + ph + 4); }
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      for (const v of yt.t) { const y = Math.round(Y(v)) + .5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.fillText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step), L - 5, y); }
+      ctx.stroke(); ctx.strokeStyle = muted; ctx.strokeRect(L + .5, T + .5, pw, ph);
+      if (q.xLabel) { ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(q.xLabel, L + pw / 2, H - 3); }
+      if (q.yLabel) { ctx.save(); ctx.translate(11, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(q.yLabel, 0, 0); ctx.restore(); }
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+      series.forEach((s, i) => {
+        const c = s.color || col(i); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = s.width || 1.8; ctx.setLineDash(s.dash || []); ctx.globalAlpha = s.alpha == null ? 1 : s.alpha;
+        const P = s.pts;
+        if (s.type === "bars") { const w = Math.max(1, Math.abs(X(s.w || 1) - X(0)) - 1); for (const p of P) { const yy = Y(p[1]); ctx.fillRect(X(p[0]) - w / 2, Math.min(yy, Y(0)), w, Math.abs(Y(0) - yy)); } }
+        else if (s.type === "dots" || s.type === "err") {
+          const r = s.r || 3;
+          for (const p of P) { const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+        } else {
+          ctx.beginPath(); let pen = false;
+          for (const p of P) { if (!isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
+          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= .22; ctx.fill(); } else ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+      });
+      for (const l of q.vlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(l.x), T); ctx.lineTo(X(l.x), T + ph); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = X(l.x) > L + pw * .7 ? "right" : "left"; ctx.textBaseline = "top"; ctx.fillText(l.label, X(l.x) + (ctx.textAlign === "right" ? -5 : 5), T + 4 + (l.row || 0) * 13); } }
+      for (const l of q.hlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Y(l.y)); ctx.lineTo(L + pw, Y(l.y)); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(l.label, L + pw - 5, Y(l.y) - 2); } }
+      ctx.restore();
+      // title on the left, legend on the right
+      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
+      for (let i = series.length - 1; i >= 0; i--) { const s = series[i]; if (!s.label) continue; const w = ctx.measureText(s.label).width; lx -= w; ctx.fillStyle = muted; ctx.fillText(s.label, lx, 12); lx -= 12; ctx.fillStyle = s.color || col(i); ctx.fillRect(lx, 8, 8, 8); lx -= 10; }
+      if (q.title) { // the title gives way (with an ellipsis) if the legend needs the room
+        ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.fillStyle = text; let t = q.title; const room = lx - L - 8;
+        if (ctx.measureText(t).width > room) { while (t.length > 3 && ctx.measureText(t + "…").width > room) t = t.slice(0, -1); t = t.length > 3 ? t + "…" : ""; }
+        ctx.fillText(t, L, 12);
+      }
+    }
+    new ResizeObserver(render).observe(wrap); charts.add(api); return api;
+  }
+  function histogram(vals, bins, lo, hi) { // returns bar points [centre, count] and the bin width
+    if (lo == null) lo = Math.min(...vals); if (hi == null) hi = Math.max(...vals); if (hi === lo) { hi += .5; lo -= .5; }
+    const w = (hi - lo) / bins, c = new Array(bins).fill(0);
+    for (const v of vals) { const i = Math.floor((v - lo) / w); if (i >= 0 && i <= bins) c[Math.min(i, bins - 1)]++; }
+    return { pts: c.map((n, i) => [lo + (i + .5) * w, n]), w };
+  }
+
+  // ---- The page frame ----
+  function app(o) {
+    document.title = o.title + " · Enhanced simulations";
+    const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
+    if (saved) document.documentElement.dataset.theme = saved;
+    const top = $("header", "k-top"), main = $("main", "k-main");
+    top.innerHTML = `<a class="k-home" href="${o.home || "../index.html"}" title="Back to the list of simulations">◂ ${o.home ? "All simulations" : "Gallery"}</a>
+      <div class="k-title"><span class="k-chip">${o.subject}</span><h1>${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
+    const act = top.querySelector(".k-actions");
+    const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
+    left.append(stage, dock); main.append(left, side); document.body.append(top, main);
+    const ui = { stage, dock, side, playing: true, speed: 1, canvas: fn => canvas(stage, fn) };
+    // header buttons
+    const bPlay = btn(act, "⏸ Pause", () => ui.setPlaying(!ui.playing)); bPlay.title = "Space bar";
+    ui.setPlaying = p => { ui.playing = p; bPlay.innerHTML = p ? "⏸ Pause" : "▶ Play"; bPlay.classList.toggle("primary", !p); };
+    if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
+    if (o.reset) btn(act, "↺ Reset", () => o.reset());
+    if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
+    btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
+    btn(act, "⛶", () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).title = "Full screen";
+    addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
+    // side panel tabs
+    const tabs = $("nav", "k-tabs"), panes = {}; side.append(tabs);
+    const names = [["controls", "Controls"], ["missions", "Investigate"], ["notes", "The model"]];
+    const show = id => { for (const [k] of names) { panes[k].classList.toggle("on", k === id); panes[k]._tab.classList.toggle("on", k === id); } };
+    for (const [k, label] of names) { const b = $("button", "", label); b.onclick = () => show(k); tabs.append(b); panes[k] = $("div", "k-pane" + (k === "notes" ? " k-notes" : "")); panes[k]._tab = b; side.append(panes[k]); }
+    show("controls"); ui.controls = panes.controls; ui.showTab = show;
+    ui.group = title => { const g = $("div", "k-group", title ? `<h3>${title}</h3>` : ""); panes.controls.append(g); return g; };
+    panes.notes.innerHTML = o.notes || "";
+    // investigations: each card sets the simulation up and pins its question over the stage
+    let banner = null;
+    ui.mission = m => {
+      if (banner) banner.remove(); banner = null; if (!m) return;
+      banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
+      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
+    };
+    (o.missions || []).forEach((m, i) => {
+      const c = $("div", "k-mcard", `<h4><em>${i + 1}</em>${m.title}</h4><p>${m.q}</p>`);
+      btn(c, "Set it up ▸", () => { c.classList.add("done"); c.querySelector("em").textContent = "✓"; m.setup && m.setup(); ui.mission(m); ui.setPlaying(true); show("controls"); }, "small primary");
+      panes.missions.append(c);
+    });
+    // floating hint and heads-up text over the stage
+    let tipEl = null, tipT = 0;
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; } hudEl.style.display = html ? "" : "none"; };
+    // animation loop: step(dt) only while playing, draw() every frame
+    ui.run = (step, draw) => { let t0 = performance.now(); const f = t => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (ui.playing && !ov.classList.contains("on")) step(dt); draw(dt); requestAnimationFrame(f); }; requestAnimationFrame(f); };
+
+    // ---- Batch run window ----
+    const ov = $("div", "k-overlay"); document.body.append(ov);
+    let bstate = null;
+    function openBatch() {
+      ov.classList.add("on"); if (bstate) return;
+      const modal = $("div", "k-modal"), list = $("div", "k-blist", `<h2>📊 Batch run</h2><p>Runs the model many times without drawing it, then compares the results with theory. Pick a question:</p>`), mainB = $("div", "k-bmain");
+      modal.append(list, mainB); ov.append(modal); ov.addEventListener("pointerdown", e => { if (e.target === ov) ov.classList.remove("on"); });
+      mainB.innerHTML = `<div class="k-bhead"><h3></h3></div><div class="k-bbar"></div><div class="k-bchart"></div><div class="k-bfoot"><div class="k-btable"></div><div class="k-bnote"></div></div>`;
+      const head = mainB.querySelector("h3"), bar = mainB.querySelector(".k-bbar"), tbl = mainB.querySelector(".k-btable"), noteEl = mainB.querySelector(".k-bnote");
+      btn(mainB.querySelector(".k-bhead"), "✕ Close", () => ov.classList.remove("on"));
+      const ch = chart(mainB.querySelector(".k-bchart"), {});
+      const bRun = btn(bar, "▶ Run", () => runExp(), "primary"), prog = $("div", "k-prog", "<i></i>"), status = $("span", "", ""); status.style.cssText = "color:var(--muted);font-size:12.5px;min-width:110px";
+      const bCsv = btn(bar, "⬇ CSV", () => bstate.rows.length && download(o.title.replace(/\W+/g, "-").toLowerCase() + "-batch.csv", bstate.csv()));
+      bar.insertBefore(prog, bCsv); bar.insertBefore(status, bCsv);
+      bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
+      const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
+      function pick(e) { bstate.token++; bstate.exp = e; bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
+      function paint() {
+        const e = bstate.exp, rows = bstate.rows, series = [], extra = { title: "", xLabel: e.xs ? e.xLabel : e.yLabel, yLabel: e.xs ? e.yLabel : "number of runs" };
+        if (e.xs) {
+          const groups = e.xs.map(x => rows.filter(r => r[0] === x).map(r => r[3])), done = e.xs.map((x, i) => [x, groups[i]]).filter(g => g[1].length);
+          if (e.theory) { const a = Math.min(...e.xs), b = Math.max(...e.xs), tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, e.theory(x)]); } series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
+          series.push({ pts: rows.map(r => [r[0], r[3]]), type: "dots", color: cssVar("--s0"), alpha: .3, r: 2.5, label: "single runs" });
+          series.push({ pts: done.map(([x, g]) => [x, mean(g), se(g)]), type: "err", color: cssVar("--s0"), r: 4.5, label: "mean ± SE" });
+          let fitTxt = "";
+          if (e.fit && done.length > 2) { const f = linfit(done.map(([x, g]) => [x, mean(g)])), a = Math.min(...e.xs), b = Math.max(...e.xs); series.push({ pts: [[a, f.m * a + f.c], [b, f.m * b + f.c]], color: cssVar("--s2"), label: "best-fit line" }); fitTxt = `<tr><td colspan="6" style="text-align:left">Best-fit line: gradient <b>${sig(f.m)}</b>, intercept ${sig(f.c)}, r = ${f.r.toFixed(3)}</td></tr>`; }
+          extra.xMin = Math.min(...e.xs) - (Math.max(...e.xs) - Math.min(...e.xs)) * .05; extra.xMax = Math.max(...e.xs) + (Math.max(...e.xs) - Math.min(...e.xs)) * .05; if (e.yMin != null) extra.yMin = e.yMin; if (e.yMax != null) extra.yMax = e.yMax;
+          tbl.innerHTML = `<table><tr><th>${e.xLabel}</th><th>runs</th><th>mean</th><th>SD</th><th>SE</th>${e.theory ? "<th>theory</th>" : ""}</tr>` + done.map(([x, g]) => `<tr><td>${sig(x, 4)}</td><td>${g.length}</td><td>${sig(mean(g))}</td><td>${sig(sd(g))}</td><td>${sig(se(g))}</td>${e.theory ? `<td>${sig(e.theory(x))}</td>` : ""}</tr>`).join("") + fitTxt + "</table>";
+        } else {
+          const v = rows.map(r => r[3]);
+          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); }
+          tbl.innerHTML = v.length ? `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${e.theory != null ? "<th>theory</th>" : ""}</tr><tr><td>${v.length}</td><td>${sig(mean(v))}</td><td>${sig(sd(v))}</td><td>${sig(se(v))}</td><td>${sig(Math.min(...v))}</td><td>${sig(Math.max(...v))}</td>${e.theory != null ? `<td>${sig(+e.theory)}</td>` : ""}</tr></table>` : "";
+        }
+        ch.opts.xFmt = null; ch.draw(series, extra);
+      }
+      function runExp() {
+        const e = bstate.exp, token = ++bstate.token; bstate.rows = []; const tasks = [];
+        if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) tasks.push([x, r]); } else for (let r = 0; r < (e.reps || 200); r++) tasks.push([0, r]);
+        let i = 0; const seed0 = (Date.now() % 100000) * 7 + 1; bRun.textContent = "■ Stop"; bRun.onclick = () => { bstate.token++; fin(); };
+        const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
+        (function slice() {
+          if (token !== bstate.token) return; const t = performance.now();
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
+          if (i < tasks.length) setTimeout(slice, 0); else fin();
+        })();
+      }
+      pick(o.batch[0]);
+    }
+    ui.openBatch = openBatch;
+    return ui;
+  }
+  return { $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app };
+})();
+</script>
+<script>
+/* =====================================================================
+   WILDFIRE
+   The landscape is a grid of 200 x 112 cells (each about 10 m across).
+   A cell is bare ground, fuel (grass or forest), burning, or burnt.
+   Each time step, a burning cell tries to set light to its neighbours.
+   The chance of success depends on:
+      - how dry the fuel is
+      - the wind (fire is blown downwind, and embers jump ahead)
+      - the slope (fire runs uphill: flames lean into the fuel above)
+   Simple local rules, but the fire front, its shape and whether it
+   dies out or sweeps the whole map all emerge from them.
+   ===================================================================== */
+const GW = 200, GH = 112, NC = GW * GH;
+const EMPTY = 0, TREE = 1, FIRE = 2, ASH = 3, BREAK = 4, HOUSE = 5, WATER = 6;
+
+// Smooth random hills (a few layers of interpolated noise)
+function terrain(rand, hills) {
+  const h = new Float32Array(NC);
+  for (let o = 0; o < 3; o++) { const cells = [18, 9, 5][o], amp = [1, .45, .2][o], gw = Math.ceil(GW / cells) + 2, gh = Math.ceil(GH / cells) + 2, n = new Float32Array(gw * gh); for (let i = 0; i < n.length; i++) n[i] = rand();
+    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) { const fx = x / cells, fy = y / cells, ix = fx | 0, iy = fy | 0, tx = fx - ix, ty = fy - iy, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty); const a = n[ix + iy * gw], b = n[ix + 1 + iy * gw], c = n[ix + (iy + 1) * gw], d = n[ix + 1 + (iy + 1) * gw]; h[x + y * GW] += amp * (a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy); } }
+  for (let i = 0; i < NC; i++) h[i] = (h[i] / 1.65) * hills; return h;
+}
+class Land {
+  constructor(rand, o = {}) {
+    this.r = rand; this.o = Object.assign({ density: 0.75, dry: 0.6, wind: 0, windDir: 0, hills: 1, pure: false, embers: true }, o);
+    this.s = new Uint8Array(NC); this.age = new Uint8Array(NC); this.h = terrain(rand, this.o.hills * 60); this.shade = new Float32Array(NC); this.burning = []; this.burnt = 0; this.fuel = 0; this.t = 0; this.houses = 0; this.housesLost = 0; this.sparks = [];
+    for (let i = 0; i < NC; i++) { this.shade[i] = rand(); if (rand() < this.o.density) { this.s[i] = TREE; this.fuel++; } }
+  }
+  ignite(x, y) { const i = x + y * GW; if (x < 0 || y < 0 || x >= GW || y >= GH) return; if (this.s[i] === TREE || this.s[i] === HOUSE) { if (this.s[i] === HOUSE) this.housesLost++; this.s[i] = FIRE; this.age[i] = 0; this.burning.push(i); } }
+  // One time step (about 1 minute)
+  step() {
+    const { s, age, h, o, r } = this, next = [], cur = this.burning, wx = Math.cos(o.windDir) * o.wind, wy = Math.sin(o.windDir) * o.wind; this.t++;
+    this.burning = [];            // cells lit during this step are collected here by ignite() and start spreading next step
+    for (const i of cur) {
+      const x = i % GW, y = (i / GW) | 0;
+      if (o.pure) { // "pure percolation": fire always spreads to the 4 touching neighbours, nothing else matters
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < GW && yy < GH && s[xx + yy * GW] === TREE) this.ignite(xx, yy); }
+        s[i] = ASH; this.burnt++; continue;
+      }
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue; const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= GW || yy >= GH) continue; const j = xx + yy * GW; if (s[j] !== TREE && s[j] !== HOUSE) continue;
+        const len = dx && dy ? 1.414 : 1;
+        let p = 0.07 + 0.42 * o.dry * o.dry;                                 // drier fuel catches more easily
+        p *= Math.exp(1.1 * (dx * wx + dy * wy) / len);                      // wind pushes flames downwind
+        p *= Math.exp(K.clamp((h[j] - h[i]) * 0.5, -1.2, 1.6));              // uphill is easier, downhill harder
+        if (len > 1) p *= 0.7;                                               // diagonal neighbours are further away
+        if (r() < p) this.ignite(xx, yy);
+      }
+      // embers: strong wind throws burning fragments far ahead of the front ("spotting")
+      if (o.embers && o.wind > 0.5 && r() < 0.012 * o.wind * o.dry) { const d = 4 + r() * 16 * o.wind, xx = Math.round(x + Math.cos(o.windDir + (r() - .5) * .5) * d), yy = Math.round(y + Math.sin(o.windDir + (r() - .5) * .5) * d); if (xx >= 0 && yy >= 0 && xx < GW && yy < GH && s[xx + yy * GW] === TREE) { this.sparks.push({ x0: x, y0: y, x1: xx, y1: yy, t: 0 }); } }
+      if (++age[i] >= 5) { s[i] = ASH; this.burnt++; } else next.push(i);   // a cell burns for 5 steps, then it is ash
+    }
+    this.burning = next.concat(this.burning);
+    for (const sp of this.sparks) { sp.t += 0.2; if (sp.t >= 1 && !sp.done) { sp.done = true; this.ignite(sp.x1, sp.y1); } } this.sparks = this.sparks.filter(sp => sp.t < 1.2);
+  }
+  done() { return this.burning.length === 0 && this.sparks.length === 0; }
+  fracBurnt() { return this.fuel ? this.burnt / this.fuel : 0; }
+}
+// Headless: light the fire (a point or the whole left edge) and let it burn out
+function burnOut(rand, o, line) { const L = new Land(rand, o); if (line) for (let y = 0; y < GH; y++) L.ignite(0, y); else { let n = 0; while (!L.burning.length && n++ < 200) L.ignite(GW / 2 + rand.int(11) - 5, GH / 2 + rand.int(11) - 5); } let k = 0; while (!L.done() && k++ < 4000) L.step(); return L; }
+
+// ---------------------------------------------------------------- page
+let land, tool = "ignite", speed = 2, hist = [], smoke = [], budget = 0, lastPt = null; const S = {};
+const ui = K.app({
+  title: "Wildfire", subject: "Geography", blurb: "Light a fire and watch it run. Wind, slope, drought and fuel decide whether it fizzles or takes the whole forest.",
+  reset: () => newLand(),
+  missions: [
+    { title: "The tipping point", q: "In this flat, windless forest fire spreads only to touching trees. Light fires at tree density 50%, 55%, 60%, 65%. Is the change in area burnt gradual or sudden?", hint: "There is a critical density close to 59%. Below it the forest is a set of separate clumps and every fire stays small. Above it the clumps join into one connected network and a single spark can cross the whole map. Scientists call this a percolation threshold: a tipping point.", setup: () => { S.pure.set(true, true); S.hills.set(0, true); S.wind.set(0, true); S.den.set(55, true); newLand(); } },
+    { title: "Wind", q: "Light one fire in still air and look at its shape. Reset, set a strong wind and light another. What shape is the burn scar now, and what are the bright streaks ahead of the front?", hint: "Still air gives a roughly circular fire. Wind stretches it into a long ellipse with a fast 'head' downwind and slow 'flanks'. Embers carried by the wind start spot fires ahead of the front: this is how fires jump roads and rivers.", setup: () => { S.pure.set(false, true); S.hills.set(0, true); S.den.set(80, true); S.dry.set(55, true); S.wind.set(0, true); newLand(); } },
+    { title: "Uphill", q: "No wind, steep hills (pale = high ground). Light a fire in a valley, then one on a ridge top. Which spreads faster, and why are firefighters taught never to stand uphill of a fire?", hint: "Fire runs uphill: the flames lean over the fuel above them and pre-heat it. A fire can travel several times faster up a steep slope than on the flat, and it slows right down going downhill. Ridge lines are natural places to stop a fire.", setup: () => { S.pure.set(false, true); S.hills.set(2, true); S.wind.set(0, true); S.den.set(80, true); S.dry.set(50, true); newLand(); } },
+    { title: "Drought", q: "Light the same forest at dryness 10%, 20%, 30% and 40%. Is there a dryness below which fires just go out?", hint: "Yes: another threshold. Damp fuel rarely passes fire on, so each burning cell lights on average fewer than one neighbour and the fire dies. Above the threshold each lights more than one and the fire grows. A warmer climate means more days above the threshold.", setup: () => { S.pure.set(false, true); S.hills.set(0.6, true); S.wind.set(0, true); S.den.set(80, true); S.dry.set(10, true); newLand(); } },
+    { title: "Save the village", q: "A fire has started upwind of a village (white houses). You have 250 cells of <b>firebreak</b> to bulldoze, and the clock is running. Where should the break go? Try again with a stronger wind.", hint: "A break right next to the fire is quickly outflanked; a break close to the village must be wide enough to stop embers. Good breaks are anchored to bare ground or water and angled so the fire is steered past. In strong wind, embers jump narrow breaks: the real reason villages burn.", setup: () => village() },
+    { title: "The firefighter's paradox", q: "Compare two forests in the Batch run: one where small fires are allowed to burn, one where every fire is put out for decades. Predict which has the worst fire in the end.", hint: "Putting out every small fire lets fuel build up into one continuous, dense forest, far above the critical density. When a fire finally escapes on a hot windy day it is enormous. Many fire services now use controlled burning to keep fuel patchy.", setup: () => { ui.openBatch(); } },
+  ],
+  batch: [
+    { title: "The percolation threshold", question: "How does area burnt depend on tree density?", how: "Pure percolation: flat, no wind, fire spreads to the four touching neighbours. The whole left edge is lit; we record the percentage of trees burnt.", xLabel: "tree density (%)", yLabel: "trees burnt (%)", xs: [40, 48, 52, 55, 57, 59, 61, 63, 66, 70, 80], reps: 8, yMin: 0, yMax: 105,
+      run: (d, r) => burnOut(r, { density: d / 100, pure: true, hills: 0 }, true).fracBurnt() * 100, note: "Each forest is a different random arrangement of trees. Close to the critical density (59.3% for an infinite forest) the outcome depends on whether a few chance bridges of trees happen to exist, so the spread of results is enormous there and small elsewhere. That is the mark of a tipping point." },
+    { title: "Dryness", question: "How dry must the fuel be for a fire to take hold?", how: "Realistic spread rules, gentle hills, no wind, 80% tree cover. One ignition near the centre.", xLabel: "fuel dryness (%)", yLabel: "trees burnt (%)", xs: [10, 15, 20, 25, 30, 35, 40, 50, 70], reps: 8, yMin: 0, yMax: 105,
+      run: (d, r) => burnOut(r, { dry: d / 100, density: 0.8, hills: 0.5 }).fracBurnt() * 100, note: "Near the threshold some fires die in the first few steps by bad luck and others escape, so the results split into two groups: almost nothing or almost everything." },
+    { title: "Wind and survival of a fire", question: "Does wind help a fire survive in damp fuel?", how: "Damp fuel (dryness 20%), 80% cover, flat. One ignition near the centre.", xLabel: "wind strength", yLabel: "trees burnt (%)", xs: [0, 0.4, 0.8, 1.2, 1.6, 2], reps: 8, yMin: 0,
+      run: (w, r) => burnOut(r, { dry: 0.2, density: 0.8, hills: 0, wind: w }).fracBurnt() * 100, note: "Wind makes spread downwind much more likely and upwind much less likely, and embers start new fires ahead. A fire that would die in still air can run as a narrow tongue in wind." },
+    { title: "The firefighter's paradox", question: "Does putting out small fires make the big one worse?", how: "Trees regrow by 1.5% a year and lightning strikes every year for 80 years. x = the percentage of fires that are put out while small. Then, in year 81, one fire escapes in a drought. We record how much burns.", xLabel: "fires suppressed during 80 years (%)", yLabel: "trees burnt in the escaped fire (% of map)", xs: [0, 25, 50, 75, 90, 100], reps: 8, yMin: 0,
+      run: (sup, r) => { const L = new Land(r, { density: 0.35, pure: true, hills: 0 });
+        for (let yr = 0; yr < 80; yr++) { for (let i = 0; i < NC; i++) { if (L.s[i] === ASH) L.s[i] = EMPTY; if (L.s[i] === EMPTY && r() < 0.015) L.s[i] = TREE; } for (let k = 0; k < 3; k++) if (r() * 100 >= sup) { L.ignite(r.int(GW), r.int(GH)); let q = 0; while (!L.done() && q++ < 3000) L.step(); } }
+        let before = 0; for (let i = 0; i < NC; i++) { if (L.s[i] === ASH) L.s[i] = EMPTY; if (L.s[i] === TREE) before++; } L.burnt = 0; let n = 0; while (!L.burning.length && n++ < 500) L.ignite(r.int(GW), r.int(GH)); let q = 0; while (!L.done() && q++ < 4000) L.step(); return L.burnt / NC * 100; },
+      note: "With no suppression, frequent small fires keep the forest patchy and near the critical density, so the final fire is limited. With total suppression the forest grows dense and connected, and the one fire that escapes takes nearly everything." },
+  ],
+  notes: `<h3>The rules</h3><ul><li>A burning cell tests each of its 8 neighbours once per step. Base chance of lighting a neighbour = <code>0.07 + 0.42 × dryness²</code>.</li><li>Wind multiplies that chance up for downwind neighbours and down for upwind ones. Slope does the same for uphill and downhill.</li><li>A cell burns for 5 steps and then becomes ash.</li><li>In wind, burning cells occasionally throw an ember up to 30 or so cells ahead.</li><li><b>Pure percolation</b> mode strips this back: fire always spreads to the 4 touching trees and nothing else matters. It is the mathematician's version, with an exact tipping point at 59.3% density.</li></ul>
+  <h3>Assumptions and simplifications</h3><ul><li>Every tree is the same: no difference between grass, shrub and timber, no moisture differences between sunny and shady slopes.</li><li>Wind is the same everywhere and is not changed by the hills or by the fire (large fires make their own wind).</li><li>The fire does not dry out fuel ahead of it, apart from the slope effect.</li><li>One cell is roughly 10 m and one step roughly 1 minute: treat spread rates as comparisons, not forecasts.</li><li>Firebreaks and water drops are perfect: fire can only cross them by embers.</li></ul>
+  <h3>Words to use</h3><p>fuel load · fire front · spotting · firebreak · threshold / tipping point · controlled burn · positive feedback</p>`,
+});
+let g = ui.group("Your tools");
+S.tool = K.seg(g, { value: "ignite", options: [["ignite", "🔥 Ignite"], ["break", "⛏ Firebreak"], ["water", "💧 Water drop"], ["plant", "🌲 Plant"], ["house", "🏠 House"]], on: v => { tool = v; ui.tip({ ignite: "Click to start a fire", break: "Drag to bulldoze a firebreak", water: "Click to drop water: puts out flames and soaks the fuel", plant: "Drag to plant trees", house: "Click to build a house" }[v], 3500); } });
+const r0 = K.row(g); K.btn(r0, "⚡ Lightning strike", () => { for (let k = 0; k < 300 && !land.burning.length; k++) land.ignite(land.r.int(GW), land.r.int(GH)); }); K.btn(r0, "🌱 New forest", () => newLand());
+g = ui.group("Weather");
+S.wind = K.slider(g, { label: "Wind strength", min: 0, max: 2, step: 0.1, value: 0.6, fmt: v => v === 0 ? "calm" : v.toFixed(1) + (v > 1.4 ? " · gale" : ""), on: v => land.o.wind = v });
+S.dir = K.slider(g, { label: "Wind blowing towards", min: 0, max: 345, step: 15, value: 0, fmt: v => ["E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW", "N", "NNE", "NE", "ENE"][Math.round(v / 22.5) % 16] + " " + v + "°", on: v => land.o.windDir = v * Math.PI / 180 });
+S.dry = K.slider(g, { label: "Fuel dryness", min: 0, max: 100, step: 5, value: 55, unit: "%", fmt: v => v + "%" + (v < 30 ? " · damp" : v > 75 ? " · drought" : ""), on: v => land.o.dry = v / 100 });
+g = ui.group("Landscape (applies to a new forest)");
+S.den = K.slider(g, { label: "Tree density", min: 20, max: 100, step: 1, value: 78, unit: "%", on: () => newLand() });
+S.hills = K.slider(g, { label: "Hills", min: 0, max: 2, step: 0.1, value: 1, fmt: v => v === 0 ? "flat" : v < 1 ? "gentle" : v < 1.6 ? "hilly" : "steep", on: () => newLand() });
+S.pure = K.toggle(g, { label: "Pure percolation (ignore wind, slope and dryness)", value: false, on: () => newLand() });
+g = ui.group("View");
+S.speed = K.slider(g, { label: "Speed", min: 1, max: 8, step: 1, value: 2, fmt: v => v + "×", on: v => speed = v });
+g = ui.group("Damage report");
+const read = K.readout(g, [["burnt", "Trees burnt"], ["front", "Cells on fire"], ["time", "Time"], ["houses", "Houses lost"]]);
+
+function opts() { return { density: S.den.value / 100, dry: S.dry.value / 100, wind: S.wind.value, windDir: S.dir.value * Math.PI / 180, hills: S.hills.value, pure: S.pure.value }; }
+function newLand() { land = new Land(K.rng(Date.now()), opts()); hist = []; smoke = []; budget = 0; dirty = true; }
+function setCell(i, v) { const s = land.s; if (s[i] === TREE && v !== TREE) land.fuel--; if (s[i] !== TREE && v === TREE) land.fuel++; if (s[i] === HOUSE) land.houses--; if (v === HOUSE) land.houses++; s[i] = v; }
+function village() {
+  S.pure.set(false); S.hills.set(0.5); S.den.set(82); S.dry.set(60); S.wind.set(0.8, false); S.dir.set(0, false); newLand(); land.o.wind = 0.8; land.o.windDir = 0;
+  for (let k = 0; k < 26; k++) { const x = 150 + land.r.int(26), y = 44 + land.r.int(26); for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) setCell(x + dx + (y + dy) * GW, HOUSE); }
+  for (let dy = -1; dy <= 1; dy++) land.ignite(22, 56 + dy); budget = 250; S.tool.set("break", true); S.speed.set(1, true);
+}
+// ---- Drawing: the map is painted into a small image (one pixel per cell) and scaled up ----
+const img = document.createElement("canvas"); img.width = GW; img.height = GH; const ictx = img.getContext("2d"), idata = ictx.createImageData(GW, GH), px = idata.data;
+const cv = ui.canvas(); let vr = { s: 1, ox: 0, oy: 0 }, dirty = true;
+function paint() {
+  const { s, h, shade, age } = land;
+  for (let i = 0, j = 0; i < NC; i++, j += 4) {
+    const x = i % GW, lightSlope = K.clamp((h[i] - (x > 0 ? h[i - 1] : h[i])) * 5 + (h[i] - (i >= GW ? h[i - GW] : h[i])) * 5, -26, 30), elev = h[i] * 0.45, v = shade[i]; let r, g2, b;
+    switch (s[i]) {
+      case TREE: r = 18 + v * 22 + elev * .6; g2 = 78 + v * 44 + elev; b = 36 + v * 16 + elev * .4; break;
+      case FIRE: { const k = age[i] / 5; r = 255; g2 = 235 - k * 150 + v * 20; b = 120 - k * 110; break; }
+      case ASH: r = 30 + v * 14; g2 = 26 + v * 10; b = 28 + v * 10; break;
+      case BREAK: r = 150 + v * 20; g2 = 120 + v * 16; b = 84; break;
+      case HOUSE: r = 240; g2 = 240; b = 235; break;
+      case WATER: r = 52; g2 = 120 + v * 20; b = 190; break;
+      default: r = 74 + v * 14 + elev; g2 = 88 + v * 12 + elev; b = 46 + elev * .5;        // open grassy ground
+    }
+    if (s[i] !== FIRE && s[i] !== HOUSE) { r += lightSlope; g2 += lightSlope; b += lightSlope; }
+    px[j] = r; px[j + 1] = g2; px[j + 2] = b; px[j + 3] = 255;
+  }
+  ictx.putImageData(idata, 0, 0);
+}
+function draw() {
+  paint(); const c = cv.ctx, sc = Math.min(cv.w / GW, cv.h / GH), ox = (cv.w - GW * sc) / 2, oy = (cv.h - GH * sc) / 2; vr = { s: sc, ox, oy };
+  c.fillStyle = "#05070c"; c.fillRect(0, 0, cv.w, cv.h); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high"; c.drawImage(img, ox, oy, GW * sc, GH * sc);
+  // glow over the fire front
+  c.globalCompositeOperation = "lighter"; const B = land.burning, stepB = Math.max(1, Math.floor(B.length / 500));
+  for (let k = 0; k < B.length; k += stepB) { const i = B[k], x = ox + (i % GW + .5) * sc, y = oy + ((i / GW | 0) + .5) * sc, rr = sc * 4.5; const gr = c.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, "rgba(255,150,40,.34)"); gr.addColorStop(1, "rgba(255,80,0,0)"); c.fillStyle = gr; c.fillRect(x - rr, y - rr, rr * 2, rr * 2);
+    if (ui.playing && Math.random() < 0.05 * stepB) smoke.push({ x, y, t: 1, r: sc * (2 + Math.random() * 3) }); }
+  c.globalCompositeOperation = "source-over";
+  for (const sp of land.sparks) { const t = Math.min(1, sp.t), x = ox + (sp.x0 + (sp.x1 - sp.x0) * t + .5) * sc, y = oy + (sp.y0 + (sp.y1 - sp.y0) * t + .5) * sc - Math.sin(t * Math.PI) * 14; c.fillStyle = "#ffe9a8"; c.beginPath(); c.arc(x, y, 2.2, 0, 6.3); c.fill(); }
+  // smoke drifts with the wind
+  const wx = Math.cos(land.o.windDir) * land.o.wind, wy = Math.sin(land.o.windDir) * land.o.wind; if (smoke.length > 500) smoke.splice(0, smoke.length - 500);
+  smoke = smoke.filter(q => q.t > 0); for (const q of smoke) { if (ui.playing) { q.x += wx * 2.2 + .15; q.y += wy * 2.2 - .35; q.t -= 0.012; q.r *= 1.012; } c.fillStyle = `rgba(150,150,160,${q.t * .07})`; c.beginPath(); c.arc(q.x, q.y, q.r, 0, 6.3); c.fill(); }
+  // wind compass
+  const cx = ox + 54, cy = oy + 54; c.fillStyle = "rgba(8,14,26,.72)"; c.strokeStyle = "#2b3a5c"; c.beginPath(); c.arc(cx, cy, 38, 0, 6.3); c.fill(); c.stroke();
+  c.fillStyle = "#8fa0bf"; c.font = "10px Segoe UI,sans-serif"; c.textAlign = "center"; c.fillText("N", cx, cy - 26); c.fillText("WIND", cx, cy + 33);
+  if (land.o.wind > 0 && !land.o.pure) { const a = land.o.windDir, len = 8 + land.o.wind * 11; c.save(); c.translate(cx, cy); c.rotate(a); c.strokeStyle = "#5ad1ff"; c.fillStyle = "#5ad1ff"; c.lineWidth = 3; c.beginPath(); c.moveTo(-len, 0); c.lineTo(len - 4, 0); c.stroke(); c.beginPath(); c.moveTo(len + 3, 0); c.lineTo(len - 6, -6); c.lineTo(len - 6, 6); c.fill(); c.restore(); } else { c.fillStyle = "#5ad1ff"; c.fillText(land.o.pure ? "ignored" : "calm", cx, cy + 4); }
+  ui.hud(budget > 0 || land.houses + land.housesLost > 0 ? `<b>Firebreak left: ${Math.max(0, budget)} cells</b><br>houses standing: ${land.houses}` : `${(land.fracBurnt() * 100).toFixed(0)}% of trees burnt`);
+}
+// ---- Pointer tools ----
+const toGrid = p => ({ x: Math.floor((p.x - vr.ox) / vr.s), y: Math.floor((p.y - vr.oy) / vr.s) });
+function apply(q, first) {
+  const inb = (x, y) => x >= 0 && y >= 0 && x < GW && y < GH, around = (rad, fn) => { for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) if (dx * dx + dy * dy <= rad * rad + 1 && inb(q.x + dx, q.y + dy)) fn(q.x + dx + (q.y + dy) * GW); };
+  if (tool === "ignite" && first) { around(1, i => land.ignite(i % GW, i / GW | 0)); }
+  if (tool === "break") around(1, i => { if (land.s[i] === TREE || land.s[i] === EMPTY) { if (budget > 0 || land.houses + land.housesLost === 0) { if (land.houses + land.housesLost > 0) budget--; setCell(i, BREAK); } } });
+  if (tool === "water" && first) around(5, i => { if (land.s[i] === FIRE) { land.s[i] = WATER; land.fuel--; } else if (land.s[i] === TREE) setCell(i, WATER); land.burning = land.burning.filter(k => land.s[k] === FIRE); });
+  if (tool === "plant") around(3, i => { if (land.s[i] !== FIRE && land.s[i] !== HOUSE && land.r() < .7) setCell(i, TREE); });
+  if (tool === "house" && first) around(1, i => { if (land.s[i] !== FIRE) setCell(i, HOUSE); });
+}
+K.pointer(cv.el, {
+  down(p) { const q = toGrid(p); lastPt = q; apply(q, true); },
+  drag(p) { const q = toGrid(p), n = Math.max(1, Math.abs(q.x - lastPt.x), Math.abs(q.y - lastPt.y)); for (let k = 1; k <= n; k++) apply({ x: Math.round(lastPt.x + (q.x - lastPt.x) * k / n), y: Math.round(lastPt.y + (q.y - lastPt.y) * k / n) }, false); lastPt = q; },
+});
+cv.el.style.cursor = "crosshair";
+const chA = K.chart(ui.dock, { title: "Area burnt", xLabel: "time (steps ≈ minutes)", yLabel: "% of trees", yMin: 0 });
+const chF = K.chart(ui.dock, { title: "Size of the fire front", xLabel: "time (steps ≈ minutes)", yLabel: "cells on fire", yMin: 0 });
+let frame = 0, tick = 0;
+ui.run(() => {
+  if (land.done()) return; tick += speed / 8;
+  while (tick >= 1) { tick--; land.step(); hist.push([land.t, land.fracBurnt() * 100, land.burning.length]); if (hist.length > 1500) hist.shift(); }
+}, () => {
+  draw(); if (frame++ % 4) return;
+  chA.draw([{ pts: hist.map(p => [p[0], p[1]]), type: "area", color: "#ff7b54" }]); chF.draw([{ pts: hist.map(p => [p[0], p[2]]), color: "#ffb454" }]);
+  read.set("burnt", (land.fracBurnt() * 100).toFixed(1) + "%"); read.set("front", land.burning.length); read.set("time", land.t + " min"); read.set("houses", land.housesLost ? `<span style="color:var(--bad)">${Math.ceil(land.housesLost / 4)}</span>` : "0");
+});
+newLand(); setTimeout(() => { land.ignite(40, 56); land.ignite(41, 56); land.ignite(40, 57); }, 500);
+ui.tip("Click anywhere in the forest to start another fire · change the wind while it burns");
+</script>
+</body></html>

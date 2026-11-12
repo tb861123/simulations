@@ -12,6 +12,12 @@ Most simulations are a single HTML file: open it in Chrome or Edge, with no
 install and no internet needed. Run any other commands from inside the
 project's own folder.
 
+## Enhanced collection
+
+[`Enhanced/`](Enhanced/index.html) holds ten simulations (one per subject)
+rebuilt from scratch as showpieces, with their own gallery page. The originals
+listed below are unchanged. See [`Enhanced/README.md`](Enhanced/README.md).
+
 ## Batch run
 
 Every single-file simulation has a **📊 Batch run** button. It runs the model
@@ -57,6 +63,9 @@ changing a simulation's batch experiments.
 | [`physics/heating_insulation/`](physics/heating_insulation/) | Heating and insulating a house: conduction, convection, radiation, insulation costs and payback, cooling-can and Leslie cube practicals, cooling curves | Open `heating-insulation.html` |
 | [`physics/density_pressure/`](physics/density_pressure/) | Density and pressure: density practicals, p = F/A, liquid pressure, floating, gas pressure, terminal velocity | Open `density-pressure.html` |
 | [`physics/energy_resources/`](physics/energy_resources/) | Energy resources and electricity: power stations, running the GB grid, transformers and transmission losses, wind turbine practical | Open `energy-resources.html` |
+| [`physics/quantum_wave_lab/`](physics/quantum_wave_lab/) | Quantum Wave Lab: the 2-D Schrödinger equation live. Tunnelling, double slit one particle at a time, uncertainty, measurement (A level and beyond) | Open `quantum-wave-lab.html` |
+| [`physics/special_relativity/`](physics/special_relativity/) | Special relativity: light clocks, simultaneity, train and tunnel, twin paradox, muons, from any frame, with a spacetime diagram | Open `special-relativity.html` |
+| [`physics/wind_tunnel/`](physics/wind_tunnel/) | Wind tunnel: viscous flow by the lattice Boltzmann method, with vortex streets, lift and drag (complements Aerofoil Flow) | Open `wind-tunnel.html` |
 
 ## Chemistry
 

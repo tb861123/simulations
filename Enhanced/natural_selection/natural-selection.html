@@ -1,0 +1,540 @@
+<!doctype html>
+<!-- Natural Selection: one self-contained file, works offline. Built from Enhanced/_build (kit.css, kit.js, src/natural_selection.js); edit those and run "node build.js". -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Natural Selection</title>
+<style>
+/* ===== Enhanced simulations: shared look and feel (inlined into every page by build.js) ===== */
+:root{
+  --bg:#0a0f1c; --panel:#111a2c; --panel2:#17223a; --line:#24324f; --text:#e9eef8; --muted:#8fa0bf; --grid:#1f2c47;
+  --accent:#5ad1ff; --accent-ink:#04121c; --good:#6ee7a0; --warn:#ffb454; --bad:#ff6b81;
+  --s0:#5ad1ff; --s1:#ffb454; --s2:#7ee787; --s3:#ff7b9c; --s4:#c4a1ff; --s5:#ffe66d;
+  --shadow:0 10px 30px rgba(0,0,0,.45); --r:12px;
+}
+:root[data-theme=light]{
+  --bg:#eef2f8; --panel:#ffffff; --panel2:#f3f6fb; --line:#d5dceb; --text:#172033; --muted:#5d6b85; --grid:#e3e8f2;
+  --accent:#0b7fc2; --accent-ink:#ffffff; --good:#12924c; --warn:#b86a00; --bad:#d1344d;
+  --s0:#0b7fc2; --s1:#d97a00; --s2:#1b9e4b; --s3:#d6336c; --s4:#7048c8; --s5:#a08800;
+  --shadow:0 8px 24px rgba(30,50,90,.15);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+.k-top{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;min-height:52px}
+.k-home{color:var(--muted);text-decoration:none;font-size:13px;white-space:nowrap}.k-home:hover{color:var(--accent)}
+.k-title{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
+.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+.k-chip{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 9px;white-space:nowrap;align-self:center}
+.k-blurb{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-actions{display:flex;gap:6px;flex:none}
+.k-btn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:.12s;user-select:none}
+.k-btn:hover{border-color:var(--accent);color:var(--accent)}
+.k-btn:active{transform:translateY(1px)}
+.k-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.k-btn.primary:hover{filter:brightness(1.1);color:var(--accent-ink)}
+.k-btn.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel2))}
+.k-btn.small{padding:3px 9px;font-size:12.5px}
+.k-btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.k-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
+.k-left{display:flex;flex-direction:column;min-width:0;min-height:0}
+.k-stage{flex:1;position:relative;min-height:0;background:#060a14;overflow:hidden}
+.k-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.k-dock{flex:none;height:190px;display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.k-dock:empty{display:none}
+.k-dock>*{flex:1;min-width:0;background:var(--panel)}
+.k-chart{position:relative;height:100%;min-height:80px}
+.k-chart canvas{position:absolute;inset:0;width:100%;height:100%}
+.k-side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.k-tabs{display:flex;border-bottom:1px solid var(--line);flex:none}
+.k-tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:10px 4px;cursor:pointer;color:var(--muted);font-weight:600}
+.k-tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.k-pane{flex:1;overflow-y:auto;padding:12px 14px 20px;display:none;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.k-pane.on{display:block}
+.k-group{margin-bottom:14px}
+.k-group>h3{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);margin:0 0 8px;font-weight:700}
+.k-ctl{margin-bottom:10px}
+.k-ctl label{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:2px}
+.k-ctl label b{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.k-ctl small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3;margin-top:1px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:none;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-moz-range-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);margin-top:-6.5px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+.k-seg{display:flex;flex-wrap:wrap;gap:4px}
+.k-seg .k-btn{flex:1 1 auto;padding:5px 8px;font-size:13px;text-align:center}
+.k-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.k-row .k-btn{flex:1 1 auto;text-align:center}
+.k-toggle{display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:9px;font-size:13px;user-select:none}
+.k-toggle i{flex:none;width:34px;height:19px;border-radius:99px;background:var(--line);position:relative;transition:.15s}
+.k-toggle i::after{content:"";position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;background:var(--muted);transition:.15s}
+.k-toggle.on i{background:var(--accent)}.k-toggle.on i::after{left:17px;background:var(--accent-ink)}
+.k-read{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.k-read div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 9px}
+.k-read span{display:block;font-size:11px;color:var(--muted)}
+.k-read b{font-size:16px;font-variant-numeric:tabular-nums;font-weight:650}
+.k-mcard{border:1px solid var(--line);background:var(--panel2);border-radius:var(--r);padding:11px 12px;margin-bottom:10px}
+.k-mcard h4{margin:0 0 4px;font-size:14.5px;display:flex;gap:8px;align-items:center}
+.k-mcard h4 em{font-style:normal;flex:none;width:22px;height:22px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:12px}
+.k-mcard.done h4 em{background:var(--good);color:#04130a}
+.k-mcard p{margin:0 0 8px;color:var(--muted);font-size:13px}
+.k-banner{position:absolute;left:12px;top:12px;max-width:min(520px,70%);background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--accent);border-radius:var(--r);padding:10px 34px 10px 13px;box-shadow:var(--shadow);z-index:5;backdrop-filter:blur(6px);font-size:13.5px}
+.k-banner b{color:var(--accent)}
+.k-banner .x{position:absolute;right:8px;top:6px;cursor:pointer;color:var(--muted);background:none;border:0;font-size:16px}
+.k-banner details{margin-top:6px;color:var(--muted)}.k-banner summary{cursor:pointer;color:var(--warn)}
+.k-tip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(8,14,26,.82);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:99px;padding:6px 16px;font-size:13px;pointer-events:none;z-index:4;transition:opacity .6s;white-space:nowrap}
+.k-hud{position:absolute;right:12px;top:12px;background:rgba(8,14,26,.72);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:10px;padding:7px 11px;font-size:12.5px;z-index:3;pointer-events:none;font-variant-numeric:tabular-nums;line-height:1.5;text-align:right}
+.k-notes h3{font-size:14px;margin:14px 0 4px;color:var(--accent)}.k-notes h3:first-child{margin-top:0}
+.k-notes p,.k-notes li{font-size:13px;color:var(--text)}.k-notes ul{padding-left:18px;margin:4px 0}
+.k-notes code{background:var(--panel2);padding:1px 5px;border-radius:5px;font-size:12.5px}
+.k-overlay{position:fixed;inset:0;background:rgba(3,6,12,.7);display:none;z-index:50;backdrop-filter:blur(3px)}
+.k-overlay.on{display:grid;place-items:center}
+.k-modal{width:min(1180px,95vw);height:min(700px,92vh);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:grid;grid-template-columns:290px 1fr;overflow:hidden}
+.k-blist{border-right:1px solid var(--line);overflow-y:auto;padding:14px}
+.k-blist h2{font-size:16px;margin:0 0 4px}.k-blist>p{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+.k-bitem{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;cursor:pointer}
+.k-bitem.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.k-bitem b{display:block;font-size:13.5px}.k-bitem span{color:var(--muted);font-size:12.5px}
+.k-bmain{display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 16px}
+.k-bhead{display:flex;gap:10px;align-items:flex-start}
+.k-bhead h3{margin:0;font-size:17px;flex:1}.k-bhead p{margin:3px 0 0;color:var(--muted);font-size:13px;font-weight:400}
+.k-bbar{display:flex;gap:10px;align-items:center;margin:10px 0 8px}
+.k-prog{flex:1;height:6px;background:var(--line);border-radius:9px;overflow:hidden}.k-prog i{display:block;height:100%;width:0;background:var(--accent)}
+.k-bchart{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.k-bfoot{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;height:150px;margin-top:10px}
+.k-btable{overflow:auto;border:1px solid var(--line);border-radius:10px;font-size:12.5px}
+.k-btable table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.k-btable th,.k-btable td{padding:3px 8px;text-align:right;border-bottom:1px solid var(--line)}
+.k-btable th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600}
+.k-bnote{overflow:auto;font-size:13px;color:var(--muted);background:var(--panel2);border-radius:10px;padding:9px 12px}
+.k-bnote b{color:var(--text)}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+</style></head><body>
+<script>
+"use strict";
+/* =====================================================================
+   K: the small shared toolkit behind every Enhanced simulation.
+   It builds the page frame (header, stage, chart dock, side panel),
+   the sliders and buttons, the live charts, the Investigations cards
+   and the Batch run window. Each simulation's own code (below this
+   script in the page) holds the science.
+   ===================================================================== */
+const K = (() => {
+  const $ = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const col = i => cssVar("--s" + (i % 6));
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // ---- Repeatable random numbers: the same seed always gives the same run ----
+  function rng(seed) {
+    let a = (seed >>> 0) || 1;
+    const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    r.gauss = () => { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307179586 * r()); };
+    r.int = n => Math.floor(r() * n);
+    r.pick = arr => arr[Math.floor(r() * arr.length)];
+    return r;
+  }
+  // ---- Simple statistics ----
+  const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+  const sd = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); };
+  const se = a => sd(a) / Math.sqrt(a.length || 1);
+  function linfit(pts) { // least-squares straight line through [x,y] points
+    const n = pts.length, mx = mean(pts.map(p => p[0])), my = mean(pts.map(p => p[1]));
+    let sxy = 0, sxx = 0, syy = 0; for (const [x, y] of pts) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; syy += (y - my) ** 2; }
+    const m = sxy / (sxx || 1); return { m, c: my - m * mx, r: sxy / Math.sqrt((sxx * syy) || 1), n };
+  }
+  function download(name, text) { const a = $("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  const sig = (v, n = 3) => { if (v == null || !isFinite(v)) return "–"; if (v === 0) return "0"; const a = Math.abs(v); if (a >= 1e5 || a < 1e-3) return v.toExponential(n - 1); return String(+v.toPrecision(n)); };
+
+  // ---- Controls ----
+  function slider(parent, o) {
+    const w = $("div", "k-ctl"), lab = $("label"), name = $("span", "", o.label), val = $("b"), inp = $("input");
+    inp.type = "range"; inp.min = o.min; inp.max = o.max; inp.step = o.step || 1; inp.value = o.value;
+    const fmt = o.fmt || (v => sig(v, 4) + (o.unit ? " " + o.unit : ""));
+    const show = () => val.innerHTML = fmt(+inp.value);
+    lab.append(name, val); w.append(lab, inp); if (o.tip) w.append($("small", "", o.tip)); parent.append(w); show();
+    inp.addEventListener("input", () => { show(); o.on && o.on(+inp.value); });
+    return { el: w, get value() { return +inp.value; }, set(v, fire) { inp.value = v; show(); if (fire) o.on && o.on(+inp.value); } };
+  }
+  function seg(parent, o) {
+    const w = $("div", "k-ctl"); if (o.label) w.append($("label", "", `<span>${o.label}</span>`));
+    const row = $("div", "k-seg"); w.append(row); if (o.tip) w.append($("small", "", o.tip)); parent.append(w);
+    let value = o.value; const btns = [];
+    const paint = () => btns.forEach(([v, b]) => b.classList.toggle("on", v === value));
+    for (const [v, label, title] of o.options) { const b = $("button", "k-btn", label); if (title) b.title = title; b.onclick = () => { value = v; paint(); o.on && o.on(v); }; row.append(b); btns.push([v, b]); }
+    paint();
+    return { el: w, get value() { return value; }, set(v, fire) { value = v; paint(); if (fire) o.on && o.on(v); } };
+  }
+  function toggle(parent, o) {
+    const w = $("div", "k-toggle" + (o.value ? " on" : ""), `<i></i><span>${o.label}</span>`); parent.append(w); let value = !!o.value;
+    w.onclick = () => { value = !value; w.classList.toggle("on", value); o.on && o.on(value); };
+    return { el: w, get value() { return value; }, set(v, fire) { value = !!v; w.classList.toggle("on", value); if (fire) o.on && o.on(value); } };
+  }
+  function btn(parent, label, on, cls) { const b = $("button", "k-btn " + (cls || ""), label); b.onclick = on; parent.append(b); return b; }
+  function row(parent) { const r = $("div", "k-row"); parent.append(r); return r; }
+  function readout(parent, items) { // small tiles of live numbers
+    const g = $("div", "k-read"), map = {}; parent.append(g);
+    for (const [id, label] of items) { const d = $("div", "", `<span>${label}</span><b>–</b>`); g.append(d); map[id] = d.lastChild; }
+    return { el: g, set(id, v) { if (map[id].textContent !== String(v)) map[id].innerHTML = v; } };
+  }
+  function note(parent, html) { const s = $("small", "", html); s.style.cssText = "display:block;color:var(--muted);margin:-2px 0 10px;font-size:12px;line-height:1.35"; parent.append(s); return s; }
+
+  // ---- A canvas that stays sharp on high-DPI screens and follows its container's size ----
+  function canvas(parent, onresize) {
+    const cv = $("canvas"); parent.append(cv); const c = { el: cv, ctx: cv.getContext("2d"), w: 1, h: 1, dpr: 1 };
+    const fit = () => {
+      const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
+      c.dpr = Math.min(window.devicePixelRatio || 1, 2); c.w = w; c.h = h; cv.width = Math.round(w * c.dpr); cv.height = Math.round(h * c.dpr);
+      c.ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0); onresize && onresize(c);
+    };
+    new ResizeObserver(fit).observe(parent); fit(); return c;
+  }
+  // Pointer handling in the element's own pixel coordinates
+  function pointer(el, h) {
+    const pos = e => { const r = el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, e }; };
+    let down = false;
+    el.addEventListener("pointerdown", e => { down = true; el.setPointerCapture(e.pointerId); h.down && h.down(pos(e)); });
+    el.addEventListener("pointermove", e => { const p = pos(e); if (down) h.drag && h.drag(p); else h.hover && h.hover(p); });
+    const up = e => { if (down) { down = false; h.up && h.up(pos(e)); } };
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+    el.addEventListener("pointerleave", e => h.leave && h.leave(pos(e)));
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+
+  // ---- Charts ----
+  const charts = new Set();
+  function niceTicks(a, b, n) {
+    const span = (b - a) || 1, raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    const step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p, t = [];
+    for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + step * 1e-6; v += step) t.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    return { t, step };
+  }
+  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(0); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
+  /* chart(parent,{title,xLabel,yLabel,xMin,xMax,yMin,yMax,yZero})  then  .draw(series, extra)
+     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r}]
+     extra:  {xMin..yMax overrides, vlines:[{x,color,label,dash}], hlines:[{y,...}], bands:[{x0,x1,color}]} */
+  function chart(parent, o = {}) {
+    const wrap = $("div", "k-chart"), cv = $("canvas"); wrap.append(cv); parent.append(wrap);
+    const ctx = cv.getContext("2d"); let last = [[], {}];
+    const api = { el: wrap, opts: o, draw(series, extra) { last = [series || [], extra || {}]; render(); }, redraw: () => render(), map: null };
+    function render() {
+      const W = wrap.clientWidth, H = wrap.clientHeight; if (W < 40 || H < 40) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      const [series, ex] = last, q = Object.assign({}, o, ex);
+      const text = cssVar("--text"), muted = cssVar("--muted"), grid = cssVar("--grid");
+      // work out the axis ranges from the data unless they are fixed
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const s of series) for (const p of s.pts) { if (!isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
+      for (const l of q.hlines || []) { if (l.y < y0) y0 = l.y; if (l.y > y1) y1 = l.y; }
+      if (!isFinite(x0)) { x0 = 0; x1 = 1; } if (!isFinite(y0)) { y0 = 0; y1 = 1; }
+      if (q.yZero || series.some(s => s.type === "bars")) { y0 = Math.min(0, y0); y1 = Math.max(0, y1); }
+      const py = (y1 - y0) * 0.08 || Math.abs(y1) * 0.1 || 1; if (q.yMin == null && y0 !== 0) y0 -= py; if (q.yMax == null) y1 += py;
+      if (x1 === x0) { x0 -= 0.5; x1 += 0.5; }
+      if (q.xMin != null) x0 = q.xMin; if (q.xMax != null) x1 = q.xMax; if (q.yMin != null) y0 = q.yMin; if (q.yMax != null) y1 = q.yMax;
+      const L = 54, R = 12, T = 24, B = q.xLabel ? 34 : 22, pw = W - L - R, ph = H - T - B;
+      const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + ph - (y - y0) / (y1 - y0) * ph;
+      api.map = { X, Y, x0, x1, y0, y1, L, T, pw, ph };
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; ctx.lineWidth = 1;
+      for (const b of q.bands || []) { ctx.fillStyle = b.color; ctx.fillRect(X(Math.max(x0, b.x0)), T, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)), ph); }
+      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70))), yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.beginPath();
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      for (const v of xt.t) { const x = Math.round(X(v)) + .5; ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.fillText(q.xFmt ? q.xFmt(v) : tickFmt(v, xt.step), x, T + ph + 4); }
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      for (const v of yt.t) { const y = Math.round(Y(v)) + .5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.fillText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step), L - 5, y); }
+      ctx.stroke(); ctx.strokeStyle = muted; ctx.strokeRect(L + .5, T + .5, pw, ph);
+      if (q.xLabel) { ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(q.xLabel, L + pw / 2, H - 3); }
+      if (q.yLabel) { ctx.save(); ctx.translate(11, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(q.yLabel, 0, 0); ctx.restore(); }
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+      series.forEach((s, i) => {
+        const c = s.color || col(i); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = s.width || 1.8; ctx.setLineDash(s.dash || []); ctx.globalAlpha = s.alpha == null ? 1 : s.alpha;
+        const P = s.pts;
+        if (s.type === "bars") { const w = Math.max(1, Math.abs(X(s.w || 1) - X(0)) - 1); for (const p of P) { const yy = Y(p[1]); ctx.fillRect(X(p[0]) - w / 2, Math.min(yy, Y(0)), w, Math.abs(Y(0) - yy)); } }
+        else if (s.type === "dots" || s.type === "err") {
+          const r = s.r || 3;
+          for (const p of P) { const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+        } else {
+          ctx.beginPath(); let pen = false;
+          for (const p of P) { if (!isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
+          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= .22; ctx.fill(); } else ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+      });
+      for (const l of q.vlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(l.x), T); ctx.lineTo(X(l.x), T + ph); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = X(l.x) > L + pw * .7 ? "right" : "left"; ctx.textBaseline = "top"; ctx.fillText(l.label, X(l.x) + (ctx.textAlign === "right" ? -5 : 5), T + 4 + (l.row || 0) * 13); } }
+      for (const l of q.hlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Y(l.y)); ctx.lineTo(L + pw, Y(l.y)); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(l.label, L + pw - 5, Y(l.y) - 2); } }
+      ctx.restore();
+      // title on the left, legend on the right
+      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
+      for (let i = series.length - 1; i >= 0; i--) { const s = series[i]; if (!s.label) continue; const w = ctx.measureText(s.label).width; lx -= w; ctx.fillStyle = muted; ctx.fillText(s.label, lx, 12); lx -= 12; ctx.fillStyle = s.color || col(i); ctx.fillRect(lx, 8, 8, 8); lx -= 10; }
+      if (q.title) { // the title gives way (with an ellipsis) if the legend needs the room
+        ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.fillStyle = text; let t = q.title; const room = lx - L - 8;
+        if (ctx.measureText(t).width > room) { while (t.length > 3 && ctx.measureText(t + "…").width > room) t = t.slice(0, -1); t = t.length > 3 ? t + "…" : ""; }
+        ctx.fillText(t, L, 12);
+      }
+    }
+    new ResizeObserver(render).observe(wrap); charts.add(api); return api;
+  }
+  function histogram(vals, bins, lo, hi) { // returns bar points [centre, count] and the bin width
+    if (lo == null) lo = Math.min(...vals); if (hi == null) hi = Math.max(...vals); if (hi === lo) { hi += .5; lo -= .5; }
+    const w = (hi - lo) / bins, c = new Array(bins).fill(0);
+    for (const v of vals) { const i = Math.floor((v - lo) / w); if (i >= 0 && i <= bins) c[Math.min(i, bins - 1)]++; }
+    return { pts: c.map((n, i) => [lo + (i + .5) * w, n]), w };
+  }
+
+  // ---- The page frame ----
+  function app(o) {
+    document.title = o.title + " · Enhanced simulations";
+    const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
+    if (saved) document.documentElement.dataset.theme = saved;
+    const top = $("header", "k-top"), main = $("main", "k-main");
+    top.innerHTML = `<a class="k-home" href="${o.home || "../index.html"}" title="Back to the list of simulations">◂ ${o.home ? "All simulations" : "Gallery"}</a>
+      <div class="k-title"><span class="k-chip">${o.subject}</span><h1>${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
+    const act = top.querySelector(".k-actions");
+    const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
+    left.append(stage, dock); main.append(left, side); document.body.append(top, main);
+    const ui = { stage, dock, side, playing: true, speed: 1, canvas: fn => canvas(stage, fn) };
+    // header buttons
+    const bPlay = btn(act, "⏸ Pause", () => ui.setPlaying(!ui.playing)); bPlay.title = "Space bar";
+    ui.setPlaying = p => { ui.playing = p; bPlay.innerHTML = p ? "⏸ Pause" : "▶ Play"; bPlay.classList.toggle("primary", !p); };
+    if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
+    if (o.reset) btn(act, "↺ Reset", () => o.reset());
+    if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
+    btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
+    btn(act, "⛶", () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).title = "Full screen";
+    addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
+    // side panel tabs
+    const tabs = $("nav", "k-tabs"), panes = {}; side.append(tabs);
+    const names = [["controls", "Controls"], ["missions", "Investigate"], ["notes", "The model"]];
+    const show = id => { for (const [k] of names) { panes[k].classList.toggle("on", k === id); panes[k]._tab.classList.toggle("on", k === id); } };
+    for (const [k, label] of names) { const b = $("button", "", label); b.onclick = () => show(k); tabs.append(b); panes[k] = $("div", "k-pane" + (k === "notes" ? " k-notes" : "")); panes[k]._tab = b; side.append(panes[k]); }
+    show("controls"); ui.controls = panes.controls; ui.showTab = show;
+    ui.group = title => { const g = $("div", "k-group", title ? `<h3>${title}</h3>` : ""); panes.controls.append(g); return g; };
+    panes.notes.innerHTML = o.notes || "";
+    // investigations: each card sets the simulation up and pins its question over the stage
+    let banner = null;
+    ui.mission = m => {
+      if (banner) banner.remove(); banner = null; if (!m) return;
+      banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
+      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
+    };
+    (o.missions || []).forEach((m, i) => {
+      const c = $("div", "k-mcard", `<h4><em>${i + 1}</em>${m.title}</h4><p>${m.q}</p>`);
+      btn(c, "Set it up ▸", () => { c.classList.add("done"); c.querySelector("em").textContent = "✓"; m.setup && m.setup(); ui.mission(m); ui.setPlaying(true); show("controls"); }, "small primary");
+      panes.missions.append(c);
+    });
+    // floating hint and heads-up text over the stage
+    let tipEl = null, tipT = 0;
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; } hudEl.style.display = html ? "" : "none"; };
+    // animation loop: step(dt) only while playing, draw() every frame
+    ui.run = (step, draw) => { let t0 = performance.now(); const f = t => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (ui.playing && !ov.classList.contains("on")) step(dt); draw(dt); requestAnimationFrame(f); }; requestAnimationFrame(f); };
+
+    // ---- Batch run window ----
+    const ov = $("div", "k-overlay"); document.body.append(ov);
+    let bstate = null;
+    function openBatch() {
+      ov.classList.add("on"); if (bstate) return;
+      const modal = $("div", "k-modal"), list = $("div", "k-blist", `<h2>📊 Batch run</h2><p>Runs the model many times without drawing it, then compares the results with theory. Pick a question:</p>`), mainB = $("div", "k-bmain");
+      modal.append(list, mainB); ov.append(modal); ov.addEventListener("pointerdown", e => { if (e.target === ov) ov.classList.remove("on"); });
+      mainB.innerHTML = `<div class="k-bhead"><h3></h3></div><div class="k-bbar"></div><div class="k-bchart"></div><div class="k-bfoot"><div class="k-btable"></div><div class="k-bnote"></div></div>`;
+      const head = mainB.querySelector("h3"), bar = mainB.querySelector(".k-bbar"), tbl = mainB.querySelector(".k-btable"), noteEl = mainB.querySelector(".k-bnote");
+      btn(mainB.querySelector(".k-bhead"), "✕ Close", () => ov.classList.remove("on"));
+      const ch = chart(mainB.querySelector(".k-bchart"), {});
+      const bRun = btn(bar, "▶ Run", () => runExp(), "primary"), prog = $("div", "k-prog", "<i></i>"), status = $("span", "", ""); status.style.cssText = "color:var(--muted);font-size:12.5px;min-width:110px";
+      const bCsv = btn(bar, "⬇ CSV", () => bstate.rows.length && download(o.title.replace(/\W+/g, "-").toLowerCase() + "-batch.csv", bstate.csv()));
+      bar.insertBefore(prog, bCsv); bar.insertBefore(status, bCsv);
+      bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
+      const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
+      function pick(e) { bstate.token++; bstate.exp = e; bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
+      function paint() {
+        const e = bstate.exp, rows = bstate.rows, series = [], extra = { title: "", xLabel: e.xs ? e.xLabel : e.yLabel, yLabel: e.xs ? e.yLabel : "number of runs" };
+        if (e.xs) {
+          const groups = e.xs.map(x => rows.filter(r => r[0] === x).map(r => r[3])), done = e.xs.map((x, i) => [x, groups[i]]).filter(g => g[1].length);
+          if (e.theory) { const a = Math.min(...e.xs), b = Math.max(...e.xs), tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, e.theory(x)]); } series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
+          series.push({ pts: rows.map(r => [r[0], r[3]]), type: "dots", color: cssVar("--s0"), alpha: .3, r: 2.5, label: "single runs" });
+          series.push({ pts: done.map(([x, g]) => [x, mean(g), se(g)]), type: "err", color: cssVar("--s0"), r: 4.5, label: "mean ± SE" });
+          let fitTxt = "";
+          if (e.fit && done.length > 2) { const f = linfit(done.map(([x, g]) => [x, mean(g)])), a = Math.min(...e.xs), b = Math.max(...e.xs); series.push({ pts: [[a, f.m * a + f.c], [b, f.m * b + f.c]], color: cssVar("--s2"), label: "best-fit line" }); fitTxt = `<tr><td colspan="6" style="text-align:left">Best-fit line: gradient <b>${sig(f.m)}</b>, intercept ${sig(f.c)}, r = ${f.r.toFixed(3)}</td></tr>`; }
+          extra.xMin = Math.min(...e.xs) - (Math.max(...e.xs) - Math.min(...e.xs)) * .05; extra.xMax = Math.max(...e.xs) + (Math.max(...e.xs) - Math.min(...e.xs)) * .05; if (e.yMin != null) extra.yMin = e.yMin; if (e.yMax != null) extra.yMax = e.yMax;
+          tbl.innerHTML = `<table><tr><th>${e.xLabel}</th><th>runs</th><th>mean</th><th>SD</th><th>SE</th>${e.theory ? "<th>theory</th>" : ""}</tr>` + done.map(([x, g]) => `<tr><td>${sig(x, 4)}</td><td>${g.length}</td><td>${sig(mean(g))}</td><td>${sig(sd(g))}</td><td>${sig(se(g))}</td>${e.theory ? `<td>${sig(e.theory(x))}</td>` : ""}</tr>`).join("") + fitTxt + "</table>";
+        } else {
+          const v = rows.map(r => r[3]);
+          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); }
+          tbl.innerHTML = v.length ? `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${e.theory != null ? "<th>theory</th>" : ""}</tr><tr><td>${v.length}</td><td>${sig(mean(v))}</td><td>${sig(sd(v))}</td><td>${sig(se(v))}</td><td>${sig(Math.min(...v))}</td><td>${sig(Math.max(...v))}</td>${e.theory != null ? `<td>${sig(+e.theory)}</td>` : ""}</tr></table>` : "";
+        }
+        ch.opts.xFmt = null; ch.draw(series, extra);
+      }
+      function runExp() {
+        const e = bstate.exp, token = ++bstate.token; bstate.rows = []; const tasks = [];
+        if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) tasks.push([x, r]); } else for (let r = 0; r < (e.reps || 200); r++) tasks.push([0, r]);
+        let i = 0; const seed0 = (Date.now() % 100000) * 7 + 1; bRun.textContent = "■ Stop"; bRun.onclick = () => { bstate.token++; fin(); };
+        const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
+        (function slice() {
+          if (token !== bstate.token) return; const t = performance.now();
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
+          if (i < tasks.length) setTimeout(slice, 0); else fin();
+        })();
+      }
+      pick(o.batch[0]);
+    }
+    ui.openBatch = openBatch;
+    return ui;
+  }
+  return { $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app };
+})();
+</script>
+<script>
+/* =====================================================================
+   NATURAL SELECTION: moths on bark
+   Every moth has one inherited trait: wing colour, from 0 (black) to 1
+   (pale). Each generation:
+     1. PREDATION  birds eat moths; the worse the camouflage, the higher
+                   the chance of being eaten
+     2. BREEDING   survivors have offspring, which inherit the parent's
+                   colour plus a small random mutation
+   That is all. Adaptation, or extinction, follows from those two steps.
+   ===================================================================== */
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+
+class Pop {
+  constructor(rand, o = {}) {
+    this.r = rand; this.o = Object.assign({ K: 80, sel: 1.6, mut: 0.04, env: 0.8, startMean: 0.8, startSD: 0.08, fec: 2.5 }, o);
+    this.gen = 0; this.env = this.o.env; this.m = []; this.lastEaten = 0;
+    for (let i = 0; i < this.o.K; i++) this.m.push(this.newMoth(clamp01(this.o.startMean + rand.gauss() * this.o.startSD)));
+  }
+  newMoth(g) { return { g, x: this.r(), y: this.r(), a: (this.r() - .5) * 1.2, eaten: false, te: this.r() }; }
+  // Chance that a moth of colour g is eaten this generation: 8% bad luck + more the worse it matches the bark
+  pEaten(g) { return Math.min(0.97, 0.08 + this.o.sel * Math.abs(g - this.env)); }
+  predate() { let n = 0; for (const q of this.m) if (!q.eaten && this.r() < this.pEaten(q.g)) { q.eaten = true; n++; } this.lastEaten = n; }
+  breed() {
+    const surv = this.m.filter(q => !q.eaten), n = Math.min(this.o.K, Math.round(surv.length * this.o.fec)), next = [];
+    for (let i = 0; i < n; i++) { const parent = surv[this.r.int(surv.length)]; next.push(this.newMoth(clamp01(parent.g + this.r.gauss() * this.o.mut))); } // inheritance + mutation
+    this.m = next; this.gen++;
+  }
+  mean() { return this.m.length ? K.mean(this.m.map(q => q.g)) : NaN; }
+}
+// Headless: run for some generations; envAt(gen) gives the bark colour (so the environment can change)
+function evolve(rand, o, gens, envAt) { const p = new Pop(rand, o); for (let i = 0; i < gens && p.m.length; i++) { if (envAt) p.env = envAt(i); p.predate(); p.breed(); } return p; }
+
+// ---------------------------------------------------------------- page
+let pop, hist, phase = "hunt", pt = 0, speed = 1, fast = false, youBird = false, scenario = "steady", quota = 0, clicked = 0, timeLeft = 0; const S = {};
+const scen = { // bark colour through time for each story
+  steady: g => S.env.value,
+  industry: g => g < 8 ? 0.82 : g < 28 ? 0.82 - (g - 8) / 20 * 0.64 : g < 55 ? 0.18 : g < 80 ? 0.18 + (g - 55) / 25 * 0.64 : 0.82,
+  sudden: g => g < 10 ? 0.8 : 0.3,
+  drift: g => clamp01(0.85 - S.rate.value * g),
+};
+const ui = K.app({
+  title: "Natural Selection", subject: "Biology", blurb: "Moths, bark and hungry birds: watch a population adapt, or be the predator yourself.",
+  reset: () => restart(),
+  missions: [
+    { title: "Be the bird", q: "You are the predator. Each generation you have 10 seconds to catch the moths: click them. Play 6–8 generations on this dark, sooty bark. What happens to the colour histogram?", hint: "You did not try to 'improve' the moths. You just ate the ones you could see. The survivors were darker than average, their offspring inherited that, and the whole population shifted. That is natural selection.", setup: () => { S.you.set(true, true); S.scen.set("steady", true); S.env.set(0.25, true); restart(); } },
+    { title: "The Industrial Revolution", q: "Soot darkens the trees from generation 8, then clean-air laws let the lichen return after generation 55. Sketch what you expect the mean-colour line to do, then run it.", hint: "The moths track the bark with a delay of a few generations: the population can only shift as fast as selection and mutation allow. This is the real story of the peppered moth, <i>Biston betularia</i>.", setup: () => { S.you.set(false, true); S.scen.set("industry", true); restart(); } },
+    { title: "No variation, no evolution", q: "Mutation is off and every moth starts the same colour. The bark suddenly darkens at generation 10. What happens, and why?", hint: "Selection can only choose between differences that already exist. With no variation there is nothing to select, the population cannot adapt, and heavy predation drives it extinct.", setup: () => { S.you.set(false, true); S.mut.set(0, true); S.sd.set(0, true); S.scen.set("sudden", true); restart(); } },
+    { title: "Variation without mutation", q: "Mutation is still off, but now the starting population is varied. Does it adapt to the darker bark? How far can it get?", hint: "It adapts quickly at first using the existing variation, then stalls: it cannot go beyond the darkest moth that was present at the start. Mutation is the only source of new variants.", setup: () => { S.you.set(false, true); S.mut.set(0, true); S.sd.set(0.15, true); S.scen.set("sudden", true); restart(); } },
+    { title: "Can evolution keep up?", q: "The bark darkens steadily, selection is strong and mutations are small. Find the fastest <b>rate of change</b> the moths can survive. What could a population have that would let it survive faster change?", hint: "If the environment moves faster than the population can follow, mismatch grows each generation, predation rises and numbers crash. More variation (bigger mutations), a larger population or faster breeding all help. This matters for species facing rapid climate change.", setup: () => { S.you.set(false, true); S.sel.set(3, true); S.mut.set(0.02, true); S.sd.set(0.08, true); S.scen.set("drift", true); S.rate.set(0.014, true); restart(); } },
+    { title: "Weak selection", q: "Set selection strength to 0.2. Does the population still adapt to a sudden change? Now set it to 0: what moves the mean colour then?", hint: "Weak selection still works, only slowly. With no selection at all the mean still wanders at random: genetic drift, which is strongest in small populations.", setup: () => { S.you.set(false, true); S.sel.set(0.2, true); S.scen.set("sudden", true); restart(); } },
+  ],
+  batch: [
+    { title: "Do moths match their bark?", question: "After 40 generations, where does mean colour end up?", how: "Populations of 80 start at colour 0.5 and evolve on bark of different colours.", xLabel: "bark colour", yLabel: "mean moth colour after 40 generations", xs: [0.1, 0.25, 0.4, 0.55, 0.7, 0.85], reps: 8, theory: x => x, theoryLabel: "perfect match",
+      run: (x, r) => evolve(r, { env: x, startMean: 0.5 }, 40).mean(), note: "Which moths get eaten and which mutations arise are chance events, so each population takes a slightly different path. Selection pulls them all the same way." },
+    { title: "Selection strength and speed", question: "Does stronger selection mean faster adaptation?", how: "Pale moths (0.8) are put on dark bark (0.3). We count the generations until the mean is within 0.1 of the bark.", xLabel: "selection strength", yLabel: "generations to adapt", xs: [0.3, 0.6, 0.9, 1.2, 1.5, 1.8], reps: 10, yMin: 0,
+      run: (x, r) => { const p = new Pop(r, { env: 0.3, sel: x, K: 150 }); while (p.gen < 200 && p.m.length && Math.abs(p.mean() - 0.3) > 0.1) { p.predate(); p.breed(); } return p.m.length ? p.gen : null; }, note: "Runs where the population died out are left out. Adapting depends on when lucky mutations turn up, so the times vary a lot, most of all when selection is weak." },
+    { title: "Extinction and the pace of change", question: "How fast can the environment change before the moths die out?", how: "Bark darkens steadily from 0.85; selection is strong (3.0) and mutations small (0.02). Result = 1 if the population survives 40 generations, 0 if extinct, so the mean is the chance of survival.", xLabel: "bark colour change per generation", yLabel: "chance of survival", xs: [0.01, 0.014, 0.018, 0.022, 0.026, 0.03], reps: 30, yMin: 0, yMax: 1.05,
+      run: (x, r) => evolve(r, { sel: 3, mut: 0.02 }, 40, g => clamp01(0.85 - x * g)).m.length ? 1 : 0, note: "Each run is all-or-nothing, so plenty of repeats are needed to estimate a probability. Near the tipping point survival is down to luck." },
+    { title: "Is mutation needed?", question: "With mutation switched off, how well can a population adapt?", how: "Moths (mean 0.8) on bark that has turned dark (0.3), no mutation. We vary how much variation the starting population has.", xLabel: "starting variation (SD of colour)", yLabel: "mismatch after 30 generations", xs: [0.02, 0.06, 0.1, 0.14, 0.18, 0.22], reps: 10, yMin: 0,
+      run: (x, r) => { const p = evolve(r, { env: 0.3, mut: 0, startSD: x, K: 150, sel: 1 }, 30); return p.m.length ? Math.abs(p.mean() - 0.3) : null; }, note: "The final colour is that of the darkest few moths that happened to be in the starting population, which is a matter of chance. Extinct populations are left out." },
+  ],
+  notes: `<h3>The rules</h3><ul><li>One trait: wing colour from 0 (black) to 1 (pale). Bark colour uses the same scale.</li><li><b>Predation:</b> chance of being eaten = 8% + selection strength × |moth colour − bark colour| (capped at 97%).</li><li><b>Breeding:</b> each survivor leaves on average 2.5 offspring, up to the carrying capacity of the tree.</li><li><b>Inheritance:</b> offspring colour = parent colour + a random mutation (normal distribution, SD = mutation size).</li></ul>
+  <h3>Assumptions and simplifications</h3><ul><li>One parent per moth (asexual). Real moths have two parents and colour is controlled mainly by one gene with a dominant dark allele: see the Inheritance simulation.</li><li>Colour is treated as a smooth scale. Real peppered moths come in distinct forms (<i>typica</i>, <i>carbonaria</i>, and an intermediate <i>insularia</i>).</li><li>Generations do not overlap, and nothing else varies: no food shortage, disease or migration.</li><li>Birds hunt only by sight, and mismatch is the only thing that matters to them.</li><li>Mutations are equally likely to make a moth darker or paler. They are random, never "what the moth needs".</li></ul>
+  <h3>Words to use</h3><p>variation · selection pressure · survival · inheritance · mutation · adaptation · genetic drift · extinction</p>`,
+});
+let g = ui.group("Play");
+S.you = K.toggle(g, { label: "<b>You are the bird</b> (click moths to eat them)", value: false, on: v => { youBird = v; restart(); } });
+S.speed = K.slider(g, { label: "Speed", min: 1, max: 5, step: 1, value: 1, fmt: v => v < 5 ? v + "×" : "fast-forward", on: v => { speed = v; fast = v === 5; } });
+g = ui.group("Environment");
+S.scen = K.seg(g, { label: "Story", value: "steady", options: [["steady", "Steady"], ["sudden", "Sudden change"], ["industry", "Industrial Revolution"], ["drift", "Steady darkening"]], on: v => { scenario = v; restart(); } });
+S.env = K.slider(g, { label: "Bark colour", min: 0.05, max: 0.95, step: 0.01, value: 0.8, fmt: v => v.toFixed(2) + (v < .35 ? " sooty" : v > .65 ? " lichen" : ""), tip: "Used by the 'Steady' story. Drag it mid-run to change the environment yourself." });
+S.rate = K.slider(g, { label: "Rate of change (steady darkening)", min: 0.002, max: 0.04, step: 0.002, value: 0.01, fmt: v => v.toFixed(3) + " per gen" });
+g = ui.group("Population");
+S.sel = K.slider(g, { label: "Selection strength", min: 0, max: 3, step: 0.1, value: 1.6, fmt: v => v.toFixed(1), on: v => pop.o.sel = v, tip: "How much camouflage matters to survival." });
+S.mut = K.slider(g, { label: "Mutation size", min: 0, max: 0.12, step: 0.005, value: 0.04, fmt: v => v ? v.toFixed(3) : "off", on: v => pop.o.mut = v });
+S.sd = K.slider(g, { label: "Starting variation", min: 0, max: 0.25, step: 0.01, value: 0.08, fmt: v => v.toFixed(2), tip: "Applies when you press Reset." });
+S.K = K.slider(g, { label: "Carrying capacity", min: 20, max: 200, step: 10, value: 80, unit: "moths", on: v => pop.o.K = v });
+g = ui.group("This generation");
+const read = K.readout(g, [["gen", "Generation"], ["n", "Moths alive"], ["mean", "Mean colour"], ["mis", "Mismatch"]]);
+
+function restart() {
+  scenario = S.scen.value; const e0 = scen[scenario](0);
+  pop = new Pop(K.rng(Date.now()), { K: youBird ? Math.min(40, S.K.value) : S.K.value, sel: S.sel.value, mut: S.mut.value, env: e0, startMean: scenario === "steady" ? 0.8 : e0, startSD: S.sd.value });
+  hist = { mean: [], env: [], n: [] }; record(); startHunt();
+}
+function record() { hist.mean.push([pop.gen, pop.mean()]); hist.env.push([pop.gen, pop.env]); hist.n.push([pop.gen, pop.m.length]); }
+function startHunt() {
+  phase = "hunt"; pt = 0; pop.env = scen[scenario](pop.gen);
+  if (youBird) { quota = Math.max(1, Math.round(pop.m.length * 0.45)); clicked = 0; timeLeft = 10; } else pop.predate();
+}
+function nextGen() { pop.breed(); record(); if (pop.m.length) startHunt(); else { phase = "extinct"; ui.tip("💀 Extinct. Press Reset to start again.", 9000); } }
+
+// ---- Drawing ----
+const tone = v => `rgb(${40 + v * 185 | 0},${36 + v * 180 | 0},${30 + v * 160 | 0})`;
+let bark = null;
+function makeBark(w, h) { // a grey texture of streaks and knots, blended over the bark colour
+  bark = document.createElement("canvas"); bark.width = w; bark.height = h; const c = bark.getContext("2d"), r = K.rng(11);
+  c.fillStyle = "#808080"; c.fillRect(0, 0, w, h);
+  for (let i = 0; i < 900; i++) { const x = r() * w, y = r() * h, len = 40 + r() * 220, v = r() < .5 ? 0 : 255; c.strokeStyle = `rgba(${v},${v},${v},${0.03 + r() * .09})`; c.lineWidth = 1 + r() * 5; c.beginPath(); c.moveTo(x, y); c.bezierCurveTo(x + (r() - .5) * 30, y + len * .3, x + (r() - .5) * 30, y + len * .6, x + (r() - .5) * 20, y + len); c.stroke(); }
+  for (let i = 0; i < 260; i++) { const x = r() * w, y = r() * h, v = r() < .5 ? 20 : 235; c.fillStyle = `rgba(${v},${v},${v},${0.05 + r() * .1})`; c.beginPath(); c.ellipse(x, y, 3 + r() * 14, 2 + r() * 8, r() * 3, 0, 6.3); c.fill(); }
+}
+const cv = ui.canvas(c => makeBark(c.w, c.h));
+const PAD = 40, mothSize = () => youBird ? 20 : pop.m.length > 120 ? 11 : 14;
+const mx = q => PAD + q.x * (cv.w - 2 * PAD), my = q => PAD + q.y * (cv.h - 2 * PAD);
+function moth(c, x, y, a, s, g, alpha) {
+  c.save(); c.translate(x, y); c.rotate(a); c.globalAlpha = alpha;
+  c.fillStyle = "rgba(0,0,0,.28)"; c.beginPath(); c.ellipse(2, 3, s * 1.05, s * .6, 0, 0, 6.3); c.fill();          // soft shadow
+  c.fillStyle = tone(g); c.beginPath();                                                                       // wings
+  c.moveTo(0, -s * .25); c.quadraticCurveTo(s * .9, -s * 1.0, s * 1.25, -s * .15); c.quadraticCurveTo(s * 1.0, s * .75, 0, s * .45);
+  c.quadraticCurveTo(-s * 1.0, s * .75, -s * 1.25, -s * .15); c.quadraticCurveTo(-s * .9, -s * 1.0, 0, -s * .25); c.fill();
+  c.strokeStyle = tone(clamp01(g - .12)); c.lineWidth = 1; c.beginPath(); c.moveTo(-s * .9, -s * .25); c.quadraticCurveTo(0, s * .1, s * .9, -s * .25); c.stroke(); // wing band
+  c.fillStyle = tone(clamp01(g - .16)); c.beginPath(); c.ellipse(0, 0, s * .16, s * .6, 0, 0, 6.3); c.fill();   // body
+  c.restore();
+}
+function draw(dt) {
+  const c = cv.ctx; c.fillStyle = tone(pop.env); c.fillRect(0, 0, cv.w, cv.h);
+  c.globalCompositeOperation = "overlay"; c.drawImage(bark, 0, 0, cv.w, cv.h); c.globalCompositeOperation = "source-over";
+  const s = mothSize();
+  for (const q of pop.m) {
+    let alpha = 1;
+    if (phase === "hunt") { if (q.eaten) { const k = youBird ? 1 : pt * 1.25; if (k > q.te + .18) continue; if (k > q.te) { alpha = 1 - (k - q.te) / .18; c.strokeStyle = `rgba(255,255,255,${alpha})`; c.lineWidth = 2; c.beginPath(); c.arc(mx(q), my(q), s * (1 + (1 - alpha) * 1.6), 0, 6.3); c.stroke(); } } if (pt < .12 && pop.gen > 0 && !youBird) alpha *= pt / .12; }
+    moth(c, mx(q), my(q), q.a, s, q.g, alpha);
+  }
+  if (youBird && phase === "hunt") ui.hud(`<b style="font-size:15px">🐦 ${clicked} / ${quota} eaten</b><br>${timeLeft.toFixed(1)} s left`);
+  else ui.hud(phase === "extinct" ? "<b style='color:#ff6b81'>EXTINCT</b>" : `Generation ${pop.gen}<br>${pop.lastEaten} eaten last hunt`);
+}
+K.pointer(cv.el, { down(p) {
+  if (!youBird || phase !== "hunt" || !ui.playing) return; let best = null, bd = mothSize() * 1.3;
+  for (const q of pop.m) if (!q.eaten) { const d = Math.hypot(mx(q) - p.x, my(q) - p.y); if (d < bd) { bd = d; best = q; } }
+  if (best) { best.eaten = true; best.te = -1; clicked++; pop.lastEaten = clicked; }
+} });
+
+const chH = K.chart(ui.dock, { title: "Wing colours in the population now", xLabel: "wing colour (0 = black, 1 = pale)", yLabel: "moths", xMin: 0, xMax: 1, yMin: 0 });
+const chT = K.chart(ui.dock, { title: "History", xLabel: "generation", yLabel: "colour", yMin: 0, yMax: 1 });
+let frame = 0;
+ui.run(dt => {
+  if (phase === "extinct") return;
+  if (youBird) { timeLeft -= dt; if (timeLeft <= 0 || clicked >= quota) nextGen(); return; }
+  if (fast) { for (let k = 0; k < 2 && phase !== "extinct"; k++) nextGen(); return; }
+  pt += dt * speed / 1.6; if (pt >= 1) nextGen();
+}, dt => {
+  draw(dt); if (frame++ % 4) return;
+  const alive = pop.m.filter(q => !q.eaten).map(q => q.g), h = K.histogram(alive, 25, 0, 1);
+  chH.draw([{ pts: h.pts, w: h.w, type: "bars", color: K.cssVar("--s0") }], { vlines: [{ x: pop.env, color: K.cssVar("--s1"), label: "bark" }] });
+  chT.draw([{ pts: hist.env, color: K.cssVar("--s1"), label: "bark", dash: [6, 4] }, { pts: hist.mean, color: K.cssVar("--s0"), label: "mean moth", width: 2.4 }, { pts: hist.n.map(p => [p[0], p[1] / pop.o.K]), color: K.cssVar("--s3"), label: "population", width: 1.2 }]);
+  const m = pop.mean(); read.set("gen", pop.gen); read.set("n", alive.length); read.set("mean", isFinite(m) ? m.toFixed(2) : "–"); read.set("mis", isFinite(m) ? Math.abs(m - pop.env).toFixed(2) : "–");
+});
+restart();
+ui.tip("Which moths are the birds finding? · Try <b>Investigate → Be the bird</b>");
+</script>
+</body></html>
