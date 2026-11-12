@@ -5,6 +5,7 @@
 cd "$(dirname "$0")"
 ROOT=../..
 FILES="$*"
-[ -z "$FILES" ] && FILES=$(ls $ROOT/*/*/*.html | grep -v -e worksheets.html -e '/index.html')
+# The ★ enhanced simulations (built by tools/kit) have no worksheets and are skipped: they carry a "Built from tools/kit" comment.
+[ -z "$FILES" ] && FILES=$(ls $ROOT/*/*/*.html | grep -v -e worksheets.html -e '/index.html' | xargs grep -L 'Built from tools/kit')
 for f in $FILES; do echo "$f"; done | xargs -P 3 -I{} sh -c 'node run-batch-experiments.js {} > /dev/null 2>&1 || echo "FAILED: {}"'
 python3 make_worksheets.py

@@ -1,1362 +1,556 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Central Limit Theorem</title>
-<!--
-  GALTON BOARD AND THE CENTRAL LIMIT THEOREM — a teaching model
-  ==============================================================
-  One self-contained file: no libraries, no internet needed.
-
-  1. GALTON BOARD. A ball falls through R rows of pegs. At every peg it
-     bounces right with probability p and left with probability 1 − p.
-     The bin it lands in is the number of right-bounces, K. So K follows
-     the BINOMIAL distribution:
-         P(K = k) = C(R, k) p^k (1 − p)^(R − k)
-         mean = Rp,   standard deviation σ = √(Rp(1 − p))
-     K is a SUM of R small random steps, so for large R its shape is close
-     to the NORMAL (bell) curve with the same mean and SD.
-
-  2. SAMPLE MEANS MACHINE. Pick any "parent" population with mean μ and
-     standard deviation σ (a die, waiting times, incomes, one you draw...).
-     Take a random sample of n values and work out its mean x̄. Do it again
-     and again. The CENTRAL LIMIT THEOREM says that, as n grows, the
-     sample means pile up in a NORMAL curve with
-         mean μ   and   standard deviation σ/√n  (the "standard error")
-     whatever shape the parent had, as long as σ is finite.
-     The skewness of the means falls like γ/√n (γ = skewness of the parent).
-     The Cauchy ("lighthouse") population has no finite σ, and there the
-     theorem fails: averaging does not narrow the spread at all.
-
-  3. BATCH RUN. Runs the model many times with no animation, so you can
-     test the theory: σ/√n (a log–log gradient of −0.5), skewness → 0, the
-     χ² goodness-of-fit test, and how many rows or balls you need before
-     a pile "looks normal".
-
-  Units: bins (number of right-bounces) for the board; for the sample means
-  machine the units of the parent (die score, minutes, £ thousand a year).
--->
+<!doctype html>
+<!-- Central Limit Theorem: one self-contained file, works offline. Built from tools/kit (kit.css, kit.js, src/central_limit_theorem.js); edit those and run "node build.js". -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Central Limit Theorem</title>
 <style>
-  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; --sim:#a4cbe6; --theory:#f1af28; --norm:#00aec3; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; background: var(--bg); color: var(--text); }
-  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
-  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
-  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  main { display: grid; grid-template-columns: var(--lw, 250px) 10px minmax(0, 1fr) 10px var(--rw, 280px); grid-template-rows: minmax(0, 1fr);
-         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
-  #left, #right { overflow-y: auto; }
-  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
-  h2.gap { margin-top: 14px; }
-  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
-  button:hover { filter: brightness(1.18); }
-  button:disabled { opacity: .45; cursor: default; filter: none; }
-  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
-  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
-  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
-  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
-  .presets button.on small { color: var(--ink-dark); }
-  .ctl { margin-bottom: 9px; }
-  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
-  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
-  select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
-  input[type=number], input.txt { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; width: 100%; }
-  .hint { color: var(--muted); font-size: 11.5px; }
-  .tabs { display: flex; gap: 4px; margin-bottom: 10px; }
-  .tabs button { flex: 1; font-size: 12.5px; padding: 5px 6px; }
-  .check { display: block; font-size: 13px; margin: 2px 0 8px; }
-
-  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
-  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
-  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
-  .stat { color: var(--muted); font-size: 12.5px; }
-  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
-  #viewWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
-  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
-  .speed button { padding: 2px 8px; font-size: 12px; }
-  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
-  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
-  .legend i.line { height: 3px; vertical-align: 3px; width: 16px; }
-
-  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
-  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
-  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
-  .tile .s { color: var(--muted); font-size: 11.5px; }
-  .chartBox { position: relative; height: 160px; }
-  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-  #story { font-size: 13px; color: #dfe3d6; }
-  #story p { margin: 0 0 6px; }
-  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
-  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
-  details li { margin-bottom: 4px; }
-
-  /* Batch run overlay: covers the centre and right-hand columns */
-  #left { grid-column: 1; grid-row: 1; } #splitL { grid-column: 2; grid-row: 1; } #centre { grid-column: 3; grid-row: 1; } #splitR { grid-column: 4; grid-row: 1; } #right { grid-column: 5; grid-row: 1; }
-  #batch { grid-column: 3 / 6; grid-row: 1; z-index: 5; position: relative; display: none; box-shadow: 0 8px 40px rgba(0,0,0,.6); }
-  /* Batch run: two columns, set-up on the left (scrolls), results on the right with Run at the top */
-  #batch.open { display: grid; grid-template-columns: minmax(340px, 38%) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 12px; height: 100%; align-self: stretch; }
-  #bsetup { overflow-y: auto; padding-right: 4px; min-height: 0; }
-  #bresults { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
-  #bRunRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  #bRunRow .progress { flex: 1; min-width: 80px; margin: 0; }
-  #bRunRow #bProg { font-size: 12px; }
-  #bsetup #bExps { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-  #bsetup #bExps button { margin-bottom: 0; }
-  /* Batch settings table: every starting setting, with a tick box to choose the one that is varied */
-  #bSetBox { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--panel-2); margin-top: 0; color: var(--text); }
-  #bSetBox > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
-  #bSetBox .bhint { font-size: 11.5px; color: var(--muted); margin: 3px 0 5px; }
-  #bOpts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; margin-bottom: 5px; }
-  #bOpts label { display: inline-flex; gap: 5px; align-items: center; }
-  #bTbl { display: grid; grid-template-columns: 1fr; gap: 3px 14px; }
-  .bt { display: flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 2px 4px; border-radius: 6px; flex-wrap: wrap; }
-  .bt.on { background: rgba(241,175,40,.13); outline: 1px solid var(--accent); }
-  .bt label { flex: 1; min-width: 150px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
-  .bt input[type=number] { width: 78px !important; }
-  .bt .bsw { display: none; gap: 5px; align-items: center; flex-wrap: wrap; }
-  .bt.on .bsw { display: inline-flex; }
-  .bt.on .bval { display: none; }
-  .bt .bcount { color: var(--muted); font-size: 11.5px; }
-  #bSetBox select, #bOpts select { font: inherit; font-size: 12.5px; }
-  #bSetBox input[type=text] { width: 70px; }
-
-  #bChartBox { position: relative; flex: 1 1 55%; min-height: 220px; background: #050604; border-radius: 8px; }
-  #bChart { position: absolute; inset: 0; width: 100%; height: 100%; }
-  #bInfo { flex: 0 1 auto; max-height: 45%; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 12px; font-size: 12.5px; }
-  #bExps button { display: block; width: 100%; text-align: left; margin-bottom: 5px; font-size: 12.5px; padding: 5px 8px; font-weight: 600; }
-  #bExps button.on { background: var(--accent); color: var(--ink-dark); }
-  .row2 { display: flex; gap: 6px; align-items: center; }
-  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
-  .row3 label { font-size: 11.5px; color: var(--muted); display: block; }
-  .progress { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; margin: 8px 0 3px; }
-  .progress span { display: block; height: 100%; width: 0; background: var(--accent); }
-  table.sum { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
-  table.sum td, table.sum th { padding: 2px 6px; border-bottom: 1px solid var(--line); text-align: right; }
-  table.sum td:first-child, table.sum th:first-child { text-align: left; color: var(--muted); font-weight: 400; }
-  #bNote { color: #dfe3d6; }
-  #bNote b { color: var(--accent); }
-  .good { color: #8fd694; } .bad { color: #ff8a7a; }
-
-  /* Resizable, hideable side panels */
-  .splitter { position: relative; cursor: col-resize; touch-action: none; }
-  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
-  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
-  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
-  .side { position: relative; }
-  .side .reopen { display: none; }
-  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
-  .side.collapsed > :not(.reopen) { display: none !important; }
-  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
-    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
-  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
-</style>
-</head>
-<body>
-<header>
-  <h1>Galton Board &amp; the Central Limit Theorem</h1>
-  <span class="sub">Add up lots of small random things and you get a bell curve, whatever you started with. Run it many times and test the theory.</span>
-</header>
-
-<main>
-  <!-- ======================= LEFT: PRESETS AND CONTROLS ======================= -->
-  <section class="panel side" id="left">
-    <button class="reopen" title="Show this panel">Controls ›</button>
-    <h2>Presets</h2>
-    <div class="presets" id="presets"></div>
-
-    <h2 class="gap">Machine</h2>
-    <div class="tabs" id="modeTabs">
-      <button data-mode="galton" class="on">Galton board</button>
-      <button data-mode="means">Sample means</button>
-    </div>
-
-    <div id="galtonCtl">
-      <div class="ctl">
-        <label>Rows of pegs <output id="o_rows"></output></label>
-        <input type="range" id="rows" min="1" max="24" step="1" value="12">
-      </div>
-      <div class="ctl">
-        <label>Chance of bouncing right, p <output id="o_p"></output></label>
-        <input type="range" id="p" min="0.05" max="0.95" step="0.05" value="0.5">
-        <div class="hint">0.5 is a fair, level board. Tilting the board makes right-bounces more (or less) likely.</div>
-      </div>
-      <div class="ctl">
-        <label>Ball rate</label>
-        <select id="g_rate"><option value="2">2 balls per second</option><option value="5">5 balls per second</option><option value="10">10 balls per second</option><option value="20" selected>20 balls per second</option><option value="50">50 balls per second</option><option value="100">100 balls per second</option></select>
-      </div>
-      <div class="ctl">
-        <label>Number of balls</label>
-        <select id="g_balls"><option>100</option><option>250</option><option>500</option><option selected>1000</option><option>2000</option><option>5000</option></select>
-      </div>
-    </div>
-
-    <div id="meansCtl" style="display:none">
-      <div class="ctl">
-        <label>Parent population</label>
-        <select id="dist">
-          <option value="die">Fair die (1–6)</option>
-          <option value="loaded">Loaded die (lots of 1s and 6s)</option>
-          <option value="expo">Waiting times (exponential)</option>
-          <option value="bimodal">Two humps (bimodal)</option>
-          <option value="ushape">U-shaped</option>
-          <option value="income">Household incomes (skewed)</option>
-          <option value="drawn">Draw your own</option>
-          <option value="cauchy">Lighthouse beam (Cauchy)</option>
-        </select>
-        <div class="hint" id="distHint"></div>
-      </div>
-      <div class="ctl">
-        <label>Sample size n <output id="o_n"></output></label>
-        <input type="range" id="nIdx" min="0" max="18" step="1" value="4">
-      </div>
-      <div class="ctl">
-        <label>Samples per second</label>
-        <select id="m_rate"><option value="1">1 (watch each one)</option><option value="2" selected>2 (watch each one)</option><option value="5">5</option><option value="20">20</option><option value="100">100</option><option value="500">500</option></select>
-      </div>
-      <div class="ctl">
-        <label>Number of samples</label>
-        <select id="m_samples"><option>200</option><option>500</option><option>1000</option><option selected>2000</option><option>5000</option><option>10000</option></select>
-      </div>
-      <label class="check"><input type="checkbox" id="zoom"> Zoom in on the means (own scale)</label>
-    </div>
-
-    <div class="ctl">
-      <label>Random seed</label>
-      <input class="txt" id="seed" value="1">
-    </div>
-
-    <h2 class="gap">Display</h2>
-    <div class="ctl"><label>Picture quality</label><select id="quality"><option value="0">Low (lightest)</option><option value="1" selected>Medium (default)</option><option value="2">High (sharper)</option><option value="3">Ultra (sharpest)</option></select>
-      <div class="hint">Low draws at standard resolution, 30 times a second: try it if the animation is jerky. Medium matches your screen. High and Ultra draw at 1.5× and 2× for smoother edges. Only the drawing changes: the model and batch runs are the same at every level.</div></div>
-
-    <details>
-      <summary>How the model works (and what it leaves out)</summary>
-      <ul>
-        <li><b>Galton board:</b> each ball meets R rows of pegs and at each one goes right with probability p, independently of everything else. The bin number K is the number of right-bounces, so K ~ Binomial(R, p): P(K = k) = C(R,k) p<sup>k</sup>(1−p)<sup>R−k</sup>, mean Rp, SD √(Rp(1−p)), skewness (1−2p)/√(Rp(1−p)).</li>
-        <li><b>Normal curve on the board:</b> the normal curve with the same mean and SD. Each bin is compared with the normal area from k − ½ to k + ½ (a "continuity correction").</li>
-        <li><b>The animation:</b> balls hop from peg to peg along little arcs, like a thrown ball. Real balls spin, bounce more than once and hit each other; that makes real boards a little less tidy than the binomial. Here every bounce is a clean 50:50 (or p : 1−p).</li>
-        <li><b>χ² test:</b> χ² = Σ (observed − expected)² / expected. Bins at the edges are merged until every group expects at least 5 balls. If the board really is binomial, χ² follows the χ² distribution with (groups − 1) degrees of freedom; its mean equals the degrees of freedom and it is above the 5% critical value in 5% of runs.</li>
-        <li><b>"Gap from the normal curve":</b> half the sum of |observed proportion − normal-curve proportion| over all bins, as a percentage (the share of balls in the "wrong" place). It comes from two things: random scatter (shrinks like 1/√balls) and the true difference between binomial and normal (shrinks as rows increase, more slowly for a tilted board).</li>
-        <li><b>Sample means machine:</b> each sample is n independent values from the parent. The CLT predicts the means have mean μ, SD σ/√n and skewness γ/√n, and look more and more normal as n grows.</li>
-        <li><b>Parents:</b> fair die; loaded die (P = 0.35, 0.05, 0.05, 0.05, 0.10, 0.40 for 1 to 6); exponential waiting time with mean 2 minutes; two humps (60% normal around 2.5, 40% around 7.5); U-shape (arcsine on 0–10); log-normal incomes (median £27k, σ of ln income 0.6); your own bars (each bar uniform across its width); Cauchy: a lighthouse 1 km off a straight coast spins and flashes at a random moment, and we record where the beam hits the coast. That has no mean and infinite variance.</li>
-        <li><b>Cauchy:</b> the mean of n Cauchy values has exactly the same Cauchy distribution as one value, so the spread never shrinks. We use the interquartile range (IQR = 2 km for every n) instead of the SD, which is meaningless here.</li>
-        <li><b>Random numbers:</b> a seeded generator (mulberry32), so the same seed gives exactly the same run. Normal values come from the Box–Muller method.</li>
-        <li><b>Not modelled:</b> real dice wear and real boards are not perfectly level; real samples are often not independent (for example, people in the same street have similar incomes); real populations are finite.</li>
-      </ul>
-    </details>
-  </section>
-
-  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
-
-  <!-- ======================= CENTRE: THE MACHINE ======================= -->
-  <section class="panel" id="centre">
-    <div id="topbar">
-      <span id="clock">0</span>
-      <span class="stat" id="topA"></span>
-      <span class="stat" id="topB"></span>
-      <span class="stat" id="topC"></span>
-    </div>
-    <div id="viewWrap"><canvas id="view" aria-label="The Galton board or the sample means machine"></canvas></div>
-    <div id="controlsRow">
-      <button id="btnPlay" class="primary" style="min-width:86px">⏸ Pause</button>
-      <button id="btnReset" title="Empty the bins and start again">Reset</button>
-      <button id="btnFinish" title="Do all the remaining balls or samples at once, without animation">⏭ Finish now</button>
-      <span class="speed">Speed <button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="4">4×</button><button data-s="15">15×</button></span>
-      <button id="btnBatch" style="margin-left:auto">📊 Batch run</button>
-    </div>
-    <div class="legend" id="legend"></div>
-  </section>
-
-  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
-
-  <!-- ======================= RIGHT: READOUTS ======================= -->
-  <section class="panel side" id="right">
-    <button class="reopen" title="Show this panel">‹ Readouts</button>
-    <h2>What's happening</h2>
-    <div id="story"></div>
-    <h2 class="gap">Simulation vs theory</h2>
-    <div class="tiles" id="tiles"></div>
-    <h2 class="gap" id="c1title">Spread so far</h2>
-    <div class="chartBox"><canvas id="chart1"></canvas></div>
-    <div class="legend" style="margin-top:4px"><span><i class="line" style="background:var(--sim)"></i>simulation</span><span><i class="line" style="background:var(--theory)"></i>theory</span></div>
-    <h2 class="gap">Normality check</h2>
-    <div class="chartBox" style="height:130px"><canvas id="chart2"></canvas></div>
-    <div class="hint" style="margin-top:4px">A normal curve has 68.3% of values within 1 SD of the mean, 95.4% within 2 SD and 99.7% within 3 SD.</div>
-  </section>
-
-  <!-- ======================= BATCH RUN OVERLAY ======================= -->
-  <section class="panel" id="batch" aria-label="Batch run">
-    <div id="bsetup">
-      <div class="row2" style="justify-content:space-between"><h2 style="margin:0">Batch run</h2><button id="bClose" title="Back to the animation">✕ Close</button></div>
-      <div class="hint" style="margin:4px 0 8px">Runs the same model many times with no animation. Every setting a run uses is in the table below: an experiment fills it in, and you can change any of it. Each run gets its own random seed.</div>
-      <h2>Batch experiments</h2>
-      <div id="bExps"></div>
-      <h2 class="gap">Set up your own</h2>
-      <div class="ctl"><label>Model</label><select id="bModel"><option value="galton">Galton board</option><option value="means">Sample means machine</option></select></div>
-      <div class="ctl"><label>Mode</label><select id="bMode"><option value="repeat">Repeat: same settings, new random numbers</option><option value="sweep">Sweep: vary the ticked setting in steps</option></select></div>
-      <div id="bRepeatBox" class="ctl"><label>Number of runs</label><select id="bN"><option>20</option><option selected>100</option><option>500</option><option>1000</option><option>2000</option></select></div>
-      <div class="ctl"><label>Outcome to record</label><select id="bOut"></select></div>
-      <details id="bSetBox" open>
-        <summary>Starting settings: tick the one to vary</summary>
-        <div class="bhint">Every setting the chosen model uses is listed. Tick one to sweep it from → to in steps (+ adds the step each time, × multiplies by it); every other setting stays at the value shown. What you see is what runs.</div>
-        <div id="bOpts"></div>
-        <div id="bTbl"></div>
-        <div class="row2" style="margin-top:5px"><span id="bSweepBox" style="display:inline-flex;gap:6px;align-items:center;font-size:12.5px">Repeats at each step <select id="bReps"><option>1</option><option>3</option><option selected>5</option><option>10</option><option>20</option></select></span>
-          <button id="bLeft" style="margin-left:auto" title="Fill the table from the settings on the left panel">↺ Use my left-panel settings</button></div>
-      </details>
-      <label class="check"><input type="checkbox" id="bLogLog"> Log–log axes (sweep)</label>
-      <div class="hint" id="bBase"></div>
-    </div>
-    <div id="bresults">
-      <div id="bRunRow"><button id="bRun" class="primary">▶ Run batch</button><button id="bStop" disabled>■ Stop</button><button id="bCsv" disabled>⤓ CSV</button><div class="progress"><span id="bBar"></span></div><span class="hint" id="bProg">Not run yet.</span></div>
-      <div id="bChartBox"><canvas id="bChart"></canvas></div>
-      <div id="bInfo"><div id="bSummary"></div><div id="bNote"></div></div>
-    </div>
-  </section>
-</main>
-
+/* ===== Enhanced (kit-built) simulations: shared look and feel (inlined into every page by build.js) ===== */
+:root{
+  --bg:#0a0f1c; --panel:#111a2c; --panel2:#17223a; --line:#24324f; --text:#e9eef8; --muted:#8fa0bf; --grid:#1f2c47;
+  --accent:#5ad1ff; --accent-ink:#04121c; --good:#6ee7a0; --warn:#ffb454; --bad:#ff6b81;
+  --s0:#5ad1ff; --s1:#ffb454; --s2:#7ee787; --s3:#ff7b9c; --s4:#c4a1ff; --s5:#ffe66d;
+  --shadow:0 10px 30px rgba(0,0,0,.45); --r:12px;
+}
+:root[data-theme=light]{
+  --bg:#eef2f8; --panel:#ffffff; --panel2:#f3f6fb; --line:#d5dceb; --text:#172033; --muted:#5d6b85; --grid:#e3e8f2;
+  --accent:#0b7fc2; --accent-ink:#ffffff; --good:#12924c; --warn:#b86a00; --bad:#d1344d;
+  --s0:#0b7fc2; --s1:#d97a00; --s2:#1b9e4b; --s3:#d6336c; --s4:#7048c8; --s5:#a08800;
+  --shadow:0 8px 24px rgba(30,50,90,.15);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+.k-top{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;min-height:52px}
+.k-home{color:var(--muted);text-decoration:none;font-size:13px;white-space:nowrap}.k-home:hover{color:var(--accent)}
+.k-title{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
+.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+.k-chip{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 9px;white-space:nowrap;align-self:center}
+.k-blurb{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-actions{display:flex;gap:6px;flex:none}
+.k-btn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:.12s;user-select:none}
+.k-btn:hover{border-color:var(--accent);color:var(--accent)}
+.k-btn:active{transform:translateY(1px)}
+.k-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.k-btn.primary:hover{filter:brightness(1.1);color:var(--accent-ink)}
+.k-btn.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel2))}
+.k-btn.small{padding:3px 9px;font-size:12.5px}
+.k-btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.k-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
+.k-left{display:flex;flex-direction:column;min-width:0;min-height:0}
+.k-stage{flex:1;position:relative;min-height:0;background:#060a14;overflow:hidden}
+.k-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.k-dock{flex:none;height:190px;display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.k-dock:empty{display:none}
+.k-dock>*{flex:1;min-width:0;background:var(--panel)}
+.k-chart{position:relative;height:100%;min-height:80px}
+.k-chart canvas{position:absolute;inset:0;width:100%;height:100%}
+.k-side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.k-tabs{display:flex;border-bottom:1px solid var(--line);flex:none}
+.k-tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:10px 4px;cursor:pointer;color:var(--muted);font-weight:600}
+.k-tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.k-pane{flex:1;overflow-y:auto;padding:12px 14px 20px;display:none;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.k-pane.on{display:block}
+.k-group{margin-bottom:14px}
+.k-group>h3{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);margin:0 0 8px;font-weight:700}
+.k-ctl{margin-bottom:10px}
+.k-ctl label{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:2px}
+.k-ctl label b{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.k-ctl small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3;margin-top:1px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:none;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-moz-range-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);margin-top:-6.5px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+.k-seg{display:flex;flex-wrap:wrap;gap:4px}
+.k-seg .k-btn{flex:1 1 auto;padding:5px 8px;font-size:13px;text-align:center}
+.k-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.k-row .k-btn{flex:1 1 auto;text-align:center}
+.k-toggle{display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:9px;font-size:13px;user-select:none}
+.k-toggle i{flex:none;width:34px;height:19px;border-radius:99px;background:var(--line);position:relative;transition:.15s}
+.k-toggle i::after{content:"";position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;background:var(--muted);transition:.15s}
+.k-toggle.on i{background:var(--accent)}.k-toggle.on i::after{left:17px;background:var(--accent-ink)}
+.k-read{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.k-read div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 9px}
+.k-read span{display:block;font-size:11px;color:var(--muted)}
+.k-read b{font-size:16px;font-variant-numeric:tabular-nums;font-weight:650}
+.k-mcard{border:1px solid var(--line);background:var(--panel2);border-radius:var(--r);padding:11px 12px;margin-bottom:10px}
+.k-mcard h4{margin:0 0 4px;font-size:14.5px;display:flex;gap:8px;align-items:center}
+.k-mcard h4 em{font-style:normal;flex:none;width:22px;height:22px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:12px}
+.k-mcard.done h4 em{background:var(--good);color:#04130a}
+.k-mcard p{margin:0 0 8px;color:var(--muted);font-size:13px}
+.k-banner{position:absolute;left:12px;top:12px;max-width:min(520px,70%);background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--accent);border-radius:var(--r);padding:10px 34px 10px 13px;box-shadow:var(--shadow);z-index:5;backdrop-filter:blur(6px);font-size:13.5px}
+.k-banner b{color:var(--accent)}
+.k-banner .x{position:absolute;right:8px;top:6px;cursor:pointer;color:var(--muted);background:none;border:0;font-size:16px}
+.k-banner details{margin-top:6px;color:var(--muted)}.k-banner summary{cursor:pointer;color:var(--warn)}
+.k-tip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(8,14,26,.82);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:99px;padding:6px 16px;font-size:13px;pointer-events:none;z-index:4;transition:opacity .6s;white-space:nowrap}
+.k-hud{position:absolute;right:12px;top:12px;background:rgba(8,14,26,.72);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:10px;padding:7px 11px;font-size:12.5px;z-index:3;pointer-events:none;font-variant-numeric:tabular-nums;line-height:1.5;text-align:right}
+.k-notes h3{font-size:14px;margin:14px 0 4px;color:var(--accent)}.k-notes h3:first-child{margin-top:0}
+.k-notes p,.k-notes li{font-size:13px;color:var(--text)}.k-notes ul{padding-left:18px;margin:4px 0}
+.k-notes code{background:var(--panel2);padding:1px 5px;border-radius:5px;font-size:12.5px}
+.k-overlay{position:fixed;inset:0;background:rgba(3,6,12,.7);display:none;z-index:50;backdrop-filter:blur(3px)}
+.k-overlay.on{display:grid;place-items:center}
+.k-modal{width:min(1180px,95vw);height:min(700px,92vh);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:grid;grid-template-columns:290px 1fr;overflow:hidden}
+.k-blist{border-right:1px solid var(--line);overflow-y:auto;padding:14px}
+.k-blist h2{font-size:16px;margin:0 0 4px}.k-blist>p{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+.k-bitem{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;cursor:pointer}
+.k-bitem.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.k-bitem b{display:block;font-size:13.5px}.k-bitem span{color:var(--muted);font-size:12.5px}
+.k-bmain{display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 16px}
+.k-bhead{display:flex;gap:10px;align-items:flex-start}
+.k-bhead h3{margin:0;font-size:17px;flex:1}.k-bhead p{margin:3px 0 0;color:var(--muted);font-size:13px;font-weight:400}
+.k-bbar{display:flex;gap:10px;align-items:center;margin:10px 0 8px}
+.k-prog{flex:1;height:6px;background:var(--line);border-radius:9px;overflow:hidden}.k-prog i{display:block;height:100%;width:0;background:var(--accent)}
+.k-bchart{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.k-bfoot{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;height:150px;margin-top:10px}
+.k-btable{overflow:auto;border:1px solid var(--line);border-radius:10px;font-size:12.5px}
+.k-btable table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.k-btable th,.k-btable td{padding:3px 8px;text-align:right;border-bottom:1px solid var(--line)}
+.k-btable th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600}
+.k-bnote{overflow:auto;font-size:13px;color:var(--muted);background:var(--panel2);border-radius:10px;padding:9px 12px}
+.k-bnote b{color:var(--text)}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+</style></head><body>
 <script>
 "use strict";
-const el = id => document.getElementById(id);
-
 /* =====================================================================
-   1. RANDOM NUMBERS
-   A seeded generator (mulberry32) gives the same sequence for the same
-   seed, so any run can be repeated exactly.
+   K: the small shared toolkit behind the ★ enhanced simulations.
+   It builds the page frame (header, stage, chart dock, side panel),
+   the sliders and buttons, the live charts, the Investigations cards
+   and the Batch run window. Each simulation's own code (below this
+   script in the page) holds the science.
    ===================================================================== */
-function hashSeed(str) { str = String(str); let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } h = Math.imul(h ^ (h >>> 16), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return (h ^ (h >>> 16)) >>> 0; }
-function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-// Standard normal value (mean 0, SD 1) by the Box–Muller method
-function randn(rng) { let u = rng(); while (u <= 1e-300) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+const K = (() => {
+  const $ = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const col = i => cssVar("--s" + (i % 6));
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
 
-/* =====================================================================
-   2. MATHS: binomial, normal and chi-squared distributions
-   ===================================================================== */
-function lnGamma(z) {   // Lanczos approximation to ln Γ(z)
-  const c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
-  if (z < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * z)) - lnGamma(1 - z);
-  z -= 1; let x = c[0]; for (let i = 1; i < 9; i++) x += c[i] / (z + i);
-  const t = z + 7.5; return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
-}
-// P(K = k) for k = 0..R: the binomial probabilities C(R,k) p^k (1-p)^(R-k)
-function binomPMF(R, p) { const out = []; for (let k = 0; k <= R; k++) out.push(Math.exp(lnGamma(R + 1) - lnGamma(k + 1) - lnGamma(R - k + 1) + k * Math.log(p) + (R - k) * Math.log(1 - p))); return out; }
-function erf(x) { const s = x < 0 ? -1 : 1; x = Math.abs(x); const t = 1 / (1 + 0.3275911 * x);
-  const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return s * y; }
-const Phi = z => 0.5 * (1 + erf(z / Math.SQRT2));                 // normal cumulative probability
-const phi = z => Math.exp(-0.5 * z * z) / Math.sqrt(2 * Math.PI);  // normal curve height
-// Regularised lower incomplete gamma function P(a, x) (series or continued fraction)
-function gammaP(a, x) {
-  if (x <= 0) return 0;
-  const lead = Math.exp(-x + a * Math.log(x) - lnGamma(a));
-  if (x < a + 1) { let ap = a, sum = 1 / a, del = sum; for (let n = 0; n < 1000; n++) { ap++; del *= x / ap; sum += del; if (Math.abs(del) < Math.abs(sum) * 1e-13) break; } return sum * lead; }
-  let b = x + 1 - a, c = 1e300, d = 1 / b, h = d;
-  for (let i = 1; i < 1000; i++) { const an = -i * (i - a); b += 2; d = an * d + b; if (Math.abs(d) < 1e-300) d = 1e-300; c = b + an / c; if (Math.abs(c) < 1e-300) c = 1e-300; d = 1 / d; const del = d * c; h *= del; if (Math.abs(del - 1) < 1e-13) break; }
-  return 1 - lead * h;
-}
-const chi2CDF = (x, k) => gammaP(k / 2, x / 2);
-const chi2PDF = (x, k) => (x <= 0 ? 0 : Math.exp((k / 2 - 1) * Math.log(x) - x / 2 - (k / 2) * Math.LN2 - lnGamma(k / 2)));
-function chi2Crit(k, alpha) { let lo = 0, hi = k + 20 * Math.sqrt(2 * k) + 30; for (let i = 0; i < 80; i++) { const m = (lo + hi) / 2; if (1 - chi2CDF(m, k) > alpha) lo = m; else hi = m; } return (lo + hi) / 2; }
-
-// Normal-curve share of each bin (continuity correction; the end bins take the tails)
-function normalApprox(R, p) { const mu = R * p, s = Math.sqrt(R * p * (1 - p)), q = [];
-  for (let k = 0; k <= R; k++) { const lo = k === 0 ? -Infinity : (k - 0.5 - mu) / s, hi = k === R ? Infinity : (k + 0.5 - mu) / s; q.push(Phi(hi) - Phi(lo)); } return q; }
-// Mean of |Y| when Y is normal with mean d and SD s (the "folded normal")
-function foldedMean(d, s) { if (s <= 0) return Math.abs(d); return s * Math.sqrt(2 / Math.PI) * Math.exp(-d * d / (2 * s * s)) + d * (1 - 2 * Phi(-d / s)); }
-// Expected "gap from normal" (%) for a board with R rows, chance p, N balls:
-// true binomial-vs-normal difference plus random scatter of the bin counts
-function expectedGap(R, p, N) { const b = binomPMF(R, p), q = normalApprox(R, p); let s = 0; for (let k = 0; k <= R; k++) s += foldedMean(b[k] - q[k], Math.sqrt(b[k] * (1 - b[k]) / N)); return 50 * s; }
-// Group bins (from the left) until each group expects at least 5 balls: needed for a fair χ² test
-function chiGroups(b, N) { const g = []; let cur = [], e = 0;
-  for (let k = 0; k < b.length; k++) { cur.push(k); e += N * b[k]; if (e >= 5) { g.push({ ks: cur, e }); cur = []; e = 0; } }
-  if (cur.length) { if (g.length) { const L = g[g.length - 1]; L.ks.push(...cur); L.e += e; } else g.push({ ks: cur, e }); }
-  return g; }
-function chiSquared(counts, b, N) { const g = chiGroups(b, N); let x = 0;
-  for (const gr of g) { let o = 0; for (const k of gr.ks) o += counts[k]; x += (o - gr.e) * (o - gr.e) / gr.e; }
-  return { chi2: g.length > 1 ? x : NaN, df: g.length - 1 }; }
-
-/* =====================================================================
-   3. THE GALTON BOARD MODEL
-   ===================================================================== */
-// Statistics of a pile of balls (counts[k] balls in bin k) compared with theory
-function galtonStats(c, R, p) {
-  let N = 0, s1 = 0; for (let k = 0; k <= R; k++) { N += c[k]; s1 += k * c[k]; }
-  if (!N) return null;
-  const m = s1 / N; let m2 = 0, m3 = 0;
-  for (let k = 0; k <= R; k++) { const d = k - m; m2 += d * d * c[k]; m3 += d * d * d * c[k]; }
-  m2 /= N; m3 /= N;
-  const mu = R * p, sig = Math.sqrt(R * p * (1 - p)), w = [0, 0, 0];
-  for (let k = 0; k <= R; k++) for (let j = 0; j < 3; j++) if (Math.abs(k - mu) <= (j + 1) * sig + 1e-9) w[j] += c[k];
-  const b = binomPMF(R, p), chi = chiSquared(c, b, N), q = normalApprox(R, p);
-  let gap = 0; for (let k = 0; k <= R; k++) gap += Math.abs(c[k] / N - q[k]);
-  return { N, mean: m, sd: N > 1 ? Math.sqrt(m2 * N / (N - 1)) : 0, skew: m2 > 0 ? m3 / Math.pow(m2, 1.5) : 0,
-           within: w.map(x => 100 * x / N), within1: 100 * w[0] / N, chi2: chi.chi2, df: chi.df, gap: 50 * gap };
-}
-// Exact binomial probability of landing within ±j SD of the mean
-function binomWithin(R, p, j) { const b = binomPMF(R, p), mu = R * p, s = Math.sqrt(R * p * (1 - p)); let t = 0; for (let k = 0; k <= R; k++) if (Math.abs(k - mu) <= j * s + 1e-9) t += b[k]; return 100 * t; }
-
-// HEADLESS RUN (for batch runs): drop all the balls at once, no drawing
-function runGalton(P, seed) {
-  const rng = mulberry32(seed), c = new Array(P.rows + 1).fill(0);
-  for (let i = 0; i < P.balls; i++) { let j = 0; for (let r = 0; r < P.rows; r++) if (rng() < P.p) j++; c[j]++; }
-  const s = galtonStats(c, P.rows, P.p);
-  return { mean: s.mean, sd: s.sd, skew: s.skew, chi2: s.chi2, df: s.df, gap: s.gap, within1: s.within1 };
-}
-
-/* =====================================================================
-   4. PARENT POPULATIONS for the sample means machine
-   Each has a sampler and its true mean μ, SD σ and skewness γ.
-   ===================================================================== */
-function momentsFromRaw(e1, e2, e3) { const v = e2 - e1 * e1; return { mu: e1, sd: Math.sqrt(v), skew: (e3 - 3 * e1 * e2 + 2 * e1 ** 3) / Math.pow(v, 1.5) }; }
-function discreteDist(key, name, probs, hint) {
-  const vals = probs.map((_, i) => i + 1), cum = []; let t = 0; probs.forEach(q => cum.push(t += q));
-  let e1 = 0, e2 = 0, e3 = 0; vals.forEach((v, i) => { e1 += probs[i] * v; e2 += probs[i] * v * v; e3 += probs[i] * v ** 3; });
-  return { key, name, hint, kind: "discrete", vals, probs, xmin: 0.5, xmax: 6.5, unit: "score", ...momentsFromRaw(e1, e2, e3),
-           sample: rng => { const u = rng() * t; for (let i = 0; i < cum.length; i++) if (u < cum[i]) return vals[i]; return vals[vals.length - 1]; } };
-}
-let drawnBars = [0.15, 0.35, 0.6, 0.85, 1, 0.8, 0.45, 0.25, 0.15, 0.1, 0.1, 0.15, 0.3, 0.55, 0.7, 0.5, 0.25, 0.1, 0.05, 0.05];
-function makeDist(key) {
-  switch (key) {
-    case "die": return discreteDist(key, "Fair die", [1, 1, 1, 1, 1, 1].map(x => x / 6), "Each score 1 to 6 is equally likely: a flat (uniform) population.");
-    case "loaded": return discreteDist(key, "Loaded die", [0.35, 0.05, 0.05, 0.05, 0.10, 0.40], "A weird loaded die: mostly 1s and 6s. Nothing like a bell curve.");
-    case "expo": return { key, name: "Waiting time for a bus", kind: "cont", xmin: 0, xmax: 12, unit: "min", mu: 2, sd: 2, skew: 2,
-      hint: "Exponential waiting times (mean 2 min): lots of short waits, a few long ones. Strongly skewed.",
-      density: x => (x < 0 ? 0 : 0.5 * Math.exp(-x / 2)), sample: rng => -2 * Math.log(1 - rng()) };
-    case "bimodal": { const w = 0.6, a = [2.5, 0.7], b = [7.5, 0.9];
-      const e1 = w * a[0] + (1 - w) * b[0], e2 = w * (a[0] ** 2 + a[1] ** 2) + (1 - w) * (b[0] ** 2 + b[1] ** 2), e3 = w * (a[0] ** 3 + 3 * a[0] * a[1] ** 2) + (1 - w) * (b[0] ** 3 + 3 * b[0] * b[1] ** 2);
-      return { key, name: "Two humps", kind: "cont", xmin: 0, xmax: 10, unit: "", ...momentsFromRaw(e1, e2, e3),
-        hint: "Two groups mixed together (60% near 2.5, 40% near 7.5), like heights of a class of 7-year-olds and their parents.",
-        density: x => w * phi((x - a[0]) / a[1]) / a[1] + (1 - w) * phi((x - b[0]) / b[1]) / b[1],
-        sample: rng => (rng() < w ? a[0] + a[1] * randn(rng) : b[0] + b[1] * randn(rng)) }; }
-    case "ushape": return { key, name: "U-shaped", kind: "cont", xmin: 0, xmax: 10, unit: "", mu: 5, sd: Math.sqrt(12.5), skew: 0,
-      hint: "Most values near the two ends, few in the middle (the arcsine distribution). The mean, 5, is the least likely value!",
-      density: x => (x <= 0 || x >= 10 ? 0 : 1 / (Math.PI * Math.sqrt(x * (10 - x)))), sample: rng => 10 * Math.sin(Math.PI * rng() / 2) ** 2 };
-    case "income": { const m = Math.log(27), s = 0.6, es = Math.exp(s * s);
-      return { key, name: "Household income", kind: "cont", xmin: 0, xmax: 120, unit: "£k", mu: Math.exp(m + s * s / 2), sd: Math.sqrt((es - 1) * Math.exp(2 * m + s * s)), skew: (es + 2) * Math.sqrt(es - 1),
-        hint: "Log-normal incomes (£ thousand a year): median £27k, a long tail of high earners pulls the mean up to about £32k.",
-        density: x => (x <= 0 ? 0 : phi((Math.log(x) - m) / s) / (s * x)), sample: rng => Math.exp(m + s * randn(rng)) }; }
-    case "drawn": { const tot = drawnBars.reduce((a, b) => a + b, 0) || 1, bw = 0.5, cum = []; let t = 0;
-      let e1 = 0, e2 = 0, e3 = 0;
-      drawnBars.forEach((h, i) => { const q = h / tot, a = i * bw, b = a + bw; cum.push(t += q);
-        e1 += q * (b * b - a * a) / (2 * bw); e2 += q * (b ** 3 - a ** 3) / (3 * bw); e3 += q * (b ** 4 - a ** 4) / (4 * bw); });
-      return { key, name: "Your own population", kind: "bars", xmin: 0, xmax: 10, unit: "", ...momentsFromRaw(e1, e2, e3), bars: drawnBars.slice(), bw,
-        hint: "Drag on the top chart to draw any population you like. Values are spread evenly across each bar.",
-        sample: rng => { const u = rng() * t; let i = 0; while (i < cum.length - 1 && u >= cum[i]) i++; return (i + rng()) * bw; } }; }
-    case "cauchy": return { key, name: "Lighthouse beam", kind: "cont", xmin: 0, xmax: 10, unit: "km", mu: NaN, sd: Infinity, skew: NaN, cauchy: true, centre: 5, scale: 1,
-      hint: "A lighthouse 1 km out to sea spins and flashes at a random moment. Where does the beam hit the coast? (Cauchy: no mean, infinite variance.)",
-      density: x => 1 / (Math.PI * (1 + (x - 5) ** 2)), sample: rng => 5 + Math.tan(Math.PI * (rng() - 0.5)) };
+  // ---- Repeatable random numbers: the same seed always gives the same run ----
+  function rng(seed) {
+    let a = (seed >>> 0) || 1;
+    const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    r.gauss = () => { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307179586 * r()); };
+    r.int = n => Math.floor(r() * n);
+    r.pick = arr => arr[Math.floor(r() * arr.length)];
+    return r;
   }
-}
-const N_LIST = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200];
+  // ---- Simple statistics ----
+  const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+  const sd = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); };
+  const se = a => sd(a) / Math.sqrt(a.length || 1);
+  function linfit(pts) { // least-squares straight line through [x,y] points
+    const n = pts.length, mx = mean(pts.map(p => p[0])), my = mean(pts.map(p => p[1]));
+    let sxy = 0, sxx = 0, syy = 0; for (const [x, y] of pts) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; syy += (y - my) ** 2; }
+    const m = sxy / (sxx || 1); return { m, c: my - m * mx, r: sxy / Math.sqrt((sxx * syy) || 1), n };
+  }
+  function download(name, text) { const a = $("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  const sig = (v, n = 3) => { if (v == null || !isFinite(v)) return "–"; if (v === 0) return "0"; const a = Math.abs(v); if (a >= 1e5 || a < 1e-3) return v.toExponential(n - 1); return String(+v.toPrecision(n)); };
 
-// Statistics of a list of sample means, measured against the CLT prediction
-function meansOutcomes(means, d, n) {
-  const N = means.length; let s1 = 0; for (let i = 0; i < N; i++) s1 += means[i];
-  const m = s1 / N; let m2 = 0, m3 = 0; for (let i = 0; i < N; i++) { const x = means[i] - m; m2 += x * x; m3 += x * x * x; }
-  m2 /= N; m3 /= N;
-  const sorted = Float64Array.from(means).sort(), q = f => { const h = (N - 1) * f, i = Math.floor(h); return sorted[i] + (sorted[Math.min(N - 1, i + 1)] - sorted[i]) * (h - i); };
-  let w1 = NaN, w2 = NaN;
-  if (!d.cauchy) { const se = d.sd / Math.sqrt(n); w1 = 0; w2 = 0; for (let i = 0; i < N; i++) { const z = Math.abs(means[i] - d.mu) / se; if (z <= 1) w1++; if (z <= 2) w2++; } w1 *= 100 / N; w2 *= 100 / N; }
-  return { mean: m, sd: Math.sqrt(m2 * N / Math.max(1, N - 1)), skew: m2 > 0 ? m3 / Math.pow(m2, 1.5) : 0, iqr: q(0.75) - q(0.25), within1: w1, within2: w2 };
-}
-// HEADLESS RUN (for batch runs): take `samples` samples of size n, no drawing
-function runMeans(P, seed) {
-  const d = makeDist(P.dist), rng = mulberry32(seed), means = new Float64Array(P.samples);
-  for (let s = 0; s < P.samples; s++) { let t = 0; for (let i = 0; i < P.n; i++) t += d.sample(rng); means[s] = t / P.n; }
-  return meansOutcomes(means, d, P.n);
-}
+  // ---- Controls ----
+  function slider(parent, o) {
+    const w = $("div", "k-ctl"), lab = $("label"), name = $("span", "", o.label), val = $("b"), inp = $("input");
+    inp.type = "range"; inp.min = o.min; inp.max = o.max; inp.step = o.step || 1; inp.value = o.value;
+    const fmt = o.fmt || (v => sig(v, 4) + (o.unit ? " " + o.unit : ""));
+    const show = () => val.innerHTML = fmt(+inp.value);
+    lab.append(name, val); w.append(lab, inp); if (o.tip) w.append($("small", "", o.tip)); parent.append(w); show();
+    inp.addEventListener("input", () => { show(); o.on && o.on(+inp.value); });
+    return { el: w, get value() { return +inp.value; }, set(v, fire) { inp.value = v; show(); if (fire) o.on && o.on(+inp.value); } };
+  }
+  function seg(parent, o) {
+    const w = $("div", "k-ctl"); if (o.label) w.append($("label", "", `<span>${o.label}</span>`));
+    const row = $("div", "k-seg"); w.append(row); if (o.tip) w.append($("small", "", o.tip)); parent.append(w);
+    let value = o.value; const btns = [];
+    const paint = () => btns.forEach(([v, b]) => b.classList.toggle("on", v === value));
+    for (const [v, label, title] of o.options) { const b = $("button", "k-btn", label); if (title) b.title = title; b.onclick = () => { value = v; paint(); o.on && o.on(v); }; row.append(b); btns.push([v, b]); }
+    paint();
+    return { el: w, get value() { return value; }, set(v, fire) { value = v; paint(); if (fire) o.on && o.on(v); } };
+  }
+  function toggle(parent, o) {
+    const w = $("div", "k-toggle" + (o.value ? " on" : ""), `<i></i><span>${o.label}</span>`); parent.append(w); let value = !!o.value;
+    w.onclick = () => { value = !value; w.classList.toggle("on", value); o.on && o.on(value); };
+    return { el: w, get value() { return value; }, set(v, fire) { value = !!v; w.classList.toggle("on", value); if (fire) o.on && o.on(value); } };
+  }
+  function btn(parent, label, on, cls) { const b = $("button", "k-btn " + (cls || ""), label); b.onclick = on; parent.append(b); return b; }
+  function row(parent) { const r = $("div", "k-row"); parent.append(r); return r; }
+  function readout(parent, items) { // small tiles of live numbers
+    const g = $("div", "k-read"), map = {}; parent.append(g);
+    for (const [id, label] of items) { const d = $("div", "", `<span>${label}</span><b>–</b>`); g.append(d); map[id] = d.lastChild; }
+    return { el: g, set(id, v) { if (map[id].textContent !== String(v)) map[id].innerHTML = v; } };
+  }
+  function note(parent, html) { const s = $("small", "", html); s.style.cssText = "display:block;color:var(--muted);margin:-2px 0 10px;font-size:12px;line-height:1.35"; parent.append(s); return s; }
 
-/* =====================================================================
-   5. LIVE STATE AND CONTROLS
-   ===================================================================== */
-let mode = "galton", running = true, speed = 1;
-const G = { rows: 12, p: 0.5, rate: 20, total: 1000, counts: [], balls: [], launched: 0, landed: 0, acc: 0, rng: null, hist: [] };
-const M = { d: null, n: 5, rate: 2, total: 2000, means: [], cur: null, acc: 0, rng: null, hist: [], s1: 0, s2: 0, w: [0, 0, 0] };
+  // ---- A canvas that stays sharp on high-DPI screens and follows its container's size ----
+  function canvas(parent, onresize) {
+    const cv = $("canvas"); parent.append(cv); const c = { el: cv, ctx: cv.getContext("2d"), w: 1, h: 1, dpr: 1 };
+    const fit = () => {
+      const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
+      c.dpr = Math.min(window.devicePixelRatio || 1, 2); c.w = w; c.h = h; cv.width = Math.round(w * c.dpr); cv.height = Math.round(h * c.dpr);
+      c.ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0); onresize && onresize(c);
+    };
+    new ResizeObserver(fit).observe(parent); fit(); return c;
+  }
+  // Pointer handling in the element's own pixel coordinates
+  function pointer(el, h) {
+    const pos = e => { const r = el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, e }; };
+    let down = false;
+    el.addEventListener("pointerdown", e => { down = true; el.setPointerCapture(e.pointerId); h.down && h.down(pos(e)); });
+    el.addEventListener("pointermove", e => { const p = pos(e); if (down) h.drag && h.drag(p); else h.hover && h.hover(p); });
+    const up = e => { if (down) { down = false; h.up && h.up(pos(e)); } };
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+    el.addEventListener("pointerleave", e => h.leave && h.leave(pos(e)));
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
 
-function readControls() {
-  G.rows = +el("rows").value; G.p = +el("p").value; G.rate = +el("g_rate").value; G.total = +el("g_balls").value;
-  M.n = N_LIST[+el("nIdx").value]; M.rate = +el("m_rate").value; M.total = +el("m_samples").value;
-}
-function updateLabels() {
-  readControls();
-  el("o_rows").textContent = `${G.rows} → ${G.rows + 1} bins`;
-  el("o_p").textContent = G.p === 0.5 ? "0.50 (level)" : `${G.p.toFixed(2)} (tilted ${G.p > 0.5 ? "right" : "left"})`;
-  el("o_n").textContent = `n = ${M.n}`;
-  el("distHint").textContent = makeDist(el("dist").value).hint;
-}
-function resetGalton() {
-  readControls();
-  G.counts = new Array(G.rows + 1).fill(0); G.balls = []; G.launched = 0; G.landed = 0; G.acc = 0; G.hist = [];
-  G.rng = mulberry32(hashSeed(el("seed").value + "|galton"));
-  G.b = binomPMF(G.rows, G.p); G.mu = G.rows * G.p; G.sig = Math.sqrt(G.rows * G.p * (1 - G.p));
-}
-function resetMeans() {
-  readControls();
-  M.d = makeDist(el("dist").value); M.means = []; M.cur = null; M.acc = 0; M.hist = []; M.s1 = 0; M.s2 = 0; M.w = [0, 0, 0];
-  M.rng = mulberry32(hashSeed(el("seed").value + "|means|" + M.d.key));
-}
-function resetAll() { resetGalton(); resetMeans(); setRunning(true); }
-function setMode(m) {
-  mode = m;
-  document.querySelectorAll("#modeTabs button").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
-  el("galtonCtl").style.display = m === "galton" ? "" : "none"; el("meansCtl").style.display = m === "means" ? "" : "none";
-  el("legend").innerHTML = m === "galton"
-    ? `<span><i style="background:var(--accent);border-radius:50%"></i>Balls</span><span><i class="line" style="background:#fff"></i>Binomial prediction (expected count in each bin)</span><span><i class="line" style="background:var(--norm)"></i>Normal curve, same mean and SD</span>`
-    : `<span><i style="background:#6f8c5a"></i>Parent population</span><span><i style="background:var(--accent);border-radius:50%"></i>Values in this sample, ▼ its mean</span><span><i style="background:var(--sim)"></i>Histogram of sample means</span><span><i class="line" style="background:var(--norm)"></i>CLT prediction: normal, mean μ, SD σ/√n</span>`;
-  el("c1title").textContent = m === "galton" ? "Spread of the pile (SD, bins) as balls land" : "Spread of the sample means (SD) as samples build up";
-  setRunning(true);
-}
-function setRunning(r) { running = r; const done = mode === "galton" ? G.landed >= G.total : M.means.length >= M.total; el("btnPlay").textContent = r && !done ? "⏸ Pause" : done ? "▶ Again" : "▶ Play"; }
-
-/* =====================================================================
-   6. ANIMATION OF THE GALTON BOARD
-   A ball is always on a "segment": segment −1 drops it onto the top peg,
-   segments 0..R−1 are hops from one row of pegs to the next (at each peg
-   it goes right with probability p), and segment R is the fall into a bin.
-   ===================================================================== */
-const HOP = 0.15, DROP = 0.22, FALL = 0.35;   // seconds per segment at 1× speed
-function stepGalton(dt) {
-  // launch new balls at the chosen rate
-  G.acc += dt * G.rate;
-  while (G.acc >= 1 && G.launched < G.total) { G.acc -= 1; G.launched++; G.balls.push({ seg: -1, j: 0, j2: 0, t: 0 }); }
-  if (G.launched >= G.total) G.acc = 0;
-  for (const b of G.balls) {
-    b.t += dt / (b.seg === -1 ? DROP : b.seg === G.rows ? FALL : HOP);
-    while (b.t >= 1 && !b.done) {
-      b.t -= 1;
-      if (b.seg === G.rows) { b.done = true; G.counts[b.j]++; G.landed++; break; }
-      b.seg++; b.j = b.j2;
-      if (b.seg < G.rows) b.j2 = b.j + (G.rng() < G.p ? 1 : 0);   // the peg sends it right with probability p
+  // ---- Charts ----
+  const charts = new Set();
+  function niceTicks(a, b, n) {
+    const span = (b - a) || 1, raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    const step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p, t = [];
+    for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + step * 1e-6; v += step) t.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    return { t, step };
+  }
+  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(0); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
+  /* chart(parent,{title,xLabel,yLabel,xMin,xMax,yMin,yMax,yZero})  then  .draw(series, extra)
+     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r}]
+     extra:  {xMin..yMax overrides, vlines:[{x,color,label,dash}], hlines:[{y,...}], bands:[{x0,x1,color}]} */
+  function chart(parent, o = {}) {
+    const wrap = $("div", "k-chart"), cv = $("canvas"); wrap.append(cv); parent.append(wrap);
+    const ctx = cv.getContext("2d"); let last = [[], {}];
+    const api = { el: wrap, opts: o, draw(series, extra) { last = [series || [], extra || {}]; render(); }, redraw: () => render(), map: null };
+    function render() {
+      const W = wrap.clientWidth, H = wrap.clientHeight; if (W < 40 || H < 40) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      const [series, ex] = last, q = Object.assign({}, o, ex);
+      const text = cssVar("--text"), muted = cssVar("--muted"), grid = cssVar("--grid");
+      // work out the axis ranges from the data unless they are fixed
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const s of series) for (const p of s.pts) { if (!isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
+      for (const l of q.hlines || []) { if (l.y < y0) y0 = l.y; if (l.y > y1) y1 = l.y; }
+      if (!isFinite(x0)) { x0 = 0; x1 = 1; } if (!isFinite(y0)) { y0 = 0; y1 = 1; }
+      if (q.yZero || series.some(s => s.type === "bars")) { y0 = Math.min(0, y0); y1 = Math.max(0, y1); }
+      const py = (y1 - y0) * 0.08 || Math.abs(y1) * 0.1 || 1; if (q.yMin == null && y0 !== 0) y0 -= py; if (q.yMax == null) y1 += py;
+      if (x1 === x0) { x0 -= 0.5; x1 += 0.5; }
+      if (q.xMin != null) x0 = q.xMin; if (q.xMax != null) x1 = q.xMax; if (q.yMin != null) y0 = q.yMin; if (q.yMax != null) y1 = q.yMax;
+      const L = 54, R = 12, T = 24, B = q.xLabel ? 34 : 22, pw = W - L - R, ph = H - T - B;
+      const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + ph - (y - y0) / (y1 - y0) * ph;
+      api.map = { X, Y, x0, x1, y0, y1, L, T, pw, ph };
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; ctx.lineWidth = 1;
+      for (const b of q.bands || []) { ctx.fillStyle = b.color; ctx.fillRect(X(Math.max(x0, b.x0)), T, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)), ph); }
+      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70))), yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.beginPath();
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      for (const v of xt.t) { const x = Math.round(X(v)) + .5; ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.fillText(q.xFmt ? q.xFmt(v) : tickFmt(v, xt.step), x, T + ph + 4); }
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      for (const v of yt.t) { const y = Math.round(Y(v)) + .5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.fillText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step), L - 5, y); }
+      ctx.stroke(); ctx.strokeStyle = muted; ctx.strokeRect(L + .5, T + .5, pw, ph);
+      if (q.xLabel) { ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(q.xLabel, L + pw / 2, H - 3); }
+      if (q.yLabel) { ctx.save(); ctx.translate(11, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(q.yLabel, 0, 0); ctx.restore(); }
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+      series.forEach((s, i) => {
+        const c = s.color || col(i); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = s.width || 1.8; ctx.setLineDash(s.dash || []); ctx.globalAlpha = s.alpha == null ? 1 : s.alpha;
+        const P = s.pts;
+        if (s.type === "bars") { const w = Math.max(1, Math.abs(X(s.w || 1) - X(0)) - 1); for (const p of P) { const yy = Y(p[1]); ctx.fillRect(X(p[0]) - w / 2, Math.min(yy, Y(0)), w, Math.abs(Y(0) - yy)); } }
+        else if (s.type === "dots" || s.type === "err") {
+          const r = s.r || 3;
+          for (const p of P) { const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+        } else {
+          ctx.beginPath(); let pen = false;
+          for (const p of P) { if (!isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
+          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= .22; ctx.fill(); } else ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+      });
+      for (const l of q.vlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(l.x), T); ctx.lineTo(X(l.x), T + ph); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = X(l.x) > L + pw * .7 ? "right" : "left"; ctx.textBaseline = "top"; ctx.fillText(l.label, X(l.x) + (ctx.textAlign === "right" ? -5 : 5), T + 4 + (l.row || 0) * 13); } }
+      for (const l of q.hlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Y(l.y)); ctx.lineTo(L + pw, Y(l.y)); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(l.label, L + pw - 5, Y(l.y) - 2); } }
+      ctx.restore();
+      // title on the left, legend on the right
+      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
+      for (let i = series.length - 1; i >= 0; i--) { const s = series[i]; if (!s.label) continue; const w = ctx.measureText(s.label).width; lx -= w; ctx.fillStyle = muted; ctx.fillText(s.label, lx, 12); lx -= 12; ctx.fillStyle = s.color || col(i); ctx.fillRect(lx, 8, 8, 8); lx -= 10; }
+      if (q.title) { // the title gives way (with an ellipsis) if the legend needs the room
+        ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.fillStyle = text; let t = q.title; const room = lx - L - 8;
+        if (ctx.measureText(t).width > room) { while (t.length > 3 && ctx.measureText(t + "…").width > room) t = t.slice(0, -1); t = t.length > 3 ? t + "…" : ""; }
+        ctx.fillText(t, L, 12);
+      }
     }
+    new ResizeObserver(render).observe(wrap); charts.add(api); return api;
   }
-  if (G.balls.some(b => b.done)) { G.balls = G.balls.filter(b => !b.done); recordGalton(); }
-}
-function finishGalton() {   // drop every remaining ball instantly
-  for (const b of G.balls) { let j = b.seg < G.rows ? b.j2 : b.j; for (let r = Math.max(b.seg + 1, 0); r < G.rows; r++) if (G.rng() < G.p) j++; G.counts[j]++; G.landed++; }
-  G.balls = [];
-  while (G.launched < G.total) { G.launched++; let j = 0; for (let r = 0; r < G.rows; r++) if (G.rng() < G.p) j++; G.counts[j]++; G.landed++; }
-  recordGalton();
-}
-function recordGalton() { const s = galtonStats(G.counts, G.rows, G.p); if (s && s.N > 1) { G.hist.push([s.N, s.sd]); if (G.hist.length > 800) G.hist = G.hist.filter((_, i) => i % 2 === 0 || i === G.hist.length - 1); } }
-
-/* =====================================================================
-   7. THE SAMPLE MEANS MACHINE
-   Slow rates show each sample being drawn value by value; then its mean
-   drops onto the histogram. Fast rates just add means.
-   ===================================================================== */
-function newSample() { const v = []; for (let i = 0; i < M.n; i++) v.push(M.d.sample(M.rng)); return { vals: v, mean: v.reduce((a, b) => a + b, 0) / M.n, age: 0 }; }
-function addMean(x) {
-  M.means.push(x); M.s1 += x; M.s2 += x * x;
-  if (!M.d.cauchy) { const z = Math.abs(x - M.d.mu) / (M.d.sd / Math.sqrt(M.n)); for (let j = 0; j < 3; j++) if (z <= j + 1) M.w[j]++; }
-  const N = M.means.length;
-  if (N > 1 && (N < 200 || N % Math.ceil(N / 400) === 0)) { const v = (M.s2 - M.s1 * M.s1 / N) / (N - 1); M.hist.push([N, Math.sqrt(Math.max(0, v))]); }
-}
-function stepMeans(dt) {
-  if (M.means.length >= M.total) { if (M.cur) M.cur.age = Math.min(M.cur.age, 0.99); return; }
-  const animate = M.rate * speed <= 3;
-  if (animate) {
-    if (!M.cur || M.cur.age >= 1) M.cur = newSample();
-    const before = M.cur.age; M.cur.age += dt * M.rate;
-    if (before < 1 && M.cur.age >= 1) { addMean(M.cur.mean); M.cur.age = 1; }
-  } else {
-    M.acc += dt * M.rate; let k = 0;
-    while (M.acc >= 1 && M.means.length < M.total && k < 50000) { M.acc -= 1; k++; M.cur = newSample(); M.cur.age = 0.7; addMean(M.cur.mean); }
+  function histogram(vals, bins, lo, hi) { // returns bar points [centre, count] and the bin width
+    if (lo == null) lo = Math.min(...vals); if (hi == null) hi = Math.max(...vals); if (hi === lo) { hi += .5; lo -= .5; }
+    const w = (hi - lo) / bins, c = new Array(bins).fill(0);
+    for (const v of vals) { const i = Math.floor((v - lo) / w); if (i >= 0 && i <= bins) c[Math.min(i, bins - 1)]++; }
+    return { pts: c.map((n, i) => [lo + (i + .5) * w, n]), w };
   }
-}
-function finishMeans() { while (M.means.length < M.total) { M.cur = newSample(); M.cur.age = 0.7; addMean(M.cur.mean); } }
-function meansStats() { if (M.means.length < 2) return null; return meansOutcomes(M.means, M.d, M.n); }
 
-/* =====================================================================
-   8. DRAWING
-   ===================================================================== */
-/* =====================================================================
-   PICTURE QUALITY (the live view only; the choice is saved in this browser)
-   Each canvas is drawn with a number of canvas pixels per CSS pixel:
-     Low     1, and redrawn every other frame (about 30 times a second): lightest
-     Medium  the screen's own pixel ratio: the normal look (default)
-     High    1.5 × the screen's (at most 2.5): smoother edges and text
-     Ultra   2 × the screen's (at most 3): smoothest, heaviest
-   The model, its time steps and its random numbers are the same at every
-   level, and batch runs never draw the live view, so results do not change.
-   ===================================================================== */
-const QUALITY_KEY = "central-limit-theorem-quality";
-let quality = 1;
-try { const q = localStorage.getItem(QUALITY_KEY); if (q !== null && /^[0-3]$/.test(q)) quality = +q; } catch (e) {}
-function livePR() { const d = window.devicePixelRatio || 1; return [1, d, Math.max(d, Math.min(2.5, 1.5 * d)), Math.max(d, Math.min(3, 2 * d))][quality]; }
-let qualSkip = false;
-function skipDraw() { if (quality !== 0) return false; qualSkip = !qualSkip; return qualSkip; }   // Low: true on every other frame
-
-// live canvases use the picture-quality pixel ratio; the batch chart passes the screen's own
-function fitCanvas(c, dpr = livePR()) { const W = Math.max(1, Math.round(c.clientWidth * dpr)), H = Math.max(1, Math.round(c.clientHeight * dpr));
-  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; } return { ctx: c.getContext("2d"), W, H, dpr }; }
-function fmt(v, d = 2) { if (v === null || v === undefined || !isFinite(v)) return "–"; const a = Math.abs(v); if (a >= 1e5) return v.toExponential(2); if (a >= 100) return v.toFixed(0); if (a >= 10) return v.toFixed(Math.min(d, 1)); return v.toFixed(d); }
-
-function drawGalton(ctx, W, H, dpr) {
-  const R = G.rows, top = 18 * dpr, axisH = 34 * dpr, binH = H * 0.36, binBase = H - axisH, boardBottom = binBase - binH;
-  const dx = Math.min((W - 60 * dpr) / (R + 1), 70 * dpr), dy = Math.min((boardBottom - top - 10 * dpr) / (R + 1), dx * 0.95);
-  const cx = W / 2, yRow = k => boardBottom - (R - k) * dy, pegX = (k, i) => cx + (i - k / 2) * dx;
-  const pegR = Math.max(1.5 * dpr, Math.min(dx * 0.1, 4 * dpr)), rb = Math.max(2 * dpr, Math.min(dx * 0.17, 6 * dpr));
-  // funnel and pegs
-  ctx.strokeStyle = "#4b5640"; ctx.lineWidth = 2 * dpr; ctx.beginPath();
-  ctx.moveTo(cx - 3 * dx, yRow(0) - 1.6 * dy); ctx.lineTo(cx - 0.7 * dx, yRow(0) - 0.9 * dy); ctx.moveTo(cx + 3 * dx, yRow(0) - 1.6 * dy); ctx.lineTo(cx + 0.7 * dx, yRow(0) - 0.9 * dy); ctx.stroke();
-  ctx.fillStyle = "#c9cfbd";
-  for (let k = 0; k < R; k++) for (let i = 0; i <= k; i++) { ctx.beginPath(); ctx.arc(pegX(k, i), yRow(k), pegR, 0, 7); ctx.fill(); }
-  if (G.p !== 0.5) { ctx.fillStyle = "#a3ab96"; ctx.font = `${12 * dpr}px system-ui`; ctx.textAlign = "left";
-    ctx.fillText(`Tilted board: p(right) = ${G.p.toFixed(2)}`, 12 * dpr, top + 8 * dpr); }
-  // bins
-  const binL = j => cx + (j - R / 2 - 0.5) * dx;
-  ctx.strokeStyle = "#4b5640"; ctx.lineWidth = 1.5 * dpr; ctx.beginPath();
-  for (let j = 0; j <= R + 1; j++) { ctx.moveTo(binL(j), boardBottom + 4 * dpr); ctx.lineTo(binL(j), binBase); }
-  ctx.moveTo(binL(0), binBase); ctx.lineTo(binL(R + 1), binBase); ctx.stroke();
-  // height scale: fixed for the whole run so the final pile just fits
-  const bmax = Math.max(...G.b), disc = 2 * rb, ncol = Math.max(1, Math.floor((dx - 2 * dpr) / disc));
-  const finalMax = Math.max(1, G.total * bmax * 1.18), uDisc = disc / ncol, u = Math.min(uDisc, (binH - 8 * dpr) / finalMax);
-  const asDiscs = u >= uDisc * 0.999 && G.total <= 3000;
-  for (let j = 0; j <= R; j++) {
-    const c = G.counts[j]; if (!c) continue;
-    const x0 = binL(j) + 1 * dpr, w = dx - 2 * dpr;
-    if (asDiscs) {
-      ctx.fillStyle = "#d9971c";
-      const rr = Math.min(rb, w / (2 * ncol));
-      for (let i = 0; i < c; i++) { const row = Math.floor(i / ncol), col = i % ncol; const y = binBase - (row + 0.5) * disc; if (y < boardBottom) break;
-        ctx.beginPath(); ctx.arc(x0 + (col + 0.5) * (w / ncol), y, rr * 0.92, 0, 7); ctx.fill(); }
-    } else {
-      const h = Math.min(c * u, binH); const gr = ctx.createLinearGradient(0, binBase - h, 0, binBase); gr.addColorStop(0, "#f1af28"); gr.addColorStop(1, "#a8740f");
-      ctx.fillStyle = gr; ctx.fillRect(x0, binBase - h, w, h);
-    }
-  }
-  const pileTop = j => binBase - (asDiscs ? Math.ceil(G.counts[j] / ncol) * disc : G.counts[j] * u);
-  // flying balls
-  ctx.fillStyle = "#ffd36b";
-  for (const b of G.balls) {
-    let x, y; const t = b.t;
-    if (b.seg === -1) { x = cx; const y0 = yRow(0) - 1.4 * dy, y1 = yRow(0) - pegR - rb; y = y0 + (y1 - y0) * t * t; }
-    else if (b.seg === G.rows) { x = pegX(R, b.j); const y0 = yRow(R) - pegR - rb, y1 = Math.min(pileTop(b.j), binBase) - rb; y = y0 + (y1 - y0) * t * t; }
-    else { const x0 = pegX(b.seg, b.j), x1 = pegX(b.seg + 1, b.j2), y0 = yRow(b.seg) - pegR - rb, y1 = yRow(b.seg + 1) - pegR - rb;
-      x = x0 + (x1 - x0) * t; y = y0 + (y1 - y0) * (1.4 * t * t - 0.4 * t); }   // a little hop, then gravity
-    ctx.beginPath(); ctx.arc(x, y, rb, 0, 7); ctx.fill();
-  }
-  // theory overlays, scaled to the number of balls landed so far
-  const N = G.landed;
-  if (N > 0) {
-    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5 * dpr;
-    for (let j = 0; j <= R; j++) { const y = binBase - Math.min(N * G.b[j] * u, binH); ctx.beginPath(); ctx.moveTo(binL(j) + dx * 0.15, y); ctx.lineTo(binL(j) + dx * 0.85, y); ctx.stroke(); }
-    ctx.strokeStyle = "#00aec3"; ctx.lineWidth = 2 * dpr; ctx.beginPath();
-    for (let i = 0; i <= 300; i++) { const k = -0.5 + (R + 1) * i / 300, y = binBase - Math.min(N * phi((k - G.mu) / G.sig) / G.sig * u, binH);
-      const x = cx + (k - R / 2) * dx; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
-    ctx.stroke();
-  }
-  // axis labels
-  ctx.fillStyle = "#a3ab96"; ctx.font = `${11 * dpr}px system-ui`; ctx.textAlign = "center";
-  const every = Math.ceil(16 * dpr / dx);
-  for (let j = 0; j <= R; j += every) ctx.fillText(j, binL(j) + dx / 2, binBase + 13 * dpr);
-  ctx.fillText("bin = number of bounces to the right", cx, binBase + 28 * dpr);
-}
-
-// Axis for the sample means machine: value → x pixel
-function meansAxes(W, dpr) { const d = M.d, L = 46 * dpr, Rr = W - 20 * dpr;
-  const px = (a, b) => v => L + (v - a) / (b - a) * (Rr - L);
-  let ha = d.xmin, hb = d.xmax;
-  if (el("zoom").checked && !d.cauchy) { const se = d.sd / Math.sqrt(M.n); ha = Math.max(d.xmin - 2, d.mu - 4.5 * se); hb = Math.min(d.xmax + 2, d.mu + 4.5 * se); }
-  return { L, Rr, X: px(d.xmin, d.xmax), HX: px(ha, hb), ha, hb }; }
-// Histogram bins. For dice the means can only be multiples of 1/n, so the bins are lined up with those values.
-function meansBins(ha, hb) {
-  const d = M.d, range = hb - ha; let w, start;
-  if (d.kind === "discrete") { const step = 1 / M.n, m = Math.max(1, Math.ceil(range / 60 / step)); w = m * step; start = Math.floor((ha + 0.5 * step) / w) * w - 0.5 * step; }
-  else { w = range / 60; start = ha; }
-  const nb = Math.ceil((hb - start) / w) + 1, counts = new Array(nb).fill(0); let off = 0;
-  for (const x of M.means) { const i = Math.floor((x - start) / w); if (i >= 0 && i < nb && start + i * w < hb + 1e-9) counts[i]++; else off++; }
-  return { start, w, counts, off };
-}
-function drawMeans(ctx, W, H, dpr) {
-  const d = M.d, A = meansAxes(W, dpr), f = s => `${s * dpr}px system-ui`;
-  const pT = 22 * dpr, pB = H * 0.30, sT = H * 0.37, sB = H * 0.49, hT = H * 0.56, hB = H - 34 * dpr;
-  // --- parent population
-  ctx.fillStyle = "#a3ab96"; ctx.font = f(12); ctx.textAlign = "left";
-  ctx.fillText(`Parent population: ${d.name}` + (d.cauchy ? "   μ and σ do not exist" : `   μ = ${fmt(d.mu)}, σ = ${fmt(d.sd)}, skewness = ${fmt(d.skew)}`), A.L, pT - 6 * dpr);
-  ctx.fillStyle = "#6f8c5a";
-  if (d.kind === "discrete") { const mx = Math.max(...d.probs);
-    d.vals.forEach((v, i) => { const h = d.probs[i] / mx * (pB - pT - 4 * dpr); ctx.fillRect(A.X(v - 0.3), pB - h, A.X(v + 0.3) - A.X(v - 0.3), h); }); }
-  else if (d.kind === "bars") { const mx = Math.max(...d.bars, 0.01);
-    d.bars.forEach((h, i) => { const hh = h / mx * (pB - pT - 4 * dpr); ctx.fillRect(A.X(i * d.bw) + 1, pB - hh, A.X((i + 1) * d.bw) - A.X(i * d.bw) - 2, hh); });
-    ctx.fillStyle = "#f1af28"; ctx.font = f(11.5); ctx.textAlign = "right"; ctx.fillText("✎ drag here to draw", A.Rr, pT + 10 * dpr); }
-  else { const pts = []; let mx = 0; for (let i = 0; i < 240; i++) { const x = d.xmin + (i + 0.5) * (d.xmax - d.xmin) / 240, y = d.density(x); pts.push([x, y]); mx = Math.max(mx, y); }
-    ctx.beginPath(); ctx.moveTo(A.X(d.xmin), pB); for (const [x, y] of pts) ctx.lineTo(A.X(x), pB - y / mx * (pB - pT - 4 * dpr)); ctx.lineTo(A.X(d.xmax), pB); ctx.fill(); }
-  ctx.strokeStyle = "#4b5640"; ctx.lineWidth = 1 * dpr; ctx.beginPath(); ctx.moveTo(A.L, pB); ctx.lineTo(A.Rr, pB); ctx.stroke();
-  if (!d.cauchy) {   // mean and ±1 SD of the parent
-    ctx.strokeStyle = "#f1af28"; ctx.setLineDash([5 * dpr, 4 * dpr]); ctx.beginPath(); ctx.moveTo(A.X(d.mu), pT); ctx.lineTo(A.X(d.mu), pB); ctx.stroke(); ctx.setLineDash([]);
-    const ya = pT + 18 * dpr, a = Math.max(A.L, A.X(d.mu - d.sd)), b = Math.min(A.Rr, A.X(d.mu + d.sd));
-    ctx.beginPath(); ctx.moveTo(a, ya); ctx.lineTo(b, ya); ctx.stroke(); ctx.fillStyle = "#f1af28"; ctx.textAlign = "center"; ctx.font = f(11);
-    ctx.fillText("μ ± σ", (a + b) / 2, ya - 4 * dpr);
-  }
-  // parent axis ticks
-  const ticks = (a, b, X, y) => { ctx.fillStyle = "#a3ab96"; ctx.font = f(10.5); ctx.textAlign = "center"; for (const t of niceTicks(a, b, 8)) { const x = X(t); if (x < A.L - 1 || x > A.Rr + 1) continue; ctx.fillText(fmtTick(t), x, y); } };
-  ticks(d.xmin, d.xmax, A.X, pB + 12 * dpr);
-  // --- the current sample
-  const cur = M.cur;
-  ctx.fillStyle = "#a3ab96"; ctx.font = f(12); ctx.textAlign = "left";
-  if (cur) {
-    const shown = Math.min(M.n, Math.ceil(M.n * Math.min(1, cur.age / 0.5)));
-    const r = Math.max(2 * dpr, Math.min(5 * dpr, 60 * dpr / Math.sqrt(M.n)));
-    ctx.fillStyle = "#ffd36b";
-    const stack = {};
-    for (let i = 0; i < shown; i++) { const v = cur.vals[i]; let y;
-      if (d.kind === "discrete") { stack[v] = (stack[v] || 0) + 1; y = sB - 4 * dpr - (stack[v] - 0.5) * 2.1 * r; if (y < sT) y = sT + ((i * 37) % 10) / 10 * (sB - sT); }
-      else y = sT + 4 * dpr + ((i * 0.618034) % 1) * (sB - sT - 8 * dpr);
-      const x = A.X(Math.max(d.xmin, Math.min(d.xmax, v)));
-      ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
-    let label = `Sample of n = ${M.n}`;
-    if (M.n <= 10) label += ": " + cur.vals.slice(0, shown).map(v => fmt(v, d.kind === "discrete" ? 0 : 1)).join(", ");
-    if (cur.age >= 0.5) label += `   →  mean x̄ = ${fmt(cur.mean, 2)} ${d.unit}`;
-    ctx.fillStyle = "#dfe3d6"; ctx.font = f(12); ctx.fillText(label, A.L, sT - 6 * dpr);
-    if (cur.age >= 0.5) {   // the mean marker, then its drop onto the histogram
-      const xs = A.X(Math.max(d.xmin, Math.min(d.xmax, cur.mean))), xh = A.HX(Math.max(A.ha, Math.min(A.hb, cur.mean)));
-      const k = Math.max(0, Math.min(1, (cur.age - 0.65) / 0.35)), e = k * k;
-      const x = xs + (xh - xs) * e, y = sB + (hT - sB) * e;
-      ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 2 * dpr; if (k === 0) { ctx.beginPath(); ctx.moveTo(xs, sT); ctx.lineTo(xs, sB); ctx.stroke(); }
-      ctx.fillStyle = "#f1af28"; ctx.beginPath(); ctx.moveTo(x - 7 * dpr, y - 10 * dpr); ctx.lineTo(x + 7 * dpr, y - 10 * dpr); ctx.lineTo(x, y); ctx.closePath(); ctx.fill();
-    }
-  } else ctx.fillText("Press Play to start taking samples.", A.L, sT + 14 * dpr);
-  // --- histogram of the sample means (as a density, so it can be compared with the curve)
-  const bins = meansBins(A.ha, A.hb), N = M.means.length, se = d.sd / Math.sqrt(M.n);
-  const thPeak = d.cauchy ? 1 / Math.PI : 1 / (se * Math.sqrt(2 * Math.PI));
-  let obsPeak = 0; bins.counts.forEach(c => (obsPeak = Math.max(obsPeak, N ? c / (N * bins.w) : 0)));
-  const yMax = Math.max(thPeak * 1.15, obsPeak * 1.05), Y = v => hB - v / yMax * (hB - hT);
-  ctx.fillStyle = "#a4cbe6";
-  bins.counts.forEach((c, i) => { if (!c) return; const a = bins.start + i * bins.w, x0 = A.HX(Math.max(a, A.ha)), x1 = A.HX(Math.min(a + bins.w, A.hb)); ctx.fillRect(x0 + 0.5, Y(c / (N * bins.w)), Math.max(1, x1 - x0 - 1), hB - Y(c / (N * bins.w))); });
-  ctx.strokeStyle = "#00aec3"; ctx.lineWidth = 2.2 * dpr; ctx.beginPath();
-  for (let i = 0; i <= 300; i++) { const x = A.ha + (A.hb - A.ha) * i / 300, y = d.cauchy ? 1 / (Math.PI * (1 + (x - 5) ** 2)) : phi((x - d.mu) / se) / se; i ? ctx.lineTo(A.HX(x), Y(y)) : ctx.moveTo(A.HX(x), Y(y)); }
-  ctx.stroke();
-  ctx.strokeStyle = "#4b5640"; ctx.lineWidth = 1 * dpr; ctx.beginPath(); ctx.moveTo(A.L, hB); ctx.lineTo(A.Rr, hB); ctx.stroke();
-  ticks(A.ha, A.hb, A.HX, hB + 13 * dpr);
-  ctx.fillStyle = "#a3ab96"; ctx.font = f(11); ctx.textAlign = "center";
-  ctx.fillText(`sample mean x̄${d.unit ? " (" + d.unit + ")" : ""}` + (A.ha !== d.xmin || A.hb !== d.xmax ? " — zoomed in" : " — same scale as the parent"), (A.L + A.Rr) / 2, hB + 27 * dpr);
-  ctx.textAlign = "left"; ctx.fillStyle = "#dfe3d6"; ctx.font = f(12);
-  ctx.fillText(`${N.toLocaleString("en-GB")} sample means` + (bins.off ? ` (${bins.off} off the scale)` : ""), A.L, hT - 4 * dpr);
-  ctx.textAlign = "right"; ctx.fillStyle = "#00aec3";
-  ctx.fillText(d.cauchy ? "theory: the mean is still Cauchy, just as wide" : `CLT: normal, mean ${fmt(d.mu)}, SD σ/√n = ${fmt(se, 3)}`, A.Rr, hT - 4 * dpr);
-}
-function niceTicks(a, b, n) { const span = b - a; if (!(span > 0)) return [a]; const raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p, st = (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p;
-  const out = []; for (let t = Math.ceil(a / st) * st; t <= b + st * 1e-6; t += st) out.push(Math.abs(t) < st * 1e-9 ? 0 : t); return out; }
-function fmtTick(t) { const a = Math.abs(t); if (a === 0) return "0"; if (a >= 1e4 || a < 1e-3) return t.toExponential(0); return String(+t.toPrecision(4)); }
-
-function drawView() {
-  const { ctx, W, H, dpr } = fitCanvas(el("view"));
-  ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, W, H);
-  if (mode === "galton") drawGalton(ctx, W, H, dpr); else drawMeans(ctx, W, H, dpr);
-}
-
-// Right panel chart 1: running SD vs the theory value
-function drawChart1() {
-  const { ctx, W, H, dpr } = fitCanvas(el("chart1"));
-  ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H);
-  const hist = mode === "galton" ? G.hist : M.hist, th = mode === "galton" ? G.sig : (M.d.cauchy ? null : M.d.sd / Math.sqrt(M.n));
-  const total = mode === "galton" ? G.total : M.total;
-  const L = 42 * dpr, Rr = 8 * dpr, T = 8 * dpr, B = 24 * dpr;
-  let yMax = th ? th * 2 : 1; hist.forEach(h => (yMax = Math.max(yMax, h[1] * 1.1))); if (!isFinite(yMax)) yMax = 1;
-  if (mode === "means" && M.d.cauchy) yMax = Math.max(1, ...hist.map(h => h[1])) * 1.1;
-  const X = n => L + n / total * (W - L - Rr), Y = v => H - B - Math.min(v, yMax) / yMax * (H - T - B);
-  ctx.strokeStyle = "rgba(160,170,150,0.15)"; ctx.fillStyle = "#a3ab96"; ctx.font = `${10 * dpr}px system-ui`; ctx.textAlign = "right";
-  for (const t of niceTicks(0, yMax, 4)) { const y = Y(t); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - Rr, y); ctx.stroke(); ctx.fillText(fmtTick(t), L - 4 * dpr, y + 3 * dpr); }
-  ctx.textAlign = "center"; ctx.fillText(mode === "galton" ? `balls landed (0 to ${total})` : `number of samples (0 to ${total})`, (L + W) / 2, H - 6 * dpr);
-  if (th) { ctx.strokeStyle = "#f1af28"; ctx.setLineDash([6 * dpr, 4 * dpr]); ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.moveTo(L, Y(th)); ctx.lineTo(W - Rr, Y(th)); ctx.stroke(); ctx.setLineDash([]); }
-  ctx.strokeStyle = "#a4cbe6"; ctx.lineWidth = 2 * dpr; ctx.beginPath(); hist.forEach((h, i) => (i ? ctx.lineTo(X(h[0]), Y(h[1])) : ctx.moveTo(X(h[0]), Y(h[1])))); ctx.stroke();
-}
-// Right panel chart 2: % within 1, 2, 3 SD — simulation vs the normal curve
-function drawChart2() {
-  const { ctx, W, H, dpr } = fitCanvas(el("chart2"));
-  ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H);
-  let sim = null;
-  if (mode === "galton") { const s = galtonStats(G.counts, G.rows, G.p); if (s) sim = s.within; }
-  else if (!M.d.cauchy && M.means.length) sim = M.w.map(x => 100 * x / M.means.length);
-  const th = [68.27, 95.45, 99.73], L = 34 * dpr, B = 20 * dpr, T = 8 * dpr, Y = v => H - B - v / 100 * (H - T - B);
-  ctx.fillStyle = "#a3ab96"; ctx.font = `${10 * dpr}px system-ui`; ctx.textAlign = "right";
-  for (const t of [0, 50, 100]) { ctx.fillText(t + "%", L - 4 * dpr, Y(t) + 3 * dpr); ctx.strokeStyle = "rgba(160,170,150,0.15)"; ctx.beginPath(); ctx.moveTo(L, Y(t)); ctx.lineTo(W, Y(t)); ctx.stroke(); }
-  if (mode === "means" && M.d.cauchy) { ctx.textAlign = "center"; ctx.fillStyle = "#ff8a7a"; ctx.font = `${12 * dpr}px system-ui`; ctx.fillText("No SD for the Cauchy population: this check is impossible.", (L + W) / 2, H / 2); return; }
-  const gw = (W - L) / 3;
-  for (let j = 0; j < 3; j++) {
-    const x0 = L + j * gw + gw * 0.15, bw = gw * 0.32;
-    ctx.fillStyle = "#a4cbe6"; if (sim) ctx.fillRect(x0, Y(sim[j]), bw, Y(0) - Y(sim[j]));
-    ctx.fillStyle = "#f1af28"; ctx.fillRect(x0 + bw + 2 * dpr, Y(th[j]), bw, Y(0) - Y(th[j]));
-    ctx.fillStyle = "#dfe3d6"; ctx.textAlign = "center"; ctx.font = `${10 * dpr}px system-ui`;
-    if (sim) ctx.fillText(sim[j].toFixed(1), x0 + bw / 2, Y(sim[j]) - 3 * dpr);
-    ctx.fillText(th[j].toFixed(1), x0 + bw * 1.5 + 2 * dpr, Y(th[j]) - 3 * dpr);
-    ctx.fillStyle = "#a3ab96"; ctx.fillText(`within ±${j + 1} SD`, x0 + bw, H - 6 * dpr);
-  }
-}
-
-/* =====================================================================
-   9. READOUTS AND THE STORY
-   ===================================================================== */
-const tile = (k, v, s) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
-function updateUI() {
-  if (mode === "galton") {
-    const s = galtonStats(G.counts, G.rows, G.p), skT = (1 - 2 * G.p) / G.sig;
-    el("clock").textContent = `${G.landed.toLocaleString("en-GB")} / ${G.total.toLocaleString("en-GB")} balls`;
-    el("topA").innerHTML = `Rows <b>${G.rows}</b>`; el("topB").innerHTML = `p(right) <b>${G.p.toFixed(2)}</b>`; el("topC").innerHTML = `In the air <b>${G.balls.length}</b>`;
-    const pv = s && isFinite(s.chi2) ? 1 - chi2CDF(s.chi2, s.df) : NaN;
-    el("tiles").innerHTML =
-      tile("Mean bin", s ? fmt(s.mean) : "–", `theory Rp = ${fmt(G.mu)}`) +
-      tile("SD (bins)", s ? fmt(s.sd) : "–", `theory √(Rp(1−p)) = ${fmt(G.sig)}`) +
-      tile("Skewness", s ? fmt(s.skew) : "–", `theory (1−2p)/σ = ${fmt(skT)}`) +
-      tile("Within ±1 SD", s ? fmt(s.within1, 1) + "%" : "–", `binomial ${fmt(binomWithin(G.rows, G.p, 1), 1)}%, normal 68.3%`) +
-      tile("χ² fit to binomial", s && isFinite(s.chi2) ? fmt(s.chi2) : "–", s && isFinite(s.chi2) ? `${s.df} df: expect about ${s.df}; p = ${fmt(pv, 2)}` : "needs more balls") +
-      tile("Gap from normal", s ? fmt(s.gap, 1) + "%" : "–", `expected about ${fmt(expectedGap(G.rows, G.p, Math.max(1, G.landed)), 1)}%`);
-    let t = `<p>Each ball makes ${G.rows} left-or-right choices. Its bin is the number of right-bounces, so the bins follow the <b>binomial distribution</b>.</p>`;
-    if (!s) t += `<p>Balls are on their way…</p>`;
-    else {
-      if (s.N < 100) t += `<p>With only ${s.N} balls the pile is ragged: random scatter is large when numbers are small.</p>`;
-      else t += `<p>${s.N} balls: the pile follows the white binomial marks${Math.abs(skT) < 0.3 && G.rows >= 8 ? " and the blue normal curve closely" : ""}. The mean is ${fmt(s.mean)} (theory ${fmt(G.mu)}).</p>`;
-      if (G.p !== 0.5) t += `<p>The board is tilted, so the pile is ${skT > 0 ? "skewed to the right (long tail to the right)" : "skewed to the left (long tail to the left)"}. More rows make it more symmetrical: skewness falls like 1/√rows.</p>`;
-      if (G.rows <= 4) t += `<p>With only ${G.rows} rows there are ${G.rows + 1} bins: the shape is too lumpy to be a smooth bell. Add rows and it gets closer to normal.</p>`;
-      if (isFinite(pv) && s.N >= 200) t += `<p>χ² test: p = ${fmt(pv, 2)}. ${pv < 0.05 ? "Under 0.05 — this happens by chance in 1 run in 20 even when the board is perfectly fair." : "No evidence that the board is not binomial."}</p>`;
-    }
-    el("story").innerHTML = t;
-  } else {
-    const d = M.d, s = meansStats(), se = d.sd / Math.sqrt(M.n), N = M.means.length;
-    el("clock").textContent = `${N.toLocaleString("en-GB")} / ${M.total.toLocaleString("en-GB")} samples`;
-    el("topA").innerHTML = `n = <b>${M.n}</b>`; el("topB").innerHTML = `Parent <b>${d.name}</b>`; el("topC").innerHTML = d.cauchy ? `σ/√n <b>undefined</b>` : `σ/√n <b>${fmt(se, 3)}</b>`;
-    if (d.cauchy) {
-      el("tiles").innerHTML =
-        tile("Median of means", s ? fmt(medianOf(M.means)) : "–", "theory 5 (the centre)") +
-        tile("IQR of means", s ? fmt(s.iqr) : "–", "theory 2.00 for every n") +
-        tile("Mean of means", s ? fmt(s.mean) : "–", "theory: no mean exists") +
-        tile("SD of means", s ? fmt(s.sd) : "–", "theory: infinite") +
-        tile("Biggest |mean|", N ? fmt(Math.max(...M.means.map(x => Math.abs(x - 5)))) : "–", "km from the centre") +
-        tile("Off the scale", N ? `${M.means.filter(x => x < 0 || x > 10).length}` : "–", "means beyond 0–10 km");
-    } else {
-      el("tiles").innerHTML =
-        tile("Mean of means", s ? fmt(s.mean, 3) : "–", `theory μ = ${fmt(d.mu, 3)}`) +
-        tile("SD of means", s ? fmt(s.sd, 3) : "–", `theory σ/√n = ${fmt(se, 3)}`) +
-        tile("Skewness", s ? fmt(s.skew) : "–", `theory γ/√n = ${fmt(d.skew / Math.sqrt(M.n))}`) +
-        tile("Within ±1 SE", s ? fmt(s.within1, 1) + "%" : "–", "normal 68.3%") +
-        tile("Within ±2 SE", s ? fmt(s.within2, 1) + "%" : "–", "normal 95.4%") +
-        tile("Parent", `μ ${fmt(d.mu)}, σ ${fmt(d.sd)}`, `skewness γ = ${fmt(d.skew)}`);
-    }
-    let t = `<p>Each sample is ${M.n} random value${M.n > 1 ? "s" : ""} from the ${d.name.toLowerCase()} population. We work out the mean and drop it on the histogram below.</p>`;
-    if (d.cauchy) t += `<p><b>The CLT fails here.</b> Now and then the beam is almost parallel to the coast and lands kilometres away. One huge value can drag a whole sample mean anywhere, so averaging ${M.n} values is no better than taking one: the histogram stays just as wide (IQR about 2 km) for every n.</p>`;
-    else {
-      if (M.n === 1) t += `<p>With n = 1 the "means" are just single values, so the histogram copies the parent's shape. Now increase n.</p>`;
-      else if (Math.abs(d.skew / Math.sqrt(M.n)) > 0.35 || (d.key === "loaded" && M.n < 10) || (d.key === "bimodal" && M.n < 5) || (d.key === "ushape" && M.n < 3)) t += `<p>n = ${M.n} is not yet enough: the means still show some of the parent's shape (skewness ${fmt(d.skew / Math.sqrt(M.n))}). Try a bigger n.</p>`;
-      else t += `<p>With n = ${M.n} the means already look close to the <b>normal</b> curve, even though the parent ${d.key === "die" ? "is flat" : "is not normal"}. That is the central limit theorem.</p>`;
-      t += `<p>The means bunch together: their SD is σ/√n = ${fmt(d.sd)}/√${M.n} = ${fmt(se, 3)}. To halve the spread you need <b>four times</b> as many values in each sample.</p>`;
-    }
-    el("story").innerHTML = t;
-  }
-}
-function medianOf(a) { const s = Float64Array.from(a).sort(), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; }
-
-/* =====================================================================
-   10. PRESETS
-   ===================================================================== */
-const PRESETS = [
-  { name: "Classic Galton board", note: "12 rows, fair pegs", s: { mode: "galton", rows: 12, p: 0.5, g_rate: 20, g_balls: 1000 } },
-  { name: "Tilted board", note: "p = 0.8: skewed pile", s: { mode: "galton", rows: 12, p: 0.8, g_rate: 20, g_balls: 1000 } },
-  { name: "One die → many dice", note: "n = 1 is flat; raise n", s: { mode: "means", dist: "die", nIdx: 0, m_rate: 5, m_samples: 1000, zoom: false } },
-  { name: "Small n vs large n", note: "loaded die, n = 3; try 30", s: { mode: "means", dist: "loaded", nIdx: 2, m_rate: 20, m_samples: 2000, zoom: false } },
-  { name: "Waiting times", note: "skewed exponential, n = 5", s: { mode: "means", dist: "expo", nIdx: 4, m_rate: 2, m_samples: 2000, zoom: false } },
-  { name: "Two humps", note: "bimodal → one bell, n = 10", s: { mode: "means", dist: "bimodal", nIdx: 7, m_rate: 2, m_samples: 2000, zoom: false } },
-  { name: "U-shaped", note: "least likely value = mean", s: { mode: "means", dist: "ushape", nIdx: 3, m_rate: 20, m_samples: 2000, zoom: false } },
-  { name: "Skewed incomes", note: "means of 10 households", s: { mode: "means", dist: "income", nIdx: 7, m_rate: 20, m_samples: 2000, zoom: true } },
-  { name: "Draw your own", note: "drag the bars, n = 10", s: { mode: "means", dist: "drawn", nIdx: 7, m_rate: 20, m_samples: 2000, zoom: false } },
-  { name: "Cauchy breaks it", note: "lighthouse: CLT fails", s: { mode: "means", dist: "cauchy", nIdx: 12, m_rate: 20, m_samples: 2000, zoom: false } },
-];
-function applySettings(s) {
-  for (const [k, v] of Object.entries(s)) { if (k === "mode") continue; const e = el(k); if (!e) continue; if (e.type === "checkbox") e.checked = v; else e.value = v; }
-  updateLabels();
-}
-function setPreset(k) {
-  const pr = PRESETS[k]; applySettings(pr.s); resetAll(); setMode(pr.s.mode);
-  document.querySelectorAll("#presets button").forEach((b, j) => b.classList.toggle("on", j === k));
-}
-el("presets").innerHTML = PRESETS.map((p, k) => `<button data-k="${k}">${p.name}<small>${p.note}</small></button>`).join("");
-document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.k)));
-const clearPreset = () => document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on"));
-
-/* =====================================================================
-   11. CONTROLS
-   ===================================================================== */
-document.querySelectorAll("#modeTabs button").forEach(b => (b.onclick = () => { clearPreset(); setMode(b.dataset.mode); }));
-["rows", "p", "g_balls"].forEach(id => el(id).addEventListener("input", () => { clearPreset(); updateLabels(); resetGalton(); setRunning(true); }));
-["dist", "nIdx", "m_samples"].forEach(id => el(id).addEventListener("input", () => { clearPreset(); updateLabels(); resetMeans(); setRunning(true); }));
-["g_rate", "m_rate"].forEach(id => el(id).addEventListener("input", () => { clearPreset(); readControls(); }));
-el("seed").addEventListener("change", () => { clearPreset(); resetAll(); });
-el("btnPlay").onclick = () => {
-  const done = mode === "galton" ? G.landed >= G.total : M.means.length >= M.total;
-  if (done) { if (mode === "galton") resetGalton(); else resetMeans(); setRunning(true); } else setRunning(!running);
-};
-el("btnReset").onclick = () => { if (mode === "galton") resetGalton(); else resetMeans(); setRunning(true); };
-el("btnFinish").onclick = () => { if (mode === "galton") finishGalton(); else finishMeans(); setRunning(false); };
-document.querySelectorAll("[data-s]").forEach(b => (b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", x === b)); }));
-
-// Drawing your own population: drag on the top chart
-let drawing = false;
-function drawAt(e) {
-  if (mode !== "means" || M.d.kind !== "bars") return false;
-  const c = el("view"), r = c.getBoundingClientRect(), dpr = livePR(), x = (e.clientX - r.left) * dpr, y = (e.clientY - r.top) * dpr;
-  const H = c.height, A = meansAxes(c.width, dpr), pT = 22 * dpr, pB = H * 0.30;
-  if (!drawing && (y < pT - 10 * dpr || y > pB + 10 * dpr)) return false;
-  const v = A.L + (x - A.L), i = Math.floor((((v - A.L) / (A.Rr - A.L)) * 10) / 0.5);
-  if (i < 0 || i >= drawnBars.length) return true;
-  const mx = Math.max(...M.d.bars, 0.01);
-  drawnBars[i] = Math.max(0, Math.min(1, (pB - y) / (pB - pT - 4 * dpr))) * mx;
-  if (drawnBars.every(h => h <= 0)) drawnBars[i] = 0.05;
-  resetMeans(); setRunning(true); return true;
-}
-el("view").addEventListener("pointerdown", e => { if (drawAt(e)) { drawing = true; el("view").setPointerCapture(e.pointerId); } });
-el("view").addEventListener("pointermove", e => { if (drawing) drawAt(e); });
-el("view").addEventListener("pointerup", () => (drawing = false));
-
-/* =====================================================================
-   12. BATCH RUN
-   One run = runGalton(params, seed) or runMeans(params, seed): the same
-   model as the animation, with no drawing.
-   ===================================================================== */
-// Every numeric starting setting of each model (from / to: the first range when a row is ticked)
-const BVARS = {
-  galton: [ { key: "rows", label: "Rows of pegs", int: true, min: 1, max: 80, from: 2, to: 30 }, { key: "p", label: "Chance of bouncing right, p", min: 0.01, max: 0.99, from: 0.05, to: 0.95 }, { key: "balls", label: "Number of balls", int: true, min: 5, max: 20000, from: 10, to: 10000, log: true } ],
-  means: [ { key: "n", label: "Sample size n", int: true, min: 1, max: 1000, from: 1, to: 256, log: true }, { key: "samples", label: "Samples per run", int: true, min: 20, max: 20000, from: 50, to: 10000, log: true } ],
-};
-const BOUTS = {
-  galton: [ { key: "chi2", label: "χ² goodness-of-fit statistic" }, { key: "gap", label: "Gap from the normal curve (%)" }, { key: "sd", label: "SD of the pile (bins)" }, { key: "skew", label: "Skewness of the pile" }, { key: "mean", label: "Mean bin" }, { key: "within1", label: "% of balls within ±1 SD" } ],
-  means: [ { key: "sd", label: "SD of the sample means" }, { key: "skew", label: "Skewness of the sample means" }, { key: "iqr", label: "Interquartile range of the means" }, { key: "mean", label: "Mean of the sample means" }, { key: "within1", label: "% of means within ±1 SE" }, { key: "within2", label: "% of means within ±2 SE" } ],
-};
-function baseParams(model) { readControls();
-  return model === "galton" ? { rows: G.rows, p: G.p, balls: G.total } : { dist: el("dist").value, n: M.n, samples: M.total }; }
-function runModel(model, P, seed) { return model === "galton" ? runGalton(P, seed) : runMeans(P, seed); }
-// What the theory predicts for an outcome with parameters P (null = no theory)
-function theoryFor(model, out, P) {
-  if (model === "galton") { const R = P.rows, p = P.p, s = Math.sqrt(R * p * (1 - p));
-    switch (out) { case "mean": return R * p; case "sd": return s; case "skew": return (1 - 2 * p) / s;
-      case "chi2": return chiGroups(binomPMF(R, p), P.balls).length - 1; case "gap": return expectedGap(R, p, P.balls); case "within1": return binomWithin(R, p, 1); } }
-  else { const d = makeDist(P.dist), n = P.n;
-    if (d.cauchy) return out === "iqr" ? 2 : null;
-    switch (out) { case "mean": return d.mu; case "sd": return d.sd / Math.sqrt(n); case "skew": return d.skew / Math.sqrt(n);
-      case "iqr": return 1.349 * d.sd / Math.sqrt(n); case "within1": return 68.27; case "within2": return 95.45; } }
-  return null;
-}
-const theoryName = { chi2: "χ² distribution (mean = degrees of freedom)", gap: "expected gap: binomial-vs-normal difference + random scatter", sd: "σ/√n (or √(Rp(1−p)) for the board)", skew: "γ/√n (or (1−2p)/σ for the board)", mean: "μ (or Rp)", within1: "normal curve (exact binomial for the board)", within2: "normal curve", iqr: "1.349 σ/√n (normal); 2 for Cauchy" };
-// A theoretical distribution of the outcome across repeats (for the Repeat histogram)
-function theoryPdf(model, out, P) {
-  if (model === "galton" && out === "chi2") { const k = theoryFor(model, out, P); return { f: x => chi2PDF(x, k), label: `χ² distribution, ${k} degrees of freedom` }; }
-  if (model === "galton" && out === "mean") { const m = P.rows * P.p, s = Math.sqrt(P.rows * P.p * (1 - P.p) / P.balls); return { f: x => phi((x - m) / s) / s, label: "normal, SD = σ/√balls" }; }
-  if (model === "means" && out === "mean") { const d = makeDist(P.dist); if (d.cauchy) return null; const s = d.sd / Math.sqrt(P.n * P.samples); return { f: x => phi((x - d.mu) / s) / s, label: "normal, SD = σ/√(n × samples)" }; }
-  return null;
-}
-function extraSummary(model, out, vals, P) {
-  if (model === "galton" && out === "chi2") { const k = theoryFor(model, out, P), c = chi2Crit(k, 0.05), over = vals.filter(v => v > c).length;
-    return `<p>5% critical value for ${k} df: <b>${c.toFixed(2)}</b>. Runs above it: <b>${over} of ${vals.length} (${(100 * over / vals.length).toFixed(1)}%)</b> — theory 5%. Each of these would "fail" a χ² test even though the board is perfectly fair.</p>`; }
-  return "";
-}
-const EXPS = [
-  { q: "Does the spread of the mean shrink like σ/√n?", live: { mode: "means", dist: "die", nIdx: 6, m_samples: 2000 }, b: { model: "means", mode: "sweep", var: "n", from: 1, to: 256, steps: 9, geo: true, reps: 5, out: "sd", loglog: true },
-    note: "Each dot is the SD of 2,000 sample means. On log–log axes σ/√n is a straight line of <b>gradient −0.5</b>: four times the sample size halves the spread. The points scatter a little because each run uses only 2,000 samples; the scatter is about 1/√(2 × 2000) ≈ 1.6% of the value." },
-  { q: "Does skewness fade away as n grows?", live: { mode: "means", dist: "expo", nIdx: 4, m_samples: 5000 }, b: { model: "means", mode: "sweep", var: "n", from: 1, to: 128, steps: 8, geo: true, reps: 5, out: "skew", loglog: true },
-    note: "Bus waiting times are very skewed (γ = 2). The skewness of the mean falls like <b>2/√n</b> — gradient −0.5 again — so the histogram gets more symmetrical, but slowly: even n = 30 leaves skewness 0.37. Skewness is hard to measure: with 5,000 samples the noise is about ±0.035, which is why the big-n points wobble." },
-  { q: "Is the Galton board really binomial? (χ² test)", live: { mode: "galton", rows: 12, p: 0.5, g_balls: 500 }, b: { model: "galton", mode: "repeat", N: 500, out: "chi2" },
-    note: "500 boards of 500 balls. For each, χ² measures how far the pile is from the binomial prediction. If the model is right, the χ² values follow the <b>χ² distribution</b> (yellow curve) with mean equal to the degrees of freedom, and about <b>5%</b> of perfectly fair boards land above the critical value — that is what a 5% significance level means." },
-  { q: "How many rows before a tilted board looks normal?", live: { mode: "galton", rows: 12, p: 0.2, g_balls: 5000 }, b: { model: "galton", mode: "sweep", var: "rows", from: 2, to: 40, steps: 20, geo: false, reps: 5, out: "gap" },
-    note: "p = 0.2 and 5,000 balls per board. The 'gap' is the % of balls in different bins from where the normal curve puts them. It falls quickly at first, wobbling because bins and the curve line up better for some numbers of rows than others, and then levels off at the random-scatter floor (about 3–4% for 5,000 balls on a big board). A fair board (p = 0.5) gets there with far fewer rows — try it. A common rule of thumb says the normal approximation is OK when Rp and R(1−p) are both above 5: here R ≥ 25." },
-  { q: "How many balls before the pile matches the curve?", live: { mode: "galton", rows: 12, p: 0.5, g_balls: 1000 }, b: { model: "galton", mode: "sweep", var: "balls", from: 10, to: 20000, steps: 8, geo: true, reps: 10, out: "gap", loglog: true },
-    note: "With few balls the pile is ragged — that is random scatter, not a failure of the theory. The gap shrinks roughly like <b>1/√balls</b> (gradient −0.5) until it reaches the small true difference between the binomial and the normal curve for 12 rows (about 0.4%), where it levels off." },
-  { q: "Does averaging tame the Cauchy?", live: { mode: "means", dist: "cauchy", nIdx: 12, m_samples: 2000 }, b: { model: "means", mode: "sweep", var: "n", from: 1, to: 256, steps: 9, geo: true, reps: 5, out: "iqr", loglog: true },
-    note: "For the lighthouse, averaging 256 values gives means <b>just as spread out</b> as single values: the IQR stays at 2 km (gradient 0). The CLT needs a finite variance, and the Cauchy has none. Re-run with the fair die chosen as the population (in the table) and the IQR falls with gradient −0.5." },
-];
-
-const B = { running: false, stop: false, rows: [], cfg: null, jobs: [], i: 0, exp: -1 };
-function fillOutcomes() { const m = el("bModel").value, cur = el("bOut").value;
-  el("bOut").innerHTML = BOUTS[m].map(o => `<option value="${o.key}">${o.label}</option>`).join(""); if (BOUTS[m].some(o => o.key === cur)) el("bOut").value = cur; }
-/* ---------- The batch settings table ----------
-   Lists EVERY starting setting a batch run uses, each with an editable value, plus the
-   settings that are choices. A one-click experiment fills in the whole table, and a run
-   uses exactly what the table shows. Tick ONE row to vary it: it then shows from / to /
-   step type (+ adds the step, × multiplies by it) / step, and a preview of the values.
-   An experiment's sweep uses its own values until you edit the range.
-   The simulation supplies: tVars(all) (the numeric settings shown now, or every one with all = true: {key, label, unit, min, max, int, log, from, to}),
-   tOpts(all) (the choices shown now, or all of them: {k, label, bool} | {k, label, choices: [[value, text]]} | {k, label, text}),
-   and tableEdited() (called when the person changes anything). */
-const TBL = { vals: {}, opts: {}, vary: null, from: 0, to: 1, kind: "+", step: 1, exact: null };
-const tNice = x => (x === 0 || !isFinite(x)) ? x : +(+x).toPrecision(4);
-const tDisp = x => (typeof x === "number" && isFinite(x) && x !== 0) ? +x.toPrecision(10) : x;   // tidy display; the table keeps the exact value
-const tVar = k => tVars(true).find(v => v.key === k);
-// the values the varied setting takes: from, from+step, … (or from, from×step, …) up to "to"; at most 60
-function sweepTableValues() {
-  const v = tVar(TBL.vary); if (!v) return [];
-  if (TBL.exact) return TBL.exact.slice();       // an experiment's own values, until the range is edited
-  const out = [], up = TBL.to >= TBL.from;
-  if (TBL.kind === "×") {
-    let f = Math.abs(TBL.step); if (!(f > 1) || TBL.from <= 0 || TBL.to <= 0) return [TBL.from];
-    if (!up) f = 1 / f;
-    for (let x = TBL.from, i = 0; i < 60 && (up ? x <= TBL.to * 1.01 : x >= TBL.to * 0.99); i++, x *= f) out.push(tNice(x));
-  } else {
-    let d = Math.abs(TBL.step); if (!(d > 0)) return [TBL.from];
-    if (!up) d = -d;
-    for (let i = 0; i < 60; i++) { const x = TBL.from + i * d; if (up ? x > TBL.to + 1e-3 * Math.abs(d) : x < TBL.to - 1e-3 * Math.abs(d)) break; out.push(tNice(x)); }
-  }
-  const vals = out.map(x => Math.max(v.min, Math.min(v.max, v.int ? Math.round(x) : x)));
-  return vals.filter((x, i) => i === 0 || x !== vals[i - 1]);
-}
-// Fill the table from a full set of settings p. sw = an experiment's sweep {var, from, to, steps, geo}, with xs = its exact values
-function fillTable(p, sw, xs) {
-  TBL.vals = {}; TBL.opts = {}; TBL.exact = null;
-  for (const v of tVars(true)) TBL.vals[v.key] = p[v.key];
-  for (const o of tOpts(true)) TBL.opts[o.k] = p[o.k];
-  if (sw && sw.var) {
-    TBL.vary = sw.var; TBL.from = sw.from; TBL.to = sw.to;
-    if (sw.geo && sw.from > 0 && sw.to > 0) { TBL.kind = "×"; TBL.step = tNice(Math.pow(sw.to / sw.from, 1 / (sw.steps - 1))); }
-    else { TBL.kind = "+"; TBL.step = tNice((sw.to - sw.from) / (sw.steps - 1)); }
-    TBL.exact = xs.slice();
-  } else TBL.vary = null;
-  renderTable();
-}
-function renderTable() {
-  el("bOpts").innerHTML = tOpts().map(o => o.bool
-    ? `<label><input type="checkbox" data-o="${o.k}" ${TBL.opts[o.k] ? "checked" : ""}> ${o.label}</label>`
-    : o.text ? `<label>${o.label} <input type="text" data-o="${o.k}" value="${TBL.opts[o.k] ?? ""}"></label>`
-    : `<label>${o.label} <select data-o="${o.k}">${o.choices.map(([v, t]) => `<option value="${v}" ${String(TBL.opts[o.k]) === String(v) ? "selected" : ""}>${t}</option>`).join("")}</select></label>`).join("");
-  el("bTbl").innerHTML = tVars().map(v => {
-    const k = v.key, on = TBL.vary === k, u = v.unit ? ` (${v.unit})` : "";
-    return `<div class="bt${on ? " on" : ""}" data-k="${k}"><label ${on ? "data-ws-change" : ""}><input type="checkbox" data-vary="${k}" ${on ? "checked" : ""}> ${v.label}${u}</label>` +
-      `<input type="number" class="bval" data-v="${k}" step="any" min="${v.min}" max="${v.max}" value="${tDisp(TBL.vals[k])}">` +
-      `<span class="bsw">from <input type="number" data-ws="from" data-r="from" step="any" value="${on ? tDisp(TBL.from) : ""}"> to <input type="number" data-ws="to" data-r="to" step="any" value="${on ? tDisp(TBL.to) : ""}">
-        step <select data-ws="step type" data-r="kind"><option value="+" ${TBL.kind === "+" ? "selected" : ""}>+</option><option value="×" ${TBL.kind === "×" ? "selected" : ""}>×</option></select>
-        <input type="number" data-ws="step" data-r="step" step="any" value="${on ? TBL.step : ""}"> <span class="bcount bsteps"></span></span></div>`;
-  }).join("");
-  updateCount();
-}
-function updateCount() {
-  const span = TBL.vary && el("bTbl").querySelector(`.bt[data-k="${TBL.vary}"] .bsteps`);
-  if (span) { const x = sweepTableValues(); span.textContent = `→ ${x.length} steps: ${x.slice(0, 4).map(q => +q.toPrecision(4)).join(", ")}${x.length > 4 ? " … " + +x[x.length - 1].toPrecision(4) : ""}`; }
-}
-function startVary(k) {                 // a sensible first range when a setting is ticked
-  const v = tVar(k);
-  TBL.vary = k; TBL.exact = null; TBL.from = v.from ?? v.min; TBL.to = v.to ?? v.max;
-  if (v.log && TBL.from > 0) { TBL.kind = "×"; TBL.step = 2; }
-  else { TBL.kind = "+"; TBL.step = tNice((TBL.to - TBL.from) / 4); if (v.int) TBL.step = Math.max(1, Math.round(TBL.step)); }
-}
-// the settings for a run: p (the defaults), then every choice and every value in the table
-function tableOnto(p) {
-  const b = Object.assign({}, p), vs = tVars(true), os = tOpts(true);
-  for (const o of os) if (TBL.opts[o.k] !== undefined) b[o.k] = TBL.opts[o.k];
-  for (const v of vs) { const x = TBL.vals[v.key]; if (typeof x === "number" && isFinite(x)) b[v.key] = Math.max(v.min, Math.min(v.max, v.int ? Math.round(x) : x)); }
-  return b;
-}
-// Typing in the table. Ticking a row acts like a radio button (one varied setting at most);
-// unticking it goes back to Repeat mode. onMode(sweep) switches the Mode box.
-function hookTable(onMode) {
-  el("bSetBox").addEventListener("input", e => {
-    const t = e.target;
-    if (t.dataset.vary) {
-      if (t.checked) { startVary(t.dataset.vary); onMode(true); } else { TBL.vary = null; onMode(false); }
-      renderTable(); tableEdited(); return;
-    }
-    if (t.dataset.v) TBL.vals[t.dataset.v] = +t.value;
-    if (t.dataset.o) TBL.opts[t.dataset.o] = t.type === "checkbox" ? t.checked : t.value;
-    if (t.dataset.r) { TBL.exact = null; TBL[t.dataset.r] = t.dataset.r === "kind" ? t.value : +t.value; }
-    updateCount(); tableEdited();
-  });
-}
-// The rows shown are the chosen model's; the seed is shared
-function tVars(all) { return all ? BVARS.galton.concat(BVARS.means) : BVARS[el("bModel").value]; }
-function tOpts(all) {
-  const o = [{ k: "dist", label: "Population", choices: [...el("dist").options].map(q => [q.value, q.text]), model: "means" }, { k: "seed", label: "Random seed", text: true }];
-  return all ? o : o.filter(q => !q.model || q.model === el("bModel").value);
-}
-function tableEdited() {
-  B.exp = -1; document.querySelectorAll("#bExps button").forEach(b => b.classList.remove("on")); el("bNote").innerHTML = "";
-}
-// both models' settings, as the left panel has them
-const leftSettings = () => Object.assign(baseParams("galton"), baseParams("means"), { seed: el("seed").value });
-function bModeUI() {
-  const sw = el("bMode").value === "sweep";
-  if (sw && (!TBL.vary || !tVars().some(v => v.key === TBL.vary))) { startVary(tVars()[0].key); renderTable(); }
-  if (!sw && TBL.vary) { TBL.vary = null; renderTable(); }
-  el("bSweepBox").style.display = sw ? "inline-flex" : "none"; el("bRepeatBox").style.display = sw ? "none" : ""; el("bLogLog").parentElement.style.display = sw ? "" : "none";
-}
-function sweepValues(v, from, to, steps, geo) {
-  const out = []; for (let i = 0; i < steps; i++) { const f = steps === 1 ? 0 : i / (steps - 1);
-    let x = geo && from > 0 && to > 0 ? from * Math.pow(to / from, f) : from + (to - from) * f;
-    x = Math.max(v.min, Math.min(v.max, x)); if (v.int) x = Math.round(x); else x = +x.toPrecision(6);
-    if (!out.includes(x)) out.push(x); } return out;
-}
-function startBatch() {
-  if (B.running) return;
-  // the settings for a run: exactly what the table shows (only the chosen model's settings go into a run)
-  const model = el("bModel").value, mode = el("bMode").value === "sweep" && TBL.vary ? "sweep" : "repeat", all = tableOnto({}), seed0 = all.seed;
-  const base = {}; for (const k of model === "galton" ? ["rows", "p", "balls"] : ["dist", "n", "samples"]) base[k] = all[k];
-  const cfg = { model, mode, base, out: el("bOut").value }; B.jobs = [];
-  if (mode === "repeat") { const N = +el("bN").value; for (let r = 0; r < N; r++) B.jobs.push({ step: 0, x: null, rep: r, P: base }); }
-  else { const v = tVar(TBL.vary);
-    cfg.v = v; cfg.xs = sweepTableValues(); cfg.geo = TBL.kind === "×"; cfg.reps = +el("bReps").value;
-    cfg.xs.forEach((x, s) => { for (let r = 0; r < cfg.reps; r++) B.jobs.push({ step: s, x, rep: r, P: { ...base, [v.key]: x } }); }); }
-  B.jobs.forEach((j, i) => (j.seed = hashSeed(`batch|${seed0}|${i}`)));
-  B.cfg = cfg; B.rows = []; B.i = 0; B.running = true; B.stop = false;
-  el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").disabled = true;
-  setTimeout(batchTick, 0);
-}
-function batchTick() {
-  const t0 = performance.now();
-  while (B.i < B.jobs.length && !B.stop && performance.now() - t0 < 40) { const j = B.jobs[B.i++]; B.rows.push({ step: j.step, x: j.x, rep: j.rep, seed: j.seed, P: j.P, o: runModel(B.cfg.model, j.P, j.seed) }); }
-  el("bBar").style.width = (100 * B.i / B.jobs.length) + "%";
-  el("bProg").textContent = `${B.i} of ${B.jobs.length} runs` + (B.stop ? " — stopped" : B.i >= B.jobs.length ? " — done" : "…");
-  drawBatch();
-  if (B.i < B.jobs.length && !B.stop) setTimeout(batchTick, 0);
-  else { B.running = false; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").disabled = !B.rows.length; }
-}
-function statsOf(v) { const n = v.length; if (!n) return null; const m = v.reduce((a, b) => a + b, 0) / n; const sd = n > 1 ? Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / (n - 1)) : 0;
-  return { n, mean: m, sd, se: sd / Math.sqrt(n), min: Math.min(...v), max: Math.max(...v) }; }
-function logTicks(a, b) { const out = []; for (let e = Math.floor(Math.log10(a)); e <= Math.ceil(Math.log10(b)); e++) for (const m of [1, 2, 5]) { const v = m * Math.pow(10, e); if (v >= a * 0.999 && v <= b * 1.001) out.push(v); } return out; }
-function drawBatch() {
-  const { ctx, W, H, dpr } = fitCanvas(el("bChart"), window.devicePixelRatio || 1), f = s => `${s * dpr}px system-ui`;
-  ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, W, H);
-  if (!B.cfg || !B.rows.length) { ctx.fillStyle = "#a3ab96"; ctx.font = f(14); ctx.textAlign = "center"; ctx.fillText("Pick a batch experiment on the left, or set up your own and press Run batch.", W / 2, H / 2); el("bSummary").innerHTML = ""; return; }
-  const cfg = B.cfg, out = el("bOut").value, oDef = BOUTS[cfg.model].find(o => o.key === out) || BOUTS[cfg.model][0];
-  const L = 62 * dpr, Rr = 16 * dpr, T = 46 * dpr, Bm = 44 * dpr;
-  const axes = (xr, yr, xlog, ylog, xl, yl) => {
-    const X = xlog ? v => L + (Math.log(v) - Math.log(xr[0])) / (Math.log(xr[1]) - Math.log(xr[0])) * (W - L - Rr) : v => L + (v - xr[0]) / (xr[1] - xr[0]) * (W - L - Rr);
-    const Y = ylog ? v => H - Bm - (Math.log(v) - Math.log(yr[0])) / (Math.log(yr[1]) - Math.log(yr[0])) * (H - T - Bm) : v => H - Bm - (v - yr[0]) / (yr[1] - yr[0]) * (H - T - Bm);
-    ctx.font = f(11); ctx.fillStyle = "#a3ab96"; ctx.strokeStyle = "rgba(160,170,150,0.15)"; ctx.lineWidth = 1;
-    ctx.textAlign = "right"; for (const t of (ylog ? logTicks(yr[0], yr[1]) : niceTicks(yr[0], yr[1], 6))) { const y = Y(t); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - Rr, y); ctx.stroke(); ctx.fillText(fmtTick(t), L - 5 * dpr, y + 4 * dpr); }
-    ctx.textAlign = "center"; for (const t of (xlog ? logTicks(xr[0], xr[1]) : niceTicks(xr[0], xr[1], 8))) { const x = X(t); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - Bm); ctx.stroke(); ctx.fillText(fmtTick(t), x, H - Bm + 15 * dpr); }
-    ctx.fillStyle = "#dfe3d6"; ctx.font = f(12); ctx.fillText(xl, (L + W - Rr) / 2, H - 10 * dpr);
-    ctx.save(); ctx.translate(16 * dpr, (T + H - Bm) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(yl, 0, 0); ctx.restore();
-    return { X, Y };
-  };
-  const legend = items => { let x = L + 4 * dpr, yl = 14 * dpr; ctx.font = f(12); ctx.textAlign = "left"; for (const [col, txt, dash] of items) { if (x + ctx.measureText(txt).width + 30 * dpr > W - Rr && x > L + 10 * dpr) { x = L + 4 * dpr; yl += 17 * dpr; } ctx.strokeStyle = col; ctx.lineWidth = 3 * dpr; ctx.setLineDash(dash ? [6 * dpr, 4 * dpr] : []); ctx.beginPath(); ctx.moveTo(x, yl); ctx.lineTo(x + 18 * dpr, yl); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "#dfe3d6"; ctx.fillText(txt, x + 23 * dpr, yl + 4 * dpr); x += ctx.measureText(txt).width + 46 * dpr; } };
-  const yLabel = oDef.label + (cfg.model === "means" && ["sd", "iqr", "mean"].includes(out) && makeDist(cfg.base.dist).unit ? ` (${makeDist(cfg.base.dist).unit})` : "");
-  let html = "";
-  if (cfg.mode === "repeat") {
-    const vals = B.rows.map(r => r.o[out]).filter(v => isFinite(v)), s = statsOf(vals), th = theoryFor(cfg.model, out, cfg.base), pdf = theoryPdf(cfg.model, out, cfg.base);
-    if (!s) return;
-    let lo = s.min, hi = s.max; if (th !== null && isFinite(th)) { lo = Math.min(lo, th); hi = Math.max(hi, th); }
-    if (hi - lo < 1e-9) { lo -= 0.5; hi += 0.5; } const pad = (hi - lo) * 0.06; lo -= pad; hi += pad;
-    if (out === "chi2") lo = Math.max(0, lo);
-    const nb = Math.max(8, Math.min(40, Math.round(Math.sqrt(vals.length) * 1.3))), bw = (hi - lo) / nb, counts = new Array(nb).fill(0);
-    vals.forEach(v => counts[Math.min(nb - 1, Math.max(0, Math.floor((v - lo) / bw)))]++);
-    let yMax = Math.max(...counts); if (pdf) for (let i = 0; i <= 200; i++) yMax = Math.max(yMax, pdf.f(lo + (hi - lo) * i / 200) * vals.length * bw);
-    const { X, Y } = axes([lo, hi], [0, yMax * 1.12], false, false, yLabel, "number of runs");
-    ctx.fillStyle = "rgba(164,203,230,0.85)"; counts.forEach((c, i) => { if (c) ctx.fillRect(X(lo + i * bw) + 1, Y(c), X(lo + (i + 1) * bw) - X(lo + i * bw) - 2, Y(0) - Y(c)); });
-    const leg = [["#a4cbe6", `simulation (${vals.length} runs)`]];
-    if (pdf) { ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 2.5 * dpr; ctx.beginPath(); for (let i = 0; i <= 200; i++) { const x = lo + (hi - lo) * i / 200, y = pdf.f(x) * vals.length * bw; i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y)); } ctx.stroke(); leg.push(["#f1af28", "theory: " + pdf.label]); }
-    if (th !== null && isFinite(th)) { ctx.strokeStyle = "#f1af28"; ctx.setLineDash([6 * dpr, 4 * dpr]); ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.moveTo(X(th), T); ctx.lineTo(X(th), H - Bm); ctx.stroke(); ctx.setLineDash([]); leg.push(["#f1af28", `theory value ${fmt(th, 3)}`, true]); }
-    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.moveTo(X(s.mean), T + 10 * dpr); ctx.lineTo(X(s.mean), H - Bm); ctx.stroke(); leg.push(["#ffffff", `simulated mean ${fmt(s.mean, 3)}`]);
-    legend(leg);
-    const diff = th !== null && isFinite(th) ? s.mean - th : null;
-    html = `<table class="sum"><tr><td>Runs</td><td>${s.n}</td></tr><tr><td>Mean</td><td>${fmt(s.mean, 4)}</td></tr><tr><td>SD (run to run)</td><td>${fmt(s.sd, 4)}</td></tr><tr><td>Standard error of the mean</td><td>${fmt(s.se, 4)}</td></tr><tr><td>Min – max</td><td>${fmt(s.min, 3)} – ${fmt(s.max, 3)}</td></tr>` +
-      `<tr><td>Theory</td><td>${th === null ? "no simple formula" : fmt(th, 4)}</td></tr>` +
-      (diff !== null ? `<tr><td>Difference</td><td>${fmt(diff, 4)} (${th ? fmt(100 * diff / th, 1) + "%, " : ""}<span class="${Math.abs(diff / s.se) < 2 ? "good" : "bad"}">${fmt(diff / s.se, 1)} SE</span>)</td></tr>` : "") + `</table>` +
-      (diff !== null ? `<p class="hint">Within about 2 standard errors of the theory counts as agreement: the difference could easily be random.</p>` : "") + extraSummary(cfg.model, out, vals, cfg.base);
-  } else {
-    const xs = cfg.xs, per = xs.map((x, s) => { const v = B.rows.filter(r => r.step === s).map(r => r.o[out]).filter(isFinite); return { x, v, st: statsOf(v) }; }).filter(p => p.st);
-    if (!per.length) return;
-    const thAt = x => theoryFor(cfg.model, out, { ...cfg.base, [cfg.v.key]: x });
-    let txs = []; const x0 = Math.min(...xs), x1 = Math.max(...xs);
-    if (cfg.v.int && x1 - x0 <= 400) for (let x = x0; x <= x1; x++) txs.push(x);
-    else for (let i = 0; i <= 160; i++) { let x = cfg.geo || el("bLogLog").checked ? x0 * Math.pow(x1 / x0, i / 160) : x0 + (x1 - x0) * i / 160; if (cfg.v.int) x = Math.round(x); txs.push(x); }
-    const tpts = txs.map(x => [x, thAt(x)]).filter(p => p[1] !== null && isFinite(p[1]));
-    const all = []; per.forEach(p => { all.push(...p.v, p.st.mean + p.st.sd, p.st.mean - p.st.sd); }); tpts.forEach(p => all.push(p[1]));
-    let loglog = el("bLogLog").checked && x0 > 0 && all.every(v => v > 0);
-    let ylo = Math.min(...all), yhi = Math.max(...all);
-    if (loglog) { ylo /= 1.25; yhi *= 1.25; } else { const pad = (yhi - ylo || 1) * 0.08; ylo -= pad; yhi += pad; if (Math.min(...all) >= 0 && ylo < 0) ylo = 0; }
-    const xr = loglog ? [x0 / 1.15, x1 * 1.15] : [x0 - (x1 - x0) * 0.04, x1 + (x1 - x0) * 0.04];
-    const { X, Y } = axes(xr, [ylo, yhi], loglog, loglog, cfg.v.label + (loglog ? " (log scale)" : ""), yLabel + (loglog ? " (log scale)" : ""));
-    ctx.save(); ctx.beginPath(); ctx.rect(L, T, W - L - Rr, H - T - Bm); ctx.clip();
-    if (tpts.length) { ctx.strokeStyle = "#f1af28"; ctx.lineWidth = 2.5 * dpr; ctx.beginPath(); tpts.forEach((p, i) => (i ? ctx.lineTo(X(p[0]), Y(p[1])) : ctx.moveTo(X(p[0]), Y(p[1])))); ctx.stroke(); }
-    ctx.fillStyle = "rgba(164,203,230,0.35)"; per.forEach(p => p.v.forEach(v => { ctx.beginPath(); ctx.arc(X(p.x), Y(v), 2.2 * dpr, 0, 7); ctx.fill(); }));
-    ctx.strokeStyle = "#a4cbe6"; ctx.fillStyle = "#a4cbe6"; ctx.lineWidth = 2 * dpr;
-    per.forEach(p => { const a = Y(Math.max(p.st.mean - p.st.sd, loglog ? ylo : -Infinity)), b = Y(p.st.mean + p.st.sd), x = X(p.x);
-      ctx.beginPath(); ctx.moveTo(x, a); ctx.lineTo(x, b); ctx.moveTo(x - 5 * dpr, a); ctx.lineTo(x + 5 * dpr, a); ctx.moveTo(x - 5 * dpr, b); ctx.lineTo(x + 5 * dpr, b); ctx.stroke();
-      ctx.beginPath(); ctx.arc(x, Y(p.st.mean), 4.5 * dpr, 0, 7); ctx.fill(); });
-    ctx.restore();
-    legend([["#a4cbe6", "simulation: mean ± 1 SD of the repeats"], ...(tpts.length ? [["#f1af28", "theory"]] : [])]);
-    // fitted gradient on log–log axes
-    let fit = "";
-    const lsq = pts => { const n = pts.length; if (n < 2) return NaN; let sx = 0, sy = 0, sxx = 0, sxy = 0; pts.forEach(([a, b]) => { sx += a; sy += b; sxx += a * a; sxy += a * b; }); return (n * sxy - sx * sy) / (n * sxx - sx * sx); };
-    if (loglog) { const g = lsq(per.map(p => [Math.log(p.x), Math.log(p.st.mean)])), gt = lsq(per.map(p => [Math.log(p.x), Math.log(thAt(p.x))]).filter(q => isFinite(q[1])));
-      fit = `<p>Log–log gradient (straight-line fit): simulation <b>${fmt(g, 3)}</b>, theory <b>${fmt(gt, 3)}</b>.</p>`; }
-    html = fit + `<table class="sum"><tr><th>${cfg.v.label}</th><th>runs</th><th>mean</th><th>SD</th><th>theory</th><th>diff (SE)</th></tr>` +
-      per.map(p => { const th = thAt(p.x), d = th !== null && isFinite(th) && p.st.se > 0 ? (p.st.mean - th) / p.st.se : null;
-        return `<tr><td>${fmtTick(p.x)}</td><td>${p.st.n}</td><td>${fmt(p.st.mean, 3)}</td><td>${fmt(p.st.sd, 3)}</td><td>${th === null ? "–" : fmt(th, 3)}</td><td>${d === null ? "–" : `<span class="${Math.abs(d) < 2.5 ? "good" : "bad"}">${fmt(d, 1)}</span>`}</td></tr>`; }).join("") + `</table>`;
-  }
-  el("bSummary").innerHTML = html;
-}
-function downloadCSV() {
-  if (!B.rows.length) return;
-  const cfg = B.cfg, outs = BOUTS[cfg.model].map(o => o.key), pk = Object.keys(cfg.base);
-  const lines = [["run", "step", "repeat", "seed", ...pk, ...outs].join(",")];
-  B.rows.forEach((r, i) => lines.push([i + 1, r.step + 1, r.rep + 1, r.seed, ...pk.map(k => r.P[k]), ...outs.map(k => (isFinite(r.o[k]) ? r.o[k] : ""))].join(",")));
-  const blob = new Blob([lines.join("\n")], { type: "text/csv" }), a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = `clt-batch-${cfg.model}-${cfg.mode}.csv`; document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-}
-function loadExperiment(k) {
-  const e = EXPS[k]; if (B.running) B.stop = true;
-  B.rows = []; B.cfg = null; el("bProg").textContent = "Starting…"; el("bBar").style.width = "0";
-  applySettings(e.live); resetAll(); setMode(e.live.mode); clearPreset();
-  el("bModel").value = e.b.model; fillOutcomes(); el("bMode").value = e.b.mode;
-  if (e.b.N) el("bN").value = e.b.N;
-  if (e.b.var) el("bReps").value = e.b.reps;
-  // the experiment fills in the whole table: its live settings (just applied), and a fixed seed
-  const v = e.b.var && BVARS[e.b.model].find(q => q.key === e.b.var);
-  fillTable(Object.assign(leftSettings(), { seed: "1" }), v ? e.b : null, v ? sweepValues(v, e.b.from, e.b.to, e.b.steps, e.b.geo) : null);
-  el("bBase").innerHTML = "Table filled from: <b>the experiment</b>."; B.filled = true;
-  el("bOut").value = e.b.out; el("bLogLog").checked = !!e.b.loglog; bModeUI();
-  el("bNote").innerHTML = `<h3 style="margin:0 0 6px;font-size:14px;color:var(--accent)">${e.q}</h3>${e.note}`; B.exp = k;
-  document.querySelectorAll("#bExps button").forEach((b, j) => b.classList.toggle("on", j === k));
-  setTimeout(() => startBatch(), B.running ? 120 : 0);
-}
-el("bExps").innerHTML = EXPS.map((e, k) => `<button data-k="${k}">${e.q}</button>`).join("");
-document.querySelectorAll("#bExps button").forEach(b => (b.onclick = () => loadExperiment(+b.dataset.k)));
-el("bModel").onchange = () => { fillOutcomes(); renderTable(); bModeUI(); tableEdited(); };
-el("bMode").onchange = () => { bModeUI(); tableEdited(); };
-el("bN").onchange = tableEdited; el("bReps").onchange = tableEdited;
-hookTable(sweep => { el("bMode").value = sweep ? "sweep" : "repeat"; bModeUI(); });
-el("bLeft").onclick = () => { fillTable(leftSettings(), null); el("bMode").value = "repeat"; bModeUI(); tableEdited(); el("bBase").innerHTML = "Table filled from: <b>the left panel</b>."; };
-el("bOut").onchange = () => drawBatch(); el("bLogLog").onchange = () => drawBatch();
-el("bRun").onclick = () => { el("bNote").innerHTML = B.exp >= 0 ? el("bNote").innerHTML : ""; startBatch(); };
-el("bStop").onclick = () => (B.stop = true);
-el("bCsv").onclick = downloadCSV;
-// the first time it opens (unless an experiment has filled it), the table takes the left panel's settings
-el("btnBatch").onclick = () => { el("batch").classList.add("open"); setRunning(false); el("bModel").value = mode; fillOutcomes(); if (!B.filled) fillTable(leftSettings(), null); B.filled = true; renderTable(); bModeUI(); drawBatch(); };
-el("bClose").onclick = () => el("batch").classList.remove("open");
-fillOutcomes(); fillTable(leftSettings(), null); el("bBase").innerHTML = "Table filled from: <b>the left panel</b>."; bModeUI();
-
-/* =====================================================================
-   13. MAIN LOOP
-   ===================================================================== */
-// picture quality: show the saved choice, save a new one
-el("quality").value = String(quality);
-el("quality").addEventListener("change", () => { quality = +el("quality").value; try { localStorage.setItem(QUALITY_KEY, String(quality)); } catch (e) {} });
-
-let lastT = performance.now();
-function frame(now) {
-  const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
-  const batchOpen = el("batch").classList.contains("open");
-  if (running && !batchOpen) {
-    if (mode === "galton") { stepGalton(real * speed); if (G.landed >= G.total && !G.balls.length) setRunning(false); }
-    else { stepMeans(real * speed); if (M.means.length >= M.total && (!M.cur || M.cur.age >= 1 || M.rate * speed > 3)) setRunning(false); }
-  }
-  if (!batchOpen && !skipDraw()) { drawView(); drawChart1(); drawChart2(); updateUI(); }
-  requestAnimationFrame(frame);
-}
-
-/* =====================================================================
-   14. PANEL LAYOUT — resize or hide the side panels
-   ===================================================================== */
-(function () {
-  const main = document.querySelector("main"), left = el("left"), right = el("right");
-  const KEY = "clt-galton-layout", STRIP = 30, MIN = 170, DEF = { lw: 250, rw: 280, lc: false, rc: false };
-  let st = { ...DEF };
-  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY + "-v2") || "{}")); } catch (e) {}
-  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
-  function apply() {
-    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
-    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
-    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
-    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
-    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
-    try { localStorage.setItem(KEY + "-v2", JSON.stringify(st)); } catch (e) {}
-    if (el("batch").classList.contains("open")) drawBatch();
-  }
-  function drag(sp, side) {
-    sp.addEventListener("pointerdown", e => {
-      if (e.target.tagName === "BUTTON") return;
-      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
-      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
-      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
-      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
-      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+  // ---- The page frame ----
+  function app(o) {
+    document.title = o.title + " · Science Simulations";
+    const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
+    if (saved) document.documentElement.dataset.theme = saved;
+    const top = $("header", "k-top"), main = $("main", "k-main");
+    top.innerHTML = `<a class="k-home" href="${o.home || "../../index.html"}" title="Back to the list of simulations">◂ All simulations</a>
+      <div class="k-title"><span class="k-chip">${o.subject}</span><h1>${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
+    const act = top.querySelector(".k-actions");
+    const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
+    left.append(stage, dock); main.append(left, side); document.body.append(top, main);
+    const ui = { stage, dock, side, playing: true, speed: 1, canvas: fn => canvas(stage, fn) };
+    // header buttons
+    const bPlay = btn(act, "⏸ Pause", () => ui.setPlaying(!ui.playing)); bPlay.title = "Space bar";
+    ui.setPlaying = p => { ui.playing = p; bPlay.innerHTML = p ? "⏸ Pause" : "▶ Play"; bPlay.classList.toggle("primary", !p); };
+    if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
+    if (o.reset) btn(act, "↺ Reset", () => o.reset());
+    if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
+    btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
+    btn(act, "⛶", () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).title = "Full screen";
+    addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
+    // side panel tabs
+    const tabs = $("nav", "k-tabs"), panes = {}; side.append(tabs);
+    const names = [["controls", "Controls"], ["missions", "Investigate"], ["notes", "The model"]];
+    const show = id => { for (const [k] of names) { panes[k].classList.toggle("on", k === id); panes[k]._tab.classList.toggle("on", k === id); } };
+    for (const [k, label] of names) { const b = $("button", "", label); b.onclick = () => show(k); tabs.append(b); panes[k] = $("div", "k-pane" + (k === "notes" ? " k-notes" : "")); panes[k]._tab = b; side.append(panes[k]); }
+    show("controls"); ui.controls = panes.controls; ui.showTab = show;
+    ui.group = title => { const g = $("div", "k-group", title ? `<h3>${title}</h3>` : ""); panes.controls.append(g); return g; };
+    panes.notes.innerHTML = o.notes || "";
+    // investigations: each card sets the simulation up and pins its question over the stage
+    let banner = null;
+    ui.mission = m => {
+      if (banner) banner.remove(); banner = null; if (!m) return;
+      banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
+      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
+    };
+    (o.missions || []).forEach((m, i) => {
+      const c = $("div", "k-mcard", `<h4><em>${i + 1}</em>${m.title}</h4><p>${m.q}</p>`);
+      btn(c, "Set it up ▸", () => { c.classList.add("done"); c.querySelector("em").textContent = "✓"; m.setup && m.setup(); ui.mission(m); ui.setPlaying(true); show("controls"); }, "small primary");
+      panes.missions.append(c);
     });
-    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
-    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
-  }
-  drag(el("splitL"), "l"); drag(el("splitR"), "r");
-  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
-  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
-  window.addEventListener("resize", apply);
-  apply();
-})();
+    // floating hint and heads-up text over the stage
+    let tipEl = null, tipT = 0;
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; } hudEl.style.display = html ? "" : "none"; };
+    // animation loop: step(dt) only while playing, draw() every frame
+    ui.run = (step, draw) => { let t0 = performance.now(); const f = t => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (ui.playing && !ov.classList.contains("on")) step(dt); draw(dt); requestAnimationFrame(f); }; requestAnimationFrame(f); };
 
-setPreset(0);
-requestAnimationFrame(frame);
-</script>
-<!-- VIEW BAR (start): hide/show the side panels and full-screen the simulation. Same block in every simulation. -->
-<style>
-  #viewBar { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-shrink: 0; align-self: center; }
-  #viewBar button { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
-  #viewBar button.on { border-color: var(--accent); }
-  #viewBar .vbKey { opacity: .55; font-size: 11px; margin-left: 4px; }
-  /* bigger, clearer drag handles between the panels */
-  .splitter::before { width: 4px !important; margin-left: -2px !important; }
-  .splitter::after { content: "⋮"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--muted); font-size: 16px; pointer-events: none; }
-  .splitter button { width: 22px !important; height: 52px !important; font-size: 15px !important; font-weight: 700; background: var(--accent) !important; color: #14133b !important; border: none !important; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
-  /* full screen: the centre panel fills the screen */
-  #centre:fullscreen { background: var(--bg); padding: 10px; width: 100vw; height: 100vh; box-sizing: border-box; }
-  #centre .vbExit { display: none; }
-  #centre:fullscreen .vbExit { display: block; position: absolute; top: 10px; right: 12px; z-index: 50; }
-  #centre:fullscreen { position: relative; }
-  #vbTip { position: fixed; top: 52px; right: 14px; z-index: 60; max-width: 330px; background: var(--panel-2, #1b2017); border: 1px solid var(--accent);
-           border-radius: 10px; padding: 9px 12px; font-size: 13px; line-height: 1.45; box-shadow: 0 4px 16px rgba(0,0,0,.5); cursor: pointer; }
-</style>
-<script>
-(function () {
-  // Buttons in the header: hide/show the left (controls) and right (readouts) panels, and full screen.
-  // They click the existing ‹ › buttons on the drag handles, so each simulation's own layout code stays in charge.
-  const header = document.querySelector("header"), centre = document.getElementById("centre");
-  const sL = document.getElementById("splitL"), sR = document.getElementById("splitR");
-  const left = sL && sL.previousElementSibling, right = sR && sR.nextElementSibling;   // the panels either side of the drag handles
-  const bL = sL && sL.querySelector("button"), bR = sR && sR.querySelector("button");
-  if (!header || !centre || !left || !right || !bL || !bR) return;
-  const bar = document.createElement("div"); bar.id = "viewBar";
-  bar.innerHTML = '<button id="vbL" title="Hide or show the controls panel (key: [ )"></button>' +
-                  '<button id="vbR" title="Hide or show the readouts panel (key: ] )"></button>' +
-                  '<button id="vbF" title="Show only the simulation, full screen (key: F; Esc to leave)">⛶ Full screen</button>';
-  header.appendChild(bar);
-  const exit = document.createElement("button"); exit.className = "vbExit"; exit.textContent = "✕ Exit full screen (Esc)";
-  centre.appendChild(exit);
-  const vbL = bar.querySelector("#vbL"), vbR = bar.querySelector("#vbR"), vbF = bar.querySelector("#vbF");
-  function label() {
-    const lc = left.classList.contains("collapsed"), rc = right.classList.contains("collapsed");
-    vbL.textContent = lc ? "◧ Show controls" : "◧ Hide controls"; vbL.classList.toggle("on", !lc);
-    vbR.textContent = rc ? "Show readouts ◨" : "Hide readouts ◨"; vbR.classList.toggle("on", !rc);
+    // ---- Batch run window ----
+    const ov = $("div", "k-overlay"); document.body.append(ov);
+    let bstate = null;
+    function openBatch() {
+      ov.classList.add("on"); if (bstate) return;
+      const modal = $("div", "k-modal"), list = $("div", "k-blist", `<h2>📊 Batch run</h2><p>Runs the model many times without drawing it, then compares the results with theory. Pick a question:</p>`), mainB = $("div", "k-bmain");
+      modal.append(list, mainB); ov.append(modal); ov.addEventListener("pointerdown", e => { if (e.target === ov) ov.classList.remove("on"); });
+      mainB.innerHTML = `<div class="k-bhead"><h3></h3></div><div class="k-bbar"></div><div class="k-bchart"></div><div class="k-bfoot"><div class="k-btable"></div><div class="k-bnote"></div></div>`;
+      const head = mainB.querySelector("h3"), bar = mainB.querySelector(".k-bbar"), tbl = mainB.querySelector(".k-btable"), noteEl = mainB.querySelector(".k-bnote");
+      btn(mainB.querySelector(".k-bhead"), "✕ Close", () => ov.classList.remove("on"));
+      const ch = chart(mainB.querySelector(".k-bchart"), {});
+      const bRun = btn(bar, "▶ Run", () => runExp(), "primary"), prog = $("div", "k-prog", "<i></i>"), status = $("span", "", ""); status.style.cssText = "color:var(--muted);font-size:12.5px;min-width:110px";
+      const bCsv = btn(bar, "⬇ CSV", () => bstate.rows.length && download(o.title.replace(/\W+/g, "-").toLowerCase() + "-batch.csv", bstate.csv()));
+      bar.insertBefore(prog, bCsv); bar.insertBefore(status, bCsv);
+      bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
+      const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
+      function pick(e) { bstate.token++; bstate.exp = e; bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
+      function paint() {
+        const e = bstate.exp, rows = bstate.rows, series = [], extra = { title: "", xLabel: e.xs ? e.xLabel : e.yLabel, yLabel: e.xs ? e.yLabel : "number of runs" };
+        if (e.xs) {
+          const groups = e.xs.map(x => rows.filter(r => r[0] === x).map(r => r[3])), done = e.xs.map((x, i) => [x, groups[i]]).filter(g => g[1].length);
+          if (e.theory) { const a = Math.min(...e.xs), b = Math.max(...e.xs), tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, e.theory(x)]); } series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
+          series.push({ pts: rows.map(r => [r[0], r[3]]), type: "dots", color: cssVar("--s0"), alpha: .3, r: 2.5, label: "single runs" });
+          series.push({ pts: done.map(([x, g]) => [x, mean(g), se(g)]), type: "err", color: cssVar("--s0"), r: 4.5, label: "mean ± SE" });
+          let fitTxt = "";
+          if (e.fit && done.length > 2) { const f = linfit(done.map(([x, g]) => [x, mean(g)])), a = Math.min(...e.xs), b = Math.max(...e.xs); series.push({ pts: [[a, f.m * a + f.c], [b, f.m * b + f.c]], color: cssVar("--s2"), label: "best-fit line" }); fitTxt = `<tr><td colspan="6" style="text-align:left">Best-fit line: gradient <b>${sig(f.m)}</b>, intercept ${sig(f.c)}, r = ${f.r.toFixed(3)}</td></tr>`; }
+          extra.xMin = Math.min(...e.xs) - (Math.max(...e.xs) - Math.min(...e.xs)) * .05; extra.xMax = Math.max(...e.xs) + (Math.max(...e.xs) - Math.min(...e.xs)) * .05; if (e.yMin != null) extra.yMin = e.yMin; if (e.yMax != null) extra.yMax = e.yMax;
+          tbl.innerHTML = `<table><tr><th>${e.xLabel}</th><th>runs</th><th>mean</th><th>SD</th><th>SE</th>${e.theory ? "<th>theory</th>" : ""}</tr>` + done.map(([x, g]) => `<tr><td>${sig(x, 4)}</td><td>${g.length}</td><td>${sig(mean(g))}</td><td>${sig(sd(g))}</td><td>${sig(se(g))}</td>${e.theory ? `<td>${sig(e.theory(x))}</td>` : ""}</tr>`).join("") + fitTxt + "</table>";
+        } else {
+          const v = rows.map(r => r[3]);
+          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); }
+          tbl.innerHTML = v.length ? `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${e.theory != null ? "<th>theory</th>" : ""}</tr><tr><td>${v.length}</td><td>${sig(mean(v))}</td><td>${sig(sd(v))}</td><td>${sig(se(v))}</td><td>${sig(Math.min(...v))}</td><td>${sig(Math.max(...v))}</td>${e.theory != null ? `<td>${sig(+e.theory)}</td>` : ""}</tr></table>` : "";
+        }
+        ch.opts.xFmt = null; ch.draw(series, extra);
+      }
+      function runExp() {
+        const e = bstate.exp, token = ++bstate.token; bstate.rows = []; const tasks = [];
+        if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) tasks.push([x, r]); } else for (let r = 0; r < (e.reps || 200); r++) tasks.push([0, r]);
+        let i = 0; const seed0 = (Date.now() % 100000) * 7 + 1; bRun.textContent = "■ Stop"; bRun.onclick = () => { bstate.token++; fin(); };
+        const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
+        (function slice() {
+          if (token !== bstate.token) return; const t = performance.now();
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
+          if (i < tasks.length) setTimeout(slice, 0); else fin();
+        })();
+      }
+      pick(o.batch[0]);
+    }
+    ui.openBatch = openBatch;
+    return ui;
   }
-  new MutationObserver(label).observe(left, { attributes: true, attributeFilter: ["class"] });
-  new MutationObserver(label).observe(right, { attributes: true, attributeFilter: ["class"] });
-  label();
-  const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else if (centre.requestFullscreen) centre.requestFullscreen().catch(() => {}); };
-  vbL.onclick = () => bL.click(); vbR.onclick = () => bR.click(); vbF.onclick = full; exit.onclick = full;
-  document.addEventListener("fullscreenchange", () => {
-    vbF.textContent = document.fullscreenElement ? "✕ Exit full screen" : "⛶ Full screen";
-    setTimeout(() => window.dispatchEvent(new Event("resize")), 60);    // canvases re-measure themselves
-  });
-  // The batch-run window lives outside the full-screen area, so leave full screen when it is opened
-  document.addEventListener("click", e => {
-    const b = e.target.closest && e.target.closest("button");
-    if (document.fullscreenElement && b && /Batch run/.test(b.textContent)) document.exitFullscreen();
-  }, true);
-  document.addEventListener("keydown", e => {
-    const t = e.target.tagName; if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA" || e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.key === "f" || e.key === "F") { full(); e.preventDefault(); }
-    else if (e.key === "[") bL.click(); else if (e.key === "]") bR.click();
-  });
-  // A one-time tip so people notice the panels can be hidden or resized
-  let seen = false; try { seen = localStorage.getItem("sims-viewbar-tip") === "1"; } catch (e) {}
-  if (!seen) {
-    const tip = document.createElement("div"); tip.id = "vbTip";
-    tip.innerHTML = "<b>Make the simulation bigger:</b> hide the side panels with the buttons above (or the yellow ‹ › tabs), drag the ⋮ bars to resize them, or press <b>⛶ Full screen</b>. Click to close.";
-    document.body.appendChild(tip);
-    const close = () => { tip.remove(); try { localStorage.setItem("sims-viewbar-tip", "1"); } catch (e) {} };
-    tip.onclick = close; setTimeout(close, 12000);
-  }
+  return { $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app };
 })();
 </script>
-<!-- VIEW BAR (end) -->
-</body>
-</html>
+<script>
+/* =====================================================================
+   CENTRAL LIMIT THEOREM
+   Take ANY population (draw your own). Repeatedly:
+     1. pick n values at random          (a sample)
+     2. work out their mean              (a statistic)
+     3. add that mean to a histogram     (the sampling distribution)
+   The theorem says the histogram of means tends to a normal curve,
+   centred on the population mean, with spread  sigma / sqrt(n),
+   whatever shape the population has. See if you can break it.
+   ===================================================================== */
+const NB = 40, XMAX = 10, BW = XMAX / NB;      // the population is 40 bars covering values 0 to 10
+
+class Population {
+  constructor(heights) { this.h = Float64Array.from(heights); this.update(); }
+  update() { // turn bar heights into probabilities, then work out the true mean and standard deviation
+    let tot = 0; for (const v of this.h) tot += v; if (tot <= 0) { this.h.fill(1); tot = NB; }
+    this.cum = new Float64Array(NB); let c = 0, mu = 0; for (let i = 0; i < NB; i++) { const p = this.h[i] / tot; c += p; this.cum[i] = c; mu += p * (i + .5) * BW; }
+    let v = 0, m3 = 0; for (let i = 0; i < NB; i++) { const p = this.h[i] / tot, d = (i + .5) * BW - mu; v += p * (d * d + BW * BW / 12); m3 += p * (d * d * d + d * BW * BW / 4); }
+    this.mu = mu; this.sigma = Math.sqrt(v); this.skew = m3 / Math.pow(v, 1.5);
+  }
+  draw(rand) { const u = rand(); let lo = 0, hi = NB - 1; while (lo < hi) { const mid = (lo + hi) >> 1; this.cum[mid] < u ? lo = mid + 1 : hi = mid; } return (lo + rand()) * BW; }   // pick a bar, then a point inside it
+  sample(rand, n) { const s = new Array(n); for (let i = 0; i < n; i++) s[i] = this.draw(rand); return s; }
+}
+const STATS = {
+  mean: { name: "Mean", f: s => K.mean(s) },
+  median: { name: "Median", f: s => { const a = s.slice().sort((p, q) => p - q), m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; } },
+  max: { name: "Maximum", f: s => Math.max(...s) },
+  sd: { name: "Std dev", f: s => K.sd(s) },
+};
+const SHAPES = {
+  uniform: { name: "Uniform", h: i => 1 },
+  skew: { name: "Skewed", h: i => Math.exp(-i / 6) },
+  bimodal: { name: "Two humps", h: i => Math.exp(-((i - 8) ** 2) / 18) + Math.exp(-((i - 31) ** 2) / 18) },
+  ushape: { name: "U-shape", h: i => Math.pow(Math.abs(i - 19.5) / 20, 2.5) + 0.02 },
+  outlier: { name: "Rare outliers", h: i => (i >= 4 && i < 9 ? 1 : 0) + (i >= 37 ? 0.06 : 0) },
+  spikes: { name: "Two spikes", h: i => (i === 4 || i === 35 ? 1 : 0) },
+  normal: { name: "Bell", h: i => Math.exp(-((i - 19.5) ** 2) / 50) },
+};
+const makePop = k => new Population(Array.from({ length: NB }, (_, i) => SHAPES[k].h(i)));
+const skewness = a => { const m = K.mean(a), s = K.sd(a); let t = 0; for (const v of a) t += ((v - m) / s) ** 3; return t / a.length; };
+
+// ---------------------------------------------------------------- page
+let pop = makePop("skew"), n = 5, stat = "mean", mode = "slow", vals = [], cis = [], covered = 0, ciCount = 0, anim = null, lastSample = [], lastStat = null, zoom = false, showCurve = true, traceSD = {}, rand = K.rng(Date.now()), lastBin = null; const S = {};
+const ui = K.app({
+  title: "Central Limit Theorem", subject: "Statistics", blurb: "Draw any population you like. The means of samples from it still pile up into a bell curve.",
+  reset: () => clearSamples(),
+  missions: [
+    { title: "Where does the bell come from?", q: "The population is badly skewed. Watch samples of 5 being drawn and their means dropping into the bottom histogram. Then switch to <b>Turbo</b>. What shape appears? Is it centred where you expected?", hint: "The means pile up in a bell shape centred on the population mean (the dashed line), even though no individual value comes from a bell-shaped population. Averaging cancels out the extremes.", setup: () => { setShape("skew"); S.n.set(5, true); S.stat.set("mean", true); S.mode.set("slow", true); } },
+    { title: "Bigger samples", q: "Try n = 2, then 10, then 50 (use Turbo). What happens to the width of the histogram of means? By what factor must n grow to halve the width?", hint: "The spread of the means is σ/√n, the 'standard error'. To halve it you need four times the sample size; to get ten times more precision you need a hundred times the data. The left-hand chart collects your results.", setup: () => { setShape("skew"); S.n.set(2, true); S.stat.set("mean", true); S.mode.set("turbo", true); } },
+    { title: "Try to break it", q: "Drag on the top panel to draw the strangest population you can. Can you find one whose sample means (n = 30) do <i>not</i> form a bell?", hint: "Within this box you cannot: any population with a finite spread obeys the theorem. Odd shapes just need a larger n before the bell appears. (Populations with infinite variance, like the Cauchy distribution, do break it, but they do not fit in a box.)", setup: () => { setShape("ushape"); S.n.set(30, true); S.stat.set("mean", true); S.mode.set("turbo", true); ui.tip("Drag up and down on the top panel to reshape the population", 8000); } },
+    { title: "How big is 'big enough'?", q: "Textbooks say n = 30 is enough. For this population with rare outliers, look at the histogram of means with n = 30. Is it a symmetrical bell yet? What about n = 100?", hint: "With rare, extreme values the sampling distribution stays lopsided (several bumps: samples with 0, 1, 2… outliers) long after n = 30. 'n ≥ 30' is a rule of thumb, not a law: skewed data such as incomes or insurance claims need much more.", setup: () => { setShape("outlier"); S.n.set(30, true); S.stat.set("mean", true); S.mode.set("turbo", true); } },
+    { title: "Not every statistic is normal", q: "Change the statistic to <b>Maximum</b> on the uniform population, n = 20. Does the sampling distribution become a bell? Try Median and Std dev too.", hint: "The maximum piles up against the top of the range and stays skewed for ever: the theorem is about sums and means. The median and the standard deviation do become roughly normal for large n, but more slowly and with a different spread.", setup: () => { setShape("uniform"); S.n.set(20, true); S.stat.set("max", true); S.mode.set("turbo", true); } },
+    { title: "What does '95% confident' mean?", q: "Each bar in the right-hand chart is a 95% confidence interval worked out from one sample. Red ones miss the true mean. Run a few hundred samples. What fraction miss? Now set n = 3 with the skewed population.", hint: "About 1 in 20 should miss: that is what 95% means. It is a statement about the method over many samples, not about any single interval. With tiny samples from a skewed population the method under-performs, because it leans on the theorem.", setup: () => { setShape("normal"); S.n.set(25, true); S.stat.set("mean", true); S.mode.set("fast", true); } },
+  ],
+  batch: [
+    { title: "The standard error", question: "How does the spread of sample means depend on sample size?", how: "Skewed population. For each n, 400 samples are drawn and the standard deviation of their means is recorded.", xLabel: "sample size n", yLabel: "SD of the sample means", xs: [1, 2, 4, 8, 16, 32, 64, 100], reps: 6, yMin: 0, theory: x => makePop("skew").sigma / Math.sqrt(x), theoryLabel: "σ / √n",
+      run: (x, r) => { const p = makePop("skew"), m = []; for (let i = 0; i < 400; i++) m.push(K.mean(p.sample(r, x))); return K.sd(m); }, note: "Each estimate comes from only 400 sample means, so it has sampling error of its own (about 3.5%). Even a standard error has a standard error." },
+    { title: "How fast does skew disappear?", question: "How lopsided is the distribution of means for different n?", how: "Skewed population. For each n, the skewness of 3000 sample means is measured (0 = symmetrical).", xLabel: "sample size n", yLabel: "skewness of the sample means", xs: [1, 2, 4, 8, 16, 32, 64], reps: 6, theory: x => makePop("skew").skew / Math.sqrt(x), theoryLabel: "population skewness / √n",
+      run: (x, r) => { const p = makePop("skew"), m = []; for (let i = 0; i < 3000; i++) m.push(K.mean(p.sample(r, x))); return skewness(m); }, note: "Skewness is sensitive to the few most extreme sample means, so it is a noisy thing to measure." },
+    { title: "Do 95% intervals cover 95%?", question: "How often does a 95% confidence interval contain the true mean?", how: "Population with rare outliers. For each n, 1000 intervals (mean ± 1.96 × s/√n) are built and the percentage that contain μ is recorded.", xLabel: "sample size n", yLabel: "intervals containing μ (%)", xs: [3, 5, 10, 20, 40, 80, 160], reps: 6, yMax: 100, theory: () => 95, theoryLabel: "the promised 95%",
+      run: (x, r) => { const p = makePop("outlier"); let c = 0; for (let i = 0; i < 1000; i++) { const s = p.sample(r, x), m = K.mean(s), e = 1.96 * K.sd(s) / Math.sqrt(x); if (Math.abs(m - p.mu) <= e) c++; } return c / 10; }, note: "Coverage is estimated from 1000 intervals, so it wobbles by about ±0.7 percentage points. The shortfall at small n is real: small samples often contain no outlier at all, so they underestimate both the mean and the spread." },
+    { title: "Mean or median?", question: "For bell-shaped data, which is the more precise estimate of the centre?", how: "Bell-shaped population. Ratio = (SD of 1000 sample medians) ÷ (SD of 1000 sample means). Above 1 means the median is noisier.", xLabel: "sample size n", yLabel: "SD of medians ÷ SD of means", xs: [5, 11, 21, 41, 81], reps: 6, theory: () => 1.2533, theoryLabel: "√(π/2) ≈ 1.25 for large n",
+      run: (x, r) => { const p = makePop("normal"), a = [], b = []; for (let i = 0; i < 1000; i++) { const s = p.sample(r, x); a.push(STATS.median.f(s)); b.push(K.mean(s)); } return K.sd(a) / K.sd(b); }, note: "For normal data the mean uses the information more efficiently: the median needs about 57% more data for the same precision. With outliers it is the other way round, which is why median house prices are quoted." },
+  ],
+  notes: `<h3>What happens</h3><ul><li>The population is the set of 40 bars you can draw, covering values 0 to 10. Bar height = how common that value is.</li><li>A sample is n independent random draws from it (with replacement).</li><li>The chosen statistic of each sample goes into the bottom histogram: the <b>sampling distribution</b>.</li><li>The dashed curve is the theorem's prediction for the mean: normal, centred on μ, standard deviation σ/√n.</li></ul>
+  <h3>Confidence intervals</h3><p>For each sample the page works out <code>mean ± 1.96 × s/√n</code>, where s is that sample's own standard deviation. (For small n a statistician would use a t-value instead of 1.96: the shortfall you see at small n is partly that.)</p>
+  <h3>Assumptions and simplifications</h3><ul><li>Draws are independent and the population never changes. Real sampling can be biased or clustered, and no theorem repairs a biased sample.</li><li>Values are limited to 0–10, so every population here has a finite variance and the theorem must work. Heavy-tailed populations with infinite variance are the genuine exceptions.</li><li>Random numbers come from a computer algorithm (a pseudo-random generator).</li></ul>`,
+});
+let g = ui.group("Population");
+S.shape = K.seg(g, { value: "skew", options: Object.entries(SHAPES).map(([k, v]) => [k, v.name]), on: v => setShape(v), tip: "…or <b>drag on the top panel</b> to draw your own." });
+g = ui.group("Sampling");
+S.n = K.slider(g, { label: "Sample size n", min: 1, max: 100, step: 1, value: 5, on: v => { n = v; clearSamples(true); } });
+S.stat = K.seg(g, { label: "Statistic worked out from each sample", value: "mean", options: Object.entries(STATS).map(([k, v]) => [k, v.name]), on: v => { stat = v; clearSamples(true); } });
+S.mode = K.seg(g, { label: "Speed", value: "slow", options: [["slow", "Slow"], ["fast", "Fast"], ["turbo", "Turbo"]], on: v => { mode = v; anim = null; ui.setPlaying(true); } });
+const r1 = K.row(g); K.btn(r1, "Draw one sample", () => { ui.setPlaying(false); anim = null; takeSample(true); }); K.btn(r1, "Clear samples", () => clearSamples(), "danger");
+g = ui.group("View");
+S.curve = K.toggle(g, { label: "Show the normal curve predicted by the theorem", value: true, on: v => showCurve = v });
+S.zoom = K.toggle(g, { label: "Zoom in on the sampling distribution", value: false, on: v => zoom = v });
+g = ui.group("Numbers");
+const read = K.readout(g, [["mu", "Population mean μ"], ["sig", "Population SD σ"], ["mm", "Mean of the statistics"], ["sm", "SD of the statistics"], ["se", "Theory σ/√n"], ["k", "Samples taken"]]);
+
+function setShape(k) { S.shape.set(k); pop = makePop(k); traceSD = {}; clearSamples(); }
+function clearSamples(keepTrace) { vals = []; cis = []; covered = 0; ciCount = 0; anim = null; lastSample = []; lastStat = null; if (!keepTrace) traceSD = {}; }
+function record(s) {
+  const v = STATS[stat].f(s); if (!isFinite(v)) return; vals.push(v); if (vals.length > 200000) vals.shift(); lastSample = s; lastStat = v;
+  if (n > 1) { const m = K.mean(s), e = 1.96 * K.sd(s) / Math.sqrt(n), hit = Math.abs(m - pop.mu) <= e; cis.push([m - e, m + e, hit]); if (cis.length > 60) cis.shift(); ciCount++; if (hit) covered++; }
+}
+function takeSample(animate) {
+  const s = pop.sample(rand, n);
+  if (animate) anim = { s, t: 0, balls: s.map((x, i) => ({ x, delay: i * Math.min(0.06, 0.9 / n) })), v: STATS[stat].f(s), done: false }; else record(s);
+}
+// ---- Drawing ----
+const cv = ui.canvas(); let G = {};
+function layout() { const w = cv.w, h = cv.h; G = { x0: 64, x1: w - 28, p0: 34, p1: h * 0.34, t0: h * 0.42, t1: h * 0.5, s0: h * 0.59, s1: h - 30 }; G.X = v => G.x0 + v / XMAX * (G.x1 - G.x0); }
+function range() { if (!zoom || vals.length < 20) return [0, XMAX]; const m = K.mean(vals), s = K.sd(vals) || 0.1; return [m - 4.5 * s, m + 4.5 * s]; }
+function draw(dt) {
+  layout(); const c = cv.ctx, w = cv.w, h = cv.h, { x0, x1, p0, p1, t0, t1, s0, s1, X } = G;
+  const bg = c.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, "#0c1428"); bg.addColorStop(1, "#070b16"); c.fillStyle = bg; c.fillRect(0, 0, w, h);
+  c.font = "600 12px Segoe UI,sans-serif"; c.textAlign = "left";
+  // --- 1. the population
+  c.fillStyle = "#ffb454"; c.fillText("① THE POPULATION  (drag to reshape it)", x0, p0 - 12);
+  const hm = Math.max(...pop.h), bw = (x1 - x0) / NB;
+  for (let i = 0; i < NB; i++) { const bh = pop.h[i] / hm * (p1 - p0); const gr = c.createLinearGradient(0, p1 - bh, 0, p1); gr.addColorStop(0, "#ffc978"); gr.addColorStop(1, "#b9650a"); c.fillStyle = gr; c.fillRect(x0 + i * bw + 1, p1 - bh, bw - 2, bh); }
+  c.strokeStyle = "#3a4a6e"; c.lineWidth = 1; c.beginPath(); c.moveTo(x0, p1 + .5); c.lineTo(x1, p1 + .5); c.stroke();
+  c.font = "11px Segoe UI,sans-serif"; c.fillStyle = "#8fa0bf"; c.textAlign = "center"; for (let v = 0; v <= 10; v++) c.fillText(v, X(v), p1 + 14);
+  const muLine = (ya, yb) => { c.setLineDash([5, 4]); c.strokeStyle = "#fff"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(X(pop.mu), ya); c.lineTo(X(pop.mu), yb); c.stroke(); c.setLineDash([]); };
+  muLine(p0, p1); c.fillStyle = "#fff"; c.textAlign = "left"; c.fillText(`μ = ${pop.mu.toFixed(2)}`, X(pop.mu) + 6, p0 + 10);
+  c.strokeStyle = "rgba(255,255,255,.5)"; c.beginPath(); c.moveTo(X(pop.mu - pop.sigma), p0 + 22); c.lineTo(X(pop.mu + pop.sigma), p0 + 22); c.stroke(); c.fillStyle = "rgba(255,255,255,.7)"; c.fillText(`± σ = ${pop.sigma.toFixed(2)}`, X(pop.mu + pop.sigma) + 6, p0 + 26);
+  // --- 2. one sample
+  c.font = "600 12px Segoe UI,sans-serif"; c.fillStyle = "#7ee787"; c.textAlign = "left"; c.fillText(`② ONE SAMPLE OF ${n}`, x0, t0 - 8);
+  c.fillStyle = "rgba(255,255,255,.04)"; c.fillRect(x0, t0, x1 - x0, t1 - t0); c.strokeStyle = "#3a4a6e"; c.strokeRect(x0 + .5, t0 + .5, x1 - x0, t1 - t0);
+  const rb = Math.max(2.5, Math.min(6, 60 / Math.sqrt(n) / 3));
+  let shown = lastSample, sv = lastStat, markerY = t1 + 8;
+  if (anim) {
+    anim.t += dt * 1.2; shown = []; let allDown = true;
+    for (const b of anim.balls) { const tt = anim.t - b.delay; if (tt < 0) { allDown = false; continue; } const fall = Math.min(1, tt / 0.45), y = p1 - 4 + (t1 - rb - 2 - (p1 - 4)) * fall * fall; if (fall < 1) allDown = false; c.fillStyle = "#b5f5c0"; c.beginPath(); c.arc(X(b.x), y, rb, 0, 6.3); c.fill(); }
+    if (allDown) { if (!anim.tDown) anim.tDown = anim.t; const k = Math.min(1, (anim.t - anim.tDown - 0.25) / 0.5); sv = anim.v; markerY = t1 + 8 + Math.max(0, k) * (s1 - t1 - 20); if (k >= 1 && !anim.done) { anim.done = true; record(anim.s); anim = null; } } else sv = null;
+  } else for (const v of shown) { c.fillStyle = "rgba(181,245,192,.8)"; c.beginPath(); c.arc(X(v), t1 - rb - 2, rb, 0, 6.3); c.fill(); }
+  // --- 3. the sampling distribution
+  const [r0, r1] = range(), RX = v => x0 + (v - r0) / (r1 - r0) * (x1 - x0), nb = 100, bwid = (r1 - r0) / nb, counts = new Uint32Array(nb);
+  for (const v of vals) { const i = Math.floor((v - r0) / bwid); if (i >= 0 && i < nb) counts[i]++; }
+  let cm = 4; for (const q of counts) if (q > cm) cm = q;
+  const se = pop.sigma / Math.sqrt(n), peak = vals.length * bwid / (se * Math.sqrt(2 * Math.PI)); if (showCurve && stat === "mean" && peak > cm) cm = peak;
+  c.font = "600 12px Segoe UI,sans-serif"; c.fillStyle = "#5ad1ff"; c.textAlign = "left"; c.fillText(`③ THE ${STATS[stat].name.toUpperCase()} OF EVERY SAMPLE SO FAR  (${vals.length.toLocaleString()} samples)`, x0, s0 - 10);
+  const sbw = (x1 - x0) / nb; for (let i = 0; i < nb; i++) if (counts[i]) { const bh = counts[i] / cm * (s1 - s0 - 6); const gr = c.createLinearGradient(0, s1 - bh, 0, s1); gr.addColorStop(0, "#7fdcff"); gr.addColorStop(1, "#1672a8"); c.fillStyle = gr; c.fillRect(x0 + i * sbw + .5, s1 - bh, sbw - 1, bh); }
+  c.strokeStyle = "#3a4a6e"; c.beginPath(); c.moveTo(x0, s1 + .5); c.lineTo(x1, s1 + .5); c.stroke();
+  c.font = "11px Segoe UI,sans-serif"; c.fillStyle = "#8fa0bf"; c.textAlign = "center"; const tk = zoom && vals.length >= 20 ? 8 : 10; for (let k = 0; k <= tk; k++) { const v = r0 + (r1 - r0) * k / tk; c.fillText(zoom ? v.toFixed(2) : v.toFixed(0), RX(v), s1 + 14); }
+  if (pop.mu > r0 && pop.mu < r1) { c.setLineDash([5, 4]); c.strokeStyle = "#fff"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(RX(pop.mu), s0); c.lineTo(RX(pop.mu), s1); c.stroke(); c.setLineDash([]); }
+  if (showCurve && stat === "mean" && vals.length > 5) { c.strokeStyle = "#ff7b9c"; c.lineWidth = 2.2; c.setLineDash([7, 4]); c.beginPath(); for (let px = x0; px <= x1; px += 2) { const v = r0 + (px - x0) / (x1 - x0) * (r1 - r0), y = s1 - peak * Math.exp(-((v - pop.mu) ** 2) / (2 * se * se)) / cm * (s1 - s0 - 6); px === x0 ? c.moveTo(px, y) : c.lineTo(px, y); } c.stroke(); c.setLineDash([]); c.fillStyle = "#ff7b9c"; c.textAlign = "right"; c.fillText("theorem: normal, SD = σ/√n", x1, s0 + 4); }
+  if (sv != null && (anim || !ui.playing || mode === "slow")) { const mxp = anim && markerY > t1 + 30 ? RX(sv) * Math.min(1, (markerY - t1) / (s1 - t1 - 20)) + X(sv) * (1 - Math.min(1, (markerY - t1) / (s1 - t1 - 20))) : X(sv); c.fillStyle = "#fff"; c.beginPath(); c.moveTo(mxp, markerY + 9); c.lineTo(mxp - 7, markerY - 3); c.lineTo(mxp + 7, markerY - 3); c.fill(); c.textAlign = "left"; c.font = "600 11px Segoe UI,sans-serif"; c.fillText(`${STATS[stat].name.toLowerCase()} = ${sv.toFixed(2)}`, mxp + 11, markerY + 6); }
+}
+// drag on the population panel to reshape it
+function sculpt(p) {
+  if (p.y < G.p0 - 20 || p.y > G.p1 + 16 && lastBin == null) return; const i = K.clamp(Math.floor((p.x - G.x0) / (G.x1 - G.x0) * NB), 0, NB - 1), v = K.clamp((G.p1 - p.y) / (G.p1 - G.p0), 0, 1);
+  const hm = Math.max(...pop.h, 1e-9), a = lastBin == null ? i : lastBin.i, va = lastBin == null ? v : lastBin.v;
+  for (let k = Math.min(a, i); k <= Math.max(a, i); k++) pop.h[k] = hm * (a === i ? v : va + (v - va) * (k - a) / (i - a));
+  lastBin = { i, v }; pop.update(); clearSamples(); S.shape.set("custom");
+}
+K.pointer(cv.el, { down: p => { lastBin = null; sculpt(p); }, drag: p => { if (lastBin) sculpt(p); }, up: () => lastBin = null, hover: p => cv.el.style.cursor = p.y > G.p0 - 20 && p.y < G.p1 ? "crosshair" : "default" });
+
+const chS = K.chart(ui.dock, { title: "Spread of the sample means for each n you have tried", xLabel: "sample size n", yLabel: "SD of sample means", yMin: 0, xMin: 0, xMax: 100 });
+const ciBox = K.$("div"); ciBox.style.position = "relative"; ui.dock.append(ciBox); const ci = K.canvas(ciBox);
+function drawCI() {
+  const c = ci.ctx, w = ci.w, h = ci.h; c.clearRect(0, 0, w, h); const text = K.cssVar("--text"), muted = K.cssVar("--muted");
+  c.font = "600 12px Segoe UI,sans-serif"; c.fillStyle = text; c.textAlign = "left"; c.textBaseline = "middle"; c.fillText("95% confidence intervals (last 60 samples)", 14, 12);
+  c.font = "11px Segoe UI,sans-serif"; c.textAlign = "right"; c.fillStyle = muted; c.fillText(ciCount ? `${(covered / ciCount * 100).toFixed(1)}% of ${ciCount.toLocaleString()} intervals contain μ` : n < 2 ? "needs n ≥ 2" : "", w - 12, 12);
+  if (!cis.length) return; let lo = Infinity, hi = -Infinity; for (const q of cis) { if (q[0] < lo) lo = q[0]; if (q[1] > hi) hi = q[1]; } lo = Math.min(lo, pop.mu - .1); hi = Math.max(hi, pop.mu + .1);
+  const Y = v => h - 22 - (v - lo) / (hi - lo) * (h - 52), L = 46; c.strokeStyle = muted; c.setLineDash([5, 4]); c.beginPath(); c.moveTo(L, Y(pop.mu)); c.lineTo(w - 10, Y(pop.mu)); c.stroke(); c.setLineDash([]); c.textAlign = "right"; c.fillStyle = muted; c.fillText("μ", L - 6, Y(pop.mu)); c.fillText(hi.toFixed(1), L - 6, Y(hi)); c.fillText(lo.toFixed(1), L - 6, Y(lo));
+  cis.forEach((q, i) => { const x = L + 8 + i * (w - L - 24) / 60; c.strokeStyle = q[2] ? K.cssVar("--s0") : K.cssVar("--bad"); c.lineWidth = q[2] ? 2 : 3; c.beginPath(); c.moveTo(x, Y(q[0])); c.lineTo(x, Y(q[1])); c.stroke(); c.fillStyle = c.strokeStyle; c.beginPath(); c.arc(x, Y((q[0] + q[1]) / 2), 2.2, 0, 6.3); c.fill(); });
+}
+let frame = 0, acc = 0;
+ui.run(dt => {
+  if (lastBin) return;
+  if (mode === "slow") { if (!anim) takeSample(true); }
+  else { acc += dt * (mode === "fast" ? 25 : 3000); const k = Math.floor(acc); acc -= k; for (let i = 0; i < k; i++) takeSample(false); }
+}, dt => {
+  draw(dt); if (frame++ % 5) return;
+  if (stat === "mean" && vals.length >= 30) traceSD[n] = K.sd(vals.length > 5000 ? vals.slice(-5000) : vals);
+  const tp = []; for (let k = 1; k <= 100; k++) tp.push([k, pop.sigma / Math.sqrt(k)]);
+  chS.draw([{ pts: tp, color: K.cssVar("--s3"), dash: [6, 4], label: "theory σ/√n" }, { pts: Object.entries(traceSD).map(([k, v]) => [+k, v]), type: "dots", color: K.cssVar("--s0"), r: 4.5, label: "your results" }]);
+  drawCI();
+  read.set("mu", pop.mu.toFixed(3)); read.set("sig", pop.sigma.toFixed(3)); read.set("mm", vals.length ? K.mean(vals).toFixed(3) : "–"); read.set("sm", vals.length > 1 ? K.sd(vals.length > 20000 ? vals.slice(-20000) : vals).toFixed(3) : "–"); read.set("se", (pop.sigma / Math.sqrt(n)).toFixed(3)); read.set("k", vals.length.toLocaleString());
+});
+ui.onTheme = drawCI;
+ui.tip("Each green ball is one random value from the population · the white marker is the sample's mean");
+</script>
+</body></html>

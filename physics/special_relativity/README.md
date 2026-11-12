@@ -35,6 +35,6 @@ coded separately. Assumptions are listed in the simulation under **The model**.
 
 ## Source
 
-Built from `Enhanced/_build/src/special_relativity.js` with the shared kit:
-edit that file and run `node build.js` inside `Enhanced/_build/`. There is no
+Built from `tools/kit/src/special_relativity.js` with the shared kit:
+edit that file and run `node build.js` inside `tools/kit/`. There is no
 `worksheets.html` yet.

@@ -12,11 +12,14 @@ Most simulations are a single HTML file: open it in Chrome or Edge, with no
 install and no internet needed. Run any other commands from inside the
 project's own folder.
 
-## Enhanced collection
+## ★ Enhanced simulations
 
-[`Enhanced/`](Enhanced/index.html) holds ten simulations (one per subject)
-rebuilt from scratch as showpieces, with their own gallery page. The originals
-listed below are unchanged. See [`Enhanced/README.md`](Enhanced/README.md).
+Thirteen simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): ten rebuilt showpieces, one per subject, which replaced the earlier
+versions in their folders, and three newer physics ones. They share a small
+toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
+of worksheets. The earlier Three-Body Chaos Lab is kept in
+`astrophysics/three_body_chaos/original_lab/`.
 
 ## Batch run
 
@@ -29,7 +32,8 @@ simulation has ready-made batch experiments that pose a question, such as
 
 ## Worksheets
 
-Every simulation with a batch run has a `worksheets.html` beside it: one
+Every simulation with a batch run, apart from the thirteen ★ Enhanced ones,
+has a `worksheets.html` beside it: one
 printable A4 page per batch experiment (set-up, prediction, results table to
 fill in, questions), then teacher notes with the explanation and the numbers
 from a test run. Open it and press **Print** (or save as PDF).
@@ -48,7 +52,7 @@ changing a simulation's batch experiments.
 | [`physics/youngs_modulus/`](physics/youngs_modulus/) | Young's modulus: Hooke's law, stress–strain curves, breaking, Searle's method | Open `youngs-modulus.html` |
 | [`physics/projectile_motion/`](physics/projectile_motion/) | Projectile motion: range, angle and time of flight, with air resistance, spin and wind | Open `projectile-motion.html` |
 | [`physics/circular_motion/`](physics/circular_motion/) | Circular motion: whirling bung, banked bends, loop-the-loop, conical pendulum | Open `circular-motion.html` |
-| [`physics/waves/`](physics/waves/) | Waves: interference and Young's slits, standing waves on strings and in pipes, diffraction gratings, the Doppler effect | Open `waves.html` |
+| [`physics/waves/`](physics/waves/) | Ripple Tank ★: a 2-D wave-equation solver. Interference, slits, refraction, lenses, mirrors and Doppler; draw your own walls and glass | Open `waves.html` |
 | [`physics/optics_refraction/`](physics/optics_refraction/) | Refraction: Snell's law, total internal reflection, prisms, lenses, optical fibres | Open `optics-refraction.html` |
 | [`physics/fields_orbits/`](physics/fields_orbits/) | Fields and orbits: electric and gravitational fields, Kepler's laws, escape speed, binary stars (also listed under Astrophysics) | Open `fields-orbits.html` |
 | [`physics/circuits/`](physics/circuits/) | Circuits: EMF and internal resistance, I–V characteristics, resistivity, AC | Open `circuits.html` |
@@ -63,16 +67,16 @@ changing a simulation's batch experiments.
 | [`physics/heating_insulation/`](physics/heating_insulation/) | Heating and insulating a house: conduction, convection, radiation, insulation costs and payback, cooling-can and Leslie cube practicals, cooling curves | Open `heating-insulation.html` |
 | [`physics/density_pressure/`](physics/density_pressure/) | Density and pressure: density practicals, p = F/A, liquid pressure, floating, gas pressure, terminal velocity | Open `density-pressure.html` |
 | [`physics/energy_resources/`](physics/energy_resources/) | Energy resources and electricity: power stations, running the GB grid, transformers and transmission losses, wind turbine practical | Open `energy-resources.html` |
-| [`physics/quantum_wave_lab/`](physics/quantum_wave_lab/) | Quantum Wave Lab: the 2-D Schrödinger equation live. Tunnelling, double slit one particle at a time, uncertainty, measurement (A level and beyond) | Open `quantum-wave-lab.html` |
-| [`physics/special_relativity/`](physics/special_relativity/) | Special relativity: light clocks, simultaneity, train and tunnel, twin paradox, muons, from any frame, with a spacetime diagram | Open `special-relativity.html` |
-| [`physics/wind_tunnel/`](physics/wind_tunnel/) | Wind tunnel: viscous flow by the lattice Boltzmann method, with vortex streets, lift and drag (complements Aerofoil Flow) | Open `wind-tunnel.html` |
+| [`physics/quantum_wave_lab/`](physics/quantum_wave_lab/) | Quantum Wave Lab ★: the 2-D Schrödinger equation live. Tunnelling, double slit one particle at a time, uncertainty, measurement (A level and beyond) | Open `quantum-wave-lab.html` |
+| [`physics/special_relativity/`](physics/special_relativity/) | Special relativity ★: light clocks, simultaneity, train and tunnel, twin paradox, muons, from any frame, with a spacetime diagram | Open `special-relativity.html` |
+| [`physics/wind_tunnel/`](physics/wind_tunnel/) | Wind tunnel ★: viscous flow by the lattice Boltzmann method, with vortex streets, lift and drag (complements Aerofoil Flow) | Open `wind-tunnel.html` |
 
 ## Chemistry
 
 | Folder | What it is | How to run |
 |---|---|---|
 | [`chemistry/collision_theory/`](chemistry/collision_theory/) | Collision theory: temperature, concentration, catalysts and surface area, with the Arrhenius plot | Open `collision-theory.html` |
-| [`chemistry/dynamic_equilibrium/`](chemistry/dynamic_equilibrium/) | Reversible reactions, Le Chatelier's principle and the Haber process | Open `dynamic-equilibrium.html` |
+| [`chemistry/dynamic_equilibrium/`](chemistry/dynamic_equilibrium/) | Dynamic Equilibrium ★: A + B ⇌ AB with real particle collisions; Le Chatelier, K and Q, energy profile | Open `dynamic-equilibrium.html` |
 | [`chemistry/atomic_structure/`](chemistry/atomic_structure/) | Atomic structure: protons, neutrons, electrons, shells, ions, isotopes and relative atomic mass | Open `atomic-structure.html` |
 | [`chemistry/bonding/`](chemistry/bonding/) | Ionic, covalent and metallic bonding, with structure and properties (melting, conduction, brittleness) | Open `bonding.html` |
 | [`chemistry/organic_chemistry/`](chemistry/organic_chemistry/) | Crude oil, cracking and polymers: fractional distillation, combustion, alkenes and addition polymerisation | Open `organic-chemistry.html` |
@@ -92,7 +96,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 
 | Folder | What it is | How to run |
 |---|---|---|
-| [`biology/natural_selection/`](biology/natural_selection/) | Natural selection in six species (moths, beetles, hares, finches, guppies, snails) with predators and changing habitats | Open `natural-selection.html` |
+| [`biology/natural_selection/`](biology/natural_selection/) | Natural Selection ★: moths on changing bark with real camouflage, mutation, extinction and a "be the bird" mode | Open `natural-selection.html` |
 | [`biology/epidemics/`](biology/epidemics/) | Epidemics, vaccination and herd immunity (SEIR) | Open `epidemics.html` |
 | [`biology/predator_prey/`](biology/predator_prey/) | Foxes, rabbits and grass: population cycles and Lotka–Volterra | Open `predator-prey.html` |
 | [`biology/membranes/`](biology/membranes/) | Membranes and movement: diffusion, osmosis, active transport, SA:V, potato osmosis, water potential, membrane permeability | Open `membranes.html` |
@@ -111,7 +115,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | Folder | What it is | How to run |
 |---|---|---|
 | [`medical/heart_circulation/`](medical/heart_circulation/) | The heart and double circulation: valves, blood pressure, pressure–volume loop | Open `heart-circulation.html` |
-| [`medical/nerve_impulse/`](medical/nerve_impulse/) | Nerve impulses (Hodgkin–Huxley): myelin, threshold, refractory period, MS | Open `nerve-impulse.html` |
+| [`medical/nerve_impulse/`](medical/nerve_impulse/) | Nerve Impulse ★: Hodgkin–Huxley equations along an axon; threshold, refractory period, myelin, MS lesion, channel block | Open `nerve-impulse.html` |
 | [`medical/antibiotic_resistance/`](medical/antibiotic_resistance/) | Antibiotic resistance evolving during a course of treatment | Open `antibiotic-resistance.html` |
 | [`medical/gas_exchange/`](medical/gas_exchange/) | Lungs and gas exchange: Fick's law, altitude, exercise, lung disease | Open `gas-exchange.html` |
 
@@ -119,7 +123,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 
 | Folder | What it is | How to run |
 |---|---|---|
-| [`engineering/earthquake_buildings/`](engineering/earthquake_buildings/) | Tall buildings in earthquakes: resonance, tuned mass dampers, base isolation | Open `earthquake-buildings.html` |
+| [`engineering/earthquake_buildings/`](engineering/earthquake_buildings/) | Earthquake Engineering ★: a shake table for three buildings; resonance, bracing, base isolation, tuned mass damper | Open `earthquake-buildings.html` |
 | [`engineering/traffic_flow/`](engineering/traffic_flow/) | Traffic flow and phantom jams, smart motorways, lane closures | Open `traffic-flow.html` |
 | [`engineering/car_crash/`](engineering/car_crash/) | Car crash safety: crumple zones, seatbelts and airbags (momentum and impulse), plus a collisions lab (also listed under Physics) | Open `car-crash.html` |
 | [`engineering/aerofoil_flow/`](engineering/aerofoil_flow/) | Aerofoil flow: lift from shape, angle of attack and spin with the Hess–Smith panel method, plus starting vortex, flap and Kármán street (also listed under Physics) | Open `aerofoil-flow.html` |
@@ -134,7 +138,7 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`climate/ice_albedo/`](climate/ice_albedo/) | Ice–albedo feedback, Snowball Earth and tipping points | Open `ice-albedo.html` |
 | [`climate/carbon_cycle/`](climate/carbon_cycle/) | The carbon cycle and CO₂ from 1750 to 2300 under emissions scenarios | Open `carbon-cycle.html` |
 | [`climate/sea_level_rise/`](climate/sea_level_rise/) | Sea level rise: where the water comes from, flooding and storm surges | Open `sea-level-rise.html` |
-| [`climate/forest_fire/`](climate/forest_fire/) | How a woodland fire spreads with wind, dryness, slope, trees, undergrowth, firebreaks and rivers | Open `forest-fire.html` |
+| [`climate/forest_fire/`](climate/forest_fire/) | Wildfire ★: fire spread with wind, slope, drought and embers; percolation tipping point; firebreak challenge | Open `forest-fire.html` |
 | [`climate/weather_chaos/`](climate/weather_chaos/) | The butterfly effect: Lorenz 63 and Lorenz 96 models, twin forecasts, ensembles, and why forecast skill is limited | Open `weather-chaos.html` |
 | [`climate/flooding_hydrographs/`](climate/flooding_hydrographs/) | Flooding and storm hydrographs: drainage basins, lag time, urbanisation, flood management, return periods, water budgets | Open `flooding-hydrographs.html` |
 | [`climate/river_landforms/`](climate/river_landforms/) | Rivers and landforms: Bradshaw model, Hjulström curve, meanders and oxbow lakes, waterfalls, river fieldwork | Open `river-landforms.html` |
@@ -156,13 +160,13 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`astrophysics/expanding_universe/`](astrophysics/expanding_universe/) | Hubble's law, redshift and the age of the universe | Open `expanding-universe.html` |
 | [`astrophysics/gravitational_lensing/`](astrophysics/gravitational_lensing/) | Gravitational lensing: Einstein rings, arcs, microlensing, Eddington 1919 | Open `gravitational-lensing.html` |
 | [`astrophysics/dark_matter/`](astrophysics/dark_matter/) | Evidence for dark matter from galaxy rotation curves | Open `dark-matter.html` |
-| [`astrophysics/three_body_chaos/`](astrophysics/three_body_chaos/) | Newtonian three-body scattering: a computed outcome map (every pixel a real simulation), boundary discovery, zoom, validation, comparison, save and export | Open `three-body-chaos.html` (built from a React/TypeScript project in `source/`) |
+| [`astrophysics/three_body_chaos/`](astrophysics/three_body_chaos/) | Three-Body Chaos ★: N-body gravity with a "twin universe" to watch prediction fail (the earlier outcome-map lab is in `original_lab/`) | Open `three-body-chaos.html` |
 
 ## Statistics
 
 | Folder | What it is | How to run |
 |---|---|---|
-| [`statistics/central_limit_theorem/`](statistics/central_limit_theorem/) | Galton board and the central limit theorem (and where it fails) | Open `central-limit-theorem.html` |
+| [`statistics/central_limit_theorem/`](statistics/central_limit_theorem/) | Central Limit Theorem ★: draw any population, watch sample means form a bell curve; live confidence intervals | Open `central-limit-theorem.html` |
 | [`statistics/queues/`](statistics/queues/) | Supermarket queues and queueing theory | Open `queues.html` |
 
 ## Economics
@@ -171,7 +175,7 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 
 | Folder | What it is | How to run |
 |---|---|---|
-| [`economics/supply_demand/`](economics/supply_demand/) | Supply, demand and elasticity: a trading market finds equilibrium; shifts, PED, PES, YED, XED | Open `supply-demand.html` |
+| [`economics/supply_demand/`](economics/supply_demand/) | The Trading Pit ★: supply and demand from haggling buyers and sellers; tax, price cap and floor | Open `supply-demand.html` |
 | [`economics/taxes_price_controls/`](economics/taxes_price_controls/) | Indirect taxes, subsidies, maximum and minimum prices: incidence, shortages, deadweight loss | Open `taxes-price-controls.html` |
 | [`economics/firms_competition/`](economics/firms_competition/) | Firms, costs and competition: cost and revenue curves, economies of scale, market structures, game theory, cartels | Open `firms-competition.html` |
 | [`economics/labour_market/`](economics/labour_market/) | The labour market: wage determination, minimum wage, unions, monopsony, wage differences, division of labour | Open `labour-market.html` |
@@ -193,7 +197,7 @@ Standard level follows OCR GCSE (9–1) Physical Education (J587); Advanced foll
 | [`physical_education/fitness_testing/`](physical_education/fitness_testing/) | Fitness testing: 12 fitness tests on a simulated squad, ratings, reliability, validity, typical error | Open `fitness-testing.html` |
 | [`physical_education/skill_acquisition/`](physical_education/skill_acquisition/) | Skill acquisition: your own reaction test and Hick's law, information processing, practice, guidance and feedback, classification, schema | Open `skill-acquisition.html` |
 | [`physical_education/arousal_performance/`](physical_education/arousal_performance/) | Arousal and performance: inverted-U, drive, catastrophe, ZOF, stress management, social facilitation, Ringelmann, attribution | Open `arousal-performance.html` |
-| [`physical_education/luck_and_skill/`](physical_education/luck_and_skill/) | Luck, skill and results: leagues vs cups, home advantage, regression to the mean, sample size, drug-test false positives (also listed under Statistics) | Open `luck-and-skill.html` |
+| [`physical_education/luck_and_skill/`](physical_education/luck_and_skill/) | Luck, Skill and the League ★: does the best team win? League against cup, home advantage, the sacked-manager bounce | Open `luck-and-skill.html` |
 
 ## History
 

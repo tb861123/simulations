@@ -34,6 +34,6 @@ stall sharply. They complement each other.
 
 ## Source
 
-Built from `Enhanced/_build/src/wind_tunnel.js` with the shared kit: edit that
-file and run `node build.js` inside `Enhanced/_build/`. There is no
+Built from `tools/kit/src/wind_tunnel.js` with the shared kit: edit that
+file and run `node build.js` inside `tools/kit/`. There is no
 `worksheets.html` yet.

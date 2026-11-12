@@ -29,13 +29,17 @@ own folder inside the right subject folder and gets a row in the root
 `README.md`, a line in the `SIMS` list in the front page `index.html`, and a
 thumbnail `thumbs/<folder>.jpg` (a 640×360 screenshot).
 
-`Enhanced/` holds ten showpiece rebuilds (one per subject) with their own
-gallery `Enhanced/index.html`. They are the one place with a shared toolkit:
-edit `Enhanced/_build/kit.*` or `Enhanced/_build/src/<name>.js`, then run
-`node build.js` from inside `Enhanced/_build/` to regenerate the single-file
-pages. Never edit the built HTML by hand. Three physics simulations
-(`quantum_wave_lab`, `special_relativity`, `wind_tunnel`) are built from the
-same kit into `physics/`.
+Thirteen simulations are "★ Enhanced" (listed in `ENHANCED` in the front page
+`index.html`, which marks them with a gold edge and star tag): `waves`,
+`dynamic_equilibrium`, `natural_selection`, `nerve_impulse`,
+`earthquake_buildings`, `forest_fire`, `three_body_chaos`,
+`central_limit_theorem`, `supply_demand`, `luck_and_skill`,
+`quantum_wave_lab`, `special_relativity`, `wind_tunnel`. They are the one
+place with a shared toolkit: edit `tools/kit/kit.*` or
+`tools/kit/src/<name>.js`, then run `node build.js` from inside `tools/kit/`
+to regenerate the single-file pages in their subject folders. Never edit
+their built HTML by hand. They have no `worksheets.html` and are not handled
+by `tools/worksheets/` or `tools/tidy/`.
 
 `tools/worksheets/` holds the teacher-side scripts that run every batch
 experiment and generate each simulation's `worksheets.html`. Re-run them for
