@@ -29,6 +29,12 @@ own folder inside the right subject folder and gets a row in the root
 `README.md`, a line in the `SIMS` list in the front page `index.html`, and a
 thumbnail `thumbs/<folder>.jpg` (a 640×360 screenshot).
 
+`Enhanced/` holds ten showpiece rebuilds (one per subject) with their own
+gallery `Enhanced/index.html`. They are the one place with a shared toolkit:
+edit `Enhanced/_build/kit.*` or `Enhanced/_build/src/<name>.js`, then run
+`node build.js` from inside `Enhanced/_build/` to regenerate the single-file
+pages. Never edit the built HTML by hand.
+
 `tools/worksheets/` holds the teacher-side scripts that run every batch
 experiment and generate each simulation's `worksheets.html`. Re-run them for
 any simulation whose batch experiments change (see its README).

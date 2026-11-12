@@ -12,6 +12,12 @@ Most simulations are a single HTML file: open it in Chrome or Edge, with no
 install and no internet needed. Run any other commands from inside the
 project's own folder.
 
+## Enhanced collection
+
+[`Enhanced/`](Enhanced/index.html) holds ten simulations (one per subject)
+rebuilt from scratch as showpieces, with their own gallery page. The originals
+listed below are unchanged. See [`Enhanced/README.md`](Enhanced/README.md).
+
 ## Batch run
 
 Every single-file simulation has a **📊 Batch run** button. It runs the model
