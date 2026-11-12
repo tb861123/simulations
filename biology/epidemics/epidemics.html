@@ -1652,7 +1652,7 @@ requestAnimationFrame(frame);
    Right: tabs (Live, Graphs, Practical, Learn, Exam); four to six key readings with "More readings";
           every section folds. Folding and the chosen tab are remembered in this browser only.
    Each simulation can set window.TIDY = { std: "...", adv: "...", live: [], graphs: [], learn: [],
-   practical: [], settings: [], readings: 6, move: { "<id or CSS selector>": "graphs" },
+   practical: [], settings: [], readings: 6, move: { "<id or CSS selector>": "graphs" (or "learn:last" to go after the tab's own blocks) },
    hint: "#lvlHint", presets: "#presets" (may match several containers; a .pgroup label just before each goes too),
    levelHead: "Level", readingsHead: ["Readings"], readingsGrid: "<CSS selector>",
    advTest: "body.lvl-adv" (a selector that matches only at A level), left: "#left", right: "#right" }
@@ -1811,7 +1811,9 @@ function tidyRun() {
   }
   const order = new Map(); [...document.querySelectorAll("*")].forEach((e, i) => order.set(e, i));
   // elements a simulation asks to move (e.g. charts that sit under the readings) go to their own tab
-  Object.entries(CFG.move).forEach(([key, tab]) => {
+  const last = new Set();   // moved with "<tab>:last": placed after the tab's own blocks
+  Object.entries(CFG.move).forEach(([key, where]) => {
+    const [tab, pos] = String(where).split(":");
     const list = /^[A-Za-z][\w-]*$/.test(key) ? [document.getElementById(key)] : [...R.querySelectorAll(key)];
     list.forEach(e => {
       if (!e || !R.contains(e)) return;
@@ -1819,6 +1821,7 @@ function tidyRun() {
       groups.forEach(g => { const i = g.indexOf(e); if (i >= 0) g.splice(i, body ? 2 : 1); });
       e.remove(); if (body) body.remove();
       (panes[tab] = panes[tab] || []).push(e); if (body) panes[tab].push(body);
+      if (pos === "last") { last.add(e); if (body) last.add(body); }
     });
   });
   groups.forEach(g => { if (!g.some(n => R.contains(n))) return; const tab = classify(head(g[0]), g); (panes[tab] = panes[tab] || []).push(...g); });
@@ -1828,7 +1831,7 @@ function tidyRun() {
   TABS.forEach(([k, name]) => {
     if (!panes[k] || !panes[k].length) return;
     const p = document.createElement("div"); p.className = "tidyPane"; p.dataset.tab = k;
-    panes[k].sort((a, b) => (order.get(a) || 0) - (order.get(b) || 0)).forEach(n => p.appendChild(n));
+    panes[k].sort((a, b) => (last.has(a) - last.has(b)) || (order.get(a) || 0) - (order.get(b) || 0)).forEach(n => p.appendChild(n));
     paneEls[k] = p;
     const b = document.createElement("button"); b.type = "button"; b.textContent = name; b.dataset.tab = k;
     bar.appendChild(b);
