@@ -1,6 +1,6 @@
 "use strict";
 /* =====================================================================
-   K: the small shared toolkit behind every Enhanced simulation.
+   K: the small shared toolkit behind the ★ enhanced simulations.
    It builds the page frame (header, stage, chart dock, side panel),
    the sliders and buttons, the live charts, the Investigations cards
    and the Batch run window. Each simulation's own code (below this
@@ -173,11 +173,11 @@ const K = (() => {
 
   // ---- The page frame ----
   function app(o) {
-    document.title = o.title + " · Enhanced simulations";
+    document.title = o.title + " · Science Simulations";
     const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
     if (saved) document.documentElement.dataset.theme = saved;
     const top = $("header", "k-top"), main = $("main", "k-main");
-    top.innerHTML = `<a class="k-home" href="${o.home || "../index.html"}" title="Back to the list of simulations">◂ ${o.home ? "All simulations" : "Gallery"}</a>
+    top.innerHTML = `<a class="k-home" href="${o.home || "../../index.html"}" title="Back to the list of simulations">◂ All simulations</a>
       <div class="k-title"><span class="k-chip">${o.subject}</span><h1>${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
     const act = top.querySelector(".k-actions");
     const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
