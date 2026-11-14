@@ -65,7 +65,7 @@ class Circ {
     Q.vc = (Pr.sv - Pr.ra) / (0.03 / Math.sqrt(P.ven));                              // venae cavae into the right atrium
     Q.tv = valve(Pr.ra - Pr.rv, 0.004, 0);                       // tricuspid valve
     Q.pvv = valve(Pr.rv - Pr.pa, 0.006, 0);                      // pulmonary valve
-    Q.pul = (Pr.pa - Pr.pv) / 0.105;                             // through the lungs
+    Q.pul = (Pr.pa - Pr.pv) / (0.105 / (1 + 0.5 * (P.ven - 1)));                             // through the lungs (their vessels widen as more blood arrives in exercise)
     Q.pven = (Pr.pv - Pr.la) / 0.02;                             // pulmonary veins into the left atrium
     V.la += (Q.pven - Q.mv) * dt; V.lv += (Q.mv - Q.av) * dt; V.sa += (Q.av - Q.sys) * dt; V.sv += (Q.sys - Q.vc) * dt;
     V.ra += (Q.vc - Q.tv) * dt; V.rv += (Q.tv - Q.pvv) * dt; V.pa += (Q.pvv - Q.pul) * dt; V.pv += (Q.pul - Q.pven) * dt;
@@ -217,7 +217,7 @@ function seedParts() { parts = []; const tot = CH.reduce((s, k) => s + circ.V[k]
 function moveParts(dt) {
   for (const p of parts) {
     const V = Math.max(8, circ.V[p.k]), qi = circ.Q[INFLOW[p.k]], qo = circ.Q[OUTFLOW[p.k]]; p.x += (qi + (qo - qi) * p.x) / V * dt;      // blood moves faster where more is flowing and the container is emptier
-    if (p.x >= 1) { p.k = CH[(CH.indexOf(p.k) + 1) % 8]; p.x = 0; } else if (p.x < 0) { p.k = CH[(CH.indexOf(p.k) + 7) % 8]; p.x = 0.999; }
+    if (p.x >= 1) { p.k = CH[(CH.indexOf(p.k) + 1) % 8]; p.x = Math.min(0.3, (p.x - 1) * 4 + Math.random() * 0.03); } else if (p.x < 0) { p.k = CH[(CH.indexOf(p.k) + 7) % 8]; p.x = 0.97 + Math.random() * 0.029; }
   }
 }
 const cv = ui.canvas(() => { });
