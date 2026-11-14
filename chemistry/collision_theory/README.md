@@ -21,6 +21,13 @@ Open `collision-theory.html` in Chrome or Edge. Nothing to install; works offlin
   graph so runs can be compared.
 - Nine guided investigations.
 
+## Levels and revision
+
+A **Standard / Advanced** switch at the top of the Controls tab (remembered in
+the browser) hides or shows the A level investigations. The **Revise** tab has
+key ideas tagged with their spec and exam-practice questions with mark
+schemes; questions marked with on-screen numbers can be refreshed.
+
 ## Batch run
 
 Rate against temperature, the Arrhenius plot (gradient −Ea/R), rate against
@@ -36,8 +43,8 @@ and is linked from "The model" tab of the new one.
 
 Activation energies are far lower than real ones so reactions happen while
 you watch; no reverse reaction; the catalyst is a rule, not a surface
-mechanism. The rate equations, initial-rates and Arrhenius practicals and
-exam questions of the earlier version are not in this one. See "The model" tab in the simulation for the full list.
+mechanism. The initial-rates and Arrhenius practical write-ups and the
+rate-determining-step examples of the earlier version are not in this one. See "The model" tab in the simulation for the full list.
 
 ## Source
 

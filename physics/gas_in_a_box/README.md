@@ -20,13 +20,25 @@ Open `gas-in-a-box.html` in Chrome or Edge. Nothing to install; works offline.
   graph of p–V, p–T, V–T, height or mixing against the ideal gas equation.
 - Energy tally ΔU = Q + W, mean free path, a smoke particle for Brownian
   motion, a tracked molecule, two-gas mixing with a partition, and gravity.
-- Ten guided investigations.
+- The ammonia and hydrogen chloride diffusion tube, with the white ring.
+- Advanced: Stirling, Otto and Carnot engines run on the molecules themselves,
+  tracing their loop on the p–V graph, with measured efficiency against the
+  ideal and the Carnot limit; isotherm and adiabat drawn on the p–V graph.
+- Fourteen guided investigations (three of them A level).
+
+## Levels and revision
+
+A **Standard / Advanced** switch at the top of the Controls tab (remembered in
+the browser) hides or shows the A level investigations. The **Revise** tab has
+key ideas tagged with their spec and exam-practice questions with mark
+schemes; questions marked with on-screen numbers can be refreshed.
 
 ## Batch run
 
 Boyle's law, the pressure law (with the intercept at absolute zero),
 Charles's law, adiabatic compression, equal mean kinetic energy for
-different masses, mean free path against number, and the spread of speeds.
+different masses, mean free path against number, the position of the ring in the diffusion
+tube, and the spread of speeds.
 
 ## The earlier version
 
@@ -36,9 +48,8 @@ and is linked from "The model" tab of the new one.
 ## Limits
 
 Hard spheres with no attractions (no liquid), single atoms only, a tiny dense
-sample (so readings flicker), a thin box seen from the front. The heat
-engines, p–V process diagrams and the ammonia / hydrogen chloride diffusion
-tube of the earlier version are not in this one. See "The model" tab in the simulation for the full list.
+sample (so readings flicker), a thin box seen from the front. The Diesel cycle, the p–V process calculator and the potassium manganate(VII)
+diffusion demonstration of the earlier version are not in this one. See "The model" tab in the simulation for the full list.
 
 ## Source
 

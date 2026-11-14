@@ -22,6 +22,13 @@ Open `epidemics.html` in Chrome or Edge. Nothing to install; works offline.
 - A switch between the structured town and "everyone mixes equally".
 - Eight guided investigations.
 
+## Levels and revision
+
+A **Standard / Advanced** switch at the top of the Controls tab (remembered in
+the browser) hides or shows the A level investigations. The **Revise** tab has
+key ideas tagged with their spec and exam-practice questions with mark
+schemes; questions marked with on-screen numbers can be refreshed.
+
 ## Batch run
 
 Final size against R0 (final size equation), vaccination and herd immunity,
@@ -36,8 +43,8 @@ and is linked from "The model" tab of the new one.
 ## Limits
 
 No weekends, travel, age effects or waning immunity; disease settings are
-round numbers. The A level views and exam questions of the earlier version
-are not in this one. See "The model" tab in the simulation for the full list.
+round numbers. The antibody-response views of the earlier version are not in
+this one. See "The model" tab in the simulation for the full list.
 
 ## Source
 
