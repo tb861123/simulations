@@ -108,6 +108,14 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .k-bnote{overflow:auto;font-size:13px;color:var(--muted);background:var(--panel2);border-radius:10px;padding:9px 12px}
 .k-bnote b{color:var(--text)}
 kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+.k-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.02em;padding:1px 7px;border-radius:99px;vertical-align:1px;white-space:nowrap;background:#35505a;color:#c9ecdf}
+.k-tag.adv{background:#4b3a78;color:#e3d6ff}.k-tag.beyond{background:#39465c;color:#cfdaf0}
+.k-idea{font-size:13px;margin:0 0 8px;line-height:1.4}.k-spec{font-size:12px;color:var(--muted);margin:0 0 10px}
+.k-pane>h3{font-size:14px;margin:14px 0 8px;color:var(--accent)}
+.k-q h4{font-size:12px}.k-q .k-marks{margin-left:auto;color:var(--muted);font-weight:400}.k-q p{color:var(--text);font-size:13.5px}
+.k-q details{font-size:13px;color:var(--muted)}.k-q summary{cursor:pointer;color:var(--warn)}.k-q details ul{padding-left:18px;margin:4px 0}
+.k-level{padding-bottom:4px}
+.k-tabs button{font-size:13px;padding-left:2px;padding-right:2px}
 </style></head><body>
 <script>
 "use strict";
@@ -306,7 +314,7 @@ const K = (() => {
     addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
     // side panel tabs
     const tabs = $("nav", "k-tabs"), panes = {}; side.append(tabs);
-    const names = [["controls", "Controls"], ["missions", "Investigate"], ["notes", "The model"]];
+    const names = [["controls", "Controls"], ["missions", "Investigate"]].concat(o.revise ? [["revise", "Revise"]] : [], [["notes", "The model"]]);
     const show = id => { for (const [k] of names) { panes[k].classList.toggle("on", k === id); panes[k]._tab.classList.toggle("on", k === id); } };
     for (const [k, label] of names) { const b = $("button", "", label); b.onclick = () => show(k); tabs.append(b); panes[k] = $("div", "k-pane" + (k === "notes" ? " k-notes" : "")); panes[k]._tab = b; side.append(panes[k]); }
     show("controls"); ui.controls = panes.controls; ui.showTab = show;
@@ -319,11 +327,27 @@ const K = (() => {
       banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
       banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
     };
-    (o.missions || []).forEach((m, i) => {
-      const c = $("div", "k-mcard", `<h4><em>${i + 1}</em>${m.title}</h4><p>${m.q}</p>`);
+    const mcards = (o.missions || []).map(m => {
+      const c = $("div", "k-mcard", `<h4><em></em>${m.title}${m.lvl === "adv" ? ' <span class="k-tag adv">A level</span>' : ""}</h4><p>${m.q}</p>`);
       btn(c, "Set it up ▸", () => { c.classList.add("done"); c.querySelector("em").textContent = "✓"; m.setup && m.setup(); ui.mission(m); ui.setPlaying(true); show("controls"); }, "small primary");
-      panes.missions.append(c);
+      panes.missions.append(c); return [m, c];
     });
+    /* ---- Level (Standard / Advanced) and the Revise tab ----
+       o.levels = { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "...", adv: "..." } }
+       o.revise = { ideas: [{ lvl: "std"|"adv"|"beyond", tag, text }], questions: [{ lvl, q, marks, ans }] }   (q and ans may be functions, so they can use the numbers on screen)
+       Advanced shows everything; Standard hides anything marked "adv". */
+    ui.level = "std"; try { const l = localStorage.getItem("k-level"); if (l === "adv" || l === "std") ui.level = l; } catch (e) { }
+    if (!o.levels) ui.level = "adv";
+    const val = v => typeof v === "function" ? v() : v;
+    function renderLevel() {
+      let k = 0; for (const [m, c] of mcards) { const on = m.lvl !== "adv" || ui.level === "adv"; c.style.display = on ? "" : "none"; if (on) { k++; if (!c.classList.contains("done")) c.querySelector("em").textContent = k; } }
+      if (!o.revise) return; const P = panes.revise, see = x => x.lvl !== "adv" || ui.level === "adv", tagName = { std: "std", adv: "adv", beyond: "beyond" };
+      P.innerHTML = (o.levels ? `<p class="k-spec">${o.levels.specs[ui.level]}</p>` : "") + `<h3>Key ideas</h3>` + o.revise.ideas.filter(see).map(x => `<div class="k-idea"><span class="k-tag ${tagName[x.lvl]}">${x.tag}</span> ${val(x.text)}</div>`).join("") +
+        `<h3>Exam practice</h3>` + o.revise.questions.filter(see).map((x, i) => `<div class="k-mcard k-q"><h4><em>${i + 1}</em><span class="k-tag ${tagName[x.lvl]}">${x.lvl === "adv" ? "A level" : "GCSE"}</span><span class="k-marks">[${x.marks} mark${x.marks > 1 ? "s" : ""}]</span></h4><p>${val(x.q)}</p><details><summary>Mark scheme</summary>${val(x.ans)}</details></div>`).join("");
+      if (o.revise.questions.some(x => typeof x.q === "function")) btn(P, "↻ Use the numbers on screen now", renderLevel, "small");
+    }
+    if (o.levels) { const lg = $("div", "k-group k-level"); panes.controls.append(lg); const sg = seg(lg, { value: ui.level, options: [["std", o.levels.std], ["adv", o.levels.adv]], on: v => { ui.level = v; try { localStorage.setItem("k-level", v); } catch (e) { } hint.textContent = o.levels.specs[v]; renderLevel(); ui.onLevel && ui.onLevel(v); } }); const hint = $("small", "", o.levels.specs[ui.level]); hint.style.cssText = "display:block;color:var(--muted);font-size:11.5px;margin-top:-4px"; lg.append(hint); ui.setLevel = v => sg.set(v, true); }
+    renderLevel(); ui.renderRevise = renderLevel;
     // floating hint and heads-up text over the stage
     let tipEl = null, tipT = 0;
     ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
@@ -456,8 +480,10 @@ const SCENES = {
   earth: { u: "G", view: 120, rate: 25, src: () => [{ x: 0, y: 0, q: -1, R: 6.371, name: "Earth" }], parts: K0 => [orbiter(K0, 1, 12, 1), orbiter(K0, 1, 42.16, 1)] },
   moon: { u: "G", view: 1000, rate: 1500, src: K0 => { const v = vCirc(K0, 1.0123, 384.4); return [{ x: -4.67, y: 0, q: -1, R: 6.371, name: "Earth", free: true, vx: 0, vy: -v * 0.01215 }, { x: 379.7, y: 0, q: -0.0123, R: 1.737, name: "Moon", free: true, vx: 0, vy: v * 0.98785 }]; } },
   sun: { u: "SUN", view: 6.6, rate: 0.25, src: () => [{ x: 0, y: 0, q: -1, R: 0.03, name: "Sun" }], parts: K0 => [orbiter(K0, 1, 0.387, 1, "Mercury"), orbiter(K0, 1, 0.723, 1, "Venus"), orbiter(K0, 1, 1, 1, "Earth"), orbiter(K0, 1, 1.524, 1, "Mars"), orbiter(K0, 1, 0.35, 1.32, "a comet")] },
+  transfer: { u: "SUN", view: 6.6, rate: 0.25, src: () => [{ x: 0, y: 0, q: -1, R: 0.03, name: "Sun" }], parts: K0 => [turn(orbiter(K0, 1, 1, 1, "Earth"), -0.12), turn(orbiter(K0, 1, 1.524, 1, "Mars"), 0.75), orbiter(K0, 1, 1, 1, "spacecraft")] },
   binary: { u: "SUN", view: 9, rate: 0.5, src: K0 => { const v = vCirc(K0, 2, 1) / 2; return [{ x: -0.5, y: 0, q: -1, R: 0.04, name: "star A", free: true, vx: 0, vy: -v }, { x: 0.5, y: 0, q: -1, R: 0.04, name: "star B", free: true, vx: 0, vy: v }]; }, parts: K0 => [orbiter(K0, 2, 3, 1, "planet")] }
 };
+const turn = (p, a) => { const c = Math.cos(a), s = Math.sin(a); [p.x, p.y, p.vx, p.vy] = [p.x * c - p.y * s, p.x * s + p.y * c, p.vx * c - p.vy * s, p.vx * s + p.vy * c]; return p; };   // start an orbiter part-way round
 function orbiter(K0, m, r, f, name) { return { x: r, y: 0, vx: 0, vy: vCirc(K0, m, r) * f, qm: 1, trail: [], name }; }   // f = speed as a multiple of the circular-orbit speed
 
 // ---------------- The page ----------------
@@ -483,6 +509,7 @@ const ui = K.app({
     { title: "Kepler's laws", q: "Four planets and a comet orbit the Sun. Which goes round fastest? Switch on 'Equal-time sectors' and watch the comet: compare its speed when near the Sun and when far away, and compare the areas of the wedges.", hint: "The nearer a planet is to the Sun, the stronger the pull and the faster it goes; and its orbit is shorter too, so its year is much shorter (T² is proportional to r³: Kepler's third law). The comet speeds up as it falls towards the Sun and slows as it climbs away, but the line joining it to the Sun sweeps out equal areas in equal times (Kepler's second law). Gravitational potential energy turns into kinetic energy and back: see the left-hand graph.", setup() { set({ scene: "sun", tilt: false, sectors: true }); } },
     { title: "The gravity well", q: "Tilt the map. The potential around the Earth now looks like a well. Launch satellites at different speeds. How does the picture explain the difference between an orbit and an escape?", hint: "The depth of the well at any point is the energy per kilogram needed to climb out from there. A satellite in orbit rolls round the inside wall without enough kinetic energy to reach the rim. Give it more than the escape speed and it has enough to climb all the way out. The slope of the wall is the field strength, steepest near the Earth. (The well is a graph of energy, not a picture of space itself.)", setup() { set({ scene: "earth", tilt: true }); } },
     { title: "Earth and Moon", q: "The Earth and Moon orbit their common centre of mass. Tilt the map: find the Moon's small well on the side of the Earth's. Try to launch a spacecraft from near the Earth so that it reaches the Moon.", hint: "The Moon's well is a small dimple in the broad slope of the Earth's. To get there a spacecraft needs nearly the Earth's escape speed, aimed ahead of where the Moon is now, because the Moon moves on during the three-day journey. Between the two is a point where the pulls balance. Apollo used a path that looped round the back of the Moon and fell home again if the engine failed.", setup() { set({ scene: "moon", tilt: false }); } },
+    { lvl: "adv", title: "Earth to Mars: a Hohmann transfer", q: "A spacecraft is coasting round the Sun in the Earth's orbit (1 AU). Mars orbits at 1.52 AU. Press 'Engine burn: speed up 1%' until the furthest point of the spacecraft's orbit reads 1.52 AU. By what percentage did you have to raise its speed? Does it meet Mars when it gets there?", hint: "About 10%: theory says the speed must rise by a factor √(2r₂/(r₁+r₂)) = 1.099. The spacecraft then coasts along half an ellipse, taking about 8.5 months, with no further fuel. It only meets Mars if Mars is in the right place when it arrives, which is why launches wait for a 'window' every 26 months. A second burn on arrival is needed to match Mars's speed. This two-burn route uses the least fuel.", setup() { set({ scene: "transfer", tilt: false }); } },
     { title: "Two suns", q: "A planet orbits a pair of stars. Is its orbit steady? Now launch another planet much closer in, between or near the stars. What happens to it?", hint: "Far from the pair, the planet feels them almost as a single mass and its orbit is stable. Close in, the pull changes from moment to moment as the stars swing round, and the planet is soon thrown out or swallowed: there is no stable orbit there, and tiny changes in the launch give completely different results (chaos). Real planets around double stars, such as Kepler-16b, all orbit well outside the pair.", setup() { set({ scene: "binary", tilt: false }); } }
   ],
   batch: [
@@ -492,6 +519,31 @@ const ui = K.app({
     { title: "Kepler's second law", question: "Does a comet sweep out area at a steady rate all round its orbit?", how: "Each run: a comet on a long oval orbit round the Sun is followed from a random point for 0.02 years. The result is the area swept by the line from the Sun, per year.", xLabel: "", yLabel: "area swept per year (AU²)", reps: 200, bins: 20, lo: 2.3, hi: 2.6, theory: 0.5 * 0.35 * vCirc(39.478, 1, 0.35) * 1.32, theoryLabel: "½ r v at closest point", run(x, rnd) { const p = orbiter(39.478, 1, 0.35, 1.32), S0 = [{ x: 0, y: 0, q: -1, R: 0.01 }]; advance(p, S0, 39.478, rnd() * 2.5); let area = 0; for (let k = 0; k < 20; k++) { const x0 = p.x, y0 = p.y; advance(p, S0, 39.478, 0.001); area += 0.5 * Math.abs(x0 * p.y - y0 * p.x); } return area / 0.02; }, note: "The bars pile into one narrow column: the same area per year whether the comet is racing past the Sun or crawling at its furthest. Any spread is only the small error of the step-by-step calculation." },
     { title: "Steering ions with plates", question: "How does the sideways deflection of an ion depend on the charge on the plates?", how: "Each run: a proton is fired at 300 km/s (give or take 2%) along the middle of the gap between two plates carrying the chosen charge. The result is how far it has been pushed sideways after travelling 16 cm.", xLabel: "charge on each plate (nC)", yLabel: "deflection (cm)", xs: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], reps: 5, yMin: 0, fit: true, run(q, rnd) { const p = { x: -8, y: 0, vx: 30 * (1 + 0.02 * rnd.gauss()), vy: 0, qm: 9.58e-3 }, S0 = plates(q); for (let k = 0; k < 4000 && p.x < 8; k++) if (!advance(p, S0, 89880, 0.002)) return null; return -p.y; }, note: "The field between the plates is proportional to the charge on them, so the force, and hence the deflection, is too: a straight line through the origin. A faster ion spends less time between the plates and is deflected less." }
   ],
+  levels: { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "Pearson Edexcel International GCSE Physics (4PH1): 8(b) Motion in the Universe, weight = mg, and electric charge (like charges repel, unlike attract). Field strength and potential formulas are A level.", adv: "WJEC Eduqas A level Physics: Component 2 Topic 6 Fields and Topic 8 Orbits and the wider Universe." } },
+  revise: {
+    ideas: [
+      { lvl: "std", tag: "4PH1 8(b)", text: "Gravitational force keeps moons in orbit round planets, planets and comets round the Sun, and satellites round the Earth." },
+      { lvl: "std", tag: "4PH1 8(b)", text: "Planets move in nearly circular orbits; comets move in long ellipses, fastest when closest to the Sun. Orbital speed = 2πr/T." },
+      { lvl: "std", tag: "4PH1 8(b)", text: "Gravitational field strength g is different on different planets and moons. Weight = mass × g." },
+      { lvl: "std", tag: "4PH1 Section 2", text: "There are two kinds of charge. Like charges repel; unlike charges attract." },
+      { lvl: "adv", tag: "A level Eduqas", text: "Field strength is force per unit charge (or per unit mass). Point source: E = kQ/r², g = GM/r². Fields add as vectors." },
+      { lvl: "adv", tag: "A level Eduqas", text: "Potential is energy per unit charge (or mass): V = kQ/r, V<sub>g</sub> = −GM/r. Potentials add as numbers. Field strength = −(potential gradient), so equipotentials are closest where the field is strongest and field lines cross them at right angles." },
+      { lvl: "adv", tag: "A level Eduqas", text: "Circular orbit: GMm/r² = mv²/r, so v = √(GM/r) and T² = 4π²r³/GM (Kepler's third law). Escape speed = √(2GM/r)." },
+      { lvl: "adv", tag: "A level Eduqas", text: "Total energy in orbit = kinetic + potential = −GMm/2r for a circular orbit. It is negative for any bound orbit and zero or more for escape." },
+      { lvl: "beyond", tag: "Beyond the spec", text: "A Hohmann transfer is the cheapest two-burn route between circular orbits: half an ellipse that just touches both." }
+    ],
+    questions: [
+      { lvl: "std", marks: 2, q: "State the force that keeps a satellite in orbit round the Earth, and the direction in which it acts.", ans: "<ul><li>Gravitational force (the satellite's weight)</li><li>towards the centre of the Earth</li></ul>" },
+      { lvl: "std", marks: 3, q: "A satellite orbits the Earth in a circle of radius 42 200 km once every 24 hours. Calculate its orbital speed in km/s.", ans: "<ul><li>speed = 2πr/T</li><li>= 2 × π × 42 200 ÷ (24 × 3600)</li><li>= 3.07 km/s</li></ul>" },
+      { lvl: "std", marks: 3, q: "Describe how the speed of a comet changes during its orbit of the Sun, and explain why.", ans: "<ul><li>It is fastest when closest to the Sun and slowest when furthest away</li><li>As it approaches, gravitational potential energy is transferred to kinetic energy (the Sun's pull speeds it up)</li><li>As it moves away, kinetic energy is transferred back (the pull slows it down)</li></ul>" },
+      { lvl: "std", marks: 2, q: "The gravitational field strength is 10 N/kg on Earth and 1.6 N/kg on the Moon. Calculate the weight of a 70 kg astronaut in each place.", ans: "<ul><li>Earth: 70 × 10 = 700 N</li><li>Moon: 70 × 1.6 = 112 N</li></ul>" },
+      { lvl: "adv", marks: 3, q: "Calculate the electric field strength and the potential 5.0 cm from a point charge of +2.0 nC. (k = 8.99 × 10⁹ N m² C⁻²)", ans: "<ul><li>E = kQ/r² = 8.99 × 10⁹ × 2.0 × 10⁻⁹ ÷ 0.050² = 7190 V/m (7.2 kV/m), away from the charge</li><li>V = kQ/r = 8.99 × 10⁹ × 2.0 × 10⁻⁹ ÷ 0.050</li><li>= 360 V</li></ul>" },
+      { lvl: "adv", marks: 4, q: "Show that the period of a satellite in a circular orbit of radius r round a planet of mass M is given by T² = 4π²r³/GM.", ans: "<ul><li>Gravity provides the centripetal force: GMm/r² = mv²/r</li><li>so v² = GM/r</li><li>v = 2πr/T, so 4π²r²/T² = GM/r</li><li>rearranging: T² = 4π²r³/GM</li></ul>" },
+      { lvl: "adv", marks: 3, q: "Calculate the escape speed from the surface of the Earth. (GM = 3.99 × 10¹⁴ m³ s⁻², radius 6.37 × 10⁶ m)", ans: "<ul><li>½mv² = GMm/r, so v = √(2GM/r)</li><li>= √(2 × 3.99 × 10¹⁴ ÷ 6.37 × 10⁶)</li><li>= 1.12 × 10⁴ m/s (11.2 km/s)</li></ul>" },
+      { lvl: "adv", marks: 3, q: "At the point midway between two equal positive charges the field strength is zero but the potential is not. Explain.", ans: "<ul><li>Field strength is a vector: the two fields there are equal in size and opposite in direction, so they cancel</li><li>Potential is a scalar: the two (positive) potentials add</li><li>The potential there is neither rising nor falling along the line (zero gradient), which is consistent with zero field</li></ul>" },
+      { lvl: "adv", marks: 3, q: "A satellite in a circular orbit fires its engine briefly to speed up. Describe its new orbit and what happens to its total energy.", ans: "<ul><li>The orbit becomes an ellipse</li><li>with the point of the burn as its closest point (it climbs to a greater distance on the far side)</li><li>Its total energy increases (becomes less negative); if it reaches zero the satellite escapes</li></ul>" }
+    ]
+  },
   notes: `<h3>What is being modelled</h3>
 <ul><li><b>Sources</b> are point charges or point masses. The field of each falls as 1/r² and the potential as 1/r; the fields of several sources are added as vectors and the potentials as numbers.</li>
 <li><b>Colour</b> shows potential. <b>White curves</b> are equipotentials at equal steps of potential, so they crowd together where the field is strong. <b>Arrowed lines</b> are field lines; the moving streaks drift along the field direction.</li>
@@ -521,12 +573,14 @@ g = ui.group("Your pointer");
 ctl.tool = K.seg(g, { value: "launch", options: [["launch", "Launch"], ["move", "Move a source"], ["add", "Add"], ["del", "Remove"]], on: v => tool = v, tip: "Launch: drag to aim, release to let go. A dotted line predicts the path." });
 ctl.ion = K.seg(g, { label: "Launch a", value: 1, options: [[1, "positive ion"], [-1, "negative ion"]], on: v => ion = v });
 ctl.q = K.slider(g, { label: "Source to add", min: -5, max: 5, step: 0.5, value: 1, fmt: v => U === UNITS.E ? (v > 0 ? "+" : "") + v + " nC" : Math.abs(v || 0.5) + " " + U.srcU, on: v => newQ = v });
+r1 = K.row(g); const burn = f => { const p = tracked(); if (p && !p.dead) { p.vx *= f; p.vy *= f; sectors = []; } };
+K.btn(r1, "Engine burn: speed up 1%", () => burn(1.01)).title = "Fires the tracked object's engine forwards"; K.btn(r1, "slow down 1%", () => burn(1 / 1.01));
 r1 = K.row(g); K.btn(r1, "Clear launched objects", () => { parts = []; elog = []; sectors = []; }); K.btn(r1, "Clear trails", () => { for (const p of parts) p.trail = []; });
 g = ui.group("What to show");
 for (const [k, label] of [["map", "Potential as colour"], ["equi", "Equipotentials"], ["lines", "Field lines"], ["flow", "Flowing field"], ["tilt", "Tilt: potential as a landscape"], ["sectors", "Equal-time sectors (Kepler's 2nd law)"]]) ctl[k] = K.toggle(g, { label, value: show[k], on: v => { show[k] = v; dirty = true; sectors = []; } });
 ctl.zoom = K.slider(g, { label: "Zoom out", min: 0.4, max: 3, step: 0.1, value: 1, fmt: v => "× " + v.toFixed(1), on: v => { view = SCENES[scene].view * v; dirty = true; resetTracers(); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.1, max: 5, step: 0.1, value: 1, fmt: v => "× " + v.toFixed(1), on: v => speedMul = v });
-const read = K.readout(g, [["pp", "potential at pointer"], ["pf", "field at pointer"], ["r", "tracked: distance"], ["v", "tracked: speed"], ["vc", "circular speed there"], ["ve", "escape speed there"], ["orb", "orbit"], ["T", "period"]]);
+const read = K.readout(g, [["pp", "potential at pointer"], ["pf", "field at pointer"], ["r", "tracked: distance"], ["v", "tracked: speed"], ["vc", "circular speed there"], ["ve", "escape speed there"], ["orb", "orbit"], ["apo", "nearest · furthest point"], ["T", "period"]]);
 function set(o) {
   if (o.scene) load(o.scene); ctl.zoom.set(1);
   for (const k of ["tilt", "sectors"]) { show[k] = !!o[k]; ctl[k].set(show[k]); } dirty = true;
@@ -648,8 +702,8 @@ ui.run(dt => {
     const pr = probe ? Math.hypot(probe.x - s0.x, probe.y - s0.y) : null; chF.draw([{ pts, color: K.cssVar("--s0"), label: "along the line to your pointer", width: 2.2 }, { pts: th, color: K.cssVar("--s1"), dash: [5, 4], label: "first source alone (1/r²)" }], { xLabel: "distance from the first source (" + U.len + ")", yLabel: U.fldName + " (" + U.fldU + ")", yMax: th[6][1] * 1.1, vlines: pr ? [{ x: pr, label: "pointer" }] : [] }); }
   if (probe) { fieldAt(src, U.K, probe.x, probe.y, _f); read.set("pp", K.sig(U.pot(_f[2]), 3) + " " + U.potU); read.set("pf", K.sig(U.fld(Math.hypot(_f[0], _f[1])), 3) + " " + U.fldU); }
   if (p && !p.dead && src.length) { const o = orbitOf(p); read.set("r", K.sig(o.r, 3) + " " + U.len); read.set("v", K.sig(U.spd(Math.hypot(p.vx, p.vy)), 3) + " " + U.spdU);
-    if (U !== UNITS.E) { read.set("vc", K.sig(U.spd(vCirc(U.K, o.m, o.r)), 3) + " " + U.spdU); read.set("ve", K.sig(U.spd(vEsc(U.K, o.m, o.r)), 3) + " " + U.spdU); read.set("orb", o.e < 0 ? (o.ecc < 0.03 ? "circle" : "ellipse, e = " + o.ecc.toFixed(2)) : "escaping"); read.set("T", o.T ? fmtT(o.T) : "never returns"); } else for (const k of ["vc", "ve", "orb", "T"]) read.set(k, "–"); }
-  else for (const k of ["r", "v", "vc", "ve", "orb", "T"]) read.set(k, p && p.dead ? "gone" : "–");
+    if (U !== UNITS.E) { read.set("vc", K.sig(U.spd(vCirc(U.K, o.m, o.r)), 3) + " " + U.spdU); read.set("ve", K.sig(U.spd(vEsc(U.K, o.m, o.r)), 3) + " " + U.spdU); read.set("orb", o.e < 0 ? (o.ecc < 0.03 ? "circle" : "ellipse, e = " + o.ecc.toFixed(2)) : "escaping"); read.set("T", o.T ? fmtT(o.T) : "never returns"); read.set("apo", o.a ? K.sig(o.a * (1 - o.ecc), 3) + " · " + K.sig(o.a * (1 + o.ecc), 3) + " " + U.len : K.sig(o.r, 3) + " · never returns"); } else for (const k of ["vc", "ve", "orb", "apo", "T"]) read.set(k, "–"); }
+  else for (const k of ["r", "v", "vc", "ve", "orb", "apo", "T"]) read.set(k, p && p.dead ? "gone" : "–");
   let hud = `<b style="font-size:14px">${fmtT(tSim)}</b>`; if (probe && !show.tilt) { fieldAt(src, U.K, probe.x, probe.y, _f); hud += `<br>at the pointer: ${U.fldName} = ${K.sig(U.fld(Math.hypot(_f[0], _f[1])), 3)} ${U.fldU}<br>potential ${K.sig(U.pot(_f[2]), 3)} ${U.potU}`; } ui.hud(hud);
 });
 const fmtT = t => U === UNITS.G ? (t < 120 ? t.toFixed(0) + " min" : t < 2880 ? (t / 60).toFixed(1) + " hours" : (t / 1440).toFixed(1) + " days") : U === UNITS.SUN ? t.toFixed(2) + " years" : t.toFixed(2) + " µs";

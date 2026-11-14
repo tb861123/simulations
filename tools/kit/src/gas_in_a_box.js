@@ -24,7 +24,9 @@ const P_KPA = 1660.54;               // 1 model unit of pressure (u / nm / ps²)
 const E_ZJ = 1.66054;                // 1 model unit of energy = 1.66054 × 10⁻²¹ J
 const CS = 1, GXN = 41, GYN = 24;    // the box is divided into 1 nm squares so a molecule only tests its near neighbours
 const PISTON_SPEED = 0.25;           // how fast the held piston is pushed on screen, nm/ps (batch runs push much more gently)
-const GASES = { He: { m: 4.0, r: 0.13, name: "helium" }, Ne: { m: 20.2, r: 0.14, name: "neon" }, Ar: { m: 39.9, r: 0.17, name: "argon" }, Xe: { m: 131.3, r: 0.20, name: "xenon" } };
+const GASES = { He: { m: 4.0, r: 0.13, name: "helium" }, Ne: { m: 20.2, r: 0.14, name: "neon" }, Ar: { m: 39.9, r: 0.17, name: "argon" }, Xe: { m: 131.3, r: 0.20, name: "xenon" },
+  Air: { m: 29, r: 0.18, name: "air" }, NH3: { m: 17, r: 0.15, name: "ammonia" }, HCl: { m: 36.5, r: 0.17, name: "hydrogen chloride" } };
+const SMOKE = 4;   // species number of a speck of solid ammonium chloride
 
 class Gas {
   constructor(rand, cap = 3200) {
@@ -47,11 +49,16 @@ class Gas {
     }
     this.zero(); this.p = n * R * T / this.volume();
   }
+  // the classic diffusion demonstration: a tube of air with ammonia let in at the left end and hydrogen chloride at the right
+  tube(nAir, nEach) {
+    this.L = this.target = LMAX; this.fill(nAir, "Air", this.Tw); const r = this.rand; this.made = 0;
+    for (let k = 0; k < 2 * nEach; k++) { const i = this.n++, B = k & 1, G = GASES[B ? "HCl" : "NH3"]; this.m[i] = G.m; this.r[i] = G.r; this.sp[i] = B ? 3 : 2; this.x[i] = B ? LMAX - 0.2 - r() * 1.5 : 0.2 + r() * 1.5; this.y[i] = .3 + r() * (BH - .6); this.z[i] = .3 + r() * (BD - .6); const s = Math.sqrt(R * this.Tw / G.m); this.vx[i] = s * r.gauss(); this.vy[i] = s * r.gauss(); this.vz[i] = s * r.gauss(); }
+  }
   zero() { this.Q = 0; this.W = 0; this.imp = 0; this.tAcc = 0; this.ncoll = 0; this.path = 0; }
   volume() { return this.L * BH * BD; }
   ke() { let s = 0; for (let i = 0; i < this.n; i++) s += this.m[i] * (this.vx[i] ** 2 + this.vy[i] ** 2 + this.vz[i] ** 2); return s / 2; }   // total kinetic energy = the gas's internal energy U
-  temp(which) { let s = 0, c = 0; for (let i = 0; i < this.n; i++) if (which == null || this.sp[i] === which) { s += this.m[i] * (this.vx[i] ** 2 + this.vy[i] ** 2 + this.vz[i] ** 2); c++; } return c ? s / (3 * c * R) : 0; }   // temperature IS average kinetic energy: ½m<v²> = 3/2 kT
-  sameSpeed() { for (let i = 0; i < this.n; i++) { const v = Math.hypot(this.vx[i], this.vy[i], this.vz[i]) || 1, s = Math.sqrt(3 * R * this.Tw / this.m[i]) / v; this.vx[i] *= s; this.vy[i] *= s; this.vz[i] *= s; } }
+  temp(which) { let s = 0, c = 0; for (let i = 0; i < this.n; i++) if (this.sp[i] !== SMOKE && (which == null || this.sp[i] === which)) { s += this.m[i] * (this.vx[i] ** 2 + this.vy[i] ** 2 + this.vz[i] ** 2); c++; } return c ? s / (3 * c * R) : 0; }   // temperature IS average kinetic energy: ½m<v²> = 3/2 kT
+  sameSpeed() { for (let i = 0; i < this.n; i++) { if (this.sp[i] === SMOKE) continue; const v = Math.hypot(this.vx[i], this.vy[i], this.vz[i]) || 1, s = Math.sqrt(3 * R * this.Tw / this.m[i]) / v; this.vx[i] *= s; this.vy[i] *= s; this.vz[i] *= s; } }
   // A molecule meets a fixed wall. ax: 0,1,2 = x,y,z; dir = which way is back into the box.
   bounce(i, ax, dir) {
     const m = this.m[i], v = ax === 0 ? this.vx : ax === 1 ? this.vy : this.vz, vn = v[i];
@@ -93,7 +100,11 @@ class Gas {
     // ---- collisions between molecules ----
     head.fill(-1); for (let i = 0; i < n; i++) { const c = Math.min(GXN - 1, x[i] / CS | 0) + GXN * Math.min(GYN - 1, y[i] / CS | 0); next[i] = head[c]; head[c] = i; }
     const hit = (i, j) => {
-      const dx = x[j] - x[i], dy = y[j] - y[i], dz = z[j] - z[i], d2 = dx * dx + dy * dy + dz * dz, rr = r[i] + r[j]; if (d2 >= rr * rr || d2 === 0) return;
+      const dx = x[j] - x[i], dy = y[j] - y[i], dz = z[j] - z[i], d2 = dx * dx + dy * dy + dz * dz, rr = r[i] + r[j];
+      if (d2 < 0.8 && this.sp[i] + this.sp[j] === 5 && this.sp[i] > 1 && this.sp[j] > 1 && this.sp[i] !== this.sp[j]) {          // NH3 comes within about a nanometre of HCl: they join to make a speck of white solid, NH4Cl, which stays put
+        for (const q of [i, j]) { this.sp[q] = SMOKE; m[q] = 1e7; vx[q] = vy[q] = vz[q] = 0; } x[j] = x[i]; y[j] = y[i]; this.made = (this.made || 0) + 1; return;
+      }
+      if (d2 >= rr * rr || d2 === 0) return;
       const vn = ((vx[i] - vx[j]) * dx + (vy[i] - vy[j]) * dy + (vz[i] - vz[j]) * dz); if (vn <= 0) return;      // already moving apart
       // Elastic collision: swap momentum along the line joining the two centres. J is the impulse each gives the other.
       const J = 2 * vn / d2 / (1 / m[i] + 1 / m[j]), a = J / m[i], b = J / m[j];
@@ -144,8 +155,9 @@ const rnd = K.rng(Date.now() % 1e6 + 7);
 let gas = new Gas(rnd), S = { n: 600, gas: "Ar", gasB: "", T: 300 }, rate = 12, colourBy = "speed", graph = "pV", track = false;
 let trail = [], path1 = [], bigTrail = [], hist = [new Float32Array(36), new Float32Array(36)], hgt = new Float32Array(24), mixLog = [], U0 = 0, sampleT = 0;
 gas.sparks = [];
-function refill(split) { gas.L = gas.target = split ? LMAX : gas.L; gas.fill(S.n, S.gas, gas.Tw, S.gasB || null, split); if (gas.big) addBig(true); clearLog(); }
+function refill(split) { S.tube = false; if (S.gas === "Air") { S.gas = "Ar"; ctl.gas.set("Ar"); } gas.L = gas.target = split ? LMAX : gas.L; gas.fill(S.n, S.gas, gas.Tw, S.gasB || null, split); if (gas.big) addBig(true); clearLog(); }
 function clearLog() { trail = []; path1 = []; bigTrail = []; mixLog = []; hist[0].fill(0); hist[1].fill(0); hgt.fill(0); gas.zero(); U0 = gas.ke(); gas.mfp = 0; }
+function startTube() { S.tube = true; S.gas = "Air"; S.gasB = ""; ctl.gasB.set(""); gas.tube(1100, 160); clearLog(); }
 function addBig(on) { gas.big = on ? { x: gas.L / 2, y: BH / 2, z: BD / 2, vx: 0, vy: 0, vz: 0, m: 2500, r: 1.3 } : null; bigTrail = []; }
 
 const ui = K.app({
@@ -162,7 +174,11 @@ const ui = K.app({
     { title: "The bicycle pump", q: "The walls are now insulated: no heat can get in or out. Push the piston in. What happens to the temperature? Then pull it out again. Where does the energy come from and go to?", hint: "Pushing the piston in heats the gas: a molecule bouncing off an advancing piston comes back faster, like a ball off a moving bat. The work you do becomes kinetic energy (ΔU = W, with Q = 0). Pulling it out cools the gas, because molecules bounce back slower from a retreating piston. This is why a bicycle pump gets hot, a diesel engine needs no spark, and rising air cools to make clouds. Push in and pull back out: the gas does not quite return to 300 K, because a fast push is not perfectly reversible.", setup() { set({ n: 800, gas: "Ar", gasB: "", Tw: 300, conduct: false, free: false, L: 40, g: 0, big: false, track: false, graph: "pV", colour: "speed" }); refill(); } },
     { title: "Brownian motion", q: "A smoke particle, thousands of times heavier than a molecule, sits in the gas. Watch its trail. Why does it jiggle, and why does it never settle?", hint: "At any instant slightly more molecules hit one side than the other, by chance, so the particle is nudged about at random. In 1827 Robert Brown saw pollen grains do this under a microscope; in 1905 Einstein explained it, which was the first strong evidence that atoms are real. Heat the gas and the jiggling gets more violent.", setup() { set({ n: 1400, gas: "Ar", gasB: "", Tw: 300, conduct: true, free: false, L: 30, g: 0, big: true, track: false, graph: "pV", colour: "speed" }); refill(); } },
     { title: "Diffusion: fast molecules, slow mixing", q: "Helium on the left, xenon on the right, with a partition between. Press 'Remove the partition'. The helium atoms move at over 1000 m/s, so does the gas mix in an instant? One molecule is tracked to help you see why.", hint: "Mixing takes far longer than a molecule's speed suggests. Each molecule travels only a few nanometres before a collision sends it off in a new direction, so it wanders in a zig-zag (a random walk) instead of crossing in a straight line. The light helium still spreads faster than the heavy xenon. This is why a smell takes many seconds to cross a room.", setup() { set({ n: 1600, gas: "He", gasB: "Xe", Tw: 300, conduct: true, free: false, L: 40, g: 0, big: false, track: true, graph: "mix", colour: "gas" }); gas.L = 40; refill(true); } },
-    { title: "An atmosphere in a box", q: "Gravity is switched on (hugely stronger than real, so its effect fits in the box). How does the density of the gas change with height? What happens if you heat the gas, or change to a lighter gas?", hint: "The gas is densest at the bottom and thins out with height, halving every fixed distance: an exponential fall, like the Earth's atmosphere. Gravity pulls the molecules down; their thermal motion spreads them back up. Hotter or lighter gas reaches higher, which is why hydrogen and helium escape from the Earth but oxygen and nitrogen stay.", setup() { set({ n: 1500, gas: "Xe", gasB: "", Tw: 300, conduct: true, free: false, L: 30, g: 0.003, big: false, track: false, graph: "height", colour: "speed" }); refill(); } }
+    { title: "An atmosphere in a box", q: "Gravity is switched on (hugely stronger than real, so its effect fits in the box). How does the density of the gas change with height? What happens if you heat the gas, or change to a lighter gas?", hint: "The gas is densest at the bottom and thins out with height, halving every fixed distance: an exponential fall, like the Earth's atmosphere. Gravity pulls the molecules down; their thermal motion spreads them back up. Hotter or lighter gas reaches higher, which is why hydrogen and helium escape from the Earth but oxygen and nitrogen stay.", setup() { set({ n: 1500, gas: "Xe", gasB: "", Tw: 300, conduct: true, free: false, L: 30, g: 0.003, big: false, track: false, graph: "height", colour: "speed" }); refill(); } },
+    { title: "The ammonia and hydrogen chloride tube", q: "A tube of air. Ammonia (NH₃, blue) is let in at the left end and hydrogen chloride (HCl, orange) at the right at the same moment. Where they meet they react to make white specks of solid ammonium chloride. Will the white ring form in the middle?", hint: "It forms nearer the hydrogen chloride end. Both gases are at the same temperature, so their molecules have the same average kinetic energy, but ammonia molecules (17) are lighter than hydrogen chloride (36.5) and so move faster and diffuse further in the same time. Neither crosses quickly, because each molecule is constantly knocked off course by air molecules. The graph marks where the ratio of the masses predicts the ring.", setup() { set({ n: 1100, gasB: "", Tw: 300, conduct: true, free: false, L: 40, g: 0, big: false, track: false, graph: "ring", colour: "gas" }); startTube(); rate = 30; ctl.rate.set(30); } },
+    { lvl: "adv", title: "A heat engine made of molecules", q: "The gas is helium, as in real Stirling engines. The walls are switched between hot (600 K) and cold (300 K) while the piston moves out and in: a Stirling cycle. Watch the loop it traces on the p–V graph. Why does the gas do more work going out than is needed to push it back? What does the area of the loop mean?", hint: "The gas is expanded while hot (high pressure, so it does a lot of work on the piston) and compressed while cold (low pressure, so less work is needed). The difference is the net work out, equal to the area inside the loop. Heat flows in from the hot walls and a smaller amount flows out to the cold walls: an engine turns only part of the heat into work. The measured efficiency is below the ideal for this cycle because the piston moves at a finite speed and the gas is never quite at the wall temperature.", setup() { set({ n: 600, gas: "He", gasB: "", conduct: true, free: false, g: 0, big: false, track: false, graph: "pV", colour: "speed", engine: true, L: 14, Tw: 600 }); refill(); eng.Th = 600; ctl.Th.set(600); eng.Tc = 300; ctl.Tc.set(300); eng.kind = "stirling"; ctl.ekind.set("stirling"); ctl.eng.set(true); engineStart(true); rate = 70; ctl.rate.set(70); } },
+    { lvl: "adv", title: "The petrol engine: the Otto cycle", q: "Now the gas is compressed and expanded with insulated walls (adiabatically), and heated (to 900 K) only at the smallest volume, as the spark does in a petrol engine. Compare the shape of the loop with the Stirling engine's. Which strokes are steeper than an isotherm, and why?", hint: "The compression and power strokes are adiabats, steeper than isotherms, because the gas heats as it is squeezed and cools as it expands. The ideal efficiency depends only on the compression ratio r: 1 − 1/r^(γ−1), here with r = 3 and γ = 5/3. Real petrol engines use r of about 10; higher still and the mixture ignites too early (knocking).", setup() { set({ n: 600, gas: "He", gasB: "", conduct: true, free: false, g: 0, big: false, track: false, graph: "pV", colour: "speed", engine: true, L: 12, Tw: 300 }); refill(); eng.Th = 900; ctl.Th.set(900); eng.Tc = 300; ctl.Tc.set(300); eng.kind = "otto"; ctl.ekind.set("otto"); ctl.eng.set(true); engineStart(true); rate = 70; ctl.rate.set(70); } },
+    { lvl: "adv", title: "Carnot's limit", q: "The Carnot cycle takes in heat only at the hot temperature and gives it out only at the cold temperature. Compare the measured efficiency with the Carnot limit 1 − Tc/Th. Then narrow the gap between the hot and cold temperatures. What happens to the efficiency?", hint: "No engine working between two temperatures can beat 1 − Tc/Th, however cleverly it is built: this is one form of the second law of thermodynamics. The molecular engine here falls a little short, because its piston moves at a finite speed and the gas is never quite at the wall temperature. Make Th and Tc closer and the limit itself shrinks: a power station needs very hot steam and cold cooling water.", setup() { set({ n: 600, gas: "He", gasB: "", conduct: true, free: false, g: 0, big: false, track: false, graph: "pV", colour: "speed", engine: true, L: 8, Tw: 600 }); refill(); eng.Th = 600; ctl.Th.set(600); eng.Tc = 300; ctl.Tc.set(300); eng.kind = "carnot"; ctl.ekind.set("carnot"); ctl.eng.set(true); engineStart(true); rate = 70; ctl.rate.set(70); } }
   ],
   batch: [
     { title: "Boyle's law", question: "How does pressure depend on volume at a fixed temperature?", how: "Each run: 150 argon atoms at 300 K in a box of fixed volume for 200 ps; the pressure is worked out from every kick on the walls.", xLabel: "volume (nm³)", yLabel: "pressure (kPa)", xs: [1152, 1440, 1872, 2448, 3168, 4032, 5040, 5760], reps: 5, yMin: 0, theory: V => 150 * R * 300 / V * P_KPA, theoryLabel: "p = NkT / V", run: (V, r) => meanPressure({ n: 150, T: 300, L: V / (BH * BD), ps: 200, settle: 20 }, r), note: "With only 150 molecules the number of wall hits in 200 ps varies by chance from run to run. A real gas sample has about 10²⁰ molecules, so its pressure does not flicker at all." },
@@ -171,8 +187,37 @@ const ui = K.app({
     { title: "Squeezing an insulated gas", question: "How hot does a gas get when it is compressed with no heat allowed out?", how: "Each run: 400 argon atoms start at 300 K in the full box with insulated walls. The piston is pushed in gently (30 m/s) to the chosen volume, then the temperature is read.", xLabel: "final volume ÷ starting volume", yLabel: "final temperature (K)", xs: [0.25, 0.35, 0.5, 0.65, 0.8, 1], reps: 4, theory: f => 300 * Math.pow(f, -2 / 3), theoryLabel: "T × V^(2/3) = constant", run(f, r) { let s = 0, c = 0; const g0 = new Gas(r, 410); g0.smooth = 1e-9; g0.ps = 0.03; g0.conduct = false; g0.Tw = 300; g0.fill(400, "Ar", 300); g0.target = LMAX * f; const dt = 0.04, T = (LMAX - LMAX * f) / g0.ps + 30; for (let t = 0; t < T; t += dt) { g0.step(dt); if (t > T - 20) { s += g0.temp(); c++; } } return s / c; }, note: "The starting temperature of a 400-atom sample is itself a little random, which carries through. A piston pushed quickly heats the gas more than this, because molecules rebound from it with extra speed: try it on screen. Theory for a gas of single atoms: T × V^(γ−1) = constant with γ = 5/3." },
     { title: "Same temperature, same energy?", question: "Do heavy molecules have the same average kinetic energy as light ones at the same temperature?", how: "Each run: 150 atoms of one gas (He 4, Ne 20, Ar 40, Xe 131) at 300 K for 60 ps. The result is the average kinetic energy per atom.", xLabel: "mass of one atom (u)", yLabel: "mean kinetic energy (×10⁻²¹ J)", xs: [4, 20.2, 39.9, 131.3], reps: 6, yMin: 0, yMax: 10, theory: () => 1.5 * R * 300 * E_ZJ, theoryLabel: "3/2 kT", run(mass, r) { const key = Object.keys(GASES).find(k => GASES[k].m === mass); let s = 0, c = 0; trial({ n: 150, gas: key, T: 300, ps: 60 }, r, (g, t) => { if (t > 20 && (c++ % 20 === 0)) s += g.ke() / g.n; }); return s / Math.ceil(c / 20) * E_ZJ; }, note: "Speeds differ enormously (helium is nearly six times faster than xenon) but ½mv² averages out the same. Each run is an average over only 150 atoms, hence the scatter." },
     { title: "How far between collisions?", question: "How does the mean free path depend on how many molecules are in the box?", how: "Each run: argon at 300 K in the full box for 80 ps. Mean free path = total distance flown ÷ number of free flights.", xLabel: "number of molecules", yLabel: "mean free path (nm)", xs: [150, 200, 300, 450, 600, 900, 1200], reps: 4, yMin: 0, theory: n => 1 / (Math.SQRT2 * (n / (LMAX * BH * BD)) * Math.PI * 0.34 * 0.34), theoryLabel: "1 / (√2 n π d²)", run(n, r) { const g = trial({ n, T: 300, ps: 80 }, r); return (g.pathAll + g.path) / (2 * (g.collAll + g.ncoll)); }, note: "Double the number of molecules and each one meets a neighbour after half the distance. At low numbers the path becomes as long as the box, so walls interrupt flights and the simple formula overestimates what is measured." },
+    { title: "The ammonia and hydrogen chloride tube", question: "How far along the tube does the white ring form?", how: "Each run: a tube of 500 air molecules with 90 ammonia molecules released at one end and 90 hydrogen chloride at the other. When 25 specks of solid have formed, their average position is recorded as a percentage of the tube's length from the ammonia end.", xLabel: "", yLabel: "position of the ring (% of the way from the ammonia end)", reps: 60, bins: 20, lo: 30, hi: 80, theory: 100 * Math.sqrt(36.5 / 17) / (1 + Math.sqrt(36.5 / 17)), theoryLabel: "from the masses", run(x, r) { const g = new Gas(r, 700); g.smooth = 1e-9; g.Tw = 300; g.tube(500, 90); for (let t = 0; t < 1500 && (g.made || 0) < 25; t += 0.035) g.step(0.035); let sx = 0, c = 0; for (let i = 0; i < g.n; i++) if (g.sp[i] === SMOKE) { sx += g.x[i]; c++; } return c ? 100 * sx / c / LMAX : null; }, note: "Graham's law says rates of diffusion go as 1/√(mass), which puts the ring 59% of the way along. The model lands close to that but not exactly on it: how far a molecule gets also depends on its size and on the first molecules to arrive, which are the fastest few." },
     { title: "The spread of speeds", question: "Start every molecule at the same speed. After collisions have shared the energy out, what speeds do you find?", how: "Each run: 300 argon atoms in a small box all start at 432 m/s with insulated walls. After 80 ps (several collisions each) the speed of one atom is recorded.", xLabel: "", yLabel: "speed of one molecule (m/s)", reps: 300, bins: 26, lo: 0, hi: 1100, theory: Math.sqrt(8 * R * 300 / (Math.PI * 39.9)) * 1000, theoryLabel: "mean speed √(8kT/πm)", run(x, r) { const g = trial({ n: 300, T: 300, L: LMIN, conduct: false, same: true, ps: 80 }, r); return Math.hypot(g.vx[0], g.vy[0], g.vz[0]) * 1000; }, note: "This is not measurement error: it is the Maxwell–Boltzmann distribution itself. Even at one fixed temperature, molecules have a wide range of speeds, with a long tail of fast ones." }
   ],
+  levels: { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "Pearson Edexcel International GCSE Physics (4PH1) 5(d) Ideal gas molecules; diffusion from Chemistry (4CH1) Topic 1.", adv: "WJEC Eduqas A level Physics: kinetic theory and thermal physics. Heat engines and Carnot are beyond the spec." } },
+  revise: {
+    ideas: [
+      { lvl: "std", tag: "4PH1 5(d)", text: "Gas molecules move quickly and at random. Pressure is caused by molecules hitting the walls of the container." },
+      { lvl: "std", tag: "4PH1 5(d)", text: "Heating a gas makes its molecules move faster. The kelvin temperature is proportional to their average kinetic energy." },
+      { lvl: "std", tag: "4PH1 5(d)", text: "Absolute zero (0 K = −273 °C) is the temperature at which molecules would have the least possible energy. T in K = temperature in °C + 273." },
+      { lvl: "std", tag: "4PH1 5(d)", text: "Fixed mass at constant temperature: p₁V₁ = p₂V₂. Fixed mass at constant volume: p₁/T₁ = p₂/T₂ (T in kelvin)." },
+      { lvl: "std", tag: "4CH1 Topic 1", text: "Diffusion is the spreading of particles from where they are concentrated to where they are not, caused by their random motion. Lighter particles diffuse faster." },
+      { lvl: "adv", tag: "A level Eduqas", text: "Ideal gas equation: pV = nRT = NkT." },
+      { lvl: "adv", tag: "A level Eduqas", text: "Kinetic theory: p = ⅓ρ⟨c²⟩ = ⅓(N/V)m⟨c²⟩, so the mean kinetic energy of a molecule is 3/2 kT." },
+      { lvl: "adv", tag: "A level Eduqas", text: "Internal energy of an ideal monatomic gas: U = 3/2 nRT. It depends only on temperature." },
+      { lvl: "adv", tag: "A level Eduqas", text: "First law of thermodynamics: ΔU = Q − W, where W is the work done BY the gas (W = pΔV at constant pressure; the area under a p–V graph in general). This simulation shows work done ON the gas, which has the opposite sign." },
+      { lvl: "beyond", tag: "Beyond the spec", text: "No heat engine working between a hot temperature T<sub>h</sub> and a cold one T<sub>c</sub> can have an efficiency above 1 − T<sub>c</sub>/T<sub>h</sub> (Carnot)." }
+    ],
+    questions: [
+      { lvl: "std", marks: 3, q: "Use ideas about molecules to explain why a gas exerts a pressure on the walls of its container.", ans: "<ul><li>Molecules are in constant random motion</li><li>They collide with the walls and bounce off, so each collision exerts a force on the wall</li><li>Pressure is the total force of these collisions divided by the area of the wall</li></ul>" },
+      { lvl: "std", marks: 3, q: () => `Your gas is at a pressure of ${(gas.p * P_KPA).toFixed(0)} kPa in a volume of ${gas.volume().toFixed(0)} nm³. The piston is pushed in until the volume is ${(gas.volume() / 2).toFixed(0)} nm³, at constant temperature. Calculate the new pressure.`, ans: () => `<ul><li>p₁V₁ = p₂V₂</li><li>p₂ = ${(gas.p * P_KPA).toFixed(0)} × ${gas.volume().toFixed(0)} ÷ ${(gas.volume() / 2).toFixed(0)}</li><li>= ${(2 * gas.p * P_KPA).toFixed(0)} kPa (halving the volume doubles the pressure)</li></ul>` },
+      { lvl: "std", marks: 4, q: () => `A sealed, rigid container of gas is at ${(gas.p * P_KPA).toFixed(0)} kPa and ${Math.round(gas.temp()) - 273} °C. It is heated to ${Math.round(gas.temp()) - 273 + 150} °C. Calculate the new pressure.`, ans: () => { const T1 = Math.round(gas.temp()), T2 = T1 + 150, p = gas.p * P_KPA; return `<ul><li>Convert to kelvin: T₁ = ${T1} K, T₂ = ${T2} K</li><li>p₁/T₁ = p₂/T₂</li><li>p₂ = ${p.toFixed(0)} × ${T2} ÷ ${T1}</li><li>= ${(p * T2 / T1).toFixed(0)} kPa</li></ul>`; } },
+      { lvl: "std", marks: 2, q: "Explain, in terms of molecules, why the pressure of a gas in a sealed rigid container rises when it is heated.", ans: "<ul><li>The molecules move faster (have more kinetic energy)</li><li>So they hit the walls more often and harder, giving a greater force on the same area</li></ul>" },
+      { lvl: "std", marks: 3, q: "In the ammonia and hydrogen chloride experiment the white ring forms nearer the hydrogen chloride end of the tube. Explain why. (Relative molecular masses: NH₃ = 17, HCl = 36.5.)", ans: "<ul><li>The ring forms where the two gases meet</li><li>Ammonia molecules are lighter, so at the same temperature they move faster</li><li>Ammonia therefore diffuses further along the tube in the same time</li></ul>" },
+      { lvl: "std", marks: 2, q: "Smoke particles in air, seen under a microscope, move about at random. What does this show about air?", ans: "<ul><li>Air is made of molecules that are moving quickly and at random</li><li>They hit the much larger smoke particles unevenly from different sides, knocking them about</li></ul>" },
+      { lvl: "adv", marks: 3, q: () => `Your box holds ${gas.n} atoms at ${gas.temp().toFixed(0)} K in a volume of ${gas.volume().toFixed(0)} nm³ (1 nm³ = 10⁻²⁷ m³). Use pV = NkT to calculate the pressure. (k = 1.38 × 10⁻²³ J/K)`, ans: () => `<ul><li>p = NkT/V</li><li>= ${gas.n} × 1.38 × 10⁻²³ × ${gas.temp().toFixed(0)} ÷ ${(gas.volume() * 1e-27).toExponential(2)}</li><li>= ${(gas.n * R * gas.temp() / gas.volume() * P_KPA).toFixed(0)} kPa (the simulation measures ${(gas.p * P_KPA).toFixed(0)} kPa from the collisions)</li></ul>` },
+      { lvl: "adv", marks: 3, q: () => `Calculate the rms speed of ${GASES[S.gas].name} atoms (mass ${GASES[S.gas].m} u) at ${gas.temp().toFixed(0)} K. (1 u = 1.66 × 10⁻²⁷ kg)`, ans: () => `<ul><li>½m⟨c²⟩ = 3/2 kT, so c<sub>rms</sub> = √(3kT/m)</li><li>= √(3 × 1.38 × 10⁻²³ × ${gas.temp().toFixed(0)} ÷ ${(GASES[S.gas].m * 1.66e-27).toExponential(2)})</li><li>= ${(Math.sqrt(3 * R * gas.temp() / GASES[S.gas].m) * 1000).toFixed(0)} m/s</li></ul>` },
+      { lvl: "adv", marks: 3, q: "A gas in an insulated cylinder is compressed quickly by a piston. State what happens to its temperature and explain this using the first law of thermodynamics.", ans: "<ul><li>The temperature rises</li><li>No heat is transferred (Q = 0), and work is done on the gas</li><li>So by the first law the internal energy increases, and for an ideal gas internal energy depends only on temperature</li></ul>" },
+      { lvl: "adv", marks: 4, q: "Explain why the pressure of an ideal gas is proportional to its kelvin temperature at constant volume, starting from p = ⅓(N/V)m⟨c²⟩.", ans: "<ul><li>Mean kinetic energy ½m⟨c²⟩ = 3/2 kT</li><li>So m⟨c²⟩ = 3kT</li><li>Substituting: p = ⅓(N/V) × 3kT = NkT/V</li><li>With N and V fixed, p ∝ T</li></ul>" },
+      { lvl: "adv", marks: 3, q: () => `An engine takes in heat at ${eng.Th} K and rejects heat at ${eng.Tc} K. Calculate the greatest efficiency it could possibly have, and explain why a real engine does worse.`, ans: () => `<ul><li>Maximum (Carnot) efficiency = 1 − T<sub>c</sub>/T<sub>h</sub> = 1 − ${eng.Tc}/${eng.Th}</li><li>= ${(100 * (1 - eng.Tc / eng.Th)).toFixed(0)}%</li><li>Real engines have friction, lose heat to the surroundings and run at finite speed, so their processes are not reversible</li></ul>` }
+    ]
+  },
   notes: `<h3>What is being modelled</h3>
 <p>Up to 3000 gas atoms as hard elastic spheres in a box 40 nm wide (less when the piston is in), 24 nm high and 6 nm deep. You look at it from the front; atoms nearer the back are drawn smaller and dimmer.</p>
 <ul><li><b>Molecules</b> fly in straight lines and collide elastically, conserving momentum and kinetic energy. Masses and sizes are those of helium, neon, argon and xenon (single atoms).</li>
@@ -180,7 +225,9 @@ const ui = K.app({
 <li><b>Temperature</b> is the average kinetic energy: ½m⟨v²⟩ = 3/2 kT.</li>
 <li><b>Walls that conduct heat</b> return each molecule with a random velocity typical of the wall temperature. <b>Insulated walls</b> give a perfect bounce.</li>
 <li><b>The piston</b> is either moved by you at 250 m/s (slower than most molecules, but not by much: a fast push heats the gas a little more than a gentle one would) or left free, with mass and a steady outside pressure. A molecule bouncing off a moving piston gains or loses energy: that is the work done.</li>
-<li><b>Energy tally:</b> ΔU = Q + W, where Q is heat in through the walls and W is work done on the gas by the piston.</li></ul>
+<li><b>Energy tally:</b> ΔU = Q + W, where Q is heat in through the walls and W is work done on the gas by the piston.</li>
+<li><b>Heat engines (Advanced):</b> the piston and the wall temperature are switched through four stages automatically. Work and heat are taken from the same tallies; nothing about efficiency is put in.</li>
+<li><b>The diffusion tube:</b> 1100 air molecules, with 160 ammonia and 160 hydrogen chloride molecules released at opposite ends. An ammonia molecule that comes within about 0.9 nm of a hydrogen chloride molecule makes a fixed white speck.</li></ul>
 <h3>Simplifications</h3>
 <ul><li>Atoms are hard spheres. There are no attractive forces, so this gas can never condense into a liquid, and it has no rotation or vibration (so γ = 5/3, as for a real monatomic gas).</li>
 <li>The box is tiny and the gas dense (a few atmospheres to tens of atmospheres) so that collisions are frequent enough to watch. Because the atoms take up a few per cent of the space, the measured pressure sits slightly above the ideal value when the gas is squeezed hard: real gases do this too.</li>
@@ -201,7 +248,7 @@ ctl.gas = K.seg(g, { label: "Gas", value: "Ar", options: [["He", "He 4"], ["Ne",
 ctl.gasB = K.seg(g, { label: "Mixed half-and-half with", value: "", options: [["", "nothing"], ["He", "He"], ["Ar", "Ar"], ["Xe", "Xe"]], on: v => { S.gasB = v; ctl.colour.set(v ? "gas" : "speed", true); refill(); } });
 g = ui.group("Heat");
 ctl.conduct = K.toggle(g, { label: "Walls conduct heat (off = insulated)", value: true, on: v => { gas.conduct = v; } });
-ctl.Tw = K.slider(g, { label: "Wall temperature", min: 20, max: 1000, step: 10, value: 300, fmt: v => v + " K (" + (v - 273) + " °C)", on: v => { gas.Tw = v; } });
+ctl.Tw = K.slider(g, { label: "Wall temperature", min: 20, max: 1200, step: 10, value: 300, fmt: v => v + " K (" + (v - 273) + " °C)", on: v => { gas.Tw = v; } });
 g = ui.group("The piston");
 ctl.free = K.seg(g, { value: false, options: [[false, "You hold it"], [true, "Free to move"]], on: v => { gas.free = v; gas.vp = 0; gas.target = gas.L; ctl.L.set(gas.L); if (v) { ctl.pext.set(Math.round(K.clamp(gas.p * P_KPA, 50, 3000) / 10) * 10); gas.pext = ctl.pext.value / P_KPA; } } });
 ctl.L = K.slider(g, { label: "Volume", min: LMIN, max: LMAX, step: 0.5, value: LMAX, fmt: v => Math.round(v * BH * BD) + " nm³", on: v => { gas.target = v; if (gas.partition) gas.partition = 0; }, tip: "Or drag the piston. Only when you hold it." });
@@ -211,10 +258,16 @@ let r1 = K.row(g); K.btn(r1, "Give all the same speed", () => { gas.sameSpeed();
 ctl.big = K.toggle(g, { label: "Add a smoke particle", value: false, on: v => addBig(v) });
 ctl.track = K.toggle(g, { label: "Track one molecule", value: false, on: v => { track = v; path1 = []; } });
 ctl.g = K.slider(g, { label: "Gravity", min: 0, max: 0.008, step: 0.0005, value: 0, fmt: v => v ? (v * 102).toFixed(2) + " × 10¹² g" : "off", on: v => { gas.g = v; } });
+const engGroup = g = ui.group("Heat engine (A level)");
+ctl.ekind = K.seg(g, { value: "stirling", options: [["stirling", "Stirling"], ["otto", "Otto (petrol)"], ["carnot", "Carnot"]], on: v => { eng.kind = v; if (eng.on) engineStart(true); } });
+ctl.Th = K.slider(g, { label: "Hot temperature", min: 350, max: 1200, step: 10, value: 600, unit: "K", on: v => { eng.Th = Math.max(v, eng.Tc + 50); } });
+ctl.Tc = K.slider(g, { label: "Cold temperature", min: 100, max: 400, step: 10, value: 300, unit: "K", on: v => { eng.Tc = Math.min(v, eng.Th - 50); } });
+ctl.eng = K.toggle(g, { label: "Run the engine", value: false, on: v => engineStart(v) });
+const eread = K.readout(g, [["st", "stage"], ["cy", "cycles completed"], ["w", "net work out per cycle"], ["q", "heat in per cycle"], ["eff", "efficiency (measured)"], ["id", "this cycle, ideal"], ["ca", "Carnot limit 1 − Tc/Th"]]);
 g = ui.group("What to show");
-ctl.graph = K.seg(g, { label: "Right-hand graph", value: "pV", options: [["pV", "p–V"], ["pT", "p–T"], ["VT", "V–T"], ["height", "height"], ["mix", "mixing"]], on: v => { graph = v; } });
+ctl.graph = K.seg(g, { label: "Right-hand graph", value: "pV", options: [["pV", "p–V"], ["pT", "p–T"], ["VT", "V–T"], ["height", "height"], ["mix", "mixing"], ["ring", "tube"]], on: v => { graph = v; } });
 ctl.colour = K.seg(g, { label: "Colour molecules by", value: "speed", options: [["speed", "kinetic energy"], ["gas", "which gas"]], on: v => { colourBy = v; } });
-ctl.rate = K.slider(g, { label: "Slow motion", min: 1, max: 30, step: 1, value: rate, fmt: v => v + " ps each second", on: v => rate = v });
+ctl.rate = K.slider(g, { label: "Slow motion", min: 1, max: 80, step: 1, value: rate, fmt: v => v + " ps each second", on: v => rate = v });
 r1 = K.row(g); K.btn(r1, "Clear the graphs and tallies", clearLog);
 const read = K.readout(g, [["T", "gas temperature"], ["p", "pressure (measured)"], ["pi", "pressure (NkT/V)"], ["V", "volume"], ["v", "typical speed"], ["ke", "mean KE per molecule"], ["mfp", "mean free path"], ["dU", "ΔU since cleared"], ["Q", "heat in, Q"], ["W", "work done on gas, W"]]);
 function set(o) {
@@ -222,6 +275,7 @@ function set(o) {
   if (o.Tw != null) { gas.Tw = o.Tw; ctl.Tw.set(o.Tw); } if (o.conduct != null) { gas.conduct = o.conduct; ctl.conduct.set(o.conduct); }
   if (o.L != null) { gas.L = gas.target = o.L; ctl.L.set(o.L); } if (o.free != null) { gas.free = o.free; gas.vp = 0; ctl.free.set(o.free); } if (o.pext != null) { gas.pext = o.pext / P_KPA; ctl.pext.set(o.pext); }
   if (o.g != null) { gas.g = o.g; ctl.g.set(o.g); } if (o.big != null) { addBig(o.big); ctl.big.set(o.big); } if (o.track != null) { track = o.track; ctl.track.set(o.track); path1 = []; }
+  if (eng.on && !o.engine) { engineStart(false); ctl.eng.set(false); }
   if (o.graph) { graph = o.graph; ctl.graph.set(o.graph); } if (o.colour) { colourBy = o.colour; ctl.colour.set(o.colour); }
 }
 
@@ -235,7 +289,7 @@ function sprite(rgb, rpx) {   // a small glowing ball, drawn once and stamped ma
   gr.addColorStop(0, `rgba(${rgb.map(v => Math.min(255, v + 60)).join()},1)`); gr.addColorStop(rpx / R2 * 0.9, `rgba(${rgb.join()},.95)`); gr.addColorStop(Math.min(.99, rpx / R2 * 1.25), `rgba(${rgb.join()},.22)`); gr.addColorStop(1, `rgba(${rgb.join()},0)`);
   c.fillStyle = gr; c.fillRect(0, 0, R2 * 2, R2 * 2); s.half = R2; sprites.set(key, s); if (sprites.size > 900) sprites.clear(); return s;
 }
-const GASCOL = [[90, 200, 255], [255, 170, 70]];
+const GASCOL = [[90, 200, 255], [255, 170, 70]], TUBECOL = [[62, 72, 96], [62, 72, 96], [80, 225, 255], [255, 140, 70], [255, 255, 255]];
 const wallCol = T => { const c = ramp(T / 1000); return `rgb(${c.join()})`; };
 let view = { s: 20, ox: 30, oy: 30 };
 const cv = ui.canvas(c => { view.s = Math.min((c.w - 225) / LMAX, (c.h - 56) / BH); view.ox = 22; view.oy = (c.h - BH * view.s) / 2; });
@@ -247,7 +301,7 @@ function draw() {
   c.globalCompositeOperation = "lighter";
   const { x, y, z, vx, vy, vz, m, r, sp, n } = gas, bySpeed = colourBy === "speed";
   for (let i = 0; i < n; i++) {
-    const depth = 0.72 + 0.4 * z[i] / BD, rgb = bySpeed ? ramp((Math.round(m[i] * (vx[i] * vx[i] + vy[i] * vy[i] + vz[i] * vz[i]) / (3 * R) / 60) * 60) / 1400) : GASCOL[sp[i]];
+    const depth = (sp[i] === SMOKE ? 1.2 : 0.72 + 0.4 * z[i] / BD), rgb = S.tube ? TUBECOL[sp[i]] : bySpeed ? ramp((Math.round(m[i] * (vx[i] * vx[i] + vy[i] * vy[i] + vz[i] * vz[i]) / (3 * R) / 60) * 60) / 1400) : GASCOL[sp[i]];
     const im = sprite(rgb, Math.max(1.2, Math.round(r[i] * s * depth * 2.2) / 2)); c.globalAlpha = 0.45 + 0.55 * z[i] / BD; c.drawImage(im, X(x[i]) - im.half, Y(y[i]) - im.half);
   }
   c.globalAlpha = 1;
@@ -289,7 +343,7 @@ function charts() {
   const T = gas.temp() || 1, mMin = Math.min(GASES[S.gas].m, S.gasB ? GASES[S.gasB].m : 1e9), vmax = Math.ceil(3.1 * Math.sqrt(3 * R * Math.max(T, 60) / mMin) * 10) / 10, bw = vmax / VB, cnt = [0, 0];
   if (charts.vmax !== vmax) { hist[0].fill(0); hist[1].fill(0); charts.vmax = vmax; }
   for (const hh of hist) for (let k = 0; k < VB; k++) hh[k] *= 0.86;
-  for (let i = 0; i < gas.n; i++) { const v = Math.hypot(gas.vx[i], gas.vy[i], gas.vz[i]), k = v / bw | 0; if (k < VB) hist[gas.sp[i]][k]++; cnt[gas.sp[i]]++; }
+  for (let i = 0; i < gas.n; i++) { const v = Math.hypot(gas.vx[i], gas.vy[i], gas.vz[i]), k = v / bw | 0; if (gas.sp[i] < 2) { if (k < VB) hist[gas.sp[i]][k]++; cnt[gas.sp[i]]++; } }
   const series = [], names = [GASES[S.gas].name, S.gasB ? GASES[S.gasB].name : ""], cols = S.gasB ? ["rgb(90,200,255)", "rgb(255,170,70)"] : [K.cssVar("--s0")];
   for (let q = 0; q < (S.gasB ? 2 : 1); q++) {
     let tot = 0; for (let k = 0; k < VB; k++) tot += hist[q][k]; tot = tot || 1;
@@ -300,7 +354,8 @@ function charts() {
   chV.draw(series, { xMin: 0, xMax: vmax * 1000 });
   // --- the second graph ---
   const N = gas.n, V = gas.volume(), dot = K.cssVar("--s0"), th = K.cssVar("--s1"), now = K.cssVar("--s2");
-  if (graph === "pV") { const pts = []; for (let v = LMIN * BH * BD; v <= LMAX * BH * BD; v += 60) pts.push([v, N * R * T / v * P_KPA]); chG.draw([{ pts, color: th, dash: [5, 4], label: "p = NkT/V at " + T.toFixed(0) + " K" }, { pts: trail.map(q => [q[0], q[1]]), type: "dots", color: dot, r: 2.2, alpha: .55, label: "measured" }, { pts: [[V, gas.p * P_KPA]], type: "dots", color: now, r: 5 }], { title: "Pressure against volume", xLabel: "volume (nm³)", yLabel: "pressure (kPa)", xMin: 1000, xMax: 6000 }); }
+  if (graph === "pV") { const pts = []; for (let v = LMIN * BH * BD; v <= LMAX * BH * BD; v += 60) pts.push([v, N * R * T / v * P_KPA]); const ser = [{ pts, color: th, dash: [5, 4], label: "isotherm at " + T.toFixed(0) + " K" }]; if (!gas.conduct) ser.push({ pts: pts.map(q => [q[0], gas.p * P_KPA * Math.pow(V / q[0], 5 / 3)]), color: "#c58cff", dash: [2, 4], label: "adiabat: pV^(5/3) constant" });
+    chG.draw([...ser, eng.on ? { pts: trail.map(q => [q[0], q[1]]), color: dot, width: 1.6, label: "the engine's cycle" } : { pts: trail.map(q => [q[0], q[1]]), type: "dots", color: dot, r: 2.2, alpha: .55, label: "measured" }, { pts: [[V, gas.p * P_KPA]], type: "dots", color: now, r: 5 }], { title: "Pressure against volume", xLabel: "volume (nm³)", yLabel: "pressure (kPa)", xMin: 1000, xMax: 6000 }); }
   else if (graph === "pT") chG.draw([{ pts: [[0, 0], [1000, N * R * 1000 / V * P_KPA]], color: th, dash: [5, 4], label: "p = NkT/V" }, { pts: trail.map(q => [q[2], q[1]]), type: "dots", color: dot, r: 2.2, alpha: .55, label: "measured" }, { pts: [[T, gas.p * P_KPA]], type: "dots", color: now, r: 5 }], { title: "Pressure against temperature", xLabel: "gas temperature (K)", yLabel: "pressure (kPa)", xMin: 0, xMax: 1000 });
   else if (graph === "VT") { const pe = gas.free ? gas.pext : gas.p; chG.draw([{ pts: [[0, 0], [1000, N * R * 1000 / pe]], color: th, dash: [5, 4], label: "V = NkT/p" }, { pts: trail.map(q => [q[2], q[0]]), type: "dots", color: dot, r: 2.2, alpha: .55, label: "measured" }, { pts: [[T, V]], type: "dots", color: now, r: 5 }], { title: "Volume against temperature", xLabel: "gas temperature (K)", yLabel: "volume (nm³)", xMin: 0, xMax: 1000, yMax: 6000 }); }
   else if (graph === "height") {
@@ -308,14 +363,46 @@ function charts() {
     const ser = [{ type: "bars", w: 1, color: dot, alpha: .8, label: "molecules at each height", pts: Array.from(hgt, (v, k) => [k + .5, v / (tot || 1)]) }];
     if (gas.g && !S.gasB) { const hs = R * T / (GASES[S.gas].m * gas.g), norm = hs * (1 - Math.exp(-BH / hs)), pts = []; for (let k = 0; k <= 48; k++) pts.push([k / 2, Math.exp(-k / 2 / hs) / norm]); ser.push({ pts, color: th, dash: [5, 4], label: "exp(−mgh/kT)" }); }
     chG.draw(ser, { title: "How the gas is spread with height", xLabel: "height (nm)", yLabel: "share per nm", xMin: 0, xMax: 24 });
+  } else if (graph === "ring") {
+    const hb = new Float32Array(20); let made = 0; for (let i = 0; i < N; i++) if (gas.sp[i] === SMOKE) { hb[Math.min(19, gas.x[i] / 2 | 0)] += 0.5; made += 0.5; }
+    chG.draw([{ type: "bars", w: 2, color: "#e8ecf5", alpha: .85, label: "specks of white solid (" + made + ")", pts: Array.from(hb, (v, k) => [k * 2 + 1, v]) }], { title: "Where the white ring forms", xLabel: "distance from the ammonia end (nm)", yLabel: "specks", xMin: 0, xMax: 40, vlines: [{ x: 20, label: "half-way" }, { x: 40 * Math.sqrt(36.5 / 17) / (1 + Math.sqrt(36.5 / 17)), label: "predicted from the masses", color: K.cssVar("--s1"), row: 1 }] });
   } else chG.draw([{ pts: mixLog.map(q => [q[0], q[1]]), color: "rgb(90,200,255)", label: GASES[S.gas].name + " that has crossed to the right" }, { pts: mixLog.map(q => [q[0], q[2]]), color: "rgb(255,170,70)", label: (S.gasB ? GASES[S.gasB].name : "second gas") + " that has crossed to the left" }], { title: "Mixing", xLabel: "time (ps)", yLabel: "% on the far side", yMax: 60, hlines: [{ y: 50, label: "fully mixed" }] });
 }
+
+// ---------------- A heat engine made of molecules (Advanced) ----------------
+/* The engine is nothing more than a rule for when to move the piston and what temperature to make the walls.
+   Each cycle has four stages. Work out = the net work the gas does on the piston; heat in = the heat that flowed in from the hot walls. */
+const eng = { on: false, kind: "stirling", Th: 600, Tc: 300, stage: 0, t0: 0, warm: true, q0: 0, w0: 0, qin: 0, sumW: 0, sumQ: 0, cycles: 0 };
+const STAGE = {
+  stirling: ["hot expansion: heat in, work out", "cooling at constant volume", "cold compression: work in, heat out", "heating at constant volume"],
+  otto: ["power stroke: insulated expansion", "exhaust: cooling at constant volume", "compression stroke: insulated", "ignition: heating at constant volume"],
+  carnot: ["hot expansion at constant temperature", "insulated expansion: cools to the cold temperature", "cold compression at constant temperature", "insulated compression: heats to the hot temperature"]
+};
+function engineApply() {
+  const k = eng.kind, st = eng.stage, rT = Math.pow(eng.Th / eng.Tc, 1.5), hot = st === 0 || st === 3;
+  if (k === "stirling") { gas.conduct = true; gas.Tw = hot ? eng.Th : eng.Tc; gas.target = st === 0 ? 36 : st === 2 ? 14 : gas.L; }
+  else if (k === "otto") { gas.conduct = st === 1 || st === 3; gas.Tw = st === 3 ? eng.Th : eng.Tc; gas.target = st === 0 ? 36 : st === 2 ? 12 : gas.L; }
+  else { gas.conduct = st === 0 || st === 2; gas.Tw = st === 0 ? eng.Th : eng.Tc; gas.target = [Math.max(9, LMAX / rT), LMAX, Math.min(38, LMIN * rT), LMIN][st]; }
+  ctl.conduct.set(gas.conduct); ctl.Tw.set(gas.Tw);
+}
+function engineStart(on) { eng.on = on; gas.free = false; ctl.free.set(false); gas.ps = on ? 0.05 : PISTON_SPEED;   /* the engine's piston moves gently (50 m/s) so that the gas can keep up with it */
+  if (!on) return; Object.assign(eng, { stage: 3, t0: gas.t, warm: true, sumW: 0, sumQ: 0, cycles: 0, qin: 0, q0: gas.Q, w0: gas.W }); trail = []; graph = "pV"; ctl.graph.set("pV"); engineApply(); }
+function engineStep() {
+  const T = gas.temp(), moved = Math.abs(gas.target - gas.L) < 0.02, waited = gas.t - eng.t0, st = eng.stage, k = eng.kind;
+  const still = k === "stirling" ? st === 1 || st === 3 : k === "otto" ? st === 1 || st === 3 : false;          // stages where the piston stays put and only heat flows
+  const done = still ? (waited > 12 && (st === 3 ? T > eng.Th * 0.96 : T < eng.Tc * 1.04)) || waited > 150 : moved && waited > 5;
+  if (!done) return;
+  const dQ = gas.Q - eng.q0; if (dQ > 0) eng.qin += dQ; eng.q0 = gas.Q; eng.stage = (st + 1) % 4; eng.t0 = gas.t;
+  if (eng.stage === 0) { if (!eng.warm) { eng.sumW += -(gas.W - eng.w0); eng.sumQ += eng.qin; eng.cycles++; } eng.warm = false; eng.w0 = gas.W; eng.qin = 0; trail = []; }
+  engineApply();
+}
+const engIdeal = () => { const r = eng.kind === "otto" ? 3 : 36 / 14, a = eng.Th - eng.Tc; return eng.kind === "carnot" ? 1 - eng.Tc / eng.Th : eng.kind === "otto" ? 1 - Math.pow(r, -2 / 3) : a * Math.log(r) / (eng.Th * Math.log(r) + 1.5 * a); };
 
 // ---------------- The loop ----------------
 let frame = 0;
 ui.run(dt => {
   let left = rate * Math.max(dt, 1 / 120), guard = 0; const h = safeDt(gas);
-  while (left > 1e-6 && guard++ < 14) { const d = Math.min(h, left); gas.step(d); left -= d; }
+  while (left > 1e-6 && guard++ < (eng.on ? 45 : 14)) { const d = Math.min(h, left); gas.step(d); if (eng.on) engineStep(); left -= d; }
   if (track && gas.n) { path1.push([gas.x[0], gas.y[0]]); if (path1.length > 900) path1.shift(); }
   if (gas.big) { bigTrail.push([gas.big.x, gas.big.y]); if (bigTrail.length > 1500) bigTrail.shift(); }
   if (gas.free || Math.abs(gas.target - gas.L) > 0.01) ctl.L.set(Math.round(gas.L * 2) / 2);
@@ -328,7 +415,9 @@ ui.run(dt => {
   read.set("T", T.toFixed(0) + " K"); read.set("p", pk.toFixed(0) + " kPa"); read.set("pi", (N * R * T / V * P_KPA).toFixed(0) + " kPa"); read.set("V", V.toFixed(0) + " nm³");
   read.set("v", (Math.sqrt(3 * R * T / GASES[S.gas].m) * 1000).toFixed(0) + " m/s" + (S.gasB ? " · " + (Math.sqrt(3 * R * T / GASES[S.gasB].m) * 1000).toFixed(0) : "")); read.set("ke", (U / (N || 1) * E_ZJ).toFixed(2) + " × 10⁻²¹ J");
   read.set("mfp", gas.mfp ? gas.mfp.toFixed(1) + " nm" : "–"); read.set("dU", z(U - U0)); read.set("Q", z(gas.Q)); read.set("W", z(gas.W));
-  ui.hud(`<b style="font-size:15px">p = ${pk.toFixed(0)} kPa</b><br>V = ${V.toFixed(0)} nm³ · T = ${T.toFixed(0)} K<br>N = ${N}` + (S.gasB ? `<br><span style="color:rgb(90,200,255)">${GASES[S.gas].name} ${gas.temp(0).toFixed(0)} K</span> · <span style="color:rgb(255,170,70)">${GASES[S.gasB].name} ${gas.temp(1).toFixed(0)} K</span>` : ""));
+  if (eng.on) { eread.set("st", (eng.stage + 1) + ": " + STAGE[eng.kind][eng.stage]); eread.set("cy", eng.cycles); eread.set("w", eng.cycles ? z(eng.sumW / eng.cycles) : "–"); eread.set("q", eng.cycles ? z(eng.sumQ / eng.cycles) : "–"); eread.set("eff", eng.cycles ? (100 * eng.sumW / eng.sumQ).toFixed(0) + "%" : "–"); eread.set("id", (100 * engIdeal()).toFixed(0) + "%"); eread.set("ca", (100 * (1 - eng.Tc / eng.Th)).toFixed(0) + "%"); }
+  ui.hud(`<b style="font-size:15px">p = ${pk.toFixed(0)} kPa</b><br>V = ${V.toFixed(0)} nm³ · T = ${T.toFixed(0)} K<br>N = ${N}` + (eng.on ? `<br><span style="color:#ffd28a">stage ${eng.stage + 1}: ${STAGE[eng.kind][eng.stage].split(":")[0]}</span>` : "") + (S.tube ? `<br><span style="color:rgb(80,225,255)">ammonia</span> · <span style="color:rgb(255,140,70)">hydrogen chloride</span> · white: solid` : "") + (S.gasB ? `<br><span style="color:rgb(90,200,255)">${GASES[S.gas].name} ${gas.temp(0).toFixed(0)} K</span> · <span style="color:rgb(255,170,70)">${GASES[S.gasB].name} ${gas.temp(1).toFixed(0)} K</span>` : ""));
 });
+ui.onLevel = v => { engGroup.style.display = v === "adv" ? "" : "none"; if (v !== "adv" && eng.on) { engineStart(false); ctl.eng.set(false); } }; ui.onLevel(ui.level);
 refill();
 ui.tip("Each dot is one atom · drag the piston to squeeze the gas · colour shows kinetic energy", 8000);

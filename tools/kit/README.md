@@ -29,3 +29,11 @@ central_limit_theorem, supply_demand, luck_and_skill, quantum_wave_lab,
 special_relativity, wind_tunnel, gravitational_lensing, lightning,
 chladni_plates, murmuration, gas_in_a_box, collision_theory,
 galaxy_collisions, epidemics, fields_orbits.
+
+## Levels and the Revise tab
+
+Pass `levels: { std, adv, specs: { std, adv } }` to `K.app` for a Standard /
+Advanced switch (`ui.level`, `ui.onLevel`); investigations with `lvl: "adv"`
+are hidden at Standard. Pass `revise: { ideas: [{ lvl, tag, text }],
+questions: [{ lvl, q, marks, ans }] }` for a Revise tab; `q` and `ans` may be
+functions so that questions can use the numbers on screen.

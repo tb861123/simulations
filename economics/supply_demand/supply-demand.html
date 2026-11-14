@@ -108,6 +108,14 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .k-bnote{overflow:auto;font-size:13px;color:var(--muted);background:var(--panel2);border-radius:10px;padding:9px 12px}
 .k-bnote b{color:var(--text)}
 kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+.k-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.02em;padding:1px 7px;border-radius:99px;vertical-align:1px;white-space:nowrap;background:#35505a;color:#c9ecdf}
+.k-tag.adv{background:#4b3a78;color:#e3d6ff}.k-tag.beyond{background:#39465c;color:#cfdaf0}
+.k-idea{font-size:13px;margin:0 0 8px;line-height:1.4}.k-spec{font-size:12px;color:var(--muted);margin:0 0 10px}
+.k-pane>h3{font-size:14px;margin:14px 0 8px;color:var(--accent)}
+.k-q h4{font-size:12px}.k-q .k-marks{margin-left:auto;color:var(--muted);font-weight:400}.k-q p{color:var(--text);font-size:13.5px}
+.k-q details{font-size:13px;color:var(--muted)}.k-q summary{cursor:pointer;color:var(--warn)}.k-q details ul{padding-left:18px;margin:4px 0}
+.k-level{padding-bottom:4px}
+.k-tabs button{font-size:13px;padding-left:2px;padding-right:2px}
 </style></head><body>
 <script>
 "use strict";
@@ -306,7 +314,7 @@ const K = (() => {
     addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
     // side panel tabs
     const tabs = $("nav", "k-tabs"), panes = {}; side.append(tabs);
-    const names = [["controls", "Controls"], ["missions", "Investigate"], ["notes", "The model"]];
+    const names = [["controls", "Controls"], ["missions", "Investigate"]].concat(o.revise ? [["revise", "Revise"]] : [], [["notes", "The model"]]);
     const show = id => { for (const [k] of names) { panes[k].classList.toggle("on", k === id); panes[k]._tab.classList.toggle("on", k === id); } };
     for (const [k, label] of names) { const b = $("button", "", label); b.onclick = () => show(k); tabs.append(b); panes[k] = $("div", "k-pane" + (k === "notes" ? " k-notes" : "")); panes[k]._tab = b; side.append(panes[k]); }
     show("controls"); ui.controls = panes.controls; ui.showTab = show;
@@ -319,11 +327,27 @@ const K = (() => {
       banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
       banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
     };
-    (o.missions || []).forEach((m, i) => {
-      const c = $("div", "k-mcard", `<h4><em>${i + 1}</em>${m.title}</h4><p>${m.q}</p>`);
+    const mcards = (o.missions || []).map(m => {
+      const c = $("div", "k-mcard", `<h4><em></em>${m.title}${m.lvl === "adv" ? ' <span class="k-tag adv">A level</span>' : ""}</h4><p>${m.q}</p>`);
       btn(c, "Set it up ▸", () => { c.classList.add("done"); c.querySelector("em").textContent = "✓"; m.setup && m.setup(); ui.mission(m); ui.setPlaying(true); show("controls"); }, "small primary");
-      panes.missions.append(c);
+      panes.missions.append(c); return [m, c];
     });
+    /* ---- Level (Standard / Advanced) and the Revise tab ----
+       o.levels = { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "...", adv: "..." } }
+       o.revise = { ideas: [{ lvl: "std"|"adv"|"beyond", tag, text }], questions: [{ lvl, q, marks, ans }] }   (q and ans may be functions, so they can use the numbers on screen)
+       Advanced shows everything; Standard hides anything marked "adv". */
+    ui.level = "std"; try { const l = localStorage.getItem("k-level"); if (l === "adv" || l === "std") ui.level = l; } catch (e) { }
+    if (!o.levels) ui.level = "adv";
+    const val = v => typeof v === "function" ? v() : v;
+    function renderLevel() {
+      let k = 0; for (const [m, c] of mcards) { const on = m.lvl !== "adv" || ui.level === "adv"; c.style.display = on ? "" : "none"; if (on) { k++; if (!c.classList.contains("done")) c.querySelector("em").textContent = k; } }
+      if (!o.revise) return; const P = panes.revise, see = x => x.lvl !== "adv" || ui.level === "adv", tagName = { std: "std", adv: "adv", beyond: "beyond" };
+      P.innerHTML = (o.levels ? `<p class="k-spec">${o.levels.specs[ui.level]}</p>` : "") + `<h3>Key ideas</h3>` + o.revise.ideas.filter(see).map(x => `<div class="k-idea"><span class="k-tag ${tagName[x.lvl]}">${x.tag}</span> ${val(x.text)}</div>`).join("") +
+        `<h3>Exam practice</h3>` + o.revise.questions.filter(see).map((x, i) => `<div class="k-mcard k-q"><h4><em>${i + 1}</em><span class="k-tag ${tagName[x.lvl]}">${x.lvl === "adv" ? "A level" : "GCSE"}</span><span class="k-marks">[${x.marks} mark${x.marks > 1 ? "s" : ""}]</span></h4><p>${val(x.q)}</p><details><summary>Mark scheme</summary>${val(x.ans)}</details></div>`).join("");
+      if (o.revise.questions.some(x => typeof x.q === "function")) btn(P, "↻ Use the numbers on screen now", renderLevel, "small");
+    }
+    if (o.levels) { const lg = $("div", "k-group k-level"); panes.controls.append(lg); const sg = seg(lg, { value: ui.level, options: [["std", o.levels.std], ["adv", o.levels.adv]], on: v => { ui.level = v; try { localStorage.setItem("k-level", v); } catch (e) { } hint.textContent = o.levels.specs[v]; renderLevel(); ui.onLevel && ui.onLevel(v); } }); const hint = $("small", "", o.levels.specs[ui.level]); hint.style.cssText = "display:block;color:var(--muted);font-size:11.5px;margin-top:-4px"; lg.append(hint); ui.setLevel = v => sg.set(v, true); }
+    renderLevel(); ui.renderRevise = renderLevel;
     // floating hint and heads-up text over the stage
     let tipEl = null, tipT = 0;
     ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
