@@ -1,115 +1,38 @@
 # Traffic Flow and Phantom Jams
 
-A teaching simulation showing how traffic jams appear "from nothing", why they
-travel backwards, and how density, speed limits, lorries, road works and
-variable speed limits change the flow on a motorway.
+Every vehicle on a loop of road follows one rule, the Intelligent Driver
+Model, with occasional lapses of attention. Above a certain density a small
+slow-down grows into a jam that travels backwards round the road.
 
 ## How to run
 
-Open `traffic-flow.html` in Chrome or Edge. There is nothing to install and it
-works offline.
+Open `traffic-flow.html` in Chrome or Edge. Nothing to install; works offline.
 
-## What you see
+## What it shows
 
-- **Centre top:** the road (a 3 km ring road drawn as a circle, or a 3 km
-  straight motorway drawn in two rows), with every vehicle coloured by speed
-  (red stopped → green fast). Lorries have an outline. Click any vehicle to
-  tap its brakes.
-- **Centre bottom:** a space–time diagram (position along the road across,
-  time downwards). Jams show up as red stripes sloping backwards.
-- **Right:** a story, readouts (density, flow, mean speed, number stopped, jam
-  wave speed, lap or journey time and its spread) and graphs: flow against
-  density (with the theory curves) and speed/flow against time.
-
-## Controls
-
-Road (ring or straight), lanes (1–3), driver model (Nagel–Schreckenberg cells
-or the smooth Intelligent Driver Model), density (ring) or arrivals per hour
-and slip-road traffic (straight), % lorries, road works (lane closure from
-1.8 to 2.25 km), speed limit, dawdling probability, reaction time, variable
-speed limits, random seed. **🛑 Brake** makes one driver brake for 2 s.
-Speeds ½× to 60× (1× = real time).
-
-**Picture quality** (Low / Medium / High / Ultra, default Medium, remembered in
-this browser) changes only the picture: the space–time diagram uses 15, 7.5,
-3.75 or 1.5 m of road per pixel column and 2, 1.2, 1 or 0.75 screen pixels per
-second of history, and vehicles are drawn with more detail (lane lines,
-windscreens, outlines) at higher settings. Low also skips the smoothing of
-cell-model cars between 1 s steps. All canvases are sized for the screen's
-pixel density, so they stay sharp at 200% scaling. The traffic model and the
-batch runs never use this setting, so batch results are the same at every
-quality.
-
-## Presets
-
-Free flow · Phantom jam · One driver brakes · Too many cars · Smart motorway ·
-Lorries in the mix · Lane closure · Slip road merge · Smooth drivers · Slow
-reactions.
-
-## The model
-
-**Nagel–Schreckenberg (1992).** Cells of 7.5 m, steps of 1 s, speeds in whole
-cells per second (1 cell/s = 27 km/h). Every driver at once: speed up by one;
-slow to the gap in front; with probability p slow by one more (dawdling);
-move. Lorries fill two cells and are limited to 56 mph. Stopped drivers are
-slow to pull away: they wait an extra (reaction time − 0.5 s) on average.
-Lane changing: move out if the gap ahead is too small and the other lane is
-better and safe behind; move back left when there is room (UK keep-left);
-drivers in a closed lane must merge within 300 m.
-
-**Intelligent Driver Model (Treiber 2000)**, time step 0.1 s:
-a = a_max[1 − (v/v₀)⁴ − (s*/s)²], s* = s₀ + vT + vΔv/(2√(a_max b)),
-with T = 1.5 s, s₀ = 2 m, a_max = 1 m/s² (lorries 0.5), b = 2 m/s². Each
-driver reacts to what they saw one reaction time ago. Lane changes use a
-simple MOBIL-style rule.
-
-**Theory.** For p = 0 (cars only) the flow per lane is exactly
-q = min(ρ v_max, 1 − ρ) cars per cell per second, with the critical density
-ρ = 1/(v_max + 1). The mean-field estimate pictures cars scattered at random:
-q = ρ Σ_g ρ(1−ρ)^g [min(v_max, g) − p]. The jam front moves back at about
-27(1 − p) km/h. Units are converted to vehicles/km and vehicles/hour.
-
-**Variable speed limits:** every 30 s, signs show 60 mph upstream of slow
-traffic (mean speed below 45 km/h) and 50 mph next to it.
-
-### Assumptions and simplifications
-
-Speeds are rounded to multiples of 27 km/h in the cell model (70 mph →
-108 km/h); drivers look only at the vehicle in front; no exits, weather,
-crashes or hard shoulders; arrivals are random (Poisson) and queue off-screen
-if the road is full (their waiting time counts in the journey time).
+- A night-time view of a 230 m test track or a 1 to 3 km loop with 1 to 3
+  lanes: headlights, brake lights, lorries, lane changing and roadworks.
+- A scrolling space–time diagram on which jams appear as backward-sloping
+  stripes, and a live flow–density graph against the steady-flow curve.
+- Sliders for the number of vehicles, speed limit, lorries, self-driving
+  cars and inattention. Click any car to tap its brakes.
+- Eight guided investigations.
 
 ## Batch run
 
-**📊 Batch run** runs the model headlessly (`runOnce(params, seed)`, seeded
-mulberry32): 10 minutes to settle, then 15 minutes of measurement (5 + 7.5 in
-the smooth model). Repeat or sweep (density, dawdling, speed limit, lorries,
-arrivals, reaction time), optional comparisons (variable limits, lorries,
-cell vs smooth model), histograms or mean ± 1 SD with theory overlays,
-summary statistics, fits and CSV download.
+The fundamental diagram, speed against density, the speed of a jam, whether
+a lower limit helps, self-driving cars, and inattention.
 
-**Batch settings table.** The batch panel lists every starting setting a run
-uses: road, lanes, driver model, density, arrivals, slip road, lorries, road
-works, speed limit, variable limits, dawdling, reaction time and "capacity:
-try 13 densities", plus two things that used to be fixed: the settling time
-(10 min) and the measuring time (15 min; the smooth model uses half of each).
-Defaults are the old values, so results are unchanged. The experiments start
-from the page's opening preset ("Phantom jam") with their own settings on top.
-Tick one setting to vary it and give from / to / step (+ adds the step, ×
-multiplies by it; up to 60 steps, previewed as you type); every other setting
-stays at the value shown, and a run uses exactly what the table shows.
-Unticking goes back to Repeat. One-click experiments fill the whole table in
-from fixed default settings, never from the left panel, so they give the same
-results in any order; **↺ Use my left-panel settings** copies the left panel
-into the table instead.
+## The earlier version
 
-Batch experiments (results from testing):
+The previous version is kept, unchanged, in `original/` with its worksheets,
+and is linked from "The model" tab of the new one.
 
-| Experiment | Result |
-|---|---|
-| Fundamental diagram, p = 0 | Matches min(ρ v_max, 1 − ρ) to 0.0% on average; peak 2,880 veh/h at 26.7 veh/km |
-| Fundamental diagram, p = 0.25 | Peak about 1,760 veh/h near 20 veh/km; differs from the mean-field estimate by about 15% (above it in light traffic, below it in jams) |
-| Lap times at 25 veh/km (100 runs) | Mean 2.60 min, SD 0.04 min; mean-field estimate 2.97 min (−12.6%) |
-| Dawdling and capacity | 2,817 veh/h at p = 0 (theory 2,880) falling to 946 at p = 0.6; mean-field barely changes (poor guide) |
-| Jam wave speed (50 runs, p = 0.25) | −17.0 km/h measured; simple theory −20.3 km/h; real jams −15 to −20 km/h |
-| Variable speed limits at a lane closure (30 pairs) | Journey time 5.41 → 5.53 min, spread 0.31 → 0.29 min: little effect in this model |
+## Limits
+
+A closed loop with no junctions; drivers differ only in preferred speed. The cell-based (Nagel–Schreckenberg) model, slip roads and automatic variable speed limits of the earlier version are not in this one. See "The model" tab in the simulation for the full list.
+
+## Source
+
+Built from `tools/kit/src/traffic_flow.js` with the shared kit: edit that file and run
+`node build.js` inside `tools/kit/`. There is no `worksheets.html` for this version.

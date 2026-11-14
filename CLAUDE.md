@@ -29,7 +29,7 @@ own folder inside the right subject folder and gets a row in the root
 `README.md`, a line in the `SIMS` list in the front page `index.html`, and a
 thumbnail `thumbs/<folder>.jpg` (a 640×360 screenshot).
 
-Twenty-two simulations are "★ Enhanced" (listed in `ENHANCED` in the front page
+Twenty-six simulations are "★ Enhanced" (listed in `ENHANCED` in the front page
 `index.html`, which marks them with a gold edge and star tag): `waves`,
 `dynamic_equilibrium`, `natural_selection`, `nerve_impulse`,
 `earthquake_buildings`, `forest_fire`, `three_body_chaos`,
@@ -37,12 +37,15 @@ Twenty-two simulations are "★ Enhanced" (listed in `ENHANCED` in the front pag
 `quantum_wave_lab`, `special_relativity`, `wind_tunnel`,
 `gravitational_lensing`, `lightning`, `chladni_plates`, `murmuration`,
 `gas_in_a_box`, `collision_theory`, `galaxy_collisions`, `epidemics`,
-`fields_orbits`. They are the one
+`fields_orbits`, `traffic_flow`, `optics_refraction`, `heart_circulation`,
+`tropical_storms`. They are the one
 place with a shared toolkit: edit `tools/kit/kit.*` or
 `tools/kit/src/<name>.js`, then run `node build.js` from inside `tools/kit/`
 to regenerate the single-file pages in their subject folders. Never edit
 their built HTML by hand. They have no `worksheets.html` and are not handled
-by `tools/worksheets/` or `tools/tidy/`. Where an enhanced simulation
+by `tools/worksheets/` or `tools/tidy/`. Several have a Standard / Advanced
+switch and a Revise tab (key ideas with spec tags, exam practice) built into
+the kit: see `tools/kit/README.md`. Where an enhanced simulation
 replaced an earlier one, the earlier version and its worksheets are kept in
 that simulation's `original/` folder and linked from the new one's notes.
 
