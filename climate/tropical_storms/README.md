@@ -18,7 +18,12 @@ Open `tropical-storms.html` in Chrome or Edge. Nothing to install; works offline
 - A landfall report: surge, flooding, rain, wind damage and people in
   danger, depending on the sea bed, defences, evacuation and buildings.
 - A whole hurricane season from June to November, and a warmer world.
-- Ten guided investigations.
+- **Global winds:** the pressure belts and surface winds on a globe beside a
+  pole-to-pole slice of the Hadley, Ferrel and polar cells, shifting with the
+  month, with climate graphs for six places.
+- **Three real storms:** Haiyan, Katrina and Idai side by side, with sourced
+  figures for deaths, damage, surge and income per person.
+- Thirteen guided investigations.
 
 ## Levels and revision
 
@@ -39,7 +44,7 @@ and is linked from "The model" tab of the new one.
 
 ## Limits
 
-Each storm is a single point with one wind speed; steering winds are the same every day. The global circulation tab, climate graphs, drought card and Haiyan / Katrina / Idai case-study data of the earlier version are not in this one. See "The model" tab in the simulation for the full list.
+Each storm is a single point with one wind speed; steering winds are the same every day. The drought card, jet streams and forecast cone of the earlier version are not in this one. See "The model" tab in the simulation for the full list.
 
 ## Source
 
