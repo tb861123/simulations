@@ -1,0 +1,293 @@
+/* =====================================================================
+   COLLISION THEORY AND RATES OF REACTION
+   For two particles to react they must (1) collide, and (2) collide
+   with at least a certain minimum energy, the ACTIVATION ENERGY Ea,
+   needed to start breaking bonds.
+
+   This model follows every molecule as a hard ball in a thin box
+   (40 nm x 24 nm x 6 nm, seen from the front). Two reactions:
+
+     gases:   A2 + B2 -> 2 AB      (blue pairs + orange pairs -> mixed pairs)
+     solid:   acid + solid -> spent acid, and the solid particle dissolves
+
+   Every time a reactant pair collides the model works out the energy
+   of the collision ALONG THE LINE JOINING THEIR CENTRES (a glancing blow
+   counts for little). If that is at least Ea the pair reacts; otherwise
+   they just bounce apart. Nothing else is put in: the effects of
+   temperature, concentration, pressure, surface area and catalysts on
+   the rate all come out of that one rule.
+
+   UNITS inside the model: nanometres, picoseconds, atomic mass units.
+   In those units energy is in kJ/mol, so R = 0.0083145 kJ/mol/K.
+   ===================================================================== */
+const R = 0.0083145;
+const BL = 40, BH = 24, BD = 6;                 // the box, nm (its length can be reduced to raise the pressure)
+const CS = 1, GXN = 41, GYN = 24;               // 1 nm squares for finding near neighbours quickly
+const A2 = 0, B2 = 1, AB = 2, SOLID = 3, CAT = 4, ACID = 5, SPENT = 6, DEAD = 7;
+const KIND = [{ m: 20, r: 0.19 }, { m: 60, r: 0.22 }, { m: 40, r: 0.205 }, { m: 0, r: 0.25 }, { m: 0, r: 0.5 }, { m: 36, r: 0.19 }, { m: 36, r: 0.19 }, { m: 0, r: 0 }];   // mass (u; 0 = fixed in place) and radius (nm)
+const D_AB = KIND[A2].r + KIND[B2].r, MU_AB = 20 * 60 / 80;   // collision distance and reduced mass of an A2 + B2 pair
+
+class Flask {
+  constructor(rand, cap = 2400) {
+    this.rand = rand; const f = () => new Float32Array(cap);
+    this.x = f(); this.y = f(); this.z = f(); this.vx = f(); this.vy = f(); this.vz = f(); this.im = f(); this.r = f(); this.th = f(); this.w = f(); this.sp = new Uint8Array(cap);
+    this.next = new Int32Array(cap); this.head = new Int32Array(GXN * GYN);
+    this.n = 0; this.L = BL; this.T = 400; this.conduct = true; this.Ea = 8; this.dH = -10; this.catEa = 0.4; this.orient = false; this.virtual = false;
+    this.t = 0; this.made = 0; this.nAB = 0; this.nOK = 0; this.nCatOK = 0; this.fx = null; this.cats = []; this.dead = 0;
+  }
+  put(kind, xa, xb) { const i = this.n++, K0 = KIND[kind], r = this.rand; this.sp[i] = kind; this.r[i] = K0.r; this.im[i] = K0.m ? 1 / K0.m : 0; this.x[i] = xa + r() * (xb - xa); this.y[i] = .3 + r() * (BH - .6); this.z[i] = .3 + r() * (BD - .6); const s = K0.m ? Math.sqrt(R * this.T / K0.m) : 0; this.vx[i] = s * r.gauss(); this.vy[i] = s * r.gauss(); this.vz[i] = s * r.gauss(); this.th[i] = r() * 6.283; this.w[i] = (r() - .5) * 14; return i; }
+  pin(kind, x, y) { const i = this.put(kind, 0, 1); this.x[i] = x; this.y[i] = y; this.z[i] = BD / 2; return i; }
+  // gases: nA molecules of A2 and nB of B2
+  fillGas(nA, nB) { this.n = 0; this.reset(); for (let i = 0; i < nA + nB; i++) this.put((i < nA) ? A2 : B2, .3, this.L - .3); this.addCats(); }
+  // solid + acid: 144 solid particles in `pieces` square lumps, and nA acid particles around them
+  fillSolid(nA, pieces) {
+    this.n = 0; this.reset(); const side = Math.round(12 / Math.sqrt(pieces)), per = Math.sqrt(pieces), sx = this.L / per, sy = BH / per, d = 0.5; this.solid0 = 144;
+    for (let py = 0; py < per; py++) for (let px = 0; px < per; px++) { const cx = (px + .5) * sx, cy = (py + .5) * sy; for (let a = 0; a < side; a++) for (let b = 0; b < side; b++) this.pin(SOLID, cx + (a - (side - 1) / 2) * d, cy + (b - (side - 1) / 2) * d); }
+    for (let i = 0; i < nA; i++) { const j = this.put(ACID, .3, this.L - .3); for (let k = 0; k < 20 && this.inSolid(j); k++) { this.x[j] = .3 + this.rand() * (this.L - .6); this.y[j] = .3 + this.rand() * (BH - .6); } }
+    this.addCats();
+  }
+  inSolid(j) { for (let i = 0; i < this.n; i++) if (this.sp[i] === SOLID && Math.abs(this.x[i] - this.x[j]) < .45 && Math.abs(this.y[i] - this.y[j]) < .45) return true; return false; }
+  reset() { this.t = 0; this.made = 0; this.nAB = 0; this.nOK = 0; this.nCatOK = 0; this.dead = 0; }
+  // the catalyst: gold beads fixed in place. A reactant pair that meets close to a bead can react by an easier route.
+  addCats() { this.cats = []; for (let k = 0; k < (this.nCat || 0); k++) { const cols = Math.ceil(Math.sqrt(this.nCat * this.L / BH)), rows = Math.ceil(this.nCat / cols), cx = (k % cols + .5 + (((k / cols) | 0) % 2 ? .25 : -.25)) * this.L / cols, cy = (((k / cols) | 0) + .5) * BH / rows; this.pin(CAT, cx, cy); this.cats.push([cx, cy]); } }
+  nearCat(x, y) { for (const c of this.cats) { const dx = c[0] - x, dy = c[1] - y; if (dx * dx + dy * dy < 2.56) return true; } return false; }   // within 1.6 nm of a bead
+  count(kind) { let c = 0; for (let i = 0; i < this.n; i++) if (this.sp[i] === kind) c++; return c; }
+  temp() { let s = 0, c = 0; for (let i = 0; i < this.n; i++) if (this.im[i]) { s += (this.vx[i] ** 2 + this.vy[i] ** 2 + this.vz[i] ** 2) / this.im[i]; c++; } return c ? s / (3 * c * R) : 0; }
+  wall(i, ax, dir) {   // heat-conducting walls return the molecule with a random velocity typical of the wall temperature (a water bath); insulated walls just reflect it
+    const v = ax === 0 ? this.vx : ax === 1 ? this.vy : this.vz;
+    if (this.conduct) { const s = Math.sqrt(R * this.T * this.im[i]), r = this.rand; this.vx[i] = s * r.gauss(); this.vy[i] = s * r.gauss(); this.vz[i] = s * r.gauss(); v[i] = dir * s * Math.sqrt(-2 * Math.log(1 - r())); } else v[i] = -v[i];
+  }
+  step(dt) {
+    const { x, y, z, vx, vy, vz, im, r, sp, head, next } = this, n = this.n, L = this.L;
+    for (let i = 0; i < n; i++) {
+      if (!im[i]) continue;
+      x[i] += vx[i] * dt; y[i] += vy[i] * dt; z[i] += vz[i] * dt;
+      if (x[i] < 0) { x[i] = 0; if (vx[i] < 0) this.wall(i, 0, 1); } else if (x[i] > L) { x[i] = L; if (vx[i] > 0) this.wall(i, 0, -1); }
+      if (y[i] < 0) { y[i] = 0; if (vy[i] < 0) this.wall(i, 1, 1); } else if (y[i] > BH) { y[i] = BH; if (vy[i] > 0) this.wall(i, 1, -1); }
+      if (z[i] < 0) { z[i] = 0; if (vz[i] < 0) this.wall(i, 2, 1); } else if (z[i] > BD) { z[i] = BD; if (vz[i] > 0) this.wall(i, 2, -1); }
+    }
+    head.fill(-1); for (let i = 0; i < n; i++) { if (sp[i] === DEAD) continue; const c = Math.min(GXN - 1, x[i] / CS | 0) + GXN * Math.min(GYN - 1, y[i] / CS | 0); next[i] = head[c]; head[c] = i; }
+    const hit = (i, j) => {
+      const si = sp[i], sj = sp[j]; if (si === DEAD || sj === DEAD || (!im[i] && !im[j])) return;
+      const fixed = !im[i] || !im[j], dx = x[j] - x[i], dy = y[j] - y[i], dz = fixed ? 0 : z[j] - z[i];     // fixed particles are treated as columns running front to back
+      const d2 = dx * dx + dy * dy + dz * dz, rr = r[i] + r[j]; if (d2 >= rr * rr || d2 === 0) return;
+      const dvx = vx[i] - vx[j], dvy = vy[i] - vy[j], dvz = fixed ? 0 : vz[i] - vz[j], vn = dvx * dx + dvy * dy + dvz * dz; if (vn <= 0) return;   // already moving apart
+      const mu = 1 / (im[i] + im[j]);
+      const gasPair = (si === A2 && sj === B2) || (si === B2 && sj === A2), solidPair = (si === ACID && sj === SOLID) || (si === SOLID && sj === ACID);
+      if (gasPair || solidPair) {
+        // ---- THE RULE: is the collision energy along the line of centres at least the activation energy? ----
+        const E = 0.5 * mu * vn * vn / d2;                                   // kJ/mol
+        const byCat = this.cats.length && this.nearCat((x[i] + x[j]) / 2, (y[i] + y[j]) / 2), Ea = byCat ? this.Ea * this.catEa : this.Ea;
+        let ok = E >= Ea; this.nAB++;
+        if (ok && this.orient && gasPair) { const phi = Math.atan2(dy, dx); ok = Math.abs(Math.cos(this.th[i] - phi)) < 0.7071 && Math.abs(Math.cos(this.th[j] - phi)) < 0.7071; }   // both molecules must be side-on so that all four atoms meet
+        if (ok) {
+          this.nOK++; if (byCat) this.nCatOK++;
+          if (!this.virtual) {
+            if (this.fx && this.fx.length < 120) this.fx.push([(x[i] + x[j]) / 2, (y[i] + y[j]) / 2, 1, byCat ? 1 : 0]);
+            if (gasPair) {
+              // A2 + B2 -> 2AB. Momentum is conserved; the energy released (-ΔH) is added to the kinetic energy of the two new molecules.
+              const m1 = 1 / im[i], m2 = 1 / im[j], M = m1 + m2, cx = (m1 * vx[i] + m2 * vx[j]) / M, cy = (m1 * vy[i] + m2 * vy[j]) / M, cz = (m1 * vz[i] + m2 * vz[j]) / M;
+              const k = 2 * vn / d2; let rx = dvx - k * dx, ry = dvy - k * dy, rz = dvz - k * dz;            // relative velocity after bouncing
+              const keRel = 0.5 * mu * (dvx * dvx + dvy * dvy + dvz * dvz), keNew = Math.max(0.05, keRel - this.dH), mNew = KIND[AB].m, sc = Math.sqrt(2 * keNew / (mNew / 2)) / (Math.sqrt(rx * rx + ry * ry + rz * rz) || 1);
+              rx *= sc; ry *= sc; rz *= sc; sp[i] = sp[j] = AB; im[i] = im[j] = 1 / mNew; r[i] = r[j] = KIND[AB].r;
+              vx[i] = cx + rx / 2; vy[i] = cy + ry / 2; vz[i] = cz + rz / 2; vx[j] = cx - rx / 2; vy[j] = cy - ry / 2; vz[j] = cz - rz / 2; this.made += 2; return;
+            }
+            // acid + solid: the solid particle dissolves, the acid particle is used up and carries off the energy released
+            const a = si === ACID ? i : j, s = si === ACID ? j : i, sgn = a === i ? -1 : 1, k = 2 * vn / d2;
+            vx[a] += sgn * k * dx; vy[a] += sgn * k * dy; const v2 = vx[a] ** 2 + vy[a] ** 2 + vz[a] ** 2, sc = Math.sqrt(Math.max(0.05, v2 - 2 * this.dH * im[a]) / (v2 || 1)); vx[a] *= sc; vy[a] *= sc; vz[a] *= sc;
+            sp[a] = SPENT; sp[s] = DEAD; this.dead++; this.made++; return;
+          }
+        }
+      }
+      // an ordinary elastic bounce
+      const J = 2 * vn / d2 * mu, a = J * im[i], b = J * im[j]; vx[i] -= a * dx; vy[i] -= a * dy; vz[i] -= a * dz; vx[j] += b * dx; vy[j] += b * dy; vz[j] += b * dz;
+    };
+    const nx = Math.min(GXN, Math.ceil(L / CS) + 1);
+    for (let cy = 0; cy < GYN; cy++) for (let cx = 0; cx < nx; cx++) {
+      const c = cx + GXN * cy;
+      for (let i = head[c]; i >= 0; i = next[i]) {
+        for (let j = next[i]; j >= 0; j = next[j]) hit(i, j);
+        if (cx + 1 < nx) for (let j = head[c + 1]; j >= 0; j = next[j]) hit(i, j);
+        if (cy + 1 < GYN) { for (let j = head[c + GXN]; j >= 0; j = next[j]) hit(i, j); if (cx + 1 < nx) for (let j = head[c + GXN + 1]; j >= 0; j = next[j]) hit(i, j); if (cx > 0) for (let j = head[c + GXN - 1]; j >= 0; j = next[j]) hit(i, j); }
+      }
+    }
+    this.t += dt;
+  }
+}
+// What simple collision theory predicts for the gas reaction, in reactions per picosecond:
+// (number of A2–B2 collisions per ps) × (fraction of them with energy ≥ Ea)
+const theoryRate = (nA, nB, V, T, Ea) => nA * nB / V * Math.PI * D_AB * D_AB * Math.sqrt(8 * R * T / (Math.PI * MU_AB)) * Math.exp(-Ea / (R * T));
+// A run without drawing. With virtual = true, successful collisions are counted but the molecules are not used up, which gives a steady rate to measure.
+function trial(o, rnd) {
+  const f = new Flask(rnd, 1200); f.T = o.T || 400; f.Ea = o.Ea == null ? 8 : o.Ea; f.L = o.L || BL; f.nCat = o.nCat || 0; f.virtual = o.virtual !== false; f.orient = !!o.orient; f.dH = 0;
+  if (o.pieces) f.fillSolid(o.nA || 200, o.pieces); else f.fillGas(o.nA || 150, o.nB || 150);
+  const dt = Math.min(0.04, 0.08 / (4 * Math.sqrt(3 * R * f.T / 20)));
+  for (let t = 0; t < o.ps; t += dt) { f.step(dt); if (o.until && o.until(f)) break; }
+  return f;
+}
+
+// ---------------- The page ----------------
+const rnd = K.rng(Date.now() % 1e6 + 3);
+let fl = new Flask(rnd), S = { mode: "gas", nA: 300, nB: 300, pieces: 1, nCat: 0 }, rate = 20, curve = [], runs = [], ehist = new Float32Array(40), winAB = 0, winOK = 0, lastAB = 0, lastOK = 0, pctOK = null, collRate = 0;
+fl.fx = [];
+const label = () => `${fl.T} K` + (S.mode === "gas" ? ` · ${S.nA}+${S.nB}` : ` · ${S.pieces === 36 ? "powder" : S.pieces + (S.pieces > 1 ? " chips" : " lump")}`) + (fl.L < BL ? " · squeezed" : "") + (S.nCat ? " · catalyst" : "") + ` · Ea ${fl.Ea}`;
+let curLabel = "";
+function restart(keep) {
+  if (keep !== false && curve.length > 8) { runs.push({ label: curLabel, pts: curve }); if (runs.length > 4) runs.shift(); }
+  fl.nCat = S.nCat; if (S.mode === "gas") fl.fillGas(S.nA, S.nB); else fl.fillSolid(S.nA, S.pieces);
+  curve = []; curLabel = label(); ehist.fill(0); winAB = winOK = lastAB = lastOK = 0; pctOK = null;
+}
+const total = () => S.mode === "gas" ? 2 * Math.min(S.nA, S.nB) : Math.min(S.nA, 144);   // the most product that could form
+
+const ui = K.app({
+  title: "Collision Theory and Rates", subject: "Chemistry",
+  blurb: "Molecules must collide, and collide hard enough. Everything about rates follows",
+  reset: () => { set({ mode: "gas", T: 400, nA: 300, nB: 300, L: 40, Ea: 8, dH: -10, cat: false, orient: false, conduct: true, pieces: 1 }); runs = []; curve = []; restart(false); },
+  missions: [
+    { title: "Not every collision reacts", q: "Blue A₂ and orange B₂ molecules collide thousands of times. A flash marks a collision that reacted. Look at the readings: what percentage of A₂–B₂ collisions are successful? Why so few?", hint: "Only a few per cent. Most collisions are too gentle: the molecules just bounce apart unchanged. A collision succeeds only if its energy is at least the activation energy, the minimum needed to start breaking the bonds. On the left graph, only the molecules in the tail to the right of the Ea line carry that much energy.", setup() { set({ mode: "gas", T: 400, nA: 300, nB: 300, L: 40, Ea: 8, dH: -10, cat: false, orient: false, conduct: true }); runs = []; curve = []; restart(false); } },
+    { title: "Turn up the heat", q: "The reaction is running at 300 K. Let it run for a while, then raise the temperature to 500 K and press 'Start again' (the old curve stays for comparison). How much faster is it? Is that because there are more collisions?", hint: "Much faster, far more than the modest rise in collision rate. Hotter molecules do collide a bit more often, but the main effect is on the left graph: the hill flattens and stretches right, so a far bigger share of molecules is beyond the Ea line. A small rise in temperature gives a large rise in successful collisions.", setup() { set({ mode: "gas", T: 300, nA: 300, nB: 300, L: 40, Ea: 8, dH: 0, cat: false, orient: false, conduct: true }); runs = []; curve = []; restart(false); } },
+    { title: "Concentration", q: "There are 150 of each molecule. Note how steep the product curve is at the start. Now set A₂ to 600 and start again. What happens to the starting rate? Does the final amount of product change?", hint: "With four times as many A₂ molecules, each B₂ meets an A₂ four times as often, so the starting rate is about four times greater. The share of collisions that succeed does not change. The final amount of AB is the same (300), because B₂ runs out: it is the limiting reactant.", setup() { set({ mode: "gas", T: 400, nA: 150, nB: 150, L: 40, Ea: 8, dH: 0, cat: false, orient: false, conduct: true }); runs = []; curve = []; restart(false); } },
+    { title: "Pressure", q: "For gases, raising the pressure means squeezing the same molecules into less space. Run it in the full box, then halve the volume and start again. What happens to the rate?", hint: "Halving the volume doubles the concentration of both gases, so each molecule meets a partner twice as often and there are twice as many of them per unit volume: the molecules in the box react roughly twice as fast (and the rate per unit volume is four times as great).", setup() { set({ mode: "gas", T: 400, nA: 200, nB: 200, L: 40, Ea: 8, dH: 0, cat: false, orient: false, conduct: true }); runs = []; curve = []; restart(false); } },
+    { title: "A catalyst", q: "Run the reaction with a high activation energy: it crawls. Now switch the catalyst on (gold beads) and start again. Where do the reactions happen now? Is the catalyst used up?", hint: "Almost all the flashes (gold ones) are right beside a bead. The catalyst offers a different route with a lower activation energy, shown dashed on the energy diagram, so far more collisions there succeed. The beads are still all present at the end: a catalyst is not used up. It does not change the amount of product, only how quickly you get it.", setup() { set({ mode: "gas", T: 400, nA: 300, nB: 300, L: 40, Ea: 18, dH: -10, cat: false, orient: false, conduct: true }); runs = []; curve = []; restart(false); } },
+    { title: "Surface area: lump or powder?", q: "A solid lump (grey) sits in acid (blue). Only acid particles that reach the solid can react. Watch for a while, then break the same amount of solid into 16 chips, then powder, pressing 'Start again' each time. Compare the curves.", hint: "In the lump most of the solid is locked inside where the acid cannot reach it; only the outside layer can be hit. Breaking it up exposes more particles, so there are more collisions each second and the curve starts steeper. The final amount of product is the same. This is why powdered marble fizzes faster than chips, and why flour dust can explode.", setup() { set({ mode: "solid", T: 400, nA: 300, pieces: 1, L: 40, Ea: 6, dH: -10, cat: false, orient: false, conduct: true }); runs = []; curve = []; restart(false); } },
+    { title: "A higher hill to climb", q: "Slide the activation energy from 4 up to 25 kJ/mol while watching the percentage of successful collisions. Does doubling Ea halve the rate?", hint: "No: the rate falls far faster than that. Each extra 2 to 3 kJ/mol (at 400 K) cuts the successful share by about half again, because the tail of the energy distribution thins out exponentially. The reading 'theory e^(−Ea/RT)' is this share, and it is the heart of the Arrhenius equation.", setup() { set({ mode: "gas", T: 400, nA: 300, nB: 300, L: 40, Ea: 4, dH: 0, cat: false, orient: false, conduct: true }); runs = []; curve = []; restart(false); } },
+    { title: "Runaway", q: "This reaction gives out a lot of energy and the flask is insulated, so the heat cannot escape. It starts slowly at 300 K. Watch the temperature and the product curve. What happens, and why?", hint: "Each reaction releases energy, which heats the gas, which makes more collisions succeed, which releases energy faster still. The curve bends upward and the reaction runs away: an explosion. With the flask in a water bath (walls that conduct heat) the energy leaks away and the same reaction stays slow and steady. Chemical engineers work hard to keep exothermic reactions cool.", setup() { set({ mode: "gas", T: 300, nA: 400, nB: 400, L: 40, Ea: 12, dH: -40, cat: false, orient: false, conduct: false }); runs = []; curve = []; restart(false); } },
+    { title: "The right way round", q: "Switch on 'Must collide side-on'. Now a collision with enough energy only reacts if both molecules are side-on, so all four atoms meet. What happens to the share of successful collisions?", hint: "It drops to about a quarter of what it was: energy is necessary but not sufficient. For big, awkwardly shaped molecules the share that collide the right way round can be tiny. One job of an enzyme is to hold molecules in exactly the right orientation.", setup() { set({ mode: "gas", T: 500, nA: 300, nB: 300, L: 40, Ea: 8, dH: 0, cat: false, orient: true, conduct: true }); runs = []; curve = []; restart(false); } }
+  ],
+  batch: [
+    { title: "Rate against temperature", question: "How does the rate of the gas reaction change with temperature?", how: "Each run: 400 A₂ and 400 B₂ for 150 ps with Ea = 10 kJ/mol. Successful collisions are counted without using the molecules up, so the rate stays steady.", xLabel: "temperature (K)", yLabel: "rate (successful collisions per ps)", xs: [250, 300, 350, 400, 450, 500, 550, 600, 700], reps: 5, yMin: 0, theory: T => theoryRate(400, 400, BL * BH * BD, T, 10), theoryLabel: "collision theory", run: (T, r) => trial({ nA: 400, nB: 400, T, Ea: 10, ps: 150 }, r).nOK / 150, note: "A successful collision is a rare, random event, so the count in 150 ps varies from run to run, most of all at low temperature where only a handful happen." },
+    { title: "The Arrhenius plot", question: "Plot ln(rate) against 1/T. Is it a straight line, and what does its gradient tell you?", how: "The same runs as 'Rate against temperature', replotted. The gradient of the best-fit line is −Ea/R (with 1000/T on the axis, Ea = −gradient × 8.31 kJ/mol).", xLabel: "1000 / temperature (1/K)", yLabel: "ln(rate)", xs: [1.4, 1.6, 1.8, 2, 2.25, 2.5, 2.85, 3.3], reps: 5, fit: true, theory: x => Math.log(theoryRate(400, 400, BL * BH * BD, 1000 / x, 10)), theoryLabel: "collision theory", run(x, r) { const k = trial({ nA: 400, nB: 400, T: 1000 / x, Ea: 10, ps: 200 }, r).nOK / 200; return k > 0 ? Math.log(k) : null; }, note: "Ea was set to 10 kJ/mol, so the gradient should be close to −10/8.31 = −1.2 (it is a little shallower because the collision rate itself rises slowly with temperature). This is how chemists measure activation energies." },
+    { title: "Rate against concentration", question: "Double the concentration of A₂: does the rate double?", how: "Each run: the chosen number of A₂ with 300 B₂ at 400 K, Ea = 8 kJ/mol, for 150 ps.", xLabel: "number of A₂ molecules", yLabel: "rate (successful collisions per ps)", xs: [50, 100, 150, 200, 300, 400, 500, 600], reps: 5, yMin: 0, fit: true, theory: n => theoryRate(n, 300, BL * BH * BD, 400, 8), theoryLabel: "collision theory", run: (n, r) => trial({ nA: n, nB: 300, T: 400, Ea: 8, ps: 150 }, r).nOK / 150 },
+    { title: "Rate against volume (pressure)", question: "Squeeze the same gas into a smaller volume: how does the rate change?", how: "Each run: 250 A₂ and 250 B₂ at 400 K, Ea = 8 kJ/mol, for 150 ps, in a box of the chosen volume.", xLabel: "volume (nm³)", yLabel: "rate (successful collisions per ps)", xs: [1440, 1920, 2880, 3840, 4800, 5760], reps: 5, yMin: 0, theory: V => theoryRate(250, 250, V, 400, 8), theoryLabel: "collision theory (∝ 1/V)", run: (V, r) => trial({ nA: 250, nB: 250, L: V / (BH * BD), T: 400, Ea: 8, ps: 150 }, r).nOK / 150, note: "At the smallest volumes the measured rate creeps above the simple theory: the molecules themselves now take up a noticeable share of the space, so they meet even more often." },
+    { title: "Successful collisions against Ea", question: "What share of collisions have at least the activation energy?", how: "Each run: 300 + 300 molecules at 400 K for 100 ps; the result is the percentage of A₂–B₂ collisions with enough energy.", xLabel: "activation energy (kJ/mol)", yLabel: "successful collisions (%)", xs: [0, 2, 4, 6, 8, 10, 12, 15, 18], reps: 5, yMin: 0, theory: E => 100 * Math.exp(-E / (R * 400)), theoryLabel: "e^(−Ea/RT)", run(E, r) { const f = trial({ nA: 300, nB: 300, T: 400, Ea: E, ps: 100 }, r); return 100 * f.nOK / f.nAB; } },
+    { title: "Surface area", question: "The same amount of solid in more, smaller pieces: how much faster does it react?", how: "Each run: 144 solid particles in 1, 4, 16 or 36 pieces with 250 acid particles at 400 K, Ea = 6 kJ/mol. The result is the time for a quarter of the solid to dissolve.", xLabel: "number of pieces", yLabel: "time for 25% to dissolve (ps)", xs: [1, 4, 16, 36], reps: 5, yMin: 0, run(p, r) { const f = trial({ pieces: p, nA: 250, T: 400, Ea: 6, ps: 900, virtual: false, until: f => f.dead >= 36 }, r); return f.dead >= 36 ? f.t : null; }, note: "The starting positions of the acid particles are random, so the first few hits come sooner in some runs than others." },
+    { title: "How much catalyst?", question: "How does the rate change as catalyst beads are added?", how: "Each run: 350 + 350 molecules at 400 K, Ea = 16 kJ/mol (6.4 near a bead), for 150 ps.", xLabel: "number of catalyst beads", yLabel: "rate (successful collisions per ps)", xs: [0, 6, 12, 24, 36, 48], reps: 5, yMin: 0, fit: true, run: (n, r) => trial({ nA: 350, nB: 350, nCat: n, T: 400, Ea: 16, ps: 150 }, r).nOK / 150, note: "More beads means more surface where the easy route is available, so the rate rises roughly in step. This is why catalysts are made as fine meshes, powders or honeycombs." }
+  ],
+  notes: `<h3>What is being modelled</h3>
+<p>Up to about 1600 molecules as hard elastic spheres in a box 40 × 24 × 6 nm, seen from the front. They are drawn as pairs of atoms, but they collide as single spheres.</p>
+<ul><li><b>The rule for reacting:</b> when an A₂ meets a B₂ (or an acid particle meets a solid particle), the model works out the kinetic energy of their approach along the line joining their centres. If it is at least E<sub>a</sub>, they react. Otherwise they bounce apart.</li>
+<li><b>Temperature</b> is the average kinetic energy of the molecules. With "water bath" walls, any molecule that hits a wall leaves with a speed typical of the set temperature. With an insulated flask the walls just reflect molecules, so energy released by the reaction heats the gas.</li>
+<li><b>Energy change ΔH:</b> when a pair reacts, the energy released (or taken in) is added to (or taken from) the kinetic energy of the products.</li>
+<li><b>Catalyst:</b> a reactant pair that collides within 1.6 nm of a gold bead needs only 40% of the usual activation energy. The beads are never changed.</li>
+<li><b>Solid:</b> 144 fixed particles in square lumps. One dissolves each time an acid particle hits it hard enough; the acid particle is then spent.</li>
+<li><b>Left graph:</b> the spread of kinetic energies of the moving molecules, with the Maxwell–Boltzmann curve (dashed).</li></ul>
+<h3>Simplifications</h3>
+<ul><li>The textbook picture says "molecules with energy above E<sub>a</sub> can react". More exactly it is the energy of the <i>collision</i> that counts, which is what the model uses. The share of collisions that qualify works out as e<sup>−Ea/RT</sup>.</li>
+<li>Activation energies here (0–40 kJ/mol) are lower than for most real reactions (50–250 kJ/mol) so that reactions happen while you watch. A real reaction with E<sub>a</sub> = 100 kJ/mol at room temperature succeeds in about 1 collision in 10¹⁷.</li>
+<li>The reaction only goes forwards; there is no reverse reaction and so no equilibrium (see the Dynamic Equilibrium simulation).</li>
+<li>Molecules are spheres with no attraction between them, no vibration and no rotation that matters. "Side-on" uses the drawn angle of each molecule.</li>
+<li>The "solid + acid" reaction is in a gas-like box: there is no solvent, and the product does not bubble away.</li>
+<li>The catalyst is a rule ("easier near a bead"), not a model of molecules sticking to a surface.</li>
+<li>With a few hundred molecules every reading flickers. Time is slowed about 10¹¹ times.</li></ul>
+<h3>The earlier version</h3>
+<p>The previous version of this simulation, with its spec notes, exam practice and worksheets, is still here: <a href="original/collision-theory.html" style="color:var(--accent)">open the earlier version</a>.</p>`
+});
+
+// ---------------- Controls ----------------
+const ctl = {};
+let g = ui.group("The reaction");
+ctl.mode = K.seg(g, { value: "gas", options: [["gas", "Gases: A₂ + B₂ → 2AB"], ["solid", "Solid + acid"]], on: v => { S.mode = v; runs = []; curve = []; restart(false); } });
+ctl.T = K.slider(g, { label: "Temperature", min: 200, max: 1000, step: 10, value: 400, fmt: v => v + " K (" + (v - 273) + " °C)", on: v => { fl.T = v; if (!fl.conduct) { const s = Math.sqrt(v / (fl.temp() || 1)); for (let i = 0; i < fl.n; i++) { fl.vx[i] *= s; fl.vy[i] *= s; fl.vz[i] *= s; } } } });
+ctl.nA = K.slider(g, { label: "A₂ molecules (or acid particles)", min: 20, max: 800, step: 10, value: 300, on: v => { S.nA = v; } });
+ctl.nB = K.slider(g, { label: "B₂ molecules", min: 20, max: 800, step: 10, value: 300, on: v => { S.nB = v; } });
+ctl.pieces = K.seg(g, { label: "Solid broken into", value: 1, options: [[1, "1 lump"], [4, "4"], [16, "16 chips"], [36, "powder"]], on: v => { S.pieces = v; } });
+ctl.L = K.slider(g, { label: "Volume of the box", min: 10, max: 40, step: 1, value: 40, fmt: v => v * BH * BD + " nm³" + (v < 40 ? " (higher pressure)" : ""), on: v => { fl.L = v; } });
+let r1 = K.row(g); K.btn(r1, "▶ Start again", () => restart(), "primary").title = "Fresh reactants with the settings above; the last curve stays on the graph"; K.btn(r1, "Clear old curves", () => { runs = []; });
+K.note(g, "Numbers of particles, pieces and volume take effect when you press Start again.");
+g = ui.group("Energy");
+ctl.Ea = K.slider(g, { label: "Activation energy, E<sub>a</sub>", min: 0, max: 40, step: 1, value: 8, unit: "kJ/mol", on: v => { fl.Ea = v; winAB = winOK = 0; } });
+ctl.dH = K.slider(g, { label: "Energy change, ΔH", min: -40, max: 0, step: 5, value: -10, fmt: v => v + " kJ/mol" + (v < 0 ? " (exothermic)" : ""), on: v => { fl.dH = v; } });
+ctl.cat = K.toggle(g, { label: "Catalyst (lowers E<sub>a</sub> to 40% nearby)", value: false, on: v => { S.nCat = v ? 30 : 0; restart(); } });
+ctl.orient = K.toggle(g, { label: "Must collide side-on as well", value: false, on: v => { fl.orient = v; winAB = winOK = 0; } });
+ctl.conduct = K.toggle(g, { label: "Flask in a water bath (off = insulated)", value: true, on: v => { fl.conduct = v; } });
+g = ui.group("Watch");
+ctl.rate = K.slider(g, { label: "Slow motion", min: 2, max: 60, step: 2, value: rate, fmt: v => v + " ps each second", on: v => rate = v });
+const read = K.readout(g, [["T", "temperature"], ["left", "reactants left"], ["made", "product made"], ["coll", "reactant collisions"], ["ok", "successful"], ["th", "theory e^(−Ea/RT)"], ["half", "time to half-way"], ["cat", "catalyst beads"]]);
+function set(o) {
+  if (o.mode) { S.mode = o.mode; ctl.mode.set(o.mode); } if (o.T != null) { fl.T = o.T; ctl.T.set(o.T); } if (o.nA != null) { S.nA = o.nA; ctl.nA.set(o.nA); } if (o.nB != null) { S.nB = o.nB; ctl.nB.set(o.nB); }
+  if (o.pieces != null) { S.pieces = o.pieces; ctl.pieces.set(o.pieces); } if (o.L != null) { fl.L = o.L; ctl.L.set(o.L); } if (o.Ea != null) { fl.Ea = o.Ea; ctl.Ea.set(o.Ea); } if (o.dH != null) { fl.dH = o.dH; ctl.dH.set(o.dH); }
+  if (o.cat != null) { S.nCat = o.cat ? 30 : 0; ctl.cat.set(o.cat); } if (o.orient != null) { fl.orient = o.orient; ctl.orient.set(o.orient); } if (o.conduct != null) { fl.conduct = o.conduct; ctl.conduct.set(o.conduct); }
+}
+
+// ---------------- Drawing ----------------
+const sprites = new Map();
+function sprite(rgb, rpx) {
+  const key = rgb.join() + "|" + rpx; let s = sprites.get(key); if (s) return s;
+  const R2 = Math.ceil(rpx * 2.6) + 1; s = document.createElement("canvas"); s.width = s.height = R2 * 2; const c = s.getContext("2d"), gr = c.createRadialGradient(R2 - rpx * .3, R2 - rpx * .3, 0, R2, R2, R2);
+  gr.addColorStop(0, `rgba(${rgb.map(v => Math.min(255, v + 90)).join()},1)`); gr.addColorStop(rpx / R2 * .85, `rgba(${rgb.join()},1)`); gr.addColorStop(Math.min(.99, rpx / R2 * 1.15), `rgba(${rgb.join()},.25)`); gr.addColorStop(1, `rgba(${rgb.join()},0)`);
+  c.fillStyle = gr; c.fillRect(0, 0, R2 * 2, R2 * 2); s.half = R2; sprites.set(key, s); return s;
+}
+const CA = [80, 160, 255], CB = [255, 120, 60], CSOL = [190, 196, 208], CCAT = [255, 205, 70], CSP = [110, 220, 150];
+let view = { s: 18, ox: 22, oy: 20 };
+const cv = ui.canvas(c => { view.s = Math.min((c.w - 235) / BL, (c.h - 50) / BH); view.ox = 20; view.oy = (c.h - BH * view.s) / 2; });
+function profile(c, x0, y0, w, h) {   // the energy profile ("reaction pathway") diagram
+  c.fillStyle = "rgba(8,14,26,.8)"; c.strokeStyle = "#2b3a5c"; c.lineWidth = 1; c.beginPath(); c.roundRect(x0, y0, w, h, 10); c.fill(); c.stroke();
+  const top = Math.max(12, fl.Ea, 5), bot = Math.min(0, fl.dH) - 4, Y = e => y0 + 26 + (top - e) / (top - bot) * (h - 50), xa = x0 + 14, xb = x0 + w - 14, xm = (xa + xb) / 2;
+  const hump = (ea, col, dash) => { c.strokeStyle = col; c.setLineDash(dash); c.lineWidth = 2; c.beginPath(); c.moveTo(xa, Y(0)); c.lineTo(xa + 26, Y(0)); c.bezierCurveTo(xm - 26, Y(0), xm - 30, Y(ea), xm, Y(ea)); c.bezierCurveTo(xm + 30, Y(ea), xm + 22, Y(fl.dH), xb - 26, Y(fl.dH)); c.lineTo(xb, Y(fl.dH)); c.stroke(); c.setLineDash([]); };
+  hump(fl.Ea, "#e8eefc", []); if (S.nCat) hump(fl.Ea * fl.catEa, "#ffcd46", [5, 4]);
+  c.font = "11px Segoe UI,sans-serif"; c.fillStyle = "#9fb0d0"; c.textAlign = "left"; c.textBaseline = "alphabetic"; c.fillText("energy", x0 + 8, y0 + 15); c.fillText("reactants", xa, Y(0) - 5); c.textAlign = "right"; c.fillText("products", xb, Y(fl.dH) + 14); c.fillText("progress of reaction →", x0 + w - 8, y0 + h - 7);
+  c.strokeStyle = "#ffb060"; c.lineWidth = 1; c.beginPath(); c.moveTo(xm, Y(0)); c.lineTo(xm, Y(fl.Ea)); c.moveTo(xm - 3, Y(fl.Ea) + 5); c.lineTo(xm, Y(fl.Ea)); c.lineTo(xm + 3, Y(fl.Ea) + 5); c.stroke(); c.strokeStyle = "rgba(160,170,190,.4)"; c.setLineDash([3, 3]); c.beginPath(); c.moveTo(xa + 26, Y(0)); c.lineTo(xb, Y(0)); c.stroke(); c.setLineDash([]);
+  c.fillStyle = "#ffb060"; c.textAlign = "left"; if (fl.Ea > 2) c.fillText("Ea", xm + 5, (Y(0) + Y(fl.Ea)) / 2 + 4); if (fl.dH) { c.fillStyle = "#8fe3a8"; c.fillText("ΔH", xb - 22, (Y(0) + Y(fl.dH)) / 2 + 4); }
+}
+function draw(dt) {
+  const c = cv.ctx, w = cv.w, h = cv.h, { s, ox, oy } = view, X = x => ox + x * s, Y = y => oy + (BH - y) * s, { x, y, z, sp, th, n } = fl;
+  const bg = c.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, "#070b16"); bg.addColorStop(1, "#0c1322"); c.fillStyle = bg; c.fillRect(0, 0, w, h);
+  c.fillStyle = "#03060d"; c.fillRect(X(0), Y(BH), fl.L * s, BH * s);
+  const ra = Math.max(2, Math.round(0.13 * s)), off = 0.115 * s, sA = sprite(CA, ra), sB = sprite(CB, ra + 1), sS = sprite(CSOL, Math.round(0.25 * s)), sC = sprite(CCAT, Math.round(0.5 * s)), sAc = sprite(CA, ra + 1), sSp = sprite(CSP, ra + 1);
+  if (fl.cats.length) { c.fillStyle = "rgba(255,205,70,.07)"; for (const q of fl.cats) { c.beginPath(); c.arc(X(q[0]), Y(q[1]), 1.6 * s, 0, 6.3); c.fill(); } }
+  for (let i = 0; i < n; i++) {
+    const k = sp[i]; if (k === DEAD) continue; const px = X(x[i]), py = Y(y[i]);
+    if (k === SOLID) { c.drawImage(sS, px - sS.half, py - sS.half); continue; } if (k === CAT) { c.drawImage(sC, px - sC.half, py - sC.half); continue; }
+    c.globalAlpha = 0.55 + 0.45 * z[i] / BD;
+    if (k === ACID) c.drawImage(sAc, px - sAc.half, py - sAc.half); else if (k === SPENT) c.drawImage(sSp, px - sSp.half, py - sSp.half);
+    else { th[i] += fl.w[i] * dt * (ui.playing ? 1 : 0); const ax = Math.cos(th[i]) * off, ay = Math.sin(th[i]) * off, i1 = k === B2 ? sB : sA, i2 = k === A2 ? sA : sB; c.drawImage(i1, px - ax - i1.half, py - ay - i1.half); c.drawImage(i2, px + ax - i2.half, py + ay - i2.half); }
+  }
+  c.globalAlpha = 1; c.globalCompositeOperation = "lighter";
+  for (let i = fl.fx.length - 1; i >= 0; i--) { const q = fl.fx[i], rr = (1 - q[2]) * 26 + 5; const gr = c.createRadialGradient(X(q[0]), Y(q[1]), 0, X(q[0]), Y(q[1]), rr); gr.addColorStop(0, `rgba(255,255,255,${q[2]})`); gr.addColorStop(.4, q[3] ? `rgba(255,210,80,${q[2] * .7})` : `rgba(150,255,190,${q[2] * .6})`); gr.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = gr; c.fillRect(X(q[0]) - rr, Y(q[1]) - rr, rr * 2, rr * 2); q[2] -= 0.045; if (q[2] <= 0) fl.fx.splice(i, 1); }
+  c.globalCompositeOperation = "source-over";
+  // the flask walls: coloured by temperature if it sits in a water bath
+  c.lineWidth = 5; c.lineJoin = "round"; const tc = K.clamp((fl.T - 200) / 800, 0, 1); c.strokeStyle = fl.conduct ? `rgb(${Math.round(90 + 165 * tc)},${Math.round(190 - 60 * tc)},${Math.round(255 - 190 * tc)})` : "#8b93a5"; if (fl.conduct) { c.shadowColor = c.strokeStyle; c.shadowBlur = 10; }
+  c.strokeRect(X(0) - 3, Y(BH) - 3, fl.L * s + 6, BH * s + 6); c.shadowBlur = 0;
+  c.fillStyle = "rgba(200,210,230,.6)"; c.font = "11px Segoe UI,sans-serif"; c.textAlign = "left"; c.textBaseline = "alphabetic"; c.fillText(fl.conduct ? "water bath at " + fl.T + " K" : "insulated flask: heat cannot escape", X(0), Y(0) + 19);
+  // key and energy diagram on the right
+  const kx = X(BL) + 22, kw = w - kx - 12; if (kw > 150) {
+    profile(c, kx, 96, kw, 150); let ky = 268; c.font = "12px Segoe UI,sans-serif"; c.textBaseline = "middle";
+    const item = (draw, text) => { draw(kx + 14, ky); c.fillStyle = "#cfd8ea"; c.textAlign = "left"; c.fillText(text, kx + 32, ky); ky += 22; };
+    const pair = (a, b) => (px, py) => { c.drawImage(a, px - 4 - a.half, py - a.half); c.drawImage(b, px + 4 - b.half, py - b.half); }, one = a => (px, py) => c.drawImage(a, px - a.half, py - a.half);
+    if (S.mode === "gas") { item(pair(sA, sA), "A₂  " + fl.count(A2)); item(pair(sB, sB), "B₂  " + fl.count(B2)); item(pair(sA, sB), "AB  " + fl.count(AB) + "  (product)"); } else { item(one(sAc), "acid  " + fl.count(ACID)); item(one(sS), "solid  " + fl.count(SOLID)); item(one(sSp), "spent acid  " + fl.count(SPENT)); }
+    if (S.nCat) item(one(sprite(CCAT, 5)), "catalyst  " + fl.cats.length);
+  }
+}
+const chE = K.chart(ui.dock, { title: "Energies of the molecules", xLabel: "kinetic energy of a molecule (kJ/mol)", yLabel: "share of molecules", yMin: 0, xMin: 0, xMax: 40 });
+const chP = K.chart(ui.dock, { title: "Product made", xLabel: "time (ps)", yLabel: "product particles", yMin: 0 });
+function charts() {
+  for (let k = 0; k < 40; k++) ehist[k] *= 0.85; let cnt = 0;
+  for (let i = 0; i < fl.n; i++) if (fl.im[i]) { const e = 0.5 * (fl.vx[i] ** 2 + fl.vy[i] ** 2 + fl.vz[i] ** 2) / fl.im[i], k = e | 0; if (k < 40) ehist[k]++; cnt++; }
+  let tot = 0; for (let k = 0; k < 40; k++) tot += ehist[k]; tot = tot || 1; const T = fl.temp() || 1, kT = R * T, th = [];
+  for (let e = 0; e <= 40; e += 0.5) th.push([e, 2 / Math.sqrt(Math.PI) * Math.pow(kT, -1.5) * Math.sqrt(e) * Math.exp(-e / kT)]);     // Maxwell–Boltzmann energy distribution
+  const vl = [{ x: fl.Ea, color: "#ffb060", label: "Ea" }]; if (S.nCat) vl.push({ x: fl.Ea * fl.catEa, color: "#ffcd46", label: "Ea with catalyst", row: 1 });
+  chE.draw([{ type: "bars", w: 1, color: K.cssVar("--s0"), alpha: .8, pts: Array.from(ehist, (v, k) => [k + .5, v / tot]) }, { pts: th, color: K.cssVar("--s1"), dash: [5, 4], label: "Maxwell–Boltzmann at " + T.toFixed(0) + " K" }], { vlines: vl, bands: [{ x0: fl.Ea, x1: 40, color: "rgba(255,176,96,.12)" }] });
+  const cols = ["#7d8aa5", "#9a86c9", "#c98686", "#86b7c9"], ser = runs.map((q, i) => ({ pts: q.pts, color: cols[i % 4], label: q.label, width: 1.4 })); ser.push({ pts: curve, color: K.cssVar("--s2"), label: "now: " + curLabel, width: 2.4 });
+  chP.draw(ser, { yMax: total() * 1.14, hlines: [{ y: total(), label: "all used up" }] });
+}
+
+// ---------------- The loop ----------------
+let frame = 0, sampleT = 0, halfT = null;
+ui.run(dt => {
+  let vmax = 0.2; for (let i = 0; i < fl.n; i += 5) { const v = Math.abs(fl.vx[i]) + Math.abs(fl.vy[i]) + Math.abs(fl.vz[i]); if (v > vmax) vmax = v; }
+  const h = K.clamp(0.09 / vmax, 0.004, 0.05); let left = rate * Math.max(dt, 1 / 120), guard = 0;
+  while (left > 1e-6 && guard++ < 16) { const d = Math.min(h, left); fl.step(d); left -= d; }
+  sampleT += dt; if (sampleT > 0.25) {
+    sampleT = 0; if (!curve.length) halfT = null; curve.push([fl.t, fl.made]); if (curve.length > 1500) curve = curve.filter((q, i) => i % 2 === 0);
+    if (halfT == null && fl.made >= total() / 2) halfT = fl.t;
+    winAB += fl.nAB - lastAB; winOK += fl.nOK - lastOK; collRate = (fl.nAB - lastAB) / (rate * 0.25); lastAB = fl.nAB; lastOK = fl.nOK; pctOK = winAB > 30 ? 100 * winOK / winAB : null;
+  }
+}, dt => {
+  draw(dt); if (frame++ % 6) return; charts();
+  const T = fl.temp(), gasM = S.mode === "gas";
+  read.set("T", T.toFixed(0) + " K"); read.set("left", gasM ? fl.count(A2) + " A₂ · " + fl.count(B2) + " B₂" : fl.count(ACID) + " acid · " + fl.count(SOLID) + " solid"); read.set("made", fl.made + " of " + total());
+  read.set("coll", collRate.toFixed(1) + " per ps"); read.set("ok", pctOK == null ? "–" : pctOK.toFixed(pctOK < 10 ? 1 : 0) + "%"); read.set("th", (100 * Math.exp(-fl.Ea / (R * T))).toFixed(1) + "%" + (fl.orient ? " × ¼" : "")); read.set("half", halfT == null ? "–" : halfT.toFixed(0) + " ps"); read.set("cat", S.nCat ? fl.cats.length + " (none used up)" : "none");
+  ui.hud(`<b style="font-size:15px">${fl.made} product</b> of ${total()}<br>${T.toFixed(0)} K · ${fl.t.toFixed(0)} ps<br>successful collisions: ${pctOK == null ? "–" : pctOK.toFixed(pctOK < 10 ? 1 : 0) + "%"}`);
+});
+restart(false);
+ui.tip("Blue A₂ and orange B₂ must collide hard enough to react · a flash marks each success", 8000);

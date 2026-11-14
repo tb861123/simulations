@@ -27,4 +27,5 @@ Built with the kit: waves, dynamic_equilibrium, natural_selection,
 nerve_impulse, earthquake_buildings, forest_fire, three_body_chaos,
 central_limit_theorem, supply_demand, luck_and_skill, quantum_wave_lab,
 special_relativity, wind_tunnel, gravitational_lensing, lightning,
-chladni_plates, murmuration.
+chladni_plates, murmuration, gas_in_a_box, collision_theory,
+galaxy_collisions, epidemics, fields_orbits.

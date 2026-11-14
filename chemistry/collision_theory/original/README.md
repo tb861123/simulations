@@ -1,0 +1,118 @@
+# Collision Theory and Rates
+
+A particle simulation of collision theory for GCSE / iGCSE chemistry. Particles A and B
+fly around a box and bounce off each other. A pair reacts only if it collides hard enough
+(the collision energy is at least the activation energy, Ea) and, if you switch it on, the
+right way round. You can watch how temperature, concentration, pressure, surface area and
+a catalyst change the rate, then run the model hundreds of times and compare it with theory.
+
+## How to run
+
+Open `collision-theory.html` in Chrome or Edge. There is nothing to install and it works
+offline.
+
+## Levels (Standard / Advanced)
+
+A **Standard (iGCSE) / Advanced (A level)** switch sits at the top of the left panel. Standard follows Pearson Edexcel International GCSE Chemistry (4CH1); Advanced follows Pearson Edexcel A level Chemistry (9CH0) and keeps everything in Standard. The choice is remembered in the browser. Key ideas carry spec tags (grey-green 4CH1, purple 9CH0, blue-grey beyond both). Exam practice has questions with mark schemes at both levels; questions marked "Your…" use the numbers on screen. Batch runs are the same at both levels.
+
+- **Standard:** 4CH1 Section 3(b) Rates of reaction: collision theory; surface area, concentration,
+  temperature and catalysts; activation energy; the marble chips + acid and hydrogen peroxide
+  catalyst practicals. Six iGCSE exam questions.
+- **Advanced:** 9CH0 Topic 9 Kinetics I and Topic 16 Kinetics II. Extra readings (the rate
+  equation rate = k[A][B], the rate constant, ln k, pseudo-first order), A level key equations,
+  six A level presets (order: double A; order: double both; pseudo-first order; initial rates
+  CP13; Arrhenius CP14; rate-determining step) and seven A level exam questions.
+- **A level practicals box** (under the readings): *Initial rates (CP13)*, the iodine–propanone
+  reaction timed until the iodine colour goes, with measurement error, giving the orders, the
+  rate equation and k with units; *Activation energy (CP14)*, a clock reaction at several
+  water-bath temperatures with ln(1/t) against 1/T and Ea ± its uncertainty; *Rate-determining
+  step*, five mechanisms (iodine–propanone, SN1, SN2, NO₂ + F₂, NO₂ + CO).
+
+## Controls
+
+- **Presets** (13): Standard, Cold, Hot, Dilute, Concentrated, High pressure, High Ea,
+  With catalyst, Right way round, A + B → C, Solid lump, Powder, Marble chips + acid.
+- **Guided tour** (7 steps): collisions, temperature, concentration, pressure, surface area,
+  catalyst, then the marble-chips practical.
+- **Why does it change the rate?** Pick a factor to highlight its control and read the
+  collision-theory explanation.
+- **Marble chips + acid practical:** in the solid modes, the product graph can show the gas
+  collected (cm³, gas-syringe method) or the mass of the flask (g, balance method). The 64
+  solid particles stand for 1.00 g of marble (0.0100 mol CaCO₃), so each reaction gives
+  3.75 cm³ of CO₂ and the flask loses 0.0069 g.
+- **Drag the Ea line** on the collision-energy graph to change the activation energy.
+  Hover over a particle to see its speed and kinetic energy.
+- **Key equations** box and **Exam practice** (questions with mark schemes at both levels)
+  at the bottom of the right panel. Extra readings: the rate compared with the
+  Standard preset, and what a 10 °C rise would do to the rate.
+- **Conditions** (change at once): temperature (250–1000 K), volume of the box (a piston),
+  activation energy (0–30 kJ/mol), catalyst (halves Ea), "must hit the right way round".
+- **Reactants** (restart the reaction): reaction type (A + B → C + D, A + B → C, or
+  A + solid → C), number of A and B particles, number of pieces of solid (1, 4, 16 or 64),
+  random seed.
+- **Centre:** Play/Pause, Reset, speed (¼×, 1×, 4×, 15×; 1× = 25 ps of reaction per
+  second), **Batch run**.
+- **Right panel:** a "What's happening" commentary; readings (collision frequency,
+  % successful, rate now, initial rate, concentrations, half-life, each with its theory
+  value); amount of product against time with the initial-rate tangent; collision energies
+  (or particle speeds) with the Maxwell–Boltzmann theory curve, the Ea line and the
+  successful collisions shaded; and an energy profile with and without the catalyst.
+- The side panels can be resized or hidden by dragging or clicking the dividers.
+
+## Merged in
+
+This simulation replaces `chem_sims/06_Rates_of_Reaction.html`. From that page it took the
+guided tour, the factor explanations with a highlighted control, the live relative-rate
+reading, the key equations, the draggable Ea line, particle hover details and the exam
+questions with mark schemes. It also adds the marble-chips practical graphs.
+
+## The model
+
+- Hard discs in a 2D box 40 nm × 25 nm. A, B, C, D have mass 30 g/mol and radius 0.3 nm.
+  Elastic collisions; walls reflect.
+- Starting velocities: each component is normal with SD √(RT/m), which gives the 2D
+  Maxwell–Boltzmann spread. Units: nm, ps, g/mol, kJ/mol (1 g/mol·(nm/ps)² = 1 kJ/mol).
+- **Water bath:** an unreactive solvent (not drawn) gives each particle a fresh random
+  thermal velocity about every 3 ps (an Andersen thermostat). This keeps the temperature
+  steady and keeps the Maxwell–Boltzmann shape even though reactions use up the fastest
+  particles. Without it, the fraction of successful collisions falls 10–15% below theory.
+- **Collision energy:** E = ½μv², where v is the closing speed along the line of centres
+  and μ is the reduced mass. Each collision is wound back to the exact moment of contact
+  before E is worked out.
+- **Reaction rule:** react if E ≥ Ea (and, with orientation on, if the other particle hits
+  within ±60° of A's marked end, so P = ⅓).
+- **Solid:** 64 fixed particles in square lumps. Only surface particles can be hit.
+- **Theory used for comparison:**
+  - fraction of collisions with E ≥ Ea = e^(−Ea/RT) (exact for hard discs);
+  - collision frequency = 2d · v̄rel · g · N_A N_B / area, with v̄rel = √(πRT/2μ) and g a
+    small crowding correction (Henderson);
+  - rate = collision frequency × P × e^(−Ea/RT);
+  - half-life from the second-order integrated rate law;
+  - solid: rate ∝ the length of exposed surface around the lumps.
+- **Scaled energies:** Ea is at most 30 kJ/mol (real reactions: 40–200 kJ/mol) so you can
+  see reactions happen. ΔH = −30 kJ/mol is shown on the energy profile only. Heat from the
+  reaction is taken away by the bath.
+- **Not modelled:** 3D motion, molecular shape and rotation, attractions, reverse
+  reactions, the gas heating up, multi-step catalysis.
+
+## Batch experiments
+
+**Batch settings table.** The batch panel lists every starting setting a run uses: temperature, particles of A and B, volume, activation energy, pieces of solid, reaction type, solid (surface) reaction, catalyst, orientation, the first random seed, and the batch-only settings that were hidden before: stop once the rate is timed, keep the mixture unchanged, collisions to count, longest run (6000 ps) and the share of the limiting reactant used to time the rate (it was a fixed 20%; the theory uses the same share). Defaults are the old values, so every experiment gives exactly the same results as before. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in from fixed default settings (a preset plus the experiment's own changes), never from the left panel, so they give the same results in any order and do not change the left panel; clicking one only fills the table, and **▶ Run batch** runs it. **↺ Use my left-panel settings** copies the left panel into the table instead.
+
+Batch runs use the same particle model with no drawing (seeded random numbers, so a run
+can be repeated exactly). There are two modes: **Repeat** (a histogram) and **Sweep** (mean
+± 1 SD at each step, with the theory line and a best-fit line). Each mode shows a summary
+table and can download the results as a CSV file.
+Results from testing (seed 1):
+
+| Experiment | Result | Theory |
+|---|---|---|
+| Arrhenius plot, 300–900 K, 7 × 4 runs | Ea from gradient = 11.6 ± 0.7 kJ/mol | Ea set 10; expected Ea + ½RT̄ = 12.2 (collisions also get faster) |
+| Order with respect to A, 15–160 particles | gradient 1.06 ± 0.08 | 1 |
+| Order with respect to B | gradient 1.08 ± 0.17 | 1 |
+| Fraction successful against Ea at 600 K | gradient −0.197 per kJ/mol → T = 609 K | −1/RT = −0.200 (600 K) |
+| 100 repeats, time for half to react | mean 267.5 ps, SD 54, SE 5.4 | 267.7 ps (−0.03 SE) |
+| Lumps against powder (1, 4, 16, 64 pieces) | log–log gradient 0.62 ± 0.07 | 0.59 (from exposed surface) |
+
+The default experiment takes a few seconds. The fraction experiment counts reactions but
+leaves the mixture unchanged, so the reactant concentrations stay fixed.
