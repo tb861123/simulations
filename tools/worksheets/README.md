@@ -24,7 +24,7 @@ Node.js with Playwright (`npm install -g playwright`, then
 ```
 cd tools/worksheets
 ./run_all.sh                                              # everything
-./run_all.sh ../../physics/gas_in_a_box/gas-in-a-box.html  # one simulation
+./run_all.sh ../../physics/circuits/circuits.html  # one simulation
 node run-batch-experiments.js ../../climate/forest_fire/forest-fire.html 3   # CPU slowed 3×, to time a slow laptop
 ```
 

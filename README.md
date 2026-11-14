@@ -14,14 +14,17 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Seventeen simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): eleven rebuilt showpieces, which replaced the earlier versions in
+Twenty-two simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): sixteen rebuilt showpieces, which replaced the earlier versions in
 their folders, and six newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
-Lensing simulation in `astrophysics/gravitational_lensing/original/`.
+Lensing simulation in `astrophysics/gravitational_lensing/original/`. The earlier
+Gas in a Box, Collision Theory, Galaxy Collisions, Epidemics and Fields and
+Orbits are likewise kept in each folder's `original/`, with their worksheets,
+and are linked from "The model" tab of the new versions.
 
 ## Batch run
 
@@ -34,7 +37,7 @@ simulation has ready-made batch experiments that pose a question, such as
 
 ## Worksheets
 
-Every simulation with a batch run, apart from the seventeen ★ Enhanced ones,
+Every simulation with a batch run, apart from the twenty-two ★ Enhanced ones,
 has a `worksheets.html` beside it: one
 printable A4 page per batch experiment (set-up, prediction, results table to
 fill in, questions), then teacher notes with the explanation and the numbers
@@ -48,7 +51,7 @@ changing a simulation's batch experiments.
 
 | Folder | What it is | How to run |
 |---|---|---|
-| [`physics/gas_in_a_box/`](physics/gas_in_a_box/) | Kinetic theory: Maxwell–Boltzmann speeds, gas laws, p–V processes and heat engines, Brownian motion, diffusion (also listed under Chemistry) | Open `gas-in-a-box.html` |
+| [`physics/gas_in_a_box/`](physics/gas_in_a_box/) | Gas in a Box ★: every atom followed; pressure, the gas laws, Maxwell–Boltzmann speeds, Brownian motion and diffusion from collisions alone (also listed under Chemistry) | Open `gas-in-a-box.html` |
 | [`physics/simple_harmonic_motion/`](physics/simple_harmonic_motion/) | Simple harmonic motion: pendulums and springs, SHM graphs and energy, damping, forced oscillation and resonance, Barton's pendulums; plus a double-pendulum chaos tab | Open `simple-harmonic-motion.html` |
 | [`physics/states_of_matter/`](physics/states_of_matter/) | States of matter: particles, heating and cooling curves, specific heat capacity and latent heat (also listed under Chemistry) | Open `states-of-matter.html` |
 | [`physics/youngs_modulus/`](physics/youngs_modulus/) | Young's modulus: Hooke's law, stress–strain curves, breaking, Searle's method | Open `youngs-modulus.html` |
@@ -56,7 +59,7 @@ changing a simulation's batch experiments.
 | [`physics/circular_motion/`](physics/circular_motion/) | Circular motion: whirling bung, banked bends, loop-the-loop, conical pendulum | Open `circular-motion.html` |
 | [`physics/waves/`](physics/waves/) | Ripple Tank ★: a 2-D wave-equation solver. Interference, slits, refraction, lenses, mirrors and Doppler; draw your own walls and glass | Open `waves.html` |
 | [`physics/optics_refraction/`](physics/optics_refraction/) | Refraction: Snell's law, total internal reflection, prisms, lenses, optical fibres | Open `optics-refraction.html` |
-| [`physics/fields_orbits/`](physics/fields_orbits/) | Fields and orbits: electric and gravitational fields, Kepler's laws, escape speed, binary stars (also listed under Astrophysics) | Open `fields-orbits.html` |
+| [`physics/fields_orbits/`](physics/fields_orbits/) | Fields and Orbits ★: electric and gravitational fields you can sculpt and tilt, launched ions and satellites, Kepler's laws, escape speed (also listed under Astrophysics) | Open `fields-orbits.html` |
 | [`physics/circuits/`](physics/circuits/) | Circuits: EMF and internal resistance, I–V characteristics, resistivity, AC | Open `circuits.html` |
 | [`physics/capacitors/`](physics/capacitors/) | Capacitors: charge and discharge, time constant, energy | Open `capacitors.html` |
 | [`physics/magnetism_induction/`](physics/magnetism_induction/) | Magnetism and induction: motor effect, Faraday's law, transformers, DC motor | Open `magnetism-induction.html` |
@@ -79,7 +82,7 @@ changing a simulation's batch experiments.
 
 | Folder | What it is | How to run |
 |---|---|---|
-| [`chemistry/collision_theory/`](chemistry/collision_theory/) | Collision theory: temperature, concentration, catalysts and surface area, with the Arrhenius plot | Open `collision-theory.html` |
+| [`chemistry/collision_theory/`](chemistry/collision_theory/) | Collision Theory and Rates ★: reacting molecules, activation energy, catalysts, surface area, runaway reactions, the Arrhenius plot | Open `collision-theory.html` |
 | [`chemistry/dynamic_equilibrium/`](chemistry/dynamic_equilibrium/) | Dynamic Equilibrium ★: A + B ⇌ AB with real particle collisions; Le Chatelier, K and Q, energy profile | Open `dynamic-equilibrium.html` |
 | [`chemistry/atomic_structure/`](chemistry/atomic_structure/) | Atomic structure: protons, neutrons, electrons, shells, ions, isotopes and relative atomic mass | Open `atomic-structure.html` |
 | [`chemistry/bonding/`](chemistry/bonding/) | Ionic, covalent and metallic bonding, with structure and properties (melting, conduction, brittleness) | Open `bonding.html` |
@@ -102,7 +105,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 |---|---|---|
 | [`biology/natural_selection/`](biology/natural_selection/) | Natural Selection ★: moths on changing bark with real camouflage, mutation, extinction and a "be the bird" mode | Open `natural-selection.html` |
 | [`biology/murmuration/`](biology/murmuration/) | Murmuration ★: a 3-D flock of starlings from three local rules, with a hunting falcon | Open `murmuration.html` |
-| [`biology/epidemics/`](biology/epidemics/) | Epidemics, vaccination and herd immunity (SEIR) | Open `epidemics.html` |
+| [`biology/epidemics/`](biology/epidemics/) | Epidemics and Vaccination ★: a town followed hour by hour; R0, herd immunity, flattening the curve, isolation | Open `epidemics.html` |
 | [`biology/predator_prey/`](biology/predator_prey/) | Foxes, rabbits and grass: population cycles and Lotka–Volterra | Open `predator-prey.html` |
 | [`biology/membranes/`](biology/membranes/) | Membranes and movement: diffusion, osmosis, active transport, SA:V, potato osmosis, water potential, membrane permeability | Open `membranes.html` |
 | [`biology/enzymes/`](biology/enzymes/) | Enzymes: lock and key, temperature, pH, substrate concentration, inhibitors, Vmax, Q10, amylase and catalase practicals | Open `enzymes.html` |
@@ -161,7 +164,7 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`astrophysics/planet_formation/`](astrophysics/planet_formation/) | How a planetary system forms, from a collapsing cloud to rocky planets and gas giants | Open `planet-formation.html` |
 | [`astrophysics/stellar_life_cycle/`](astrophysics/stellar_life_cycle/) | A star's whole life, from nebula to white dwarf, neutron star or black hole | Open `stellar-life-cycle.html` |
 | [`astrophysics/exoplanet_hunting/`](astrophysics/exoplanet_hunting/) | Finding exoplanets by transits and the Doppler wobble | Open `exoplanet-hunting.html` |
-| [`astrophysics/galaxy_collisions/`](astrophysics/galaxy_collisions/) | Galaxy collisions and mergers, tidal tails, Milky Way and Andromeda | Open `galaxy-collisions.html` |
+| [`astrophysics/galaxy_collisions/`](astrophysics/galaxy_collisions/) | Galaxy Collisions ★: hundreds of thousands of stars; tidal tails, rings, streams, mergers, the Milky Way and Andromeda | Open `galaxy-collisions.html` |
 | [`astrophysics/expanding_universe/`](astrophysics/expanding_universe/) | Hubble's law, redshift and the age of the universe | Open `expanding-universe.html` |
 | [`astrophysics/gravitational_lensing/`](astrophysics/gravitational_lensing/) | Black Holes and Gravitational Lensing ★: a ray-traced black hole with accretion disc, Einstein rings and arcs, microlensing planets, Eddington 1919 | Open `gravitational-lensing.html` |
 | [`astrophysics/dark_matter/`](astrophysics/dark_matter/) | Evidence for dark matter from galaxy rotation curves | Open `dark-matter.html` |

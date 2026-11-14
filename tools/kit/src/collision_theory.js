@@ -178,7 +178,9 @@ const ui = K.app({
 <li>Molecules are spheres with no attraction between them, no vibration and no rotation that matters. "Side-on" uses the drawn angle of each molecule.</li>
 <li>The "solid + acid" reaction is in a gas-like box: there is no solvent, and the product does not bubble away.</li>
 <li>The catalyst is a rule ("easier near a bead"), not a model of molecules sticking to a surface.</li>
-<li>With a few hundred molecules every reading flickers. Time is slowed about 10¹¹ times.</li></ul>`
+<li>With a few hundred molecules every reading flickers. Time is slowed about 10¹¹ times.</li></ul>
+<h3>The earlier version</h3>
+<p>The previous version of this simulation, with its spec notes, exam practice and worksheets, is still here: <a href="original/collision-theory.html" style="color:var(--accent)">open the earlier version</a>.</p>`
 });
 
 // ---------------- Controls ----------------
