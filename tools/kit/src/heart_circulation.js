@@ -169,7 +169,9 @@ const ui = K.app({
 <li>Exercise is a single slider that changes heart rate, strength of contraction, artery resistance and the squeeze on the veins together. Breathing, temperature and blood chemistry are left out.</li>
 <li>No abnormal rhythms: every beat is started on time by the pacemaker.</li>
 <li>Blood is not made, lost through the kidneys or shifted into the tissues, so long-term control of blood pressure is not modelled.</li>
-<li>All values are for a typical healthy adult at rest and vary a good deal between people.</li></ul>`
+<li>All values are for a typical healthy adult at rest and vary a good deal between people.</li></ul>
+<h3>The earlier version</h3>
+<p>The previous version of this simulation, with its worksheets, is still here: <a href="original/heart-circulation.html" style="color:var(--accent)">open the earlier version</a>.</p>`
 });
 
 // ---------------- Controls ----------------

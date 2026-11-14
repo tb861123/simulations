@@ -145,7 +145,9 @@ const ui = K.app({
 <li>Vehicles never collide: the model's braking is always (just) enough.</li>
 <li>Roadworks are a blocked lane with no reduced limit or narrowed lanes.</li>
 <li>The self-driving cars are a simple, cautious rule, not a model of any real system.</li>
-<li>Vehicles drive on the left with lane 1 on the outside of the loop.</li></ul>`
+<li>Vehicles drive on the left with lane 1 on the outside of the loop.</li></ul>
+<h3>The earlier version</h3>
+<p>The previous version of this simulation, with its worksheets, is still here: <a href="original/traffic-flow.html" style="color:var(--accent)">open the earlier version</a>.</p>`
 });
 
 // ---------------- Controls ----------------

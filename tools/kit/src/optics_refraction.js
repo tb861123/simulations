@@ -186,7 +186,9 @@ const ui = K.app({
 <li>Dispersion is exaggerated (about double that of ordinary glass, more for the prism, drop and diamond scenes) so that spectra are easy to see.</li>
 <li>Materials are perfectly clear, and mirrors reflect everything.</li>
 <li>The fibre is bare glass in air with no cladding, and much fatter than a real fibre.</li>
-<li>Shapes should not overlap: where they do, the model does not know which material the light is in.</li></ul>`
+<li>Shapes should not overlap: where they do, the model does not know which material the light is in.</li></ul>
+<h3>The earlier version</h3>
+<p>The previous version of this simulation, with its worksheets, is still here: <a href="original/optics-refraction.html" style="color:var(--accent)">open the earlier version</a>.</p>`
 });
 
 // ---------------- Controls ----------------

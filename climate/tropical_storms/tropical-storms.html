@@ -1,0 +1,699 @@
+<!doctype html>
+<!-- Tropical Storms: one self-contained file, works offline. Built from tools/kit (kit.css, kit.js, src/tropical_storms.js); edit those and run "node build.js". -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tropical Storms</title>
+<style>
+/* ===== Enhanced (kit-built) simulations: shared look and feel (inlined into every page by build.js) ===== */
+:root{
+  --bg:#0a0f1c; --panel:#111a2c; --panel2:#17223a; --line:#24324f; --text:#e9eef8; --muted:#8fa0bf; --grid:#1f2c47;
+  --accent:#5ad1ff; --accent-ink:#04121c; --good:#6ee7a0; --warn:#ffb454; --bad:#ff6b81;
+  --s0:#5ad1ff; --s1:#ffb454; --s2:#7ee787; --s3:#ff7b9c; --s4:#c4a1ff; --s5:#ffe66d;
+  --shadow:0 10px 30px rgba(0,0,0,.45); --r:12px;
+}
+:root[data-theme=light]{
+  --bg:#eef2f8; --panel:#ffffff; --panel2:#f3f6fb; --line:#d5dceb; --text:#172033; --muted:#5d6b85; --grid:#e3e8f2;
+  --accent:#0b7fc2; --accent-ink:#ffffff; --good:#12924c; --warn:#b86a00; --bad:#d1344d;
+  --s0:#0b7fc2; --s1:#d97a00; --s2:#1b9e4b; --s3:#d6336c; --s4:#7048c8; --s5:#a08800;
+  --shadow:0 8px 24px rgba(30,50,90,.15);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+.k-top{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;min-height:52px}
+.k-home{color:var(--muted);text-decoration:none;font-size:13px;white-space:nowrap}.k-home:hover{color:var(--accent)}
+.k-title{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
+.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+.k-chip{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 9px;white-space:nowrap;align-self:center}
+.k-blurb{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-actions{display:flex;gap:6px;flex:none}
+.k-btn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:.12s;user-select:none}
+.k-btn:hover{border-color:var(--accent);color:var(--accent)}
+.k-btn:active{transform:translateY(1px)}
+.k-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.k-btn.primary:hover{filter:brightness(1.1);color:var(--accent-ink)}
+.k-btn.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel2))}
+.k-btn.small{padding:3px 9px;font-size:12.5px}
+.k-btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.k-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
+.k-left{display:flex;flex-direction:column;min-width:0;min-height:0}
+.k-stage{flex:1;position:relative;min-height:0;background:#060a14;overflow:hidden}
+.k-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.k-dock{flex:none;height:190px;display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.k-dock:empty{display:none}
+.k-dock>*{flex:1;min-width:0;background:var(--panel)}
+.k-chart{position:relative;height:100%;min-height:80px}
+.k-chart canvas{position:absolute;inset:0;width:100%;height:100%}
+.k-side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.k-tabs{display:flex;border-bottom:1px solid var(--line);flex:none}
+.k-tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:10px 4px;cursor:pointer;color:var(--muted);font-weight:600}
+.k-tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.k-pane{flex:1;overflow-y:auto;padding:12px 14px 20px;display:none;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.k-pane.on{display:block}
+.k-group{margin-bottom:14px}
+.k-group>h3{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);margin:0 0 8px;font-weight:700}
+.k-ctl{margin-bottom:10px}
+.k-ctl label{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:2px}
+.k-ctl label b{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.k-ctl small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3;margin-top:1px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:none;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-moz-range-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);margin-top:-6.5px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+.k-seg{display:flex;flex-wrap:wrap;gap:4px}
+.k-seg .k-btn{flex:1 1 auto;padding:5px 8px;font-size:13px;text-align:center}
+.k-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.k-row .k-btn{flex:1 1 auto;text-align:center}
+.k-toggle{display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:9px;font-size:13px;user-select:none}
+.k-toggle i{flex:none;width:34px;height:19px;border-radius:99px;background:var(--line);position:relative;transition:.15s}
+.k-toggle i::after{content:"";position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;background:var(--muted);transition:.15s}
+.k-toggle.on i{background:var(--accent)}.k-toggle.on i::after{left:17px;background:var(--accent-ink)}
+.k-read{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.k-read div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 9px}
+.k-read span{display:block;font-size:11px;color:var(--muted)}
+.k-read b{font-size:16px;font-variant-numeric:tabular-nums;font-weight:650}
+.k-mcard{border:1px solid var(--line);background:var(--panel2);border-radius:var(--r);padding:11px 12px;margin-bottom:10px}
+.k-mcard h4{margin:0 0 4px;font-size:14.5px;display:flex;gap:8px;align-items:center}
+.k-mcard h4 em{font-style:normal;flex:none;width:22px;height:22px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:12px}
+.k-mcard.done h4 em{background:var(--good);color:#04130a}
+.k-mcard p{margin:0 0 8px;color:var(--muted);font-size:13px}
+.k-banner{position:absolute;left:12px;top:12px;max-width:min(520px,70%);background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--accent);border-radius:var(--r);padding:10px 34px 10px 13px;box-shadow:var(--shadow);z-index:5;backdrop-filter:blur(6px);font-size:13.5px}
+.k-banner b{color:var(--accent)}
+.k-banner .x{position:absolute;right:8px;top:6px;cursor:pointer;color:var(--muted);background:none;border:0;font-size:16px}
+.k-banner details{margin-top:6px;color:var(--muted)}.k-banner summary{cursor:pointer;color:var(--warn)}
+.k-tip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(8,14,26,.82);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:99px;padding:6px 16px;font-size:13px;pointer-events:none;z-index:4;transition:opacity .6s;white-space:nowrap}
+.k-hud{position:absolute;right:12px;top:12px;background:rgba(8,14,26,.72);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:10px;padding:7px 11px;font-size:12.5px;z-index:3;pointer-events:none;font-variant-numeric:tabular-nums;line-height:1.5;text-align:right}
+.k-notes h3{font-size:14px;margin:14px 0 4px;color:var(--accent)}.k-notes h3:first-child{margin-top:0}
+.k-notes p,.k-notes li{font-size:13px;color:var(--text)}.k-notes ul{padding-left:18px;margin:4px 0}
+.k-notes code{background:var(--panel2);padding:1px 5px;border-radius:5px;font-size:12.5px}
+.k-overlay{position:fixed;inset:0;background:rgba(3,6,12,.7);display:none;z-index:50;backdrop-filter:blur(3px)}
+.k-overlay.on{display:grid;place-items:center}
+.k-modal{width:min(1180px,95vw);height:min(700px,92vh);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:grid;grid-template-columns:290px 1fr;overflow:hidden}
+.k-blist{border-right:1px solid var(--line);overflow-y:auto;padding:14px}
+.k-blist h2{font-size:16px;margin:0 0 4px}.k-blist>p{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+.k-bitem{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;cursor:pointer}
+.k-bitem.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.k-bitem b{display:block;font-size:13.5px}.k-bitem span{color:var(--muted);font-size:12.5px}
+.k-bmain{display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 16px}
+.k-bhead{display:flex;gap:10px;align-items:flex-start}
+.k-bhead h3{margin:0;font-size:17px;flex:1}.k-bhead p{margin:3px 0 0;color:var(--muted);font-size:13px;font-weight:400}
+.k-bbar{display:flex;gap:10px;align-items:center;margin:10px 0 8px}
+.k-prog{flex:1;height:6px;background:var(--line);border-radius:9px;overflow:hidden}.k-prog i{display:block;height:100%;width:0;background:var(--accent)}
+.k-bchart{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.k-bfoot{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;height:150px;margin-top:10px}
+.k-btable{overflow:auto;border:1px solid var(--line);border-radius:10px;font-size:12.5px}
+.k-btable table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.k-btable th,.k-btable td{padding:3px 8px;text-align:right;border-bottom:1px solid var(--line)}
+.k-btable th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600}
+.k-bnote{overflow:auto;font-size:13px;color:var(--muted);background:var(--panel2);border-radius:10px;padding:9px 12px}
+.k-bnote b{color:var(--text)}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+.k-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.02em;padding:1px 7px;border-radius:99px;vertical-align:1px;white-space:nowrap;background:#35505a;color:#c9ecdf}
+.k-tag.adv{background:#4b3a78;color:#e3d6ff}.k-tag.beyond{background:#39465c;color:#cfdaf0}
+.k-idea{font-size:13px;margin:0 0 8px;line-height:1.4}.k-spec{font-size:12px;color:var(--muted);margin:0 0 10px}
+.k-pane>h3{font-size:14px;margin:14px 0 8px;color:var(--accent)}
+.k-q h4{font-size:12px}.k-q .k-marks{margin-left:auto;color:var(--muted);font-weight:400}.k-q p{color:var(--text);font-size:13.5px}
+.k-q details{font-size:13px;color:var(--muted)}.k-q summary{cursor:pointer;color:var(--warn)}.k-q details ul{padding-left:18px;margin:4px 0}
+.k-level{padding-bottom:4px}
+.k-tabs button{font-size:13px;padding-left:2px;padding-right:2px}
+</style></head><body>
+<script>
+"use strict";
+/* =====================================================================
+   K: the small shared toolkit behind the ★ enhanced simulations.
+   It builds the page frame (header, stage, chart dock, side panel),
+   the sliders and buttons, the live charts, the Investigations cards
+   and the Batch run window. Each simulation's own code (below this
+   script in the page) holds the science.
+   ===================================================================== */
+const K = (() => {
+  const $ = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const col = i => cssVar("--s" + (i % 6));
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // ---- Repeatable random numbers: the same seed always gives the same run ----
+  function rng(seed) {
+    let a = (seed >>> 0) || 1;
+    const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    r.gauss = () => { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307179586 * r()); };
+    r.int = n => Math.floor(r() * n);
+    r.pick = arr => arr[Math.floor(r() * arr.length)];
+    return r;
+  }
+  // ---- Simple statistics ----
+  const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+  const sd = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); };
+  const se = a => sd(a) / Math.sqrt(a.length || 1);
+  function linfit(pts) { // least-squares straight line through [x,y] points
+    const n = pts.length, mx = mean(pts.map(p => p[0])), my = mean(pts.map(p => p[1]));
+    let sxy = 0, sxx = 0, syy = 0; for (const [x, y] of pts) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; syy += (y - my) ** 2; }
+    const m = sxy / (sxx || 1); return { m, c: my - m * mx, r: sxy / Math.sqrt((sxx * syy) || 1), n };
+  }
+  function download(name, text) { const a = $("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  const sig = (v, n = 3) => { if (v == null || !isFinite(v)) return "–"; if (v === 0) return "0"; const a = Math.abs(v); if (a >= 1e5 || a < 1e-3) return v.toExponential(n - 1); return String(+v.toPrecision(n)); };
+
+  // ---- Controls ----
+  function slider(parent, o) {
+    const w = $("div", "k-ctl"), lab = $("label"), name = $("span", "", o.label), val = $("b"), inp = $("input");
+    inp.type = "range"; inp.min = o.min; inp.max = o.max; inp.step = o.step || 1; inp.value = o.value;
+    const fmt = o.fmt || (v => sig(v, 4) + (o.unit ? " " + o.unit : ""));
+    const show = () => val.innerHTML = fmt(+inp.value);
+    lab.append(name, val); w.append(lab, inp); if (o.tip) w.append($("small", "", o.tip)); parent.append(w); show();
+    inp.addEventListener("input", () => { show(); o.on && o.on(+inp.value); });
+    return { el: w, get value() { return +inp.value; }, set(v, fire) { inp.value = v; show(); if (fire) o.on && o.on(+inp.value); } };
+  }
+  function seg(parent, o) {
+    const w = $("div", "k-ctl"); if (o.label) w.append($("label", "", `<span>${o.label}</span>`));
+    const row = $("div", "k-seg"); w.append(row); if (o.tip) w.append($("small", "", o.tip)); parent.append(w);
+    let value = o.value; const btns = [];
+    const paint = () => btns.forEach(([v, b]) => b.classList.toggle("on", v === value));
+    for (const [v, label, title] of o.options) { const b = $("button", "k-btn", label); if (title) b.title = title; b.onclick = () => { value = v; paint(); o.on && o.on(v); }; row.append(b); btns.push([v, b]); }
+    paint();
+    return { el: w, get value() { return value; }, set(v, fire) { value = v; paint(); if (fire) o.on && o.on(v); } };
+  }
+  function toggle(parent, o) {
+    const w = $("div", "k-toggle" + (o.value ? " on" : ""), `<i></i><span>${o.label}</span>`); parent.append(w); let value = !!o.value;
+    w.onclick = () => { value = !value; w.classList.toggle("on", value); o.on && o.on(value); };
+    return { el: w, get value() { return value; }, set(v, fire) { value = !!v; w.classList.toggle("on", value); if (fire) o.on && o.on(value); } };
+  }
+  function btn(parent, label, on, cls) { const b = $("button", "k-btn " + (cls || ""), label); b.onclick = on; parent.append(b); return b; }
+  function row(parent) { const r = $("div", "k-row"); parent.append(r); return r; }
+  function readout(parent, items) { // small tiles of live numbers
+    const g = $("div", "k-read"), map = {}; parent.append(g);
+    for (const [id, label] of items) { const d = $("div", "", `<span>${label}</span><b>–</b>`); g.append(d); map[id] = d.lastChild; }
+    return { el: g, set(id, v) { if (map[id].textContent !== String(v)) map[id].innerHTML = v; } };
+  }
+  function note(parent, html) { const s = $("small", "", html); s.style.cssText = "display:block;color:var(--muted);margin:-2px 0 10px;font-size:12px;line-height:1.35"; parent.append(s); return s; }
+
+  // ---- A canvas that stays sharp on high-DPI screens and follows its container's size ----
+  function canvas(parent, onresize) {
+    const cv = $("canvas"); parent.append(cv); const c = { el: cv, ctx: cv.getContext("2d"), w: 1, h: 1, dpr: 1 };
+    const fit = () => {
+      const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
+      c.dpr = Math.min(window.devicePixelRatio || 1, 2); c.w = w; c.h = h; cv.width = Math.round(w * c.dpr); cv.height = Math.round(h * c.dpr);
+      c.ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0); onresize && onresize(c);
+    };
+    new ResizeObserver(fit).observe(parent); fit(); return c;
+  }
+  // Pointer handling in the element's own pixel coordinates
+  function pointer(el, h) {
+    const pos = e => { const r = el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, e }; };
+    let down = false;
+    el.addEventListener("pointerdown", e => { down = true; el.setPointerCapture(e.pointerId); h.down && h.down(pos(e)); });
+    el.addEventListener("pointermove", e => { const p = pos(e); if (down) h.drag && h.drag(p); else h.hover && h.hover(p); });
+    const up = e => { if (down) { down = false; h.up && h.up(pos(e)); } };
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+    el.addEventListener("pointerleave", e => h.leave && h.leave(pos(e)));
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+
+  // ---- Charts ----
+  const charts = new Set();
+  function niceTicks(a, b, n) {
+    const span = (b - a) || 1, raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    const step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p, t = [];
+    for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + step * 1e-6; v += step) t.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    return { t, step };
+  }
+  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(0); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
+  /* chart(parent,{title,xLabel,yLabel,xMin,xMax,yMin,yMax,yZero})  then  .draw(series, extra)
+     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r}]
+     extra:  {xMin..yMax overrides, vlines:[{x,color,label,dash}], hlines:[{y,...}], bands:[{x0,x1,color}]} */
+  function chart(parent, o = {}) {
+    const wrap = $("div", "k-chart"), cv = $("canvas"); wrap.append(cv); parent.append(wrap);
+    const ctx = cv.getContext("2d"); let last = [[], {}];
+    const api = { el: wrap, opts: o, draw(series, extra) { last = [series || [], extra || {}]; render(); }, redraw: () => render(), map: null };
+    function render() {
+      const W = wrap.clientWidth, H = wrap.clientHeight; if (W < 40 || H < 40) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      const [series, ex] = last, q = Object.assign({}, o, ex);
+      const text = cssVar("--text"), muted = cssVar("--muted"), grid = cssVar("--grid");
+      // work out the axis ranges from the data unless they are fixed
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const s of series) for (const p of s.pts) { if (!isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
+      for (const l of q.hlines || []) { if (l.y < y0) y0 = l.y; if (l.y > y1) y1 = l.y; }
+      if (!isFinite(x0)) { x0 = 0; x1 = 1; } if (!isFinite(y0)) { y0 = 0; y1 = 1; }
+      if (q.yZero || series.some(s => s.type === "bars")) { y0 = Math.min(0, y0); y1 = Math.max(0, y1); }
+      const py = (y1 - y0) * 0.08 || Math.abs(y1) * 0.1 || 1; if (q.yMin == null && y0 !== 0) y0 -= py; if (q.yMax == null) y1 += py;
+      if (x1 === x0) { x0 -= 0.5; x1 += 0.5; }
+      if (q.xMin != null) x0 = q.xMin; if (q.xMax != null) x1 = q.xMax; if (q.yMin != null) y0 = q.yMin; if (q.yMax != null) y1 = q.yMax;
+      const L = 54, R = 12, T = 24, B = q.xLabel ? 34 : 22, pw = W - L - R, ph = H - T - B;
+      const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + ph - (y - y0) / (y1 - y0) * ph;
+      api.map = { X, Y, x0, x1, y0, y1, L, T, pw, ph };
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; ctx.lineWidth = 1;
+      for (const b of q.bands || []) { ctx.fillStyle = b.color; ctx.fillRect(X(Math.max(x0, b.x0)), T, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)), ph); }
+      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70))), yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.beginPath();
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      for (const v of xt.t) { const x = Math.round(X(v)) + .5; ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.fillText(q.xFmt ? q.xFmt(v) : tickFmt(v, xt.step), x, T + ph + 4); }
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      for (const v of yt.t) { const y = Math.round(Y(v)) + .5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.fillText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step), L - 5, y); }
+      ctx.stroke(); ctx.strokeStyle = muted; ctx.strokeRect(L + .5, T + .5, pw, ph);
+      if (q.xLabel) { ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(q.xLabel, L + pw / 2, H - 3); }
+      if (q.yLabel) { ctx.save(); ctx.translate(11, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(q.yLabel, 0, 0); ctx.restore(); }
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+      series.forEach((s, i) => {
+        const c = s.color || col(i); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = s.width || 1.8; ctx.setLineDash(s.dash || []); ctx.globalAlpha = s.alpha == null ? 1 : s.alpha;
+        const P = s.pts;
+        if (s.type === "bars") { const w = Math.max(1, Math.abs(X(s.w || 1) - X(0)) - 1); for (const p of P) { const yy = Y(p[1]); ctx.fillRect(X(p[0]) - w / 2, Math.min(yy, Y(0)), w, Math.abs(Y(0) - yy)); } }
+        else if (s.type === "dots" || s.type === "err") {
+          const r = s.r || 3;
+          for (const p of P) { const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+        } else {
+          ctx.beginPath(); let pen = false;
+          for (const p of P) { if (!isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
+          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= .22; ctx.fill(); } else ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+      });
+      for (const l of q.vlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(l.x), T); ctx.lineTo(X(l.x), T + ph); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = X(l.x) > L + pw * .7 ? "right" : "left"; ctx.textBaseline = "top"; ctx.fillText(l.label, X(l.x) + (ctx.textAlign === "right" ? -5 : 5), T + 4 + (l.row || 0) * 13); } }
+      for (const l of q.hlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Y(l.y)); ctx.lineTo(L + pw, Y(l.y)); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(l.label, L + pw - 5, Y(l.y) - 2); } }
+      ctx.restore();
+      // title on the left, legend on the right
+      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
+      for (let i = series.length - 1; i >= 0; i--) { const s = series[i]; if (!s.label) continue; const w = ctx.measureText(s.label).width; lx -= w; ctx.fillStyle = muted; ctx.fillText(s.label, lx, 12); lx -= 12; ctx.fillStyle = s.color || col(i); ctx.fillRect(lx, 8, 8, 8); lx -= 10; }
+      if (q.title) { // the title gives way (with an ellipsis) if the legend needs the room
+        ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.fillStyle = text; let t = q.title; const room = lx - L - 8;
+        if (ctx.measureText(t).width > room) { while (t.length > 3 && ctx.measureText(t + "…").width > room) t = t.slice(0, -1); t = t.length > 3 ? t + "…" : ""; }
+        ctx.fillText(t, L, 12);
+      }
+    }
+    new ResizeObserver(render).observe(wrap); charts.add(api); return api;
+  }
+  function histogram(vals, bins, lo, hi) { // returns bar points [centre, count] and the bin width
+    if (lo == null) lo = Math.min(...vals); if (hi == null) hi = Math.max(...vals); if (hi === lo) { hi += .5; lo -= .5; }
+    const w = (hi - lo) / bins, c = new Array(bins).fill(0);
+    for (const v of vals) { const i = Math.floor((v - lo) / w); if (i >= 0 && i <= bins) c[Math.min(i, bins - 1)]++; }
+    return { pts: c.map((n, i) => [lo + (i + .5) * w, n]), w };
+  }
+
+  // ---- The page frame ----
+  function app(o) {
+    document.title = o.title + " · Science Simulations";
+    const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
+    if (saved) document.documentElement.dataset.theme = saved;
+    const top = $("header", "k-top"), main = $("main", "k-main");
+    top.innerHTML = `<a class="k-home" href="${o.home || "../../index.html"}" title="Back to the list of simulations">◂ All simulations</a>
+      <div class="k-title"><span class="k-chip">${o.subject}</span><h1>${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
+    const act = top.querySelector(".k-actions");
+    const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
+    left.append(stage, dock); main.append(left, side); document.body.append(top, main);
+    const ui = { stage, dock, side, playing: true, speed: 1, canvas: fn => canvas(stage, fn) };
+    // header buttons
+    const bPlay = btn(act, "⏸ Pause", () => ui.setPlaying(!ui.playing)); bPlay.title = "Space bar";
+    ui.setPlaying = p => { ui.playing = p; bPlay.innerHTML = p ? "⏸ Pause" : "▶ Play"; bPlay.classList.toggle("primary", !p); };
+    if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
+    if (o.reset) btn(act, "↺ Reset", () => o.reset());
+    if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
+    btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
+    btn(act, "⛶", () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).title = "Full screen";
+    addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
+    // side panel tabs
+    const tabs = $("nav", "k-tabs"), panes = {}; side.append(tabs);
+    const names = [["controls", "Controls"], ["missions", "Investigate"]].concat(o.revise ? [["revise", "Revise"]] : [], [["notes", "The model"]]);
+    const show = id => { if (id === "revise" && ui.renderRevise) ui.renderRevise(); for (const [k] of names) { panes[k].classList.toggle("on", k === id); panes[k]._tab.classList.toggle("on", k === id); } };
+    for (const [k, label] of names) { const b = $("button", "", label); b.onclick = () => show(k); tabs.append(b); panes[k] = $("div", "k-pane" + (k === "notes" ? " k-notes" : "")); panes[k]._tab = b; side.append(panes[k]); }
+    show("controls"); ui.controls = panes.controls; ui.showTab = show;
+    ui.group = title => { const g = $("div", "k-group", title ? `<h3>${title}</h3>` : ""); panes.controls.append(g); return g; };
+    panes.notes.innerHTML = o.notes || "";
+    // investigations: each card sets the simulation up and pins its question over the stage
+    let banner = null;
+    ui.mission = m => {
+      if (banner) banner.remove(); banner = null; if (!m) return;
+      banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
+      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
+    };
+    const mcards = (o.missions || []).map(m => {
+      const c = $("div", "k-mcard", `<h4><em></em>${m.title}${m.lvl === "adv" ? ' <span class="k-tag adv">A level</span>' : ""}</h4><p>${m.q}</p>`);
+      btn(c, "Set it up ▸", () => { c.classList.add("done"); c.querySelector("em").textContent = "✓"; m.setup && m.setup(); ui.mission(m); ui.setPlaying(true); show("controls"); }, "small primary");
+      panes.missions.append(c); return [m, c];
+    });
+    /* ---- Level (Standard / Advanced) and the Revise tab ----
+       o.levels = { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "...", adv: "..." } }
+       o.revise = { ideas: [{ lvl: "std"|"adv"|"beyond", tag, text }], questions: [{ lvl, q, marks, ans }] }   (q and ans may be functions, so they can use the numbers on screen)
+       Advanced shows everything; Standard hides anything marked "adv". */
+    ui.level = "std"; try { const l = localStorage.getItem("k-level"); if (l === "adv" || l === "std") ui.level = l; } catch (e) { }
+    if (!o.levels) ui.level = "adv";
+    const val = v => typeof v === "function" ? v() : v;
+    function renderLevel() {
+      let k = 0; for (const [m, c] of mcards) { const on = m.lvl !== "adv" || ui.level === "adv"; c.style.display = on ? "" : "none"; if (on) { k++; if (!c.classList.contains("done")) c.querySelector("em").textContent = k; } }
+      if (!o.revise) return; const P = panes.revise, see = x => x.lvl !== "adv" || ui.level === "adv", tagName = { std: "std", adv: "adv", beyond: "beyond" };
+      P.innerHTML = (o.levels ? `<p class="k-spec">${o.levels.specs[ui.level]}</p>` : "") + `<h3>Key ideas</h3>` + o.revise.ideas.filter(see).map(x => `<div class="k-idea"><span class="k-tag ${tagName[x.lvl]}">${x.tag}</span> ${val(x.text)}</div>`).join("") +
+        `<h3>Exam practice</h3>` + o.revise.questions.filter(see).map((x, i) => `<div class="k-mcard k-q"><h4><em>${i + 1}</em><span class="k-tag ${tagName[x.lvl]}">${x.lvl === "adv" ? "A level" : "GCSE"}</span><span class="k-marks">[${x.marks} mark${x.marks > 1 ? "s" : ""}]</span></h4><p>${val(x.q)}</p><details><summary>Mark scheme</summary>${val(x.ans)}</details></div>`).join("");
+      if (o.revise.questions.some(x => typeof x.q === "function")) btn(P, "↻ Use the numbers on screen now", renderLevel, "small");
+    }
+    if (o.levels) { const lg = $("div", "k-group k-level"); panes.controls.append(lg); const sg = seg(lg, { value: ui.level, options: [["std", o.levels.std], ["adv", o.levels.adv]], on: v => { ui.level = v; try { localStorage.setItem("k-level", v); } catch (e) { } hint.textContent = o.levels.specs[v]; renderLevel(); ui.onLevel && ui.onLevel(v); } }); const hint = $("small", "", o.levels.specs[ui.level]); hint.style.cssText = "display:block;color:var(--muted);font-size:11.5px;margin-top:-4px"; lg.append(hint); ui.setLevel = v => sg.set(v, true); }
+    try { renderLevel(); } catch (e) { setTimeout(renderLevel, 0); }   // questions may use values the simulation has not set up yet
+    ui.renderRevise = renderLevel;
+    // floating hint and heads-up text over the stage
+    let tipEl = null, tipT = 0;
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; } hudEl.style.display = html ? "" : "none"; };
+    // animation loop: step(dt) only while playing, draw() every frame
+    ui.run = (step, draw) => { let t0 = performance.now(); const f = t => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (ui.playing && !ov.classList.contains("on")) step(dt); draw(dt); requestAnimationFrame(f); }; requestAnimationFrame(f); };
+
+    // ---- Batch run window ----
+    const ov = $("div", "k-overlay"); document.body.append(ov);
+    let bstate = null;
+    function openBatch() {
+      ov.classList.add("on"); if (bstate) return;
+      const modal = $("div", "k-modal"), list = $("div", "k-blist", `<h2>📊 Batch run</h2><p>Runs the model many times without drawing it, then compares the results with theory. Pick a question:</p>`), mainB = $("div", "k-bmain");
+      modal.append(list, mainB); ov.append(modal); ov.addEventListener("pointerdown", e => { if (e.target === ov) ov.classList.remove("on"); });
+      mainB.innerHTML = `<div class="k-bhead"><h3></h3></div><div class="k-bbar"></div><div class="k-bchart"></div><div class="k-bfoot"><div class="k-btable"></div><div class="k-bnote"></div></div>`;
+      const head = mainB.querySelector("h3"), bar = mainB.querySelector(".k-bbar"), tbl = mainB.querySelector(".k-btable"), noteEl = mainB.querySelector(".k-bnote");
+      btn(mainB.querySelector(".k-bhead"), "✕ Close", () => ov.classList.remove("on"));
+      const ch = chart(mainB.querySelector(".k-bchart"), {});
+      const bRun = btn(bar, "▶ Run", () => runExp(), "primary"), prog = $("div", "k-prog", "<i></i>"), status = $("span", "", ""); status.style.cssText = "color:var(--muted);font-size:12.5px;min-width:110px";
+      const bCsv = btn(bar, "⬇ CSV", () => bstate.rows.length && download(o.title.replace(/\W+/g, "-").toLowerCase() + "-batch.csv", bstate.csv()));
+      bar.insertBefore(prog, bCsv); bar.insertBefore(status, bCsv);
+      bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
+      const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
+      function pick(e) { bstate.token++; bstate.exp = e; bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
+      function paint() {
+        const e = bstate.exp, rows = bstate.rows, series = [], extra = { title: "", xLabel: e.xs ? e.xLabel : e.yLabel, yLabel: e.xs ? e.yLabel : "number of runs" };
+        if (e.xs) {
+          const groups = e.xs.map(x => rows.filter(r => r[0] === x).map(r => r[3])), done = e.xs.map((x, i) => [x, groups[i]]).filter(g => g[1].length);
+          if (e.theory) { const a = Math.min(...e.xs), b = Math.max(...e.xs), tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, e.theory(x)]); } series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
+          series.push({ pts: rows.map(r => [r[0], r[3]]), type: "dots", color: cssVar("--s0"), alpha: .3, r: 2.5, label: "single runs" });
+          series.push({ pts: done.map(([x, g]) => [x, mean(g), se(g)]), type: "err", color: cssVar("--s0"), r: 4.5, label: "mean ± SE" });
+          let fitTxt = "";
+          if (e.fit && done.length > 2) { const f = linfit(done.map(([x, g]) => [x, mean(g)])), a = Math.min(...e.xs), b = Math.max(...e.xs); series.push({ pts: [[a, f.m * a + f.c], [b, f.m * b + f.c]], color: cssVar("--s2"), label: "best-fit line" }); fitTxt = `<tr><td colspan="6" style="text-align:left">Best-fit line: gradient <b>${sig(f.m)}</b>, intercept ${sig(f.c)}, r = ${f.r.toFixed(3)}</td></tr>`; }
+          extra.xMin = Math.min(...e.xs) - (Math.max(...e.xs) - Math.min(...e.xs)) * .05; extra.xMax = Math.max(...e.xs) + (Math.max(...e.xs) - Math.min(...e.xs)) * .05; if (e.yMin != null) extra.yMin = e.yMin; if (e.yMax != null) extra.yMax = e.yMax;
+          tbl.innerHTML = `<table><tr><th>${e.xLabel}</th><th>runs</th><th>mean</th><th>SD</th><th>SE</th>${e.theory ? "<th>theory</th>" : ""}</tr>` + done.map(([x, g]) => `<tr><td>${sig(x, 4)}</td><td>${g.length}</td><td>${sig(mean(g))}</td><td>${sig(sd(g))}</td><td>${sig(se(g))}</td>${e.theory ? `<td>${sig(e.theory(x))}</td>` : ""}</tr>`).join("") + fitTxt + "</table>";
+        } else {
+          const v = rows.map(r => r[3]);
+          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); }
+          tbl.innerHTML = v.length ? `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${e.theory != null ? "<th>theory</th>" : ""}</tr><tr><td>${v.length}</td><td>${sig(mean(v))}</td><td>${sig(sd(v))}</td><td>${sig(se(v))}</td><td>${sig(Math.min(...v))}</td><td>${sig(Math.max(...v))}</td>${e.theory != null ? `<td>${sig(+e.theory)}</td>` : ""}</tr></table>` : "";
+        }
+        ch.opts.xFmt = null; ch.draw(series, extra);
+      }
+      function runExp() {
+        const e = bstate.exp, token = ++bstate.token; bstate.rows = []; const tasks = [];
+        if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) tasks.push([x, r]); } else for (let r = 0; r < (e.reps || 200); r++) tasks.push([0, r]);
+        let i = 0; const seed0 = (Date.now() % 100000) * 7 + 1; bRun.textContent = "■ Stop"; bRun.onclick = () => { bstate.token++; fin(); };
+        const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
+        (function slice() {
+          if (token !== bstate.token) return; const t = performance.now();
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
+          if (i < tasks.length) setTimeout(slice, 0); else fin();
+        })();
+      }
+      pick(o.batch[0]);
+    }
+    ui.openBatch = openBatch;
+    return ui;
+  }
+  return { $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app };
+})();
+</script>
+<script>
+/* =====================================================================
+   TROPICAL STORMS
+   A hurricane (typhoon, cyclone: the same thing in different oceans) is
+   a heat engine. Warm sea water evaporates; the moist air spirals in
+   towards low pressure, rises in towering clouds and releases its heat
+   as the vapour condenses, which lowers the pressure further.
+
+   The model follows each storm hour by hour with two simple rules.
+
+   1. HOW STRONG?  Over warm sea a storm's winds grow towards a limit set
+      by the sea temperature (its "potential intensity"); nothing grows
+      below about 26.5 °C. Growth also needs the Earth's spin (none within
+      about 5° of the equator) and winds that do not change much with
+      height (low "wind shear"). Over land or cool water the fuel is cut
+      off and the winds die away.
+
+   2. WHERE TO?    A storm is carried by the winds around it: west with
+      the trade winds, drifting towards the pole, then curving east when
+      it reaches the westerlies.
+
+   The map is a simplified North Atlantic. UNITS: wind in metres per
+   second inside the model (shown in mph and km/h), degrees, hours.
+   ===================================================================== */
+const MPH = 2.237, KMH = 3.6;
+const CATS = [[0, "tropical depression", "#8fb7d9"], [17.5, "tropical storm", "#69d17a"], [33, "category 1 hurricane", "#ffe066"], [43, "category 2 hurricane", "#ffb347"], [50, "category 3 hurricane", "#ff8a3d"], [58, "category 4 hurricane", "#ff5a4d"], [70, "category 5 hurricane", "#d94dff"]];
+const catOf = V => { let k = 0; for (let i = 0; i < CATS.length; i++) if (V >= CATS[i][0]) k = i; return k; };
+// ---- the map: rough coastlines as [longitude, latitude] corners ----
+const LAND = [
+  [[-100, 50], [-100, 24], [-97.5, 26], [-97, 28], [-94, 29.5], [-90, 29.2], [-89, 30.3], [-85.5, 29.8], [-83, 29], [-82.5, 27.5], [-81.8, 25.8], [-80.3, 25.3], [-80, 27], [-81.3, 30.5], [-80.5, 32.2], [-78.5, 33.9], [-76.5, 34.7], [-75.6, 35.3], [-76, 37], [-74, 39.5], [-74, 40.6], [-71, 41.5], [-70, 42], [-70.5, 43.5], [-67, 44.8], [-64.5, 45.3], [-61, 45.5], [-60, 46.5], [-64, 48.5], [-66, 50]],
+  [[-100, 24], [-97.8, 22.5], [-96, 19], [-94.5, 18.3], [-91.5, 18.6], [-90.5, 21], [-87, 21.5], [-88, 17.5], [-88.5, 15.8], [-84, 15.8], [-83.3, 12.5], [-83.5, 10], [-81.5, 9], [-79.5, 9.5], [-77.3, 8.5], [-77, 7], [-75.5, 10.8], [-72, 12], [-71.5, 10.5], [-68, 11.5], [-64, 10.5], [-61.5, 10.5], [-60, 8.5], [-57, 6], [-52, 4.5], [-50, 1.5], [-50, 0], [-100, 0]],
+  [[-85, 21.8], [-82, 23.2], [-79.5, 22.8], [-77, 21.5], [-74.2, 20.2], [-77.5, 19.9], [-81, 22], [-84, 21.9]],
+  [[-74.4, 18.4], [-72.8, 19.9], [-70, 19.8], [-68.4, 18.5], [-71, 17.8]], [[-78.3, 18.4], [-76.3, 18.2], [-77.2, 17.8]], [[-67.2, 18.5], [-65.6, 18.3], [-66.5, 17.9]],
+  [[-5, 0], [-5, 5], [-8, 4.5], [-11.5, 7], [-13.3, 9], [-15, 11], [-16.7, 12.5], [-17.3, 14.7], [-16.5, 16], [-16.3, 19], [-17, 21], [-16, 23.5], [-14.5, 26], [-13, 27.7], [-10, 29.5], [-9.7, 31.5], [-8.5, 33.3], [-6.5, 34.2], [-5.9, 35.8], [-5, 36]],
+  [[-5, 36], [-6.3, 36.6], [-7.4, 37.2], [-8.9, 37], [-9.5, 38.8], [-8.8, 41.5], [-9.2, 43.2], [-8, 43.7], [-5, 43.5]]
+];
+const CITIES = [["Miami", -80.2, 25.8], ["New Orleans", -90.1, 30], ["Houston", -95.4, 29.8], ["New York", -74, 40.7], ["Havana", -82.4, 23.1], ["Cancún", -86.8, 21.2], ["San Juan", -66.1, 18.4], ["Dakar", -17.4, 14.7], ["Lisbon", -9.1, 38.7], ["Charleston", -79.9, 32.8]];
+function onLand(lon, lat) { for (const poly of LAND) { let inside = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if ((a[1] > lat) !== (b[1] > lat) && lon < (b[0] - a[0]) * (lat - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside; } if (inside) return true; } return false; }
+
+// sea-surface temperature (°C): warmest in the tropics and in late summer; `warm` is extra warming you add
+function sst(lon, lat, day, warm) { return 29.4 - 0.0095 * Math.pow(Math.max(0, Math.abs(lat) - 12), 2.05) + (lon < -82 && lat > 19 && lat < 31 ? 0.7 : 0) + 1.0 * Math.cos(2 * Math.PI * (day - 255) / 365) - 1.0 + warm; }
+// the strongest winds a sea of this temperature can support (m/s): the storm's speed limit
+const potential = T => T < 25 ? 0 : T < 28.5 ? 15 + 12.5 * (T - 25) : Math.min(92, 58.75 + 6 * (T - 28.5));
+// central pressure (hPa) that goes with a given wind speed, from a standard formula used by forecasters
+const pressureOf = V => 1010 - Math.pow(V * 1.944 / 6.7, 1 / 0.644);
+
+class Storm {
+  constructor(lon, lat, rand, name, fav = 1) { this.fav = fav;   /* fav: how favourable the air around it is (dry, dusty air off the Sahara holds many storms back) */ this.lon = lon; this.lat = lat; this.V = 12; this.age = 0; this.rand = rand; this.name = name; this.track = [[lon, lat, 12]]; this.peak = 12; this.dead = false; this.land = false; this.hits = []; this.wob = [0, 0]; this.why = ""; }
+  /* one hour.  E = { day, warm (°C added), shear (m/s), depth (m of warm water), ridge (latitude of the high-pressure ridge) } */
+  step(E) {
+    const r = this.rand, lat = this.lat, V = this.V, wasLand = this.land; this.land = onLand(this.lon, lat);
+    // ---- RULE 1: how strong? ----
+    let dV;
+    if (this.land) { dV = -V / 13; this.why = "over land: cut off from its supply of warm, moist air"; }
+    else {
+      // a strong, slow storm stirs up cooler water from below; if the warm layer is shallow this cools the sea under the storm
+      const T = sst(this.lon, lat, E.day, E.warm) - 2.6 * (V / 60) ** 2 * (40 / E.depth), Vp = potential(T) * this.fav, spin = K.clamp((Math.abs(lat) - 4) / 6, 0, 1);
+      dV = V < Vp ? 0.05 * spin * V * (1 - Math.pow(V / Vp, 3)) : -0.035 * (V - Vp);
+      dV -= 0.0042 * Math.max(0, E.shear - 4) * V;                                    // wind shear tilts the storm over and blows its warm core away
+      this.why = Vp < 20 ? "sea too cool: below about 26.5 °C" : spin < 0.3 ? "too close to the equator: not enough spin" : E.shear > 13 ? "torn apart by wind shear" : V > Vp * 0.93 ? "as strong as this sea temperature allows" : "strengthening over warm water";
+      this.T = T; this.Vp = Vp;
+    }
+    this.V = Math.max(0, V + dV + 0.5 * r.gauss());
+    if (this.land && !wasLand && this.V > 15) this.hits.push({ lon: this.lon, lat, V: this.V, t: E.day, speed: this.speed || 5 });
+    // ---- RULE 2: where to? carried by the surrounding winds (m/s), plus a small drift towards the pole ----
+    const d = lat - E.ridge; let u = d < -12 ? -6 : d < 0 ? -6 * (-d / 12) : Math.min(13, d * 1.1), v = 1.3 + 2.6 * Math.exp(-((d / 7) ** 2));
+    this.wob[0] += -0.05 * this.wob[0] + 0.45 * r.gauss(); this.wob[1] += -0.05 * this.wob[1] + 0.3 * r.gauss(); u += this.wob[0]; v += this.wob[1];
+    this.speed = Math.hypot(u, v); this.lon += u * 3.6 / (111 * Math.cos(lat * Math.PI / 180)); this.lat += v * 3.6 / 111;      // 1 m/s = 3.6 km/h; 1° of latitude = 111 km
+    this.age++; if (this.V > this.peak) this.peak = this.V; if (this.age % 3 === 0) this.track.push([this.lon, this.lat, this.V]);
+    if (this.V < 8 || this.lat > 52 || this.lon > -3 || this.lon < -101 || this.age > 600) this.dead = true;
+  }
+}
+// what the storm does when it comes ashore.  C = { shelf (1 steep to 2 wide and shallow), wall (m), evac (%), strong (true/false) }
+function impact(hit, C) {
+  const surge = 0.0015 * hit.V * hit.V * C.shelf + (1010 - pressureOf(hit.V)) * 0.01;      // wind piles water against the coast; low pressure lets the sea rise 1 cm per hPa
+  const rain = Math.min(900, 80 + 1500 / Math.max(1.5, hit.speed));                         // a slow-moving storm dumps its rain on one place
+  const wind = 100 * K.clamp(Math.pow(Math.max(0, hit.V - (C.strong ? 40 : 25)) / (C.strong ? 50 : 38), 2.2), 0, 1);     // share of buildings badly damaged by wind
+  const flood = K.clamp((surge - C.wall) / 4, 0, 1) * 100;                                  // share of the low-lying coast under water
+  return { surge, rain, wind, flood, danger: Math.max(flood, wind * 0.4) * (1 - C.evac / 100) };
+}
+const ENV0 = { day: 255, warm: 0, shear: 7, depth: 60, ridge: 29 };
+// one storm from start to finish, without drawing
+function life(lon, lat, E, rnd) { const s = new Storm(lon, lat, rnd, ""), e = Object.assign({}, ENV0, E); while (!s.dead) { s.step(e); if (s.age % 24 === 0) e.day++; } return s; }
+// a whole season (1 June to 30 November) without drawing: returns counts
+function season(E, rnd) {
+  const e = Object.assign({}, ENV0, E), storms = []; let named = 0, hurr = 0, major = 0, land = 0;
+  for (let h = 0; h < 183 * 24; h++) { e.day = 152 + h / 24; if (rnd() < spawnRate(e.day) / 24) storms.push(spawn(rnd, "")); for (const s of storms) if (!s.dead) { s.step(e); if (s.dead) { if (s.peak >= 17.5) named++; if (s.peak >= 33) hurr++; if (s.peak >= 50) major++; if (s.hits.some(q => q.V >= 33)) land++; } } }
+  return { named, hurr, major, land };
+}
+const spawnRate = day => 0.022 + 0.16 * Math.exp(-(((day - 255) / 38) ** 2));     // new disturbances per day: most leave Africa in August to October
+function spawn(rnd, name) { const u = rnd(), fav = rnd() < 0.3 ? 1.0 + 0.16 * rnd() : 0.25 + 0.5 * rnd();   /* about three in ten meet nothing to hold them back */ return u < 0.7 ? new Storm(-20 - rnd() * 18, 9 + rnd() * 6, rnd, name, fav) : u < 0.87 ? new Storm(-62 - rnd() * 20, 12 + rnd() * 6, rnd, name, fav) : new Storm(-86 - rnd() * 8, 20 + rnd() * 5, rnd, name, fav); }
+const NAMES = ["Ana", "Bill", "Claudette", "Danny", "Elsa", "Fred", "Grace", "Henri", "Ida", "Julian", "Kate", "Larry", "Mindy", "Nicholas", "Odette", "Peter", "Rose", "Sam", "Teresa", "Victor", "Wanda"];
+
+// ---------------- The page ----------------
+const E = Object.assign({}, ENV0), C = { shelf: 1.5, wall: 2, evac: 50, strong: true };
+let storms = [], old = [], rate = 6, hours = 0, acc = 0, seasonOn = false, tally = { named: 0, hurr: 0, major: 0 }, ilog = [], focus = null, lastHit = null, nameNo = 0, rng = K.rng(Date.now() % 99991 + 5), clouds = null, bgKey = "", bg = null;
+function clearAll() { storms = []; old = []; ilog = []; focus = null; lastHit = null; tally = { named: 0, hurr: 0, major: 0 }; nameNo = 0; hours = 0; }
+function start(lon, lat, V) { const s = new Storm(lon, lat, rng, NAMES[nameNo++ % NAMES.length]); s.V = s.peak = V; storms.push(s); focus = s; ilog = []; }   // a ready-made storm for an investigation
+function seed(lon, lat) { if (onLand(lon, lat)) { ui.tip("Storms form over the sea: click on water", 3000); return; } if (storms.length >= 5) storms.shift(); const s = new Storm(lon, lat, rng, NAMES[nameNo++ % NAMES.length]); storms.push(s); focus = s; ilog = []; }
+
+const ui = K.app({
+  title: "Tropical Storms", subject: "Geography",
+  blurb: "Grow a hurricane from warm sea, steer it across an ocean and bring it ashore",
+  reset: () => { set({}); },
+  levels: { std: "Standard (GCSE)", adv: "Advanced (extension)", specs: { std: "Pearson Edexcel GCSE (9–1) Geography A (1GA0) Topic 2 Weather hazards and climate change: tropical cyclones (formation, structure, movement, hazards, impacts, responses).", adv: "Edexcel A level Geography (9GE0) has no weather hazards topic. This level goes further for interest: the Coriolis effect, potential intensity, wind power and the statistics of storm seasons." } },
+  missions: [
+    { title: "The birth of a hurricane", q: "A cluster of thunderstorms has drifted off the coast of West Africa in September. Watch it cross the ocean. How long does it take to become a hurricane? What happens to its shape as it strengthens?", hint: "Over sea warmer than about 26.5 °C the air above is fed with heat and water vapour. The storm organises from a ragged cluster into spiral bands turning anticlockwise, and above about 33 m/s (74 mph) a clear, calm eye opens in the middle. It takes several days and thousands of kilometres of warm water. It is named when it becomes a tropical storm.", setup() { set({}); seed(-22, 11.5); } },
+    { title: "What does a storm need?", q: "Three experiments. (1) Cool the sea by 3 °C and start a storm. (2) Put the sea back and raise the wind shear to 16 m/s. (3) Put that back and click to start a storm at 3°N, almost on the equator. Which of them grow?", hint: "None. A tropical cyclone needs: sea warmer than about 26.5 °C (and warm to a depth of 50 m or so) to supply heat and moisture; low wind shear, so that the rising column of warm air is not tilted over and blown apart; and to be at least 5° from the equator, where the Earth's spin gives the inflowing air its twist (the Coriolis effect). That is why hurricanes form in a band between about 5° and 30°, in late summer.", setup() { set({ warm: -3 }); seed(-30, 12); } },
+    { title: "Inside the storm", q: "Let the storm reach category 3 or more, then study the cross-section below the map. Where is the air rising fastest? Where is it sinking? Where are the strongest winds, and what is it like in the eye?", hint: "Air spirals in at the surface, picking up heat and moisture from the sea, and rises violently in the eyewall, a ring of towering cloud with the heaviest rain and the strongest winds. It flows out at the top. In the eye itself air sinks and warms, so it is calm and often clear. The pressure there is so low that the sea surface bulges upwards under it.", setup() { set({ warm: 0.5 }); seed(-35, 12); } },
+    { title: "Why does it curve?", q: "Start storms at several places along the African side of the ocean and compare their tracks. Which way do they move at first? Where do they turn? Move the 'High-pressure ridge' slider and see what happens to the turn.", hint: "In the tropics storms are carried west by the trade winds, drifting slowly towards the pole. When they reach the edge of the subtropical high (the ridge, at about 30°N) they curve north, then north-east as the mid-latitude westerlies take over. Where the ridge sits decides whether a storm hits the Caribbean, the United States, or curves harmlessly out to sea. Forecasting the track is mostly forecasting the steering winds.", setup() { set({}); seed(-20, 10); seed(-28, 14); } },
+    { title: "Landfall", q: "This storm is heading for the coast. Watch the wind speed on the graph as it crosses the shoreline. How quickly does it weaken, and why?", hint: "Over land the storm loses its supply of warm, moist air, and the rough ground slows the wind. The winds roughly halve every half day or so. But the rain goes on: the worst flooding is often hundreds of kilometres inland, days after landfall. Crossing a narrow island such as Cuba weakens a storm only briefly; it can strengthen again over the warm Gulf of Mexico.", setup() { set({ ridge: 33 }); start(-70, 21.5, 52); } },
+    { title: "The storm surge", q: "When a hurricane comes ashore the report below the map gives the height of the storm surge. Compare a steep coast with a wide, shallow continental shelf. How high must a sea wall be to keep a category 4 surge out?", hint: "Most hurricane deaths are caused by water, not wind. Onshore winds pile the sea up against the coast, most of all where the sea bed shelves gently (as in the Gulf of Mexico or the Bay of Bengal), and the low pressure lifts the sea further. A category 4 or 5 storm on a shallow coast can raise the sea by 6 to 9 m: Hurricane Katrina's surge reached 8.5 m in 2005.", setup() { set({ ridge: 36, warm: 1 }); start(-84, 24, 62); } },
+    { title: "Rich coast, poor coast", q: "Run the same strong storm ashore twice. First with strong buildings, a 4 m sea wall and 90% of people evacuated; then with weak buildings, no wall and 10% evacuated. Compare the 'people in danger' figure.", hint: "The hazard is the same; the disaster is not. Wealthier countries can afford forecasting, warnings, evacuation routes, sea defences and strongly built homes, so far fewer people die, though the cost of the damage in money is usually higher. Typhoon Haiyan (Philippines, 2013) killed over 6000 people; Hurricane Katrina (USA, 2005) about 1800 and cost over $100 billion; Cyclone Idai (Mozambique, 2019) over 1000.", setup() { set({ ridge: 36, warm: 1, strong: true, wall: 4, evac: 90 }); start(-84, 24, 64); } },
+    { title: "A whole season", q: "Switch on 'Run a hurricane season' and watch from June to November. In which months do most storms form? How many reach hurricane strength, and how many hit land?", hint: "The season peaks in August to October, when the sea is warmest. In an average Atlantic season there are about 14 named storms, of which 7 become hurricanes and 3 become major hurricanes (category 3 or more). The numbers vary a lot from year to year by chance alone, as well as with conditions such as El Niño, which raises wind shear over the Atlantic and suppresses storms.", setup() { set({ season: true, rate: 24 }); } },
+    { title: "A warmer world", q: "Run a season, note the numbers, then warm the sea by 2 °C and run another. Are there more storms? Are they stronger? Look at the storm categories reached.", hint: "Warmer seas raise the speed limit: the strongest storms get stronger, and a larger share reach categories 4 and 5. Whether there will be MORE storms is much less certain, and many studies expect about the same number or fewer. Warmer air also holds more moisture, so storms bring heavier rain, and a higher sea level makes every surge worse.", setup() { set({ season: true, rate: 24, warm: 2 }); } },
+    { lvl: "adv", title: "The power of the wind", q: "The damage report shows wind damage for the storm that just came ashore. Compare a category 1 landfall (about 35 m/s) with a category 4 (about 60 m/s). The wind is under twice as fast: how many times more damage does it do?", hint: "The force of the wind on a building goes as the square of its speed, and the power it delivers as the cube. A category 4 hurricane has about (60/35)³ ≈ 5 times the destructive power of a category 1, and real damage data rise faster still, because once roofs fail everything inside is exposed. Small increases in peak wind matter a great deal.", setup() { set({ ridge: 36, warm: 1.5, strong: false }); start(-84, 24, 58); } }
+  ],
+  batch: [
+    { title: "Sea temperature and strength", question: "How does the strongest wind a storm reaches depend on how warm the sea is?", how: "Each run: a storm is started in mid-ocean (38°W, 12°N) in September with the sea warmer or cooler than today by the amount shown. The result is its peak wind.", xLabel: "change in sea temperature (°C)", yLabel: "peak wind (mph)", xs: [-4, -3, -2, -1, 0, 1, 2, 3], reps: 8, yMin: 0, theory: x => potential(sst(-45, 16, 258, x)) * MPH, theoryLabel: "limit set by the sea temperature along its path", run: (x, r) => life(-38, 12, { warm: x }, r).peak * MPH, note: "Each storm takes a slightly different path and may hit land or cooler water before it reaches its limit, so most fall short of the dashed line." },
+    { title: "Wind shear", question: "How much wind shear can a storm survive?", how: "Each run: a storm started at 38°W, 12°N in September, with the wind changing by the chosen amount between the surface and high levels.", xLabel: "wind shear (m/s)", yLabel: "peak wind (mph)", xs: [0, 3, 6, 9, 12, 15, 18, 22], reps: 8, yMin: 0, run: (x, r) => life(-38, 12, { shear: x }, r).peak * MPH, note: "El Niño years bring stronger shear over the Atlantic, which is why they tend to have quiet hurricane seasons." },
+    { title: "Distance from the equator", question: "How close to the equator can a tropical cyclone form?", how: "Each run: a disturbance is started at 35°W at the chosen latitude. The result is 100 if it became a hurricane, 0 if not, so the mean is the percentage that did.", xLabel: "starting latitude (°N)", yLabel: "became a hurricane (%)", xs: [1, 3, 5, 7, 9, 12, 15, 18, 22, 26, 30], reps: 20, yMin: 0, yMax: 100, run: (x, r) => life(-35, x, {}, r).peak >= 33 ? 100 : 0, note: "Near the equator there is too little Coriolis effect to start the rotation; far from it the sea is too cool. Each run is all-or-nothing, so only the mean shows the pattern." },
+    { title: "Dying over land", question: "How fast do a hurricane's winds fall after it comes ashore?", how: "Each run: a 60 m/s (134 mph) hurricane crosses the coast of a large landmass. The wind is read the chosen number of hours later.", xLabel: "hours after landfall", yLabel: "wind speed (mph)", xs: [0, 3, 6, 9, 12, 18, 24, 36], reps: 6, yMin: 0, theory: x => 60 * MPH * Math.exp(-x / 13), theoryLabel: "halving every 9 hours", run(x, r) { const s = new Storm(-99, 35, r, ""); s.V = 60; const e = Object.assign({}, ENV0, { ridge: 60 }); for (let h = 0; h < x; h++) { s.lon = -99; s.lat = 35; s.step(e); } return s.V * MPH; } },
+    { title: "Storm surge against wind speed", question: "How does the height of the surge depend on the wind?", how: "Each run: a storm of the chosen strength comes ashore on a wide, shallow shelf. Surge heights vary by ±10% with the shape of the coast.", xLabel: "wind speed at landfall (mph)", yLabel: "storm surge (m)", xs: [40, 60, 80, 100, 120, 140, 160], reps: 6, yMin: 0, theory: x => impact({ V: x / MPH, speed: 5 }, { shelf: 2, wall: 0, evac: 0, strong: true }).surge, theoryLabel: "∝ wind speed squared", run: (x, r) => impact({ V: x / MPH, speed: 5 }, { shelf: 2, wall: 0, evac: 0, strong: true }).surge * (1 + 0.1 * r.gauss()) },
+    { title: "Storms in a season", question: "How many hurricanes form in a season, and how much does it vary?", how: "Each run: a whole season from 1 June to 30 November with today's sea temperatures. The result is the number of hurricanes.", xLabel: "", yLabel: "hurricanes in the season", reps: 200, bins: 16, lo: -0.5, hi: 15.5, theory: 7.2, theoryLabel: "real average 1991–2020", run: (x, r) => season({}, r).hurr, note: "Nothing about the climate changes from run to run here: the spread is pure chance. So one very active or very quiet season, on its own, says little about climate change." },
+    { title: "Major hurricanes in a warmer world", question: "How does warming the sea change the number of the strongest storms?", how: "Each run: a whole season with the sea warmed by the amount shown. The result is the number of major hurricanes (category 3 or more).", xLabel: "sea warmed by (°C)", yLabel: "major hurricanes in the season", xs: [-1, 0, 1, 2, 3], reps: 30, yMin: 0, run: (x, r) => season({ warm: x }, r).major, note: "The model keeps the number of disturbances and the wind shear the same. In the real atmosphere both may change with warming, which is why projections of storm numbers are uncertain while projections of the strongest storms' intensity are more confident." }
+  ],
+  revise: {
+    ideas: [
+      { lvl: "std", tag: "1GA0 Topic 2", text: "Tropical cyclones form over oceans between about 5° and 30° from the equator, in late summer and autumn, where the sea is warmer than about 26.5 °C to a depth of around 50 m and wind shear is low." },
+      { lvl: "std", tag: "1GA0 Topic 2", text: "Structure: a calm, clear eye of sinking air; an eyewall of towering cloud with the strongest winds and heaviest rain; spiral rain bands. They rotate anticlockwise in the northern hemisphere and clockwise in the southern." },
+      { lvl: "std", tag: "1GA0 Topic 2", text: "They are steered west by the trade winds and often curve away from the equator. They lose energy over land or cooler water, where the supply of heat and moisture is cut off." },
+      { lvl: "std", tag: "1GA0 Topic 2", text: "Hazards: strong winds, storm surge, intense rainfall and coastal and river flooding, landslides. The Saffir–Simpson scale ranks hurricanes from category 1 to 5 by wind speed." },
+      { lvl: "std", tag: "1GA0 Topic 2", text: "Impacts and responses differ between countries at different levels of development: forecasting, warning and evacuation, sea defences and building design reduce deaths." },
+      { lvl: "std", tag: "1GA0 Topic 2", text: "Climate change: warmer oceans are expected to make the strongest storms more intense and wetter, and higher sea level makes surges worse. Changes in the number of storms are uncertain." },
+      { lvl: "beyond", tag: "Beyond the spec", text: "The Coriolis parameter f = 2Ω sin φ is zero at the equator, which is why cyclones cannot form there. Wind force rises as V² and wind power as V³." }
+    ],
+    questions: [
+      { lvl: "std", marks: 3, q: "State three conditions needed for a tropical cyclone to form.", ans: "<ul><li>Sea surface temperature above about 26.5 °C (to a depth of about 50 m)</li><li>Low wind shear</li><li>A location at least 5° from the equator (so the Coriolis effect can make it spin); also accept: a pre-existing disturbance / cluster of thunderstorms, moist air</li></ul>" },
+      { lvl: "std", marks: 4, q: "Describe the structure of a tropical cyclone and the weather in each part.", ans: "<ul><li>Eye in the centre: sinking air, calm, clear or lightly clouded, very low pressure</li><li>Eyewall around it: towering cumulonimbus cloud, the strongest winds and heaviest rain</li><li>Spiral rain bands further out: heavy showers and strong, gusty winds</li><li>Whole system rotating (anticlockwise in the northern hemisphere), hundreds of kilometres across</li></ul>" },
+      { lvl: "std", marks: 3, q: "Explain why a tropical cyclone weakens after it reaches land.", ans: "<ul><li>It is cut off from its source of energy: warm ocean water</li><li>so there is less evaporation and less heat released by condensation</li><li>Friction with the rougher land surface also slows the winds</li></ul>" },
+      { lvl: "std", marks: 2, q: () => { const s = focus || { V: 55 }; return `A storm has sustained winds of ${Math.round(Math.max(s.V, 20) * MPH)} mph. Use the Saffir–Simpson scale (category 1: 74–95 mph; 2: 96–110; 3: 111–129; 4: 130–156; 5: 157 or more) to classify it, and state the main hazard to people on the coast.`; }, ans: () => { const s = focus || { V: 55 }, V = Math.max(s.V, 20); return `<ul><li>${V < 33 ? "Below hurricane strength (a tropical storm or depression)" : CATS[catOf(V)][1].replace(" hurricane", "")}</li><li>Storm surge / coastal flooding (the cause of most deaths)</li></ul>`; } },
+      { lvl: "std", marks: 4, q: "Explain why the impacts of tropical cyclones are often greater in developing countries than in developed countries.", ans: "<ul><li>Less money for forecasting, warning systems and evacuation, so more people are caught in the storm</li><li>Homes are often weakly built and in vulnerable places such as low-lying coasts</li><li>Fewer sea defences and emergency services; slower rescue and recovery</li><li>People depend on farming and fishing, so livelihoods are destroyed; disease spreads where water supplies are contaminated</li></ul>" },
+      { lvl: "std", marks: 3, q: "Explain how climate change may affect tropical cyclones.", ans: "<ul><li>Warmer oceans provide more energy, so the strongest storms may become more intense</li><li>Warmer air holds more water vapour, so rainfall is heavier</li><li>Sea level rise makes storm surges higher and coastal flooding worse (the number of storms may not increase)</li></ul>" },
+      { lvl: "adv", marks: 3, q: "The force of the wind on a wall is proportional to the square of the wind speed. Compare the force exerted by a 70 m/s wind with that of a 35 m/s wind, and comment on what this means for building damage.", ans: "<ul><li>Ratio of speeds = 2</li><li>Ratio of forces = 2² = 4 (and of power, 2³ = 8)</li><li>A category 5 storm is far more than 'five times' a category 1: damage rises very steeply with wind speed</li></ul>" },
+      { lvl: "adv", marks: 3, q: "Atmospheric pressure in the eye of a storm is 920 hPa; outside the storm it is 1010 hPa. The sea surface rises about 1 cm for every 1 hPa fall in pressure. Calculate the rise under the eye and explain why the total storm surge is much larger.", ans: "<ul><li>Pressure difference = 90 hPa</li><li>Rise = 90 cm = 0.9 m</li><li>Most of the surge is water piled against the coast by the onshore wind, especially over a shallow continental shelf</li></ul>" },
+      { lvl: "adv", marks: 3, q: "In a 30-year record there were on average 7 hurricanes per season. One season had 12. Suggest why this alone is weak evidence of a change in climate.", ans: "<ul><li>Counts of rare, independent events vary by chance (roughly a Poisson distribution, with a standard deviation of about √7 ≈ 2.6)</li><li>12 is about two standard deviations above the mean, which is expected occasionally</li><li>A trend over many seasons, not one season, is needed</li></ul>" }
+    ]
+  },
+  notes: `<h3>What is being modelled</h3>
+<ul><li><b>Sea temperature</b> depends on latitude and the time of year, peaking in mid-September, with the Gulf of Mexico a little warmer.</li>
+<li><b>Strength:</b> each hour, over the sea, a storm's wind grows by about 5% towards a limit (the "potential intensity") that is zero below 25 °C, rises steeply (12.5 m/s per °C) up to 28.5 °C and more gently (6 m/s per °C) above that. Growth is reduced near the equator and by wind shear above 4 m/s. A strong storm cools the sea beneath it if the warm layer is shallow. Over land the wind falls by about 7% an hour.</li>
+<li><b>Track:</b> the storm moves with a steering wind that blows from the east at 6 m/s in the tropics, falls to nothing at the high-pressure ridge and becomes a westerly beyond it, plus a drift towards the pole and a random wobble.</li>
+<li><b>Landfall report:</b> surge = wind piling water against the shore (∝ wind², more on a shallow shelf) plus 1 cm per hPa of pressure fall. Rain is greater for slow-moving storms. Wind damage rises steeply with speed and depends on building strength.</li>
+<li><b>A season</b> starts disturbances at random, each with its own luck in the air around it (many real disturbances are held back by dry, dusty air), most of them off West Africa and most in August to October, at a rate chosen to give roughly the real Atlantic averages.</li>
+<li><b>The cloud picture</b> is drawn to suit the storm's strength; it is not calculated.</li></ul>
+<h3>Simplifications</h3>
+<ul><li>The whole storm is one number (its peak wind) at one point. Real storms differ greatly in size, and size matters as much as strength for surge and rain.</li>
+<li>The steering winds are the same every day and at every longitude. Real tracks depend on weather systems that change daily, which is what makes forecasting hard.</li>
+<li>The map is a rough sketch of the North Atlantic, with no mountains, and the cities are for orientation only.</li>
+<li>The landfall figures are indications from simple formulas, not predictions for real places. "People in danger" is an index, not a count of casualties.</li>
+<li>Warming is applied to the sea only: the number of disturbances, the wind shear and the steering winds stay the same.</li>
+<li>The global circulation, climate graphs and named case studies of the earlier version are not part of this one.</li></ul>
+<h3>The earlier version</h3>
+<p>The previous version of this simulation, with its worksheets, is still here: <a href="original/tropical-storms.html" style="color:var(--accent)">open the earlier version</a>.</p>`
+});
+
+// ---------------- Controls ----------------
+const ctl = {};
+let g = ui.group("The ocean and the air");
+ctl.warm = K.slider(g, { label: "Sea temperature", min: -4, max: 4, step: 0.5, value: 0, fmt: v => v === 0 ? "as today" : (v > 0 ? "+" : "") + v + " °C", on: v => { E.warm = v; } });
+ctl.shear = K.slider(g, { label: "Wind shear", min: 0, max: 25, step: 1, value: 7, unit: "m/s", on: v => { E.shear = v; }, tip: "How much the wind changes between the surface and 12 km up" });
+ctl.depth = K.slider(g, { label: "Depth of warm water", min: 15, max: 120, step: 5, value: 60, unit: "m", on: v => { E.depth = v; } });
+ctl.ridge = K.slider(g, { label: "High-pressure ridge at", min: 22, max: 38, step: 1, value: 29, unit: "°N", on: v => { E.ridge = v; } });
+ctl.day = K.slider(g, { label: "Date", min: 152, max: 334, step: 1, value: 255, fmt: v => dateOf(v), on: v => { E.day = v; } });
+g = ui.group("Storms");
+K.note(g, "Click anywhere on the sea to start a cluster of thunderstorms there.");
+ctl.season = K.toggle(g, { label: "Run a hurricane season (June to November)", value: false, on: v => { seasonOn = v; if (v) { clearAll(); E.day = 152; } } });
+let r1 = K.row(g); K.btn(r1, "Clear the map", () => clearAll());
+g = ui.group("The coast it hits");
+ctl.shelf = K.seg(g, { label: "Sea bed offshore", value: 1.5, options: [[1, "steep"], [1.5, "average"], [2, "wide and shallow"]], on: v => { C.shelf = v; } });
+ctl.wall = K.slider(g, { label: "Sea defences", min: 0, max: 8, step: 0.5, value: 2, fmt: v => v ? v + " m high" : "none", on: v => { C.wall = v; } });
+ctl.evac = K.slider(g, { label: "People evacuated in time", min: 0, max: 100, step: 5, value: 50, unit: "%", on: v => { C.evac = v; } });
+ctl.strong = K.seg(g, { label: "Buildings", value: true, options: [[false, "weakly built"], [true, "built to resist wind"]], on: v => { C.strong = v; } });
+g = ui.group("Watch");
+ctl.rate = K.slider(g, { label: "Speed", min: 2, max: 48, step: 2, value: rate, fmt: v => v + " hours a second", on: v => rate = v });
+const read = K.readout(g, [["name", "storm"], ["wind", "strongest winds"], ["cat", "category"], ["p", "pressure in the eye"], ["sea", "sea temperature beneath"], ["lim", "speed limit here"], ["why", "now"], ["tally", "this season"]]);
+function dateOf(d) { const m = [["June", 152], ["July", 182], ["August", 213], ["September", 244], ["October", 274], ["November", 305]]; let k = 0; for (let i = 0; i < m.length; i++) if (d >= m[i][1]) k = i; return Math.floor(d - m[k][1] + 1) + " " + m[k][0]; }
+function set(o) {
+  Object.assign(E, ENV0, { warm: o.warm || 0, ridge: o.ridge || 29, shear: o.shear == null ? 7 : o.shear }); Object.assign(C, { shelf: 1.5, wall: o.wall == null ? 2 : o.wall, evac: o.evac == null ? 50 : o.evac, strong: o.strong == null ? true : o.strong });
+  ctl.warm.set(E.warm); ctl.shear.set(E.shear); ctl.depth.set(E.depth); ctl.ridge.set(E.ridge); ctl.day.set(255); ctl.shelf.set(1.5); ctl.wall.set(C.wall); ctl.evac.set(C.evac); ctl.strong.set(C.strong);
+  clearAll(); seasonOn = !!o.season; ctl.season.set(seasonOn); if (seasonOn) E.day = 152; rate = o.rate || 6; ctl.rate.set(rate);
+}
+
+// ---------------- The map ----------------
+const cv = ui.canvas(() => { bgKey = ""; });
+const LON0 = -100, LON1 = -5, LAT0 = 3, LAT1 = 50, X = lon => (lon - LON0) / (LON1 - LON0) * cv.w, Y = lat => (LAT1 - lat) / (LAT1 - LAT0) * cv.h;
+const seaCol = T => { const f = K.clamp((T - 16) / 15, 0, 1); return [Math.round(10 + 150 * f * f), Math.round(40 + 70 * f), Math.round(110 - 45 * f)]; };
+function paintMap() {   // sea coloured by temperature, land, cities: redrawn only when something changes
+  const w = cv.w, h = cv.h; bg = document.createElement("canvas"); bg.width = w; bg.height = h; const c = bg.getContext("2d"), gx = 96, gy = 48, im = c.createImageData(gx, gy);
+  for (let j = 0; j < gy; j++) for (let i = 0; i < gx; i++) { const lon = LON0 + (i + .5) / gx * (LON1 - LON0), lat = LAT1 - (j + .5) / gy * (LAT1 - LAT0), col = seaCol(sst(lon, lat, E.day, E.warm)), k = 4 * (j * gx + i); im.data[k] = col[0]; im.data[k + 1] = col[1]; im.data[k + 2] = col[2]; im.data[k + 3] = 255; }
+  const tmp = document.createElement("canvas"); tmp.width = gx; tmp.height = gy; tmp.getContext("2d").putImageData(im, 0, 0); c.imageSmoothingEnabled = true; c.drawImage(tmp, 0, 0, w, h);
+  // the 26.5 °C line: storms can only grow on the warm side of it
+  c.strokeStyle = "rgba(255,255,255,.7)"; c.setLineDash([6, 5]); c.lineWidth = 1.3; c.beginPath(); let pen = false; for (let lon = LON0; lon <= LON1; lon += 1) { let lat = null; for (let la = 12; la < 50; la += 0.25) if (sst(lon, la, E.day, E.warm) < 26.5) { lat = la; break; } if (lat == null || onLand(lon, lat)) { pen = false; continue; } pen ? c.lineTo(X(lon), Y(lat)) : c.moveTo(X(lon), Y(lat)); pen = true; } c.stroke(); c.setLineDash([]);
+  c.fillStyle = "rgba(255,255,255,.85)"; c.font = "11px Segoe UI,sans-serif"; c.textAlign = "left"; { let la = 12; while (la < 50 && sst(-45, la, E.day, E.warm) >= 26.5) la += 0.25; if (la < 49) c.fillText("sea cooler than 26.5 °C north of this line", X(-52), Y(la) - 6); }
+  c.strokeStyle = "rgba(255,255,255,.13)"; c.lineWidth = 1; c.fillStyle = "rgba(255,255,255,.45)"; for (let la = 10; la <= 40; la += 10) { c.beginPath(); c.moveTo(0, Y(la)); c.lineTo(w, Y(la)); c.stroke(); c.fillText(la + "°N", 4, Y(la) - 3); }
+  c.fillStyle = "#1f2a22"; c.strokeStyle = "#5d7a5f"; c.lineWidth = 1.2; for (const poly of LAND) { c.beginPath(); poly.forEach((p, i) => i ? c.lineTo(X(p[0]), Y(p[1])) : c.moveTo(X(p[0]), Y(p[1]))); c.closePath(); c.fill(); c.stroke(); }
+  c.font = "10.5px Segoe UI,sans-serif"; for (const [n, lon, lat] of CITIES) { c.fillStyle = "#e9eef7"; c.beginPath(); c.arc(X(lon), Y(lat), 2.2, 0, 6.3); c.fill(); c.fillStyle = "rgba(233,238,247,.8)"; c.textAlign = lon > -20 ? "right" : "left"; c.fillText(n, X(lon) + (lon > -20 ? -5 : 5), Y(lat) - 4); }
+  c.fillStyle = "rgba(233,238,247,.5)"; c.font = "600 12px Segoe UI,sans-serif"; c.textAlign = "center"; c.fillText("NORTH AMERICA", X(-90), Y(38)); c.fillText("AFRICA", X(-10), Y(20)); c.fillText("ATLANTIC OCEAN", X(-45), Y(33)); c.font = "11px Segoe UI,sans-serif"; c.fillText("Gulf of Mexico", X(-90), Y(25)); c.fillText("Caribbean Sea", X(-74), Y(14.5));
+}
+const puff = (() => { const s = document.createElement("canvas"); s.width = s.height = 32; const c = s.getContext("2d"), gr = c.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, "rgba(255,255,255,.55)"); gr.addColorStop(.5, "rgba(245,248,255,.22)"); gr.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = gr; c.fillRect(0, 0, 32, 32); return s; })();
+function makeClouds() { clouds = []; const r = K.rng(11); for (let i = 0; i < 1100; i++) clouds.push({ u: Math.pow(r(), 0.75), arm: i % 3, j: r() - .5, s: 0.6 + r() * 0.9, jr: r() - .5 }); }
+function drawStorm(c, s, tsec) {
+  const V = s.V, org = K.clamp((V - 12) / 38, 0, 1), sz = (2.4 + 3.4 * K.clamp(V / 65, 0, 1)) * cv.w / (LON1 - LON0), cx = X(s.lon), cy = Y(s.lat), eye = V > 33 ? 0.07 + 0.06 * org : 0, n = Math.round(350 + 750 * K.clamp(V / 45, 0.15, 1));
+  for (let i = 0; i < n; i++) {
+    const p = clouds[i]; let u = p.u; if (u < eye) continue; if (V > 33 && u < eye + 0.1) u = eye + 0.012 + (u - eye) * 0.35;                // the eyewall: a dense ring round the clear eye
+    // spiral arms, wound anticlockwise (northern hemisphere), tighter and tidier the stronger the storm
+    const th = 2.094 * p.arm - 3.1 * Math.log(u + 0.07) + p.j * (5.2 - 4.3 * org) - tsec * (0.25 + 0.5 / (u + 0.2)) * (0.5 + V / 60), rr = (u + p.jr * 0.1 * (1 - org)) * sz;
+    const px = cx + Math.cos(th) * rr, py = cy + Math.sin(th) * rr * 0.92, ps = (6 + 8 * (1 - u)) * p.s * (0.6 + 0.4 * org) * sz / 60; c.globalAlpha = K.clamp(0.16 + 0.34 * (1 - u) + 0.1 * org, 0, 1) * K.clamp(V / 14, 0.3, 1); c.drawImage(puff, px - ps, py - ps, ps * 2, ps * 2);
+  }
+  c.globalAlpha = 1;
+}
+function draw(tsec) {
+  const c = cv.ctx, w = cv.w, h = cv.h, key = [w, h, Math.round(E.day / 4), E.warm].join(); if (key !== bgKey) { paintMap(); bgKey = key; }
+  c.drawImage(bg, 0, 0, w, h);
+  // steering winds: faint arrows
+  c.strokeStyle = "rgba(255,255,255,.22)"; c.lineWidth = 1.2; for (let la = 8; la <= 46; la += 6.3) for (let lo = -94; lo < -8; lo += 9) { if (onLand(lo, la)) continue; const d = la - E.ridge, u = d < -12 ? -6 : d < 0 ? -6 * (-d / 12) : Math.min(13, d * 1.1), v = 1.3 + 2.6 * Math.exp(-((d / 7) ** 2)), L = 2.4, ph = (tsec * 0.6 + lo * 0.37 + la) % 1, x0 = X(lo) + u * L * (ph - .5) * 2, y0 = Y(la) - v * L * (ph - .5) * 2, an = Math.atan2(-v, u); c.globalAlpha = Math.sin(ph * Math.PI); c.beginPath(); c.moveTo(x0, y0); c.lineTo(x0 + Math.cos(an) * 9, y0 + Math.sin(an) * 9); c.lineTo(x0 + Math.cos(an) * 9 + Math.cos(an + 2.6) * 4, y0 + Math.sin(an) * 9 + Math.sin(an + 2.6) * 4); c.stroke(); } c.globalAlpha = 1;
+  // tracks, coloured by strength
+  const tr = (s, a) => { c.lineWidth = 2.2; c.globalAlpha = a; for (let i = 1; i < s.track.length; i++) { c.strokeStyle = CATS[catOf(s.track[i][2])][2]; c.beginPath(); c.moveTo(X(s.track[i - 1][0]), Y(s.track[i - 1][1])); c.lineTo(X(s.track[i][0]), Y(s.track[i][1])); c.stroke(); } c.globalAlpha = 1; };
+  for (const s of old) tr(s, 0.5); for (const s of storms) tr(s, 0.95);
+  for (const s of old) for (const q of s.hits) { c.strokeStyle = CATS[catOf(q.V)][2]; c.lineWidth = 1.5; c.beginPath(); c.arc(X(q.lon), Y(q.lat), 6, 0, 6.3); c.stroke(); }
+  for (const s of storms) { drawStorm(c, s, tsec); c.fillStyle = "#fff"; c.font = "600 12px Segoe UI,sans-serif"; c.textAlign = "center"; c.shadowColor = "#000"; c.shadowBlur = 4; c.fillText((s.V >= 17.5 ? s.name + " · " : "") + Math.round(s.V * MPH) + " mph", X(s.lon), Y(s.lat) - (3 + 3.2 * K.clamp(s.V / 65, 0, 1)) * w / 95 - 6); c.shadowBlur = 0; if (s === focus && storms.length > 1) { c.strokeStyle = "rgba(255,255,255,.6)"; c.setLineDash([3, 4]); c.beginPath(); c.arc(X(s.lon), Y(s.lat), 16, 0, 6.3); c.stroke(); c.setLineDash([]); } }
+  // key
+  c.font = "10.5px Segoe UI,sans-serif"; c.textAlign = "left"; c.fillStyle = "rgba(6,10,20,.72)"; c.fillRect(6, h - 22, 470, 18); let kx = 12; for (const [v, name, col] of CATS) { c.fillStyle = col; c.fillRect(kx, h - 16, 12, 6); c.fillStyle = "#dfe6f3"; const t = name.replace("tropical ", "").replace(" hurricane", "").replace("category ", "cat "); c.fillText(t, kx + 16, h - 10); kx += 22 + c.measureText(t).width; }
+  if (lastHit) { const im = impact(lastHit, C), bx = w - 268, by = h - 138; c.fillStyle = "rgba(8,12,22,.9)"; c.strokeStyle = CATS[catOf(lastHit.V)][2]; c.lineWidth = 1.5; c.beginPath(); c.roundRect(bx, by, 258, 128, 9); c.fill(); c.stroke(); c.fillStyle = "#fff"; c.font = "600 12.5px Segoe UI,sans-serif"; c.textAlign = "left"; c.fillText("LANDFALL: " + lastHit.name + " near " + lastHit.place, bx + 10, by + 18); c.font = "12px Segoe UI,sans-serif"; c.fillStyle = "#dfe6f3";
+    [`${CATS[catOf(lastHit.V)][1]}, ${Math.round(lastHit.V * MPH)} mph (${Math.round(lastHit.V * KMH)} km/h)`, `storm surge ${im.surge.toFixed(1)} m` + (im.surge > C.wall ? `: over the ${C.wall} m defences` : `: held by the defences`), `low-lying coast flooded: ${im.flood.toFixed(0)}%`, `rain ${Math.round(im.rain)} mm · buildings badly damaged ${im.wind.toFixed(0)}%`, `people in danger: ${im.danger.toFixed(0)} in every 100`].forEach((t, i) => c.fillText(t, bx + 10, by + 38 + i * 18)); }
+}
+K.pointer(cv.el, { down(p) { const lon = LON0 + p.x / cv.w * (LON1 - LON0), lat = LAT1 - p.y / cv.h * (LAT1 - LAT0); let near = null; for (const s of storms) if (Math.hypot(X(s.lon) - p.x, Y(s.lat) - p.y) < 22) near = s; if (near) { focus = near; ilog = near.track.map((q, i) => [i * 3 / 24, q[2] * MPH]); } else seed(lon, lat); } });
+
+// the cross-section through the storm, in the dock
+const xsBox = K.$("div", "k-chart"); ui.dock.append(xsBox); const xs = K.canvas(xsBox, () => { });
+function drawSection(tsec) {
+  const c = xs.ctx, w = xs.w, h = xs.h, s = focus && !focus.dead ? focus : null; c.fillStyle = K.cssVar("--panel"); c.fillRect(0, 0, w, h); c.fillStyle = K.cssVar("--text"); c.font = "600 12px Segoe UI,sans-serif"; c.textAlign = "left"; c.fillText("A slice through the storm", 12, 15);
+  const sky = c.createLinearGradient(0, 22, 0, h - 26); sky.addColorStop(0, "#0d1a33"); sky.addColorStop(1, "#27466e"); c.fillStyle = sky; c.fillRect(8, 22, w - 16, h - 48);
+  const sea = h - 26, cx = w / 2, V = s ? s.V : 0, org = K.clamp((V - 12) / 38, 0, 1), top = sea - (h - 60) * (0.35 + 0.6 * org), eye = V > 33 ? 14 + 10 * org : 0, bulge = s && !s.land ? (1010 - pressureOf(V)) * 0.06 : 0;
+  c.fillStyle = s && s.land ? "#3a3326" : "#0e3a63"; c.beginPath(); c.moveTo(8, h - 6); c.lineTo(8, sea); for (let x = 8; x <= w - 8; x += 4) c.lineTo(x, sea - bulge * Math.exp(-(((x - cx) / 60) ** 2))); c.lineTo(w - 8, h - 6); c.fill();
+  if (!s) { c.fillStyle = "rgba(233,238,247,.7)"; c.font = "12.5px Segoe UI,sans-serif"; c.textAlign = "center"; c.fillText("Click the sea on the map to start a storm", cx, sea - 40); return; }
+  // cloud: towers either side of the eye, spreading into a flat top; rain bands further out
+  c.fillStyle = "rgba(240,244,252,.9)"; for (const side of [-1, 1]) { c.beginPath(); c.moveTo(cx + side * eye, sea - 6); c.quadraticCurveTo(cx + side * (eye + 4), top + 10, cx + side * (eye + 14), top); c.lineTo(cx + side * (w * 0.42), top + 6); c.quadraticCurveTo(cx + side * (w * 0.44), top + 22, cx + side * (w * 0.3), top + 24); c.lineTo(cx + side * (eye + 60 * (0.4 + org)), top + 26); c.quadraticCurveTo(cx + side * (eye + 46 * (0.4 + org)), sea - 30, cx + side * (eye + 40 * (0.4 + org)), sea - 6); c.fill();
+    for (let b = 1; b <= 2; b++) { const bx = cx + side * (eye + 60 + b * w * 0.1); c.beginPath(); c.ellipse(bx, sea - 26 - 14 * org, 16, 22 + 16 * org, 0, 0, 6.3); c.fill(); } }
+  if (!eye) { c.beginPath(); c.ellipse(cx, (top + sea) / 2, 22, (sea - top) / 2, 0, 0, 6.3); c.fill(); }
+  // rain
+  c.strokeStyle = "rgba(150,190,255,.7)"; c.lineWidth = 1; c.beginPath(); for (let k = 0; k < 46; k++) { const side = k % 2 ? 1 : -1, x = cx + side * (eye + 6 + ((k * 37) % 50) * (0.4 + org)), y = sea - 8 - ((k * 53 + tsec * 140) % 40); c.moveTo(x, y); c.lineTo(x - 2, y + 7); } c.stroke();
+  // air movement
+  const arrow = (x1, y1, x2, y2, col) => { const an = Math.atan2(y2 - y1, x2 - x1); c.strokeStyle = c.fillStyle = col; c.lineWidth = 1.8; c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); c.beginPath(); c.moveTo(x2, y2); c.lineTo(x2 + Math.cos(an + 2.6) * 7, y2 + Math.sin(an + 2.6) * 7); c.lineTo(x2 + Math.cos(an - 2.6) * 7, y2 + Math.sin(an - 2.6) * 7); c.fill(); };
+  for (const side of [-1, 1]) { arrow(cx + side * w * 0.4, sea - 12, cx + side * (eye + 50), sea - 12, "#ffd28a"); arrow(cx + side * (eye + 22), sea - 20, cx + side * (eye + 22), top + 34, "#ff8a70"); arrow(cx + side * (eye + 40), top - 8, cx + side * w * 0.38, top - 8, "#9fd0ff"); }
+  if (eye) arrow(cx, top + 30, cx, sea - 30, "#9fd0ff");
+  c.font = "11px Segoe UI,sans-serif"; c.textAlign = "center"; c.fillStyle = "#ffd28a"; c.fillText("warm, moist air drawn in", cx - w * 0.28, sea + 14); c.fillStyle = "#ff8a70"; c.fillText(eye ? "eyewall: fastest winds" : "rising air, heavy rain", cx + w * 0.2, sea + 14); c.fillStyle = "#9fd0ff"; c.fillText("air flows out at 12–15 km", cx + w * 0.26, top - 14); if (eye) { c.fillStyle = "#fff"; c.fillText("eye", cx, top + 22); c.fillText(Math.round(pressureOf(V)) + " hPa", cx, sea - 14 - bulge); }
+}
+const chI = K.chart(ui.dock, { title: "Strength of the storm you are following", xLabel: "days since it formed", yLabel: "wind (mph)", yMin: 0 });
+
+// ---------------- The loop ----------------
+let frame = 0, tsec = 0;
+ui.run(dt => {
+  acc += rate * Math.max(dt, 1 / 120); tsec += dt * Math.min(3, rate / 6);
+  while (acc >= 1) {
+    acc--; hours++; if (seasonOn || storms.length) { E.day += 1 / 24; if (E.day > 334) { if (seasonOn) { seasonOn = false; ctl.season.set(false); ui.tip(`Season over: ${tally.named} named storms, ${tally.hurr} hurricanes, ${tally.major} major hurricanes`, 12000); } E.day = 334; } }
+    if (seasonOn && rng() < spawnRate(E.day) / 24) { const s = spawn(rng, NAMES[nameNo % NAMES.length]); storms.push(s); if (!focus || focus.dead) { focus = s; ilog = []; } }
+    for (const s of storms) { const wasNamed = s.peak >= 17.5; s.step(E); if (!wasNamed && s.peak >= 17.5) { s.name = NAMES[nameNo++ % NAMES.length]; }
+      if (s.hits.length && !s.hits[s.hits.length - 1].seen) { const q = s.hits[s.hits.length - 1]; q.seen = true; q.name = s.name; let best = CITIES[0], bd = 1e9; for (const ct of CITIES) { const d = Math.hypot(ct[1] - q.lon, ct[2] - q.lat); if (d < bd) { bd = d; best = ct; } } q.place = best[0]; if (!lastHit || q.V >= 25) lastHit = q; }
+      if (s === focus && s.age % 3 === 0) ilog.push([s.age / 24, s.V * MPH]);
+      if (s.dead) { old.push(s); if (old.length > 40) old.shift(); if (s.peak >= 17.5) tally.named++; if (s.peak >= 33) tally.hurr++; if (s.peak >= 50) tally.major++; } }
+    storms = storms.filter(s => !s.dead); if (focus && focus.dead && storms.length) { focus = storms[storms.length - 1]; ilog = focus.track.map((q, i) => [i * 3 / 24, q[2] * MPH]); }
+  }
+  if (Math.abs(ctl.day.value - Math.round(E.day)) >= 1) ctl.day.set(Math.round(E.day));
+}, () => {
+  draw(tsec); if (frame++ % 3 === 0) drawSection(tsec); if (frame % 6) return;
+  const s = focus, bands = CATS.slice(2).map((q, i) => ({ y: q[0] * MPH, label: "cat " + (i + 1), color: q[2] }));
+  chI.draw([{ pts: ilog, color: K.cssVar("--s0"), width: 2.4 }], { hlines: bands.slice(0, s && s.peak > 55 ? 5 : 3), xMin: 0, xMax: Math.max(6, ilog.length ? ilog[ilog.length - 1][0] + 1 : 6), yMax: Math.max(140, s ? s.peak * MPH * 1.15 : 140) });
+  if (s) { read.set("name", s.V >= 17.5 || s.peak >= 17.5 ? s.name : "not yet named"); read.set("wind", Math.round(s.V * MPH) + " mph (" + Math.round(s.V * KMH) + " km/h)"); read.set("cat", CATS[catOf(s.V)][1]); read.set("p", Math.round(pressureOf(s.V)) + " hPa"); read.set("sea", s.land ? "over land" : (s.T || 0).toFixed(1) + " °C"); read.set("lim", s.land ? "–" : Math.round((s.Vp || 0) * MPH) + " mph"); read.set("why", s.dead ? "it has died away" : s.why); } else for (const k of ["name", "wind", "cat", "p", "sea", "lim", "why"]) read.set(k, "–");
+  read.set("tally", `${tally.named} named · ${tally.hurr} hurricanes · ${tally.major} major`);
+  ui.hud(`<b style="font-size:14px">${dateOf(E.day)}</b>` + (s && !s.dead ? `<br><span style="color:${CATS[catOf(s.V)][2]}">${s.V >= 17.5 ? s.name + ": " : ""}${CATS[catOf(s.V)][1]}</span><br>${Math.round(s.V * MPH)} mph · ${Math.round(pressureOf(s.V))} hPa<br><span style="color:#ffd28a">${s.why}</span>` : `<br>click the sea to start a storm`) + (seasonOn || tally.named ? `<br>${tally.named} named · ${tally.hurr} hurricanes · ${tally.major} major` : ""));
+});
+makeClouds(); seed(-24, 11.5);
+ui.tip("Click warm sea to start a storm · it is steered by the wind arrows and fed by warm water", 9000);
+</script>
+</body></html>

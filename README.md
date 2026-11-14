@@ -14,16 +14,17 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Twenty-two simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): sixteen rebuilt showpieces, which replaced the earlier versions in
+Twenty-six simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): twenty rebuilt showpieces, which replaced the earlier versions in
 their folders, and six newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
 Lensing simulation in `astrophysics/gravitational_lensing/original/`. The earlier
-Gas in a Box, Collision Theory, Galaxy Collisions, Epidemics and Fields and
-Orbits are likewise kept in each folder's `original/`, with their worksheets,
+Gas in a Box, Collision Theory, Galaxy Collisions, Epidemics, Fields and
+Orbits, Traffic Flow, Optics, Heart and Circulation and Tropical Storms are
+likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Batch run
@@ -37,7 +38,7 @@ simulation has ready-made batch experiments that pose a question, such as
 
 ## Worksheets
 
-Every simulation with a batch run, apart from the twenty-two ★ Enhanced ones,
+Every simulation with a batch run, apart from the twenty-six ★ Enhanced ones,
 has a `worksheets.html` beside it: one
 printable A4 page per batch experiment (set-up, prediction, results table to
 fill in, questions), then teacher notes with the explanation and the numbers
@@ -58,7 +59,7 @@ changing a simulation's batch experiments.
 | [`physics/projectile_motion/`](physics/projectile_motion/) | Projectile motion: range, angle and time of flight, with air resistance, spin and wind | Open `projectile-motion.html` |
 | [`physics/circular_motion/`](physics/circular_motion/) | Circular motion: whirling bung, banked bends, loop-the-loop, conical pendulum | Open `circular-motion.html` |
 | [`physics/waves/`](physics/waves/) | Ripple Tank ★: a 2-D wave-equation solver. Interference, slits, refraction, lenses, mirrors and Doppler; draw your own walls and glass | Open `waves.html` |
-| [`physics/optics_refraction/`](physics/optics_refraction/) | Refraction: Snell's law, total internal reflection, prisms, lenses, optical fibres | Open `optics-refraction.html` |
+| [`physics/optics_refraction/`](physics/optics_refraction/) | Light: Refraction, Lenses and Fibres ★: a ray-traced optical bench with blocks, prisms, real lenses, a fibre and a raindrop | Open `optics-refraction.html` |
 | [`physics/fields_orbits/`](physics/fields_orbits/) | Fields and Orbits ★: electric and gravitational fields you can sculpt and tilt, launched ions and satellites, Kepler's laws, escape speed (also listed under Astrophysics) | Open `fields-orbits.html` |
 | [`physics/circuits/`](physics/circuits/) | Circuits: EMF and internal resistance, I–V characteristics, resistivity, AC | Open `circuits.html` |
 | [`physics/capacitors/`](physics/capacitors/) | Capacitors: charge and discharge, time constant, energy | Open `capacitors.html` |
@@ -122,7 +123,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 
 | Folder | What it is | How to run |
 |---|---|---|
-| [`medical/heart_circulation/`](medical/heart_circulation/) | The heart and double circulation: valves, blood pressure, pressure–volume loop | Open `heart-circulation.html` |
+| [`medical/heart_circulation/`](medical/heart_circulation/) | Heart and Circulation ★: a beating heart from pressure and flow; valves, blood pressure, exercise, heart disease, ECG, pressure–volume loop | Open `heart-circulation.html` |
 | [`medical/nerve_impulse/`](medical/nerve_impulse/) | Nerve Impulse ★: Hodgkin–Huxley equations along an axon; threshold, refractory period, myelin, MS lesion, channel block | Open `nerve-impulse.html` |
 | [`medical/antibiotic_resistance/`](medical/antibiotic_resistance/) | Antibiotic resistance evolving during a course of treatment | Open `antibiotic-resistance.html` |
 | [`medical/gas_exchange/`](medical/gas_exchange/) | Lungs and gas exchange: Fick's law, altitude, exercise, lung disease | Open `gas-exchange.html` |
@@ -132,7 +133,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | Folder | What it is | How to run |
 |---|---|---|
 | [`engineering/earthquake_buildings/`](engineering/earthquake_buildings/) | Earthquake Engineering ★: a shake table for three buildings; resonance, bracing, base isolation, tuned mass damper | Open `earthquake-buildings.html` |
-| [`engineering/traffic_flow/`](engineering/traffic_flow/) | Traffic flow and phantom jams, smart motorways, lane closures | Open `traffic-flow.html` |
+| [`engineering/traffic_flow/`](engineering/traffic_flow/) | Traffic Flow and Phantom Jams ★: jams from nothing, backward-travelling waves, roadworks, self-driving cars | Open `traffic-flow.html` |
 | [`engineering/car_crash/`](engineering/car_crash/) | Car crash safety: crumple zones, seatbelts and airbags (momentum and impulse), plus a collisions lab (also listed under Physics) | Open `car-crash.html` |
 | [`engineering/aerofoil_flow/`](engineering/aerofoil_flow/) | Aerofoil flow: lift from shape, angle of attack and spin with the Hess–Smith panel method, plus starting vortex, flap and Kármán street (also listed under Physics) | Open `aerofoil-flow.html` |
 
@@ -152,7 +153,7 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`climate/river_landforms/`](climate/river_landforms/) | Rivers and landforms: Bradshaw model, Hjulström curve, meanders and oxbow lakes, waterfalls, river fieldwork | Open `river-landforms.html` |
 | [`climate/coasts/`](climate/coasts/) | Coasts: waves, erosion, longshore drift, spits, cliff retreat, Holderness management, sea-level change | Open `coasts.html` |
 | [`climate/glaciers/`](climate/glaciers/) | Glaciers: mass balance and ELA, ice flow, corries, U-shaped valleys, moraines, freeze-thaw | Open `glaciers.html` |
-| [`climate/tropical_storms/`](climate/tropical_storms/) | Weather hazards: global circulation, tropical storm formation, Saffir–Simpson, hurricane seasons, surge and impacts | Open `tropical-storms.html` |
+| [`climate/tropical_storms/`](climate/tropical_storms/) | Tropical Storms ★: grow, steer and land a hurricane; surge and impacts, a whole season, a warmer world | Open `tropical-storms.html` |
 | [`climate/tectonic_hazards/`](climate/tectonic_hazards/) | Tectonic hazards: plate boundaries, earthquakes, tsunami, volcanoes, risk and the Park and PAR models | Open `tectonic-hazards.html` |
 | [`climate/slopes_landslides/`](climate/slopes_landslides/) | Weathering, slopes and landslides: weathering rates, factor of safety, mass movement, rainfall-triggered landslides | Open `slopes-landslides.html` |
 | [`climate/fieldwork_sampling/`](climate/fieldwork_sampling/) | Fieldwork: sampling methods, bias, descriptive statistics, Spearman's rank, chi-squared, Mann–Whitney U, power | Open `fieldwork-sampling.html` |
