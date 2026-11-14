@@ -1,0 +1,627 @@
+<!doctype html>
+<!-- Murmuration: one self-contained file, works offline. Built from tools/kit (kit.css, kit.js, src/murmuration.js); edit those and run "node build.js". -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Murmuration</title>
+<style>
+/* ===== Enhanced (kit-built) simulations: shared look and feel (inlined into every page by build.js) ===== */
+:root{
+  --bg:#0a0f1c; --panel:#111a2c; --panel2:#17223a; --line:#24324f; --text:#e9eef8; --muted:#8fa0bf; --grid:#1f2c47;
+  --accent:#5ad1ff; --accent-ink:#04121c; --good:#6ee7a0; --warn:#ffb454; --bad:#ff6b81;
+  --s0:#5ad1ff; --s1:#ffb454; --s2:#7ee787; --s3:#ff7b9c; --s4:#c4a1ff; --s5:#ffe66d;
+  --shadow:0 10px 30px rgba(0,0,0,.45); --r:12px;
+}
+:root[data-theme=light]{
+  --bg:#eef2f8; --panel:#ffffff; --panel2:#f3f6fb; --line:#d5dceb; --text:#172033; --muted:#5d6b85; --grid:#e3e8f2;
+  --accent:#0b7fc2; --accent-ink:#ffffff; --good:#12924c; --warn:#b86a00; --bad:#d1344d;
+  --s0:#0b7fc2; --s1:#d97a00; --s2:#1b9e4b; --s3:#d6336c; --s4:#7048c8; --s5:#a08800;
+  --shadow:0 8px 24px rgba(30,50,90,.15);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+.k-top{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;min-height:52px}
+.k-home{color:var(--muted);text-decoration:none;font-size:13px;white-space:nowrap}.k-home:hover{color:var(--accent)}
+.k-title{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
+.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+.k-chip{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 9px;white-space:nowrap;align-self:center}
+.k-blurb{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-actions{display:flex;gap:6px;flex:none}
+.k-btn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:.12s;user-select:none}
+.k-btn:hover{border-color:var(--accent);color:var(--accent)}
+.k-btn:active{transform:translateY(1px)}
+.k-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.k-btn.primary:hover{filter:brightness(1.1);color:var(--accent-ink)}
+.k-btn.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel2))}
+.k-btn.small{padding:3px 9px;font-size:12.5px}
+.k-btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.k-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
+.k-left{display:flex;flex-direction:column;min-width:0;min-height:0}
+.k-stage{flex:1;position:relative;min-height:0;background:#060a14;overflow:hidden}
+.k-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.k-dock{flex:none;height:190px;display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.k-dock:empty{display:none}
+.k-dock>*{flex:1;min-width:0;background:var(--panel)}
+.k-chart{position:relative;height:100%;min-height:80px}
+.k-chart canvas{position:absolute;inset:0;width:100%;height:100%}
+.k-side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.k-tabs{display:flex;border-bottom:1px solid var(--line);flex:none}
+.k-tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:10px 4px;cursor:pointer;color:var(--muted);font-weight:600}
+.k-tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.k-pane{flex:1;overflow-y:auto;padding:12px 14px 20px;display:none;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.k-pane.on{display:block}
+.k-group{margin-bottom:14px}
+.k-group>h3{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);margin:0 0 8px;font-weight:700}
+.k-ctl{margin-bottom:10px}
+.k-ctl label{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:2px}
+.k-ctl label b{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.k-ctl small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3;margin-top:1px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:none;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-moz-range-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);margin-top:-6.5px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+.k-seg{display:flex;flex-wrap:wrap;gap:4px}
+.k-seg .k-btn{flex:1 1 auto;padding:5px 8px;font-size:13px;text-align:center}
+.k-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.k-row .k-btn{flex:1 1 auto;text-align:center}
+.k-toggle{display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:9px;font-size:13px;user-select:none}
+.k-toggle i{flex:none;width:34px;height:19px;border-radius:99px;background:var(--line);position:relative;transition:.15s}
+.k-toggle i::after{content:"";position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;background:var(--muted);transition:.15s}
+.k-toggle.on i{background:var(--accent)}.k-toggle.on i::after{left:17px;background:var(--accent-ink)}
+.k-read{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.k-read div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 9px}
+.k-read span{display:block;font-size:11px;color:var(--muted)}
+.k-read b{font-size:16px;font-variant-numeric:tabular-nums;font-weight:650}
+.k-mcard{border:1px solid var(--line);background:var(--panel2);border-radius:var(--r);padding:11px 12px;margin-bottom:10px}
+.k-mcard h4{margin:0 0 4px;font-size:14.5px;display:flex;gap:8px;align-items:center}
+.k-mcard h4 em{font-style:normal;flex:none;width:22px;height:22px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:12px}
+.k-mcard.done h4 em{background:var(--good);color:#04130a}
+.k-mcard p{margin:0 0 8px;color:var(--muted);font-size:13px}
+.k-banner{position:absolute;left:12px;top:12px;max-width:min(520px,70%);background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--accent);border-radius:var(--r);padding:10px 34px 10px 13px;box-shadow:var(--shadow);z-index:5;backdrop-filter:blur(6px);font-size:13.5px}
+.k-banner b{color:var(--accent)}
+.k-banner .x{position:absolute;right:8px;top:6px;cursor:pointer;color:var(--muted);background:none;border:0;font-size:16px}
+.k-banner details{margin-top:6px;color:var(--muted)}.k-banner summary{cursor:pointer;color:var(--warn)}
+.k-tip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(8,14,26,.82);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:99px;padding:6px 16px;font-size:13px;pointer-events:none;z-index:4;transition:opacity .6s;white-space:nowrap}
+.k-hud{position:absolute;right:12px;top:12px;background:rgba(8,14,26,.72);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:10px;padding:7px 11px;font-size:12.5px;z-index:3;pointer-events:none;font-variant-numeric:tabular-nums;line-height:1.5;text-align:right}
+.k-notes h3{font-size:14px;margin:14px 0 4px;color:var(--accent)}.k-notes h3:first-child{margin-top:0}
+.k-notes p,.k-notes li{font-size:13px;color:var(--text)}.k-notes ul{padding-left:18px;margin:4px 0}
+.k-notes code{background:var(--panel2);padding:1px 5px;border-radius:5px;font-size:12.5px}
+.k-overlay{position:fixed;inset:0;background:rgba(3,6,12,.7);display:none;z-index:50;backdrop-filter:blur(3px)}
+.k-overlay.on{display:grid;place-items:center}
+.k-modal{width:min(1180px,95vw);height:min(700px,92vh);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:grid;grid-template-columns:290px 1fr;overflow:hidden}
+.k-blist{border-right:1px solid var(--line);overflow-y:auto;padding:14px}
+.k-blist h2{font-size:16px;margin:0 0 4px}.k-blist>p{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+.k-bitem{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;cursor:pointer}
+.k-bitem.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.k-bitem b{display:block;font-size:13.5px}.k-bitem span{color:var(--muted);font-size:12.5px}
+.k-bmain{display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 16px}
+.k-bhead{display:flex;gap:10px;align-items:flex-start}
+.k-bhead h3{margin:0;font-size:17px;flex:1}.k-bhead p{margin:3px 0 0;color:var(--muted);font-size:13px;font-weight:400}
+.k-bbar{display:flex;gap:10px;align-items:center;margin:10px 0 8px}
+.k-prog{flex:1;height:6px;background:var(--line);border-radius:9px;overflow:hidden}.k-prog i{display:block;height:100%;width:0;background:var(--accent)}
+.k-bchart{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.k-bfoot{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;height:150px;margin-top:10px}
+.k-btable{overflow:auto;border:1px solid var(--line);border-radius:10px;font-size:12.5px}
+.k-btable table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.k-btable th,.k-btable td{padding:3px 8px;text-align:right;border-bottom:1px solid var(--line)}
+.k-btable th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600}
+.k-bnote{overflow:auto;font-size:13px;color:var(--muted);background:var(--panel2);border-radius:10px;padding:9px 12px}
+.k-bnote b{color:var(--text)}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+</style></head><body>
+<script>
+"use strict";
+/* =====================================================================
+   K: the small shared toolkit behind the ★ enhanced simulations.
+   It builds the page frame (header, stage, chart dock, side panel),
+   the sliders and buttons, the live charts, the Investigations cards
+   and the Batch run window. Each simulation's own code (below this
+   script in the page) holds the science.
+   ===================================================================== */
+const K = (() => {
+  const $ = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const col = i => cssVar("--s" + (i % 6));
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // ---- Repeatable random numbers: the same seed always gives the same run ----
+  function rng(seed) {
+    let a = (seed >>> 0) || 1;
+    const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    r.gauss = () => { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307179586 * r()); };
+    r.int = n => Math.floor(r() * n);
+    r.pick = arr => arr[Math.floor(r() * arr.length)];
+    return r;
+  }
+  // ---- Simple statistics ----
+  const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+  const sd = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); };
+  const se = a => sd(a) / Math.sqrt(a.length || 1);
+  function linfit(pts) { // least-squares straight line through [x,y] points
+    const n = pts.length, mx = mean(pts.map(p => p[0])), my = mean(pts.map(p => p[1]));
+    let sxy = 0, sxx = 0, syy = 0; for (const [x, y] of pts) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; syy += (y - my) ** 2; }
+    const m = sxy / (sxx || 1); return { m, c: my - m * mx, r: sxy / Math.sqrt((sxx * syy) || 1), n };
+  }
+  function download(name, text) { const a = $("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  const sig = (v, n = 3) => { if (v == null || !isFinite(v)) return "–"; if (v === 0) return "0"; const a = Math.abs(v); if (a >= 1e5 || a < 1e-3) return v.toExponential(n - 1); return String(+v.toPrecision(n)); };
+
+  // ---- Controls ----
+  function slider(parent, o) {
+    const w = $("div", "k-ctl"), lab = $("label"), name = $("span", "", o.label), val = $("b"), inp = $("input");
+    inp.type = "range"; inp.min = o.min; inp.max = o.max; inp.step = o.step || 1; inp.value = o.value;
+    const fmt = o.fmt || (v => sig(v, 4) + (o.unit ? " " + o.unit : ""));
+    const show = () => val.innerHTML = fmt(+inp.value);
+    lab.append(name, val); w.append(lab, inp); if (o.tip) w.append($("small", "", o.tip)); parent.append(w); show();
+    inp.addEventListener("input", () => { show(); o.on && o.on(+inp.value); });
+    return { el: w, get value() { return +inp.value; }, set(v, fire) { inp.value = v; show(); if (fire) o.on && o.on(+inp.value); } };
+  }
+  function seg(parent, o) {
+    const w = $("div", "k-ctl"); if (o.label) w.append($("label", "", `<span>${o.label}</span>`));
+    const row = $("div", "k-seg"); w.append(row); if (o.tip) w.append($("small", "", o.tip)); parent.append(w);
+    let value = o.value; const btns = [];
+    const paint = () => btns.forEach(([v, b]) => b.classList.toggle("on", v === value));
+    for (const [v, label, title] of o.options) { const b = $("button", "k-btn", label); if (title) b.title = title; b.onclick = () => { value = v; paint(); o.on && o.on(v); }; row.append(b); btns.push([v, b]); }
+    paint();
+    return { el: w, get value() { return value; }, set(v, fire) { value = v; paint(); if (fire) o.on && o.on(v); } };
+  }
+  function toggle(parent, o) {
+    const w = $("div", "k-toggle" + (o.value ? " on" : ""), `<i></i><span>${o.label}</span>`); parent.append(w); let value = !!o.value;
+    w.onclick = () => { value = !value; w.classList.toggle("on", value); o.on && o.on(value); };
+    return { el: w, get value() { return value; }, set(v, fire) { value = !!v; w.classList.toggle("on", value); if (fire) o.on && o.on(value); } };
+  }
+  function btn(parent, label, on, cls) { const b = $("button", "k-btn " + (cls || ""), label); b.onclick = on; parent.append(b); return b; }
+  function row(parent) { const r = $("div", "k-row"); parent.append(r); return r; }
+  function readout(parent, items) { // small tiles of live numbers
+    const g = $("div", "k-read"), map = {}; parent.append(g);
+    for (const [id, label] of items) { const d = $("div", "", `<span>${label}</span><b>–</b>`); g.append(d); map[id] = d.lastChild; }
+    return { el: g, set(id, v) { if (map[id].textContent !== String(v)) map[id].innerHTML = v; } };
+  }
+  function note(parent, html) { const s = $("small", "", html); s.style.cssText = "display:block;color:var(--muted);margin:-2px 0 10px;font-size:12px;line-height:1.35"; parent.append(s); return s; }
+
+  // ---- A canvas that stays sharp on high-DPI screens and follows its container's size ----
+  function canvas(parent, onresize) {
+    const cv = $("canvas"); parent.append(cv); const c = { el: cv, ctx: cv.getContext("2d"), w: 1, h: 1, dpr: 1 };
+    const fit = () => {
+      const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
+      c.dpr = Math.min(window.devicePixelRatio || 1, 2); c.w = w; c.h = h; cv.width = Math.round(w * c.dpr); cv.height = Math.round(h * c.dpr);
+      c.ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0); onresize && onresize(c);
+    };
+    new ResizeObserver(fit).observe(parent); fit(); return c;
+  }
+  // Pointer handling in the element's own pixel coordinates
+  function pointer(el, h) {
+    const pos = e => { const r = el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, e }; };
+    let down = false;
+    el.addEventListener("pointerdown", e => { down = true; el.setPointerCapture(e.pointerId); h.down && h.down(pos(e)); });
+    el.addEventListener("pointermove", e => { const p = pos(e); if (down) h.drag && h.drag(p); else h.hover && h.hover(p); });
+    const up = e => { if (down) { down = false; h.up && h.up(pos(e)); } };
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+    el.addEventListener("pointerleave", e => h.leave && h.leave(pos(e)));
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+
+  // ---- Charts ----
+  const charts = new Set();
+  function niceTicks(a, b, n) {
+    const span = (b - a) || 1, raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    const step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p, t = [];
+    for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + step * 1e-6; v += step) t.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    return { t, step };
+  }
+  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(0); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
+  /* chart(parent,{title,xLabel,yLabel,xMin,xMax,yMin,yMax,yZero})  then  .draw(series, extra)
+     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r}]
+     extra:  {xMin..yMax overrides, vlines:[{x,color,label,dash}], hlines:[{y,...}], bands:[{x0,x1,color}]} */
+  function chart(parent, o = {}) {
+    const wrap = $("div", "k-chart"), cv = $("canvas"); wrap.append(cv); parent.append(wrap);
+    const ctx = cv.getContext("2d"); let last = [[], {}];
+    const api = { el: wrap, opts: o, draw(series, extra) { last = [series || [], extra || {}]; render(); }, redraw: () => render(), map: null };
+    function render() {
+      const W = wrap.clientWidth, H = wrap.clientHeight; if (W < 40 || H < 40) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      const [series, ex] = last, q = Object.assign({}, o, ex);
+      const text = cssVar("--text"), muted = cssVar("--muted"), grid = cssVar("--grid");
+      // work out the axis ranges from the data unless they are fixed
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const s of series) for (const p of s.pts) { if (!isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
+      for (const l of q.hlines || []) { if (l.y < y0) y0 = l.y; if (l.y > y1) y1 = l.y; }
+      if (!isFinite(x0)) { x0 = 0; x1 = 1; } if (!isFinite(y0)) { y0 = 0; y1 = 1; }
+      if (q.yZero || series.some(s => s.type === "bars")) { y0 = Math.min(0, y0); y1 = Math.max(0, y1); }
+      const py = (y1 - y0) * 0.08 || Math.abs(y1) * 0.1 || 1; if (q.yMin == null && y0 !== 0) y0 -= py; if (q.yMax == null) y1 += py;
+      if (x1 === x0) { x0 -= 0.5; x1 += 0.5; }
+      if (q.xMin != null) x0 = q.xMin; if (q.xMax != null) x1 = q.xMax; if (q.yMin != null) y0 = q.yMin; if (q.yMax != null) y1 = q.yMax;
+      const L = 54, R = 12, T = 24, B = q.xLabel ? 34 : 22, pw = W - L - R, ph = H - T - B;
+      const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + ph - (y - y0) / (y1 - y0) * ph;
+      api.map = { X, Y, x0, x1, y0, y1, L, T, pw, ph };
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; ctx.lineWidth = 1;
+      for (const b of q.bands || []) { ctx.fillStyle = b.color; ctx.fillRect(X(Math.max(x0, b.x0)), T, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)), ph); }
+      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70))), yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.beginPath();
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      for (const v of xt.t) { const x = Math.round(X(v)) + .5; ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.fillText(q.xFmt ? q.xFmt(v) : tickFmt(v, xt.step), x, T + ph + 4); }
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      for (const v of yt.t) { const y = Math.round(Y(v)) + .5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.fillText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step), L - 5, y); }
+      ctx.stroke(); ctx.strokeStyle = muted; ctx.strokeRect(L + .5, T + .5, pw, ph);
+      if (q.xLabel) { ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(q.xLabel, L + pw / 2, H - 3); }
+      if (q.yLabel) { ctx.save(); ctx.translate(11, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(q.yLabel, 0, 0); ctx.restore(); }
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+      series.forEach((s, i) => {
+        const c = s.color || col(i); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = s.width || 1.8; ctx.setLineDash(s.dash || []); ctx.globalAlpha = s.alpha == null ? 1 : s.alpha;
+        const P = s.pts;
+        if (s.type === "bars") { const w = Math.max(1, Math.abs(X(s.w || 1) - X(0)) - 1); for (const p of P) { const yy = Y(p[1]); ctx.fillRect(X(p[0]) - w / 2, Math.min(yy, Y(0)), w, Math.abs(Y(0) - yy)); } }
+        else if (s.type === "dots" || s.type === "err") {
+          const r = s.r || 3;
+          for (const p of P) { const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+        } else {
+          ctx.beginPath(); let pen = false;
+          for (const p of P) { if (!isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
+          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= .22; ctx.fill(); } else ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+      });
+      for (const l of q.vlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(l.x), T); ctx.lineTo(X(l.x), T + ph); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = X(l.x) > L + pw * .7 ? "right" : "left"; ctx.textBaseline = "top"; ctx.fillText(l.label, X(l.x) + (ctx.textAlign === "right" ? -5 : 5), T + 4 + (l.row || 0) * 13); } }
+      for (const l of q.hlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Y(l.y)); ctx.lineTo(L + pw, Y(l.y)); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(l.label, L + pw - 5, Y(l.y) - 2); } }
+      ctx.restore();
+      // title on the left, legend on the right
+      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
+      for (let i = series.length - 1; i >= 0; i--) { const s = series[i]; if (!s.label) continue; const w = ctx.measureText(s.label).width; lx -= w; ctx.fillStyle = muted; ctx.fillText(s.label, lx, 12); lx -= 12; ctx.fillStyle = s.color || col(i); ctx.fillRect(lx, 8, 8, 8); lx -= 10; }
+      if (q.title) { // the title gives way (with an ellipsis) if the legend needs the room
+        ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.fillStyle = text; let t = q.title; const room = lx - L - 8;
+        if (ctx.measureText(t).width > room) { while (t.length > 3 && ctx.measureText(t + "…").width > room) t = t.slice(0, -1); t = t.length > 3 ? t + "…" : ""; }
+        ctx.fillText(t, L, 12);
+      }
+    }
+    new ResizeObserver(render).observe(wrap); charts.add(api); return api;
+  }
+  function histogram(vals, bins, lo, hi) { // returns bar points [centre, count] and the bin width
+    if (lo == null) lo = Math.min(...vals); if (hi == null) hi = Math.max(...vals); if (hi === lo) { hi += .5; lo -= .5; }
+    const w = (hi - lo) / bins, c = new Array(bins).fill(0);
+    for (const v of vals) { const i = Math.floor((v - lo) / w); if (i >= 0 && i <= bins) c[Math.min(i, bins - 1)]++; }
+    return { pts: c.map((n, i) => [lo + (i + .5) * w, n]), w };
+  }
+
+  // ---- The page frame ----
+  function app(o) {
+    document.title = o.title + " · Science Simulations";
+    const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
+    if (saved) document.documentElement.dataset.theme = saved;
+    const top = $("header", "k-top"), main = $("main", "k-main");
+    top.innerHTML = `<a class="k-home" href="${o.home || "../../index.html"}" title="Back to the list of simulations">◂ All simulations</a>
+      <div class="k-title"><span class="k-chip">${o.subject}</span><h1>${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
+    const act = top.querySelector(".k-actions");
+    const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
+    left.append(stage, dock); main.append(left, side); document.body.append(top, main);
+    const ui = { stage, dock, side, playing: true, speed: 1, canvas: fn => canvas(stage, fn) };
+    // header buttons
+    const bPlay = btn(act, "⏸ Pause", () => ui.setPlaying(!ui.playing)); bPlay.title = "Space bar";
+    ui.setPlaying = p => { ui.playing = p; bPlay.innerHTML = p ? "⏸ Pause" : "▶ Play"; bPlay.classList.toggle("primary", !p); };
+    if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
+    if (o.reset) btn(act, "↺ Reset", () => o.reset());
+    if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
+    btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
+    btn(act, "⛶", () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).title = "Full screen";
+    addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
+    // side panel tabs
+    const tabs = $("nav", "k-tabs"), panes = {}; side.append(tabs);
+    const names = [["controls", "Controls"], ["missions", "Investigate"], ["notes", "The model"]];
+    const show = id => { for (const [k] of names) { panes[k].classList.toggle("on", k === id); panes[k]._tab.classList.toggle("on", k === id); } };
+    for (const [k, label] of names) { const b = $("button", "", label); b.onclick = () => show(k); tabs.append(b); panes[k] = $("div", "k-pane" + (k === "notes" ? " k-notes" : "")); panes[k]._tab = b; side.append(panes[k]); }
+    show("controls"); ui.controls = panes.controls; ui.showTab = show;
+    ui.group = title => { const g = $("div", "k-group", title ? `<h3>${title}</h3>` : ""); panes.controls.append(g); return g; };
+    panes.notes.innerHTML = o.notes || "";
+    // investigations: each card sets the simulation up and pins its question over the stage
+    let banner = null;
+    ui.mission = m => {
+      if (banner) banner.remove(); banner = null; if (!m) return;
+      banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
+      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
+    };
+    (o.missions || []).forEach((m, i) => {
+      const c = $("div", "k-mcard", `<h4><em>${i + 1}</em>${m.title}</h4><p>${m.q}</p>`);
+      btn(c, "Set it up ▸", () => { c.classList.add("done"); c.querySelector("em").textContent = "✓"; m.setup && m.setup(); ui.mission(m); ui.setPlaying(true); show("controls"); }, "small primary");
+      panes.missions.append(c);
+    });
+    // floating hint and heads-up text over the stage
+    let tipEl = null, tipT = 0;
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; } hudEl.style.display = html ? "" : "none"; };
+    // animation loop: step(dt) only while playing, draw() every frame
+    ui.run = (step, draw) => { let t0 = performance.now(); const f = t => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (ui.playing && !ov.classList.contains("on")) step(dt); draw(dt); requestAnimationFrame(f); }; requestAnimationFrame(f); };
+
+    // ---- Batch run window ----
+    const ov = $("div", "k-overlay"); document.body.append(ov);
+    let bstate = null;
+    function openBatch() {
+      ov.classList.add("on"); if (bstate) return;
+      const modal = $("div", "k-modal"), list = $("div", "k-blist", `<h2>📊 Batch run</h2><p>Runs the model many times without drawing it, then compares the results with theory. Pick a question:</p>`), mainB = $("div", "k-bmain");
+      modal.append(list, mainB); ov.append(modal); ov.addEventListener("pointerdown", e => { if (e.target === ov) ov.classList.remove("on"); });
+      mainB.innerHTML = `<div class="k-bhead"><h3></h3></div><div class="k-bbar"></div><div class="k-bchart"></div><div class="k-bfoot"><div class="k-btable"></div><div class="k-bnote"></div></div>`;
+      const head = mainB.querySelector("h3"), bar = mainB.querySelector(".k-bbar"), tbl = mainB.querySelector(".k-btable"), noteEl = mainB.querySelector(".k-bnote");
+      btn(mainB.querySelector(".k-bhead"), "✕ Close", () => ov.classList.remove("on"));
+      const ch = chart(mainB.querySelector(".k-bchart"), {});
+      const bRun = btn(bar, "▶ Run", () => runExp(), "primary"), prog = $("div", "k-prog", "<i></i>"), status = $("span", "", ""); status.style.cssText = "color:var(--muted);font-size:12.5px;min-width:110px";
+      const bCsv = btn(bar, "⬇ CSV", () => bstate.rows.length && download(o.title.replace(/\W+/g, "-").toLowerCase() + "-batch.csv", bstate.csv()));
+      bar.insertBefore(prog, bCsv); bar.insertBefore(status, bCsv);
+      bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
+      const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
+      function pick(e) { bstate.token++; bstate.exp = e; bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
+      function paint() {
+        const e = bstate.exp, rows = bstate.rows, series = [], extra = { title: "", xLabel: e.xs ? e.xLabel : e.yLabel, yLabel: e.xs ? e.yLabel : "number of runs" };
+        if (e.xs) {
+          const groups = e.xs.map(x => rows.filter(r => r[0] === x).map(r => r[3])), done = e.xs.map((x, i) => [x, groups[i]]).filter(g => g[1].length);
+          if (e.theory) { const a = Math.min(...e.xs), b = Math.max(...e.xs), tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, e.theory(x)]); } series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
+          series.push({ pts: rows.map(r => [r[0], r[3]]), type: "dots", color: cssVar("--s0"), alpha: .3, r: 2.5, label: "single runs" });
+          series.push({ pts: done.map(([x, g]) => [x, mean(g), se(g)]), type: "err", color: cssVar("--s0"), r: 4.5, label: "mean ± SE" });
+          let fitTxt = "";
+          if (e.fit && done.length > 2) { const f = linfit(done.map(([x, g]) => [x, mean(g)])), a = Math.min(...e.xs), b = Math.max(...e.xs); series.push({ pts: [[a, f.m * a + f.c], [b, f.m * b + f.c]], color: cssVar("--s2"), label: "best-fit line" }); fitTxt = `<tr><td colspan="6" style="text-align:left">Best-fit line: gradient <b>${sig(f.m)}</b>, intercept ${sig(f.c)}, r = ${f.r.toFixed(3)}</td></tr>`; }
+          extra.xMin = Math.min(...e.xs) - (Math.max(...e.xs) - Math.min(...e.xs)) * .05; extra.xMax = Math.max(...e.xs) + (Math.max(...e.xs) - Math.min(...e.xs)) * .05; if (e.yMin != null) extra.yMin = e.yMin; if (e.yMax != null) extra.yMax = e.yMax;
+          tbl.innerHTML = `<table><tr><th>${e.xLabel}</th><th>runs</th><th>mean</th><th>SD</th><th>SE</th>${e.theory ? "<th>theory</th>" : ""}</tr>` + done.map(([x, g]) => `<tr><td>${sig(x, 4)}</td><td>${g.length}</td><td>${sig(mean(g))}</td><td>${sig(sd(g))}</td><td>${sig(se(g))}</td>${e.theory ? `<td>${sig(e.theory(x))}</td>` : ""}</tr>`).join("") + fitTxt + "</table>";
+        } else {
+          const v = rows.map(r => r[3]);
+          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); }
+          tbl.innerHTML = v.length ? `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${e.theory != null ? "<th>theory</th>" : ""}</tr><tr><td>${v.length}</td><td>${sig(mean(v))}</td><td>${sig(sd(v))}</td><td>${sig(se(v))}</td><td>${sig(Math.min(...v))}</td><td>${sig(Math.max(...v))}</td>${e.theory != null ? `<td>${sig(+e.theory)}</td>` : ""}</tr></table>` : "";
+        }
+        ch.opts.xFmt = null; ch.draw(series, extra);
+      }
+      function runExp() {
+        const e = bstate.exp, token = ++bstate.token; bstate.rows = []; const tasks = [];
+        if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) tasks.push([x, r]); } else for (let r = 0; r < (e.reps || 200); r++) tasks.push([0, r]);
+        let i = 0; const seed0 = (Date.now() % 100000) * 7 + 1; bRun.textContent = "■ Stop"; bRun.onclick = () => { bstate.token++; fin(); };
+        const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
+        (function slice() {
+          if (token !== bstate.token) return; const t = performance.now();
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
+          if (i < tasks.length) setTimeout(slice, 0); else fin();
+        })();
+      }
+      pick(o.batch[0]);
+    }
+    ui.openBatch = openBatch;
+    return ui;
+  }
+  return { $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app };
+})();
+</script>
+<script>
+/* =====================================================================
+   MURMURATION
+   Thousands of starlings wheel across the evening sky like one animal.
+   There is no leader and no plan. In this model every bird follows the
+   same three rules, using only the few birds nearest to it:
+
+     1. SEPARATION  do not crowd: steer away from any bird that is too close
+     2. ALIGNMENT   steer towards the average heading of your neighbours
+     3. COHESION    steer towards the middle of the birds around you
+
+   (Craig Reynolds's "boids", 1987.) Following field studies of real
+   flocks over Rome (Ballerini and others, 2008), "neighbours" means the
+   nearest SEVEN birds however far away they are, not every bird within
+   some fixed distance.
+
+   The flock's shape, its sudden turns and the dark waves that cross it
+   when a falcon attacks are not written anywhere in the rules. They
+   EMERGE from many birds each doing something simple.
+   ===================================================================== */
+const V0 = 12;           // cruising speed, m/s (starlings fly at roughly 10–20 m/s)
+const CS = 4, GX = 80, GY = 40, GZ = 80;     // the air is divided into 4 m boxes so each bird only checks birds in nearby boxes
+const KMAX = 16;
+const SEP = 3;         // birds steer apart when closer than this (m)
+
+class Flock {
+  constructor(n, rand) {
+    this.rand = rand; this.cap = n; this.n = n;
+    const f = () => new Float32Array(n); this.px = f(); this.py = f(); this.pz = f(); this.vx = f(); this.vy = f(); this.vz = f();
+    this.nb = new Int32Array(n * KMAX); this.nd = new Float32Array(n * KMAX); this.nc = new Uint8Array(n); this.cm = new Float32Array(4 * 20 * 10 * 20); this.next = new Int32Array(n); this.head = new Int32Array(GX * GY * GZ);
+    this.wS = 1; this.wA = 1; this.wC = 1; this.k = 7; this.noise = 1; this.tick = 0; this.t = 0; this.order = 0; this.caught = 0; this.attacks = 0; this.fresh = true;
+    this.falcon = null; this.scatter();
+  }
+  // every bird at a random place with a random heading
+  scatter() { const r = this.rand; for (let i = 0; i < this.n; i++) { const R = 4 * Math.cbrt(this.n), a = r() * 6.283, d = R * Math.sqrt(r()); this.px[i] = Math.cos(a) * d; this.pz[i] = Math.sin(a) * d; this.py[i] = 60 + (r() - .5) * R; /* spread so that the crowding is the same for any flock size */ const b = r() * 6.283, e = (r() - .5) * 0.8; this.vx[i] = V0 * Math.cos(b) * Math.cos(e); this.vz[i] = V0 * Math.sin(b) * Math.cos(e); this.vy[i] = V0 * Math.sin(e); } this.fresh = true; this.t = 0; }
+  cell(i) { const x = Math.min(GX - 1, Math.max(0, (this.px[i] + 160) / CS | 0)), y = Math.min(GY - 1, Math.max(0, this.py[i] / CS | 0)), z = Math.min(GZ - 1, Math.max(0, (this.pz[i] + 160) / CS | 0)); return x + GX * (y + GY * z); }
+  // find bird i's nearest k birds, looking only in its own box and the 26 around it (so no further than about 4–8 m)
+  neighbours(i) {
+    const { px, py, pz, head, next, nb, nd } = this, k = this.k, o = i * KMAX, x = px[i], y = py[i], z = pz[i]; let cnt = 0;
+    const cx = Math.min(GX - 1, Math.max(0, (x + 160) / CS | 0)), cy = Math.min(GY - 1, Math.max(0, y / CS | 0)), cz = Math.min(GZ - 1, Math.max(0, (z + 160) / CS | 0));
+    for (let dz = -1; dz <= 1; dz++) { const zz = cz + dz; if (zz < 0 || zz >= GZ) continue; for (let dy = -1; dy <= 1; dy++) { const yy = cy + dy; if (yy < 0 || yy >= GY) continue; for (let dx = -1; dx <= 1; dx++) { const xx = cx + dx; if (xx < 0 || xx >= GX) continue;
+      for (let j = head[xx + GX * (yy + GY * zz)]; j >= 0; j = next[j]) {
+        if (j === i) continue; const ax = px[j] - x, ay = py[j] - y, az = pz[j] - z, d2 = ax * ax + ay * ay + az * az;
+        if (cnt === k && d2 >= nd[o + k - 1]) continue;
+        let p = cnt < k ? cnt++ : k - 1; while (p > 0 && nd[o + p - 1] > d2) { nd[o + p] = nd[o + p - 1]; nb[o + p] = nb[o + p - 1]; p--; } nd[o + p] = d2; nb[o + p] = j;   // keep the list sorted, nearest first
+      } } } }
+    this.nc[i] = cnt;
+  }
+  step(dt) {
+    const { px, py, pz, vx, vy, vz, head, next, nb, nd, nc, n, rand } = this, F = this.falcon;
+    head.fill(-1); for (let i = 0; i < n; i++) { const c = this.cell(i); next[i] = head[c]; head[c] = i; }
+    // a coarse map (16 m boxes) of where the birds are, so each bird can find the middle of the part of the flock around it
+    const cm = this.cm; cm.fill(0); const cidx = (x, y, z) => 4 * (Math.min(19, Math.max(0, (x + 160) >> 4)) + 20 * (Math.min(9, Math.max(0, y >> 4)) + 10 * Math.min(19, Math.max(0, (z + 160) >> 4))));
+    let gx = 0, gy = 0, gz = 0; for (let i = 0; i < n; i++) { const c = cidx(px[i], py[i], pz[i]); cm[c] += px[i]; cm[c + 1] += py[i]; cm[c + 2] += pz[i]; cm[c + 3]++; gx += px[i]; gy += py[i]; gz += pz[i]; }
+    gx /= n || 1; gy /= n || 1; gz /= n || 1;   // the middle of the whole flock
+    const all = this.fresh; this.fresh = false; this.tick++;
+    const kn = this.noise * 8 / Math.sqrt(dt); let sx = 0, sy = 0, sz = 0;
+    for (let i = 0; i < n; i++) {
+      if (all || ((i + this.tick) & 1) === 0) this.neighbours(i);        // each bird re-checks who its neighbours are every other step
+      const o = i * KMAX, c = nc[i], x = px[i], y = py[i], z = pz[i]; let ax = 0, ay = 0, az = 0;
+      if (c) {
+        let ux = 0, uy = 0, uz = 0;
+        for (let q = 0; q < c; q++) {
+          const j = nb[o + q], dx = px[j] - x, dy = py[j] - y, dz = pz[j] - z, d = Math.sqrt(dx * dx + dy * dy + dz * dz) + 1e-4;
+          ux += vx[j]; uy += vy[j]; uz += vz[j];
+          if (d < SEP) { const s = this.wS * 30 * (SEP - d) / SEP / d; ax -= dx * s; ay -= dy * s; az -= dz * s; }                 // RULE 1: separation
+        }
+        const a = this.wA * 5.5 / c; ax += (ux - c * vx[i]) * a; ay += (uy - c * vy[i]) * a; az += (uz - c * vz[i]) * a;       // RULE 2: alignment
+      }
+      { // RULE 3: cohesion. Steer towards the middle of the birds in the surrounding 16 m boxes (those within about 25 m).
+        const bx = Math.min(19, Math.max(0, (x + 160) >> 4)), by = Math.min(9, Math.max(0, y >> 4)), bz = Math.min(19, Math.max(0, (z + 160) >> 4)); let mx = 0, my = 0, mz = 0, mc = 0;
+        for (let dz = -1; dz <= 1; dz++) { const zz = bz + dz; if (zz < 0 || zz > 19) continue; for (let dy = -1; dy <= 1; dy++) { const yy = by + dy; if (yy < 0 || yy > 9) continue; for (let dx = -1; dx <= 1; dx++) { const xx = bx + dx; if (xx < 0 || xx > 19) continue; const q = 4 * (xx + 20 * (yy + 10 * zz)); mx += cm[q]; my += cm[q + 1]; mz += cm[q + 2]; mc += cm[q + 3]; } } }
+        { const dx = gx - x, dy = gy - y, dz = gz - z, d = Math.sqrt(dx * dx + dy * dy + dz * dz) + 1e-4, s = this.wC * Math.min(0.1 * d, 5) / d; ax += dx * s; ay += dy * s; az += dz * s; }   // a distant flock is visible too: drift towards it
+        if (mc > 1) { let dx = (mx - x) / (mc - 1) - x, dy = (my - y) / (mc - 1) - y, dz = (mz - z) / (mc - 1) - z; const d = Math.sqrt(dx * dx + dy * dy + dz * dz) + 1e-4, s = this.wC * Math.min(0.6 * d, 6) / d; ax += dx * s; ay += dy * s; az += dz * s; }
+      }
+      // home range: a gentle pull back towards the roost site, and a preferred band of heights
+      const r = Math.sqrt(x * x + z * z); if (r > 90) { const s = (r - 90) * 0.06 / r; ax -= x * s; az -= z * s; }
+      if (y < 25) ay += (25 - y) * 0.5; else if (y > 100) ay -= (y - 100) * 0.5;
+      // wobble: gusts and each bird's own errors
+      ax += (rand() - .5) * kn; ay += (rand() - .5) * kn * 0.5; az += (rand() - .5) * kn;
+      if (F) { const dx = x - F.x, dy = y - F.y, dz = z - F.z, d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < 30) { const s = 70 * (1 - d / 30) / (d + 0.1); ax += dx * s; ay += dy * s; az += dz * s; } }   // flee a falcon within 30 m
+      let sp = Math.sqrt(vx[i] * vx[i] + vy[i] * vy[i] + vz[i] * vz[i]) + 1e-6; const acc = (V0 - sp) * 2 / sp; ax += vx[i] * acc; ay += vy[i] * acc; az += vz[i] * acc;   // settle back to cruising speed
+      vx[i] += ax * dt; vy[i] += ay * dt; vz[i] += az * dt; sp = Math.sqrt(vx[i] * vx[i] + vy[i] * vy[i] + vz[i] * vz[i]) + 1e-6;
+      const lim = sp > V0 * 1.6 ? V0 * 1.6 / sp : sp < V0 * 0.5 ? V0 * 0.5 / sp : 1; vx[i] *= lim; vy[i] *= lim; vz[i] *= lim; sp *= lim;
+      sx += vx[i] / sp; sy += vy[i] / sp; sz += vz[i] / sp;
+    }
+    for (let i = 0; i < n; i++) { px[i] += vx[i] * dt; py[i] += vy[i] * dt; pz[i] += vz[i] * dt; }
+    this.order = Math.sqrt(sx * sx + sy * sy + sz * sz) / (n || 1);      // 1 = every bird flying the same way, 0 = headings cancel out
+    if (F) this.hunt(dt); this.t += dt;
+  }
+  /* The falcon is faster than a starling but cannot turn as sharply. It picks one bird, chases it for up to 8 s,
+     catches it if it gets within 1.5 m, then climbs away before the next attack. */
+  hunt(dt) {
+    const F = this.falcon, { px, py, pz, vx, vy, vz } = this; F.clock += dt; if (!this.n) return;
+    if (F.mode === "away") { F.tx = F.hx; F.ty = 115; F.tz = F.hz; if (F.clock > 4) { F.mode = "stoop"; F.clock = 0; this.attacks++; let best = -1, bd = 1e9; for (let s = 0; s < 40; s++) { const j = this.rand() * this.n | 0, d = (px[j] - F.x) ** 2 + (py[j] - F.y) ** 2 + (pz[j] - F.z) ** 2; if (d < bd) { bd = d; best = j; } } F.target = best; } }
+    else {
+      const j = F.target < this.n ? F.target : (F.target = this.rand() * this.n | 0), d = Math.hypot(px[j] - F.x, py[j] - F.y, pz[j] - F.z), lead = Math.min(1, d / 24);
+      F.tx = px[j] + vx[j] * lead; F.ty = py[j] + vy[j] * lead; F.tz = pz[j] + vz[j] * lead;
+      if (d < 1.5) { this.remove(j); this.caught++; F.flash = 1; F.mode = "away"; F.clock = 0; this.newPerch(); }
+      else if (F.clock > 8) { F.mode = "away"; F.clock = 0; this.newPerch(); }
+    }
+    const dx = F.tx - F.x, dy = F.ty - F.y, dz = F.tz - F.z, d = Math.hypot(dx, dy, dz) + 1e-6, sp = F.mode === "stoop" ? 28 : 16;
+    let ax = (dx / d * sp - F.vx) * 3, ay = (dy / d * sp - F.vy) * 3, az = (dz / d * sp - F.vz) * 3; const am = Math.hypot(ax, ay, az), cap = am > 26 ? 26 / am : 1;   // limited turning
+    F.vx += ax * cap * dt; F.vy += ay * cap * dt; F.vz += az * cap * dt; F.x += F.vx * dt; F.y += F.vy * dt; F.z += F.vz * dt;
+  }
+  newPerch() { const a = this.rand() * 6.283; this.falcon.hx = Math.cos(a) * 90; this.falcon.hz = Math.sin(a) * 90; }
+  setFalcon(on) { if (on && !this.falcon) { this.falcon = { x: 110, y: 115, z: 0, vx: 0, vy: 0, vz: 0, mode: "away", clock: 2, target: 0, flash: 0, hx: 90, hz: 0, tx: 0, ty: 0, tz: 0 }; } else if (!on) this.falcon = null; }
+  remove(j) { const l = --this.n; for (const a of [this.px, this.py, this.pz, this.vx, this.vy, this.vz]) a[j] = a[l]; this.fresh = true; }
+  // how many separate flocks? Birds count as joined if they are neighbours within 6 m (found by linking them up: "union-find")
+  groups() {
+    const n = this.n, par = new Int32Array(n); for (let i = 0; i < n; i++) par[i] = i; const find = i => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
+    for (let i = 0; i < n; i++) for (let q = 0; q < this.nc[i]; q++) { const j = this.nb[i * KMAX + q]; if (j < n && this.nd[i * KMAX + q] < 36) par[find(i)] = find(j); }
+    const size = new Map(); for (let i = 0; i < n; i++) { const r = find(i); size.set(r, (size.get(r) || 0) + 1); }
+    let g = 0, big = 0, lone = 0; for (const s of size.values()) { if (s >= 5) g++; else lone += s; if (s > big) big = s; } return { groups: g, biggest: big / (n || 1), lone };
+  }
+  spacing() { let s = 0, c = 0; for (let i = 0; i < this.n; i += 3) if (this.nc[i]) { s += Math.sqrt(this.nd[i * KMAX]); c++; } return c ? s / c : 0; }   // mean distance to the nearest neighbour
+}
+// A flock run without drawing, for the batch experiments
+function trial(n, rnd, set, seconds, each) { const f = new Flock(n, rnd); Object.assign(f, set); if (set.falconOn) f.setFalcon(true); const steps = Math.round(seconds * 30); for (let s = 0; s < steps; s++) { f.step(1 / 30); if (each && each(f, s / 30) === false) break; } return f; }
+
+// ---------------- The page ----------------
+let flock = new Flock(2500, Math.random), nBirds = 2500, yaw = 0.4, camD = 130, focus = false, links = false, log = { ord: [], big: [], sp: [], caught: [] }, grp = { groups: 1, biggest: 1, lone: 0 };
+const P = { wS: 1, wA: 1, wC: 1, k: 7, noise: 1 };
+function remake() { const old = flock; flock = new Flock(nBirds, Math.random); Object.assign(flock, P); if (old.falcon) flock.setFalcon(true); log = { ord: [], big: [], sp: [], caught: [] }; }
+
+const ui = K.app({
+  title: "Murmuration", subject: "Biology",
+  blurb: "Thousands of starlings, three simple rules, no leader",
+  reset: () => { set({ wS: 1, wA: 1, wC: 1, k: 7, noise: 1, falcon: false, n: 2500 }); remake(); },
+  missions: [
+    { title: "Order from nothing", q: "The birds start with random headings. Nobody is in charge. Watch the 'flying the same way' line on the chart. How long before they are a flock, and who decided which way to go?", hint: "Within a few seconds small groups agree locally, then merge. Nobody decided the direction: it grew from small chance agreements that spread, and a different one wins each time you scatter. A big flock often ends up wheeling like a whirlpool, so 'flying the same way' stays well below 100% even though it is clearly one flock; try 200 birds to see near-perfect alignment.", setup() { set({ wS: 1, wA: 1, wC: 1, k: 7, noise: 1, falcon: false }); flock.scatter(); log = { ord: [], big: [], sp: [], caught: [] }; } },
+    { title: "Which rule does what?", q: "Turn each of the three rules down to zero in turn (and back). What does the flock lose each time?", hint: "No alignment: a milling swarm, like midges, that stays together but goes nowhere. No cohesion: aligned streams that drift apart. No separation: birds pile into impossible dense clumps. A murmuration needs all three.", setup() { set({ wS: 1, wA: 0, wC: 1, k: 7, noise: 1, falcon: false }); } },
+    { title: "How many neighbours?", q: "Real starlings track about seven neighbours. Set it to 1, then 2, 3… up to 15. How few can a bird watch before the flock falls apart into small groups?", hint: "With one neighbour, birds pair off and the flock shatters into many small groups. With two or three it mostly holds; from about four it reliably stays as one. Tracking more adds little here, so a handful is enough. Real starlings use six or seven, which may give a safety margin in turbulent air and under attack.", setup() { set({ wS: 1, wA: 1, wC: 1, k: 1, noise: 1, falcon: false }); flock.scatter(); } },
+    { title: "The falcon", q: "A peregrine attacks. Watch how the flock reacts: does every bird see the falcon? How does the alarm reach birds on the far side?", hint: "Only birds within 30 m react to the falcon itself. The rest react to their neighbours turning, so a wave of turning sweeps across the flock faster than any bird flies. Where the wave passes, birds bank together and bunch up, which shows as a dark band. The flock splits around the falcon and re-forms behind it.", setup() { set({ wS: 1, wA: 1, wC: 1, k: 7, noise: 1, falcon: true }); } },
+    { title: "Safety in numbers?", q: "Run the falcon against 200 birds for a minute and note how many are caught. Then against 2000. Is a bird in the big flock safer?", hint: "The falcon catches about the same number per minute either way, because it can only chase one bird at a time. In the big flock that loss is shared among ten times as many birds, so each bird's risk is roughly ten times lower: the 'dilution effect'. The batch run measures it properly.", setup() { set({ wS: 1, wA: 1, wC: 1, k: 7, noise: 1, falcon: true, n: 200 }); remake(); } },
+    { title: "Too much wobble", q: "Raise the wobble (random error in each bird's steering) a step at a time. Does the flock get gradually messier, or is there a point where order collapses?", hint: "In a small flock (try 200 birds) order hangs on for a long while and then collapses quite suddenly: a transition a little like melting. Below the critical wobble, alignment with neighbours corrects errors faster than they build up; above it, it cannot.", setup() { set({ wS: 1, wA: 1, wC: 1, k: 7, noise: 3, falcon: false, n: 200 }); remake(); } },
+    { title: "One bird's view", q: "Switch on 'Follow one bird'. The orange bird only ever responds to the birds joined to it by lines. Does it know the shape of the flock? Does it need to?", hint: "It knows nothing beyond its seven neighbours, a few metres away. The flock's shape exists only at the level of the whole. That is what 'emergent' means: a pattern of the group that no individual holds or controls.", setup() { set({ wS: 1, wA: 1, wC: 1, k: 7, noise: 1, falcon: false, focus: true }); } }
+  ],
+  batch: [
+    { title: "Order against wobble", question: "How does the flock's alignment fall as the birds' steering gets noisier?", how: "Each run: 150 birds from random headings, 14 s; the result is the average alignment over the last 4 s.", xLabel: "wobble", yLabel: "alignment (1 = all flying the same way)", xs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], reps: 6, yMin: 0, yMax: 1, run(x, r) { let s = 0, c = 0; trial(150, r, { noise: x }, 14, (f, t) => { if (t > 10) { s += f.order; c++; } }); return s / c; }, note: "At low wobble every run ends up well aligned. At high wobble none does. In between, runs disagree with one another most strongly: large scatter near a transition is typical of this kind of collapse." },
+    { title: "How many neighbours are enough?", question: "How many separate groups form when each bird tracks only its nearest k?", how: "Each run: 200 birds from a scattered start, 16 s; then the separate groups (5 birds or more) are counted.", xLabel: "neighbours tracked, k", yLabel: "number of separate groups", xs: [1, 2, 3, 4, 5, 6, 7, 9, 12, 15], reps: 6, yMin: 0, run: (k, r) => trial(200, r, { k }, 16).groups().groups, note: "Chance decides how the scattered birds first pair up, so runs differ. With k = 1 the flock stays in fragments; a few neighbours are enough to join it into one. Field measurements on real starlings found 6 to 7: more than the bare minimum this model needs." },
+    { title: "Safety in numbers", question: "Is each bird safer in a bigger flock?", how: "Each run: a falcon hunts a flock for 45 s. The result is the percentage of the flock caught per minute.", xLabel: "flock size", yLabel: "each bird's risk (% caught per minute)", xs: [25, 50, 100, 200, 400], reps: 6, yMin: 0, run(n, r) { const f = trial(n, r, { falconOn: true }, 45); return f.caught / n * 100 * 60 / 45; }, note: "Catches are rare events, so single runs vary a lot (0, 1 or 2 birds). The falcon takes roughly the same number of birds whatever the flock size, so the risk per bird falls steeply as the flock grows: about halving each time the flock doubles." },
+    { title: "Time to agree", question: "From random headings, how long does a flock take to line up?", how: "Each run: 150 birds scattered at random; the clock stops when alignment first passes 0.9.", xLabel: "", yLabel: "time to reach alignment 0.9 (s)", reps: 80, bins: 20, lo: 0, hi: 20, run(x, r) { let T = 20; trial(150, r, {}, 20, (f, t) => { if (f.order > 0.9) { T = t; return false; } }); return T; }, note: "Sometimes the first local groups happen to agree and the flock lines up in a few seconds; sometimes two large groups form heading opposite ways and must meet and merge first. Hence the long tail." }
+  ],
+  notes: `<h3>What is being modelled</h3>
+<p>A "boids" flocking model (Reynolds 1987) in three dimensions with topological neighbours (Ballerini et al. 2008).</p>
+<ul><li>Each bird has a position and a velocity. Thirty or more times a second it finds its nearest <i>k</i> birds (7 by default) and adds up three steering pushes: away from any closer than 3 m, and towards their average velocity. Cohesion uses a wider view: each bird steers towards the middle of the birds within about 25 m, and drifts weakly towards the middle of the whole flock.</li>
+<li>It also feels a pull back towards the roost site once more than 90 m out, a preferred band of heights (25–100 m), a random wobble, and a push that returns it to its cruising speed of 12 m/s (limits 6–19 m/s).</li>
+<li><b>Alignment</b> shown on the chart is the length of the average heading: 1 if all fly the same way, near 0 if headings cancel.</li>
+<li><b>The falcon</b> picks the nearest of 40 randomly noticed birds, chases it for up to 8 seconds with limited turning, catches it within 1.5 m, then climbs away for 4 seconds. Birds within 30 m of it steer away. The falcon flies at 28 m/s; starlings can sprint at up to 19 m/s.</li></ul>
+<h3>Simplifications</h3>
+<ul><li>Birds are points. They do not bank, flap, tire, see, or block each other's view.</li>
+<li>To keep the sums fast, a bird only looks for neighbours in the 4 m boxes around it, so a bird more than about 6 m from all others has no neighbours and simply heads for the roost.</li>
+<li>The rule strengths are chosen to look right. They are not measured from starlings.</li>
+<li>The dark bands in real murmurations come partly from birds banking and showing more wing; here they come only from birds bunching and overlapping.</li>
+<li>The falcon is a simple pursuer. Real peregrines stoop from height at over 50 m/s, often target stragglers, and fail most attacks. There is no built-in "confusion effect": any safety in numbers here comes from the flock's movement and from sharing the risk.</li>
+<li>No wind, no ground, no trees to roost in, and the birds never land.</li>
+<li>Batch runs use smaller flocks (25–400 birds) and a fixed time step of 1/30 s.</li></ul>`
+});
+
+// ---------------- Controls ----------------
+const ctl = {};
+let g = ui.group("The three rules");
+for (const [key, label, tip] of [["wS", "1. Separation", "Keep clear of birds closer than 3 m"], ["wA", "2. Alignment", "Match your neighbours' heading"], ["wC", "3. Cohesion", "Stay close to your neighbours"]])
+  ctl[key] = K.slider(g, { label, min: 0, max: 3, step: 0.1, value: 1, fmt: v => v === 0 ? "off" : "× " + v.toFixed(1), tip, on: v => { P[key] = v; flock[key] = v; } });
+ctl.k = K.slider(g, { label: "Neighbours each bird tracks", min: 1, max: 15, step: 1, value: 7, on: v => { P.k = v; flock.k = v; flock.fresh = true; }, tip: "Real starlings: about 7" });
+ctl.noise = K.slider(g, { label: "Wobble (steering errors)", min: 0, max: 10, step: 0.25, value: 1, on: v => { P.noise = v; flock.noise = v; } });
+g = ui.group("The flock");
+ctl.n = K.slider(g, { label: "Starlings", min: 100, max: 4000, step: 100, value: nBirds, on: v => { nBirds = v; remake(); } });
+let r1 = K.row(g); K.btn(r1, "Scatter the birds", () => { flock.scatter(); log = { ord: [], big: [], sp: [], caught: [] }; }, "primary");
+ctl.falcon = K.toggle(g, { label: "A falcon hunts the flock", value: false, on: v => flock.setFalcon(v) });
+g = ui.group("What to show");
+ctl.focus = K.toggle(g, { label: "Follow one bird and its neighbours", value: false, on: v => focus = v });
+ctl.zoom = K.slider(g, { label: "Watch from", min: 80, max: 400, step: 10, value: camD, unit: "m away", on: v => { camD = v; bgKey = ""; } });
+K.note(g, "Drag the sky to walk round the flock.");
+const read = K.readout(g, [["n", "starlings"], ["ord", "flying the same way"], ["grp", "separate flocks"], ["sp", "gap to nearest bird"], ["caught", "caught by the falcon"], ["att", "falcon attacks"]]);
+function set(o) { for (const k of ["wS", "wA", "wC", "k", "noise"]) if (o[k] != null) { P[k] = o[k]; flock[k] = o[k]; ctl[k].set(o[k]); } flock.fresh = true; if (o.falcon != null) { flock.setFalcon(o.falcon); ctl.falcon.set(o.falcon); } if (o.n != null) { nBirds = o.n; ctl.n.set(o.n); } focus = !!o.focus; ctl.focus.set(focus); }
+
+// ---------------- Drawing ----------------
+let bg = null, bgKey = "";
+const cv = ui.canvas(() => { bgKey = ""; });
+const hsh = x => { const s = Math.sin(x * 127.1) * 43758.5453; return s - Math.floor(s); }, vnoise = x => { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return hsh(i) * (1 - u) + hsh(i + 1) * u; };
+function paintSky(w, h, hy, f) {   // dusk over a lake, painted once and reused until the view changes
+  bg = document.createElement("canvas"); const dpr = cv.dpr; bg.width = w * dpr; bg.height = h * dpr; const c = bg.getContext("2d"); c.scale(dpr, dpr);
+  const sky = c.createLinearGradient(0, 0, 0, hy); sky.addColorStop(0, "#16223f"); sky.addColorStop(.38, "#3d3f6e"); sky.addColorStop(.66, "#a05f7a"); sky.addColorStop(.86, "#f0915c"); sky.addColorStop(1, "#ffd08a"); c.fillStyle = sky; c.fillRect(0, 0, w, hy);
+  const sx = ((w * 0.3 - yaw * f * 0.6) % (w * 2) + w * 2) % (w * 2) - w * 0.5, sun = c.createRadialGradient(sx, hy, 0, sx, hy, h * 0.75); sun.addColorStop(0, "rgba(255,244,214,.95)"); sun.addColorStop(.06, "rgba(255,214,150,.6)"); sun.addColorStop(.3, "rgba(255,160,100,.2)"); sun.addColorStop(1, "rgba(255,150,100,0)"); c.fillStyle = sun; c.fillRect(0, 0, w, hy);
+  for (let i = 0; i < 16; i++) { const y = hy * (0.35 + 0.6 * hsh(i + 3)), x = w * hsh(i * 7 + 1), len = w * (0.15 + 0.3 * hsh(i * 3 + 2)), cl = c.createLinearGradient(x, 0, x + len, 0); cl.addColorStop(0, "rgba(60,40,70,0)"); cl.addColorStop(.5, `rgba(${y > hy * .7 ? "120,60,70" : "50,45,85"},.35)`); cl.addColorStop(1, "rgba(60,40,70,0)"); c.fillStyle = cl; c.beginPath(); c.ellipse(x + len / 2, y, len / 2, 2 + 5 * hsh(i + 9), 0, 0, 6.3); c.fill(); }   // thin evening clouds
+  const lake = c.createLinearGradient(0, hy, 0, h); lake.addColorStop(0, "#e9a06c"); lake.addColorStop(.25, "#8a5b72"); lake.addColorStop(1, "#141a30"); c.fillStyle = lake; c.fillRect(0, hy, w, h - hy);
+  const gl = c.createLinearGradient(0, hy, 0, h); gl.addColorStop(0, "rgba(255,230,180,.55)"); gl.addColorStop(1, "rgba(255,230,180,0)"); c.fillStyle = gl; c.fillRect(sx - 26, hy, 52, h - hy);   // the sun's path on the water
+  c.fillStyle = "#0b0d16"; c.beginPath(); c.moveTo(0, hy + 3); for (let x = 0; x <= w; x += 3) { const u = (x + yaw * f * 0.6) * 0.012; c.lineTo(x, hy - 3 - 16 * vnoise(u) - 7 * vnoise(u * 4.3) - 3 * vnoise(u * 13)); } c.lineTo(w, hy + 3); c.fill();   // far tree line
+  c.strokeStyle = "#07080e"; c.lineWidth = 1.4; c.beginPath(); for (let i = 0; i < 260; i++) { const x = w * hsh(i * 1.7 + 5), ht = 14 + 40 * hsh(i + 11) * hsh(i * 3), lean = (hsh(i * 5) - .5) * 14; c.moveTo(x, h); c.quadraticCurveTo(x, h - ht * 0.6, x + lean, h - ht); } c.stroke();   // reeds in front
+}
+function draw() {
+  const c = cv.ctx, w = cv.w, h = cv.h, f = h * 1.25, { px, py, pz, vx, vy, vz, n } = flock;
+  // camera: standing on the shore, looking up at a point 55 m above the roost
+  const cx = Math.sin(yaw) * camD, cz = -Math.cos(yaw) * camD, cy = 2, pitch = Math.atan2(53, camD), fx = -Math.sin(yaw) * Math.cos(pitch), fz = Math.cos(yaw) * Math.cos(pitch), fy = Math.sin(pitch), rx = Math.cos(yaw), rz = Math.sin(yaw), ux = -fy * -Math.sin(yaw), uz = -fy * Math.cos(yaw), uy = Math.cos(pitch);
+  const hy = Math.round(h / 2 + Math.tan(pitch) * f), key = [w, h, hy, yaw.toFixed(3)].join(); if (key !== bgKey) { paintSky(w, h, Math.min(h - 30, hy), f); bgKey = key; }
+  c.drawImage(bg, 0, 0, w, h);
+  const proj = (x, y, z) => { const ax = x - cx, ay = y - cy, az = z - cz, d = ax * fx + ay * fy + az * fz; if (d < 4) return null; return [w / 2 + (ax * rx + az * rz) / d * f, h / 2 - (ax * ux + ay * uy + az * uz) / d * f, d]; };
+  // birds: three passes by distance so that near birds are drawn larger. Each is a short dash along its heading, with wings.
+  c.lineCap = "round"; const flap = performance.now() * 0.02;
+  for (let pass = 0; pass < 3; pass++) {
+    c.beginPath(); c.strokeStyle = pass === 0 ? "rgba(14,14,26,.62)" : pass === 1 ? "rgba(10,10,20,.78)" : "rgba(6,6,14,.9)";
+    let lw = 1;
+    for (let i = 0; i < n; i++) {
+      const ax = px[i] - cx, ay = py[i] - cy, az = pz[i] - cz, d = ax * fx + ay * fy + az * fz; if (d < 4) continue; const s = f * 0.42 / d, band = s < 0.75 ? 0 : s < 1.25 ? 1 : 2; if (band !== pass) continue;
+      const X = w / 2 + (ax * rx + az * rz) / d * f, Y = h / 2 - (ax * ux + ay * uy + az * uz) / d * f, hx = (vx[i] * rx + vz[i] * rz) / V0, hyv = -(vx[i] * ux + vy[i] * uy + vz[i] * uz) / V0, L = Math.max(1.1, s * 1.5);
+      c.moveTo(X - hx * L, Y - hyv * L); c.lineTo(X + hx * L, Y + hyv * L);
+      if (band) { const wg = s * 1.7 * (0.35 + 0.65 * Math.abs(Math.sin(flap + i))); c.moveTo(X - hyv * wg - hx * wg * .7, Y + hx * wg - hyv * wg * .7); c.lineTo(X, Y); c.lineTo(X + hyv * wg - hx * wg * .7, Y - hx * wg - hyv * wg * .7); }
+    }
+    c.lineWidth = pass === 0 ? 1.2 : pass === 1 ? 1.5 : 2; c.stroke();
+  }
+  if (focus && n) {   // one bird and the only birds it pays attention to
+    const i = 0, a = proj(px[i], py[i], pz[i]); if (a) { c.strokeStyle = "rgba(255,170,60,.9)"; c.lineWidth = 1.2; c.beginPath(); for (let q = 0; q < flock.nc[i]; q++) { const j = flock.nb[i * KMAX + q]; if (j >= n) continue; const b = proj(px[j], py[j], pz[j]); if (b) { c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.moveTo(b[0] + 3, b[1]); c.arc(b[0], b[1], 3, 0, 6.3); } } c.stroke();
+      c.fillStyle = "#ff9a2e"; c.beginPath(); c.arc(a[0], a[1], 4, 0, 6.3); c.fill(); c.strokeStyle = "rgba(255,170,60,.5)"; c.beginPath(); c.arc(a[0], a[1], 22, 0, 6.3); c.stroke(); c.font = "600 11.5px Segoe UI,sans-serif"; c.textAlign = "left"; c.fillText("this bird watches only these " + flock.nc[i], a[0] + 28, a[1] + 4); }
+  }
+  const F = flock.falcon; if (F) { const a = proj(F.x, F.y, F.z); if (a) { const s = Math.max(4, f * 1.6 / a[2]), hx = (F.vx * rx + F.vz * rz) / 20, hyv = -(F.vx * ux + F.vy * uy + F.vz * uz) / 20;
+    c.strokeStyle = "#2a0d08"; c.lineWidth = Math.max(2, s * 0.45); c.beginPath(); c.moveTo(a[0] - hx * s, a[1] - hyv * s); c.lineTo(a[0] + hx * s, a[1] + hyv * s); c.moveTo(a[0] - hyv * s * 1.3 - hx * s * .5, a[1] + hx * s * 1.3 - hyv * s * .5); c.lineTo(a[0], a[1]); c.lineTo(a[0] + hyv * s * 1.3 - hx * s * .5, a[1] - hx * s * 1.3 - hyv * s * .5); c.stroke();
+    c.strokeStyle = F.mode === "stoop" ? "rgba(255,70,50,.85)" : "rgba(255,255,255,.5)"; c.lineWidth = 1.3; c.beginPath(); c.arc(a[0], a[1], 15 + F.flash * 30, 0, 6.3); c.stroke(); c.fillStyle = F.mode === "stoop" ? "#ffd9d0" : "#e8ecf8"; c.font = "600 11.5px Segoe UI,sans-serif"; c.textAlign = "left"; c.fillText(F.flash > 0.3 ? "caught one" : F.mode === "stoop" ? "falcon attacking" : "falcon climbing", a[0] + 20, a[1] - 12); } F.flash *= 0.95; }
+}
+const chOrd = K.chart(ui.dock, { title: "Is it one flock?", xLabel: "time (s)", yLabel: "fraction", yMin: 0, yMax: 1.05 });
+const chSp = K.chart(ui.dock, { title: "Spacing, and the falcon's catch", xLabel: "time (s)", yLabel: "metres · birds", yMin: 0 });
+let grab = null; K.pointer(cv.el, { down(p) { grab = { x: p.x, yaw }; }, drag(p) { if (grab) yaw = grab.yaw - (p.x - grab.x) * 0.006; }, up() { grab = null; } });
+
+// ---------------- The loop ----------------
+let frame = 0;
+ui.run(dt => {
+  flock.step(K.clamp(dt, 1 / 120, 1 / 30));
+  if (frame % 6 === 0) { const t = flock.t; if (frame % 30 === 0) grp = flock.groups(); log.ord.push([t, flock.order]); log.big.push([t, grp.biggest]); log.sp.push([t, flock.spacing()]); log.caught.push([t, flock.caught]); for (const k in log) if (log[k].length > 500) log[k].shift(); }
+}, () => {
+  draw(); if (frame++ % 4) return;
+  const x0 = log.ord.length ? log.ord[0][0] : 0, x1 = Math.max(x0 + 20, flock.t);
+  chOrd.draw([{ pts: log.ord, color: K.cssVar("--s0"), label: "flying the same way" }, { pts: log.big, color: K.cssVar("--s2"), label: "share in the biggest flock" }], { xMin: x0, xMax: x1 });
+  chSp.draw([{ pts: log.sp, color: K.cssVar("--s1"), label: "gap to nearest bird (m)" }, { pts: log.caught, color: K.cssVar("--s3"), label: "birds caught", alpha: flock.falcon || flock.caught ? 1 : 0 }], { xMin: x0, xMax: x1 });
+  read.set("n", flock.n); read.set("ord", (flock.order * 100).toFixed(0) + "%"); read.set("grp", grp.groups + (grp.lone ? " + " + grp.lone + " strays" : "")); read.set("sp", flock.spacing().toFixed(1) + " m"); read.set("caught", flock.caught); read.set("att", flock.attacks);
+});
+ui.tip("Every bird follows the same three rules using only its 7 nearest neighbours · drag to walk round", 8000);
+</script>
+</body></html>

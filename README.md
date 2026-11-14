@@ -14,12 +14,14 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Thirteen simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): ten rebuilt showpieces, one per subject, which replaced the earlier
-versions in their folders, and three newer physics ones. They share a small
+Seventeen simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): eleven rebuilt showpieces, which replaced the earlier versions in
+their folders, and six newer ones (Quantum Wave Lab, Special Relativity, Wind
+Tunnel, Lightning, Sound Made Visible, Murmuration). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
-`astrophysics/three_body_chaos/original_lab/`.
+`astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
+Lensing simulation in `astrophysics/gravitational_lensing/original/`.
 
 ## Batch run
 
@@ -32,7 +34,7 @@ simulation has ready-made batch experiments that pose a question, such as
 
 ## Worksheets
 
-Every simulation with a batch run, apart from the thirteen ★ Enhanced ones,
+Every simulation with a batch run, apart from the seventeen ★ Enhanced ones,
 has a `worksheets.html` beside it: one
 printable A4 page per batch experiment (set-up, prediction, results table to
 fill in, questions), then teacher notes with the explanation and the numbers
@@ -70,6 +72,8 @@ changing a simulation's batch experiments.
 | [`physics/quantum_wave_lab/`](physics/quantum_wave_lab/) | Quantum Wave Lab ★: the 2-D Schrödinger equation live. Tunnelling, double slit one particle at a time, uncertainty, measurement (A level and beyond) | Open `quantum-wave-lab.html` |
 | [`physics/special_relativity/`](physics/special_relativity/) | Special relativity ★: light clocks, simultaneity, train and tunnel, twin paradox, muons, from any frame, with a spacetime diagram | Open `special-relativity.html` |
 | [`physics/wind_tunnel/`](physics/wind_tunnel/) | Wind tunnel ★: viscous flow by the lattice Boltzmann method, with vortex streets, lift and drag (complements Aerofoil Flow) | Open `wind-tunnel.html` |
+| [`physics/lightning/`](physics/lightning/) | Lightning ★: a branching leader grown by the dielectric breakdown model, with rods, towers and trees to build and a strike tally | Open `lightning.html` |
+| [`physics/chladni_plates/`](physics/chladni_plates/) | Sound Made Visible ★: Chladni figures on plates and a drum, resonance curve, movable driver, sound | Open `chladni-plates.html` |
 
 ## Chemistry
 
@@ -97,6 +101,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | Folder | What it is | How to run |
 |---|---|---|
 | [`biology/natural_selection/`](biology/natural_selection/) | Natural Selection ★: moths on changing bark with real camouflage, mutation, extinction and a "be the bird" mode | Open `natural-selection.html` |
+| [`biology/murmuration/`](biology/murmuration/) | Murmuration ★: a 3-D flock of starlings from three local rules, with a hunting falcon | Open `murmuration.html` |
 | [`biology/epidemics/`](biology/epidemics/) | Epidemics, vaccination and herd immunity (SEIR) | Open `epidemics.html` |
 | [`biology/predator_prey/`](biology/predator_prey/) | Foxes, rabbits and grass: population cycles and Lotka–Volterra | Open `predator-prey.html` |
 | [`biology/membranes/`](biology/membranes/) | Membranes and movement: diffusion, osmosis, active transport, SA:V, potato osmosis, water potential, membrane permeability | Open `membranes.html` |
@@ -158,7 +163,7 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`astrophysics/exoplanet_hunting/`](astrophysics/exoplanet_hunting/) | Finding exoplanets by transits and the Doppler wobble | Open `exoplanet-hunting.html` |
 | [`astrophysics/galaxy_collisions/`](astrophysics/galaxy_collisions/) | Galaxy collisions and mergers, tidal tails, Milky Way and Andromeda | Open `galaxy-collisions.html` |
 | [`astrophysics/expanding_universe/`](astrophysics/expanding_universe/) | Hubble's law, redshift and the age of the universe | Open `expanding-universe.html` |
-| [`astrophysics/gravitational_lensing/`](astrophysics/gravitational_lensing/) | Gravitational lensing: Einstein rings, arcs, microlensing, Eddington 1919 | Open `gravitational-lensing.html` |
+| [`astrophysics/gravitational_lensing/`](astrophysics/gravitational_lensing/) | Black Holes and Gravitational Lensing ★: a ray-traced black hole with accretion disc, Einstein rings and arcs, microlensing planets, Eddington 1919 | Open `gravitational-lensing.html` |
 | [`astrophysics/dark_matter/`](astrophysics/dark_matter/) | Evidence for dark matter from galaxy rotation curves | Open `dark-matter.html` |
 | [`astrophysics/three_body_chaos/`](astrophysics/three_body_chaos/) | Three-Body Chaos ★: N-body gravity with a "twin universe" to watch prediction fail (the earlier outcome-map lab is in `original_lab/`) | Open `three-body-chaos.html` |
 
