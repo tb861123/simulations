@@ -14,10 +14,10 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Twenty-six simulations are marked ★ Enhanced on the front page (gold edge and a
+Twenty-seven simulations are marked ★ Enhanced on the front page (gold edge and a
 star tag): twenty rebuilt showpieces, which replaced the earlier versions in
-their folders, and six newer ones (Quantum Wave Lab, Special Relativity, Wind
-Tunnel, Lightning, Sound Made Visible, Murmuration). They share a small
+their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
+Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
@@ -38,7 +38,7 @@ simulation has ready-made batch experiments that pose a question, such as
 
 ## Worksheets
 
-Every simulation with a batch run, apart from the twenty-six ★ Enhanced ones,
+Every simulation with a batch run, apart from the twenty-seven ★ Enhanced ones,
 has a `worksheets.html` beside it: one
 printable A4 page per batch experiment (set-up, prediction, results table to
 fill in, questions), then teacher notes with the explanation and the numbers
@@ -106,6 +106,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 |---|---|---|
 | [`biology/natural_selection/`](biology/natural_selection/) | Natural Selection ★: moths on changing bark with real camouflage, mutation, extinction and a "be the bird" mode | Open `natural-selection.html` |
 | [`biology/murmuration/`](biology/murmuration/) | Murmuration ★: a 3-D flock of starlings from three local rules, with a hunting falcon | Open `murmuration.html` |
+| [`biology/turing_patterns/`](biology/turing_patterns/) | Turing Patterns ★: spots, stripes and mazes from a reaction–diffusion model; paint, heal, and map the patterns | Open `turing-patterns.html` |
 | [`biology/epidemics/`](biology/epidemics/) | Epidemics and Vaccination ★: a town followed hour by hour; R0, herd immunity, flattening the curve, isolation | Open `epidemics.html` |
 | [`biology/predator_prey/`](biology/predator_prey/) | Foxes, rabbits and grass: population cycles and Lotka–Volterra | Open `predator-prey.html` |
 | [`biology/membranes/`](biology/membranes/) | Membranes and movement: diffusion, osmosis, active transport, SA:V, potato osmosis, water potential, membrane permeability | Open `membranes.html` |
