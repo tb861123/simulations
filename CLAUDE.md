@@ -11,7 +11,7 @@ holds one folder per simulation:
 |---|---|
 | `physics/` | `gas_in_a_box`, `simple_harmonic_motion`, `nuclear_fusion`, `states_of_matter`, `youngs_modulus`, `projectile_motion`, `circular_motion`, `waves`, `optics_refraction`, `fields_orbits`, `photoelectric_effect`, `atomic_spectra`, `radioactive_decay`, `nuclear_fission`, `particle_physics`, `circuits`, `capacitors`, `magnetism_induction`, `heating_insulation`, `density_pressure`, `energy_resources`, `quantum_wave_lab`, `special_relativity`, `wind_tunnel`, `lightning`, `chladni_plates` |
 | `chemistry/` | `collision_theory`, `dynamic_equilibrium`, `crystallisation`, `atomic_structure`, `bonding`, `organic_chemistry`, `periodic_groups`, `reactivity_metals`, `electrolysis`, `energy_changes`, `acids_salts_tests`, `chromatography`, `moles_reacting_masses`, `electrochemical_cells` |
-| `biology/` | `natural_selection`, `murmuration`, `epidemics`, `predator_prey`, `membranes`, `enzymes`, `photosynthesis_respiration`, `inheritance`, `dna_cell_division`, `ecosystems`, `homeostasis`, `immunity`, `plant_transport`, `biotechnology` |
+| `biology/` | `natural_selection`, `murmuration`, `turing_patterns`, `epidemics`, `predator_prey`, `membranes`, `enzymes`, `photosynthesis_respiration`, `inheritance`, `dna_cell_division`, `ecosystems`, `homeostasis`, `immunity`, `plant_transport`, `biotechnology` |
 | `engineering/` | `earthquake_buildings`, `traffic_flow`, `car_crash`, `aerofoil_flow` |
 | `medical/` (shown under "Biology and medicine" on the front page) | `heart_circulation`, `nerve_impulse`, `antibiotic_resistance`, `gas_exchange` |
 | `climate/` | `greenhouse_effect`, `ice_albedo`, `carbon_cycle`, `sea_level_rise`, `forest_fire`, `weather_chaos`, `flooding_hydrographs`, `river_landforms`, `coasts`, `glaciers`, `tropical_storms`, `tectonic_hazards`, `slopes_landslides`, `fieldwork_sampling` |
@@ -29,7 +29,7 @@ own folder inside the right subject folder and gets a row in the root
 `README.md`, a line in the `SIMS` list in the front page `index.html`, and a
 thumbnail `thumbs/<folder>.jpg` (a 640×360 screenshot).
 
-Twenty-six simulations are "★ Enhanced" (listed in `ENHANCED` in the front page
+Twenty-seven simulations are "★ Enhanced" (listed in `ENHANCED` in the front page
 `index.html`, which marks them with a gold edge and star tag): `waves`,
 `dynamic_equilibrium`, `natural_selection`, `nerve_impulse`,
 `earthquake_buildings`, `forest_fire`, `three_body_chaos`,
@@ -38,7 +38,7 @@ Twenty-six simulations are "★ Enhanced" (listed in `ENHANCED` in the front pag
 `gravitational_lensing`, `lightning`, `chladni_plates`, `murmuration`,
 `gas_in_a_box`, `collision_theory`, `galaxy_collisions`, `epidemics`,
 `fields_orbits`, `traffic_flow`, `optics_refraction`, `heart_circulation`,
-`tropical_storms`. They are the one
+`tropical_storms`, `turing_patterns`. They are the one
 place with a shared toolkit: edit `tools/kit/kit.*` or
 `tools/kit/src/<name>.js`, then run `node build.js` from inside `tools/kit/`
 to regenerate the single-file pages in their subject folders. Never edit

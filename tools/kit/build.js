@@ -28,6 +28,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["optics_refraction.js", "optics_refraction", "optics-refraction.html", "Light: Refraction, Lenses and Fibres", "physics"],
   ["heart_circulation.js", "heart_circulation", "heart-circulation.html", "Heart and Circulation", "medical"],
   ["tropical_storms.js", "tropical_storms", "tropical-storms.html", "Tropical Storms", "climate"],
+  ["turing_patterns.js", "turing_patterns", "turing-patterns.html", "Turing Patterns", "biology"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
