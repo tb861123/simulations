@@ -151,7 +151,9 @@ const ui = K.app({
 <li>Foxes eat only rabbits. Real foxes switch to voles, worms, beetles and fruit when rabbits are scarce, which is one reason clear fox–rabbit cycles are not seen in Britain. Clean cycles are found where a specialist predator has one main prey, as with lynx and snowshoe hare.</li>
 <li>Rates are chosen to give clear cycles on a meadow this small, in a time you can watch. A real fox needs a territory of a square kilometre or more.</li>
 <li>Nothing arrives from outside: once a species has died out in the meadow it cannot return unless you add some.</li>
-<li>Batch runs use smaller meadows than the largest one on screen.</li></ul>`
+<li>Batch runs use smaller meadows than the largest one on screen.</li></ul>
+<h3>The earlier version</h3>
+<p>The previous version of this simulation, with its worksheets, is still here: <a href="original/predator-prey.html" style="color:var(--accent)">open the earlier version</a>.</p>`
 });
 
 // ---------------- Controls ----------------

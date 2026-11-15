@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Twenty-seven simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): twenty rebuilt showpieces, which replaced the earlier versions in
+Thirty-one simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): twenty-four rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -23,8 +23,9 @@ of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
 Lensing simulation in `astrophysics/gravitational_lensing/original/`. The earlier
 Gas in a Box, Collision Theory, Galaxy Collisions, Epidemics, Fields and
-Orbits, Traffic Flow, Optics, Heart and Circulation and Tropical Storms are
-likewise kept in each folder's `original/`, with their worksheets,
+Orbits, Traffic Flow, Optics, Heart and Circulation, Tropical Storms, Foxes and
+Rabbits, Electrolysis, Running the Economy and Radioactive Decay are likewise
+kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Batch run
@@ -38,7 +39,7 @@ simulation has ready-made batch experiments that pose a question, such as
 
 ## Worksheets
 
-Every simulation with a batch run, apart from the twenty-seven ★ Enhanced ones,
+Every simulation with a batch run, apart from the thirty-one ★ Enhanced ones,
 has a `worksheets.html` beside it: one
 printable A4 page per batch experiment (set-up, prediction, results table to
 fill in, questions), then teacher notes with the explanation and the numbers
@@ -66,7 +67,7 @@ changing a simulation's batch experiments.
 | [`physics/magnetism_induction/`](physics/magnetism_induction/) | Magnetism and induction: motor effect, Faraday's law, transformers, DC motor | Open `magnetism-induction.html` |
 | [`physics/photoelectric_effect/`](physics/photoelectric_effect/) | Photoelectric effect: threshold frequency, work function, stopping voltage, Planck's constant | Open `photoelectric-effect.html` |
 | [`physics/atomic_spectra/`](physics/atomic_spectra/) | Atomic spectra: energy levels, emission and absorption lines, Rydberg formula | Open `atomic-spectra.html` |
-| [`physics/radioactive_decay/`](physics/radioactive_decay/) | Radioactive decay: half-life, Geiger counts and background, decay chains | Open `radioactive-decay.html` |
+| [`physics/radioactive_decay/`](physics/radioactive_decay/) | Radioactive Decay ★: random decay and half-life of real isotopes; α, β and γ through paper, aluminium and lead | Open `radioactive-decay.html` |
 | [`physics/nuclear_fission/`](physics/nuclear_fission/) | Nuclear fission: chain reactions, k, critical mass, control rods | Open `nuclear-fission.html` |
 | [`physics/particle_physics/`](physics/particle_physics/) | Particle physics: quarks, leptons, conservation laws, Feynman diagrams | Open `particle-physics.html` |
 | [`physics/nuclear_fusion/`](physics/nuclear_fusion/) | Fusion on a potential-energy diagram: the Coulomb barrier, quantum tunnelling, the Gamow peak, and the temperature and pressure needed in stars and reactors | Open `nuclear-fusion.html` |
@@ -90,7 +91,7 @@ changing a simulation's batch experiments.
 | [`chemistry/organic_chemistry/`](chemistry/organic_chemistry/) | Crude oil, cracking and polymers: fractional distillation, combustion, alkenes and addition polymerisation | Open `organic-chemistry.html` |
 | [`chemistry/periodic_groups/`](chemistry/periodic_groups/) | Groups 1 and 7: alkali metals with water, halogens and displacement, trends down a group | Open `periodic-groups.html` |
 | [`chemistry/reactivity_metals/`](chemistry/reactivity_metals/) | Reactivity series, metal displacement, and extracting metals (blast furnace, electrolysis) | Open `reactivity-metals.html` |
-| [`chemistry/electrolysis/`](chemistry/electrolysis/) | Electrolysis of molten and aqueous electrolytes, products at each electrode, half-equations and Faraday's law | Open `electrolysis.html` |
+| [`chemistry/electrolysis/`](chemistry/electrolysis/) | Electrolysis ★: ions drifting to the electrodes, products at each, half-equations, Faraday's law | Open `electrolysis.html` |
 | [`chemistry/energy_changes/`](chemistry/energy_changes/) | Energy changes: reaction profiles, calorimetry, fuels and bond energies | Open `energy-changes.html` |
 | [`chemistry/acids_salts_tests/`](chemistry/acids_salts_tests/) | Acids, alkalis, titration, making salts, and a chemical tests lab (flame tests, ions, gases, unknowns) | Open `acids-salts-tests.html` |
 | [`chemistry/chromatography/`](chemistry/chromatography/) | Paper chromatography: Rf values, identifying components, solvent choice and measurement error | Open `chromatography.html` |
@@ -108,7 +109,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`biology/murmuration/`](biology/murmuration/) | Murmuration ★: a 3-D flock of starlings from three local rules, with a hunting falcon | Open `murmuration.html` |
 | [`biology/turing_patterns/`](biology/turing_patterns/) | Turing Patterns ★: spots, stripes and mazes from a reaction–diffusion model; paint, heal, and map the patterns | Open `turing-patterns.html` |
 | [`biology/epidemics/`](biology/epidemics/) | Epidemics and Vaccination ★: a town followed hour by hour; R0, herd immunity, flattening the curve, isolation | Open `epidemics.html` |
-| [`biology/predator_prey/`](biology/predator_prey/) | Foxes, rabbits and grass: population cycles and Lotka–Volterra | Open `predator-prey.html` |
+| [`biology/predator_prey/`](biology/predator_prey/) | Foxes and Rabbits ★: every animal followed; population cycles, carrying capacity, culling, refuges, extinction | Open `predator-prey.html` |
 | [`biology/membranes/`](biology/membranes/) | Membranes and movement: diffusion, osmosis, active transport, SA:V, potato osmosis, water potential, membrane permeability | Open `membranes.html` |
 | [`biology/enzymes/`](biology/enzymes/) | Enzymes: lock and key, temperature, pH, substrate concentration, inhibitors, Vmax, Q10, amylase and catalase practicals | Open `enzymes.html` |
 | [`biology/photosynthesis_respiration/`](biology/photosynthesis_respiration/) | Photosynthesis and respiration: limiting factors, pondweed practical, gas exchange in leaves, respirometer, RQ, Calvin and Krebs cycles | Open `photosynthesis-respiration.html` |
@@ -190,7 +191,7 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 | [`economics/firms_competition/`](economics/firms_competition/) | Firms, costs and competition: cost and revenue curves, economies of scale, market structures, game theory, cartels | Open `firms-competition.html` |
 | [`economics/labour_market/`](economics/labour_market/) | The labour market: wage determination, minimum wage, unions, monopsony, wage differences, division of labour | Open `labour-market.html` |
 | [`economics/circular_flow/`](economics/circular_flow/) | The circular flow and the multiplier: five sectors, injections and withdrawals, AD = C+I+G+X−M, AD/AS, accelerator | Open `circular-flow.html` |
-| [`economics/running_the_economy/`](economics/running_the_economy/) | Running the economy: macro objectives, business cycle, monetary and fiscal policy, money creation, real UK data, Phillips curve | Open `running-the-economy.html` |
+| [`economics/running_the_economy/`](economics/running_the_economy/) | Running the Economy ★: five targets, Bank Rate, fiscal and supply-side policy, shocks, the real UK 1997–2025, money creation | Open `running-the-economy.html` |
 | [`economics/externalities/`](economics/externalities/) | Market failure: externalities, welfare loss, taxes, subsidies, regulation, tradable permits, public goods, information failure | Open `externalities.html` |
 | [`economics/trade_exchange_rates/`](economics/trade_exchange_rates/) | Trade and exchange rates: comparative advantage, terms of trade, tariffs, quotas, floating and fixed rates, J-curve | Open `trade-exchange-rates.html` |
 | [`economics/inequality/`](economics/inequality/) | Inequality and redistribution: Lorenz curve and Gini, income vs wealth, poverty, UK taxes and benefits, Kuznets and Laffer curves (also listed under Statistics) | Open `inequality.html` |

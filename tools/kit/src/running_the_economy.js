@@ -157,7 +157,9 @@ const ui = K.app({
 <h3>Sources for the real UK data</h3>
 <ul><li>CPI inflation, annual average: ONS series D7G7. Unemployment rate (16+), annual average: ONS MGSX. Real GDP growth: ONS IHYP. Releases of September–October 2026; later releases may revise them.</li>
 <li>Bank Rate: Bank of England, Official Bank Rate history (series IUDBEDR), every change from May 1997 to December 2025.</li>
-<li>Money creation: McLeay, Radia and Thomas, "Money creation in the modern economy", Bank of England Quarterly Bulletin, 2014 Q1.</li></ul>`
+<li>Money creation: McLeay, Radia and Thomas, "Money creation in the modern economy", Bank of England Quarterly Bulletin, 2014 Q1.</li></ul>
+<h3>The earlier version</h3>
+<p>The previous version of this simulation, with its worksheets, is still here: <a href="original/running-the-economy.html" style="color:var(--accent)">open the earlier version</a>.</p>`
 });
 
 // ---------------- Controls ----------------
