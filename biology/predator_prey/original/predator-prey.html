@@ -1,0 +1,1938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foxes and Rabbits</title>
+<!--
+  FOXES AND RABBITS: PREDATOR–PREY CYCLES — a teaching model
+  ==========================================================
+  One self-contained file: no libraries, no internet needed.
+
+  A field is divided into square patches (each 50 m × 50 m). Time moves
+  on one week at a time.
+    • GRASS in each patch regrows towards full cover: g → g + r (1 − g).
+    • RABBITS hop about, eat grass for energy, use 1 unit of energy a week,
+      breed when well fed and grown up, and die of hunger, old age or foxes.
+    • FOXES roam further, hunt rabbits (and voles, if added) in nearby
+      patches, use energy every week, breed when well fed, and starve when
+      prey are scarce.
+  Rabbits can hide in warrens (refuges), where foxes rarely catch them.
+
+  The Lotka–Volterra equations are the simplest theory of this:
+      dR/dt = a R − b R F       (rabbits: births minus being eaten)
+      dF/dt = c R F − d F       (foxes: births from food minus deaths)
+  They predict endless cycles with period ≈ 2π / √(a d) and foxes peaking
+  about a quarter of a cycle after rabbits. The app fits a, b, c, d to the
+  simulated numbers and compares.
+  With no foxes, rabbits should follow the logistic curve
+      N(t) = K / (1 + ((K − N0)/N0) e^(−r t)),  K = carrying capacity.
+
+  Units: time in weeks (shown in years too); numbers of animals; field
+  size in patches (and hectares).
+
+  LEVELS. Standard (GCSE): Pearson Edexcel International GCSE Biology (4BI1)
+  Section 4 Ecology and the environment: 4(a) populations, biotic and
+  abiotic factors, estimating population size (quadrats), and 4(b) feeding
+  relationships. Predator–prey cycles and the Lotka–Volterra equations go
+  beyond 4BI1 and are tagged. Advanced (A level): OCR A level Biology A
+  (H420) 6.3.2 Populations and sustainability (carrying capacity, limiting
+  factors, predator–prey relationships, competition, culling) and 6.3.1
+  Ecosystems (measuring distribution and abundance by sampling, PAG3).
+  Mark–release–recapture and the Lincoln index are a suitable PAG3 extension
+  activity, but H420 does not explicitly require the Lincoln index; they are
+  tagged that way. Advanced adds a virtual mark–release–recapture practical
+  with random trapping, limiting-factor readings, A level presets and exam
+  questions. Batch runs are the same at both levels.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 250px) 10px minmax(0, 1fr) 10px var(--rw, 280px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; }
+  #pending { display: none; background: #3a2a07; color: #ffd98a; border: 1px solid #6b4e10; border-radius: 6px; padding: 6px 8px; font-size: 12.5px; margin: 6px 0; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #viewWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  #chartBox { position: relative; height: 170px; }
+  #chart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+  #centre { position: relative; }
+  .graphBox { position: relative; height: 160px; }
+  .graphBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .chk { display: block; font-size: 13px; margin: 2px 0 8px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: 4px 10px; }
+  table.mini { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+  table.mini th, table.mini td { padding: 2px 4px; text-align: right; border-bottom: 1px solid var(--line); }
+  table.mini th:first-child, table.mini td:first-child { text-align: left; }
+  table.mini th { color: var(--muted); font-weight: 600; }
+  #story p { margin: 0 0 6px; }
+
+  /* Batch run overlay (covers the three panels) */
+  #batch { display: none; position: fixed; left: 10px; right: 10px; top: 52px; bottom: 10px; z-index: 50; background: var(--panel);
+           border: 2px solid var(--accent); border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.7); padding: 10px 12px;
+           grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 8px 14px; }
+  #batch.open { display: grid; }
+  #batch .bhead { grid-column: 1 / 3; display: flex; align-items: baseline; gap: 14px; }
+  #batch .bhead h2 { font-size: 16px; text-transform: none; letter-spacing: 0; color: var(--accent); margin: 0; }
+  #batch .bhead .hint { flex: 1; }
+  #bsetup { overflow-y: auto; min-height: 0; padding-right: 4px; }
+  #bresults { display: flex; flex-direction: column; gap: 6px; min-height: 0; min-width: 0; }
+  #bresults .brun { display: flex; gap: 6px; align-items: center; }
+  #bresults .brun button { flex: none; white-space: nowrap; }
+  #bresults .brun #bProg { flex: 1; min-width: 80px; margin: 0; }
+  /* Batch settings table: every starting setting, with a tick box to choose the one that is varied */
+  #bSetBox { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--panel-2); margin-top: 6px; color: var(--text); }
+  #bSetBox > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
+  #bSetBox .bhint { font-size: 11.5px; color: var(--muted); margin: 3px 0 5px; }
+  #bOpts { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  #bOpts .bctl { margin-bottom: 4px; }
+  #bOpts .chk { margin: 2px 0 4px; font-size: 12.5px; }
+  #bTbl { display: grid; grid-template-columns: 1fr; gap: 3px; margin-top: 4px; }
+  .bt { display: flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 2px 4px; border-radius: 6px; flex-wrap: wrap; }
+  .bt.on { background: rgba(241,175,40,.13); outline: 1px solid var(--accent); }
+  .bt label { flex: 1; min-width: 150px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .bt input[type=number] { width: 78px !important; }
+  .bt .bsw { display: none; gap: 5px; align-items: center; flex-wrap: wrap; }
+  .bt.on .bsw { display: inline-flex; }
+  .bt.on .bval { display: none; }
+  .bt .bcount { color: var(--muted); font-size: 11.5px; }
+  #bSetBox select, #bSetBox input[type=number], #bSetBox input[type=text] { font: inherit; font-size: 12.5px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 2px 4px; }
+  #bSetBox #bLeft { margin-top: 6px; font-size: 12.5px; }
+  #bChartBox { position: relative; flex: 1; min-height: 200px; background: #10130e; border-radius: 8px; }
+  #bChart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bSummary { font-size: 12.5px; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 10px; max-height: 38%; overflow-y: auto; }
+  #bSummary table td:last-child { white-space: nowrap; }
+  .bctl { margin-bottom: 7px; }
+  .bctl label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 2px; }
+  .bctl select, .bctl input { width: 100%; }
+  .bctl input { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+  .b3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  #bProg { height: 8px; border-radius: 4px; background: var(--panel-2); overflow: hidden; margin: 6px 0 2px; border: 1px solid var(--line); }
+  #bProg span { display: block; height: 100%; width: 0; background: var(--accent); }
+  #bExps { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  #bExps button { text-align: left; font-size: 12.5px; padding: 5px 8px; line-height: 1.3; }
+  #bNote { font-size: 12.5px; color: #dfe3d6; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; }
+  #bNote:empty { display: none; }
+  .bstat b { color: var(--accent); }
+
+  .key { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .key i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+  .evt { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .evt button { font-size: 12.5px; padding: 5px 6px; }
+
+  /* LEVEL SWITCH, SPEC TAGS AND EXAM PRACTICE (the same look as the geography, economics and PE sims) */
+  .lvlseg { display: flex; gap: 4px; margin-bottom: 6px; }
+  .lvlseg button { flex: 1; padding: 4px 6px; font-size: 12.5px; }
+  body.lvl-std .advOnly, body.lvl-adv .stdOnly { display: none !important; }
+  .spec { display: inline-block; font-size: 10.5px; border-radius: 4px; padding: 0 5px; margin-left: 4px; background: #2a3024; color: #dfe3d6; font-weight: 400; vertical-align: 1px; text-transform: none; letter-spacing: 0; }
+  .spec.a { background: #3b2a44; color: #e6d4f2; }
+  .spec.b { background: #24303b; color: #cfe0ee; }
+  #ideas ul { margin: 0; padding-left: 16px; }
+  #ideas li { margin-bottom: 4px; }
+  .links a { color: #a4cbe6; }
+  #exam summary { color: var(--text); }
+  .exhead { font-size: 11.5px; color: var(--accent); text-transform: uppercase; letter-spacing: .05em; margin-top: 10px; }
+  .exq { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; margin-top: 7px; color: var(--text); font-size: 12.5px; }
+  .exq .qh { display: flex; gap: 8px; justify-content: space-between; align-items: flex-start; }
+  .exq .mk { flex: none; background: var(--accent); color: var(--ink-dark); border-radius: 4px; padding: 0 6px; font-size: 11px; font-weight: 700; }
+  .exq .ht { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  .exq button { margin-top: 5px; padding: 2px 8px; font-size: 12px; }
+  .exq .ms { display: none; margin-top: 5px; border-top: 1px dashed var(--line); padding-top: 4px; }
+  .exq.open .ms { display: block; }
+  .exq .ms div { margin: 1px 0 1px 6px; }
+  .exq .ans { color: #8fd694; font-weight: 700; margin-top: 3px; }
+  #examNow { margin-top: 5px; padding: 2px 8px; font-size: 12px; }
+  #mrrBox select { width: auto; }
+  #mrrBox .row { margin: 4px 0; }
+</style>
+<style id="tidyCss">
+  /* ---- Tidy layout: one-line level, presets menu, folding sections, tabs on the right ---- */
+  .tidyHide { display: none !important; }
+  details.tidyInfo { margin: 6px 0 0; font-size: 12.5px; }
+  details.tidyInfo > summary { list-style: none; color: var(--text); font-weight: 600; line-height: 1.3; padding: 4px 6px; border-radius: 6px; background: var(--panel-2); }
+  details.tidyInfo > summary::-webkit-details-marker { display: none; }
+  details.tidyInfo > summary .tidyI { float: right; color: var(--accent); font-weight: 700; margin-left: 6px; }
+  details.tidyInfo[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  details.tidyInfo > .hint { padding: 6px; margin: 0; background: var(--panel-2); border-radius: 0 0 6px 6px; }
+  .tidyPresetsBtn { width: 100%; margin-top: 8px; text-align: left; display: flex; justify-content: space-between; gap: 6px; font-weight: 600; align-items: center; }
+  .tidyPresetsBtn > span:first-child { white-space: nowrap; flex-shrink: 0; }
+  .tidyPresetsBtn span.cur { color: var(--muted); font-weight: 400; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .tidyMenu { position: fixed; z-index: 50; background: var(--panel); border: 1px solid var(--accent); border-radius: 8px; padding: 8px;
+              box-shadow: 0 8px 28px rgba(0,0,0,.55); overflow-y: auto; }
+  .tidyMenu .presets button small { display: none; }
+  .tidyMenu .tidyMenuHint { font-size: 11.5px; color: var(--muted); margin: 0 0 6px; }
+  h2.tidyH { cursor: pointer; user-select: none; }
+  h2.tidyH::before { content: "▾"; display: inline-block; width: 12px; color: var(--muted); }
+  h2.tidyH.shut::before { content: "▸"; }
+  h2.tidyH:hover { color: var(--text); }
+  .tidyBody.shut { display: none !important; }
+  details.tidyMore { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 8px; }
+  details.tidyMore > summary { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .tidyTabs { position: sticky; top: -12px; z-index: 5; display: flex; gap: 3px; margin: -12px -12px 10px; padding: 8px 8px 0;
+              background: var(--panel); border-bottom: 1px solid var(--line); }
+  .tidyTabs button { flex: 1 1 auto; min-width: 0; padding: 5px 5px; font-size: 12px; border-radius: 6px 6px 0 0; border-bottom: none; margin-bottom: -1px;
+                     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tidyTabs button.on { background: var(--panel-2); color: var(--accent); border-color: var(--line); border-bottom: 1px solid var(--panel-2); }
+  .tidyPane > details:first-child, .tidyPane > h2:first-child { margin-top: 0; }
+  .tidyMoreR { display: block; margin: 6px 0 0; font-size: 12px; padding: 3px 8px; }
+  .tidyX { display: none !important; }
+</style>
+</head>
+<body class="lvl-std">
+<header>
+  <h1>Foxes and Rabbits</h1>
+  <span class="sub">Predator–prey cycles on a field of grass, compared with the Lotka–Volterra equations and logistic growth.</span>
+</header>
+
+<main>
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Level</h2>
+    <div class="lvlseg" id="lvl"><button data-lvl="std">Standard (GCSE)</button><button data-lvl="adv">Advanced (A level)</button></div>
+    <div class="hint" id="lvlHint"></div>
+
+    <h2 class="gap">Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">Starting out <span class="hint" style="text-transform:none;letter-spacing:0">(press Reset)</span></h2>
+    <div class="ctl"><label>Field size <output id="o_side"></output></label><input type="range" id="side" min="10" max="80" step="2" value="30"></div>
+    <div class="ctl"><label>Starting rabbits <output id="o_R0"></output></label><input type="range" id="R0" min="0" max="1000" step="10" value="300"></div>
+    <div class="ctl"><label>Starting foxes <output id="o_F0"></output></label><input type="range" id="F0" min="0" max="150" step="1" value="10"></div>
+    <div class="ctl"><label>Starting voles (second prey) <output id="o_V0"></output></label><input type="range" id="V0" min="0" max="1000" step="10" value="0"></div>
+    <div class="ctl"><label>Refuges (warrens) <output id="o_ref"></output></label><input type="range" id="ref" min="0" max="20" step="1" value="0">
+      <div class="hint">Share of patches with burrows where rabbits can hide.</div></div>
+    <div class="ctl"><label>Rules</label><select id="simple"><option value="0">Realistic: grass, energy, ageing, starving</option><option value="1">Lotka–Volterra-like: the equations' assumptions</option></select>
+      <div class="hint">Lotka–Volterra-like: unlimited grass, rabbits breed at a fixed rate, foxes catch in proportion to the rabbits near them, every rabbit eaten gives a fixed chance of a cub, and foxes die at a fixed rate.</div></div>
+    <div class="ctl"><label>Random seed</label><input id="seed" value="1" style="width:100%;font:inherit;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
+
+    <h2 class="gap">Nature <span class="live">changes take effect at once</span></h2>
+    <div class="ctl"><label>Grass regrowth rate <output id="o_grow"></output></label><input type="range" id="grow" min="0.02" max="0.4" step="0.01" value="0.1"></div>
+    <div class="ctl"><label>Rabbit breeding rate <output id="o_breed"></output></label><input type="range" id="breed" min="0.02" max="0.3" step="0.01" value="0.12">
+      <div class="hint">Chance per week that a well-fed adult doe has a litter (about 3 young survive to leave the nest).</div></div>
+    <div class="ctl"><label>Fox hunting success <output id="o_hunt"></output></label><input type="range" id="hunt" min="0.05" max="0.8" step="0.01" value="0.3"></div>
+    <div class="ctl"><label>Fox energy needs <output id="o_need"></output></label><input type="range" id="need" min="0.3" max="2" step="0.05" value="0.8">
+      <div class="hint">Rabbits a fox must eat each week to stay healthy (realistic rules only).</div></div>
+    <div class="ctl"><label>Age when young foxes can breed <output id="o_mature"></output></label><input type="range" id="mature" min="0" max="52" step="1" value="26">
+      <div class="hint">Real foxes breed in their first spring, at about 6 months (26 weeks). This delay slows the cycles.</div></div>
+    <div class="ctl"><label>Fox culling <output id="o_cull"></output></label><input type="range" id="cull" min="0" max="90" step="1" value="0"></div>
+    <div class="ctl"><label>Years to simulate (graphs and batch) <output id="o_years"></output></label><input type="range" id="years" min="2" max="40" step="1" value="15"></div>
+
+    <h2 class="gap">Events</h2>
+    <div class="evt">
+      <button id="evDisease" title="Myxomatosis kills 80% of rabbits">🦠 Rabbit disease</button>
+      <button id="evCull" title="Remove half the foxes">🎯 Cull half the foxes</button>
+      <button id="evAddF" title="Release 10 foxes">🦊 Add 10 foxes</button>
+      <button id="evAddR" title="Release 50 rabbits">🐇 Add 50 rabbits</button>
+    </div>
+    <button id="btnBatch" class="primary" style="width:100%;margin-top:10px">📊 Batch run…</button>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Quality:</b> the grass can be stored in 50 m squares (Low), or in finer cells of 25 m, 17 m or 12.5 m. A rabbit always grazes a 50 m × 50 m area centred on itself, the grass regrows at the same rate per week and a full field holds the same amount of grass, so populations behave the same at every setting; finer cells just let the grazed patches move smoothly with the animals. Batch runs always use Low, so their results can be repeated exactly.</li>
+        <li><b>Field:</b> square patches, each 50 m × 50 m (0.25 ha). A field of 30 × 30 patches is 1.5 km × 1.5 km (225 ha). Animals can't leave the field and none arrive from outside.</li>
+        <li><b>Grass:</b> each patch holds 0–1 "units" of grass. Each week it regrows by r × (1 − g): fastest when grazed bare, slowing as it fills up.</li>
+        <li><b>Rabbits:</b> each week a rabbit hops up to 1.5 patches, to the grassier of two spots it tries. It eats up to 0.3 units of grass (8 units of energy per unit eaten) and uses 1 unit of energy. Energy is capped at 8. From 12 weeks old, a doe with at least 4 units of energy has a litter with the chance set by the breeding rate; about 3 young survive to leave the nest. Half the rabbits are does. Rabbits die if their energy runs out, and 1% die each week of other causes (most live about 2 years).</li>
+        <li><b>Foxes:</b> each week a fox roams up to 3 patches and makes up to 5 attacks on random prey within 2 patches of where it ends up (its own patch and the 24 around it). Each attack succeeds with the hunting-success chance. A rabbit gives 1 unit of energy, a vole 0.25. A fox uses the "energy needs" amount each week, stores up to 6 units, and starves at 0. From 6 months old, a fox with at least 3 units of energy breeds with a 2% chance per week (half the foxes are vixens, each with a 4% chance), giving an average litter of 2.5 cubs that survive. 0.4% of foxes die each week of other causes.</li>
+        <li><b>Refuges:</b> rabbits like to hop towards warren patches. In a warren patch up to 6 rabbits are safe from foxes; if more crowd in, the extras can be caught.</li>
+        <li><b>Voles</b> (optional) eat less grass, breed faster and give a fox less food. Foxes eat whichever prey they meet, so voles can keep foxes alive when rabbits are scarce.</li>
+        <li><b>Culling:</b> the chosen share of foxes is removed spread evenly through the year.</li>
+        <li><b>Lotka–Volterra rates from the counts:</b> after the first year the model counts every birth and death. a = (rabbit births − rabbit deaths not caused by foxes) ÷ (rabbits summed over the weeks); b = rabbits eaten ÷ (rabbits × foxes summed over the weeks); c = fox births ÷ the same sum; d = fox deaths ÷ (foxes summed over the weeks). These give the theory period 2π/√(ad) and the equilibrium (d/c rabbits, a/b foxes). (The batch lab also reports an older fit from the shape of the cycles.)</li>
+        <li><b>Lotka–Volterra-like rules</b> (choose under Rules) strip out the extra realism: grass is unlimited, rabbits don't starve, age or die except when caught, every doe breeds at the same rate from birth, each rabbit within 2 patches of a fox is caught with chance (hunting success ÷ 5) a week, each rabbit eaten gives a 10% chance of a cub, and foxes die with a fixed 4% chance a week. Then a = breeding rate × 3 ÷ 2 and d = 0.04 follow from the rules. Only the fox maturity delay (if you set one) and chance remain.</li>
+        <li><b>Why realistic cycles are slower:</b> the equations assume a fox's birth rate responds instantly to food. Real foxes take months to grow up before they can breed, and starve only after their reserves run out; rabbits also need time to mature and are held back by grass. These delays stretch each cycle.</li>
+        <li><b>Differences from the equations:</b> the equations have no grass limit, no ages, no space and no chance. Real cycles are more irregular, populations can die out by chance (the equations never reach zero), and crowding limits rabbits even without foxes.</li>
+        <li><b>Mark–release–recapture (Advanced).</b> Each trapping catches every rabbit independently with the chance chosen (so the number caught varies at random, like real trapping). Caught rabbits are marked (a blue ring) and released; marks never fall off. A later trapping counts all rabbits caught and how many carry a mark. Lincoln index: N ≈ n₁ × n₂ ÷ m. The trapping uses its own random numbers, so it never changes what happens in the field. Births, deaths and foxes between the two trappings break the "closed population" assumption, as they would in a real field.</li>
+        <li><b>Not modelled:</b> seasons (all breeding happens year round), other predators (buzzards, stoats), hunting by people other than culling, rabbits digging new warrens, and movement into or out of the field.</li>
+      </ul>
+    </details>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">Week 0</span>
+      <span class="stat">Rabbits <b id="s_R">0</b></span>
+      <span class="stat">Foxes <b id="s_F">0</b></span>
+      <span class="stat" id="s_Vw">Voles <b id="s_V">0</b></span>
+      <span class="stat">Grass cover <b id="s_G">0%</b></span>
+      <span class="stat">Caught this week <b id="s_c">0</b></span>
+    </div>
+    <div id="viewWrap"><canvas id="view" aria-label="The field, its grass, rabbits and foxes"></canvas></div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">▶ Start</button>
+      <button id="btnReset">Reset</button>
+      <span class="speed">Speed <button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="4">4×</button><button data-s="15">15×</button></span>
+      <span class="hint">1× = 4 weeks/s</span>
+      <label class="speed" title="Size of the grass cells. Finer cells look smoother and let grazing patterns show, but run slower. Batch runs always use Low.">Quality <select id="res">
+        <option value="1">Low (50 m grass cells)</option><option value="2" selected>Medium (25 m)</option><option value="3">High (17 m)</option><option value="4">Ultra (12.5 m)</option></select></label>
+      <button id="btnBatch2" style="margin-left:auto">📊 Batch</button>
+    </div>
+    <div class="key"><span><i style="background:#d9c7a8"></i>Rabbit</span><span><i style="background:#f18700"></i>Fox</span><span><i style="background:#a3a3a3"></i>Vole</span><span><i style="background:#3d6e2a;border-radius:2px"></i>Grass (darker brown = eaten)</span><span><i style="background:#2a1d12;border:1px solid #c9a46a"></i>Warren (refuge)</span><span>Red ring: caught</span></div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Results</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">Cycles</h2>
+    <div class="tiles" id="tiles"></div>
+    <h2 class="gap">Populations over time</h2>
+    <div class="graphBox" style="height:170px"><canvas id="g1"></canvas></div>
+    <h2 class="gap">Phase plot: rabbits against foxes</h2>
+    <div class="graphBox" style="height:200px"><canvas id="g2"></canvas></div>
+    <div class="row" style="margin-top:4px"><button id="btnLV">Show Lotka–Volterra curve from here</button></div>
+    <div class="hint" id="lvNote" style="margin-top:4px"></div>
+    <h2 class="gap advOnly">Mark–release–recapture <span class="spec a">A level (H420 6.3.1, PAG3 extension)</span></h2>
+    <div class="advOnly" id="mrrBox">
+      <div class="hint">Estimate the number of rabbits without counting them all. Set traps, mark what you catch, release them, let the field run a few weeks so they mix, then trap again.</div>
+      <div class="row"><label class="hint" for="mrrC">Traps catch</label><select id="mrrC"><option value="0.05">5% of rabbits</option><option value="0.1" selected>10% of rabbits</option><option value="0.2">20% of rabbits</option><option value="0.35">35% of rabbits</option></select></div>
+      <div class="row"><button id="mrrMark">① Catch, mark, release</button><button id="mrrRe">② Recapture</button></div>
+      <div class="hint" id="mrrStatus"></div>
+      <div id="mrrTable"></div>
+    </div>
+    <h2 class="gap">Key ideas <span class="hint" style="text-transform:none;letter-spacing:0">(tags: which spec)</span></h2>
+    <div class="hint" id="ideas"></div>
+    <div class="hint links" style="margin-top:8px">Sampling with quadrats and transects, and statistical tests: <a href="../../climate/fieldwork_sampling/fieldwork-sampling.html">Fieldwork: Sampling and Statistics</a>. Where the grass gets its carbon: <a href="../../climate/carbon_cycle/carbon-cycle.html">The Carbon Cycle</a>.</div>
+    <details id="exam" open>
+      <summary>📝 Exam practice</summary>
+      <div class="hint" style="margin-top:4px">Questions marked "Your…" use the numbers on screen. <button id="examNow" title="Rebuild the questions from what is on screen now">↻ Use the numbers on screen now</button></div>
+      <div id="examQs"></div>
+    </details>
+  </section>
+</main>
+<div id="batch"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   SHARED HELPERS: random numbers, maths, drawing graphs, panel layout
+   and the "Batch run" laboratory. (The same helpers are copied into each
+   biology simulation so every file works on its own.)
+   ===================================================================== */
+const el = id => document.getElementById(id);
+
+// Repeatable random numbers: the same seed always gives the same run.
+function hashSeed(str) { str = String(str); let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } return h >>> 0; }
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+// A normally distributed random number (mean 0, SD 1), Box–Muller method
+function randn(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+// A Poisson random number: how many events happen when lam are expected on average
+function poisson(rng, lam) {
+  if (lam <= 0) return 0;
+  if (lam > 40) return Math.max(0, Math.round(lam + Math.sqrt(lam) * randn(rng)));
+  const L = Math.exp(-lam); let k = 0, p = 1;
+  do { k++; p *= rng(); } while (p > L);
+  return k - 1;
+}
+// A gamma-distributed waiting time with a given mean and shape (shape 1 = exponential)
+function gammaTime(rng, mean, shape) { let s = 0; for (let k = 0; k < shape; k++) s -= Math.log(1 - rng()); return s * mean / shape; }
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const finite = v => typeof v === "number" && isFinite(v);
+const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : NaN;
+function sd(a) { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); }
+function fmtNum(v, d) {
+  if (!finite(v)) return "–";
+  if (d === undefined) d = Math.abs(v) >= 100 ? 0 : Math.abs(v) >= 10 ? 1 : Math.abs(v) >= 1 ? 2 : 3;
+  return v.toLocaleString("en-GB", { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+const pct = (v, d = 0) => finite(v) ? (100 * v).toFixed(d) + "%" : "–";
+// Least-squares straight line through points (x, y): returns gradient, intercept, r²
+function linFit(xs, ys) {
+  const n = xs.length; if (n < 2) return null;
+  const mx = mean(xs), my = mean(ys); let sxy = 0, sxx = 0, syy = 0;
+  for (let i = 0; i < n; i++) { sxy += (xs[i] - mx) * (ys[i] - my); sxx += (xs[i] - mx) ** 2; syy += (ys[i] - my) ** 2; }
+  if (sxx === 0) return null;
+  const m = sxy / sxx; return { m, c: my - m * mx, r2: syy > 0 ? sxy * sxy / (sxx * syy) : 1 };
+}
+
+/* ---------- Canvas helpers (sharp on high-resolution screens) ---------- */
+function fitCanvas(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(1, Math.round(c.clientWidth * dpr)), H = Math.max(1, Math.round(c.clientHeight * dpr));
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  return { ctx: c.getContext("2d"), W, H, dpr };
+}
+function niceStep(range, n) {
+  const raw = range / Math.max(1, n), mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag;
+}
+function tickLabel(v, step) { if (Math.abs(v) < step * 1e-6) v = 0; const d = step >= 1 ? 0 : Math.min(4, Math.ceil(-Math.log10(step))); return v.toLocaleString("en-GB", { minimumFractionDigits: d, maximumFractionDigits: d }); }
+
+/* A small general-purpose graph drawer.
+   o = { x:[min,max], y:[min,max], xLabel, yLabel, logX, title,
+         series:[{ type:"line"|"pts"|"bars"|"err"|"band"|"vline"|"hline"|"step", data, col, w, dash, alpha, label, r, barW }] }
+   line/pts/step: data = [[x,y],...]   err: [[x, y, lo, hi],...]   band: [[x, lo, hi],...]
+   bars: [[x0, x1, y],...]   vline/hline: data = value                                                */
+function plot(canvas, o) {
+  const { ctx, W, H, dpr } = fitCanvas(canvas);
+  ctx.fillStyle = o.bg || "#10130e"; ctx.fillRect(0, 0, W, H);
+  const fs = (o.font || 10.5) * dpr;
+  const L = (o.left || 46) * dpr, R = (o.right || 10) * dpr, T = (o.top || (o.title ? 18 : 8)) * dpr, B = (o.bottom || 30) * dpr;
+  let [x0, x1] = o.x, [y0, y1] = o.y;
+  if (!(x1 > x0)) x1 = x0 + 1; if (!(y1 > y0)) y1 = y0 + 1;
+  const lx = v => o.logX ? Math.log10(Math.max(v, 1e-12)) : v;
+  const X = v => L + (lx(v) - lx(x0)) / (lx(x1) - lx(x0)) * (W - L - R);
+  const Y = v => H - B - (v - y0) / (y1 - y0) * (H - T - B);
+  ctx.font = `${fs}px system-ui, sans-serif`; ctx.lineWidth = 1;
+  // grid and tick labels
+  ctx.strokeStyle = "rgba(160,170,150,0.14)"; ctx.fillStyle = "#a3ab96";
+  const ys = niceStep(y1 - y0, Math.max(2, Math.floor((H - T - B) / (26 * dpr))));
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  for (let v = Math.ceil(y0 / ys - 1e-9) * ys; v <= y1 + 1e-9 * ys; v += ys) { const y = Y(v); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); ctx.fillText(tickLabel(v, ys), L - 4 * dpr, y); }
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  if (o.logX) {
+    for (let e = Math.floor(Math.log10(x0)); e <= Math.ceil(Math.log10(x1)); e++) for (const m of [1, 2, 5]) {
+      const v = m * Math.pow(10, e); if (v < x0 * 0.999 || v > x1 * 1.001) continue;
+      const x = X(v); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - B); ctx.stroke(); ctx.fillText(v.toLocaleString("en-GB"), x, H - B + 3 * dpr);
+    }
+  } else {
+    const xs = niceStep(x1 - x0, Math.max(2, Math.floor((W - L - R) / (60 * dpr))));
+    for (let v = Math.ceil(x0 / xs - 1e-9) * xs; v <= x1 + 1e-9 * xs; v += xs) { const x = X(v); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - B); ctx.stroke(); ctx.fillText(o.xTick ? o.xTick(v) : tickLabel(v, xs), x, H - B + 3 * dpr); }
+  }
+  ctx.strokeStyle = "rgba(200,205,190,0.45)"; ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, H - B); ctx.lineTo(W - R, H - B); ctx.stroke();
+  // axis labels
+  ctx.fillStyle = "#c9cfbd"; ctx.textBaseline = "bottom"; ctx.fillText(o.xLabel || "", (L + W - R) / 2, H - 2 * dpr);
+  ctx.save(); ctx.translate(11 * dpr, (T + H - B) / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = "middle"; ctx.fillText(o.yLabel || "", 0, 0); ctx.restore();
+  if (o.title) { ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillStyle = "#dfe3d6"; ctx.fillText(o.title, L, 3 * dpr); }
+  // data, clipped to the plot area
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T - 2 * dpr, W - L - R, H - T - B + 4 * dpr); ctx.clip();
+  for (const s of o.series || []) {
+    ctx.globalAlpha = s.alpha == null ? 1 : s.alpha;
+    ctx.strokeStyle = ctx.fillStyle = s.col || "#f1af28"; ctx.lineWidth = (s.w || 2) * dpr;
+    ctx.setLineDash(s.dash ? s.dash.map(d => d * dpr) : []);
+    const d = s.data;
+    if (s.type === "line" || s.type === "step") {
+      ctx.beginPath(); let first = true, py = 0;
+      for (const p of d) { if (!finite(p[1]) || !finite(p[0])) { first = true; continue; } const x = X(p[0]), y = Y(p[1]);
+        if (first) ctx.moveTo(x, y); else if (s.type === "step") { ctx.lineTo(x, py); ctx.lineTo(x, y); } else ctx.lineTo(x, y); first = false; py = y; }
+      ctx.stroke();
+    } else if (s.type === "pts") {
+      const r = (s.r || 2.2) * dpr;
+      for (const p of d) if (finite(p[0]) && finite(p[1])) { ctx.beginPath(); ctx.arc(X(p[0]), Y(p[1]), r, 0, 7); ctx.fill(); }
+    } else if (s.type === "err") {
+      const r = (s.r || 3.5) * dpr, cap = 4 * dpr;
+      for (const p of d) { if (!finite(p[1])) continue; const x = X(p[0]);
+        if (finite(p[2]) && finite(p[3])) { ctx.beginPath(); ctx.moveTo(x, Y(p[2])); ctx.lineTo(x, Y(p[3])); ctx.moveTo(x - cap, Y(p[2])); ctx.lineTo(x + cap, Y(p[2])); ctx.moveTo(x - cap, Y(p[3])); ctx.lineTo(x + cap, Y(p[3])); ctx.stroke(); }
+        ctx.beginPath(); ctx.arc(x, Y(p[1]), r, 0, 7); ctx.fill(); }
+    } else if (s.type === "band") {
+      ctx.beginPath(); let started = false;
+      for (const p of d) { if (!finite(p[1])) continue; const x = X(p[0]), y = Y(p[2]); if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y); }
+      for (let k = d.length - 1; k >= 0; k--) { const p = d[k]; if (!finite(p[1])) continue; ctx.lineTo(X(p[0]), Y(p[1])); }
+      ctx.closePath(); ctx.fill();
+    } else if (s.type === "bars") {
+      for (const p of d) { const xa = X(p[0]), xb = X(p[1]); const g = Math.min(1.5 * dpr, (xb - xa) * 0.1); ctx.fillRect(xa + g, Y(p[2]), Math.max(1, xb - xa - 2 * g), Y(y0) - Y(p[2])); }
+    } else if (s.type === "vline") {
+      if (finite(d)) { const x = X(d); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, H - B); ctx.stroke(); }
+    } else if (s.type === "hline") {
+      if (finite(d)) { const y = Y(d); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - R, y); ctx.stroke(); }
+    }
+  }
+  ctx.restore(); ctx.globalAlpha = 1; ctx.setLineDash([]);
+  // legend
+  const leg = (o.series || []).filter(s => s.label);
+  if (leg.length && o.legend !== false) {
+    ctx.font = `${fs}px system-ui, sans-serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    const lw = Math.max(...leg.map(s => ctx.measureText(s.label).width)) + 30 * dpr, lh = 14 * dpr;
+    const lxp = o.legendLeft ? L + 6 * dpr : W - R - lw - 6 * dpr, lyp = T + 4 * dpr;
+    ctx.fillStyle = "rgba(16,19,14,0.82)"; ctx.fillRect(lxp - 4 * dpr, lyp - 3 * dpr, lw + 6 * dpr, leg.length * lh + 6 * dpr);
+    leg.forEach((s, k) => {
+      const y = lyp + k * lh + lh / 2; ctx.strokeStyle = ctx.fillStyle = s.col; ctx.lineWidth = 2 * dpr; ctx.setLineDash(s.dash ? s.dash.map(d => d * dpr) : []);
+      if (s.type === "bars" || s.type === "band") { ctx.globalAlpha = s.type === "band" ? 0.5 : 1; ctx.fillRect(lxp, y - 4 * dpr, 18 * dpr, 8 * dpr); ctx.globalAlpha = 1; }
+      else if (s.type === "pts" || s.type === "err") { ctx.beginPath(); ctx.arc(lxp + 9 * dpr, y, 3 * dpr, 0, 7); ctx.fill(); }
+      else { ctx.beginPath(); ctx.moveTo(lxp, y); ctx.lineTo(lxp + 18 * dpr, y); ctx.stroke(); }
+      ctx.setLineDash([]); ctx.fillStyle = "#dfe3d6"; ctx.fillText(s.label, lxp + 24 * dpr, y);
+    });
+  }
+  return { X, Y, L, R, T, B, W, H, dpr, ctx };
+}
+
+/* ---------- Resizable, hideable side panels (as in the other simulations) ---------- */
+function setupPanels(KEY) {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const STRIP = 30, MIN = 170, DEF = { lw: 250, rw: 280, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY + "-v2") || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY + "-v2", JSON.stringify(st)); } catch (e) {}
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+}
+
+/* =====================================================================
+   THE BATCH RUN LABORATORY
+   ---------------------------------------------------------------------
+   Science is about repeating experiments. Chance plays a big part in
+   biology, so one run of the model can be misleading. The batch lab runs
+   the model many times with different random seeds and with no drawing
+   ("headless"), then compares the spread of results with theory.
+     Repeat: the same settings N times  -> histogram of one outcome
+     Sweep : change one setting in steps -> mean ± SD at each step
+   The batch settings table lists EVERY starting setting a run uses. A
+   one-click experiment fills the table in from fixed defaults (never from
+   the left panel); you can change anything, tick the one setting to vary,
+   and press ▶ Run batch. What the table shows is exactly what runs.
+   cfg (supplied by each simulation):
+     expBase(e)             the full, fixed settings an experiment starts from
+     leftParams()           the settings on the left panel (for the ↺ button)
+     runOnce(p, seed)       one complete run with no drawing -> {outcome values}
+     outcomes[]             { key, label, unit, kind:"num"|"bin"|"cat"|"series",
+                              theory(p), theoryLabel, marks(p) -> [{x,label}], cats[],
+                              catTheory(p), seriesTheory(p, results), xLabel, extra(vals, p, results) }
+     vars[]                 every numeric setting: { key, label, unit, min, max, int, log, hint }
+     choices[]              the settings that are choices: { k, label, choices:[[value, text]] or (opts) => [...],
+                              bool, num, text, onSet(opts, vals) }
+     experiments[]          { q, note, base:{...}, set:{ mode, n, outcome, v, from, to, steps, reps, logX } }
+   ===================================================================== */
+function setupBatch(cfg) {
+  const box = el("batch");
+  box.innerHTML = `
+    <div class="bhead"><h2>Batch run: repeat the experiment many times</h2>
+      <span class="hint">${cfg.note || ""}</span><button id="bClose">✕ Close</button></div>
+    <div id="bsetup">
+      <h2>Batch experiments</h2>
+      <div id="bExps"></div>
+      <h2 class="gap">Set up your own</h2>
+      <div class="bctl"><div class="seg"><button id="bModeR" class="on">Repeat</button><button id="bModeS">Sweep</button></div></div>
+      <div class="bctl"><label for="bOut">Outcome to record</label><select id="bOut"></select></div>
+      <div id="bRep" class="bctl"><label for="bN">Number of runs</label><select id="bN">${cfg.repeatNs.map(n => `<option value="${n}">${n}</option>`).join("")}</select></div>
+      <div id="bSw" class="bctl" style="display:none"><label for="bReps">Runs at each step</label><select id="bReps">${cfg.sweepReps.map(n => `<option value="${n}">${n}</option>`).join("")}</select></div>
+      <details id="bSetBox" open>
+        <summary>Starting settings: tick the one to vary</summary>
+        <div class="bhint">Every setting a run uses is listed. Tick one to sweep it from → to in steps (+ adds the step each time, × multiplies by it, and uses a log axis); every other setting stays at the value shown. What you see is what runs.</div>
+        <div id="bOpts"></div>
+        <div id="bTbl"></div>
+        <button id="bLeft" title="Fill the table from the settings on the left panel">↺ Use my left-panel settings</button>
+      </details>
+      <div class="hint" style="margin-top:6px">${cfg.costNote || ""}</div>
+    </div>
+    <div id="bresults">
+      <div class="brun"><button id="bRun" class="primary">▶ Run batch</button><button id="bStop">■ Stop</button><button id="bCsv" title="Download every run as a CSV file">⬇ CSV</button><div id="bProg"><span></span></div></div>
+      <div class="hint" id="bProgT">Ready.</div>
+      <div id="bNote"></div>
+      <div id="bChartBox"><canvas id="bChart"></canvas></div>
+      <div id="bSummary"></div>
+    </div>`;
+  let mode = "repeat", results = [], job = null, lastSet = null, csvUrl = null, activeExp = -1;
+  const outSel = el("bOut");
+  function fillOutcomes() {
+    const cur = outSel.value;
+    outSel.innerHTML = cfg.outcomes.filter(o => mode === "repeat" || o.kind !== "series").map(o => `<option value="${o.key}">${o.label}</option>`).join("");
+    if ([...outSel.options].some(x => x.value === cur)) outSel.value = cur;
+  }
+  function setMode(m) {
+    mode = m; el("bModeR").classList.toggle("on", m === "repeat"); el("bModeS").classList.toggle("on", m === "sweep");
+    if (m === "sweep" && !TBL.vary) { startVary(cfg.vars[0].key); renderTable(); }   // a sweep needs a ticked setting
+    if (m === "repeat" && TBL.vary) { TBL.vary = null; renderTable(); }
+    el("bRep").style.display = m === "repeat" ? "" : "none"; el("bSw").style.display = m === "sweep" ? "" : "none"; fillOutcomes();
+  }
+  // choose a value in a drop-down list, adding it to the list if it isn't there
+  const setSel = (id, v) => { const e = el(id); if (![...e.options].some(o => +o.value === +v)) e.add(new Option(String(v), v)); e.value = v; };
+
+  // ---------- The batch settings table ----------
+  // src = the full set of settings it was filled from; shown = the values first shown; vals/opts = what it shows now.
+  const TBL = { src: {}, shown: {}, vals: {}, opts: {}, vary: null, from: 0, to: 1, kind: "+", step: 1, exact: null };
+  const nice = x => (x === 0 || !Number.isFinite(x)) ? x : +(+x).toPrecision(4);
+  const clampV = (V, x) => { if (V.int) x = Math.round(x); if (V.min !== undefined) x = Math.max(V.min, x); if (V.max !== undefined) x = Math.min(V.max, x); return x; };
+  const curVar = () => cfg.vars.find(v => v.key === TBL.vary);
+  const choiceList = O => typeof O.choices === "function" ? O.choices(TBL.opts) : O.choices;
+  // the values the varied setting takes: an experiment's own values, or from, from+step, … (× multiplies) up to "to" (at most 60)
+  function sweepValues() {
+    const V = curVar(); if (!V) return [];
+    if (TBL.exact) return TBL.exact.slice();
+    const out = [], up = TBL.to >= TBL.from;
+    if (TBL.kind === "×") {
+      let f = Math.abs(TBL.step); if (!(f > 1) || TBL.from <= 0 || TBL.to <= 0) return [clampV(V, TBL.from)];
+      if (!up) f = 1 / f;
+      for (let v = TBL.from, i = 0; i < 60 && (up ? v <= TBL.to * 1.0001 : v >= TBL.to * 0.9999); i++, v *= f) out.push(nice(v));
+    } else {
+      let d = Math.abs(TBL.step); if (!(d > 0)) return [clampV(V, TBL.from)];
+      if (!up) d = -d;
+      for (let i = 0; i < 60; i++) { const v = TBL.from + i * d; if (up ? v > TBL.to + 1e-6 * Math.abs(d) : v < TBL.to - 1e-6 * Math.abs(d)) break; out.push(nice(v)); }
+    }
+    const xs = [];
+    out.map(v => clampV(V, v)).forEach(x => { if (!xs.includes(x)) xs.push(x); });
+    return xs;
+  }
+  // an experiment's sweep values, worked out exactly as before the table existed (so its results do not change)
+  function expValues(V, a, b, steps, lg) {
+    const xs = [];
+    for (let k = 0; k < steps; k++) { let x = lg ? a * Math.pow(b / a, k / (steps - 1)) : a + (b - a) * k / (steps - 1); if (V.int) x = Math.round(x); else x = +x.toPrecision(4); if (!xs.includes(x)) xs.push(x); }
+    return xs;
+  }
+  function fillTable(p, s) {        // from a full set of settings (an experiment's, or the left panel's); s = an experiment's sweep
+    TBL.src = JSON.parse(JSON.stringify(p)); TBL.vals = {}; TBL.shown = {}; TBL.opts = {}; TBL.exact = null;
+    for (const V of cfg.vars) TBL.vals[V.key] = TBL.shown[V.key] = nice(p[V.key]);
+    for (const O of cfg.choices) TBL.opts[O.k] = p[O.k];
+    if (s && s.mode === "sweep") {
+      const V = cfg.vars.find(v => v.key === s.v), steps = clamp(Math.round(s.steps || 8), 2, 40), lg = !!s.logX && s.from > 0 && s.to > 0;
+      TBL.vary = s.v; TBL.from = s.from; TBL.to = s.to;
+      if (lg) { TBL.kind = "×"; TBL.step = nice(Math.pow(s.to / s.from, 1 / (steps - 1))); } else { TBL.kind = "+"; TBL.step = nice((s.to - s.from) / (steps - 1)); }
+      TBL.exact = expValues(V, s.from, s.to, steps, lg);   // kept until you edit the range
+    } else TBL.vary = null;
+    renderTable();
+  }
+  function renderOpts() {
+    el("bOpts").innerHTML = cfg.choices.map(O => O.bool
+      ? `<label class="chk"><input type="checkbox" data-o="${O.k}" ${TBL.opts[O.k] ? "checked" : ""}> ${O.label}</label>`
+      : O.text ? `<div class="bctl brow2"><label>${O.label}</label><input type="text" data-o="${O.k}" value="${TBL.opts[O.k] ?? ""}"></div>`
+      : `<div class="bctl brow2"><label>${O.label}</label><select data-o="${O.k}">${choiceList(O).map(([v, t]) => `<option value="${v}" ${String(TBL.opts[O.k]) === String(v) ? "selected" : ""}>${t}</option>`).join("")}</select></div>`).join("");
+  }
+  function renderTable() {
+    renderOpts();
+    el("bTbl").innerHTML = cfg.vars.map(V => {
+      const k = V.key, on = TBL.vary === k, u = V.unit ? ` (${V.unit})` : "";
+      return `<div class="bt${on ? " on" : ""}" data-k="${k}"><label ${on ? "data-ws-change" : ""}><input type="checkbox" data-vary="${k}" ${on ? "checked" : ""}> ${V.label}${u}${V.hint ? ` <span class="bcount">${V.hint}</span>` : ""}</label>` +
+        `<input type="number" class="bval" data-v="${k}" step="any" value="${TBL.vals[k]}">` +
+        `<span class="bsw">from <input type="number" data-ws="from" data-r="from" step="any" value="${on ? TBL.from : ""}"> to <input type="number" data-ws="to" data-r="to" step="any" value="${on ? TBL.to : ""}">
+          step <select data-ws="step type" data-r="kind"><option value="+" ${TBL.kind === "+" ? "selected" : ""}>+</option><option value="×" ${TBL.kind === "×" ? "selected" : ""}>×</option></select>
+          <input type="number" data-ws="step" data-r="step" step="any" value="${on ? TBL.step : ""}"> <span class="bcount bsteps"></span></span></div>`;
+    }).join("");
+    updateCount();
+  }
+  function updateCount() {
+    const span = TBL.vary && el("bTbl").querySelector(`.bt[data-k="${TBL.vary}"] .bsteps`);
+    if (span) { const xs = sweepValues(); span.textContent = `→ ${xs.length} steps: ${xs.slice(0, 4).map(v => +(+v).toPrecision(4)).join(", ")}${xs.length > 4 ? " … " + +(+xs[xs.length - 1]).toPrecision(4) : ""}`; }
+  }
+  function startVary(k) {           // a sensible first range when a setting is ticked
+    const V = cfg.vars.find(v => v.key === k), cur = TBL.vals[k], lo = V.min ?? 0, hi = V.max ?? Math.max(10, cur * 4);
+    TBL.vary = k; TBL.exact = null;
+    if (V.log && cur > 0) { TBL.kind = "×"; TBL.from = nice(Math.max(lo, cur / 10)); TBL.to = nice(Math.min(hi, cur * 10)); TBL.step = 2; }
+    else {
+      TBL.kind = "+";
+      if (cur > 0) { TBL.from = nice(Math.max(lo, cur / 2)); TBL.to = nice(Math.min(hi, cur * 2)); } else { TBL.from = lo; TBL.to = nice(Math.min(hi, lo + 10)); }
+      TBL.step = nice((TBL.to - TBL.from) / 4); if (V.int) TBL.step = Math.max(1, Math.round(TBL.step));
+    }
+  }
+  function tableEdited() {          // anything changed by hand: it is now your own set-up
+    if (activeExp >= 0) el("bNote").innerHTML = "Your own set-up (changed from the experiment): press <b>▶ Run batch</b>.";
+    activeExp = -1; markExp();
+  }
+  function markExp() { document.querySelectorAll("#bExps button").forEach((b, j) => b.classList.toggle("on", j === activeExp)); }
+  el("bSetBox").addEventListener("input", e => {
+    const t = e.target;
+    if (t.dataset.vary) {           // the tick boxes act like radio buttons: one varied setting at most
+      if (t.checked) { startVary(t.dataset.vary); setMode("sweep"); } else { TBL.vary = null; setMode("repeat"); }
+      renderTable(); tableEdited(); return;
+    }
+    if (t.dataset.v) TBL.vals[t.dataset.v] = +t.value;
+    if (t.dataset.r) { TBL.exact = null; TBL[t.dataset.r] = t.dataset.r === "kind" ? t.value : +t.value; }
+    if (t.dataset.o) {
+      const O = cfg.choices.find(o => o.k === t.dataset.o);
+      TBL.opts[O.k] = O.bool ? t.checked : O.num ? +t.value : t.value;
+      if (O.onSet) { O.onSet(TBL.opts, TBL.vals); }
+      // a choice whose list depends on another choice: keep it valid
+      for (const C of cfg.choices) if (typeof C.choices === "function") { const L = choiceList(C); if (!L.some(([v]) => String(v) === String(TBL.opts[C.k]))) TBL.opts[C.k] = C.num ? +L[0][0] : L[0][0]; }
+      if (O.onSet || cfg.choices.some(C => typeof C.choices === "function")) { if (t.tagName === "SELECT" || t.type === "checkbox") renderTable(); }
+    }
+    if (t.dataset.v || t.dataset.o || t.dataset.r) { updateCount(); tableEdited(); }
+  });
+  el("bLeft").addEventListener("click", () => { stop(); fillTable(cfg.leftParams(), null); setMode("repeat"); tableEdited(); el("bNote").innerHTML = "The table now holds your left-panel settings: press <b>▶ Run batch</b>."; });
+  // the settings for a run: the set the table was filled from, then every choice and every value you changed in it
+  function tableParams() {
+    const p = JSON.parse(JSON.stringify(TBL.src));
+    for (const O of cfg.choices) if (TBL.opts[O.k] !== undefined) p[O.k] = TBL.opts[O.k];
+    for (const V of cfg.vars) { const x = TBL.vals[V.key]; if (x !== TBL.shown[V.key] && Number.isFinite(x)) p[V.key] = clampV(V, x); }
+    return p;
+  }
+  // a one-click experiment fills in the whole table from fixed defaults; press ▶ Run batch to run it
+  function loadExperiment(k) {
+    stop();
+    const e = cfg.experiments[k], s = e.set; activeExp = k; markExp();
+    fillTable(cfg.expBase(e), s);
+    setMode(s.mode);
+    fillOutcomes(); outSel.value = s.outcome;
+    if (s.mode === "repeat") setSel("bN", s.n); else setSel("bReps", s.reps);
+    el("bNote").innerHTML = `<b>${e.q}</b> ${e.note}`;
+  }
+
+  el("bModeR").onclick = () => { setMode("repeat"); tableEdited(); };
+  el("bModeS").onclick = () => { setMode("sweep"); renderTable(); tableEdited(); };
+  el("bN").onchange = el("bReps").onchange = () => tableEdited();
+  el("bClose").onclick = () => { stop(); box.classList.remove("open"); };
+  el("bStop").onclick = () => stop();
+  el("bRun").onclick = () => start();
+  el("bCsv").onclick = () => downloadCsv();
+  outSel.onchange = () => draw();
+  el("bExps").innerHTML = cfg.experiments.map((e, k) => `<button data-e="${k}">${e.q}</button>`).join("");
+  document.querySelectorAll("#bExps button").forEach(b => (b.onclick = () => loadExperiment(+b.dataset.e)));
+  fillTable(cfg.expBase(cfg.experiments[0]), null);
+  setMode("repeat");
+
+  function stop() { if (job) { job.stopped = true; job = null; el("bProgT").textContent = `Stopped after ${results.length} runs.`; } }
+  function start() {
+    stop();
+    const base = tableParams(), outKey = outSel.value;
+    const set = { mode, outKey, base, seedBase: String(base.seed ?? "1") };
+    const list = [];
+    if (mode === "repeat") { const n = +el("bN").value; for (let i = 0; i < n; i++) list.push({ i, x: null }); }
+    else {
+      const v = curVar(), reps = +el("bReps").value, xs = sweepValues();
+      if (!xs.length) { el("bProgT").textContent = "Set a range for the ticked setting first."; return; }
+      set.v = v; set.logX = TBL.kind === "×" && xs[0] > 0 && xs[xs.length - 1] > 0;
+      set.from = TBL.exact ? TBL.from : xs[0]; set.to = TBL.exact ? TBL.to : xs[xs.length - 1];
+      set.xs = xs; xs.forEach(x => { for (let r = 0; r < reps; r++) list.push({ i: list.length, x }); });
+    }
+    results = []; lastSet = set;
+    const me = { stopped: false, k: 0, list, t0: performance.now() }; job = me;
+    function chunk() {
+      if (me.stopped) return;
+      const t = performance.now();
+      while (me.k < list.length && performance.now() - t < 30) {
+        const it = list[me.k++], p = { ...base };
+        if (it.x !== null) p[set.v.key] = it.x;
+        const seed = hashSeed(set.seedBase + "#batch" + it.i);
+        const r = cfg.runOnce(p, seed);
+        r._run = it.i + 1; r._seed = seed; if (it.x !== null) r._x = it.x;
+        results.push(r);
+      }
+      el("bProg").firstElementChild.style.width = (100 * me.k / list.length) + "%";
+      const secs = (performance.now() - me.t0) / 1000;
+      el("bProgT").textContent = me.k < list.length ? `Run ${me.k} of ${list.length} (${secs.toFixed(1)} s)…` : `Finished ${list.length} runs in ${secs.toFixed(1)} s.`;
+      draw();
+      if (me.k < list.length) setTimeout(chunk, 0); else if (job === me) job = null;
+    }
+    setTimeout(chunk, 0);
+  }
+
+  const TH = "#5fd4e8", DATA = "#f1af28";
+  function statsRows(vals, theory, isBin, unit) {
+    const n = vals.length, m = mean(vals), s = sd(vals), se = isBin ? Math.sqrt(Math.max(m * (1 - m), 0) / Math.max(1, n)) : s / Math.sqrt(Math.max(1, n));
+    const u = unit ? " " + unit : "";
+    const rows = [["Runs (n)", n], [isBin ? "Proportion (mean)" : "Mean", fmtNum(m) + u]];
+    if (!isBin) rows.push(["Standard deviation", fmtNum(s) + u]);
+    rows.push(["Standard error", fmtNum(se) + u]);
+    if (!isBin) rows.push(["Smallest – largest", fmtNum(Math.min(...vals)) + " – " + fmtNum(Math.max(...vals)) + u]);
+    if (finite(theory)) {
+      rows.push(["Theory", fmtNum(theory) + u]);
+      const diff = m - theory;
+      rows.push(["Difference from theory", (theory !== 0 ? (diff >= 0 ? "+" : "") + fmtNum(100 * diff / Math.abs(theory), 1) + "%, " : "") + (se > 0 ? fmtNum(diff / se, 1) + " SE" : "–")]);
+    }
+    return rows;
+  }
+  const table = rows => `<table class="mini">${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</table>`;
+
+  function draw() {
+    const cv = el("bChart");
+    const set = lastSet;
+    if (!set || !results.length) { plot(cv, { x: [0, 1], y: [0, 1], xLabel: "", yLabel: "", series: [] }); el("bSummary").innerHTML = `<div class="hint">Pick a batch experiment on the left, or set up your own and press <b>Run batch</b>. Each run uses a different random seed but the same settings.</div>`; return; }
+    const o = cfg.outcomes.find(o => o.key === outSel.value) || cfg.outcomes[0];
+    const p = set.base, u = o.unit || "";
+    const label = o.label + (u ? ` (${u})` : "");
+    let html = "";
+    if (set.mode === "repeat" && o.kind === "series") {
+      const runs = results.map(r => r[o.key]).filter(a => Array.isArray(a) && a.length);
+      const len = Math.max(...runs.map(a => a.length));
+      const ser = [], band = [], lines = [];
+      for (let t = 0; t < len; t++) { const v = runs.map(a => a[Math.min(t, a.length - 1)]).filter(finite); if (!v.length) continue; const m = mean(v), s = sd(v); ser.push([t, m]); band.push([t, m - s, m + s]); }
+      runs.slice(0, 25).forEach(a => lines.push({ type: "line", data: a.map((v, t) => [t, v]), col: "#a3ab96", w: 0.8, alpha: 0.35 }));
+      const th = o.seriesTheory ? o.seriesTheory(p, results, ser) : null;
+      let ymax = Math.max(...band.map(b => b[2]), ...(th ? th.map(q => q[1]) : [0])); if (o.yMax) ymax = o.yMax;
+      plot(cv, { x: [0, Math.max(1, len - 1)], y: [0, ymax * (o.yMax ? 1 : 1.08) || 1], xLabel: o.xLabel || "time", yLabel: label, series: [
+        ...lines, { type: "band", data: band, col: DATA, alpha: 0.25, label: "mean ± 1 SD of the runs" }, { type: "line", data: ser, col: DATA, w: 2.5, label: "mean of the runs" },
+        ...(th ? [{ type: "line", data: th, col: TH, w: 2.5, dash: [7, 4], label: o.theoryLabel || "theory" }] : [])] });
+      const last = ser[ser.length - 1], lastB = band[band.length - 1];
+      const rows = [["Runs (n)", runs.length], ["Mean at the end", fmtNum(last[1]) + " " + u], ["SD at the end", fmtNum(lastB[2] - last[1]) + " " + u]];
+      if (th && th.length) { const tl = th.find(q => q[0] >= last[0]) || th[th.length - 1]; rows.push([(o.theoryLabel || "Theory") + " at the end", fmtNum(tl[1]) + " " + u]); }
+      html = table(rows) + `<div>${o.extra ? o.extra(results, p, ser, th) : ""}</div>`;
+    } else if (set.mode === "repeat" && o.kind === "cat") {
+      const counts = o.cats.map((c, k) => results.filter(r => r[o.key] === k).length), n = results.length;
+      const th = o.catTheory ? o.catTheory(p) : null;
+      const series = [{ type: "bars", data: counts.map((c, k) => [k - 0.4, k + 0.4, c / n]), col: DATA, label: "proportion of runs" }];
+      if (th) series.push({ type: "err", data: th.map((t, k) => [k, t, NaN, NaN]), col: TH, r: 5, label: o.theoryLabel || "theory" });
+      series.push({ type: "err", data: counts.map((c, k) => { const q = c / n, se = Math.sqrt(q * (1 - q) / n); return [k, q, q - se, q + se]; }), col: "#fff", r: 0.1, w: 1.5 });
+      plot(cv, { x: [-0.6, o.cats.length - 0.4], y: [0, 1], xLabel: o.label, yLabel: "proportion of runs", xTick: v => Number.isInteger(v) && o.cats[v] ? o.cats[v] : "", series });
+      html = table(o.cats.map((c, k) => [c, `${counts[k]} (${pct(counts[k] / n)}) ± ${pct(Math.sqrt(counts[k] / n * (1 - counts[k] / n) / n), 1)}` + (th ? ` · theory ${pct(th[k])}` : "")]).concat([["Runs (n)", n]])) + `<div>${o.extra ? o.extra(results, p) : ""}</div>`;
+    } else if (set.mode === "repeat") {
+      const all = results.map(r => r[o.key]), vals = all.filter(finite), miss = all.length - vals.length;
+      const thRuns = results.map(r => r[o.key + "_th"]).filter(finite);
+      const theory = thRuns.length ? mean(thRuns) : (o.theory ? o.theory(p) : null);
+      const marks = o.marks ? o.marks(p, results) : [];
+      if (!vals.length) { plot(cv, { x: [0, 1], y: [0, 1], series: [] }); el("bSummary").innerHTML = `<div class="hint">No run produced a value for this outcome (${miss} runs gave none).</div>`; return; }
+      let lo = Math.min(...vals), hi = Math.max(...vals);
+      if (finite(theory)) { lo = Math.min(lo, theory); hi = Math.max(hi, theory); }
+      marks.forEach(m => { if (finite(m.x)) { lo = Math.min(lo, m.x); hi = Math.max(hi, m.x); } });
+      if (o.range) { lo = Math.min(lo, o.range[0]); hi = Math.max(hi, o.range[1]); }
+      let bins;
+      if (o.kind === "bin") { lo = -0.5; hi = 1.5; bins = 2; }
+      else if (o.integer && hi - lo <= 40) { lo = Math.floor(lo) - 0.5; hi = Math.ceil(hi) + 0.5; bins = Math.round(hi - lo); }
+      else { bins = clamp(Math.round(Math.sqrt(vals.length) * 1.5), 8, 40); if (hi === lo) { lo -= 0.5; hi += 0.5; } const pad = (hi - lo) * 0.04; lo -= pad; hi += pad; }
+      const wdt = (hi - lo) / bins, cnt = new Array(bins).fill(0);
+      vals.forEach(v => cnt[clamp(Math.floor((v - lo) / wdt), 0, bins - 1)]++);
+      const series = [{ type: "bars", data: cnt.map((c, k) => [lo + k * wdt, lo + (k + 1) * wdt, c / vals.length]), col: DATA, label: "proportion of runs" }];
+      const m = mean(vals);
+      series.push({ type: "vline", data: m, col: "#ffffff", w: 1.5, dash: [3, 3], label: `mean of runs = ${fmtNum(m)}` });
+      if (finite(theory) && o.kind !== "bin") series.push({ type: "vline", data: theory, col: TH, w: 2.5, label: (o.theoryLabel || "theory") + ` = ${fmtNum(theory)}` });
+      marks.forEach(mk => series.push({ type: "vline", data: mk.x, col: mk.col || "#e83181", w: 2, dash: [6, 4], label: mk.label }));
+      if (o.kind === "bin" && finite(theory)) series.push({ type: "err", data: [[1, theory, NaN, NaN]], col: TH, r: 6, label: (o.theoryLabel || "theory") + ` = ${pct(theory, 1)}` });
+      const ymax = Math.max(...cnt) / vals.length;
+      plot(cv, { x: [lo, hi], y: [0, Math.min(1, Math.max(ymax, o.kind === "bin" && finite(theory) ? theory : 0) * 1.15 + 0.02)], xLabel: label, yLabel: "proportion of runs", xTick: o.kind === "bin" ? (v => v === 0 ? (o.binNames ? o.binNames[0] : "no (0)") : v === 1 ? (o.binNames ? o.binNames[1] : "yes (1)") : "") : null, series });
+      const rows = statsRows(vals, theory, o.kind === "bin", u);
+      if (miss) rows.splice(1, 0, ["Runs with no value", `${miss} (${o.missNote || "not reached"})`]);
+      html = table(rows) + `<div>${o.extra ? o.extra(vals, p, results) : ""}</div>`;
+    } else {
+      // SWEEP
+      const xs = set.xs, isBin = o.kind === "bin" || o.kind === "cat";
+      const groups = xs.map(x => results.filter(r => r._x === x));
+      const series = [], pts = [], errs = [], tablerows = [];
+      let ymin = Infinity, ymax = -Infinity;
+      const catList = o.kind === "cat" ? o.cats.map((c, k) => k) : [null];
+      const cols = ["#f1af28", "#e83181", "#a2c617", "#a4cbe6"];
+      const meansForFit = [];
+      catList.forEach((ck, ci) => {
+        const e = [];
+        groups.forEach((g, gi) => {
+          if (!g.length) return;
+          const v = g.map(r => ck === null ? r[o.key] : (r[o.key] === ck ? 1 : 0)).filter(finite);
+          if (!v.length) return;
+          const m = mean(v), s = sd(v), se = isBin ? Math.sqrt(m * (1 - m) / v.length) : s / Math.sqrt(v.length);
+          const bar = isBin ? se : s;
+          e.push([xs[gi], m, m - bar, m + bar]); ymin = Math.min(ymin, m - bar); ymax = Math.max(ymax, m + bar);
+          if (ck === null) { v.forEach(val => pts.push([xs[gi], val])); meansForFit.push([xs[gi], m]); tablerows.push([fmtNum(xs[gi]), v.length, fmtNum(m), fmtNum(s), fmtNum(se)]); }
+          else if (ci === 0) tablerows.push([fmtNum(xs[gi]), v.length, ...o.cats.map((c, k) => pct(mean(g.map(r => r[o.key] === k ? 1 : 0))))]);
+        });
+        if (ck === null && !isBin) { series.push({ type: "pts", data: pts, col: "#a3ab96", alpha: 0.35, r: 1.8 }); pts.forEach(q => { ymin = Math.min(ymin, q[1]); ymax = Math.max(ymax, q[1]); }); }
+        series.push({ type: "line", data: e.map(q => [q[0], q[1]]), col: ck === null ? DATA : cols[ci % 4], w: 1.2, alpha: 0.7 });
+        series.push({ type: "err", data: e, col: ck === null ? DATA : cols[ci % 4], label: ck === null ? (isBin ? "proportion ± 1 SE" : "mean ± 1 SD") : o.cats[ck] + " (± 1 SE)" });
+      });
+      // theory: the outcome's own formula evaluated along the sweep, or values computed in each run
+      let thPts = [];
+      const thRunKey = o.key + "_th";
+      if (results.some(r => finite(r[thRunKey]))) thPts = groups.map((g, gi) => [xs[gi], mean(g.map(r => r[thRunKey]).filter(finite))]).filter(q => finite(q[1]));
+      else if (o.theory) {
+        const a = set.from, b = set.to, M = 80;
+        for (let k = 0; k <= M; k++) { let x = set.logX ? a * Math.pow(b / a, k / M) : a + (b - a) * k / M; if (set.v.int) x = Math.round(x); const q = { ...p, [set.v.key]: x }; const t = o.theory(q); if (finite(t)) thPts.push([x, t]); }
+      }
+      if (thPts.length) { series.push({ type: "line", data: thPts, col: TH, w: 2.5, dash: [7, 4], label: o.theoryLabel || "theory" }); thPts.forEach(q => { ymin = Math.min(ymin, q[1]); ymax = Math.max(ymax, q[1]); }); }
+      const marks = (o.sweepMarks ? o.sweepMarks(p, set.v.key) : []) || [];
+      marks.forEach(mk => series.push({ type: "vline", data: mk.x, col: mk.col || "#e83181", w: 2, dash: [6, 4], label: mk.label }));
+      if (isBin) { ymin = 0; ymax = Math.max(ymax, 1); }
+      if (!finite(ymin)) { ymin = 0; ymax = 1; }
+      if (o.kind !== "cat" && ymin > 0 && ymin < 0.5 * ymax) ymin = 0;
+      const padY = (ymax - ymin) * 0.08 || 1;
+      const xa = Math.min(...xs), xb = Math.max(...xs), padX = set.logX ? 1 : 0.03 * (xb - xa || 1);
+      plot(cv, { x: set.logX ? [xa / 1.15, xb * 1.15] : [xa - padX, xb + padX], logX: set.logX, y: [isBin ? 0 : ymin - padY, isBin ? 1.02 : ymax + padY], xLabel: set.v.label + (set.v.unit ? ` (${set.v.unit})` : ""), yLabel: o.kind === "cat" ? "proportion of runs" : label, series, legendLeft: !!o.legendLeft });
+      let fitTxt = "";
+      if (meansForFit.length >= 3 && o.kind !== "cat") {
+        const f = linFit(meansForFit.map(q => q[0]), meansForFit.map(q => q[1]));
+        if (f) fitTxt += `<div class="bstat">Straight-line fit to the means: gradient <b>${fmtNum(f.m, 4)}</b> ${u ? u + " per " + (set.v.unit || "unit") : ""}, r² = ${f.r2.toFixed(3)}.</div>`;
+        const pos = meansForFit.filter(q => q[0] > 0 && q[1] > 0);
+        if (pos.length >= 3 && Math.max(...pos.map(q => q[0])) / Math.min(...pos.map(q => q[0])) > 3) {
+          const g = linFit(pos.map(q => Math.log10(q[0])), pos.map(q => Math.log10(q[1])));
+          if (g) fitTxt += `<div class="bstat">Log–log gradient <b>${g.m.toFixed(2)}</b> (outcome ∝ setting<sup>${g.m.toFixed(2)}</sup>), r² = ${g.r2.toFixed(3)}.</div>`;
+        }
+      }
+      const head = o.kind === "cat" ? `<tr><th>${set.v.label}</th><th>n</th>${o.cats.map(c => `<th>${c}</th>`).join("")}</tr>` : `<tr><th>${set.v.label}</th><th>n</th><th>${isBin ? "proportion" : "mean"}</th><th>SD</th><th>SE</th>${thPts.length ? "<th>theory</th>" : ""}</tr>`;
+      const thAt = x => { if (!thPts.length) return ""; let best = thPts[0]; thPts.forEach(q => { if (Math.abs(q[0] - x) < Math.abs(best[0] - x)) best = q; }); return `<td>${fmtNum(best[1])}</td>`; };
+      html = `<div><table class="mini">${head}${tablerows.map((r, k) => `<tr>${r.map(c => `<td>${c}</td>`).join("")}${o.kind === "cat" ? "" : thAt(xs[k])}</tr>`).join("")}</table></div><div>${fitTxt}${o.extra && o.sweepExtra ? o.sweepExtra(results, p, set) : ""}</div>`;
+    }
+    el("bSummary").innerHTML = html;
+  }
+  window.addEventListener("resize", () => { if (box.classList.contains("open")) draw(); });
+
+  function downloadCsv() {
+    if (!results.length) return;
+    const keys = [], seriesKeys = [];
+    results.forEach(r => Object.keys(r).forEach(k => { if (k.startsWith("_")) return; if (Array.isArray(r[k])) { if (!seriesKeys.includes(k)) seriesKeys.push(k); } else if (!keys.includes(k)) keys.push(k); }));
+    const xname = lastSet.mode === "sweep" ? [lastSet.v.key] : [];
+    let lines = [["run", "seed", ...xname, ...keys].join(",")];
+    results.forEach(r => lines.push([r._run, r._seed, ...(xname.length ? [r._x] : []), ...keys.map(k => finite(r[k]) ? +r[k].toPrecision(6) : (r[k] ?? ""))].join(",")));
+    seriesKeys.forEach(sk => { lines.push(""); lines.push(`run,${sk} at time 0,1,2,...`); results.forEach(r => { if (Array.isArray(r[sk])) lines.push([r._run, ...r[sk].map(v => finite(v) ? +v.toPrecision(5) : "")].join(",")); }); });
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    if (csvUrl) URL.revokeObjectURL(csvUrl);
+    csvUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = csvUrl; a.download = (cfg.csvName || "batch") + "-results.csv"; document.body.appendChild(a); a.click(); a.remove();
+  }
+  const api = { open() { box.classList.add("open"); if (activeExp < 0 && !el("bNote").textContent) loadExperiment(0); draw(); }, results: () => results, isRunning: () => !!job, draw, fillTable, tableParams, loadExperiment };
+  return api;
+}
+
+
+/* =====================================================================
+   1. CONSTANTS (see "How the model works")
+   ===================================================================== */
+const PATCH_M = 50;                       // metres per patch
+const RAB = { hop: 1.5, bite: 0.3, gain: 8, cost: 1, maxE: 8, adult: 12, breedE: 4, litter: 3, die: 0.01, babyE: 2 };
+const VOLE = { hop: 0.8, bite: 0.12, gain: 4, cost: 0.25, maxE: 2, adult: 5, breedE: 1, litter: 3, die: 0.03, babyE: 0.5, breed: 0.25, food: 0.25 };
+const FOX = { roam: 3, reach: 2, attacks: 5, maxE: 6, adult: 26, breedE: 3, breed: 0.04, litter: 2.5, die: 0.004, startE: 3, babyE: 1.5 };
+// (batch runs can change LV_CONV, LV_DIE, BATCH_RES and SAFE in the batch settings table: p.lvConv, p.lvDie, p.bres, p.safe)
+const LV_CONV = 0.1, LV_DIE = 0.04;      // LV-like mode: cubs per rabbit eaten; fox death chance per week
+const newCounts = () => ({ rB: 0, rD: 0, rE: 0, fB: 0, fD: 0, sR: 0, sF: 0, sRF: 0, w: 0 });
+const BATCH_RES = 1;                      // grass cells per patch side used by every batch run (Low)
+const SAFE = 6;                           // rabbits safe in one warren
+
+/* =====================================================================
+   2. THE MODEL
+   ---------------------------------------------------------------------
+   Animals are stored in flat arrays (fast for batch runs). Removing an
+   animal swaps the last one into its place.
+   ===================================================================== */
+// mk = marked in the A level mark–release–recapture practical (live view only)
+function herd(cap) { return { n: 0, x: new Float32Array(cap), y: new Float32Array(cap), px: new Float32Array(cap), py: new Float32Array(cap), e: new Float32Array(cap), age: new Float32Array(cap), sex: new Uint8Array(cap), mk: new Uint8Array(cap) }; }
+function grow(h) { const cap = h.x.length * 2, n = herd(cap); for (const k of ["x", "y", "px", "py", "e", "age", "sex", "mk"]) n[k].set(h[k]); n.n = h.n; return n; }
+function add(m, key, x, y, e, age, rng) {
+  let h = m[key]; if (h.n >= h.x.length) h = m[key] = grow(h);
+  const i = h.n++; h.x[i] = h.px[i] = x; h.y[i] = h.py[i] = y; h.e[i] = e; h.age[i] = age; h.sex[i] = rng() < 0.5 ? 1 : 0; h.mk[i] = 0; return i;
+}
+function remove(h, i) { const j = --h.n; if (i !== j) for (const k of ["x", "y", "px", "py", "e", "age", "sex", "mk"]) h[k][i] = h[k][j]; }
+
+function makeField(p, seed, live) {
+  const S = Math.round(p.side), rng = mulberry32(seed);
+  // Grass resolution: k × k grass cells per 50 m patch (k = 1 Low … 4 Ultra). Batch runs always use k = 1.
+  const k = clamp(Math.round(p.res || 1), 1, 4), GS = S * k;
+  const m = { p, S, k, GS, rng, live, week: 0, counts: newCounts(), grass: new Float32Array(GS * GS), refuge: new Uint8Array(S * S), R: herd(1024), F: herd(64), V: herd(256), hist: [], caught: 0, kills: [] };
+  for (let i = 0; i < S * S; i++) {
+    const v = 0.5 + 0.5 * rng(), px = i % S, py = Math.floor(i / S);   // same random start whatever the resolution
+    for (let a = 0; a < k; a++) for (let b = 0; b < k; b++) m.grass[(py * k + a) * GS + px * k + b] = v;
+    if (rng() < p.ref / 100) m.refuge[i] = 1;
+  }
+  for (let k = 0; k < p.R0; k++) add(m, "R", rng() * S, rng() * S, 2 + 4 * rng(), RAB.adult + rng() * 60, rng);
+  for (let k = 0; k < p.F0; k++) add(m, "F", rng() * S, rng() * S, FOX.startE, p.mature + rng() * 100, rng);
+  for (let k = 0; k < p.V0; k++) add(m, "V", rng() * S, rng() * S, 1, VOLE.adult + rng() * 20, rng);
+  record(m);
+  return m;
+}
+const cellOf = (m, x, y) => Math.min(m.S - 1, Math.floor(y)) * m.S + Math.min(m.S - 1, Math.floor(x));
+const wrapIn = (v, S) => v < 0 ? -v : v >= S ? 2 * S - v - 0.001 : v;   // bounce off the hedges round the field
+
+// The grass a grazer can reach: one patch-sized (50 m × 50 m) square of grass cells centred on it.
+// With finer grass cells (higher quality) the square moves smoothly with the animal; the amount of
+// grass per square metre, the regrowth rate and how much a rabbit eats are the same at every setting.
+function footprint(m, x, y) {
+  const k = m.k, G = m.GS;
+  return [clamp(Math.round(x * k - k / 2), 0, G - k), clamp(Math.round(y * k - k / 2), 0, G - k)];
+}
+function grassAt(m, x, y) {          // average cover (0–1) within reach
+  if (m.k === 1) return m.grass[cellOf(m, x, y)];
+  const k = m.k, G = m.GS, [x0, y0] = footprint(m, x, y); let s = 0;
+  for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) s += m.grass[(y0 + j) * G + x0 + i];
+  return s / (k * k);
+}
+function graze(m, x, y, want) {      // eat up to "want" units (1 unit = a fully grown patch); returns the amount eaten
+  if (m.k === 1) { const c = cellOf(m, x, y), e = Math.min(m.grass[c], want); m.grass[c] -= e; return e; }
+  const k = m.k, G = m.GS, [x0, y0] = footprint(m, x, y), have = grassAt(m, x, y);
+  if (have <= 0) return 0;
+  const e = Math.min(have, want), keep = 1 - e / have;   // take the same share from every cell in reach
+  for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) m.grass[(y0 + j) * G + x0 + i] *= keep;
+  return e;
+}
+// Grazers (rabbits and voles): move, eat, use energy, breed, die
+function grazers(m, key, T, breedRate) {
+  const h = m[key], S = m.S, rng = m.rng, g = m.grass, lv = m.p.simple && key === "R", C = m.counts;
+  for (let i = h.n - 1; i >= 0; i--) {
+    h.px[i] = h.x[i]; h.py[i] = h.y[i];
+    // hop: try two spots and go to the grassier one
+    let bx = h.x[i], by = h.y[i], bg = -1;
+    for (let k = 0; k < 2; k++) { const a = rng() * 6.283, d = rng() * T.hop; const x = wrapIn(h.x[i] + Math.cos(a) * d, S), y = wrapIn(h.y[i] + Math.sin(a) * d, S); const cc = cellOf(m, x, y), gg = grassAt(m, x, y) + (key === "R" && m.refuge[cc] ? 0.3 : 0); if (gg > bg) { bg = gg; bx = x; by = y; } }
+    h.x[i] = bx; h.y[i] = by;
+    h.age[i]++;
+    if (lv) {
+      // LOTKA–VOLTERRA-LIKE RULES: unlimited food, no other deaths, every doe breeds at the same rate from birth.
+      // (A crowding cap of 6 rabbits per patch only stops a runaway if all the foxes die.)
+      if (h.sex[i] === 0 && h.n < 6 * S * S && rng() < breedRate) {
+        const kids = poisson(rng, T.litter); if (key === "R") C.rB += kids;
+        for (let k = 0; k < kids; k++) add(m, key, wrapIn(bx + rng() - 0.5, S), wrapIn(by + rng() - 0.5, S), T.babyE, 0, rng);
+      }
+      continue;
+    }
+    const eat = graze(m, bx, by, T.bite);
+    h.e[i] = Math.min(T.maxE, h.e[i] + eat * T.gain - T.cost);
+    if (h.e[i] <= 0 || rng() < T.die) { if (key === "R") C.rD++; remove(h, i); continue; }
+    if (h.sex[i] === 0 && h.age[i] >= T.adult && h.e[i] >= T.breedE && rng() < breedRate) {
+      const kids = poisson(rng, T.litter); if (key === "R") C.rB += kids;
+      for (let k = 0; k < kids; k++) add(m, key, wrapIn(bx + rng() - 0.5, S), wrapIn(by + rng() - 0.5, S), T.babyE, 0, rng);
+      h.e[i] -= 0.5 * kids;
+    }
+  }
+}
+// Index of which prey are in which patch (so a fox can find its neighbours fast)
+function preyIndex(m, h, slot) {
+  // re-use the same arrays every week (much faster than making new ones)
+  const S = m.S; let b = m[slot];
+  if (!b || b.next.length < h.n) b = m[slot] = { head: new Int32Array(S * S), next: new Int32Array(Math.max(1024, h.n * 2)), cnt: new Uint16Array(S * S), dead: new Uint8Array(Math.max(1024, h.n * 2)) };
+  const { head, next, cnt } = b; head.fill(-1); cnt.fill(0); b.dead.fill(0, 0, h.n);
+  for (let i = 0; i < h.n; i++) { const c = cellOf(m, h.x[i], h.y[i]); next[i] = head[c]; head[c] = i; cnt[c]++; }
+  return b;
+}
+// Make sure each herd has room for this week's births, so its arrays are never swapped mid-loop
+function roomFor(m, key) { const h = m[key]; if (h.x.length < 3 * h.n + 256) { let n = h; while (n.x.length < 3 * h.n + 256) n = grow(n); m[key] = n; } }
+function stepField(m) {
+  const p = m.p, S = m.S, rng = m.rng, g = m.grass;
+  roomFor(m, "R"); roomFor(m, "F"); roomFor(m, "V");
+  // running totals for the Lotka–Volterra rates "from the counts" (after the first year)
+  if (m.week === 52) m.counts = newCounts();
+  const C = m.counts; C.sR += m.R.n; C.sF += m.F.n; C.sRF += m.R.n * m.F.n; C.w++;
+  // 1. grass regrows (logistic)
+  if (p.simple) g.fill(1); else for (let i = 0; i < g.length; i++) g[i] += p.grow * (1 - g[i]);   // same rate per week for any cell size
+  // 2. rabbits and voles
+  grazers(m, "R", RAB, p.breed);
+  if (m.V.n) grazers(m, "V", VOLE, VOLE.breed);
+  // 3. foxes roam and hunt
+  const R = m.R, V = m.V, F = m.F;
+  const iR = preyIndex(m, R, "bufR"), iV = V.n ? preyIndex(m, V, "bufV") : null;
+  const deadR = iR.dead, deadV = iV ? iV.dead : null, nR = R.n, nV = V.n;
+  m.caught = 0; if (m.live) m.kills = [];
+  const cullP = 1 - Math.pow(1 - p.cull / 100, 1 / 52);       // weekly chance, so the yearly total is p.cull
+  for (let i = F.n - 1; i >= 0; i--) {
+    F.px[i] = F.x[i]; F.py[i] = F.y[i];
+    const a = rng() * 6.283, d = rng() * FOX.roam;
+    if (p.simple) { F.x[i] = rng() * S; F.y[i] = rng() * S; }   // LV-like: foxes hunt anywhere (a well-mixed field)
+    else { F.x[i] = wrapIn(F.x[i] + Math.cos(a) * d, S); F.y[i] = wrapIn(F.y[i] + Math.sin(a) * d, S); }
+    const cx = Math.floor(F.x[i]), cy = Math.floor(F.y[i]);
+    // list the prey in this patch and the 8 around it
+    const near = [];
+    for (let dy = -FOX.reach; dy <= FOX.reach; dy++) for (let dx = -FOX.reach; dx <= FOX.reach; dx++) {
+      const X = cx + dx, Y = cy + dy; if (X < 0 || Y < 0 || X >= S || Y >= S) continue; const c = Y * S + X;
+      for (let j = iR.head[c]; j >= 0; j = iR.next[j]) if (!deadR[j]) near.push(j);
+      if (iV) for (let j = iV.head[c]; j >= 0; j = iV.next[j]) if (!deadV[j]) near.push(-1 - j);
+    }
+    if (p.simple) {
+      // LOTKA–VOLTERRA-LIKE RULES: each prey within reach is caught with a small fixed chance (hunt ÷ 5),
+      // so catches are proportional to prey numbers (the "bRF" term). Each rabbit eaten gives a cub with
+      // chance LV_CONV (the "cRF" term); foxes die at a fixed rate LV_DIE (the "dF" term), whatever they ate.
+      let caught = 0;
+      for (const j of near) {
+        if (j < 0 || rng() >= p.hunt / 5) continue;
+        const c = cellOf(m, R.x[j], R.y[j]);
+        if (m.refuge[c] && rng() < Math.min(1, (p.safe ?? SAFE) / iR.cnt[c])) continue;
+        deadR[j] = 1; iR.cnt[c]--; caught++; m.caught++; m.counts.rE++;
+        if (m.live) m.kills.push([R.x[j], R.y[j]]);
+      }
+      F.age[i]++;
+      if (rng() < (p.lvDie ?? LV_DIE) || rng() < cullP) { m.counts.fD++; remove(F, i); continue; }
+      if (F.age[i] >= p.mature) { const kids = poisson(rng, (p.lvConv ?? LV_CONV) * caught); m.counts.fB += kids; for (let k = 0; k < kids; k++) add(m, "F", F.x[i], F.y[i], 1, 0, rng); }
+      continue;
+    }
+    for (let k = 0; k < FOX.attacks && near.length && F.e[i] < FOX.maxE; k++) {
+      const pick = Math.floor(rng() * near.length), j = near[pick];
+      if (rng() >= p.hunt) continue;                           // it got away
+      if (j >= 0) {
+        const c = cellOf(m, R.x[j], R.y[j]);
+        if (m.refuge[c] && rng() < Math.min(1, (p.safe ?? SAFE) / iR.cnt[c])) continue;   // safe down a burrow
+        deadR[j] = 1; F.e[i] += 1; iR.cnt[c]--; m.counts.rE++;
+        if (m.live) m.kills.push([R.x[j], R.y[j]]);
+      } else { deadV[-1 - j] = 1; F.e[i] += VOLE.food; if (m.live) m.kills.push([V.x[-1 - j], V.y[-1 - j]]); }
+      m.caught++;
+      near[pick] = near[near.length - 1]; near.pop();
+    }
+    F.e[i] = Math.min(FOX.maxE, F.e[i] - p.need); F.age[i]++;
+    if (F.e[i] <= 0 || rng() < FOX.die || rng() < cullP) { m.counts.fD++; remove(F, i); continue; }
+    if (F.age[i] >= p.mature && F.e[i] >= FOX.breedE && rng() < FOX.breed / 2) {   // breed / 2: half the foxes are vixens
+      const kids = poisson(rng, FOX.litter); m.counts.fB += kids;
+      for (let k = 0; k < kids; k++) add(m, "F", F.x[i], F.y[i], FOX.babyE, 0, rng);
+      F.e[i] -= 0.5 * kids;
+    }
+  }
+  for (let j = nR - 1; j >= 0; j--) if (deadR[j]) remove(R, j);
+  if (deadV) for (let j = nV - 1; j >= 0; j--) if (deadV[j]) remove(V, j);
+  m.week++;
+  record(m);
+}
+function record(m) { let gs = 0; for (let i = 0; i < m.grass.length; i++) gs += m.grass[i]; m.hist.push({ t: m.week, R: m.R.n, F: m.F.n, V: m.V.n, G: gs / m.grass.length }); }
+
+/* =====================================================================
+   3. ANALYSIS: cycle period, lag, Lotka–Volterra and logistic fits
+   ===================================================================== */
+// Cycle period from the autocorrelation of rabbit numbers (weeks)
+function cyclePeriod(series, skip = 52) {
+  const x = series.slice(skip); if (x.length < 80) return NaN;
+  const mu = mean(x), d = x.map(v => v - mu), v0 = d.reduce((s, v) => s + v * v, 0); if (v0 <= 0) return NaN;
+  const ac = []; for (let L = 0; L < x.length / 2; L++) { let s = 0; for (let i = 0; i + L < x.length; i++) s += d[i] * d[i + L]; ac.push(s / v0); }
+  let k = 1; while (k < ac.length && ac[k] > 0) k++;          // first time below zero
+  let best = -1, bk = -1; for (; k < ac.length - 1; k++) if (ac[k] > ac[k - 1] && ac[k] >= ac[k + 1] && ac[k] > 0.1) { best = ac[k]; bk = k; break; }
+  return bk > 0 ? bk : NaN;
+}
+// How many weeks fox numbers lag behind rabbit numbers (peak of the cross-correlation)
+function peakLag(R, F, period, skip = 52) {
+  const r = R.slice(skip), f = F.slice(skip); if (r.length < 60 || !finite(period)) return NaN;
+  const mr = mean(r), mf = mean(f); let best = -Infinity, bl = NaN;
+  for (let L = 0; L <= Math.round(period / 2); L++) { let s = 0; for (let i = 0; i + L < r.length; i++) s += (r[i] - mr) * (f[i + L] - mf); if (s > best) { best = s; bl = L; } }
+  return bl;
+}
+// Fit dR/dt = aR − bRF and dF/dt = cRF − dF using per-head growth rates over 4-week steps
+function fitLV(hist, skip = 26) {
+  const xs1 = [], ys1 = [], xs2 = [], ys2 = [], k = 4;
+  for (let i = skip; i + k < hist.length; i++) {
+    const A = hist[i], B = hist[i + k], M = hist[i + 2];
+    if (A.R > 0 && B.R > 0 && A.F > 0 && B.F > 0) { xs1.push(M.F); ys1.push(Math.log(B.R / A.R) / k); xs2.push(M.R); ys2.push(Math.log(B.F / A.F) / k); }
+  }
+  if (xs1.length < 30) return null;
+  const f1 = linFit(xs1, ys1), f2 = linFit(xs2, ys2); if (!f1 || !f2) return null;
+  const a = f1.c, b = -f1.m, c = f2.m, d = -f2.c;
+  if (!(a > 0 && b > 0 && c > 0 && d > 0)) return { a, b, c, d, period: NaN };
+  return { a, b, c, d, period: 2 * Math.PI / Math.sqrt(a * d), Req: d / c, Feq: a / b };
+}
+// A fairer fit: the Lotka–Volterra rates worked out from what actually happened in the run (after year 1):
+//   a = (rabbit births − rabbit deaths not caused by foxes) ÷ (sum over weeks of R)
+//   b = rabbits eaten ÷ (sum of R × F)     c = fox births ÷ (sum of R × F)     d = fox deaths ÷ (sum of F)
+function lvFromCounts(C) {
+  if (!C || C.w < 52 || C.sR <= 0 || C.sF <= 0 || C.sRF <= 0) return null;
+  const a = (C.rB - C.rD) / C.sR, b = C.rE / C.sRF, c = C.fB / C.sRF, d = C.fD / C.sF;
+  return { a, b, c, d, period: a > 0 && d > 0 ? 2 * Math.PI / Math.sqrt(a * d) : NaN, Req: d / c, Feq: a / b };
+}
+// In LV-like mode the rates follow straight from the rules: a = breeding chance × litter ÷ 2 (half are does), d = fox death chance
+function lvFromRules(p) {
+  const a = Math.log(1 + p.breed * RAB.litter / 2), d = -Math.log(1 - (p.lvDie ?? LV_DIE));
+  return { a, d, period: 2 * Math.PI / Math.sqrt(a * d) };
+}
+// Integrate the Lotka–Volterra equations from (R, F)
+function lvCurve(fit, R, F, weeks) {
+  const out = [[R, F]], h = 0.05; let r = R, f = F;
+  const der = (r, f) => [fit.a * r - fit.b * r * f, fit.c * r * f - fit.d * f];
+  for (let s = 1; s <= weeks / h; s++) {
+    const k1 = der(r, f), k2 = der(r + h / 2 * k1[0], f + h / 2 * k1[1]), k3 = der(r + h / 2 * k2[0], f + h / 2 * k2[1]), k4 = der(r + h * k3[0], f + h * k3[1]);
+    r += h / 6 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]); f += h / 6 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]);
+    if (s % 10 === 0) out.push([r, f]);
+  }
+  return out;
+}
+// Best-fitting logistic curve N(t) = K / (1 + ((K − N0)/N0) e^(−rt))  (least squares, grid search)
+function fitLogistic(series) {
+  const N0 = Math.max(1, series[0]), top = Math.max(...series);
+  let best = { err: Infinity };
+  const tryFit = (K, r) => { let e = 0; for (let t = 0; t < series.length; t++) { const v = K / (1 + (K - N0) / N0 * Math.exp(-r * t)); e += (v - series[t]) ** 2; } if (e < best.err) best = { err: e, K, r }; };
+  for (let a = 0; a <= 60; a++) for (let b = 0; b <= 60; b++) tryFit(top * (0.5 + a / 60), 0.005 * Math.pow(160, b / 60));
+  const K0 = best.K, r0 = best.r;
+  for (let a = -20; a <= 20; a++) for (let b = -20; b <= 20; b++) tryFit(K0 * (1 + a / 400), r0 * (1 + b / 200));
+  const mu = mean(series), ss = series.reduce((s, v) => s + (v - mu) ** 2, 0);
+  best.r2 = ss > 0 ? 1 - best.err / ss : 1; best.N0 = N0;
+  return best;
+}
+
+/* =====================================================================
+   4. ONE HEADLESS RUN (for the batch lab)
+   ===================================================================== */
+function runOnce(p, seed) {
+  p = { ...p, res: p.bres ?? BATCH_RES };       // batch runs always use the same (Low) grass resolution unless the table changes it
+  const m = makeField(p, seed, false), weeks = Math.round(p.years * 52);
+  let foxGoneAt = NaN;
+  for (let w = 0; w < weeks; w++) { stepField(m); if (m.F.n === 0 && !finite(foxGoneAt) && p.F0 > 0) foxGoneAt = m.week; if (m.R.n === 0 && m.F.n === 0 && m.V.n === 0) break; }
+  while (m.hist.length <= weeks) m.hist.push({ ...m.hist[m.hist.length - 1], t: m.hist.length });
+  const Rs = m.hist.map(q => q.R), Fs = m.hist.map(q => q.F);
+  const shape = fitLV(m.hist), fit = lvFromCounts(m.counts), per = m.F.n > 0 ? cyclePeriod(Rs) : NaN;
+  const out = m.R.n === 0 ? 2 : (m.F.n === 0 ? 1 : 0);
+  const half = Rs.slice(Math.floor(Rs.length / 2));
+  return { outcome: out, foxExt: m.F.n === 0 ? 1 : 0, period: finite(per) ? per / 52 : NaN, period_th: fit && finite(fit.period) && finite(per) ? fit.period / 52 : NaN,
+    period_shape: shape && finite(shape.period) && finite(per) ? shape.period / 52 : NaN, period_rules: p.simple ? lvFromRules(p).period / 52 : NaN,
+    lag: finite(per) ? peakLag(Rs, Fs, per) : NaN, meanR: mean(half), meanF: mean(Fs.slice(Math.floor(Fs.length / 2))),
+    cv: mean(half) > 0 ? sd(half) / mean(half) : NaN, minR: Math.min(...Rs.slice(52)), rabbits: Rs.filter((v, i) => i % 2 === 0), foxGoneYear: finite(foxGoneAt) ? foxGoneAt / 52 : NaN };
+}
+</script>
+<script>
+"use strict";
+/* =====================================================================
+   5. CONTROLS AND PRESETS
+   ===================================================================== */
+const NUMS = ["res", "side", "R0", "F0", "V0", "ref", "simple", "grow", "breed", "hunt", "need", "mature", "cull", "years"];
+function params() { const p = { seed: el("seed").value }; NUMS.forEach(k => p[k] = +el(k).value); return p; }
+function updateLabels() {
+  const p = params(), ha = (p.side * PATCH_M) ** 2 / 10000;
+  el("o_side").textContent = `${p.side} × ${p.side} patches (${fmtNum(ha, ha < 10 ? 1 : 0)} ha)`;
+  el("o_R0").textContent = p.R0; el("o_F0").textContent = p.F0; el("o_V0").textContent = p.V0 || "none"; el("o_ref").textContent = p.ref ? p.ref + "% of patches" : "none";
+  el("o_grow").textContent = p.grow.toFixed(2) + " per week"; el("o_breed").textContent = pct(p.breed) + " per week"; el("o_hunt").textContent = pct(p.hunt) + " per attack";
+  el("o_need").textContent = p.need.toFixed(2) + " rabbits/week"; el("o_mature").textContent = p.mature ? `${p.mature} weeks (${(p.mature / 4.35).toFixed(1)} months)` : "straight away";
+  el("need").disabled = el("grow").disabled = p.simple === 1;
+  el("o_cull").textContent = p.cull ? p.cull + "% of foxes per year" : "none"; el("o_years").textContent = p.years + " years";
+}
+const BASE = { side: 30, R0: 300, F0: 10, V0: 0, ref: 0, simple: 0, grow: 0.1, breed: 0.12, hunt: 0.3, need: 0.8, mature: 26, cull: 0, years: 15 };
+const PRESETS = [
+  { name: "Classic cycles", note: "rabbits boom, foxes follow", s: {}, story: "Rabbits multiply; foxes then have plenty to eat and multiply too; rabbits crash; foxes starve; the rabbits recover. The fox peaks come after the rabbit peaks." },
+  { name: "Too many foxes", note: "boom and crash", s: { F0: 40, hunt: 0.5, need: 0.6, R0: 200 }, story: "Many skilled foxes eat the rabbits faster than they can breed. The rabbits nearly vanish, and then the foxes starve." },
+  { name: "No foxes", note: "logistic growth to a limit", s: { F0: 0, R0: 20, years: 6 }, story: "With no predators, rabbits grow almost exponentially at first, then level off as grass runs short: an S-shaped (logistic) curve. The level is the carrying capacity." },
+  { name: "Refuges stabilise", note: "warrens protect some rabbits", s: { ref: 15, hunt: 0.6, need: 0.6, F0: 20 }, story: "Burrows protect some rabbits from foxes. The rabbits can't be hunted to near zero, so the cycles are gentler and both species last longer." },
+  { name: "Small island", note: "extinction by chance", s: { side: 14, R0: 80, F0: 4, years: 20 }, story: "A small field holds few animals. Random bad luck (a run of failed hunts, or few births) can wipe out the foxes, or the rabbits, even though the same rules support both in a big field." },
+  { name: "Invasive predator", note: "foxes arrive later", s: { F0: 2, R0: 600, years: 15 }, story: "Like foxes brought to Australia: just two foxes reach a field full of rabbits. They multiply fast on the easy food and then cut the rabbit numbers right down." },
+  { name: "Culling foxes", note: "40% shot each year", s: { cull: 40 }, story: "Gamekeepers remove 40% of foxes a year. There are fewer foxes, so more rabbits survive. Culling acts like a higher fox death rate." },
+  { name: "Voles as a second prey", note: "foxes switch prey", s: { V0: 400, F0: 10 }, story: "Foxes also eat field voles. When rabbits are scarce, foxes survive on voles, so they keep pressure on the rabbits and the pattern changes." },
+  { name: "Lotka–Volterra-like", note: "the equations' assumptions", s: { simple: 1, breed: 0.05, side: 40, R0: 430, F0: 80, mature: 0, years: 12 },
+    story: "The rules are stripped down to the Lotka–Volterra assumptions: unlimited grass, rabbits breed at a fixed rate, foxes catch rabbits in proportion to how many there are, get cubs in proportion to what they eat, and die at a fixed rate. The cycles now repeat about every 2.2 years, as 2π/√(ad) predicts. Try raising the age when young foxes can breed." },
+  { name: "Fast-growing grass", note: "paradox of enrichment", s: { grow: 0.3 }, story: "More food for rabbits should help everyone, but it can make the cycles swing harder and risk crashes (the 'paradox of enrichment')." },
+  // A level (shown at Advanced only); batch experiments use presets by number, so these go at the end
+  { name: "Mark–release–recapture", note: "A level: estimate the rabbits", lvl: "adv", s: { F0: 0, R0: 300, years: 12 },
+    story: "No foxes, so the rabbits settle near the carrying capacity. Press Start and let it run for a year or two. Then use the mark–release–recapture box: catch and mark, run a few more weeks so marked rabbits mix in, recapture, and use the Lincoln index. Repeat it several times and compare your estimates with each other (and with the true number shown afterwards)." },
+  { name: "Competition for grass", note: "A level: rabbits and voles", lvl: "adv", s: { F0: 0, R0: 150, V0: 300, years: 10 },
+    story: "No foxes: rabbits and field voles both eat the grass (interspecific competition), and each species also competes with its own kind (intraspecific competition). Food is the limiting factor; together they hold each other below the numbers either would reach alone." },
+  { name: "Bigger field, bigger K", note: "A level: carrying capacity", lvl: "adv", s: { F0: 0, R0: 20, side: 50, years: 6 },
+    story: "The same rabbits on a field 50 × 50 patches instead of 30 × 30 (2.8 times the area). The logistic curve levels off at a carrying capacity about 2.8 times as big: K is set by the resources (here grass), not by the rabbits." },
+];
+let presetStory = "";
+const LV_PRESET = PRESETS.findIndex(q => q.name === "Lotka–Volterra-like");
+function setPreset(k) {
+  if (PRESETS[k].lvl) setLevel(PRESETS[k].lvl);
+  examSoon(500);
+  const s = { ...BASE, ...PRESETS[k].s };
+  for (const [key, v] of Object.entries(s)) el(key).value = v;
+  el("seed").value = "1"; presetStory = PRESETS[k].story;
+  document.querySelectorAll("#presets button").forEach((b, j) => b.classList.toggle("on", j === k));
+  updateLabels(); reset();
+}
+el("presets").innerHTML = PRESETS.map((p, k) => `<button data-k="${k}" class="${p.lvl === "adv" ? "advOnly" : ""}">${p.name}<small>${p.note}</small></button>`).join("");
+document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.k)));
+const unPreset = () => { document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); presetStory = ""; };
+el("res").addEventListener("change", () => reset());
+["side", "R0", "F0", "V0", "ref", "simple"].forEach(id => { el(id).addEventListener("input", () => { unPreset(); updateLabels(); }); el(id).addEventListener("change", () => reset()); });
+el("seed").addEventListener("change", () => reset());
+["grow", "breed", "hunt", "need", "mature", "cull", "years"].forEach(id => el(id).addEventListener("input", () => { unPreset(); updateLabels(); }));
+
+/* =====================================================================
+   6. ANIMATION
+   ===================================================================== */
+const live = { m: null, running: false, acc: 0, lv: null, puffs: [], bg: null };
+let speed = 1;
+const WEEKS_PER_SEC = 4;
+function reset() { const p = params(); live.m = makeField(p, hashSeed(p.seed), true); live.lv = null; live.acc = 0; live.puffs = []; el("lvNote").textContent = ""; setRunning(false); if (typeof mrrReset === "function") mrrReset(); }
+function setRunning(r) { live.running = r; el("btnPlay").textContent = r ? "⏸ Pause" : live.m && live.m.week > 0 ? "▶ Resume" : "▶ Start"; }
+el("btnPlay").onclick = () => { if (live.m.week >= params().years * 52) { el("years").value = Math.min(40, +el("years").value + 5); updateLabels(); } setRunning(!live.running); };
+el("btnReset").onclick = () => reset();
+document.querySelectorAll("[data-s]").forEach(b => (b.onclick = () => { speed = +b.dataset.s; document.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", x === b)); }));
+// Events
+el("evDisease").onclick = () => { const m = live.m, R = m.R; for (let i = R.n - 1; i >= 0; i--) if (m.rng() < 0.8) remove(R, i); m.hist[m.hist.length - 1].R = R.n; };
+el("evCull").onclick = () => { const m = live.m, F = m.F; for (let i = F.n - 1; i >= 0; i--) if (m.rng() < 0.5) remove(F, i); m.hist[m.hist.length - 1].F = F.n; };
+el("evAddF").onclick = () => { const m = live.m; for (let k = 0; k < 10; k++) add(m, "F", m.rng() * m.S, m.rng() * m.S, FOX.startE, m.p.mature, m.rng); };
+el("evAddR").onclick = () => { const m = live.m; for (let k = 0; k < 50; k++) add(m, "R", m.rng() * m.S, m.rng() * m.S, 4, RAB.adult, m.rng); };
+el("btnLV").onclick = () => {
+  const m = live.m, fit = lvFromCounts(m.counts) || fitLV(m.hist), h = m.hist[m.hist.length - 1];
+  if (!fit || !finite(fit.period) || !h.R || !h.F) { live.lv = null; el("lvNote").textContent = "Not enough cycling yet to fit the equations: run for a few years with both species alive."; return; }
+  live.lv = lvCurve(fit, h.R, h.F, 2.2 * fit.period);
+  el("lvNote").innerHTML = `Fitted: a = ${fit.a.toFixed(3)}, b = ${fit.b.toExponential(2)}, c = ${fit.c.toExponential(2)}, d = ${fit.d.toFixed(3)} per week. Equilibrium ${Math.round(fit.Req)} rabbits, ${Math.round(fit.Feq)} foxes. The equations go round a closed loop for ever; the real populations spiral, wobble and can die out.`;
+};
+
+function advance(real) {
+  const m = live.m; if (!live.running) return;
+  m.p = { ...params(), res: m.p.res, side: m.p.side, R0: m.p.R0, F0: m.p.F0, V0: m.p.V0, ref: m.p.ref, simple: m.p.simple };
+  live.acc += real * speed * WEEKS_PER_SEC;
+  const t0 = performance.now();
+  while (live.acc >= 1 && performance.now() - t0 < 35) {
+    stepField(m); live.acc -= 1;
+    if (m.kills.length) m.kills.forEach(k => live.puffs.push({ x: k[0], y: k[1], w: m.week }));
+    if (m.week >= m.p.years * 52 || (!m.R.n && !m.F.n && !m.V.n)) { setRunning(false); live.acc = 0; break; }
+  }
+}
+function drawView() {
+  const { ctx: g, W, H, dpr } = fitCanvas(el("view")), m = live.m, S = m.S;
+  g.fillStyle = "#050604"; g.fillRect(0, 0, W, H);
+  const s = Math.min(W / S, H / S), ox = (W - S * s) / 2, oy = (H - S * s) / 2;
+  // grass: brown earth to green, one pixel per grass cell, then scaled up to fill the view
+  const G = m.GS;
+  if (!live.img || live.img.width !== G) { live.off = document.createElement("canvas"); live.off.width = live.off.height = G; live.img = live.off.getContext("2d").createImageData(G, G); }
+  const d = live.img.data;
+  for (let i = 0; i < G * G; i++) { const v = m.grass[i]; d[4 * i] = 92 - 40 * v; d[4 * i + 1] = 70 + 60 * v; d[4 * i + 2] = 40 - 6 * v; d[4 * i + 3] = 255; }
+  live.off.getContext("2d").putImageData(live.img, 0, 0);
+  g.imageSmoothingEnabled = m.k > 1;            // Low shows crisp 50 m squares; finer settings blend smoothly
+  g.drawImage(live.off, ox, oy, S * s, S * s);
+  g.fillStyle = "#2a1d12"; g.strokeStyle = "#c9a46a"; g.lineWidth = 1 * dpr;
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (m.refuge[y * S + x]) { g.beginPath(); g.arc(ox + (x + 0.5) * s, oy + (y + 0.5) * s, s * 0.32, 0, 7); g.fill(); g.stroke(); }
+  const f = live.running ? clamp(live.acc, 0, 1) : 1;      // smooth motion between weekly steps
+  const pos = (h, i) => [ox + (h.px[i] + (h.x[i] - h.px[i]) * f) * s, oy + (h.py[i] + (h.y[i] - h.py[i]) * f) * s];
+  const r = clamp(s * 0.28, 1.6 * dpr, 6 * dpr);
+  g.fillStyle = "#a3a3a3";
+  for (let i = 0; i < m.V.n; i++) { const [x, y] = pos(m.V, i); g.fillRect(x - r * 0.4, y - r * 0.4, r * 0.8, r * 0.8); }
+  for (let i = 0; i < m.R.n; i++) {
+    const [x, y] = pos(m.R, i); g.fillStyle = "#d9c7a8"; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+    if (r > 3) { g.fillRect(x - r * 0.5, y - r * 1.9, r * 0.3, r); g.fillRect(x + r * 0.2, y - r * 1.9, r * 0.3, r); }
+    if (m.R.mk[i]) { g.strokeStyle = "#5fd4e8"; g.lineWidth = 1.5 * dpr; g.beginPath(); g.arc(x, y, r * 1.5, 0, 7); g.stroke(); }   // A level: marked
+  }
+  const rf = r * 1.6;
+  for (let i = 0; i < m.F.n; i++) {
+    const [x, y] = pos(m.F, i), a = Math.atan2(m.F.y[i] - m.F.py[i], m.F.x[i] - m.F.px[i]);
+    g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = "#f18700"; g.strokeStyle = "#fff"; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(rf * 1.4, 0); g.lineTo(-rf, -rf * 0.7); g.lineTo(-rf * 0.6, 0); g.lineTo(-rf, rf * 0.7); g.closePath(); g.fill(); g.stroke(); g.restore();
+  }
+  live.puffs = live.puffs.filter(q => m.week - q.w < 2);
+  g.strokeStyle = "rgba(255,70,60,.85)"; g.lineWidth = 1.5 * dpr;
+  for (const q of live.puffs) { g.beginPath(); g.arc(ox + q.x * s, oy + q.y * s, r * 2, 0, 7); g.stroke(); }
+}
+function drawGraphs() {
+  const m = live.m, h = m.hist, p = m.p, T = Math.max(p.years * 52, h.length);
+  const Rmax = Math.max(10, ...h.map(q => q.R), ...h.map(q => q.V)), Fmax = Math.max(1, ...h.map(q => q.F));
+  const fs = Math.pow(10, Math.max(0, Math.round(Math.log10(Rmax / Fmax))));    // scale foxes so both are visible
+  const series = [
+    { type: "line", data: h.map(q => [q.t / 52, q.G * Rmax]), col: "#3d6e2a", w: 1, alpha: 0.8, label: `grass cover (top = 100%)` },
+    { type: "line", data: h.map(q => [q.t / 52, q.R]), col: "#d9c7a8", label: "rabbits" },
+    { type: "line", data: h.map(q => [q.t / 52, q.F * fs]), col: "#f18700", label: fs > 1 ? `foxes × ${fs}` : "foxes" }];
+  if (h.some(q => q.V > 0)) series.push({ type: "line", data: h.map(q => [q.t / 52, q.V]), col: "#a3a3a3", label: "voles" });
+  plot(el("g1"), { x: [0, T / 52], y: [0, Rmax * 1.05], xLabel: "time (years)", yLabel: "animals", series, font: 10 });
+  // phase plot
+  const pts = h.filter((q, i) => i % 1 === 0).map(q => [q.R, q.F]);
+  const n = pts.length, recent = Math.max(0, n - 200);
+  const ps = [{ type: "line", data: pts.slice(0, recent + 1), col: "#a3ab96", w: 1, alpha: 0.4 }, { type: "line", data: pts.slice(recent), col: "#f1af28", w: 2, label: "last 4 years" }];
+  let xm = Math.max(10, ...pts.map(q => q[0])), ym = Math.max(2, ...pts.map(q => q[1]));
+  if (live.lv) { ps.push({ type: "line", data: live.lv, col: "#5fd4e8", w: 2, dash: [6, 4], label: "Lotka–Volterra from here" }); xm = Math.max(xm, ...live.lv.map(q => q[0])); ym = Math.max(ym, ...live.lv.map(q => q[1])); }
+  if (n) ps.push({ type: "pts", data: [pts[n - 1]], col: "#ffffff", r: 4, label: "now" });
+  plot(el("g2"), { x: [0, xm * 1.05], y: [0, ym * 1.08], xLabel: "rabbits", yLabel: "foxes", series: ps, font: 10 });
+}
+function updateUI() {
+  const m = live.m, h = m.hist[m.hist.length - 1], p = m.p;
+  const yrs = m.week / 52;
+  el("clock").textContent = `Week ${m.week} (${yrs.toFixed(1)} years)`;
+  el("s_R").textContent = h.R; el("s_F").textContent = h.F; el("s_V").textContent = h.V; el("s_Vw").style.display = h.V || p.V0 ? "" : "none";
+  el("s_G").textContent = pct(h.G); el("s_c").textContent = m.caught;
+  // cycle measurements (updated a few times a second is plenty)
+  if (!live.an || live.an.w !== m.week) {
+    const Rs = m.hist.map(q => q.R), Fs = m.hist.map(q => q.F);
+    const per = cyclePeriod(Rs), fit = lvFromCounts(m.counts), lag = peakLag(Rs, Fs, per);
+    const tail = m.hist.slice(Math.max(26, m.hist.length - 260));
+    live.an = { w: m.week, per, fit, lag, pR: tail.length ? Math.max(...tail.map(q => q.R)) : NaN, pF: tail.length ? Math.max(...tail.map(q => q.F)) : NaN, logi: (p.F0 === 0 && m.hist.length > 30 && !h.F) ? fitLogistic(Rs) : null };
+  }
+  const a = live.an;
+  const tiles = [
+    ["Cycle period (measured)", finite(a.per) ? `${(a.per / 52).toFixed(1)} years` : "–", finite(a.per) ? `${a.per} weeks, from the rabbit numbers` : "needs a few cycles"],
+    ["Lotka–Volterra period", a.fit && finite(a.fit.period) ? `${(a.fit.period / 52).toFixed(1)} years` : "–", p.simple ? `2π/√(ad) from births/deaths counted; from the rules: ${(lvFromRules(p).period / 52).toFixed(1)} years` : "2π/√(ad), a and d from births and deaths counted after year 1"],
+    ["Fox peaks lag behind", finite(a.lag) ? `${a.lag} weeks` : "–", finite(a.lag) && finite(a.per) ? `${pct(a.lag / a.per)} of a cycle (theory about 25%)` : "rabbit peaks"],
+    ["Recent peaks", finite(a.pR) ? `${a.pR} rabbits` : "–", finite(a.pF) ? `${a.pF} foxes (last 5 years)` : ""],
+    ["Rabbits per hectare", fmtNum(h.R / ((m.S * PATCH_M) ** 2 / 10000), 1), `field ${fmtNum((m.S * PATCH_M) ** 2 / 10000, 0)} ha`],
+    ["Foxes per km²", fmtNum(h.F / ((m.S * PATCH_M) ** 2 / 1e6), 1), "UK countryside: about 1–3 per km²"],
+  ];
+  if (a.logi) tiles.push(["Logistic fit", `K = ${Math.round(a.logi.K)}`, `r = ${a.logi.r.toFixed(3)} per week, R² = ${a.logi.r2.toFixed(3)}`]);
+  if (isAdv()) {   // A level: limiting factors now (H420 6.3.2)
+    const eatenShare = h.R ? m.caught / (h.R + m.caught) : 0;
+    tiles.push(["Food (grass) left", pct(h.G), h.G < 0.35 ? "low: food is limiting (intraspecific competition)" : "plenty: food is not limiting"]);
+    tiles.push(["Predation this week", pct(eatenShare, 1), h.F ? `${m.caught} rabbits caught by ${h.F} foxes` : "no foxes: no predation"]);
+  }
+  el("tiles").innerHTML = tiles.map(t => `<div class="tile"><div class="k">${t[0]}</div><div class="v">${t[1]}</div><div class="s">${t[2]}</div></div>`).join("");
+  let st = presetStory ? `<p>${presetStory}</p>` : "";
+  if (m.week === 0) st += `<p>Press <b>Start</b>. Watch the grass (green), rabbits (pale) and foxes (orange). Red rings show catches.</p>`;
+  else if (!h.R && !h.F) st += `<p><b>Everything has died out.</b> First the rabbits went, then the foxes starved. Only the grass is left.</p>`;
+  else if (!h.F && p.F0 > 0) st += `<p><b>The foxes have died out.</b> The rabbits now grow until grass runs short: their number levels off at the carrying capacity.</p>`;
+  else if (!h.R && h.F) st += `<p><b>The rabbits are gone.</b> ${h.V ? "The foxes are living on voles." : "The foxes will starve soon."}</p>`;
+  else if (h.F) {
+    const prev = m.hist[Math.max(0, m.hist.length - 5)];
+    const rUp = h.R > prev.R, fUp = h.F > prev.F;
+    st += `<p>${rUp && !fUp ? "Rabbits rising while foxes are few or falling: plenty of grass, little danger." : rUp && fUp ? "Both rising: lots of food for foxes, so more cubs survive." : !rUp && fUp ? "Foxes still rising while rabbits fall: foxes are eating rabbits faster than they breed." : "Both falling: too few rabbits left to feed the foxes, so foxes starve."}</p>`;
+  } else st += `<p>No foxes: rabbit numbers are limited only by grass.</p>`;
+  el("story").innerHTML = st;
+}
+let lastNow = performance.now();
+function frame(now) { const real = Math.min(0.1, (now - lastNow) / 1000); lastNow = now; advance(real); drawView(); drawGraphs(); updateUI(); examTick(); requestAnimationFrame(frame); }
+
+/* =====================================================================
+   7. BATCH LAB
+   ===================================================================== */
+// The fixed settings a preset gives (what setPreset(k) puts in the left panel, read back by params()), without touching the left panel.
+// Every one-click experiment starts from one of these plus its own changes, so experiments never depend on the left panel.
+const MODEL_DEFAULTS = { bres: BATCH_RES, lvConv: LV_CONV, lvDie: LV_DIE, safe: SAFE };
+function presetParams(k) {
+  const all = { ...BASE, ...PRESETS[k].s }, p = { seed: "1" };
+  NUMS.forEach(q => { if (q !== "res") p[q] = +all[q]; });
+  return { ...p, ...MODEL_DEFAULTS };
+}
+const batch = setupBatch({
+  csvName: "predator-prey",
+  expBase: e => ({ ...presetParams(e.preset), ...e.p }),
+  leftParams: () => { const p = { ...params(), ...MODEL_DEFAULTS }; delete p.res; return p; },
+  note: "Each run: a new field with the same settings, for the number of years in the table.",
+  costNote: "Batch runs always use Low quality (one 50 m grass cell per patch), whatever the Quality setting, so results are repeatable (the table can change it). Big fields with many animals are slower.",
+  runOnce, repeatNs: [20, 50, 100, 200], sweepReps: [5, 10, 20, 40],
+  outcomes: [
+    { key: "outcome", kind: "cat", label: "Outcome at the end", cats: ["both survive", "foxes died out", "rabbits died out"], catTheory: () => [1, 0, 0], theoryLabel: "Lotka–Volterra (never die out)",
+      extra: () => "The Lotka–Volterra equations never reach zero, so they predict coexistence every time. Real (and simulated) populations are whole animals and chance matters when numbers are low." },
+    { key: "period", kind: "num", label: "Cycle period (rabbits)", unit: "years", theoryLabel: "Lotka–Volterra 2π/√(ad), a and d from counts", missNote: "no regular cycle (or foxes died out)",
+      extra: (v, p, res) => { const th = res.map(r => r.period_th).filter(finite), sh = res.map(r => r.period_shape).filter(finite);
+        return `Theory: a and d are worked out from the births and deaths counted in each run (after year 1), then period = 2π/√(ad): mean <b>${fmtNum(mean(th), 2)}</b> years (SD ${fmtNum(sd(th), 2)}).` +
+          (p.simple ? ` With Lotka–Volterra-like rules a and d also follow straight from the rules: <b>${fmtNum(lvFromRules(p).period / 52, 2)}</b> years.` : "") +
+          ` An older method, fitting the equations to the shape of the cycles, gives ${fmtNum(mean(sh), 2)} years. Measured periods come from the repeat time of the rabbit numbers.`; } },
+    { key: "lag", kind: "num", label: "Fox peaks lag behind rabbit peaks", unit: "weeks", missNote: "no regular cycle", theoryLabel: "LV: quarter of the mean period",
+      theory: null, extra: (v, p, res) => { const per = res.map(r => r.period).filter(finite); return `A quarter of the mean measured period is ${fmtNum(mean(per) * 52 / 4, 0)} weeks (Lotka–Volterra cycles near equilibrium have foxes peaking a quarter-cycle after rabbits).`; } },
+    { key: "foxExt", kind: "bin", label: "Foxes died out by the end", binNames: ["foxes survive", "foxes died out"] },
+    { key: "meanR", kind: "num", label: "Average rabbits (second half of the run)", unit: "rabbits" },
+    { key: "cv", kind: "num", label: "How much rabbits swing (SD ÷ mean)", unit: "" },
+    { key: "minR", kind: "num", integer: false, label: "Lowest number of rabbits (after year 1)", unit: "rabbits" },
+    { key: "rabbits", kind: "series", label: "Rabbit numbers over time", xLabel: "time (fortnights)", theoryLabel: "best-fit logistic curve",
+      seriesTheory: (p, res, ser) => { const f = fitLogistic(ser.map(q => q[1])); return ser.map(q => [q[0], f.K / (1 + (f.K - f.N0) / f.N0 * Math.exp(-f.r * q[0]))]); },
+      extra: (res, p, ser) => { const f = fitLogistic(ser.map(q => q[1])); return `Logistic fit to the mean: carrying capacity <b>K = ${Math.round(f.K)}</b> rabbits (${fmtNum(f.K / ((p.side * PATCH_M) ** 2 / 10000), 1)} per hectare), growth rate r = ${(f.r / 2).toFixed(3)} per week, R² = ${f.r2.toFixed(3)}. Grass, not foxes, sets K here.`; } },
+  ],
+  // EVERY numeric starting setting, for the batch settings table (each is a key of the settings object)
+  vars: [
+    { key: "side", label: "Field size (patches along each side)", hint: "(50 m patches)", min: 4, max: 120, int: true },
+    { key: "R0", label: "Rabbits at the start", min: 0, max: 5000, int: true },
+    { key: "F0", label: "Foxes at the start", min: 0, max: 1000, int: true },
+    { key: "V0", label: "Voles at the start", min: 0, max: 5000, int: true },
+    { key: "ref", label: "Refuges", unit: "% of patches", min: 0, max: 100, int: true },
+    { key: "grow", label: "Grass regrowth rate", unit: "per week", min: 0.005, max: 1 },
+    { key: "breed", label: "Rabbit breeding chance", unit: "per week", min: 0, max: 1 },
+    { key: "hunt", label: "Fox hunting success", hint: "(per attack, 0–1)", min: 0, max: 1 },
+    { key: "need", label: "Fox energy needs", unit: "rabbits/week", min: 0.05, max: 5 },
+    { key: "mature", label: "Age when young foxes can breed", unit: "weeks", min: 0, max: 104, int: true },
+    { key: "cull", label: "Fox culling", unit: "% per year", min: 0, max: 100, int: true },
+    { key: "years", label: "Years in each run", min: 1, max: 100, int: true },
+    { key: "lvConv", label: "LV-like rules: cubs per rabbit eaten", min: 0, max: 2 },
+    { key: "lvDie", label: "LV-like rules: fox death chance", unit: "per week", min: 0, max: 0.5 },
+    { key: "safe", label: "Rabbits safe in one warren", min: 0, max: 100, int: true },
+    { key: "bres", label: "Batch grass cells per patch side", hint: "(1 = Low quality)", min: 1, max: 4, int: true },
+  ],
+  // the settings that are choices rather than numbers
+  choices: [
+    { k: "simple", label: "Rules", num: true, choices: [[0, "Realistic: grass, energy, ageing"], [1, "Lotka–Volterra-like"]] },
+    { k: "seed", label: "Random seed", text: true },
+  ],
+  experiments: [
+    { q: "How often do foxes and rabbits both survive?", note: "100 runs of the classic cycles for 15 years. The equations predict both survive every time. In the model, a deep rabbit crash sometimes starves every fox, purely by chance.",
+      preset: 0, p: { years: 12 }, set: { mode: "repeat", n: 100, outcome: "outcome" } },
+    { q: "Is the cycle period what Lotka–Volterra predicts?", note: "Realistic rules. For each run, a (rabbit growth) and d (fox death) are worked out from the births and deaths it actually had, and the Lotka–Volterra period 2π/√(ad) is compared with the measured repeat time. Counted this way the two agree to within about 10–15% on average, though single runs scatter widely. Grass is the main reason realistic cycles are slow: it holds the rabbits' net growth rate a down, and the counted a includes that. (Fitting the equations to the shape of the cycles instead gives a period about 25–30% too short.) A second hump at about twice the period comes from runs where big and small cycles alternate, so the pattern only repeats every two cycles. Runs with no clear repeating cycle are left out.",
+      preset: 0, p: { years: 20 }, set: { mode: "repeat", n: 100, outcome: "period" } },
+    { q: "With Lotka–Volterra-like rules, is the period 2π/√(ad)?", note: "50 runs with the equations' own assumptions (unlimited grass, fixed birth and death rates, well-mixed hunting, no maturity delay) in a bigger field. Here a = 0.05 × 3 ÷ 2 per week and d = 0.04 per week straight from the rules, so the period should be 2π/√(ad) ≈ 2.2 years. The measured period comes out about 5–10% longer. The small excess is because chance pushes the cycles to large swings, and big Lotka–Volterra cycles are slower than the small-swing formula; it shrinks in bigger fields.",
+      preset: LV_PRESET, p: { side: 50, R0: 670, F0: 125 }, set: { mode: "repeat", n: 50, outcome: "period" } },
+    { q: "Why are real cycles slower than Lotka–Volterra?", note: "Lotka–Volterra-like rules, but now young foxes must wait before they can breed. The equations assume births respond to food at once, so their period (dashed line, from counted births and deaths) stays at about 2.2 years. The measured period rises with the delay, from about 2.4 years with no delay to about 3 years at 6 months and about 4 years at 9 months (with a lot of scatter): a delay in the predator's response stretches every cycle. Realistic foxes also live off fat reserves for weeks, which adds more delay.",
+      preset: LV_PRESET, p: { years: 12 }, set: { mode: "sweep", outcome: "period", v: "mature", from: 0, to: 39, steps: 4, reps: 10 } },
+    { q: "Do small fields lose their foxes by chance?", note: "Sweep the field size. Small fields hold few foxes, so a short run of bad luck can wipe them out. The chance of extinction falls steeply as the field (and population) grows.",
+      preset: 0, p: { years: 15 }, set: { mode: "sweep", outcome: "foxExt", v: "side", from: 10, to: 40, steps: 7, reps: 20 } },
+    { q: "With no foxes, do rabbits grow logistically?", note: "50 runs with no foxes, starting from 20 rabbits. The mean follows an S-shaped curve; the dashed line is the best-fitting logistic curve and gives the carrying capacity K.",
+      preset: 2, p: {}, set: { mode: "repeat", n: 50, outcome: "rabbits" } },
+    { q: "Do refuges help foxes and rabbits live together?", note: "Sweep the share of patches with warrens, with skilled foxes (60% hunting success). With no refuges the foxes eat the rabbits down so far that the foxes then starve. Warrens keep a reserve of rabbits safe, so crashes are shallower and the foxes more often survive: refuges stabilise the cycle. The effect needs plenty of warrens, and chance still scatters the results (20 runs per step gives about ±10%). (There is no simple formula for this, so no theory line.)",
+      preset: 3, p: { years: 12 }, set: { mode: "sweep", outcome: "outcome", v: "ref", from: 0, to: 20, steps: 5, reps: 20 } },
+    { q: "Does culling foxes mean more rabbits?", note: "Sweep the yearly fox cull. More culling, fewer foxes, more rabbits on average, until grass becomes the limit.",
+      preset: 0, p: { years: 12 }, set: { mode: "sweep", outcome: "meanR", v: "cull", from: 0, to: 80, steps: 6, reps: 10 } },
+  ],
+});
+el("btnBatch").onclick = el("btnBatch2").onclick = () => batch.open();
+window.__check = () => { const m = live.m, h = m.hist[m.hist.length - 1]; let ok = [h.R, h.F, h.V, h.G].every(finite) && h.G >= 0 && h.G <= 1; for (const k of ["R", "F"]) for (let i = 0; i < m[k].n; i++) if (!finite(m[k].x[i]) || m[k].x[i] < 0 || m[k].x[i] > m.S) ok = false; return { week: m.week, R: h.R, F: h.F, V: h.V, G: +h.G.toFixed(2), ok }; };
+window.__pause = () => setRunning(false);
+setupPanels("predator-prey-layout");
+
+/* =====================================================================
+   LEVEL: Standard (GCSE: Pearson Edexcel International GCSE Biology 4BI1)
+   or Advanced (A level: OCR A level Biology A H420). Advanced keeps
+   everything in Standard and adds A level views, readings, key ideas,
+   presets and exam questions. The choice is remembered in this browser.
+   Spec tags: grey-green = GCSE (4BI1), purple = A level (H420),
+   blue-grey = beyond both specifications.
+   ===================================================================== */
+const LEVEL = { key: "predator-prey-level", hint: { std: "", adv: "" }, onChange: null, ideas: null, exam: null };
+const isAdv = () => document.body.classList.contains("lvl-adv");
+const spec = (t, k) => `<span class="spec${k ? " " + k : ""}">${t}</span>`;
+const examOpen = new Set();
+// Exam questions with marks, hint and a "Show mark scheme" toggle. Open mark schemes stay open when the numbers change.
+function renderExam(box, groups) {
+  let html = "", n = 0;
+  for (const g of groups) {
+    if (g.title) html += `<div class="exhead">${g.title}</div>`;
+    g.qs.forEach((q, i) => {
+      const id = (g.id || "q") + i; n++;
+      html += `<div class="exq${examOpen.has(id) ? " open" : ""}" data-id="${id}"><div class="qh"><span><b>Q${n}.</b> ${q.q}</span><span class="mk">${q.marks} mark${q.marks === 1 ? "" : "s"}</span></div>` +
+        (q.hint ? `<div class="ht">💡 Hint: ${q.hint}</div>` : "") + `<button>${examOpen.has(id) ? "Hide" : "Show"} mark scheme</button>` +
+        `<div class="ms">${(q.working || []).map(s => `<div>→ ${s}</div>`).join("")}<div class="ans">${q.answerLabel === false ? "" : "Answer: "}${q.answer}</div></div></div>`;
+    });
+  }
+  box.innerHTML = html;
+  box.querySelectorAll(".exq button").forEach(b => b.addEventListener("click", () => {
+    const d = b.parentElement, id = d.dataset.id; d.classList.toggle("open");
+    if (d.classList.contains("open")) examOpen.add(id); else examOpen.delete(id);
+    b.textContent = (d.classList.contains("open") ? "Hide" : "Show") + " mark scheme";
+  }));
+}
+// Rebuild the questions a little later (so the numbers on screen have settled), or at once
+let examDue = 0;
+function examSoon(ms) { examDue = performance.now() + (ms || 0); }
+function examTick() { if (examDue && performance.now() >= examDue) { examDue = 0; if (LEVEL.exam) LEVEL.exam(); } }
+function setLevel(l) {
+  document.body.classList.toggle("lvl-adv", l === "adv"); document.body.classList.toggle("lvl-std", l !== "adv");
+  document.querySelectorAll("#lvl button").forEach(b => b.classList.toggle("on", b.dataset.lvl === l));
+  try { localStorage.setItem(LEVEL.key, l); } catch (e) {}
+  document.getElementById("lvlHint").innerHTML = l === "adv" ? LEVEL.hint.adv : LEVEL.hint.std;
+  if (LEVEL.ideas) document.getElementById("ideas").innerHTML = `<ul>${LEVEL.ideas(l === "adv")}</ul>`;
+  if (LEVEL.onChange) LEVEL.onChange(l);
+  examSoon(0);
+}
+function levelInit() {
+  document.querySelectorAll("#lvl button").forEach(b => b.addEventListener("click", () => setLevel(b.dataset.lvl)));
+  document.getElementById("examNow").addEventListener("click", () => examSoon(0));
+  let l = "std"; try { l = localStorage.getItem(LEVEL.key) || "std"; } catch (e) {}
+  setLevel(l === "adv" ? "adv" : "std");
+}
+
+// A LEVEL: the mark–release–recapture practical (a PAG3 extension; the Lincoln index is not explicitly required by H420). Uses Math.random, not the field's own random numbers,
+// so trapping never changes what happens in the field.
+const mrr = { n1: 0, week1: -1, trials: [] };
+function mrrReset() { mrr.n1 = 0; mrr.week1 = -1; mrr.trials = []; mrrShow(); }
+function mrrShow() {
+  const m = live.m;
+  el("mrrStatus").innerHTML = mrr.week1 < 0 ? "No rabbits marked yet." : `${mrr.n1} rabbits marked in week ${mrr.week1} (${m ? m.week - mrr.week1 : 0} weeks ago). ${m && m.week - mrr.week1 < 2 ? "Let the field run a few weeks so they mix in." : "Ready to recapture."}`;
+  el("mrrRe").disabled = mrr.week1 < 0;
+  if (!mrr.trials.length) { el("mrrTable").innerHTML = ""; return; }
+  const est = mrr.trials.map(t => t.N).filter(finite), mE = mean(est), sE = sd(est);
+  el("mrrTable").innerHTML = `<table class="mini" style="margin-top:4px;width:100%;font-size:11.5px"><tr><th>#</th><th>n₁</th><th>n₂</th><th>m</th><th>N ≈ n₁n₂/m</th><th>true</th></tr>` +
+    mrr.trials.map((t, k) => `<tr><td>${k + 1}</td><td>${t.n1}</td><td>${t.n2}</td><td>${t.m}</td><td>${finite(t.N) ? Math.round(t.N) : "m = 0"}</td><td>${t.true}</td></tr>`).join("") + `</table>` +
+    (est.length > 1 ? `<div class="hint">Mean of ${est.length} estimates ${Math.round(mE)}, standard deviation ${Math.round(sE)} (n − 1).</div>` : "");
+}
+el("mrrMark").addEventListener("click", () => {
+  const R = live.m.R, c = +el("mrrC").value; let n = 0;
+  for (let i = 0; i < R.n; i++) { R.mk[i] = 0; if (Math.random() < c) { R.mk[i] = 1; n++; } }
+  mrr.n1 = n; mrr.week1 = live.m.week; mrrShow();
+});
+el("mrrRe").addEventListener("click", () => {
+  const R = live.m.R, c = +el("mrrC").value; let n2 = 0, mm = 0;
+  for (let i = 0; i < R.n; i++) if (Math.random() < c) { n2++; if (R.mk[i]) mm++; }
+  mrr.trials.push({ n1: mrr.n1, n2, m: mm, N: mm ? mrr.n1 * n2 / mm : NaN, true: R.n, weeks: live.m.week - mrr.week1 });
+  if (mrr.trials.length > 10) mrr.trials.shift();
+  for (let i = 0; i < R.n; i++) R.mk[i] = 0;
+  mrr.n1 = 0; mrr.week1 = -1; mrrShow(); examSoon(0);
+});
+setInterval(() => { if (isAdv() && mrr.week1 >= 0) mrrShow(); }, 1000);
+LEVEL.hint.std = "GCSE: Edexcel International GCSE Biology (4BI1) Section 4(a) The organism in the environment: populations, biotic and abiotic factors, estimating population size (quadrats); 4(b) Feeding relationships: food chains and the transfer of energy. Predator–prey cycles, the Lotka–Volterra equations and logistic fits go beyond 4BI1: tagged.";
+LEVEL.hint.adv = "A level: OCR Biology A (H420) 6.3.2 Populations and sustainability: carrying capacity, limiting factors, predator–prey relationships, intra- and interspecific competition, culling and sustainability; 6.3.1 Ecosystems: sampling to measure abundance (PAG3); mark–release–recapture and the Lincoln index as a PAG3 extension (the Lincoln index is not explicitly required by H420). Advanced adds a virtual mark–release–recapture practical, limiting-factor readings and A level presets.";
+LEVEL.ideas = a => {
+  const G = spec("4BI1 4(a) Organisms in the environment"), Gb = spec("4BI1 4(b) Feeding relationships"), A2 = spec("A level (H420 6.3.2)", "a"), A1 = spec("A level (H420 6.3.1)", "a"), B = spec("Beyond the spec", "b");
+  let h = `<li>A <b>population</b> is all the organisms of one species in an area; a <b>community</b> is all the populations living there. ${G}</li>
+<li><b>Biotic factors</b> (living: predators, food, disease, competition) and <b>abiotic factors</b> (non-living: temperature, water, light) affect population size. ${G}</li>
+<li>Population size can be estimated by sampling, e.g. with <b>quadrats</b> (the 4BI1 practical) and scaling up to the whole area. ${G}</li>
+<li><b>Food chain</b>: grass → rabbit → fox. Energy is lost at each step (respiration, heat, waste), so there are fewer foxes than rabbits. ${Gb}</li>
+<li>Predator–prey cycles, the Lotka–Volterra equations, the logistic curve and the paradox of enrichment. ${B}</li>`;
+  if (a) h += `<li><b>Carrying capacity</b> (K): the largest population an environment can support. Growth is fast at first, then slows as <b>limiting factors</b> (food, space, predation, disease) take hold, and levels off at K. ${A2}</li>
+<li><b>Predator–prey</b>: prey numbers rise, then predators (with a time lag); prey fall, then predators fall. Real cycles have other causes too (food, disease). ${A2}</li>
+<li><b>Intraspecific competition</b> (within a species) limits a population to K; <b>interspecific competition</b> (between species for the same resource, e.g. rabbits and voles for grass) can lower both or exclude one. ${A2}</li>
+<li><b>Sustainability</b>: culling, and conservation (active management) compared with preservation (leaving alone). ${A2}</li>
+<li><b>Mark–release–recapture</b> for mobile animals: N ≈ n₁ × n₂ ÷ m (Lincoln index). Assumes a closed population, marks not lost or harmful, marked animals mix fully and are as easy to catch as unmarked. ${A1} ${spec("PAG3 extension: Lincoln index not explicitly in H420", "b")}</li>`;
+  return h;
+};
+LEVEL.onChange = () => mrrShow();
+LEVEL.exam = () => {
+  const m = live.m, h = m.hist[m.hist.length - 1], ha = (m.S * PATCH_M) ** 2 / 10000, dens = h.R / ha;
+  const t = mrr.trials[mrr.trials.length - 1], use = t && t.m > 0;
+  const n1 = use ? t.n1 : 42, n2 = use ? t.n2 : 38, mm = use ? t.m : 12, N = n1 * n2 / mm;
+  const groups = [{ title: "GCSE (Edexcel International GCSE Biology 4BI1)", id: "g", qs: [
+    { q: "Describe how you could use quadrats to compare the population size of a plant in two different areas.", marks: 5,
+      working: ["Place quadrats at random in each area, e.g. using random numbers as coordinates on a grid (1)", "count the plants (or % cover) in each quadrat (1)", "use many quadrats (e.g. 10 or more) in each area (1)", "calculate the mean number per quadrat (1)", "scale up: mean per m² × area; compare the two areas (1)"], answer: "5 marks (4BI1 practical)." },
+    { q: `Your field is ${fmtNum(ha, 0)} hectares and has ${h.R} rabbits now. Calculate the number of rabbits per hectare.`, marks: 2,
+      working: [`${h.R} ÷ ${fmtNum(ha, 0)} (1)`, `= ${fmtNum(dens, 1)} rabbits per hectare (1)`], answer: `${fmtNum(dens, 1)} per hectare` },
+    { q: "Explain why the number of foxes rises after the number of rabbits rises.", marks: 3,
+      working: ["More rabbits means more food for foxes (1)", "more foxes survive and breed / more cubs survive (1)", "it takes time for foxes to breed, so fox numbers rise later (1)"], answer: "3 marks. Try 'Classic cycles'." },
+    { q: "Give two biotic and two abiotic factors that could affect the number of rabbits in a field.", marks: 4,
+      working: ["Biotic: predators (foxes), food (grass), disease (myxomatosis), competition (voles) (1+1)", "Abiotic: temperature, rainfall/water, light (for grass growth), soil, flooding of burrows (1+1)"], answer: "Any two of each." },
+    { q: "Explain why there are fewer foxes than rabbits in the field.", marks: 3,
+      working: ["Energy is passed along the food chain grass → rabbit → fox (1)", "energy is lost at each level, e.g. in respiration as heat, movement, faeces (1)", "so less energy is available to support foxes: fewer foxes can be supported (1)"], answer: "3 marks." },
+    { q: "Myxomatosis killed about 80% of a population of 500 rabbits. Calculate how many rabbits were left.", marks: 2,
+      working: ["80% of 500 = 400 died (1)", "500 − 400 = 100 left (1)"], answer: "100. Try the 🦠 Rabbit disease event." },
+  ] }];
+  if (isAdv()) groups.push({ title: "A level (OCR Biology A H420: 6.3.2 Populations and sustainability; 6.3.1 Ecosystems)", id: "a", qs: [
+    { q: `${use ? "Your mark–release–recapture" : "A mark–release–recapture study"}: ${n1} rabbits were caught, marked and released. Later ${n2} were caught, of which ${mm} were marked. Use the Lincoln index to estimate the population. (PAG3 extension: the Lincoln index is not explicitly required by H420.)`, marks: 2, hint: "N = n₁ × n₂ ÷ m",
+      working: [`N = ${n1} × ${n2} ÷ ${mm} (1)`, `= ${Math.round(N)} rabbits (1)`], answer: `${Math.round(N)}${use ? ` (true number at the time: ${t.true})` : ""}` },
+    { q: "State four assumptions made when using mark–release–recapture, and suggest why one of them may not hold for the rabbits in this field.", marks: 5,
+      working: ["Closed population: no births, deaths, immigration or emigration between samples (1)", "marks do not fall off and do not harm the animal / make it easier to see for predators (1)", "marked animals mix fully with the rest before the second sample (1)", "marked and unmarked animals are equally likely to be caught (no trap-shyness or trap-happiness) (1)", "e.g. rabbits breed and die over the weeks between samples, so the population is not closed (1)"], answer: "5 marks." },
+    { q: "Describe and explain the shape of the population growth curve for rabbits introduced to a field with no foxes.", marks: 4,
+      working: ["Slow growth at first: few breeding adults (lag phase) (1)", "rapid (exponential) growth: plenty of food, few limiting factors (log phase) (1)", "growth slows as food (grass) runs short: intraspecific competition increases (1)", "levels off at the carrying capacity: births ≈ deaths (stationary phase) (1)"], answer: "4 marks. Try 'No foxes'." },
+    { q: "Explain why changes in fox numbers lag behind changes in rabbit numbers in a predator–prey cycle.", marks: 3,
+      working: ["Foxes need time to breed / cubs take months to mature before they breed (1)", "when rabbits are plentiful, more fox cubs survive, but this shows later (1)", "when rabbits fall, foxes can live on their reserves for a while before starving (1)"], answer: "3 marks." },
+    { q: "Distinguish between intraspecific and interspecific competition, using rabbits and voles as an example.", marks: 3,
+      working: ["Intraspecific: between members of the same species, e.g. rabbits competing with rabbits for grass (1)", "interspecific: between different species for the same resource, e.g. rabbits and voles for grass (1)", "intraspecific competition keeps a population near its carrying capacity; interspecific can reduce both populations or exclude one (1)"], answer: "3 marks. Try 'Competition for grass'." },
+    { q: "Explain the difference between conservation and preservation, and suggest why culling foxes might be part of a conservation plan.", marks: 3,
+      working: ["Preservation: protecting an area by leaving it untouched by humans (1)", "conservation: active management to keep biodiversity, e.g. controlled culling, reintroductions (1)", "culling foxes can protect ground-nesting birds or rare prey; it must be controlled so the fox population is sustainable (1)"], answer: "3 marks." },
+  ] });
+  renderExam(el("examQs"), groups);
+};
+levelInit();
+mrrShow();
+setPreset(0);
+requestAnimationFrame(frame);
+</script>
+<!-- VIEW BAR (start): hide/show the side panels and full-screen the simulation. Same block in every simulation. -->
+<style>
+  #viewBar { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-shrink: 0; align-self: center; }
+  #viewBar button { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  #viewBar button.on { border-color: var(--accent); }
+  #viewBar .vbKey { opacity: .55; font-size: 11px; margin-left: 4px; }
+  /* bigger, clearer drag handles between the panels */
+  .splitter::before { width: 4px !important; margin-left: -2px !important; }
+  .splitter::after { content: "⋮"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--muted); font-size: 16px; pointer-events: none; }
+  .splitter button { width: 22px !important; height: 52px !important; font-size: 15px !important; font-weight: 700; background: var(--accent) !important; color: #14133b !important; border: none !important; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  /* full screen: the centre panel fills the screen */
+  #centre:fullscreen { background: var(--bg); padding: 10px; width: 100vw; height: 100vh; box-sizing: border-box; }
+  #centre .vbExit { display: none; }
+  #centre:fullscreen .vbExit { display: block; position: absolute; top: 10px; right: 12px; z-index: 50; }
+  #centre:fullscreen { position: relative; }
+  #vbTip { position: fixed; top: 52px; right: 14px; z-index: 60; max-width: 330px; background: var(--panel-2, #1b2017); border: 1px solid var(--accent);
+           border-radius: 10px; padding: 9px 12px; font-size: 13px; line-height: 1.45; box-shadow: 0 4px 16px rgba(0,0,0,.5); cursor: pointer; }
+</style>
+<script>
+(function () {
+  // Buttons in the header: hide/show the left (controls) and right (readouts) panels, and full screen.
+  // They click the existing ‹ › buttons on the drag handles, so each simulation's own layout code stays in charge.
+  const header = document.querySelector("header"), centre = document.getElementById("centre");
+  const sL = document.getElementById("splitL"), sR = document.getElementById("splitR");
+  const left = sL && sL.previousElementSibling, right = sR && sR.nextElementSibling;   // the panels either side of the drag handles
+  const bL = sL && sL.querySelector("button"), bR = sR && sR.querySelector("button");
+  if (!header || !centre || !left || !right || !bL || !bR) return;
+  const bar = document.createElement("div"); bar.id = "viewBar";
+  bar.innerHTML = '<button id="vbL" title="Hide or show the controls panel (key: [ )"></button>' +
+                  '<button id="vbR" title="Hide or show the readouts panel (key: ] )"></button>' +
+                  '<button id="vbF" title="Show only the simulation, full screen (key: F; Esc to leave)">⛶ Full screen</button>';
+  header.appendChild(bar);
+  const exit = document.createElement("button"); exit.className = "vbExit"; exit.textContent = "✕ Exit full screen (Esc)";
+  centre.appendChild(exit);
+  const vbL = bar.querySelector("#vbL"), vbR = bar.querySelector("#vbR"), vbF = bar.querySelector("#vbF");
+  function label() {
+    const lc = left.classList.contains("collapsed"), rc = right.classList.contains("collapsed");
+    vbL.textContent = lc ? "◧ Show controls" : "◧ Hide controls"; vbL.classList.toggle("on", !lc);
+    vbR.textContent = rc ? "Show readouts ◨" : "Hide readouts ◨"; vbR.classList.toggle("on", !rc);
+  }
+  new MutationObserver(label).observe(left, { attributes: true, attributeFilter: ["class"] });
+  new MutationObserver(label).observe(right, { attributes: true, attributeFilter: ["class"] });
+  label();
+  const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else if (centre.requestFullscreen) centre.requestFullscreen().catch(() => {}); };
+  vbL.onclick = () => bL.click(); vbR.onclick = () => bR.click(); vbF.onclick = full; exit.onclick = full;
+  document.addEventListener("fullscreenchange", () => {
+    vbF.textContent = document.fullscreenElement ? "✕ Exit full screen" : "⛶ Full screen";
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 60);    // canvases re-measure themselves
+  });
+  // The batch-run window lives outside the full-screen area, so leave full screen when it is opened
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("button");
+    if (document.fullscreenElement && b && /Batch run/.test(b.textContent)) document.exitFullscreen();
+  }, true);
+  document.addEventListener("keydown", e => {
+    const t = e.target.tagName; if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA" || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "f" || e.key === "F") { full(); e.preventDefault(); }
+    else if (e.key === "[") bL.click(); else if (e.key === "]") bR.click();
+  });
+  // A one-time tip so people notice the panels can be hidden or resized
+  let seen = false; try { seen = localStorage.getItem("sims-viewbar-tip") === "1"; } catch (e) {}
+  if (!seen) {
+    const tip = document.createElement("div"); tip.id = "vbTip";
+    tip.innerHTML = "<b>Make the simulation bigger:</b> hide the side panels with the buttons above (or the yellow ‹ › tabs), drag the ⋮ bars to resize them, or press <b>⛶ Full screen</b>. Click to close.";
+    document.body.appendChild(tip);
+    const close = () => { tip.remove(); try { localStorage.setItem("sims-viewbar-tip", "1"); } catch (e) {} };
+    tip.onclick = close; setTimeout(close, 12000);
+  }
+})();
+</script>
+<!-- VIEW BAR (end) -->
+<script id="tidyCfg">window.TIDY = {"std": "GCSE · 4BI1 4(a)–(b): Populations, feeding", "adv": "A level · H420 6.3.2: Populations and sustainability", "practical": ["Mark–release–recapture"]};</script>
+<script id="tidyJs">
+/* ==== Tidy layout ====
+   Rearranges the side panels after the simulation has built them. It never changes the model.
+   Left:  the level note becomes one line ("iGCSE · topic") with the full note in a drop-down;
+          presets become a drop-down menu; every section heading folds; seed / quality / picture
+          go into a "More settings" group at the bottom.
+   Right: tabs (Live, Graphs, Practical, Learn, Exam); four to six key readings with "More readings";
+          every section folds. Folding and the chosen tab are remembered in this browser only.
+   Each simulation can set window.TIDY = { std: "...", adv: "...", live: [], graphs: [], learn: [],
+   practical: [], settings: [], readings: 6, move: { "<id or CSS selector>": "graphs" (or "learn:last" to go after the tab's own blocks) },
+   hint: "#lvlHint", presets: "#presets" (may match several containers; a .pgroup label just before each goes too),
+   levelHead: "Level", readingsHead: ["Readings"], readingsGrid: "<CSS selector>",
+   advTest: "body.lvl-adv" (a selector that matches only at A level), left: "#left", right: "#right" }
+   before this runs (headings are matched by their start; a moved <h2> takes its folding body with it). */
+function tidyRun() {
+  "use strict";
+  const CFG = Object.assign({ std: "", adv: "", live: [], graphs: [], learn: [], practical: [], exam: [], settings: [], readings: 6, move: {}, hint: "#lvlHint", presets: "#presets", levelHead: "Level", readingsHead: ["Readings"], readingsGrid: "",
+    advTest: "body.lvl-adv", left: "#left", right: "#right" }, window.TIDY || {});
+  const L = document.querySelector(CFG.left), R = document.querySelector(CFG.right);
+  if (!L || !R || L.dataset.tidy) return;
+  L.dataset.tidy = "1";
+  const KEY = "tidy:" + location.pathname.split("/").slice(-2).join("/") + ":";
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(KEY + k); return v === null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(KEY + k, v); } catch (e) { /* private window: just don't remember */ } }
+  };
+  const txt = el => (el ? el.textContent : "").replace(/\s+/g, " ").trim();
+  const head = el => el.tagName === "H2" ? txt(el) : el.tagName === "DETAILS" ? txt(el.querySelector("summary")) : (el.querySelector && el.querySelector("h2") ? txt(el.querySelector("h2")) : "");
+  const starts = (t, list) => list.some(s => t.toLowerCase().startsWith(s.toLowerCase()));
+  const isAdv = () => !!document.querySelector(CFG.advTest);
+  /* Things to refresh when the level (or a mode) may have changed: after any click or change, and when <body>'s class changes */
+  const refreshers = [];
+  let refreshQueued = false;
+  const refresh = () => { if (refreshQueued) return; refreshQueued = true; setTimeout(() => { refreshQueued = false; refreshers.forEach(f => f()); }, 30); };
+  new MutationObserver(refresh).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  document.addEventListener("click", refresh, true);
+  document.addEventListener("change", refresh, true);
+  const nudge = () => { window.dispatchEvent(new Event("resize")); };
+
+  /* Wrap each <h2> and the siblings after it (up to the next heading or block that holds one) in a folding group. */
+  function foldHeadings(panel, skip) {
+    panel.querySelectorAll("h2").forEach(h => {
+      if (skip(h) || h.closest("details") || h.closest(".tidyMenu") || h.dataset.tidyDone) return;
+      if (h.parentNode.id === "tour" || h.closest("#tour")) return;
+      h.dataset.tidyDone = "1";
+      const body = document.createElement("div"); body.className = "tidyBody";
+      let n = h.nextSibling;
+      while (n && !(n.nodeType === 1 && (n.tagName === "H2" || n.tagName === "DETAILS" || n.classList.contains("reopen") || (n.querySelector && n.querySelector("h2"))))) {
+        const next = n.nextSibling; body.appendChild(n); n = next;
+      }
+      h.after(body);
+      h.classList.add("tidyH");
+      const k = "fold:" + panel.id + ":" + txt(h).slice(0, 40);
+      const set = shut => { h.classList.toggle("shut", shut); body.classList.toggle("shut", shut); };
+      set(store.get(k, "0") === "1");
+      h.addEventListener("click", e => {
+        if (e.target.closest("button,input,select,a,label")) return;
+        const shut = !h.classList.contains("shut"); set(shut); store.set(k, shut ? "1" : "0"); nudge();
+      });
+    });
+  }
+
+  /* ---- Left: level line ---- */
+  const hint = CFG.hint ? document.querySelector(CFG.hint) : null;
+  if (hint) {
+    const lvH = [...L.querySelectorAll("h2")].find(h => txt(h).toLowerCase() === String(CFG.levelHead).toLowerCase());
+    if (lvH) lvH.classList.add("tidyHide");
+    const det = document.createElement("details"); det.className = "tidyInfo";
+    const sum = document.createElement("summary"); det.appendChild(sum);
+    hint.before(det); det.appendChild(hint);
+    const line = () => {
+      const s = isAdv() ? CFG.adv : CFG.std;
+      sum.innerHTML = (s || (isAdv() ? "A level" : "GCSE")) + '<span class="tidyI" title="What this level covers">ⓘ</span>';
+    };
+    line();
+    refreshers.push(line);
+    det.addEventListener("toggle", nudge);
+  }
+
+  /* ---- Left: presets menu ---- */
+  const pres = CFG.presets ? [...document.querySelectorAll(CFG.presets)] : [];
+  if (pres.length) {
+    const pre = pres[0];
+    const pH = [...L.querySelectorAll("h2")].find(h => /^presets/i.test(txt(h)));
+    if (pH) pH.classList.add("tidyHide");
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "tidyPresetsBtn";
+    btn.innerHTML = '<span>Presets ▾</span><span class="cur"></span>';
+    pre.before(btn);
+    const menu = document.createElement("div"); menu.className = "tidyMenu tidyHide";
+    menu.innerHTML = '<p class="tidyMenuHint">Hover over a preset to see what it sets up.</p>';
+    pres.forEach(p => { let g = p.previousElementSibling; if (g === btn) g = btn.previousElementSibling; if (g && g.matches(".pgroup")) menu.appendChild(g); menu.appendChild(p); });
+    document.body.appendChild(menu);
+    const titles = () => menu.querySelectorAll("button").forEach(b => {
+      const sm = b.querySelector("small"); if (sm && !b.title) b.title = txt(sm);
+    });
+    const cur = () => {
+      const on = menu.querySelector("button.on");
+      let t = "";
+      if (on) { const c = on.cloneNode(true); c.querySelectorAll("small").forEach(s => s.remove()); t = txt(c); }
+      btn.querySelector(".cur").textContent = t;
+    };
+    titles(); cur();
+    new MutationObserver(() => { titles(); cur(); }).observe(menu, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+    const close = () => menu.classList.add("tidyHide");
+    const open = () => {
+      const r = btn.getBoundingClientRect();
+      const w = Math.min(460, window.innerWidth - r.left - 16);
+      menu.style.left = r.left + "px"; menu.style.top = (r.bottom + 4) + "px"; menu.style.width = w + "px";
+      menu.style.maxHeight = (window.innerHeight - r.bottom - 14) + "px";
+      menu.classList.remove("tidyHide");
+    };
+    btn.addEventListener("click", e => { e.stopPropagation(); menu.classList.contains("tidyHide") ? open() : close(); });
+    menu.addEventListener("click", e => { if (e.target.closest("button")) setTimeout(close, 0); });
+    document.addEventListener("click", e => { if (!menu.contains(e.target) && e.target !== btn) close(); });
+    document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+    window.addEventListener("resize", close);
+    L.addEventListener("scroll", close);
+  }
+
+  /* ---- Left: fold headings, then gather the "More settings" ---- */
+  const SET_RE = /^(picture|quality|display|graphics|random seed|seed|animation)\b/i;
+  foldHeadings(L, h => h.classList.contains("tidyHide"));
+  const more = document.createElement("details"); more.className = "tidyMore";
+  more.innerHTML = "<summary>More settings</summary>";
+  L.querySelectorAll("h2.tidyH").forEach(h => {
+    const t = txt(h);
+    if (SET_RE.test(t) || starts(t, CFG.settings)) { const bd = h.nextElementSibling; more.appendChild(h); if (bd) more.appendChild(bd); h.classList.remove("tidyH"); h.style.cursor = "default"; }
+  });
+  ["#quality", "#seed", "#rseed", "[id$='Seed']", "[id$='seed']"].forEach(sel => L.querySelectorAll(sel).forEach(inp => {
+    if (more.contains(inp)) return;
+    const c = inp.closest(".ctl") || inp.closest(".row"); if (c && L.contains(c)) more.appendChild(c);
+  }));
+  /* "How the model works" belongs with the other explanations on the right */
+  const toLearn = [];
+  [...L.querySelectorAll("details")].forEach(d => { if (/how the model works/i.test(head(d))) toLearn.push(d); });
+  if (more.children.length > 1) {
+    L.appendChild(more);
+    more.open = store.get("more", "0") === "1";
+    more.addEventListener("toggle", () => store.set("more", more.open ? "1" : "0"));
+  }
+
+  /* ---- Right: tabs ---- */
+  foldHeadings(R, () => false);
+  const TABS = [["live", "Live"], ["graphs", "Graphs"], ["practical", "Practical"], ["learn", "Learn"], ["exam", "Exam"]];
+  const panes = {}, bar = document.createElement("div"); bar.className = "tidyTabs";
+  const kids = [...R.children].filter(k => !k.classList.contains("reopen"));
+  let firstChart = true;
+  const classify = (t, els) => {
+    const low = t.toLowerCase(), has = sel => els.some(e => e.matches && (e.matches(sel) || e.querySelector(sel)));
+    for (const [k] of TABS) if (t && starts(t, CFG[k] || [])) return k;
+    if (has("#tour")) return "live";
+    if (has("#exam") || /exam practice|exam question/.test(low)) return "exam";
+    if (!t) return "live";   // unheaded blocks (e.g. a readout above the first heading) stay on Live
+    if (/practical|^🧪/.test(low) || els[0].matches && els[0].matches(".lab")) return "practical";
+    if (/key idea|key equation|how the model|equations|spec|glossary|data source|story|notes|definitions|further/.test(low)) return "learn";
+    if (/what's happening|what is happening|readings|guided tour|^tour/.test(low)) return "live";
+    if (has("canvas,svg")) { if (firstChart) { firstChart = false; return "live"; } return "graphs"; }
+    return "live";
+  };
+  // an h2 and its folding body travel together
+  const groups = [];
+  for (let i = 0; i < kids.length; i++) {
+    const k = kids[i];
+    if (k.tagName === "H2" && kids[i + 1] && kids[i + 1].classList.contains("tidyBody")) { groups.push([k, kids[i + 1]]); i++; }
+    else groups.push([k]);
+  }
+  const order = new Map(); [...document.querySelectorAll("*")].forEach((e, i) => order.set(e, i));
+  // elements a simulation asks to move (e.g. charts that sit under the readings) go to their own tab
+  const last = new Set();   // moved with "<tab>:last": placed after the tab's own blocks
+  Object.entries(CFG.move).forEach(([key, where]) => {
+    const [tab, pos] = String(where).split(":");
+    const list = /^[A-Za-z][\w-]*$/.test(key) ? [document.getElementById(key)] : [...R.querySelectorAll(key)];
+    list.forEach(e => {
+      if (!e || !R.contains(e)) return;
+      const body = e.tagName === "H2" && e.nextElementSibling && e.nextElementSibling.classList.contains("tidyBody") ? e.nextElementSibling : null;
+      groups.forEach(g => { const i = g.indexOf(e); if (i >= 0) g.splice(i, body ? 2 : 1); });
+      e.remove(); if (body) body.remove();
+      (panes[tab] = panes[tab] || []).push(e); if (body) panes[tab].push(body);
+      if (pos === "last") { last.add(e); if (body) last.add(body); }
+    });
+  });
+  groups.forEach(g => { if (!g.some(n => R.contains(n))) return; const tab = classify(head(g[0]), g); (panes[tab] = panes[tab] || []).push(...g); });
+  toLearn.forEach(d => (panes.learn = panes.learn || []).push(d));
+  const reopen = R.querySelector(":scope > .reopen");
+  const paneEls = {};
+  TABS.forEach(([k, name]) => {
+    if (!panes[k] || !panes[k].length) return;
+    const p = document.createElement("div"); p.className = "tidyPane"; p.dataset.tab = k;
+    panes[k].sort((a, b) => (last.has(a) - last.has(b)) || (order.get(a) || 0) - (order.get(b) || 0)).forEach(n => p.appendChild(n));
+    paneEls[k] = p;
+    const b = document.createElement("button"); b.type = "button"; b.textContent = name; b.dataset.tab = k;
+    bar.appendChild(b);
+  });
+  if (reopen) reopen.after(bar); else R.prepend(bar);
+  Object.values(paneEls).forEach(p => R.appendChild(p));
+  const show = k => {
+    const hidden = n => { const b = bar.querySelector('button[data-tab="' + n + '"]'); return !paneEls[n] || (b && b.classList.contains("tidyHide")); };
+    if (hidden(k)) k = Object.keys(paneEls).find(n => !hidden(n)) || Object.keys(paneEls)[0];
+    Object.entries(paneEls).forEach(([n, p]) => p.classList.toggle("tidyHide", n !== k));
+    bar.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.tab === k));
+    store.set("tab", k); R.scrollTop = 0; nudge();
+  };
+  bar.addEventListener("click", e => { const b = e.target.closest("button"); if (b) show(b.dataset.tab); });
+  // a tab whose contents are all for the other level (e.g. A level practicals at Standard) is hidden
+  // ... and so is a tab whose contents are all hidden just now (e.g. charts only shown in another mode)
+  const shown = el => getComputedStyle(el).display !== "none";
+  const visible = c => {
+    if (c.matches(".tidyBody")) return (!c.previousElementSibling || shown(c.previousElementSibling)) && [...c.children].some(shown);
+    if (c.matches("h2.tidyH") && c.nextElementSibling && c.nextElementSibling.matches(".tidyBody")) return shown(c) && [...c.nextElementSibling.children].some(shown);
+    return shown(c);
+  };
+  const levelTabs = () => {
+    let cur = store.get("tab", "live");
+    bar.querySelectorAll("button").forEach(b => {
+      const empty = ![...paneEls[b.dataset.tab].children].some(visible);
+      b.classList.toggle("tidyHide", empty);
+      if (empty && b.dataset.tab === cur) cur = null;
+    });
+    if (!cur) show("live");
+  };
+  refreshers.push(levelTabs);
+  if (Object.keys(paneEls).length < 2) bar.classList.add("tidyHide");
+  show(store.get("tab", "live"));
+  levelTabs();
+  window.tidyShowTab = show;   // a simulation (or test) can switch tab
+
+  /* ---- Right: only the first few readings, with "More readings" ---- */
+  const rH = [...R.querySelectorAll("h2.tidyH")].find(h => starts(txt(h), CFG.readingsHead));
+  if (rH || CFG.readingsGrid) {
+    const body = rH && rH.nextElementSibling;
+    const grid = CFG.readingsGrid ? R.querySelector(CFG.readingsGrid) : body && [...body.children].sort((a, b) => b.children.length - a.children.length)[0];
+    if (grid) {
+      const tg = document.createElement("button"); tg.type = "button"; tg.className = "tidyMoreR";
+      grid.after(tg);
+      let all = store.get("allReadings", "0") === "1";
+      const apply = () => {
+        const items = [...grid.children];
+        items.forEach(c => c.classList.remove("tidyX"));
+        if (grid.offsetParent === null) return;
+        const vis = items.filter(c => c.offsetParent !== null || getComputedStyle(c).display !== "none" && c.getClientRects().length);
+        const extra = vis.slice(CFG.readings);
+        tg.classList.toggle("tidyHide", !extra.length);
+        tg.textContent = all ? "Fewer readings ▴" : "More readings (" + extra.length + ") ▾";
+        if (!all) extra.forEach(c => c.classList.add("tidyX"));
+      };
+      tg.addEventListener("click", () => { all = !all; store.set("allReadings", all ? "1" : "0"); apply(); nudge(); });
+      apply();
+      new MutationObserver(apply).observe(grid, { childList: true });
+      refreshers.push(apply);
+    }
+  }
+  nudge();
+}
+// wait until the simulation has drawn its first frames, so headings and readings it fills in then exist
+window.addEventListener("load", () => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(tidyRun, 250))));
+</script>
+</body>
+</html>
