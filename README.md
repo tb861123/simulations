@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Thirty-five simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): twenty-eight rebuilt showpieces, which replaced the earlier versions in
+Thirty-nine simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): thirty-two rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -25,7 +25,8 @@ Lensing simulation in `astrophysics/gravitational_lensing/original/`. The earlie
 Gas in a Box, Collision Theory, Galaxy Collisions, Epidemics, Fields and
 Orbits, Traffic Flow, Optics, Heart and Circulation, Tropical Storms, Foxes and
 Rabbits, Electrolysis, Running the Economy, Radioactive Decay, Photoelectric
-Effect, Energy Systems, Bonding and Circuits are likewise kept in each folder's `original/`, with their worksheets,
+Effect, Energy Systems, Bonding, Circuits, Enzymes, the Greenhouse Effect, Crude Oil,
+Cracking and Polymers, and Training and Adaptation are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Batch run
@@ -39,7 +40,7 @@ simulation has ready-made batch experiments that pose a question, such as
 
 ## Worksheets
 
-Every simulation with a batch run, apart from the thirty-five ★ Enhanced ones,
+Every simulation with a batch run, apart from the thirty-nine ★ Enhanced ones,
 has a `worksheets.html` beside it: one
 printable A4 page per batch experiment (set-up, prediction, results table to
 fill in, questions), then teacher notes with the explanation and the numbers
@@ -88,7 +89,7 @@ changing a simulation's batch experiments.
 | [`chemistry/dynamic_equilibrium/`](chemistry/dynamic_equilibrium/) | Dynamic Equilibrium ★: A + B ⇌ AB with real particle collisions; Le Chatelier, K and Q, energy profile | Open `dynamic-equilibrium.html` |
 | [`chemistry/atomic_structure/`](chemistry/atomic_structure/) | Atomic structure: protons, neutrons, electrons, shells, ions, isotopes and relative atomic mass | Open `atomic-structure.html` |
 | [`chemistry/bonding/`](chemistry/bonding/) | Bonding and Structure ★: ionic, covalent and metallic bonds forming; heat, conduct and hammer the structure | Open `bonding.html` |
-| [`chemistry/organic_chemistry/`](chemistry/organic_chemistry/) | Crude oil, cracking and polymers: fractional distillation, combustion, alkenes and addition polymerisation | Open `organic-chemistry.html` |
+| [`chemistry/organic_chemistry/`](chemistry/organic_chemistry/) | Crude Oil, Cracking and Polymers ★: molecules in a fractionating column, cracking and the bromine test, combustion, addition polymers, free-radical substitution | Open `organic-chemistry.html` |
 | [`chemistry/periodic_groups/`](chemistry/periodic_groups/) | Groups 1 and 7: alkali metals with water, halogens and displacement, trends down a group | Open `periodic-groups.html` |
 | [`chemistry/reactivity_metals/`](chemistry/reactivity_metals/) | Reactivity series, metal displacement, and extracting metals (blast furnace, electrolysis) | Open `reactivity-metals.html` |
 | [`chemistry/electrolysis/`](chemistry/electrolysis/) | Electrolysis ★: ions drifting to the electrodes, products at each, half-equations, Faraday's law | Open `electrolysis.html` |
@@ -111,7 +112,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`biology/epidemics/`](biology/epidemics/) | Epidemics and Vaccination ★: a town followed hour by hour; R0, herd immunity, flattening the curve, isolation | Open `epidemics.html` |
 | [`biology/predator_prey/`](biology/predator_prey/) | Foxes and Rabbits ★: every animal followed; population cycles, carrying capacity, culling, refuges, extinction | Open `predator-prey.html` |
 | [`biology/membranes/`](biology/membranes/) | Membranes and movement: diffusion, osmosis, active transport, SA:V, potato osmosis, water potential, membrane permeability | Open `membranes.html` |
-| [`biology/enzymes/`](biology/enzymes/) | Enzymes: lock and key, temperature, pH, substrate concentration, inhibitors, Vmax, Q10, amylase and catalase practicals | Open `enzymes.html` |
+| [`biology/enzymes/`](biology/enzymes/) | Enzymes ★: molecules colliding and fitting; temperature, pH, denaturing, substrate and enzyme concentration, inhibitors, Vmax, Q10 | Open `enzymes.html` |
 | [`biology/photosynthesis_respiration/`](biology/photosynthesis_respiration/) | Photosynthesis and respiration: limiting factors, pondweed practical, gas exchange in leaves, respirometer, RQ, Calvin and Krebs cycles | Open `photosynthesis-respiration.html` |
 | [`biology/inheritance/`](biology/inheritance/) | Inheritance: fruit-fly breeding lab, Punnett squares, pedigrees, variation, dihybrid crosses, sex linkage, linkage, epistasis, chi-squared | Open `inheritance.html` |
 | [`biology/dna_cell_division/`](biology/dna_cell_division/) | DNA, protein synthesis and cell division: genetic code, mutations, mitosis, meiosis, root tip mitotic index, replication, lac operon | Open `dna-cell-division.html` |
@@ -145,7 +146,7 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 
 | Folder | What it is | How to run |
 |---|---|---|
-| [`climate/greenhouse_effect/`](climate/greenhouse_effect/) | The greenhouse effect and Earth's energy balance; Venus and Mars | Open `greenhouse-effect.html` |
+| [`climate/greenhouse_effect/`](climate/greenhouse_effect/) | The Greenhouse Effect ★: sunlight and infrared packets, the energy balance, feedbacks, volcanoes, Venus and Mars, 1850 to 2100 | Open `greenhouse-effect.html` |
 | [`climate/ice_albedo/`](climate/ice_albedo/) | Ice–albedo feedback, Snowball Earth and tipping points | Open `ice-albedo.html` |
 | [`climate/carbon_cycle/`](climate/carbon_cycle/) | The carbon cycle and CO₂ from 1750 to 2300 under emissions scenarios | Open `carbon-cycle.html` |
 | [`climate/sea_level_rise/`](climate/sea_level_rise/) | Sea level rise: where the water comes from, flooding and storm surges | Open `sea-level-rise.html` |
@@ -203,7 +204,7 @@ Standard level follows OCR GCSE (9–1) Physical Education (J587); Advanced foll
 | Folder | What it is | How to run |
 |---|---|---|
 | [`physical_education/energy_systems/`](physical_education/energy_systems/) | Energy Systems ★: ATP, PC, glycogen and oxygen tanks in races, intervals and games; deficit, OBLA, EPOC, recovery | Open `energy-systems.html` |
-| [`physical_education/training_adaptation/`](physical_education/training_adaptation/) | Training and adaptation: Q = SV × HR, principles and methods of training, adaptations, tapering (also listed under Biology) | Open `training-adaptation.html` |
+| [`physical_education/training_adaptation/`](physical_education/training_adaptation/) | Training and Adaptation ★: Q = SV × HR in a session, then weeks of training: principles, methods, fitness and fatigue, adaptations, tapering, injury risk (also listed under Biology) | Open `training-adaptation.html` |
 | [`physical_education/sport_biomechanics/`](physical_education/sport_biomechanics/) | Sport biomechanics: levers, planes and axes, stability, impulse, projectiles, drag and lift, angular momentum, and Eduqas Physics Option C at A level (also listed under Physics) | Open `sport-biomechanics.html` |
 | [`physical_education/fitness_testing/`](physical_education/fitness_testing/) | Fitness testing: 12 fitness tests on a simulated squad, ratings, reliability, validity, typical error | Open `fitness-testing.html` |
 | [`physical_education/skill_acquisition/`](physical_education/skill_acquisition/) | Skill acquisition: your own reaction test and Hick's law, information processing, practice, guidance and feedback, classification, schema | Open `skill-acquisition.html` |
