@@ -161,7 +161,9 @@ const ui = K.app({
 <ul><li>Several rates are illustrative, chosen so that race times, peak lactate after a 400 m and the energy shares (Gastin, 2001) are realistic. They are not measured from any one athlete.</li>
 <li>No muscle fibre types, heat, dehydration, tactics or finishing kick; the heart and lungs are not modelled separately; no feeding during a marathon.</li>
 <li>Muscle and blood lactate are treated as the same; in reality blood lactate peaks a few minutes after the effort.</li>
-<li>The figure on the track is a picture of the numbers, not part of the model.</li></ul>`
+<li>The figure on the track is a picture of the numbers, not part of the model.</li></ul>
+<h3>The earlier version</h3>
+<p>The previous version of this simulation, with its worksheets, is still here: <a href="original/energy-systems.html" style="color:var(--accent)">open the earlier version</a>.</p>`
 });
 
 // ---------------- Controls ----------------

@@ -90,7 +90,9 @@ const ui = K.app({
 <li>Real metals' work functions depend on the surface, which oxidises in air: real experiments use a vacuum and freshly cleaned metal.</li>
 <li>The share of photons that free electrons (the quantum efficiency) is set to 25% for all metals and wavelengths; real values are far smaller and vary.</li>
 <li>Contact potentials between the two electrodes, which shift measured stopping potentials in real photocells, are ignored.</li>
-<li>Hydrogen energy levels and spectra are in the Atomic Spectra simulation.</li></ul>`
+<li>Hydrogen energy levels and spectra are in the Atomic Spectra simulation.</li></ul>
+<h3>The earlier version</h3>
+<p>The previous version of this simulation, with its worksheets, is still here: <a href="original/photoelectric-effect.html" style="color:var(--accent)">open the earlier version</a>.</p>`
 });
 
 // ---------------- Controls ----------------

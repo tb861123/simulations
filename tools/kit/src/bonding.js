@@ -112,7 +112,9 @@ const ui = K.app({
 <ul><li>The structures are flat slices of three-dimensional lattices, with a few dozen particles; real crystals contain about 10²³.</li>
 <li>Particles and electrons are not to scale. Electron shells are drawn as circles, which is a model, not a picture.</li>
 <li>Molecules in the simple molecular structure are drawn as small clusters and do not rotate or react.</li>
-<li>Dissolving, polarisation of ions and dative bonds are not shown (the earlier version has dative bonds and electronegativity in detail).</li></ul>`
+<li>Dissolving, polarisation of ions and dative bonds are not shown (the earlier version has dative bonds and electronegativity in detail).</li></ul>
+<h3>The earlier version</h3>
+<p>The previous version of this simulation, with its worksheets, is still here: <a href="original/bonding.html" style="color:var(--accent)">open the earlier version</a>.</p>`
 });
 
 // ---------------- Controls ----------------

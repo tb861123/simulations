@@ -101,7 +101,9 @@ const ui = K.app({
 <ul><li>Wires have no resistance and meters do not disturb the circuit.</li>
 <li>The lamp heats up instantly; real filaments take a fraction of a second, which is why bulbs often fail when switched on.</li>
 <li>Real electrons drift from − to + at less than a millimetre per second; the dots are a picture of the current, not of electrons.</li>
-<li>No a.c. here: the earlier version has an a.c. tab (beyond the spec) and a resistivity bench.</li></ul>`
+<li>No a.c. here: the earlier version has an a.c. tab (beyond the spec) and a resistivity bench.</li></ul>
+<h3>The earlier version</h3>
+<p>The previous version of this simulation, with its worksheets, is still here: <a href="original/circuits.html" style="color:var(--accent)">open the earlier version</a>.</p>`
 });
 
 // ---------------- Controls ----------------

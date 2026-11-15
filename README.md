@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Thirty-one simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): twenty-four rebuilt showpieces, which replaced the earlier versions in
+Thirty-five simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): twenty-eight rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -24,8 +24,8 @@ of worksheets. The earlier Three-Body Chaos Lab is kept in
 Lensing simulation in `astrophysics/gravitational_lensing/original/`. The earlier
 Gas in a Box, Collision Theory, Galaxy Collisions, Epidemics, Fields and
 Orbits, Traffic Flow, Optics, Heart and Circulation, Tropical Storms, Foxes and
-Rabbits, Electrolysis, Running the Economy and Radioactive Decay are likewise
-kept in each folder's `original/`, with their worksheets,
+Rabbits, Electrolysis, Running the Economy, Radioactive Decay, Photoelectric
+Effect, Energy Systems, Bonding and Circuits are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Batch run
@@ -39,7 +39,7 @@ simulation has ready-made batch experiments that pose a question, such as
 
 ## Worksheets
 
-Every simulation with a batch run, apart from the thirty-one ★ Enhanced ones,
+Every simulation with a batch run, apart from the thirty-five ★ Enhanced ones,
 has a `worksheets.html` beside it: one
 printable A4 page per batch experiment (set-up, prediction, results table to
 fill in, questions), then teacher notes with the explanation and the numbers
@@ -62,10 +62,10 @@ changing a simulation's batch experiments.
 | [`physics/waves/`](physics/waves/) | Ripple Tank ★: a 2-D wave-equation solver. Interference, slits, refraction, lenses, mirrors and Doppler; draw your own walls and glass | Open `waves.html` |
 | [`physics/optics_refraction/`](physics/optics_refraction/) | Light: Refraction, Lenses and Fibres ★: a ray-traced optical bench with blocks, prisms, real lenses, a fibre and a raindrop | Open `optics-refraction.html` |
 | [`physics/fields_orbits/`](physics/fields_orbits/) | Fields and Orbits ★: electric and gravitational fields you can sculpt and tilt, launched ions and satellites, Kepler's laws, escape speed (also listed under Astrophysics) | Open `fields-orbits.html` |
-| [`physics/circuits/`](physics/circuits/) | Circuits: EMF and internal resistance, I–V characteristics, resistivity, AC | Open `circuits.html` |
+| [`physics/circuits/`](physics/circuits/) | Electric Circuits ★: series and parallel with flowing charge, sensors, I–V curves, internal resistance | Open `circuits.html` |
 | [`physics/capacitors/`](physics/capacitors/) | Capacitors: charge and discharge, time constant, energy | Open `capacitors.html` |
 | [`physics/magnetism_induction/`](physics/magnetism_induction/) | Magnetism and induction: motor effect, Faraday's law, transformers, DC motor | Open `magnetism-induction.html` |
-| [`physics/photoelectric_effect/`](physics/photoelectric_effect/) | Photoelectric effect: threshold frequency, work function, stopping voltage, Planck's constant | Open `photoelectric-effect.html` |
+| [`physics/photoelectric_effect/`](physics/photoelectric_effect/) | The Photoelectric Effect ★: photons, work function, stopping potential, Millikan's h, the gold-leaf electroscope | Open `photoelectric-effect.html` |
 | [`physics/atomic_spectra/`](physics/atomic_spectra/) | Atomic spectra: energy levels, emission and absorption lines, Rydberg formula | Open `atomic-spectra.html` |
 | [`physics/radioactive_decay/`](physics/radioactive_decay/) | Radioactive Decay ★: random decay and half-life of real isotopes; α, β and γ through paper, aluminium and lead | Open `radioactive-decay.html` |
 | [`physics/nuclear_fission/`](physics/nuclear_fission/) | Nuclear fission: chain reactions, k, critical mass, control rods | Open `nuclear-fission.html` |
@@ -87,7 +87,7 @@ changing a simulation's batch experiments.
 | [`chemistry/collision_theory/`](chemistry/collision_theory/) | Collision Theory and Rates ★: reacting molecules, activation energy, catalysts, surface area, runaway reactions, the Arrhenius plot | Open `collision-theory.html` |
 | [`chemistry/dynamic_equilibrium/`](chemistry/dynamic_equilibrium/) | Dynamic Equilibrium ★: A + B ⇌ AB with real particle collisions; Le Chatelier, K and Q, energy profile | Open `dynamic-equilibrium.html` |
 | [`chemistry/atomic_structure/`](chemistry/atomic_structure/) | Atomic structure: protons, neutrons, electrons, shells, ions, isotopes and relative atomic mass | Open `atomic-structure.html` |
-| [`chemistry/bonding/`](chemistry/bonding/) | Ionic, covalent and metallic bonding, with structure and properties (melting, conduction, brittleness) | Open `bonding.html` |
+| [`chemistry/bonding/`](chemistry/bonding/) | Bonding and Structure ★: ionic, covalent and metallic bonds forming; heat, conduct and hammer the structure | Open `bonding.html` |
 | [`chemistry/organic_chemistry/`](chemistry/organic_chemistry/) | Crude oil, cracking and polymers: fractional distillation, combustion, alkenes and addition polymerisation | Open `organic-chemistry.html` |
 | [`chemistry/periodic_groups/`](chemistry/periodic_groups/) | Groups 1 and 7: alkali metals with water, halogens and displacement, trends down a group | Open `periodic-groups.html` |
 | [`chemistry/reactivity_metals/`](chemistry/reactivity_metals/) | Reactivity series, metal displacement, and extracting metals (blast furnace, electrolysis) | Open `reactivity-metals.html` |
@@ -202,7 +202,7 @@ Standard level follows OCR GCSE (9–1) Physical Education (J587); Advanced foll
 
 | Folder | What it is | How to run |
 |---|---|---|
-| [`physical_education/energy_systems/`](physical_education/energy_systems/) | Energy systems and recovery: ATP-PC, glycolytic and aerobic systems, energy continuum, EPOC (also listed under Biology) | Open `energy-systems.html` |
+| [`physical_education/energy_systems/`](physical_education/energy_systems/) | Energy Systems ★: ATP, PC, glycogen and oxygen tanks in races, intervals and games; deficit, OBLA, EPOC, recovery | Open `energy-systems.html` |
 | [`physical_education/training_adaptation/`](physical_education/training_adaptation/) | Training and adaptation: Q = SV × HR, principles and methods of training, adaptations, tapering (also listed under Biology) | Open `training-adaptation.html` |
 | [`physical_education/sport_biomechanics/`](physical_education/sport_biomechanics/) | Sport biomechanics: levers, planes and axes, stability, impulse, projectiles, drag and lift, angular momentum, and Eduqas Physics Option C at A level (also listed under Physics) | Open `sport-biomechanics.html` |
 | [`physical_education/fitness_testing/`](physical_education/fitness_testing/) | Fitness testing: 12 fitness tests on a simulated squad, ratings, reliability, validity, typical error | Open `fitness-testing.html` |

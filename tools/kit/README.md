@@ -30,7 +30,8 @@ special_relativity, wind_tunnel, gravitational_lensing, lightning,
 chladni_plates, murmuration, gas_in_a_box, collision_theory,
 galaxy_collisions, epidemics, fields_orbits, traffic_flow, optics_refraction,
 heart_circulation, tropical_storms, turing_patterns, predator_prey,
-electrolysis, running_the_economy, radioactive_decay.
+electrolysis, running_the_economy, radioactive_decay, photoelectric_effect,
+energy_systems, bonding, circuits.
 
 ## Levels and the Revise tab
 
