@@ -483,7 +483,7 @@ const PRESETS = {
   mitosis: { F: 0.022, k: 0.059, name: "Dividing cells", pal: "cells", start: "one" },
   holes: { F: 0.039, k: 0.058, name: "Giraffe", pal: "giraffe" },
   worms: { F: 0.058, k: 0.065, name: "Fingerprint", pal: "ink" },
-  waves: { F: 0.014, k: 0.045, name: "Spiral waves", pal: "heat" },
+  waves: { F: 0.014, k: 0.045, name: "Spiral waves", pal: "heat", start: "spiral" },
   fish: { F: 0.026, k: 0.061, name: "Pufferfish", pal: "fish" }
 };
 // a run without drawing, for the batch experiments
@@ -500,7 +500,17 @@ function setShape(name) {
     if (Math.abs(y - cy) < half) m[y * GW + x] = 1; }
   skin.mask = m;
 }
-function restart(how) { skin.clear(); if (how === "one") skin.blob(GW / 2, GH / 2, 5); else if (how === "empty") { } else skin.noise(rnd, 0.012); log = []; }
+let startMode = "";
+function restart(how) {
+  if (how !== undefined) startMode = how || ""; how = startMode; skin.clear();
+  if (how === "one") skin.blob(GW / 2, GH / 2, 5);
+  else if (how === "spiral") {
+    /* A BROKEN wave front: a line of activator with a used-up (fuel-starved) strip behind it, ending in the middle of the skin.
+       The wave can only travel forwards, away from the used-up strip; its free ends curl round and become spirals. */
+    for (let y = Math.round(GH * 0.15); y < GH * 0.85; y++) for (let x = GW / 2 - 14; x < GW / 2 + 8; x++) { const i = y * GW + x; if (skin.mask && !skin.mask[i]) continue; if (x >= GW / 2) { skin.v[i] = 0.5; skin.u[i] = 0.3; } else { skin.u[i] = 0.15; skin.v[i] = 0.05; } }
+  }
+  else if (how === "empty") { } else skin.noise(rnd, 0.012); log = [];
+}
 
 const ui = K.app({
   title: "Turing Patterns", subject: "Biology",
@@ -515,7 +525,7 @@ const ui = K.app({
     { title: "Spots that divide", q: "A single patch of activator. Watch it for a while. What does it do? What does it remind you of?", hint: "The spot grows until its middle runs short of fuel, pinches in two, and each half does the same, until the skin is full. It looks like dividing cells, though nothing here is alive: it is the same reaction and diffusion. Patterns that copy themselves like this were discovered in real chemical experiments in 1994.", setup() { set({ preset: "mitosis" }); } },
     { title: "Running out of room", q: "The skin is now the shape of an animal's body tapering to a thin tail. Let the pattern form. What happens to the rows of spots as the body narrows? What happens where the tail is thinner than one spot's territory? Try 'Zebra stripes' on the same shape.", hint: "The spots keep their size and spacing, so fewer and fewer fit across: several rows on the body, two, then a single file along the tail, and where the tail is too thin, nothing. A pattern needs room. In some other reaction–diffusion models a narrowing tail turns spots into bands across it, which the mathematician James Murray suggested is why spotted cats such as cheetahs have banded tails; this simple model does not show that step.", setup() { set({ preset: "spots", shape: "tail" }); } },
     { title: "The whole zoo at once", q: "Now the two rates change smoothly across the picture: the kill rate rises from left to right and the feed rate from bottom to top. Wait for it to settle. How many different kinds of pattern can you find? Where does nothing survive?", hint: "Spots, stripes, mazes, holes, travelling waves and regions that stay blank all appear, each in its own zone, with sharp borders between some of them. To the right the activator is destroyed faster than it can make itself and dies out; to the lower left it burns everything. Interesting patterns live in the narrow band between.", setup() { set({ preset: "spots", grad: true, pal: "heat" }); } },
-    { title: "Waves that never settle", q: "With a low feed rate the pattern does not settle into spots at all. What does it do instead? Scribble across it and see how it responds.", hint: "The activator burns through the fuel faster than it is replaced, leaving a used-up zone behind it that only slowly recovers, so the pattern travels as waves and spirals that chase their own tails. Waves like this are seen in real chemical reactions (the Belousov–Zhabotinsky reaction) and in heart muscle, where spiral waves cause a dangerous abnormal rhythm.", setup() { set({ preset: "waves" }); } }
+    { title: "Spiral waves", q: "With a low feed rate the activator does not settle into spots: it travels as waves. Here a straight wave was started with a used-up strip behind it, so it can only move one way, and its ends are free. Watch the ends. Then scribble a line across the waves, or rub out a gap in one, and watch again.", hint: "The wave burns through the fuel and leaves a used-up zone behind it that takes time to recover, so it cannot turn back. Its free ends curl round into a pair of spirals turning in opposite directions, which keep sending out waves for ever. Any break in a wave makes a new pair. Spiral waves like this are seen in real chemical reactions (the Belousov–Zhabotinsky reaction), in colonies of slime moulds, and in heart muscle, where a spiral wave causes a dangerous abnormal heart rhythm.", setup() { set({ preset: "waves" }); } }
   ],
   batch: [
     { title: "How far apart are the spots?", question: "How does the spacing of the pattern depend on how far the chemicals spread?", how: "Each run: spots are grown on a 96 × 96 patch from a random start for 6000 steps. Spacing = √(area ÷ number of spots).", xLabel: "how far the chemicals spread (diffusion, × normal)", yLabel: "spacing of the spots (squares)", xs: [0.3, 0.4, 0.5, 0.65, 0.8, 1], reps: 4, yMin: 0, theory: x => 19.3 * Math.sqrt(x), theoryLabel: "∝ √diffusion", run: (x, r) => grow({ set: { scale: x } }, r, 6000).measure().spacing, note: "The random start decides exactly where the spots sit, so the count on a small patch varies by a few. Theory: a molecule diffuses a distance proportional to √(diffusion × time) before it reacts." },
@@ -556,7 +566,7 @@ ctl.ratio = K.slider(g, { label: "Fuel spreads faster by", min: 1, max: 4, step:
 ctl.scale = K.slider(g, { label: "How far the chemicals spread", min: 0.25, max: 1, step: 0.05, value: 1, fmt: v => "× " + v.toFixed(2), on: v => { skin.scale = v; } });
 g = ui.group("The skin");
 ctl.shape = K.seg(g, { label: "Shape", value: "sheet", options: [["sheet", "sheet"], ["tail", "body and tail"], ["fish", "fish"]], on: v => { setShape(v); restart(); } });
-r1 = K.row(g); K.btn(r1, "↺ Start again", () => restart(PRESETS.mitosis.F === skin.F && PRESETS.mitosis.k === skin.k ? "one" : ""), "primary"); K.btn(r1, "One spot", () => restart("one")); K.btn(r1, "Blank", () => restart("empty"));
+r1 = K.row(g); K.btn(r1, "↺ Start again", () => restart(), "primary"); K.btn(r1, "One spot", () => restart("one")); K.btn(r1, "Broken wave", () => restart("spiral")); K.btn(r1, "Blank", () => restart("empty"));
 ctl.brush = K.seg(g, { label: "Drag on the skin to", value: "add", options: [["add", "add activator"], ["wipe", "rub out"]], on: v => brush = v });
 g = ui.group("Watch");
 ctl.pal = K.seg(g, { label: "Colours", value: "leopard", options: [["leopard", "leopard"], ["zebra", "zebra"], ["giraffe", "giraffe"], ["coral", "coral"]], on: v => { pal = v; ctl.pal2.set(""); } });
@@ -565,7 +575,7 @@ ctl.speed = K.slider(g, { label: "Speed", min: 1, max: 30, step: 1, value: speed
 const read = K.readout(g, [["n", "separate patches"], ["cover", "skin covered"], ["sp", "typical spacing"], ["big", "in the biggest patch"], ["t", "time"]]);
 function set(o) {
   const q = PRESETS[o.preset]; skin.F = q.F; skin.k = q.k; ctl.F.set(q.F); ctl.k.set(q.k); pal = o.pal || q.pal; ctl.pal.set(""); ctl.pal2.set(""); (["leopard", "zebra", "giraffe", "coral"].includes(pal) ? ctl.pal : ctl.pal2).set(pal);
-  skin.ratio = 2; ctl.ratio.set(2); skin.scale = o.scale || 1; ctl.scale.set(skin.scale); skin.grad = !!o.grad; ctl.grad.set(skin.grad); setShape(o.shape || "sheet"); ctl.shape.set(shape); brush = "add"; ctl.brush.set("add"); restart(q.start);
+  skin.ratio = 2; ctl.ratio.set(2); skin.scale = o.scale || 1; ctl.scale.set(skin.scale); skin.grad = !!o.grad; ctl.grad.set(skin.grad); setShape(o.shape || "sheet"); ctl.shape.set(shape); brush = "add"; ctl.brush.set("add"); restart(q.start || "");
 }
 
 // ---------------- Drawing ----------------
