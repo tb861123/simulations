@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ice–Albedo Tipping Points</title>
+<!--
+  ICE–ALBEDO FEEDBACK AND TIPPING POINTS — a teaching model
+  ==========================================================
+  One self-contained file: no libraries, no internet needed.
+
+  A "Budyko–Sellers" energy balance model. The globe is cut into 90 bands
+  of latitude, each 2° wide, from the South Pole to the North Pole. For each
+  band the temperature T (°C) changes as
+
+    C dT/dt = Q s(φ) (1 − α(T))  −  (A + B T)  +  heat transport  +  weather noise
+              sunlight absorbed      infrared out   from warmer bands
+
+    Q    = S/4: sunlight per m² of globe (340 W/m² today; S is the solar constant)
+    s(φ) = how sunlight is shared between latitudes: 1 − 0.482 P₂(sin φ)
+           (the tropics get about 1.2 × the average, the poles about 0.5 ×)
+    α(T) = albedo: 0.30 for open ocean and land, but ice (0.62) where T < −10 °C
+    A + BT = infrared escaping to space, a straight-line fit to satellite data
+           (A = 207.5 W/m² at 420 ppm CO₂, B = 2.09 W/m² per °C). More CO₂
+           lowers A by 5.35 ln(C/420) W/m² (the greenhouse effect).
+    Heat transport: winds and ocean currents spread heat from warm to cold,
+           modelled as diffusion with strength D (W/m² per °C).
+    C    = heat capacity of the surface layer (ocean mixed layer or land).
+
+  The ice–albedo feedback: colder → more ice → more sunlight reflected →
+  colder still. It gives the model two (or more) stable states for the same
+  sunshine, and sudden "tipping points" between them.
+
+  Units: temperatures in °C, energy flows in W/m², time in years.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 250px) 10px minmax(0, 1fr) 10px var(--rw, 280px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: #3b3a5c; }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  input[type=number] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 5px; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .live { font-size: 10.5px; color: #8fd694; border: 1px solid #3c5a33; border-radius: 4px; padding: 0 4px; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #viewWrap { position: relative; flex: 1; min-height: 0; background: #050604; border-radius: 8px; overflow: hidden; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #status { font-weight: 700; font-size: 13px; border-radius: 999px; padding: 1px 10px; }
+  #status.free { background: #e4572e; color: #fff; }
+  #status.caps { background: #8fd694; color: #10200c; }
+  #status.snow { background: #dbe9f6; color: #14133b; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  .chartBox { position: relative; height: 165px; }
+  .chartBox canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+
+  /* Batch run overlay (covers the centre and right panels) */
+  #batch { display: none; position: fixed; z-index: 30; background: var(--panel); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px;
+           flex-direction: column; gap: 7px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+  #batch.open { display: flex; }
+  #batch .bhead { display: flex; align-items: center; gap: 10px; }
+  #batch .bhead h3 { margin: 0; font-size: 17px; color: var(--accent); white-space: nowrap; }
+  #batch .brow { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; }
+  #batch .brow label { display: inline-flex; gap: 5px; align-items: center; }
+  #batch input[type=number] { width: 82px; }
+  #bexp { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 5px; }
+  #bexp button { text-align: left; font-size: 12px; padding: 5px 7px; line-height: 1.25; }
+  #bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 32%); gap: 10px; }
+  #bchartBox { position: relative; min-height: 0; background: #050604; border-radius: 8px; }
+  #bchart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bside { overflow-y: auto; font-size: 12.5px; min-height: 0; }
+  #bsum table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #bsum td, #bsum th { padding: 1px 4px; border-bottom: 1px solid var(--line); text-align: right; font-size: 12px; }
+  #bsum td:first-child, #bsum th:first-child { text-align: left; }
+  #bsum p { margin: 6px 0; }
+  #bNote { margin-top: 8px; padding: 7px 9px; background: var(--panel-2); border-left: 3px solid var(--accent); border-radius: 5px; color: #dfe3d6; }
+  .prog { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; flex: 1; min-width: 120px; }
+  .prog span { display: block; height: 100%; width: 0; background: var(--accent); }
+  /* Batch run: two columns, set-up on the left (experiments and the settings table), results on the right */
+  #batch { gap: 8px 12px; }
+  #batch.open { display: grid; grid-template-columns: minmax(330px, 40%) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  #batch .bhead { grid-column: 1 / -1; }
+  #batch .bhead .hint { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  #bsetup { overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding-right: 4px; min-height: 0; }
+  #bresults { display: flex; flex-direction: column; gap: 7px; min-height: 0; }
+  #bsetup #bexp { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  #bbody { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(180px, 1fr) minmax(0, 42%); gap: 8px; }
+  /* Batch settings table: every starting setting, with a tick box to choose the one that is varied */
+  #bSetBox { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--panel-2); margin-top: 0; color: var(--text); }
+  #bSetBox > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
+  #bSetBox .bhint { font-size: 11.5px; color: var(--muted); margin: 3px 0 5px; }
+  #bOpts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; margin-bottom: 5px; }
+  #bOpts label { display: inline-flex; gap: 5px; align-items: center; }
+  #bTbl { display: grid; grid-template-columns: 1fr; gap: 3px 14px; }
+  .bt { display: flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 2px 4px; border-radius: 6px; flex-wrap: wrap; }
+  .bt.on { background: rgba(241,175,40,.13); outline: 1px solid var(--accent); }
+  .bt label { flex: 1; min-width: 150px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .bt input[type=number] { width: 78px !important; }
+  .bt .bsw { display: none; gap: 5px; align-items: center; flex-wrap: wrap; }
+  .bt.on .bsw { display: inline-flex; }
+  .bt.on .bval { display: none; }
+  .bt .bcount { color: var(--muted); font-size: 11.5px; }
+  #bTbl .bt input[type=number] { width: 90px !important; }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+</style>
+<style id="tidyCss">
+  /* ---- Tidy layout: one-line level, presets menu, folding sections, tabs on the right ---- */
+  .tidyHide { display: none !important; }
+  details.tidyInfo { margin: 6px 0 0; font-size: 12.5px; }
+  details.tidyInfo > summary { list-style: none; color: var(--text); font-weight: 600; line-height: 1.3; padding: 4px 6px; border-radius: 6px; background: var(--panel-2); }
+  details.tidyInfo > summary::-webkit-details-marker { display: none; }
+  details.tidyInfo > summary .tidyI { float: right; color: var(--accent); font-weight: 700; margin-left: 6px; }
+  details.tidyInfo[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  details.tidyInfo > .hint { padding: 6px; margin: 0; background: var(--panel-2); border-radius: 0 0 6px 6px; }
+  .tidyPresetsBtn { width: 100%; margin-top: 8px; text-align: left; display: flex; justify-content: space-between; gap: 6px; font-weight: 600; align-items: center; }
+  .tidyPresetsBtn > span:first-child { white-space: nowrap; flex-shrink: 0; }
+  .tidyPresetsBtn span.cur { color: var(--muted); font-weight: 400; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .tidyMenu { position: fixed; z-index: 50; background: var(--panel); border: 1px solid var(--accent); border-radius: 8px; padding: 8px;
+              box-shadow: 0 8px 28px rgba(0,0,0,.55); overflow-y: auto; }
+  .tidyMenu .presets button small { display: none; }
+  .tidyMenu .tidyMenuHint { font-size: 11.5px; color: var(--muted); margin: 0 0 6px; }
+  h2.tidyH { cursor: pointer; user-select: none; }
+  h2.tidyH::before { content: "▾"; display: inline-block; width: 12px; color: var(--muted); }
+  h2.tidyH.shut::before { content: "▸"; }
+  h2.tidyH:hover { color: var(--text); }
+  .tidyBody.shut { display: none !important; }
+  details.tidyMore { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 8px; }
+  details.tidyMore > summary { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .tidyTabs { position: sticky; top: -12px; z-index: 5; display: flex; gap: 3px; margin: -12px -12px 10px; padding: 8px 8px 0;
+              background: var(--panel); border-bottom: 1px solid var(--line); }
+  .tidyTabs button { flex: 1 1 auto; min-width: 0; padding: 5px 5px; font-size: 12px; border-radius: 6px 6px 0 0; border-bottom: none; margin-bottom: -1px;
+                     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tidyTabs button.on { background: var(--panel-2); color: var(--accent); border-color: var(--line); border-bottom: 1px solid var(--panel-2); }
+  .tidyPane > details:first-child, .tidyPane > h2:first-child { margin-top: 0; }
+  .tidyMoreR { display: block; margin: 6px 0 0; font-size: 12px; padding: 3px 8px; }
+  .tidyX { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Ice–Albedo Tipping Points</h1>
+  <span class="sub">Ice reflects sunlight, so ice makes more ice: why a planet can have two stable climates, and how it can suddenly tip between them.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: PRESETS AND CONTROLS ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 class="gap">The planet <span class="live">changes take effect at once</span></h2>
+    <div class="ctl">
+      <label>Sunlight <output id="o_S"></output></label>
+      <input type="range" id="S" min="70" max="140" step="0.01" value="100">
+      <div class="hint">100% = today's Sun (1361 W/m²). The young Sun, 4 billion years ago, was about 75%.</div>
+    </div>
+    <div class="ctl">
+      <label>CO₂ <output id="o_co2"></output></label>
+      <input type="range" id="co2L" min="2" max="6" step="0.001" value="2.623">
+      <div class="hint">More CO₂ lets less infrared escape (A falls by 5.35 ln(C/420) W/m²). Logarithmic slider.</div>
+    </div>
+    <div class="ctl">
+      <label>Heat transport (winds, currents) <output id="o_D"></output></label>
+      <input type="range" id="D" min="0.1" max="1.5" step="0.01" value="0.45">
+    </div>
+    <div class="ctl">
+      <label>Ice albedo <output id="o_a2"></output></label>
+      <input type="range" id="a2" min="0.35" max="0.85" step="0.01" value="0.62">
+      <div class="hint">Open water and land reflect 0.30 of sunlight; sea ice and snow much more.</div>
+    </div>
+    <div class="ctl">
+      <label>Surface</label>
+      <select id="surf">
+        <option value="ocean">Ocean world (slow)</option>
+        <option value="earth">Earth-like (land in north)</option>
+        <option value="land">Land world (fast)</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <label>Weather noise <output id="o_noise"></output></label>
+      <input type="range" id="noise" min="0" max="15" step="0.5" value="1">
+      <div class="hint">Random year-to-year changes in the global energy balance (cloudy years, volcanoes, El Niño…).</div>
+    </div>
+    <div class="ctl">
+      <label>Slow change (sped up)</label>
+      <select id="drift">
+        <option value="off">None</option>
+        <option value="sunDown">Sun slowly dims (−1% per 25 years)</option>
+        <option value="sunUp">Sun slowly brightens (+1% per 25 years)</option>
+        <option value="loop">Sun dims to 88%, then brightens to 112%</option>
+        <option value="co2Up">CO₂ builds up (doubles every 50 years)</option>
+        <option value="co2Down">CO₂ falls (halves every 50 years)</option>
+      </select>
+      <div class="hint">In reality such changes take millions of years; here they are sped up but still slow compared with how fast the climate settles.</div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button id="btnWarm" style="flex:1" title="Restart from a warm climate like today's">☀ Warm start</button>
+      <button id="btnSnow" style="flex:1" title="Restart from a frozen planet">❄ Snowball start</button>
+    </div>
+    <div class="ctl" style="margin-top:10px">
+      <label>Display quality</label>
+      <select id="quality">
+        <option value="low">Low (fastest)</option>
+        <option value="medium">Medium</option>
+        <option value="high">High (default)</option>
+        <option value="ultra">Ultra (sharpest)</option>
+      </select>
+      <div class="hint">How finely the globe is drawn. It does not change the climate model, which always uses 90 bands of 2° latitude (batch runs too).</div>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE: GLOBE, LANDSCAPE, S-CURVE ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">Year 0</span>
+      <span id="status" class="caps">Ice caps</span>
+      <span class="stat">Global mean <b id="s_T">–</b></span>
+      <span class="stat">Ice edge <b id="s_ice">–</b></span>
+      <span class="stat">Sun <b id="s_S">–</b></span>
+      <span class="stat">CO₂ <b id="s_co2">–</b></span>
+    </div>
+    <div id="viewWrap"><canvas id="view" aria-label="Globe with ice caps, a ball-in-a-valley diagram and the equilibrium curve"></canvas></div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">▶ Start</button>
+      <button id="btnReset" title="Back to the start of this preset">Reset</button>
+      <span class="speed">Speed <button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="4">4×</button><button data-s="20">20×</button><button data-s="100">100×</button></span>
+      <span class="hint">1× = 5 years/s</span>
+      <button id="btnBatch" style="margin-left:auto">📊 Batch run</button>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT: READOUTS ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readouts</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">Readouts</h2>
+    <div class="tiles" id="tiles"></div>
+    <h2 class="gap">Temperature by latitude</h2>
+    <div class="chartBox"><canvas id="chartLat"></canvas></div>
+    <div class="legend" style="margin-top:4px"><span><i style="background:#ff7b54"></i>Temperature</span><span><i style="background:#a4cbe6;height:2px;vertical-align:3px"></i>−10 °C: ice forms</span><span><i style="background:rgba(220,235,250,.35)"></i>Iced over</span></div>
+    <h2 class="gap">Global mean temperature over time</h2>
+    <div class="chartBox"><canvas id="chartT"></canvas></div>
+
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>Bands of latitude:</b> 90 bands, each 2° wide, from pole to pole. Each band has one temperature, averaged around the globe and over the year. Bands near the poles are weighted less because they cover less of the Earth's area.</li>
+        <li><b>Sunlight</b> per m² of globe Q = 1361 × (Sun %)/4 W/m², shared between latitudes by s(φ) = 1 − 0.482 × ½(3 sin²φ − 1), which fits the yearly average (with the Earth's tilt).</li>
+        <li><b>Albedo:</b> 0.30 for open ocean and land; the chosen ice albedo (0.62) where the temperature is below −10 °C (a year-round average of −10 °C is about where sea ice lasts all year). The switch is smoothed over about ±1 °C.</li>
+        <li><b>Infrared out</b> = A + B T, with A = 207.5 W/m² and B = 2.09 W/m² per °C: a straight-line fit to satellite measurements, which already includes the greenhouse effect and water vapour feedback. CO₂ changes A by −5.35 ln(C/420 ppm) W/m².</li>
+        <li><b>Heat transport</b> by winds and ocean currents is treated as diffusion: heat flows from each band to its cooler neighbours in proportion to the temperature difference, with strength D (0.45 W/m² per °C).</li>
+        <li><b>Heat capacity:</b> ocean bands hold a 50 m deep mixed layer of water (6.6 W·year per m² per °C); land 2 m equivalent. "Earth-like" puts 40% land in the north and 20% in the south.</li>
+        <li><b>Time stepping:</b> implicit steps of 0.25 years (0.5 years in batch runs) so the model stays stable.</li>
+        <li><b>Weather noise:</b> each year a random extra energy flow (normal distribution, SD set by the slider, the same everywhere) is added. It stands for cloudy years, volcanic eruptions and ocean cycles.</li>
+        <li><b>The equilibrium (theory) curve</b> is found without any time-stepping: fix the ice edge at latitude η, solve the steady-state equations (they are linear once the albedo is fixed), and work out what sunshine (or CO₂) would put −10 °C exactly at that edge. Where the ice edge moves towards the pole as the Sun brightens the state is stable (solid); where it moves the other way it is unstable (dashed).</li>
+        <li><b>The ball-in-a-valley picture:</b> with the Sun and CO₂ fixed, the ice edge creeps towards the pole when the temperature there is above −10 °C and towards the equator when below. The height of the landscape is minus the running total of that "push", so valleys are stable climates and hilltops are tipping points.</li>
+        <li><b>Calibration:</b> today's settings give an ice edge near 64° and a global mean of about 11.5 °C, a few degrees cooler than the real Earth (14–15 °C), and the model tips into a snowball if the Sun dims by about 7%.</li>
+        <li><b>Left out:</b> seasons and day/night, separate land and sea ice, ice sheets that take thousands of years to grow, clouds changing, the carbon cycle (in reality CO₂ builds up in a snowball because rocks stop weathering — here you have to raise it yourself), and the shape of the continents. Because the infrared fit is a straight line it is only reliable within a few tens of degrees of today's climate; in a hot ice-free world or a deep snowball the numbers are rough.</li>
+      </ul>
+    </details>
+  </section>
+</main>
+
+<!-- ======================= BATCH RUN OVERLAY ======================= -->
+<div id="batch" role="dialog" aria-label="Batch run">
+  <div class="bhead">
+    <h3>📊 Batch run</h3>
+    <span class="hint">Runs the model with no drawing (0.5-year steps unless the table says otherwise). Each run starts from the chosen state (first settled for 150 years at the run's settings, without noise), then runs for the chosen number of years with random weather noise. Every setting used is in the table: experiments fill it in, and you can change any of it.</span>
+    <button id="bClose" style="margin-left:auto">✕ Close</button>
+  </div>
+  <div id="bsetup">
+    <div id="bexp"></div>
+    <div class="brow">
+      <label>Mode <select id="bMode"><option value="repeat">Repeat (same settings, different random weather)</option><option value="sweep">Sweep (vary the ticked setting in steps)</option></select></label>
+      <label>Record <select id="bOut"></select></label>
+      <span id="bRepeatOpts"><label>Runs <select id="bRuns"><option>20</option><option selected>100</option><option>200</option><option>500</option><option>1000</option></select></label></span>
+    </div>
+    <details id="bSetBox" open>
+      <summary>Starting settings: tick the one to vary</summary>
+      <div class="bhint">Every setting a run uses is listed. Tick one to sweep it from → to in steps (+ adds the step each time, × multiplies by it); every other setting stays at the value shown. What you see is what runs.</div>
+      <div id="bOpts"></div>
+      <div id="bTbl"></div>
+      <div class="brow" style="margin-top:5px"><span id="bSweepOpts"><label>Repeats at each step <input type="number" id="bReps" min="1" max="100" value="3" style="width:60px"></label>
+        <label title="Each step starts from where the previous step ended, going there and back again, so the planet 'remembers' its state"><input type="checkbox" id="bBack"> there and back (keep the climate between steps)</label></span>
+        <button id="bLeft" title="Fill the table from the settings on the left panel">↺ Use my left-panel settings</button></div>
+    </details>
+  </div>
+  <div id="bresults">
+    <div class="brow">
+      <button id="bRun" class="primary">▶ Run batch</button>
+      <button id="bStop" disabled>■ Stop</button>
+      <div class="prog"><span id="bProg"></span></div>
+      <span id="bStatus" class="hint">Ready</span>
+      <button id="bCsv" disabled>⬇ Download CSV</button>
+    </div>
+    <div id="bbody">
+      <div id="bchartBox"><canvas id="bchart"></canvas></div>
+      <div id="bside"><div id="bsum" class="hint">Pick an experiment, or set up your own, then press <b>Run batch</b>.</div><div id="bNote" style="display:none"></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const el = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/* =====================================================================
+   1. THE LATITUDE GRID
+   ===================================================================== */
+const NB = 90, DLAT = 180 / NB, RAD = Math.PI / 180, DPHI = DLAT * RAD;
+const LAT = new Float64Array(NB), W = new Float64Array(NB), SINS = new Float64Array(NB), GL = new Float64Array(NB), GR = new Float64Array(NB);
+(function grid() {
+  let tot = 0;
+  for (let i = 0; i < NB; i++) {
+    const l = -90 + DLAT * (i + 0.5), x = Math.sin(l * RAD);
+    LAT[i] = l;
+    W[i] = Math.sin((l + DLAT / 2) * RAD) - Math.sin((l - DLAT / 2) * RAD);   // area of the band (∝ difference in sin latitude)
+    tot += W[i];
+    SINS[i] = 1 - 0.482 * (3 * x * x - 1) / 2;                                   // share of sunlight, s(φ)
+    // diffusion on a sphere: flow across each band edge ∝ cos(latitude of the edge)
+    const cosc = Math.cos(l * RAD);
+    GL[i] = i > 0 ? Math.cos((l - DLAT / 2) * RAD) / (cosc * DPHI * DPHI) : 0;
+    GR[i] = i < NB - 1 ? Math.cos((l + DLAT / 2) * RAD) / (cosc * DPHI * DPHI) : 0;
+  }
+  for (let i = 0; i < NB; i++) W[i] /= tot;
+})();
+
+/* =====================================================================
+   2. CONSTANTS AND SETTINGS
+   ===================================================================== */
+const Q_TODAY = 1361 / 4;           // W/m²: sunlight per m² of globe today
+const A0 = 207.5, B = 2.09;          // infrared out = A + B·T (W/m², T in °C), A at 420 ppm CO₂
+const CO2_REF = 420;
+const A1 = 0.30;                     // albedo of open ocean / land
+const TC = -10;                      // °C: below this a band is iced over
+const ALB_W = 1.0;                   // °C: half-width of the smooth switch from water to ice
+const C_OCEAN = 4.18e6 * 50 / 3.156e7, C_LAND = 4.18e6 * 2 / 3.156e7;   // W·year per m² per °C
+
+function params() {
+  return { S: +el("S").value, co2: Math.pow(10, +el("co2L").value), D: +el("D").value, a2: +el("a2").value,
+           surf: el("surf").value, noise: +el("noise").value, drift: el("drift").value };
+}
+const Aof = p => A0 - 5.35 * Math.log(p.co2 / CO2_REF);
+const Qof = p => Q_TODAY * p.S / 100;
+const albedo = (T, a2) => A1 + (a2 - A1) * 0.5 * (1 - Math.tanh((T - TC) / ALB_W));
+function heatCaps(surf) {
+  const C = new Float64Array(NB);
+  for (let i = 0; i < NB; i++) {
+    const land = surf === "ocean" ? 0 : surf === "land" ? 1 : LAT[i] > 0 ? 0.4 : 0.2;
+    C[i] = (1 - land) * C_OCEAN + land * C_LAND;
+  }
+  return C;
+}
+
+/* =====================================================================
+   3. ONE TIME STEP (implicit, so it is stable even with big steps)
+   ---------------------------------------------------------------------
+   For each band:  C (Tnew − T)/dt = Q s (1 − α(T)) − A − B Tnew + D·(neighbours − Tnew) + noise
+   The unknown Tnew appears in three neighbouring bands at once, which makes a
+   "tridiagonal" set of equations, solved quickly by the Thomas algorithm.
+   ===================================================================== */
+const _a = new Float64Array(NB), _b = new Float64Array(NB), _c = new Float64Array(NB), _d = new Float64Array(NB), _cp = new Float64Array(NB), _dp = new Float64Array(NB);
+function solveTri(out) {
+  _cp[0] = _c[0] / _b[0]; _dp[0] = _d[0] / _b[0];
+  for (let i = 1; i < NB; i++) { const m = _b[i] - _a[i] * _cp[i - 1]; _cp[i] = _c[i] / m; _dp[i] = (_d[i] - _a[i] * _dp[i - 1]) / m; }
+  out[NB - 1] = _dp[NB - 1];
+  for (let i = NB - 2; i >= 0; i--) out[i] = _dp[i] - _cp[i] * out[i + 1];
+}
+function stepT(T, p, C, dt, noise) {
+  const Q = Qof(p), A = Aof(p), D = p.D;
+  for (let i = 0; i < NB; i++) {
+    const inv = C[i] / dt;
+    _a[i] = -D * GL[i]; _c[i] = -D * GR[i];
+    _b[i] = inv + B + D * (GL[i] + GR[i]);
+    _d[i] = inv * T[i] + Q * SINS[i] * (1 - albedo(T[i], p.a2)) - A + noise;
+  }
+  solveTri(T);
+}
+// Steady state for a given source (no time derivative) — used for the theory curve
+function steady(src, D, out) {
+  for (let i = 0; i < NB; i++) { _a[i] = -D * GL[i]; _c[i] = -D * GR[i]; _b[i] = B + D * (GL[i] + GR[i]); _d[i] = src[i]; }
+  solveTri(out);
+}
+
+/* =====================================================================
+   4. MEASURING THE CLIMATE
+   ===================================================================== */
+function globalMean(T) { let m = 0; for (let i = 0; i < NB; i++) m += W[i] * T[i]; return m; }
+// Ice edge in one hemisphere: the latitude where T first drops below −10 °C going polewards
+function iceEdge(T, north) {
+  const i0 = NB / 2;
+  for (let k = 0; k < NB / 2; k++) {
+    const i = north ? i0 + k : i0 - 1 - k;
+    if (T[i] < TC) {
+      if (k === 0) return 0;
+      const j = north ? i - 1 : i + 1, f = (T[j] - TC) / (T[j] - T[i]);
+      return Math.abs(LAT[j]) + DLAT * f;
+    }
+  }
+  return 90;
+}
+const iceLine = T => (iceEdge(T, true) + iceEdge(T, false)) / 2;
+function planetAlbedo(T, a2) { let s = 0, n = 0; for (let i = 0; i < NB; i++) { s += W[i] * SINS[i] * albedo(T[i], a2); n += W[i] * SINS[i]; } return s / n; }
+const stateOf = ice => (ice < 1 ? 0 : ice >= 89.9 ? 2 : 1);           // 0 snowball, 1 ice caps, 2 ice-free
+const STATE_NAME = ["Snowball", "Ice caps", "Ice-free"];
+
+/* =====================================================================
+   5. THE EQUILIBRIUM ("THEORY") CURVE
+   ---------------------------------------------------------------------
+   Fix the ice edge at latitude η in both hemispheres. Then the albedo is
+   known everywhere and the steady-state equations are linear:
+       T = Q·u(φ) − A/B      where u solves  B u − D∇²u = s (1 − α)
+   The ice edge is in balance when T(η) = −10 °C, which gives the sunshine
+       Q(η) = (−10 + A/B) / u(η)    or the CO₂ (through A)  A(η) = B (Q u(η) + 10).
+   ===================================================================== */
+let curveCache = { key: "", rows: null };
+function edgeCurve(p) {
+  const key = p.D + "|" + p.a2;
+  if (curveCache.key === key) return curveCache.rows;
+  const rows = [], src = new Float64Array(NB), u = new Float64Array(NB);
+  for (let e = 0; e <= 90.001; e += 0.5) {
+    for (let i = 0; i < NB; i++) {
+      const lo = Math.abs(LAT[i]) - DLAT / 2, hi = lo + DLAT;
+      const iceFrac = e <= lo ? 1 : e >= hi ? 0 : (hi - e) / DLAT;     // fraction of the band poleward of the edge
+      src[i] = SINS[i] * (1 - (A1 + (p.a2 - A1) * iceFrac));
+    }
+    steady(src, p.D, u);
+    // u at the ice edge (northern hemisphere, interpolated between band centres)
+    let ue;
+    if (e <= LAT[NB / 2]) ue = u[NB / 2];
+    else if (e >= LAT[NB - 1]) ue = u[NB - 1];
+    else { const i = NB / 2 + Math.floor((e - LAT[NB / 2]) / DLAT), f = (e - LAT[i]) / DLAT; ue = u[i] * (1 - f) + u[i + 1] * f; }
+    rows.push({ eta: e, ue, ubar: globalMean(u) });
+  }
+  curveCache = { key, rows };
+  return rows;
+}
+// Sun (%) needed for an ice edge at each η, with the planet's mean temperature there
+function sunCurve(p) {
+  const A = Aof(p);
+  return edgeCurve(p).map(r => { const Q = (TC + A / B) / r.ue; return { eta: r.eta, S: 100 * Q / Q_TODAY, Tm: Q * r.ubar - A / B }; });
+}
+// CO₂ (ppm) needed for an ice edge at each η
+function co2Curve(p) {
+  const Q = Qof(p);
+  return edgeCurve(p).map(r => { const A = B * (Q * r.ue - TC); return { eta: r.eta, co2: CO2_REF * Math.exp((A0 - A) / 5.35), Tm: Q * r.ubar - A / B }; });
+}
+// Key thresholds: snowball can only exist below sunSnow; ice-free only above sunFree;
+// the partial-ice branch tips into a snowball at the curve's minimum (sunTip).
+function thresholds(p) {
+  const c = sunCurve(p), first = c[0], last = c[c.length - 1];
+  let tip = Infinity, tipEta = 0; for (const r of c) if (r.eta > 0 && r.S < tip) { tip = r.S; tipEta = r.eta; }
+  let top = -Infinity, topEta = 90; for (const r of c) if (r.eta > tipEta && r.eta < 90 && r.S > top) { top = r.S; topEta = r.eta; }
+  return { sunSnow: first.S, sunFree: last.S, sunTip: tip, tipEta, sunTop: top, topEta };
+}
+// Push on the ice edge for the CURRENT sun and CO₂: h(η) = T(η) − (−10 °C).
+// Positive: ice retreats towards the pole. The "landscape" height is V(η) = −∫h dη.
+function landscape(p) {
+  const Q = Qof(p), A = Aof(p), rows = edgeCurve(p);
+  let V = 0; const out = [];
+  for (let k = 0; k < rows.length; k++) {
+    const h = Q * rows[k].ue - A / B - TC;
+    if (k) V -= 0.5 * (h + (Q * rows[k - 1].ue - A / B - TC)) * (rows[k].eta - rows[k - 1].eta);
+    out.push({ eta: rows[k].eta, h, V });
+  }
+  return out;
+}
+
+/* =====================================================================
+   6. REPEATABLE RANDOM NUMBERS
+   ===================================================================== */
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const gauss = rng => Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng());
+
+/* =====================================================================
+   7. STARTING STATES
+   ===================================================================== */
+const warmProfile = () => Float64Array.from(LAT, l => 28 - 45 * Math.sin(l * RAD) ** 2);
+const snowProfile = () => Float64Array.from(LAT, l => -35 - 20 * Math.sin(l * RAD) ** 2);
+// Spin up (no noise) for 150 years, so the planet starts settled. Cached, because batch runs reuse it.
+const spinCache = new Map();
+function spunUp(p, start) {
+  const spin = p.spin ?? 150, dt = p.dt ?? 0.5;            // 150 years in 0.5-year steps (batch table settings)
+  const key = [p.S, p.co2, p.D, p.a2, p.surf, start, spin, dt].join("|");
+  if (spinCache.has(key)) return Float64Array.from(spinCache.get(key));
+  const T = start === "snow" ? snowProfile() : warmProfile(), C = heatCaps(p.surf);
+  for (let t = 0; t < spin; t += dt) stepT(T, p, C, dt, 0);
+  if (spinCache.size > 400) spinCache.clear();
+  spinCache.set(key, Float64Array.from(T));
+  return T;
+}
+
+/* =====================================================================
+   8. THE LIVE SIMULATION
+   ===================================================================== */
+const sim = { t: 0, T: warmProfile(), running: false, noiseF: 0, noiseYear: -1, hist: [], path: [], loopDir: -1 };
+let Ccur = heatCaps("ocean");
+function setControlValue(id, v) { el(id).value = v; }
+function applyDrift(p, dt) {
+  const d = p.drift;
+  if (d === "off") return;
+  if (d === "sunDown" || (d === "loop" && sim.loopDir < 0)) { const S = Math.max(70, p.S - dt / 25); setControlValue("S", S.toFixed(2)); if (d === "loop" && S <= 88) sim.loopDir = 1; }
+  else if (d === "sunUp" || d === "loop") { const S = Math.min(140, p.S + dt / 25); setControlValue("S", S.toFixed(2)); if (d === "loop" && S >= 112) { el("drift").value = "off"; } }
+  else if (d === "co2Up") setControlValue("co2L", Math.min(6, Math.log10(p.co2) + Math.log10(2) * dt / 50).toFixed(4));
+  else if (d === "co2Down") setControlValue("co2L", Math.max(2, Math.log10(p.co2) - Math.log10(2) * dt / 50).toFixed(4));
+}
+function stepSim(dt) {
+  const p = params();
+  const yr = Math.floor(sim.t);
+  if (yr !== sim.noiseYear) { sim.noiseYear = yr; sim.noiseF = p.noise * gauss(Math.random); }
+  stepT(sim.T, p, Ccur, dt, sim.noiseF);
+  sim.t += dt;
+  applyDrift(p, dt);
+}
+
+/* =====================================================================
+   9. DRAWING: the globe, the landscape and the S-curve
+   ===================================================================== */
+function fitCanvas(cv) {
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const w = Math.max(10, Math.round(r.width * dpr)), h = Math.max(10, Math.round(r.height * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: r.width, h: r.height, dpr };
+}
+// A made-up land map (smooth random blobs). The same smooth noise is sampled finer at
+// higher display quality, so coastlines get sharper but the continents stay in the same places.
+const LAND_NOISE = (function () { const rng = mulberry32(2024); return Array.from({ length: 12 * 7 }, () => rng()); })();
+const landCache = new Map();
+function landMap(cellDeg) {
+  if (landCache.has(cellDeg)) return landCache.get(cellDeg);
+  const NX = Math.round(360 / cellDeg), NY = Math.round(180 / cellDeg), LW = 12, LH = 7, v = LAND_NOISE;
+  const m = new Uint8Array(NX * NY), sm = t => t * t * (3 - 2 * t);
+  for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+    // position in the noise lattice (one lattice step = 30° of longitude or latitude)
+    const gx = (x + 0.5) * cellDeg / 30, gy = (y + 0.5) * cellDeg / 30, x0 = Math.floor(gx), y0 = Math.floor(gy), fx = sm(gx - x0), fy = sm(gy - y0);
+    const g = (X, Y) => v[(Y % LH) * LW + (X % LW)];
+    const val = g(x0, y0) * (1 - fx) * (1 - fy) + g(x0 + 1, y0) * fx * (1 - fy) + g(x0, y0 + 1) * (1 - fx) * fy + g(x0 + 1, y0 + 1) * fx * fy;
+    m[y * NX + x] = val > 0.62 ? 1 : 0;
+  }
+  const out = { m, NX, NY, cellDeg };
+  landCache.set(cellDeg, out);
+  return out;
+}
+/* DISPLAY QUALITY (drawing only — the climate model always uses 90 bands of 2°, live and in batch runs)
+     pix:    globe pixels per CSS pixel (× devicePixelRatio for High and Ultra, so it is crisp on 200% screens)
+     land:   size of a land-map cell in degrees
+     smooth: blend temperatures between neighbouring bands, so the ice edge is a smooth line, not 2° steps */
+const QUALITY = {
+  low:    { name: "Low",    pix: () => 0.5, land: 3, smooth: false },
+  medium: { name: "Medium", pix: () => 1, land: 2, smooth: false },
+  high:   { name: "High",   pix: () => Math.min(2, window.devicePixelRatio || 1), land: 1, smooth: true },
+  ultra:  { name: "Ultra",  pix: () => Math.min(3, 1.5 * (window.devicePixelRatio || 1)), land: 0.5, smooth: true },
+};
+let quality = "high";
+try { const q = localStorage.getItem("ice-albedo-quality"); if (QUALITY[q]) quality = q; } catch (e) {}
+let globeCache = null;
+function globeImage(Rcss, rot, T, surf) {
+  const Q = QUALITY[quality], LM = landMap(Q.land);
+  const size = Math.max(20, Math.round(2 * Rcss * Q.pix()));
+  if (!globeCache || globeCache.size !== size) {
+    // pre-compute latitude and longitude of every pixel (tilted 20° towards us)
+    const lat = new Float32Array(size * size), lon = new Float32Array(size * size), lit = new Float32Array(size * size), on = new Uint8Array(size * size);
+    const tilt = 20 * RAD, ct = Math.cos(tilt), st = Math.sin(tilt);
+    for (let j = 0; j < size; j++) for (let i = 0; i < size; i++) {
+      const x = (i + 0.5) / size * 2 - 1, y = 1 - (j + 0.5) / size * 2, r2 = x * x + y * y, k = j * size + i;
+      if (r2 > 1) continue;
+      const z = Math.sqrt(1 - r2);
+      const y2 = y * ct + z * st, z2 = -y * st + z * ct;            // undo the tilt
+      on[k] = 1; lat[k] = Math.asin(clamp(y2, -1, 1)) / RAD; lon[k] = Math.atan2(x, z2) / RAD;
+      lit[k] = 0.55 + 0.45 * clamp(-0.45 * x + 0.35 * y + 0.82 * z, 0, 1);
+    }
+    const cv = document.createElement("canvas"); cv.width = size; cv.height = size;
+    globeCache = { size, lat, lon, lit, on, cv, ctx: cv.getContext("2d"), img: cv.getContext("2d").createImageData(size, size) };
+  }
+  const G = globeCache, d = G.img.data;
+  for (let k = 0; k < size * size; k++) {
+    if (!G.on[k]) { d[4 * k + 3] = 0; continue; }
+    const la = G.lat[k];
+    let t;
+    if (Q.smooth) {           // straight-line blend between the two nearest band centres
+      const fb = clamp((la + 90) / DLAT - 0.5, 0, NB - 1), i0 = Math.floor(fb), i1 = Math.min(NB - 1, i0 + 1), f = fb - i0;
+      t = T[i0] * (1 - f) + T[i1] * f;
+    } else t = T[clamp(Math.floor((la + 90) / DLAT), 0, NB - 1)];
+    let lo = G.lon[k] + rot; lo = ((lo % 360) + 540) % 360;
+    const land = surf === "ocean" ? false : surf === "land" ? true : LM.m[clamp(Math.floor((la + 90) / LM.cellDeg), 0, LM.NY - 1) * LM.NX + Math.min(LM.NX - 1, Math.floor(lo / LM.cellDeg))] === 1;
+    // colour: ocean blue / land green-brown, warmer = greener/yellower; ice white where T < −10 °C
+    let r, g, b;
+    if (land) { const w = clamp((t - 0) / 30, 0, 1); r = 70 + 120 * w; g = 110 + 40 * w; b = 60 + 20 * w; }
+    else { const w = clamp((t + 5) / 35, 0, 1); r = 20 + 15 * w; g = 60 + 70 * w; b = 120 + 40 * w; }
+    const ice = clamp(0.5 * (1 - Math.tanh((t - TC) / ALB_W)), 0, 1);
+    r += (232 - r) * ice; g += (240 - g) * ice; b += (248 - b) * ice;
+    const L = G.lit[k];
+    d[4 * k] = r * L; d[4 * k + 1] = g * L; d[4 * k + 2] = b * L; d[4 * k + 3] = 255;
+  }
+  G.ctx.putImageData(G.img, 0, 0);
+  return G.cv;
+}
+
+function niceStep(range, n) { const raw = range / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+function fmt(v, sig = 3) {
+  if (!isFinite(v)) return "–"; if (v === 0) return "0";
+  const a = Math.abs(v); if (a >= 1e6 || a < 1e-3) return v.toExponential(sig - 1).replace("e+", "e");
+  return (+v.toPrecision(sig)).toLocaleString("en-GB", { maximumFractionDigits: 6 });
+}
+function ticksFor(a, b, log) {
+  if (log) {
+    const out = [], lo = Math.floor(Math.log10(a)), hi = Math.ceil(Math.log10(b)), few = hi - lo <= 2;
+    for (let e = lo; e <= hi; e++) for (const m of few ? [1, 2, 5] : [1]) { const v = m * Math.pow(10, e); if (v >= a * 0.999 && v <= b * 1.001) out.push(v); }
+    return out;
+  }
+  const st = niceStep(b - a || 1, 5), out = []; for (let v = Math.ceil(a / st) * st; v <= b + st * 1e-6; v += st) out.push(Math.abs(v) < st * 1e-9 ? 0 : v); return out;
+}
+function axes(ctx, w, h, o) {
+  const L = o.L || 54, R = o.R || 10, T = o.T || 8, B = o.B || 34, ox = o.ox || 0, oy = o.oy || 0;
+  const fx = o.xlog ? Math.log10 : v => v, fy = o.ylog ? Math.log10 : v => v;
+  const X = v => ox + L + (fx(v) - fx(o.x0)) / (fx(o.x1) - fx(o.x0)) * (w - L - R);
+  const Y = v => oy + h - B - (fy(v) - fy(o.y0)) / (fy(o.y1) - fy(o.y0)) * (h - T - B);
+  ctx.font = "11px system-ui, sans-serif"; ctx.lineWidth = 1;
+  for (const v of o.xticks || ticksFor(o.x0, o.x1, o.xlog)) { const x = X(v); ctx.strokeStyle = "#232920"; ctx.beginPath(); ctx.moveTo(x, oy + T); ctx.lineTo(x, oy + h - B); ctx.stroke(); ctx.fillStyle = "#a3ab96"; ctx.textAlign = "center"; ctx.fillText(o.xfmt ? o.xfmt(v) : fmt(v), x, oy + h - B + 13); }
+  for (const v of o.yticks || ticksFor(o.y0, o.y1, o.ylog)) { const y = Y(v); ctx.strokeStyle = "#232920"; ctx.beginPath(); ctx.moveTo(ox + L, y); ctx.lineTo(ox + w - R, y); ctx.stroke(); ctx.fillStyle = "#a3ab96"; ctx.textAlign = "right"; ctx.fillText(fmt(v), ox + L - 4, y + 3.5); }
+  ctx.strokeStyle = "#5a6352"; ctx.beginPath(); ctx.moveTo(ox + L, oy + T); ctx.lineTo(ox + L, oy + h - B); ctx.lineTo(ox + w - R, oy + h - B); ctx.stroke();
+  ctx.fillStyle = "#cfd5c4"; ctx.textAlign = "center"; ctx.fillText(o.xlabel || "", ox + L + (w - L - R) / 2, oy + h - 6);
+  ctx.save(); ctx.translate(ox + 11, oy + T + (h - T - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(o.ylabel || "", 0, 0); ctx.restore();
+  return { X, Y, L, R, T, B, ox, oy, w, h };
+}
+function line(ctx, pts, col, width = 2, dash) {
+  ctx.strokeStyle = col; ctx.lineWidth = width; ctx.setLineDash(dash || []); ctx.beginPath();
+  let started = false; for (const [x, y] of pts) { if (!isFinite(x) || !isFinite(y)) { started = false; continue; } if (started) ctx.lineTo(x, y); else { ctx.moveTo(x, y); started = true; } }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+function clip(ctx, ax) { ctx.save(); ctx.beginPath(); ctx.rect(ax.ox + ax.L, ax.oy + ax.T, ax.w - ax.L - ax.R, ax.h - ax.T - ax.B); ctx.clip(); }
+
+// Split the equilibrium curve into stable (solid) and unstable (dashed) pieces.
+// stableIf(dx) says whether moving the ice edge polewards (dη > 0) with change dx in the control is stable.
+function branches(rows, xk, yk, stableIf) {
+  const segs = []; let cur = null;
+  for (let k = 1; k < rows.length - 1; k++) {
+    const stab = stableIf(rows[k + 1][xk] - rows[k - 1][xk]);
+    if (!cur || cur.stable !== stab) { if (cur) { cur.pts.push([rows[k][xk], rows[k][yk]]); segs.push(cur); } cur = { stable: stab, pts: [[rows[k - 1][xk], rows[k - 1][yk]]] }; }
+    cur.pts.push([rows[k][xk], rows[k][yk]]);
+  }
+  if (cur) { cur.pts.push([rows[rows.length - 1][xk], rows[rows.length - 1][yk]]); segs.push(cur); }
+  return segs;
+}
+
+function drawView(now, p) {
+  const { ctx, w, h } = fitCanvas(el("view"));
+  ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, w, h);
+  const gw = Math.round(w * 0.5), ice = iceLine(sim.T), Tm = globalMean(sim.T);
+  // ---- globe
+  const Rg = Math.max(30, Math.min(gw * 0.42, h * 0.40));
+  const cx = gw / 2, cy = h * 0.47;
+  const halo = ctx.createRadialGradient(cx, cy, Rg * 0.95, cx, cy, Rg * 1.12); halo.addColorStop(0, "rgba(120,170,255,0.35)"); halo.addColorStop(1, "rgba(120,170,255,0)");
+  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, Rg * 1.12, 0, 6.283); ctx.fill();
+  const rot = (now / 1000) * 12;
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(globeImage(Rg, rot, sim.T, p.surf), cx - Rg, cy - Rg, 2 * Rg, 2 * Rg);
+  ctx.fillStyle = "#eef0e8"; ctx.font = "bold 14px system-ui, sans-serif"; ctx.textAlign = "center";
+  ctx.fillText(STATE_NAME[stateOf(ice)] + (stateOf(ice) === 1 ? ` — ice from ${ice.toFixed(0)}° to the poles` : ""), cx, cy + Rg + 26);
+  ctx.font = "12px system-ui, sans-serif"; ctx.fillStyle = "#a3ab96";
+  ctx.fillText(`Global mean ${Tm.toFixed(1)} °C · reflects ${Math.round(100 * planetAlbedo(sim.T, p.a2))}% of sunlight`, cx, cy + Rg + 44);
+  // ---- right half: landscape (top) and S-curve (bottom)
+  const rx = gw, rw = w - gw - 6, h1 = Math.round(h * 0.42);
+  drawLandscape(ctx, rx, 4, rw, h1 - 4, p, ice);
+  drawSCurve(ctx, rx, h1 + 4, rw, h - h1 - 6, p, ice);
+}
+
+function drawLandscape(ctx, ox, oy, w, h, p, ice) {
+  // heights are squashed (asinh) so small hills and shallow valleys still show; valleys and hilltops stay in the same places
+  const L = landscape(p).map(r => ({ ...r, V: Math.asinh(r.V / 15) }));
+  let vmin = Infinity, vmax = -Infinity; for (const r of L) { vmin = Math.min(vmin, r.V); vmax = Math.max(vmax, r.V); }
+  const span = Math.max(vmax - vmin, 0.5);
+  const ax = axes(ctx, w, h, { ox, oy, x0: 0, x1: 90, y0: vmin - span * 0.08, y1: vmin + span * 1.3, xlabel: "ice edge latitude (0° = snowball, 90° = ice-free)", ylabel: "", L: 22, B: 32, T: 22, xticks: [0, 15, 30, 45, 60, 75, 90], xfmt: v => v + "°", yticks: [] });
+  ctx.fillStyle = "#eef0e8"; ctx.font = "bold 12.5px system-ui, sans-serif"; ctx.textAlign = "left";
+  ctx.fillText("Ball in a valley: stable climates now", ox + 22, oy + 14);
+  clip(ctx, ax);
+  // filled landscape
+  ctx.beginPath(); ctx.moveTo(ax.X(L[0].eta), oy + h);
+  for (const r of L) ctx.lineTo(ax.X(r.eta), ax.Y(r.V));
+  ctx.lineTo(ax.X(90), oy + h); ctx.closePath();
+  const gr = ctx.createLinearGradient(ax.X(0), 0, ax.X(90), 0); gr.addColorStop(0, "#dbe9f6"); gr.addColorStop(0.5, "#5b8f5a"); gr.addColorStop(1, "#c9a25a");
+  ctx.globalAlpha = 0.35; ctx.fillStyle = gr; ctx.fill(); ctx.globalAlpha = 1;
+  line(ctx, L.map(r => [ax.X(r.eta), ax.Y(r.V)]), "#eef0e8", 2);
+  // mark valleys (stable) and hilltops (tipping points)
+  for (let k = 1; k < L.length; k++) {
+    if (L[k - 1].h > 0 && L[k].h <= 0) { ctx.fillStyle = "#8fd694"; ctx.beginPath(); ctx.arc(ax.X(L[k].eta), ax.Y(L[k].V) + 8, 3, 0, 6.283); ctx.fill(); }
+    if (L[k - 1].h < 0 && L[k].h >= 0) { const x = ax.X(L[k].eta), y = ax.Y(L[k].V); ctx.fillStyle = "#e4572e"; ctx.beginPath(); ctx.moveTo(x, y - 12); ctx.lineTo(x - 5, y - 4); ctx.lineTo(x + 5, y - 4); ctx.fill(); ctx.font = "10.5px system-ui"; ctx.textAlign = x > ax.X(80) ? "right" : x < ax.X(12) ? "left" : "center"; ctx.fillText("tipping point", x > ax.X(80) ? x + 6 : x < ax.X(12) ? x - 6 : x, y - 15); }
+  }
+  // ends of the landscape: snowball / ice-free valleys
+  ctx.restore();
+  ctx.font = "11px system-ui, sans-serif"; ctx.fillStyle = "#a3ab96"; ctx.textAlign = "left";
+  if (L[0].h < 0) ctx.fillText("snowball valley", ax.X(1), ax.Y(L[0].V) + 16);
+  ctx.textAlign = "right";
+  if (L[L.length - 1].h > 0) ctx.fillText("ice-free valley", ax.X(89), ax.Y(L[L.length - 1].V) + 16);
+  // the ball: sits on the landscape at the current ice edge
+  let Vb = L[0].V; for (let k = 1; k < L.length; k++) if (L[k].eta >= ice) { const f = (ice - L[k - 1].eta) / (L[k].eta - L[k - 1].eta); Vb = L[k - 1].V + f * (L[k].V - L[k - 1].V); break; } else Vb = L[k].V;
+  const bx = ax.X(clamp(ice, 0, 90)), by = ax.Y(Vb) - 8;
+  const bg = ctx.createRadialGradient(bx - 3, by - 3, 1, bx, by, 8); bg.addColorStop(0, "#fff"); bg.addColorStop(1, "#f1af28");
+  ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(bx, by, 8, 0, 6.283); ctx.fill();
+}
+
+function drawSCurve(ctx, ox, oy, w, h, p, ice) {
+  const c = sunCurve(p), th = thresholds(p);
+  const ax = axes(ctx, w, h, { ox, oy, x0: 70, x1: 140, y0: -3, y1: 93, xlabel: "sunlight (% of today's)", ylabel: "ice edge latitude (°)", L: 40, B: 32, T: 22, yticks: [0, 30, 60, 90] });
+  ctx.fillStyle = "#eef0e8"; ctx.font = "bold 12.5px system-ui, sans-serif"; ctx.textAlign = "left";
+  ctx.fillText("Equilibrium curve: stable ━  unstable ┅", ox + 40, oy + 14);
+  clip(ctx, ax);
+  // snowball branch (η = 0) exists for Sun below sunSnow; ice-free branch (η = 90) above sunFree
+  line(ctx, [[ax.X(60), ax.Y(0)], [ax.X(th.sunSnow), ax.Y(0)]], "#a4cbe6", 3);
+  line(ctx, [[ax.X(th.sunFree), ax.Y(90)], [ax.X(150), ax.Y(90)]], "#f18700", 3);
+  for (const sgm of branches(c, "S", "eta", dx => dx > 0)) line(ctx, sgm.pts.map(([x, y]) => [ax.X(x), ax.Y(y)]), sgm.stable ? "#f1af28" : "#a3ab96", sgm.stable ? 3 : 1.6, sgm.stable ? null : [5, 4]);
+  // the path the planet has taken
+  const P = sim.path;
+  for (let k = 1; k < P.length; k++) { const a = 0.15 + 0.7 * k / P.length; ctx.strokeStyle = `rgba(0,174,195,${a})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ax.X(P[k - 1].S), ax.Y(P[k - 1].ice)); ctx.lineTo(ax.X(P[k].S), ax.Y(P[k].ice)); ctx.stroke(); }
+  ctx.fillStyle = "#fff"; ctx.strokeStyle = "#00aec3"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ax.X(p.S), ax.Y(ice), 5, 0, 6.283); ctx.fill(); ctx.stroke();
+  ctx.restore();
+  ctx.font = "10.5px system-ui, sans-serif"; ctx.fillStyle = "#a3ab96"; ctx.textAlign = "left";
+  ctx.fillText(`ice caps tip into a snowball below ${th.sunTip.toFixed(1)}%`, ax.X(71), ax.Y(75));
+  ctx.textAlign = "right"; ctx.fillText(`snowball melts above ${th.sunSnow.toFixed(0)}%`, ax.X(Math.min(139.5, th.sunSnow)), ax.Y(0) - 6);
+  ctx.textAlign = "left"; ctx.fillStyle = "#00aec3"; ctx.fillText("● now (blue trail: path so far)", ax.X(71), ax.Y(84));
+}
+
+function drawChartLat(p) {
+  const { ctx, w, h } = fitCanvas(el("chartLat"));
+  ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, w, h);
+  let lo = Math.min(-45, ...sim.T) - 3, hi = Math.max(35, ...sim.T) + 3;
+  const ax = axes(ctx, w, h, { x0: -90, x1: 90, y0: lo, y1: hi, xlabel: "latitude (°; S ← → N)", ylabel: "°C", L: 36, B: 30, xticks: [-90, -60, -30, 0, 30, 60, 90] });
+  clip(ctx, ax);
+  for (let i = 0; i < NB; i++) if (sim.T[i] < TC) { ctx.fillStyle = "rgba(220,235,250,.18)"; ctx.fillRect(ax.X(LAT[i] - DLAT / 2), ax.T, ax.X(LAT[i] + DLAT / 2) - ax.X(LAT[i] - DLAT / 2) + 0.5, h - ax.T - ax.B); }
+  line(ctx, [[ax.X(-90), ax.Y(TC)], [ax.X(90), ax.Y(TC)]], "#a4cbe6", 1.5, [5, 4]);
+  line(ctx, Array.from(LAT, (l, i) => [ax.X(l), ax.Y(sim.T[i])]), "#ff7b54", 2.2);
+  ctx.restore();
+}
+function drawChartT() {
+  const { ctx, w, h } = fitCanvas(el("chartT"));
+  ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, w, h);
+  const H = sim.hist, tMax = Math.max(20, sim.t);
+  let lo = Infinity, hi = -Infinity; for (const q of H) { lo = Math.min(lo, q.Tm); hi = Math.max(hi, q.Tm); }
+  if (!isFinite(lo)) { lo = 0; hi = 1; }
+  const pad = Math.max(1, (hi - lo) * 0.12); lo -= pad; hi += pad;
+  const ax = axes(ctx, w, h, { x0: 0, x1: tMax, y0: lo, y1: hi, xlabel: "time (years)", ylabel: "°C", L: 36, B: 30 });
+  clip(ctx, ax);
+  line(ctx, H.map(q => [ax.X(q.t), ax.Y(q.Tm)]), "#ff7b54", 1.8);
+  ctx.restore();
+}
+
+/* =====================================================================
+   10. READOUTS AND THE STORY
+   ===================================================================== */
+const tile = (k, v, s = "") => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ""}</div>`;
+const fmtPpm = c => (c >= 1e6 ? `${(c / 1e6).toPrecision(3)} million ppm` : c >= 100000 ? `${(c / 10000).toFixed(c >= 995000 ? 0 : 1)}%` : `${Math.round(c).toLocaleString("en-GB")} ppm`);
+let lastUI = 0;
+function story(p, ice, Tm) {
+  const th = thresholds(p), st = stateOf(ice), msgs = [];
+  if (st === 0) {
+    msgs.push(`<b>Snowball Earth.</b> Ice covers the whole planet and reflects ${Math.round(100 * p.a2)}% of the sunlight, so even the equator stays below −10 °C (global mean ${Tm.toFixed(0)} °C).`);
+    msgs.push(p.S < th.sunSnow ? `To escape, the equator must warm past −10 °C while still covered in ice: that needs the Sun at ${th.sunSnow.toFixed(0)}% — or a huge build-up of CO₂ from volcanoes. Turning the Sun back to where the planet froze is <i>not</i> enough: that is hysteresis.` : "The Sun is now strong enough to start melting the equator…");
+  } else if (st === 2) {
+    msgs.push(`<b>Ice-free.</b> Even the poles stay above −10 °C (global mean ${Tm.toFixed(1)} °C). Dark ocean absorbs most of the sunlight.`);
+    if (p.S < th.sunFree + 0.3) msgs.push("The poles are only just above freezing: a small cooling would let ice return.");
+  } else {
+    msgs.push(`Ice caps reach from the poles down to about <b>${ice.toFixed(0)}°</b>. Global mean ${Tm.toFixed(1)} °C.`);
+    if (p.S - th.sunTip < 1.5 && p.S > th.sunTip) msgs.push(`<b>Close to the edge!</b> The Sun is only ${(p.S - th.sunTip).toFixed(1)}% above the tipping point (${th.sunTip.toFixed(1)}%). The valley in the landscape is shallow, so a run of cold years could push the ball over the hill into a snowball.`);
+    else if (p.S < th.sunTip) msgs.push(`The Sun is below the tipping point (${th.sunTip.toFixed(1)}%): there is no valley for partial ice any more. The ice will advance faster and faster — the ice–albedo feedback is running away.`);
+    else if (ice > th.topEta - 3) msgs.push(`The ice cap is small. In this model caps smaller than about ${(90 - th.topEta).toFixed(0)}° across are unstable: warm a little more and the last ice vanishes suddenly (the "small ice cap instability").`);
+    else msgs.push("Ice reflects sunlight, keeping the poles cold — a feedback that makes the ice edge sensitive to small changes in sunshine or CO₂.");
+  }
+  if (p.drift !== "off") msgs.push("Watch the blue trail on the equilibrium curve: the planet follows a stable branch, then jumps when the branch ends.");
+  if (p.noise >= 4) msgs.push(`Weather noise of ±${p.noise} W/m² jiggles the ball about in its valley.`);
+  return msgs.join(" ");
+}
+function updateUI(now, p) {
+  const ice = iceLine(sim.T), Tm = globalMean(sim.T), st = stateOf(ice);
+  el("clock").textContent = `Year ${Math.floor(sim.t)}`;
+  const cls = ["snow", "caps", "free"][st], s = el("status");
+  if (s.className !== cls) { s.className = cls; s.textContent = STATE_NAME[st]; }
+  el("s_T").textContent = `${Tm.toFixed(1)} °C`; el("s_ice").textContent = st === 0 ? "equator" : st === 2 ? "none" : `${ice.toFixed(1)}°`;
+  el("s_S").textContent = `${p.S.toFixed(1)}%`; el("s_co2").textContent = fmtPpm(p.co2);
+  if (now - lastUI < 200) return;
+  lastUI = now;
+  updateLabels();
+  const th = thresholds(p), A = Aof(p);
+  el("tiles").innerHTML =
+    tile("Global mean", `${Tm.toFixed(1)} °C`, `equator ${sim.T[NB / 2].toFixed(0)} °C, poles ${((sim.T[0] + sim.T[NB - 1]) / 2).toFixed(0)} °C`) +
+    tile("Ice edge", st === 0 ? "equator" : st === 2 ? "no ice" : `${ice.toFixed(1)}°`, `ice covers ${Math.round(100 * (1 - Math.sin(Math.min(90, ice) * RAD)))}% of the globe`) +
+    tile("State", STATE_NAME[st], st === 1 ? "partly iced" : st === 0 ? "frozen over" : "no ice at all") +
+    tile("Planet's albedo", planetAlbedo(sim.T, p.a2).toFixed(3), "fraction of sunlight reflected") +
+    tile("Sunlight", `${(Qof(p)).toFixed(0)} W/m²`, `${p.S.toFixed(1)}% of today's`) +
+    tile("Infrared A", `${A.toFixed(1)} W/m²`, `CO₂ ${fmtPpm(p.co2)}`) +
+    tile("Tips to snowball", `${th.sunTip.toFixed(1)}% sun`, "end of the ice-cap branch") +
+    tile("Escape snowball", `${th.sunSnow.toFixed(0)}% sun`, `ice-free above ${th.sunFree.toFixed(1)}%`);
+  el("story").innerHTML = story(p, ice, Tm);
+}
+
+/* =====================================================================
+   11. PRESETS
+   ===================================================================== */
+const BASE = { S: 100, co2: 420, D: 0.45, a2: 0.62, surf: "ocean", noise: 1, drift: "off" };
+const PRESETS = [
+  { name: "Today's climate", note: "ice caps from ~64°", s: { ...BASE }, start: "warm" },
+  { name: "Hysteresis loop", note: "Sun down to 88%, then up", s: { ...BASE, S: 100, drift: "loop" }, start: "warm", speed: 20 },
+  { name: "Snowball Earth", note: "Sun dimmed to 92%", s: { ...BASE, S: 92 }, start: "warm", speed: 4 },
+  { name: "Escape the snowball", note: "volcanic CO₂ builds up", s: { ...BASE, co2: 420, drift: "co2Up" }, start: "snow", speed: 20 },
+  { name: "Faint young Sun", note: "75% Sun: frozen?", s: { ...BASE, S: 75 }, start: "warm", speed: 4 },
+  { name: "Ice-free hothouse", note: "1500 ppm CO₂", s: { ...BASE, co2: 1500 }, start: "warm", speed: 4 },
+  { name: "Arctic sea-ice tipping", note: "CO₂ rising from 420", s: { ...BASE, drift: "co2Up" }, start: "warm", speed: 4 },
+  { name: "Small ice cap instability", note: "Sun slowly brightens", s: { ...BASE, drift: "sunUp" }, start: "warm", speed: 4 },
+  { name: "Near the edge + noise", note: "93.8% Sun, stormy weather", s: { ...BASE, S: 93.8, noise: 8 }, start: "warm", speed: 20 },
+  { name: "Weak heat transport", note: "D = 0.2: icy poles", s: { ...BASE, D: 0.2 }, start: "warm" },
+];
+let currentPreset = 0;
+function setControls(s) {
+  if (s.S !== undefined) el("S").value = s.S;
+  if (s.co2 !== undefined) el("co2L").value = Math.log10(s.co2);
+  if (s.D !== undefined) el("D").value = s.D;
+  if (s.a2 !== undefined) el("a2").value = s.a2;
+  if (s.surf !== undefined) { el("surf").value = s.surf; Ccur = heatCaps(s.surf); }
+  if (s.noise !== undefined) el("noise").value = s.noise;
+  if (s.drift !== undefined) el("drift").value = s.drift;
+  updateLabels();
+}
+let presetStart = "warm";
+function setPreset(k) {
+  currentPreset = k;
+  const pr = PRESETS[k];
+  setControls(pr.s);
+  presetStart = pr.start;
+  setSpeed(pr.speed || 1);
+  document.querySelectorAll("#presets button").forEach((b, j) => b.classList.toggle("on", j === k));
+  resetSim(pr.start);
+}
+function resetSim(start) {
+  const pr = PRESETS[currentPreset];
+  if (pr && el("drift").value !== pr.s.drift && document.querySelector("#presets button.on")) setControls(pr.s);
+  sim.loopDir = -1;
+  const p = params();
+  // start from a settled climate: today's (warm) or a snowball, with the drift switched off for the spin-up
+  sim.T = start === "snow" ? spunUp({ ...p, S: Math.min(p.S, 100) }, "snow") : spunUp({ ...p, S: 100, co2: 420 }, "warm");
+  if (start !== "snow" && (p.S !== 100 || p.co2 !== 420)) { /* begins from today's climate, then responds to the new settings */ }
+  sim.t = 0; sim.noiseYear = -1; sim.hist = []; sim.path = [];
+  record();
+  setRunning(false);
+}
+function record() {
+  const p = params(), ice = iceLine(sim.T);
+  sim.hist.push({ t: sim.t, Tm: globalMean(sim.T) });
+  sim.path.push({ S: p.S, ice });
+  if (sim.hist.length > 3000) sim.hist = sim.hist.filter((q, i) => i % 2 === 0 || i === sim.hist.length - 1);
+  if (sim.path.length > 1500) sim.path = sim.path.slice(-1500);
+}
+
+/* =====================================================================
+   12. CONTROLS
+   ===================================================================== */
+function updateLabels() {
+  const p = params();
+  el("o_S").textContent = `${p.S.toFixed(1)}% (${Math.round(13.61 * p.S)} W/m²)`;
+  el("o_co2").textContent = fmtPpm(p.co2) + (Math.abs(p.co2 - 420) < 3 ? " (today)" : Math.abs(p.co2 - 280) < 3 ? " (pre-industrial)" : "");
+  el("o_D").textContent = `${p.D.toFixed(2)} W/m² per °C`;
+  el("o_a2").textContent = p.a2.toFixed(2);
+  el("o_noise").textContent = p.noise ? `± ${p.noise} W/m²` : "none";
+}
+el("presets").innerHTML = PRESETS.map((p, k) => `<button data-k="${k}">${p.name}<small>${p.note}</small></button>`).join("");
+document.querySelectorAll("#presets button").forEach(b => (b.onclick = () => setPreset(+b.dataset.k)));
+["S", "co2L", "D", "a2", "surf", "noise", "drift"].forEach(id => el(id).addEventListener("input", () => {
+  document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on"));
+  if (id === "surf") Ccur = heatCaps(el("surf").value);
+  if (id === "drift") sim.loopDir = -1;
+  updateLabels();
+}));
+el("quality").value = quality;
+el("quality").addEventListener("input", () => { quality = el("quality").value; globeCache = null; try { localStorage.setItem("ice-albedo-quality", quality); } catch (e) {} });
+el("btnWarm").onclick = () => { document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); presetStart = "warm"; resetSim("warm"); };
+el("btnSnow").onclick = () => { document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); presetStart = "snow"; resetSim("snow"); };
+function setRunning(r) { sim.running = r; el("btnPlay").textContent = r ? "⏸ Pause" : sim.t > 0 ? "▶ Resume" : "▶ Start"; }
+el("btnPlay").onclick = () => setRunning(!sim.running);
+el("btnReset").onclick = () => resetSim(presetStart);
+let speed = 1;                        // 1× = 5 years per second
+function setSpeed(s) { speed = s; document.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", +x.dataset.s === s)); }
+document.querySelectorAll("[data-s]").forEach(b => (b.onclick = () => setSpeed(+b.dataset.s)));
+
+/* =====================================================================
+   13. THE MAIN LOOP
+   ===================================================================== */
+let lastT = performance.now();
+function frame(now) {
+  const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (sim.running && !batchBusy) {
+    let left = real * speed * 5;                          // model years this frame
+    const t0 = performance.now();
+    while (left > 1e-9 && performance.now() - t0 < 30) { const dt = Math.min(left, 0.25); stepSim(dt); left -= dt; }
+    const last = sim.hist[sim.hist.length - 1];
+    if (!last || sim.t - last.t >= Math.max(0.25, sim.t / 1500)) record();
+  }
+  const p = params();
+  drawView(now, p);
+  drawChartLat(p);
+  drawChartT();
+  updateUI(now, p);
+  requestAnimationFrame(frame);
+}
+
+/* =====================================================================
+   14. HEADLESS RUNS for the batch mode: runOnce(params, seed, outcome, state)
+   ---------------------------------------------------------------------
+   No drawing; 0.5-year steps. Starts from a warm (today-like) or snowball
+   temperature profile, settled for 150 years at the run's own settings — or, for "there and back" sweeps, from where the
+   previous step ended (state). Runs p.years years with yearly weather noise.
+   ===================================================================== */
+function runOnce(p, seed, out, state) {
+  const rng = mulberry32(seed), C = heatCaps(p.surf), dt = p.dt ?? 0.5;          // the batch time step (0.5 years unless the table says otherwise)
+  const T = state ? Float64Array.from(state) : spunUp(p, p.start);       // settled for 150 years (no noise) at these settings
+  let tip = NaN, nf = 0;
+  for (let t = 0; t < p.years - 1e-9; t += dt) {
+    if (Math.abs(t - Math.round(t)) < 1e-9) {
+      nf = p.noise * gauss(rng);
+      if (isNaN(tip) && iceLine(T) < 1) { tip = t; if (out === "tipTime" || out === "tipped") break; }
+    }
+    stepT(T, p, C, dt, nf);
+  }
+  if (isNaN(tip) && iceLine(T) < 1) tip = p.years;
+  const ice = iceLine(T), Tm = globalMean(T);
+  if (!isFinite(Tm)) return { value: NaN, state: T };
+  const v = out === "Tm" ? Tm : out === "ice" ? ice : out === "state" ? stateOf(ice) : out === "tipped" ? (isNaN(tip) ? 0 : 1) : tip;
+  return { value: v, state: T };
+}
+
+/* =====================================================================
+   15. BATCH RUNS: settings, theory and experiments
+   ===================================================================== */
+// Every starting setting a batch run uses, for the batch settings table (get = read it from a set of parameters, set = write it)
+const VARS = {
+  S:     { label: "Sunlight", unit: "% of today", min: 60, max: 150, get: p => p.S, set: (p, v) => (p.S = v) },
+  co2:   { label: "CO₂", unit: "ppm", min: 50, max: 1e7, log: true, get: p => p.co2, set: (p, v) => (p.co2 = v) },
+  D:     { label: "Heat transport D", unit: "W/m² per °C", min: 0.05, max: 2, get: p => p.D, set: (p, v) => (p.D = v) },
+  a2:    { label: "Ice albedo", unit: "", min: 0.3, max: 0.9, get: p => p.a2, set: (p, v) => (p.a2 = v) },
+  noise: { label: "Weather noise", unit: "W/m²", min: 0, max: 30, get: p => p.noise, set: (p, v) => (p.noise = v) },
+  years: { label: "Years per run", unit: "years", min: 20, max: 5000, int: true, from: 100, to: 500, get: p => p.years, set: (p, v) => (p.years = Math.round(v)) },
+  spin:  { label: "Settling (spin-up) before each run, no noise", unit: "years", min: 0, max: 2000, int: true, get: p => p.spin, set: (p, v) => (p.spin = Math.round(v)) },
+};
+// Settings that are choices rather than numbers
+const BOPTS = [
+  { k: "surf", label: "Surface", choices: [...el("surf").options].map(o => [o.value, o.text]) },
+  { k: "start", label: "Start", choices: [["warm", "warm (today-like)"], ["snow", "snowball"]] },
+  { k: "dt", label: "Time step", num: true, choices: [[0.5, "0.5 years"], [0.25, "0.25 years"], [0.125, "0.125 years"]] },
+];
+// The batch-only settings the left panel does not have, at their usual values (the slow drift is always off in batch runs)
+const BATCH_EXTRA = { drift: "off", start: "warm", years: 300, spin: 150, dt: 0.5 };
+const OUTCOMES = {
+  ice:     { label: "Final ice-edge latitude", unit: "°" },
+  Tm:      { label: "Final global mean temperature", unit: "°C" },
+  state:   { label: "Final state (0 snowball, 1 ice caps, 2 ice-free)", unit: "" },
+  tipTime: { label: "Years until it tips into a snowball", unit: "years" },
+  tipped:  { label: "Tipped into a snowball? (1 = yes, 0 = no)", unit: "" },
+};
+// Theory branches for sweeps of the Sun or CO₂: [{pts:[[x,y]…], stable}] including snowball and ice-free branches
+function theoryBranches(v, out, base) {
+  const yk = out === "Tm" ? "Tm" : "eta";
+  if (out !== "Tm" && out !== "ice") return null;
+  if (v === "S") {
+    const c = sunCurve(base), A = Aof(base), th = thresholds(base);
+    const segs = branches(c, "S", yk, dx => dx > 0).map(s => ({ ...s, pts: s.pts.slice(1, -1) }));
+    const snowY = S => (yk === "Tm" ? (Q_TODAY * S / 100 * (1 - base.a2) - A) / B : 0);
+    const freeY = S => (yk === "Tm" ? (Q_TODAY * S / 100 * (1 - A1) - A) / B : 90);
+    segs.push({ stable: true, pts: [[40, snowY(40)], [th.sunSnow, snowY(th.sunSnow)]], name: "snowball" });
+    segs.push({ stable: true, pts: [[th.sunFree, freeY(th.sunFree)], [200, freeY(200)]], name: "ice-free" });
+    return segs;
+  }
+  if (v === "co2") {
+    const c = co2Curve(base), Q = Qof(base), first = c[0], last = c[c.length - 1];
+    const segs = branches(c, "co2", yk, dx => dx > 0).map(s => ({ ...s, pts: s.pts.slice(1, -1) }));
+    const Ax = C => A0 - 5.35 * Math.log(C / CO2_REF);
+    const snowY = C => (yk === "Tm" ? (Q * (1 - base.a2) - Ax(C)) / B : 0), freeY = C => (yk === "Tm" ? (Q * (1 - A1) - Ax(C)) / B : 90);
+    const sn = [], fr = [];
+    for (let k = 0; k <= 40; k++) { const C = 10 * Math.pow(first.co2 / 10, k / 40); sn.push([C, snowY(C)]); const C2 = last.co2 * Math.pow(1e7 / last.co2, k / 40); fr.push([C2, freeY(C2)]); }
+    segs.push({ stable: true, pts: sn, name: "snowball" }); segs.push({ stable: true, pts: fr, name: "ice-free" });
+    return segs;
+  }
+  return null;
+}
+// Theory for a single setting: the same run with no weather noise (deterministic)
+function theoryValue(out, p, state) {
+  if (out === "tipTime" || out === "tipped") return NaN;
+  return runOnce({ ...p, noise: 0 }, 1, out, state).value;
+}
+const EXPERIMENTS = [
+  { q: "Sun down, then back up: does the climate retrace its path?", mode: "sweep", out: "ice", v: "S", from: 136, to: 86, steps: 26, reps: 2, back: true, start: "warm", years: 120, set: { ...BASE, noise: 1, drift: "off" },
+    note: "Starting from a bright Sun, the planet is ice-free. Going down (blue), ice caps appear suddenly just below 100%, then the ice edge creeps towards the equator until the Sun reaches the tipping point (about 93%) — then the ice runs away and the planet jumps to a snowball. Coming back up (red), the planet stays frozen far past where it froze: white ice reflects so much sunlight that it needs about 130% of today's Sun to melt. Then it jumps all the way to ice-free. (The model melts out a little before the theory says, because its ice-to-water switch is smoothed over ±1 °C.) Two different climates for the same Sun is called <b>hysteresis</b>. The points sit on the solid (stable) parts of the theory curve; the dashed middle part is unstable, so the model never stays there." },
+  { q: "Near the edge: how long until random weather tips it?", mode: "repeat", out: "tipTime", runs: 200, start: "warm", years: 500, set: { ...BASE, S: 93.8, noise: 8, drift: "off" },
+    note: "The planet sits in a shallow valley just above the tipping point. Each year's weather is random, and eventually a run of cold years pushes the ball over the hill. If each year carried the same small chance of tipping, the waiting times would follow an <b>exponential distribution</b> (gold curve), like radioactive decay: you cannot predict when any one run will tip. The model tips a little <i>less</i> often than that in the first few decades: near a tipping point the climate responds very slowly (“critical slowing down”), so the ice needs decades of mostly cold weather to creep over the hill, and the weather has to “forget” its start before tipping becomes truly random. Runs that had not tipped by the end are counted but not plotted." },
+  { q: "Does stormier weather make tipping more likely?", mode: "sweep", out: "tipped", v: "noise", from: 3, to: 12, steps: 7, reps: 30, start: "warm", years: 300, set: { ...BASE, S: 93.8, drift: "off" },
+    note: "The fraction of runs that tip within 300 years rises steeply with the size of the weather noise: from almost never to almost always. Theory for escaping a valley (Kramers' rule) says the average waiting time grows like e^(k/σ²), so ln(waiting time) against 1/σ² should be a straight line — see the fit. Each point is a proportion of 30 runs, so it scatters by about ±9%." },
+  { q: "How much CO₂ to escape a snowball?", mode: "sweep", out: "ice", v: "co2", from: 420, to: 3000000, steps: 14, reps: 1, start: "snow", years: 300, set: { ...BASE, noise: 0, drift: "off" },
+    note: "Starting frozen, the planet stays a snowball until CO₂ is enormous — the theory says the equator only gets above −10 °C when CO₂ passes the threshold marked — more CO₂ than the whole of today's atmosphere! (The model melts out a little before the theory line because its ice-to-water switch is smoothed over ±1 °C, and the simple 5.35 ln(C) rule is only a rough guide at such huge amounts.) Then it jumps straight to ice-free. Geologists think this really happened: during a snowball, volcanoes kept adding CO₂ while frozen rocks could not remove it, until after millions of years it built up enough to melt the ice — followed by a scorching hothouse." },
+  { q: "Faint young Sun: how much CO₂ to stay unfrozen?", mode: "sweep", out: "ice", v: "co2", from: 1000, to: 500000, steps: 13, reps: 1, start: "warm", years: 300, set: { ...BASE, S: 80, noise: 0, drift: "off" },
+    note: "With a Sun only 80% as bright (about 3.8 billion years ago), today's CO₂ would freeze the planet. Yet rocks show liquid water 4 billion years ago: the 'faint young Sun paradox'. Starting from a warm planet, the sweep shows how much CO₂ (or other greenhouse gas) is needed to keep the ice caps from running away — a lot. The solid curve is the stable theory and the dotted line marks where the ice caps stop running away; below it the run ends at 0° (frozen). This model needs several percent of the air to be CO₂; real early Earth probably also had methane, less land and darker oceans to help." },
+  { q: "CO₂ up, then down: Arctic ice hysteresis", mode: "sweep", out: "ice", v: "co2", from: 300, to: 1500, steps: 13, reps: 1, back: true, start: "warm", years: 150, set: { ...BASE, noise: 0.5, drift: "off" },
+    note: "Raising CO₂ shrinks the ice caps smoothly until they are small — then the last ice vanishes suddenly (the small ice cap instability). Lowering CO₂ again, the ice does not come back at the same level: the ice-free planet absorbs more sunlight and has to be cooled further first. Sea ice in the real Arctic is thought to be less 'tippy' than this model suggests, because ice that melts in summer regrows quickly each winter." },
+];
+
+/* --- generic batch machinery --- */
+let batchBusy = false, batchStop = false, batchRes = null, expNote = null;
+/* ---- The batch settings table ----
+   TBL holds a value for EVERY starting setting a batch run uses, the settings that are choices, and which
+   setting (if any) is varied, with its range and step. One-click experiments fill it in; a run uses exactly
+   what the table shows. An experiment's sweep keeps its own evenly spaced (or log-spaced) values until you
+   edit the range. Tick a row to vary it: the tick boxes act like radio buttons (one at most), and unticking
+   goes back to Repeat mode. */
+const TBL = { src: {}, vals: {}, opts: {}, vary: null, from: 0, to: 1, kind: "+", step: 1, exact: null };
+const nice = x => (x === 0 || !isFinite(x)) ? x : +(+x).toPrecision(4);
+const tDisp = x => (typeof x === "number" && isFinite(x) && x !== 0) ? +x.toPrecision(7) : x;   // tidy display (7 figures); the table keeps the exact value
+function sweepValues() {               // the values the varied setting takes: from, from+step, … (or from, from×step, …) up to "to"; at most 60
+  const V = VARS[TBL.vary]; if (!V) return [];
+  if (TBL.exact) return TBL.exact.slice();
+  const out = [], up = TBL.to >= TBL.from;
+  if (TBL.kind === "×") {
+    let f = Math.abs(TBL.step); if (!(f > 1) || TBL.from <= 0 || TBL.to <= 0) return [TBL.from];
+    if (!up) f = 1 / f;
+    for (let v = TBL.from, i = 0; i < 60 && (up ? v <= TBL.to * 1.01 : v >= TBL.to * 0.99); i++, v *= f) out.push(nice(v));
+  } else {
+    let d = Math.abs(TBL.step); if (!(d > 0)) return [TBL.from];
+    if (!up) d = -d;
+    for (let i = 0; i < 60; i++) { const v = TBL.from + i * d; if (up ? v > TBL.to + 1e-3 * Math.abs(d) : v < TBL.to - 1e-3 * Math.abs(d)) break; out.push(nice(v)); }
+  }
+  const vals = out.map(v => clamp(V.int ? Math.round(v) : v, V.min, V.max));
+  return vals.filter((v, i) => i === 0 || v !== vals[i - 1]);
+}
+// an experiment's own sweep values (the same formula the batch has always used)
+function expValues(E) {
+  const V = VARS[E.v], lg = V.log && E.from > 0 && E.to > 0, xs = [];
+  for (let s = 0; s < E.steps; s++) xs.push(clamp(lg ? E.from * Math.pow(E.to / E.from, s / (E.steps - 1)) : E.from + (E.to - E.from) * s / (E.steps - 1), V.min, V.max));
+  return xs;
+}
+// Fill the table from a full set of parameters p (an experiment's, or the left panel's); E = an experiment with a sweep
+function fillTable(p, E) {
+  TBL.src = { ...p }; TBL.vals = {}; TBL.opts = {}; TBL.exact = null;
+  for (const [k, V] of Object.entries(VARS)) TBL.vals[k] = V.get(p);
+  for (const O of BOPTS) TBL.opts[O.k] = p[O.k];
+  if (E && E.v) {
+    const lg = VARS[E.v].log && E.from > 0 && E.to > 0;
+    TBL.vary = E.v; TBL.from = E.from; TBL.to = E.to;
+    if (lg) { TBL.kind = "×"; TBL.step = nice(Math.pow(E.to / E.from, 1 / (E.steps - 1))); } else { TBL.kind = "+"; TBL.step = nice((E.to - E.from) / (E.steps - 1)); }
+    TBL.exact = expValues(E);
+  } else TBL.vary = null;
+  renderTable();
+}
+function renderTable() {
+  el("bOpts").innerHTML = BOPTS.map(O => O.bool
+    ? `<label><input type="checkbox" data-o="${O.k}" ${TBL.opts[O.k] ? "checked" : ""}> ${O.label}</label>`
+    : `<label>${O.label} <select data-o="${O.k}">${O.choices.map(([v, t]) => `<option value="${v}" ${String(TBL.opts[O.k]) === String(v) ? "selected" : ""}>${t}</option>`).join("")}</select></label>`).join("");
+  el("bTbl").innerHTML = Object.entries(VARS).map(([k, V]) => {
+    const on = TBL.vary === k, u = V.unit ? ` (${V.unit})` : "";
+    return `<div class="bt${on ? " on" : ""}" data-k="${k}"><label ${on ? "data-ws-change" : ""}><input type="checkbox" data-vary="${k}" ${on ? "checked" : ""}> ${V.tlabel || V.label}${u}</label>` +
+      `<input type="number" class="bval" data-v="${k}" step="any" min="${V.min}" max="${V.max}" value="${tDisp(TBL.vals[k])}">` +
+      `<span class="bsw">from <input type="number" data-ws="from" data-r="from" step="any" value="${on ? tDisp(TBL.from) : ""}"> to <input type="number" data-ws="to" data-r="to" step="any" value="${on ? tDisp(TBL.to) : ""}">
+        step <select data-ws="step type" data-r="kind"><option value="+" ${TBL.kind === "+" ? "selected" : ""}>+</option><option value="×" ${TBL.kind === "×" ? "selected" : ""}>×</option></select>
+        <input type="number" data-ws="step" data-r="step" step="any" value="${on ? TBL.step : ""}"> <span class="bcount bsteps"></span></span></div>`;
+  }).join("");
+  updateCount();
+}
+function updateCount() {
+  const span = TBL.vary && el("bTbl").querySelector(`.bt[data-k="${TBL.vary}"] .bsteps`);
+  if (span) { const xs = sweepValues(); span.textContent = `→ ${xs.length} steps: ${xs.slice(0, 4).map(v => +v.toPrecision(4)).join(", ")}${xs.length > 4 ? " … " + +xs[xs.length - 1].toPrecision(4) : ""}`; }
+}
+function tableEdited() { expNote = null; document.querySelectorAll("#bexp button").forEach(b => b.classList.remove("on")); }
+function startVary(k) {                  // a sensible first range when a setting is ticked
+  const V = VARS[k], cur = TBL.vals[k];
+  TBL.vary = k; TBL.exact = null;
+  if (V.log && cur > 0) { TBL.kind = "×"; TBL.from = nice(Math.max(V.min, cur / 2)); TBL.to = nice(Math.min(V.max, cur * 4)); TBL.step = 2; return; }
+  TBL.kind = "+";
+  if (V.from !== undefined) { TBL.from = V.from; TBL.to = V.to; }
+  else if (cur > 0) { TBL.from = nice(Math.max(V.min, cur / 2)); TBL.to = nice(Math.min(V.max, cur * 2)); }
+  else { TBL.from = V.min; TBL.to = nice(Math.min(V.max, V.min + 1)); }
+  TBL.step = nice((TBL.to - TBL.from) / 4); if (V.int) TBL.step = Math.max(1, Math.round(TBL.step));
+}
+// the settings for a run: the set the table was filled from, then every choice and every value in the table
+function tableParams() {
+  const b = { ...TBL.src };
+  for (const O of BOPTS) if (TBL.opts[O.k] !== undefined) b[O.k] = TBL.opts[O.k];
+  for (const [k, x] of Object.entries(TBL.vals)) { const V = VARS[k]; if (typeof x === "number" && isFinite(x)) b[V.key || k] = clamp(V.int ? Math.round(x) : x, V.min, V.max); }
+  return b;
+}
+function hookTable() {
+  el("bSetBox").addEventListener("input", e => {
+    const t = e.target;
+    if (t.dataset.vary) {
+      if (t.checked) { startVary(t.dataset.vary); el("bMode").value = "sweep"; } else { TBL.vary = null; el("bMode").value = "repeat"; }
+      renderTable(); syncBatchUI(); tableEdited(); return;
+    }
+    if (t.dataset.v) TBL.vals[t.dataset.v] = +t.value;
+    if (t.dataset.o) TBL.opts[t.dataset.o] = t.type === "checkbox" ? t.checked : (BOPTS.find(O => O.k === t.dataset.o).num ? +t.value : t.value);
+    if (t.dataset.r) { TBL.exact = null; TBL[t.dataset.r] = t.dataset.r === "kind" ? t.value : +t.value; }
+    updateCount(); tableEdited();
+  });
+}
+function batchCfg() {
+  const sweep = el("bMode").value === "sweep" && TBL.vary, xs = sweep ? sweepValues() : [], p = tableParams();
+  return { mode: sweep ? "sweep" : "repeat", out: el("bOut").value, runs: +el("bRuns").value, v: TBL.vary, start: p.start, years: p.years, back: el("bBack").checked,
+           xs, from: TBL.from, to: TBL.to, steps: xs.length, reps: clamp(Math.round(+el("bReps").value) || 1, 1, 100) };
+}
+function loadExperiment(i) {
+  const E = EXPERIMENTS[i];
+  el("bMode").value = E.mode; el("bOut").value = E.out;
+  if (E.runs) el("bRuns").value = E.runs;
+  el("bBack").checked = !!E.back;
+  if (E.v) el("bReps").value = E.reps;
+  if (E.set) { setControls(E.set); document.querySelectorAll("#presets button").forEach(b => b.classList.remove("on")); }
+  // the table is filled from the experiment's complete settings (as the left panel now shows them), plus the batch-only ones
+  fillTable({ ...params(), ...BATCH_EXTRA, start: E.start, years: E.years }, E.mode === "sweep" ? E : null);
+  expNote = E.note;
+  document.querySelectorAll("#bexp button").forEach((b, k) => b.classList.toggle("on", k === i));
+  syncBatchUI();
+}
+function syncBatchUI() {
+  if (el("bMode").value === "sweep" && !TBL.vary) { startVary("S"); renderTable(); }   // a sweep needs a ticked setting
+  if (el("bMode").value === "repeat" && TBL.vary) { TBL.vary = null; renderTable(); }
+  const sweep = el("bMode").value === "sweep";
+  el("bRepeatOpts").style.display = sweep ? "none" : ""; el("bSweepOpts").style.display = sweep ? "" : "none";
+}
+function runBatch() {
+  const c = batchCfg(), base = { ...tableParams(), drift: "off" };       // exactly the settings the table shows
+  const jobs = [];
+  if (c.mode === "repeat") for (let k = 0; k < c.runs; k++) jobs.push({ p: base, x: null, rep: k, seed: 1000 + k * 7919, branch: 0 });
+  else {
+    const V = VARS[c.v], xs = c.xs;
+    const path = xs.map(x => ({ x, branch: 0 }));
+    if (c.back) for (let s = xs.length - 2; s >= 0; s--) path.push({ x: xs[s], branch: 1 });
+    // with "there and back", each repeat walks the whole path in order, carrying the climate along
+    for (let r = 0; r < c.reps; r++) path.forEach((q, s) => { const p = { ...base }; V.set(p, q.x); jobs.push({ p, x: q.x, branch: q.branch, rep: r, step: s, seed: 2000 + s * 104729 + r * 7919 }); });
+    if (!c.back) jobs.sort((a, b) => a.step - b.step || a.rep - b.rep);
+  }
+  batchRes = { cfg: c, base, rows: [] };
+  batchBusy = true; batchStop = false;
+  el("bRun").disabled = true; el("bStop").disabled = false; el("bCsv").disabled = true;
+  const carry = new Map(), carryTh = new Map();
+  let k = 0; const t0 = performance.now();
+  const chunk = () => {
+    const tc = performance.now();
+    while (k < jobs.length && performance.now() - tc < 50 && !batchStop) {
+      const j = jobs[k++], st = c.back ? carry.get(j.rep) || null : null;
+      const r = runOnce(j.p, j.seed, c.out, st);
+      if (c.back) carry.set(j.rep, r.state);
+      // theory for a single setting: the same run without noise (for there-and-back, carried along too)
+      let th = NaN;
+      if (c.mode === "repeat") th = k === 1 ? theoryValue(c.out, j.p, null) : batchRes.rows[0].theory;
+      else if (c.back) { if (j.rep === 0) { const rr = runOnce({ ...j.p, noise: 0 }, 1, c.out, carryTh.get(0) || null); carryTh.set(0, rr.state); th = rr.value; } }
+      else th = theoryValue(c.out, j.p, null);
+      batchRes.rows.push({ x: j.x, branch: j.branch, rep: j.rep, seed: j.seed, value: r.value, theory: th });
+    }
+    el("bProg").style.width = (100 * k / jobs.length) + "%";
+    el("bStatus").textContent = `${k} of ${jobs.length} runs · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+    drawBatch();
+    if (k < jobs.length && !batchStop) setTimeout(chunk, 0);
+    else { batchBusy = false; el("bRun").disabled = false; el("bStop").disabled = true; el("bCsv").disabled = !batchRes.rows.length; el("bStatus").textContent += batchStop ? " · stopped" : " · done"; }
+  };
+  setTimeout(chunk, 20);
+}
+const stats = a => { const v = a.filter(isFinite), n = v.length; if (!n) return { n: 0 }; const mean = v.reduce((s, x) => s + x, 0) / n; const sd = n > 1 ? Math.sqrt(v.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1)) : 0; return { n, mean, sd, se: sd / Math.sqrt(n), min: Math.min(...v), max: Math.max(...v) }; };
+function linfit(xs, ys) { const n = xs.length; let sx = 0, sy = 0, sxx = 0, sxy = 0; for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; sxx += xs[i] ** 2; sxy += xs[i] * ys[i]; } const b = (n * sxy - sx * sy) / (n * sxx - sx * sx); return { b, a: (sy - b * sx) / n }; }
+const quantile = (s, q) => { const i = (s.length - 1) * q, lo = Math.floor(i); return s[lo] + (s[Math.min(s.length - 1, lo + 1)] - s[lo]) * (i - lo); };
+const leg = (col, t, dash) => `<span style="margin-right:10px;white-space:nowrap"><i style="display:inline-block;width:14px;height:${dash ? 2 : 10}px;background:${col};margin-right:4px;vertical-align:${dash ? 3 : -1}px"></i>${t}</span>`;
+const BR_COL = ["#00aec3", "#ff6b6b"];
+
+function drawBatch() {
+  const { ctx, w, h } = fitCanvas(el("bchart"));
+  ctx.clearRect(0, 0, w, h);
+  const note = el("bNote"); note.style.display = expNote ? "" : "none"; note.innerHTML = expNote ? `<b>What this shows.</b> ${expNote}` : "";
+  if (!batchRes || !batchRes.rows.length) return;
+  const c = batchRes.cfg, O = OUTCOMES[c.out], unit = O.unit ? ` (${O.unit})` : "", base = batchRes.base;
+  let html = "";
+  if (c.mode === "repeat") {
+    const all = batchRes.rows.map(r => r.value);
+    if (c.out === "tipTime") {
+      // waiting times: only runs that tipped are plotted; exponential theory fitted by maximum likelihood
+      const tipped = all.filter(v => isFinite(v)), n = all.length, k = tipped.length;
+      const exposure = tipped.reduce((s, v) => s + v, 0) + (n - k) * c.years, tau = k ? exposure / k : Infinity;
+      const hi = c.years, nb = clamp(Math.round(Math.sqrt(Math.max(k, 1)) * 1.5), 8, 30), bw = hi / nb, cnt = new Array(nb).fill(0);
+      for (const v of tipped) cnt[Math.min(nb - 1, Math.floor(v / bw))]++;
+      const expCount = b => n * (Math.exp(-b * bw / tau) - Math.exp(-(b + 1) * bw / tau));
+      let ymax = Math.max(1, ...cnt); if (isFinite(tau)) ymax = Math.max(ymax, expCount(0));
+      const ax = axes(ctx, w, h, { x0: 0, x1: hi, y0: 0, y1: ymax * 1.15, xlabel: "years until the planet tipped into a snowball", ylabel: "number of runs", L: 50 });
+      ctx.fillStyle = "#00aec3cc";
+      for (let b = 0; b < nb; b++) { const x0 = ax.X(b * bw), x1 = ax.X((b + 1) * bw); ctx.fillRect(x0 + 0.5, ax.Y(cnt[b]), Math.max(1, x1 - x0 - 1), ax.Y(0) - ax.Y(cnt[b])); }
+      if (isFinite(tau)) { const pts = []; for (let b = 0; b < nb; b++) pts.push([ax.X((b + 0.5) * bw), ax.Y(expCount(b))]); line(ctx, pts, "#f1af28", 2.5); }
+      const st = stats(tipped), s = [...tipped].sort((a, b) => a - b);
+      html += `<div style="margin-bottom:6px">${leg("#00aec3cc", "runs that tipped")}${leg("#f1af28", "exponential theory", 1)}</div>`;
+      html += `<table><tr><th>Runs</th><td>${n}</td></tr><tr><th>Tipped within ${c.years} years</th><td>${k} (${(100 * k / n).toFixed(0)}%)</td></tr>` +
+        `<tr><th>Mean time (runs that tipped)</th><td>${fmt(st.mean, 3)} yr</td></tr><tr><th>SD / standard error</th><td>${fmt(st.sd, 3)} / ${fmt(st.se, 2)}</td></tr>` +
+        `<tr><th>Median / min / max</th><td>${k ? `${fmt(quantile(s, 0.5), 3)} / ${fmt(s[0], 3)} / ${fmt(s[k - 1], 3)}` : "–"}</td></tr>` +
+        `<tr><th>Fitted average waiting time τ</th><td>${fmt(tau, 3)} yr</td></tr></table>`;
+      if (k >= 5 && isFinite(tau)) {
+        // compare: predicted median of an exponential cut off at the run length, and predicted % tipped
+        const pTip = 1 - Math.exp(-c.years / tau), medTh = -tau * Math.log(1 - 0.5 * pTip);
+        html += `<p>An exponential with τ = ${fmt(tau, 3)} years predicts <b>${(100 * pTip).toFixed(0)}%</b> tipping within ${c.years} years, and a median of <b>${fmt(medTh, 3)}</b> years for those that tip (measured: ${fmt(quantile(s, 0.5), 3)}, difference ${((quantile(s, 0.5) - medTh) / medTh * 100).toFixed(0)}%). τ = total years watched ÷ number that tipped (the best estimate when some runs never tip).</p>`;
+      }
+    } else {
+      const vals = all.filter(isFinite);
+      if (!vals.length) { el("bsum").innerHTML = "<p>No runs gave a result.</p>"; return; }
+      const st = stats(vals), thv = batchRes.rows[0].theory;
+      let lo = Math.min(st.min, isFinite(thv) ? thv : st.min), hi = Math.max(st.max, isFinite(thv) ? thv : st.max);
+      if (hi - lo < 1e-6) { lo -= 0.5; hi += 0.5; }
+      const pad = (hi - lo) * 0.06; lo -= pad; hi += pad;
+      const nb = clamp(Math.round(Math.sqrt(vals.length) * 1.5), 8, 40), bw = (hi - lo) / nb, cnt = new Array(nb).fill(0);
+      for (const v of vals) cnt[Math.min(nb - 1, Math.max(0, Math.floor((v - lo) / bw)))]++;
+      const ax = axes(ctx, w, h, { x0: lo, x1: hi, y0: 0, y1: Math.max(...cnt) * 1.15, xlabel: O.label + unit, ylabel: "number of runs", L: 50 });
+      ctx.fillStyle = "#00aec3cc";
+      for (let b = 0; b < nb; b++) { const x0 = ax.X(lo + b * bw), x1 = ax.X(lo + (b + 1) * bw); ctx.fillRect(x0 + 0.5, ax.Y(cnt[b]), Math.max(1, x1 - x0 - 1), ax.Y(0) - ax.Y(cnt[b])); }
+      if (isFinite(thv)) line(ctx, [[ax.X(thv), ax.T], [ax.X(thv), ax.Y(0)]], "#f1af28", 2.5);
+      line(ctx, [[ax.X(st.mean), ax.T], [ax.X(st.mean), ax.Y(0)]], "#e83181", 2, [3, 3]);
+      const diffSE = st.se > 0 ? (st.mean - thv) / st.se : NaN;
+      html += `<div style="margin-bottom:6px">${leg("#00aec3cc", "runs")}${leg("#e83181", "mean", 1)}${isFinite(thv) ? leg("#f1af28", "theory: same run with no noise", 1) : ""}</div>`;
+      html += `<table><tr><th>Runs (n)</th><td>${st.n}</td></tr><tr><th>Mean</th><td>${fmt(st.mean, 4)}</td></tr><tr><th>SD</th><td>${fmt(st.sd, 3)}</td></tr><tr><th>Standard error</th><td>${fmt(st.se, 2)}</td></tr>` +
+        `<tr><th>Min / max</th><td>${fmt(st.min, 3)} / ${fmt(st.max, 3)}</td></tr><tr><th>Theory (no noise)</th><td>${fmt(thv, 4)}</td></tr>` +
+        `<tr><th>Difference</th><td>${isFinite(thv) && thv !== 0 ? (100 * (st.mean - thv) / Math.abs(thv)).toFixed(1) + "%" : "–"}</td></tr><tr><th>…in standard errors</th><td>${isFinite(diffSE) ? diffSE.toFixed(1) : "–"}</td></tr></table>`;
+    }
+  } else {
+    const V = VARS[c.v], lg = !!V.log;
+    const groups = new Map();
+    for (const r of batchRes.rows) { const key = r.branch + "|" + r.x; if (!groups.has(key)) groups.set(key, { x: r.x, branch: r.branch, v: [], th: r.theory }); const g = groups.get(key); g.v.push(r.value); if (isFinite(r.theory)) g.th = r.theory; }
+    const G = [...groups.values()].map(g => ({ ...g, ...stats(g.v) })).filter(g => g.n);
+    if (!G.length) { el("bsum").innerHTML = "<p>No results yet.</p>"; return; }
+    const segs = theoryBranches(c.v, c.out, base);
+    let x0 = Math.min(c.from, c.to), x1 = Math.max(c.from, c.to);
+    if (lg) { x0 /= 1.3; x1 *= 1.3; } else { const pd = (x1 - x0) * 0.04 || 1; x0 -= pd; x1 += pd; }
+    let y0, y1;
+    if (c.out === "ice") { y0 = -4; y1 = 94; } else if (c.out === "state") { y0 = -0.2; y1 = 2.2; } else if (c.out === "tipped") { y0 = -0.05; y1 = 1.1; }
+    else { const ys = batchRes.rows.map(r => r.value).filter(isFinite); y0 = Math.min(...ys); y1 = Math.max(...ys);
+      if (segs) for (const s of segs) for (const q of s.pts) if (q[0] >= x0 && q[0] <= x1 && isFinite(q[1])) { y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }
+      const pd = (y1 - y0) * 0.08 || 1; y0 -= pd; y1 += pd; }
+    const ax = axes(ctx, w, h, { x0, x1, y0, y1, xlog: lg, xlabel: V.label + (V.unit ? ` (${V.unit})` : ""), ylabel: O.label + unit, L: 56, yticks: c.out === "ice" ? [0, 15, 30, 45, 60, 75, 90] : c.out === "state" ? [0, 1, 2] : undefined });
+    clip(ctx, ax);
+    let thLeg = "";
+    if (segs) {
+      for (const s of segs) line(ctx, s.pts.map(([x, y]) => [ax.X(clamp(x, lg ? 1 : -1e9, 1e12)), ax.Y(y)]), s.stable ? "#f1af28" : "#a3ab96", s.stable ? 2.4 : 1.5, s.stable ? null : [5, 4]);
+      thLeg = leg("#f1af28", "theory: stable", 1) + leg("#a3ab96", "unstable", 1);
+    }
+    // CO₂ needed to melt a snowball (theory threshold)
+    let escape = NaN, keep = NaN;
+    if (c.v === "co2") {
+      const cc = co2Curve(base); escape = cc[0].co2; keep = Infinity; for (const q of cc) if (q.eta > 0 && q.eta < 89) keep = Math.min(keep, q.co2);
+      const mark = c.start === "snow" ? escape : keep;
+      if (mark > x0 && mark < x1) { line(ctx, [[ax.X(mark), ax.T], [ax.X(mark), h - ax.B]], "#a4cbe6", 1.5, [2, 3]); thLeg += leg("#a4cbe6", c.start === "snow" ? "snowball melts above this" : "ice caps tip into a snowball below this", 1); }
+    }
+    // Kramers fit for the noise sweep: ln τ = a + b/σ², drawn as P(tip within N years)
+    let kram = null;
+    if (c.v === "noise" && c.out === "tipped") {
+      const pts = G.filter(g => g.mean > 0 && g.mean < 1 && g.x > 0).map(g => [1 / (g.x * g.x), Math.log(-c.years / Math.log(1 - g.mean))]);
+      if (pts.length >= 2) {
+        kram = linfit(pts.map(q => q[0]), pts.map(q => q[1]));
+        const cp = []; for (let i = 0; i <= 80; i++) { const s = x0 + (x1 - x0) * i / 80; if (s <= 0.2) continue; const tau = Math.exp(kram.a + kram.b / (s * s)); cp.push([ax.X(s), ax.Y(1 - Math.exp(-c.years / tau))]); }
+        line(ctx, cp, "#f1af28", 2.2, [6, 4]); thLeg += leg("#f1af28", "Kramers-rule fit", 1);
+      }
+    }
+    const back = G.some(g => g.branch === 1);
+    for (const r of batchRes.rows) if (isFinite(r.value)) { ctx.fillStyle = r.branch ? "rgba(255,107,107,.45)" : "rgba(0,174,195,.45)"; ctx.beginPath(); ctx.arc(ax.X(r.x), ax.Y(r.value), 2.5, 0, 6.2832); ctx.fill(); }
+    ctx.lineWidth = 1.5;
+    for (const g of G) {
+      const xx = ax.X(g.x) + (back ? (g.branch ? 3 : -3) : 0), col = BR_COL[g.branch];
+      ctx.strokeStyle = "#fff"; ctx.beginPath(); ctx.moveTo(xx, ax.Y(g.mean - g.sd)); ctx.lineTo(xx, ax.Y(g.mean + g.sd)); ctx.stroke();
+      ctx.fillStyle = back ? col : "#e83181"; ctx.beginPath(); ctx.arc(xx, ax.Y(g.mean), 4, 0, 6.2832); ctx.fill();
+    }
+    if (back) for (const br of [0, 1]) { const pts = G.filter(g => g.branch === br).sort((a, b) => a.x - b.x).map(g => [ax.X(g.x), ax.Y(g.mean)]); line(ctx, pts, BR_COL[br], 1, [2, 3]); }
+    ctx.restore();
+    html += `<div style="margin-bottom:6px">${back ? leg(BR_COL[0], `going ${c.to < c.from ? "down" : "up"} (mean ± 1 SD)`) + leg(BR_COL[1], `coming back ${c.to < c.from ? "up" : "down"}`) : leg("rgba(0,174,195,.7)", "each run") + leg("#e83181", "mean ± 1 SD")}${thLeg}</div>`;
+    if (c.v === "S") { const th = thresholds(base); html += `<p><b>Theory:</b> the ice caps tip into a snowball below <b>${th.sunTip.toFixed(1)}%</b>; a snowball melts only above <b>${th.sunSnow.toFixed(1)}%</b>; ice-free is possible above ${th.sunFree.toFixed(1)}%. Between ${th.sunTip.toFixed(1)}% and ${th.sunSnow.toFixed(1)}% two (or three) climates are possible.</p>`; }
+    if (back) {
+      // where did each leg jump? (largest change between neighbouring steps)
+      const jumpAt = br => { const s = G.filter(g => g.branch === br).sort((a, b) => a.x - b.x); let best = 0, at = NaN; for (let i = 1; i < s.length; i++) { const d = Math.abs(s[i].mean - s[i - 1].mean); if (d > best) { best = d; at = (s[i].x + s[i - 1].x) / 2; } } return { best, at }; };
+      const j0 = jumpAt(0), j1 = jumpAt(1);
+      html += `<p>Biggest jump going out: ${isFinite(j0.at) && j0.best > 5 ? `at about <b>${fmt(j0.at, 3)}</b> ${V.unit}` : "none"}; coming back: ${isFinite(j1.at) && j1.best > 5 ? `at about <b>${fmt(j1.at, 3)}</b> ${V.unit}` : "none — it never returned"}. ${isFinite(j0.at) && isFinite(j1.at) && j0.best > 5 && j1.best > 5 && Math.abs(j0.at - j1.at) > 1e-9 ? "Different places: hysteresis." : ""}</p>`;
+    }
+    if (isFinite(escape) && c.v === "co2") html += `<p>Theory (Sun at ${base.S}%): a snowball melts once CO₂ passes <b>${fmtPpm(escape)}</b>; partial ice caps tip into a snowball if CO₂ falls below <b>${fmtPpm(keep)}</b>.</p>`;
+    if (kram) html += `<p><b>Kramers' rule fit:</b> ln(waiting time) = ${kram.a.toFixed(2)} + ${kram.b.toFixed(1)}/σ². The average waiting time falls from ${fmt(Math.exp(kram.a + kram.b / (x0 > 0.5 ? (Math.min(c.from, c.to) ** 2) : 9)), 3)} years at σ = ${Math.min(c.from, c.to)} to ${fmt(Math.exp(kram.a + kram.b / (Math.max(c.from, c.to) ** 2)), 3)} years at σ = ${Math.max(c.from, c.to)} W/m².</p>`;
+    html += `<table><tr><th>${V.label}</th>${back ? "<th>leg</th>" : ""}<th>n</th><th>mean</th><th>SD</th><th>theory</th></tr>` +
+      G.map(g => `<tr><td>${fmt(g.x, 3)}</td>${back ? `<td>${g.branch ? "back" : "out"}</td>` : ""}<td>${g.n}</td><td>${fmt(g.mean, 3)}</td><td>${fmt(g.sd, 2)}</td><td>${fmt(g.th, 3)}</td></tr>`).join("") + "</table>";
+    html += `<p class="hint">"theory" in the table is the same run with no weather noise${back ? ", carried along the same path" : ""}.</p>`;
+  }
+  el("bsum").innerHTML = html;
+}
+function downloadCSV() {
+  if (!batchRes) return;
+  const c = batchRes.cfg, O = OUTCOMES[c.out];
+  const head = c.mode === "sweep" ? [`${VARS[c.v].label} (${VARS[c.v].unit})`, "leg (0 out, 1 back)", "repeat", "seed", `${O.label} (${O.unit})`, "theory (no noise)"] : ["run", "seed", `${O.label} (${O.unit})`, "theory (no noise)"];
+  const rows = batchRes.rows.map((r, i) => (c.mode === "sweep" ? [r.x, r.branch, r.rep + 1, r.seed, r.value, r.theory] : [i + 1, r.seed, r.value, r.theory]).join(","));
+  const csv = head.map(s => `"${s}"`).join(",") + "\n" + rows.join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = `ice-albedo-batch-${c.out}.csv`;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function placeBatch() {
+  const c = el("centre").getBoundingClientRect(), r = el("right").getBoundingClientRect(), b = el("batch");
+  b.style.left = c.left + "px"; b.style.top = c.top + "px"; b.style.width = (r.right - c.left) + "px"; b.style.height = c.height + "px";
+}
+(function initBatch() {
+  el("bOut").innerHTML = Object.entries(OUTCOMES).map(([k, o]) => `<option value="${k}">${o.label}${o.unit ? " (" + o.unit + ")" : ""}</option>`).join("");
+  el("bexp").innerHTML = EXPERIMENTS.map((e, i) => `<button data-i="${i}">${e.q}</button>`).join("");
+  document.querySelectorAll("#bexp button").forEach(b => b.addEventListener("click", () => loadExperiment(+b.dataset.i)));
+  el("bMode").addEventListener("input", () => { tableEdited(); syncBatchUI(); drawBatch(); });
+  el("bOut").addEventListener("input", () => { tableEdited(); drawBatch(); });
+  ["bRuns", "bReps", "bBack"].forEach(id => el(id).addEventListener("input", () => { tableEdited(); drawBatch(); }));
+  hookTable();
+  el("bLeft").addEventListener("click", () => { fillTable({ ...params(), ...BATCH_EXTRA }, null); el("bMode").value = "repeat"; syncBatchUI(); tableEdited(); drawBatch(); });
+  el("btnBatch").addEventListener("click", () => { setRunning(false); placeBatch(); el("batch").classList.add("open"); if (!batchRes) loadExperiment(0); drawBatch(); });
+  el("bClose").addEventListener("click", () => { el("batch").classList.remove("open"); });
+  el("bRun").addEventListener("click", runBatch);
+  el("bStop").addEventListener("click", () => { batchStop = true; });
+  el("bCsv").addEventListener("click", downloadCSV);
+  window.addEventListener("resize", () => { if (el("batch").classList.contains("open")) { placeBatch(); drawBatch(); } });
+  fillTable({ ...params(), ...BATCH_EXTRA }, null);
+  syncBatchUI();
+})();
+
+/* =====================================================================
+   16. PANEL LAYOUT — resize or hide the side panels
+   ===================================================================== */
+(function () {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const KEY = "ice-albedo-layout", STRIP = 30, MIN = 170, DEF = { lw: 250, rw: 280, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY + "-v2") || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY + "-v2", JSON.stringify(st)); } catch (e) {}
+    if (el("batch").classList.contains("open")) requestAnimationFrame(() => { placeBatch(); drawBatch(); });
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+})();
+
+setPreset(0);
+requestAnimationFrame(frame);
+</script>
+<!-- VIEW BAR (start): hide/show the side panels and full-screen the simulation. Same block in every simulation. -->
+<style>
+  #viewBar { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-shrink: 0; align-self: center; }
+  #viewBar button { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  #viewBar button.on { border-color: var(--accent); }
+  #viewBar .vbKey { opacity: .55; font-size: 11px; margin-left: 4px; }
+  /* bigger, clearer drag handles between the panels */
+  .splitter::before { width: 4px !important; margin-left: -2px !important; }
+  .splitter::after { content: "⋮"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--muted); font-size: 16px; pointer-events: none; }
+  .splitter button { width: 22px !important; height: 52px !important; font-size: 15px !important; font-weight: 700; background: var(--accent) !important; color: #14133b !important; border: none !important; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  /* full screen: the centre panel fills the screen */
+  #centre:fullscreen { background: var(--bg); padding: 10px; width: 100vw; height: 100vh; box-sizing: border-box; }
+  #centre .vbExit { display: none; }
+  #centre:fullscreen .vbExit { display: block; position: absolute; top: 10px; right: 12px; z-index: 50; }
+  #centre:fullscreen { position: relative; }
+  #vbTip { position: fixed; top: 52px; right: 14px; z-index: 60; max-width: 330px; background: var(--panel-2, #1b2017); border: 1px solid var(--accent);
+           border-radius: 10px; padding: 9px 12px; font-size: 13px; line-height: 1.45; box-shadow: 0 4px 16px rgba(0,0,0,.5); cursor: pointer; }
+</style>
+<script>
+(function () {
+  // Buttons in the header: hide/show the left (controls) and right (readouts) panels, and full screen.
+  // They click the existing ‹ › buttons on the drag handles, so each simulation's own layout code stays in charge.
+  const header = document.querySelector("header"), centre = document.getElementById("centre");
+  const sL = document.getElementById("splitL"), sR = document.getElementById("splitR");
+  const left = sL && sL.previousElementSibling, right = sR && sR.nextElementSibling;   // the panels either side of the drag handles
+  const bL = sL && sL.querySelector("button"), bR = sR && sR.querySelector("button");
+  if (!header || !centre || !left || !right || !bL || !bR) return;
+  const bar = document.createElement("div"); bar.id = "viewBar";
+  bar.innerHTML = '<button id="vbL" title="Hide or show the controls panel (key: [ )"></button>' +
+                  '<button id="vbR" title="Hide or show the readouts panel (key: ] )"></button>' +
+                  '<button id="vbF" title="Show only the simulation, full screen (key: F; Esc to leave)">⛶ Full screen</button>';
+  header.appendChild(bar);
+  const exit = document.createElement("button"); exit.className = "vbExit"; exit.textContent = "✕ Exit full screen (Esc)";
+  centre.appendChild(exit);
+  const vbL = bar.querySelector("#vbL"), vbR = bar.querySelector("#vbR"), vbF = bar.querySelector("#vbF");
+  function label() {
+    const lc = left.classList.contains("collapsed"), rc = right.classList.contains("collapsed");
+    vbL.textContent = lc ? "◧ Show controls" : "◧ Hide controls"; vbL.classList.toggle("on", !lc);
+    vbR.textContent = rc ? "Show readouts ◨" : "Hide readouts ◨"; vbR.classList.toggle("on", !rc);
+  }
+  new MutationObserver(label).observe(left, { attributes: true, attributeFilter: ["class"] });
+  new MutationObserver(label).observe(right, { attributes: true, attributeFilter: ["class"] });
+  label();
+  const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else if (centre.requestFullscreen) centre.requestFullscreen().catch(() => {}); };
+  vbL.onclick = () => bL.click(); vbR.onclick = () => bR.click(); vbF.onclick = full; exit.onclick = full;
+  document.addEventListener("fullscreenchange", () => {
+    vbF.textContent = document.fullscreenElement ? "✕ Exit full screen" : "⛶ Full screen";
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 60);    // canvases re-measure themselves
+  });
+  // The batch-run window lives outside the full-screen area, so leave full screen when it is opened
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("button");
+    if (document.fullscreenElement && b && /Batch run/.test(b.textContent)) document.exitFullscreen();
+  }, true);
+  document.addEventListener("keydown", e => {
+    const t = e.target.tagName; if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA" || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "f" || e.key === "F") { full(); e.preventDefault(); }
+    else if (e.key === "[") bL.click(); else if (e.key === "]") bR.click();
+  });
+  // A one-time tip so people notice the panels can be hidden or resized
+  let seen = false; try { seen = localStorage.getItem("sims-viewbar-tip") === "1"; } catch (e) {}
+  if (!seen) {
+    const tip = document.createElement("div"); tip.id = "vbTip";
+    tip.innerHTML = "<b>Make the simulation bigger:</b> hide the side panels with the buttons above (or the yellow ‹ › tabs), drag the ⋮ bars to resize them, or press <b>⛶ Full screen</b>. Click to close.";
+    document.body.appendChild(tip);
+    const close = () => { tip.remove(); try { localStorage.setItem("sims-viewbar-tip", "1"); } catch (e) {} };
+    tip.onclick = close; setTimeout(close, 12000);
+  }
+})();
+</script>
+<!-- VIEW BAR (end) -->
+<script id="tidyCfg">window.TIDY = {"readingsHead": ["Readouts"]};</script>
+<script id="tidyJs">
+/* ==== Tidy layout ====
+   Rearranges the side panels after the simulation has built them. It never changes the model.
+   Left:  the level note becomes one line ("iGCSE · topic") with the full note in a drop-down;
+          presets become a drop-down menu; every section heading folds; seed / quality / picture
+          go into a "More settings" group at the bottom.
+   Right: tabs (Live, Graphs, Practical, Learn, Exam); four to six key readings with "More readings";
+          every section folds. Folding and the chosen tab are remembered in this browser only.
+   Each simulation can set window.TIDY = { std: "...", adv: "...", live: [], graphs: [], learn: [],
+   practical: [], settings: [], readings: 6, move: { "<id or CSS selector>": "graphs" (or "learn:last" to go after the tab's own blocks) },
+   hint: "#lvlHint", presets: "#presets" (may match several containers; a .pgroup label just before each goes too),
+   levelHead: "Level", readingsHead: ["Readings"], readingsGrid: "<CSS selector>",
+   advTest: "body.lvl-adv" (a selector that matches only at A level), left: "#left", right: "#right" }
+   before this runs (headings are matched by their start; a moved <h2> takes its folding body with it). */
+function tidyRun() {
+  "use strict";
+  const CFG = Object.assign({ std: "", adv: "", live: [], graphs: [], learn: [], practical: [], exam: [], settings: [], readings: 6, move: {}, hint: "#lvlHint", presets: "#presets", levelHead: "Level", readingsHead: ["Readings"], readingsGrid: "",
+    advTest: "body.lvl-adv", left: "#left", right: "#right" }, window.TIDY || {});
+  const L = document.querySelector(CFG.left), R = document.querySelector(CFG.right);
+  if (!L || !R || L.dataset.tidy) return;
+  L.dataset.tidy = "1";
+  const KEY = "tidy:" + location.pathname.split("/").slice(-2).join("/") + ":";
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(KEY + k); return v === null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(KEY + k, v); } catch (e) { /* private window: just don't remember */ } }
+  };
+  const txt = el => (el ? el.textContent : "").replace(/\s+/g, " ").trim();
+  const head = el => el.tagName === "H2" ? txt(el) : el.tagName === "DETAILS" ? txt(el.querySelector("summary")) : (el.querySelector && el.querySelector("h2") ? txt(el.querySelector("h2")) : "");
+  const starts = (t, list) => list.some(s => t.toLowerCase().startsWith(s.toLowerCase()));
+  const isAdv = () => !!document.querySelector(CFG.advTest);
+  /* Things to refresh when the level (or a mode) may have changed: after any click or change, and when <body>'s class changes */
+  const refreshers = [];
+  let refreshQueued = false;
+  const refresh = () => { if (refreshQueued) return; refreshQueued = true; setTimeout(() => { refreshQueued = false; refreshers.forEach(f => f()); }, 30); };
+  new MutationObserver(refresh).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  document.addEventListener("click", refresh, true);
+  document.addEventListener("change", refresh, true);
+  const nudge = () => { window.dispatchEvent(new Event("resize")); };
+
+  /* Wrap each <h2> and the siblings after it (up to the next heading or block that holds one) in a folding group. */
+  function foldHeadings(panel, skip) {
+    panel.querySelectorAll("h2").forEach(h => {
+      if (skip(h) || h.closest("details") || h.closest(".tidyMenu") || h.dataset.tidyDone) return;
+      if (h.parentNode.id === "tour" || h.closest("#tour")) return;
+      h.dataset.tidyDone = "1";
+      const body = document.createElement("div"); body.className = "tidyBody";
+      let n = h.nextSibling;
+      while (n && !(n.nodeType === 1 && (n.tagName === "H2" || n.tagName === "DETAILS" || n.classList.contains("reopen") || (n.querySelector && n.querySelector("h2"))))) {
+        const next = n.nextSibling; body.appendChild(n); n = next;
+      }
+      h.after(body);
+      h.classList.add("tidyH");
+      const k = "fold:" + panel.id + ":" + txt(h).slice(0, 40);
+      const set = shut => { h.classList.toggle("shut", shut); body.classList.toggle("shut", shut); };
+      set(store.get(k, "0") === "1");
+      h.addEventListener("click", e => {
+        if (e.target.closest("button,input,select,a,label")) return;
+        const shut = !h.classList.contains("shut"); set(shut); store.set(k, shut ? "1" : "0"); nudge();
+      });
+    });
+  }
+
+  /* ---- Left: level line ---- */
+  const hint = CFG.hint ? document.querySelector(CFG.hint) : null;
+  if (hint) {
+    const lvH = [...L.querySelectorAll("h2")].find(h => txt(h).toLowerCase() === String(CFG.levelHead).toLowerCase());
+    if (lvH) lvH.classList.add("tidyHide");
+    const det = document.createElement("details"); det.className = "tidyInfo";
+    const sum = document.createElement("summary"); det.appendChild(sum);
+    hint.before(det); det.appendChild(hint);
+    const line = () => {
+      const s = isAdv() ? CFG.adv : CFG.std;
+      sum.innerHTML = (s || (isAdv() ? "A level" : "GCSE")) + '<span class="tidyI" title="What this level covers">ⓘ</span>';
+    };
+    line();
+    refreshers.push(line);
+    det.addEventListener("toggle", nudge);
+  }
+
+  /* ---- Left: presets menu ---- */
+  const pres = CFG.presets ? [...document.querySelectorAll(CFG.presets)] : [];
+  if (pres.length) {
+    const pre = pres[0];
+    const pH = [...L.querySelectorAll("h2")].find(h => /^presets/i.test(txt(h)));
+    if (pH) pH.classList.add("tidyHide");
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "tidyPresetsBtn";
+    btn.innerHTML = '<span>Presets ▾</span><span class="cur"></span>';
+    pre.before(btn);
+    const menu = document.createElement("div"); menu.className = "tidyMenu tidyHide";
+    menu.innerHTML = '<p class="tidyMenuHint">Hover over a preset to see what it sets up.</p>';
+    pres.forEach(p => { let g = p.previousElementSibling; if (g === btn) g = btn.previousElementSibling; if (g && g.matches(".pgroup")) menu.appendChild(g); menu.appendChild(p); });
+    document.body.appendChild(menu);
+    const titles = () => menu.querySelectorAll("button").forEach(b => {
+      const sm = b.querySelector("small"); if (sm && !b.title) b.title = txt(sm);
+    });
+    const cur = () => {
+      const on = menu.querySelector("button.on");
+      let t = "";
+      if (on) { const c = on.cloneNode(true); c.querySelectorAll("small").forEach(s => s.remove()); t = txt(c); }
+      btn.querySelector(".cur").textContent = t;
+    };
+    titles(); cur();
+    new MutationObserver(() => { titles(); cur(); }).observe(menu, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+    const close = () => menu.classList.add("tidyHide");
+    const open = () => {
+      const r = btn.getBoundingClientRect();
+      const w = Math.min(460, window.innerWidth - r.left - 16);
+      menu.style.left = r.left + "px"; menu.style.top = (r.bottom + 4) + "px"; menu.style.width = w + "px";
+      menu.style.maxHeight = (window.innerHeight - r.bottom - 14) + "px";
+      menu.classList.remove("tidyHide");
+    };
+    btn.addEventListener("click", e => { e.stopPropagation(); menu.classList.contains("tidyHide") ? open() : close(); });
+    menu.addEventListener("click", e => { if (e.target.closest("button")) setTimeout(close, 0); });
+    document.addEventListener("click", e => { if (!menu.contains(e.target) && e.target !== btn) close(); });
+    document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+    window.addEventListener("resize", close);
+    L.addEventListener("scroll", close);
+  }
+
+  /* ---- Left: fold headings, then gather the "More settings" ---- */
+  const SET_RE = /^(picture|quality|display|graphics|random seed|seed|animation)\b/i;
+  foldHeadings(L, h => h.classList.contains("tidyHide"));
+  const more = document.createElement("details"); more.className = "tidyMore";
+  more.innerHTML = "<summary>More settings</summary>";
+  L.querySelectorAll("h2.tidyH").forEach(h => {
+    const t = txt(h);
+    if (SET_RE.test(t) || starts(t, CFG.settings)) { const bd = h.nextElementSibling; more.appendChild(h); if (bd) more.appendChild(bd); h.classList.remove("tidyH"); h.style.cursor = "default"; }
+  });
+  ["#quality", "#seed", "#rseed", "[id$='Seed']", "[id$='seed']"].forEach(sel => L.querySelectorAll(sel).forEach(inp => {
+    if (more.contains(inp)) return;
+    const c = inp.closest(".ctl") || inp.closest(".row"); if (c && L.contains(c)) more.appendChild(c);
+  }));
+  /* "How the model works" belongs with the other explanations on the right */
+  const toLearn = [];
+  [...L.querySelectorAll("details")].forEach(d => { if (/how the model works/i.test(head(d))) toLearn.push(d); });
+  if (more.children.length > 1) {
+    L.appendChild(more);
+    more.open = store.get("more", "0") === "1";
+    more.addEventListener("toggle", () => store.set("more", more.open ? "1" : "0"));
+  }
+
+  /* ---- Right: tabs ---- */
+  foldHeadings(R, () => false);
+  const TABS = [["live", "Live"], ["graphs", "Graphs"], ["practical", "Practical"], ["learn", "Learn"], ["exam", "Exam"]];
+  const panes = {}, bar = document.createElement("div"); bar.className = "tidyTabs";
+  const kids = [...R.children].filter(k => !k.classList.contains("reopen"));
+  let firstChart = true;
+  const classify = (t, els) => {
+    const low = t.toLowerCase(), has = sel => els.some(e => e.matches && (e.matches(sel) || e.querySelector(sel)));
+    for (const [k] of TABS) if (t && starts(t, CFG[k] || [])) return k;
+    if (has("#tour")) return "live";
+    if (has("#exam") || /exam practice|exam question/.test(low)) return "exam";
+    if (!t) return "live";   // unheaded blocks (e.g. a readout above the first heading) stay on Live
+    if (/practical|^🧪/.test(low) || els[0].matches && els[0].matches(".lab")) return "practical";
+    if (/key idea|key equation|how the model|equations|spec|glossary|data source|story|notes|definitions|further/.test(low)) return "learn";
+    if (/what's happening|what is happening|readings|guided tour|^tour/.test(low)) return "live";
+    if (has("canvas,svg")) { if (firstChart) { firstChart = false; return "live"; } return "graphs"; }
+    return "live";
+  };
+  // an h2 and its folding body travel together
+  const groups = [];
+  for (let i = 0; i < kids.length; i++) {
+    const k = kids[i];
+    if (k.tagName === "H2" && kids[i + 1] && kids[i + 1].classList.contains("tidyBody")) { groups.push([k, kids[i + 1]]); i++; }
+    else groups.push([k]);
+  }
+  const order = new Map(); [...document.querySelectorAll("*")].forEach((e, i) => order.set(e, i));
+  // elements a simulation asks to move (e.g. charts that sit under the readings) go to their own tab
+  const last = new Set();   // moved with "<tab>:last": placed after the tab's own blocks
+  Object.entries(CFG.move).forEach(([key, where]) => {
+    const [tab, pos] = String(where).split(":");
+    const list = /^[A-Za-z][\w-]*$/.test(key) ? [document.getElementById(key)] : [...R.querySelectorAll(key)];
+    list.forEach(e => {
+      if (!e || !R.contains(e)) return;
+      const body = e.tagName === "H2" && e.nextElementSibling && e.nextElementSibling.classList.contains("tidyBody") ? e.nextElementSibling : null;
+      groups.forEach(g => { const i = g.indexOf(e); if (i >= 0) g.splice(i, body ? 2 : 1); });
+      e.remove(); if (body) body.remove();
+      (panes[tab] = panes[tab] || []).push(e); if (body) panes[tab].push(body);
+      if (pos === "last") { last.add(e); if (body) last.add(body); }
+    });
+  });
+  groups.forEach(g => { if (!g.some(n => R.contains(n))) return; const tab = classify(head(g[0]), g); (panes[tab] = panes[tab] || []).push(...g); });
+  toLearn.forEach(d => (panes.learn = panes.learn || []).push(d));
+  const reopen = R.querySelector(":scope > .reopen");
+  const paneEls = {};
+  TABS.forEach(([k, name]) => {
+    if (!panes[k] || !panes[k].length) return;
+    const p = document.createElement("div"); p.className = "tidyPane"; p.dataset.tab = k;
+    panes[k].sort((a, b) => (last.has(a) - last.has(b)) || (order.get(a) || 0) - (order.get(b) || 0)).forEach(n => p.appendChild(n));
+    paneEls[k] = p;
+    const b = document.createElement("button"); b.type = "button"; b.textContent = name; b.dataset.tab = k;
+    bar.appendChild(b);
+  });
+  if (reopen) reopen.after(bar); else R.prepend(bar);
+  Object.values(paneEls).forEach(p => R.appendChild(p));
+  const show = k => {
+    const hidden = n => { const b = bar.querySelector('button[data-tab="' + n + '"]'); return !paneEls[n] || (b && b.classList.contains("tidyHide")); };
+    if (hidden(k)) k = Object.keys(paneEls).find(n => !hidden(n)) || Object.keys(paneEls)[0];
+    Object.entries(paneEls).forEach(([n, p]) => p.classList.toggle("tidyHide", n !== k));
+    bar.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.tab === k));
+    store.set("tab", k); R.scrollTop = 0; nudge();
+  };
+  bar.addEventListener("click", e => { const b = e.target.closest("button"); if (b) show(b.dataset.tab); });
+  // a tab whose contents are all for the other level (e.g. A level practicals at Standard) is hidden
+  // ... and so is a tab whose contents are all hidden just now (e.g. charts only shown in another mode)
+  const shown = el => getComputedStyle(el).display !== "none";
+  const visible = c => {
+    if (c.matches(".tidyBody")) return (!c.previousElementSibling || shown(c.previousElementSibling)) && [...c.children].some(shown);
+    if (c.matches("h2.tidyH") && c.nextElementSibling && c.nextElementSibling.matches(".tidyBody")) return shown(c) && [...c.nextElementSibling.children].some(shown);
+    return shown(c);
+  };
+  const levelTabs = () => {
+    let cur = store.get("tab", "live");
+    bar.querySelectorAll("button").forEach(b => {
+      const empty = ![...paneEls[b.dataset.tab].children].some(visible);
+      b.classList.toggle("tidyHide", empty);
+      if (empty && b.dataset.tab === cur) cur = null;
+    });
+    if (!cur) show("live");
+  };
+  refreshers.push(levelTabs);
+  if (Object.keys(paneEls).length < 2) bar.classList.add("tidyHide");
+  show(store.get("tab", "live"));
+  levelTabs();
+  window.tidyShowTab = show;   // a simulation (or test) can switch tab
+
+  /* ---- Right: only the first few readings, with "More readings" ---- */
+  const rH = [...R.querySelectorAll("h2.tidyH")].find(h => starts(txt(h), CFG.readingsHead));
+  if (rH || CFG.readingsGrid) {
+    const body = rH && rH.nextElementSibling;
+    const grid = CFG.readingsGrid ? R.querySelector(CFG.readingsGrid) : body && [...body.children].sort((a, b) => b.children.length - a.children.length)[0];
+    if (grid) {
+      const tg = document.createElement("button"); tg.type = "button"; tg.className = "tidyMoreR";
+      grid.after(tg);
+      let all = store.get("allReadings", "0") === "1";
+      const apply = () => {
+        const items = [...grid.children];
+        items.forEach(c => c.classList.remove("tidyX"));
+        if (grid.offsetParent === null) return;
+        const vis = items.filter(c => c.offsetParent !== null || getComputedStyle(c).display !== "none" && c.getClientRects().length);
+        const extra = vis.slice(CFG.readings);
+        tg.classList.toggle("tidyHide", !extra.length);
+        tg.textContent = all ? "Fewer readings ▴" : "More readings (" + extra.length + ") ▾";
+        if (!all) extra.forEach(c => c.classList.add("tidyX"));
+      };
+      tg.addEventListener("click", () => { all = !all; store.set("allReadings", all ? "1" : "0"); apply(); nudge(); });
+      apply();
+      new MutationObserver(apply).observe(grid, { childList: true });
+      refreshers.push(apply);
+    }
+  }
+  nudge();
+}
+// wait until the simulation has drawn its first frames, so headings and readings it fills in then exist
+window.addEventListener("load", () => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(tidyRun, 250))));
+</script>
+<script id="typeinJs">/* ==== Type a value into any slider ====
+   Click the value shown beside a slider (or Tab to it and press Enter), type a number, press Enter
+   (Escape cancels). Units are optional: "2.2", "2.2 mF" and "2200 μF" all work if the slider shows farads.
+   How: the page decides how a slider position is shown (log scales, unit prefixes, £ and so on), so this
+   tries slider positions, reads what the page displays for each, and homes in on the one that matches
+   (a bisection search). Values beyond the slider's range go to the nearest end. */
+(function () {
+  "use strict";
+  if (window.__typeinDone) return; window.__typeinDone = true;
+  const PRE = { p: 1e-12, n: 1e-9, "μ": 1e-6, "µ": 1e-6, u: 1e-6, m: 1e-3, k: 1e3, M: 1e6, G: 1e9 };
+  const SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+  // read a displayed value such as "2.2 mF", "4.7 × 10⁵ Pa", "£30,000", "−12 °C" as a plain number
+  function parseVal(text) {
+    const t = String(text).replace(/[−–]/g, "-").replace(/[   ]/g, " ");
+    const m = t.match(/-?(?:\d{1,3}(?:[, ]\d{3})+|\d+)(?:\.\d+)?|-?\.\d+/);
+    if (!m) return null;
+    let v = parseFloat(m[0].replace(/[, ]/g, "")), rest = t.slice(m.index + m[0].length);
+    const pw = m[0] === "10" && rest.match(/^(?:\^\s*(-?\d+(?:\.\d+)?)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))/);         // a bare power of ten: 10⁻⁹ or 10^6.5
+    if (pw) { v = Math.pow(10, pw[1] != null ? +pw[1] : (pw[2][0] === "⁻" ? -1 : 1) * +[...pw[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join("")); rest = rest.slice(pw[0].length); }
+    const ex = rest.match(/^\s*(?:[×x*]\s*10\s*(?:\^\s*(-?\d+)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))|[eE]([-+]?\d+))/);
+    if (ex) { const p = ex[1] != null ? +ex[1] : ex[3] != null ? +ex[3] : (ex[2][0] === "⁻" ? -1 : 1) * +[...ex[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join(""); v *= Math.pow(10, p); rest = rest.slice(ex[0].length); }
+    const wd = rest.match(/^\s*(thousand|million|billion|trillion)\b/i);    // "1 million K"
+    if (wd) { v *= { thousand: 1e3, million: 1e6, billion: 1e9, trillion: 1e12 }[wd[1].toLowerCase()]; rest = rest.slice(wd[0].length); }
+    const pm = !wd && rest.match(/^\s*([pnμµumkMG])(?=[A-Za-zΩ°])/);                 // a unit prefix such as m in mF or k in kΩ
+    if (pm) v *= PRE[pm[1]];
+    return isFinite(v) ? { v, unit: rest } : null;
+  }
+  // what the user typed, read in the same units as the current display when they gave no unit
+  // what was typed, in the units on display unless a unit was typed too ("2.2", "2.2 mF" and "1e-6" all work)
+  function typedVal(raw, shown) {
+    const q = parseVal(raw); if (!q) return null;
+    if (/[A-Za-zμµΩ°%£$€]/.test(q.unit)) return q;
+    const s = parseVal(shown); return parseVal(raw + (s ? " " + s.unit.trim() : ""));
+  }
+  // find the slider position whose display g(pos) is closest to target; g may be async
+  async function invert(r, g, target) {
+    const lo = +r.min || 0, hi = r.max === "" ? 100 : +r.max, st = r.step === "any" || !+r.step ? (hi - lo) / 10000 : +r.step;
+    const n = Math.max(1, Math.round((hi - lo) / st)), pos = i => +(lo + i * st).toFixed(10);
+    let e0 = 0, e1 = n, a = await g(pos(0)), b = await g(pos(n));              // ends may show words ("off"): step in to the first numbers
+    while (a == null && e0 < Math.min(n, 60)) a = await g(pos(++e0));
+    while (b == null && e1 > e0 && n - e1 < 60) b = await g(pos(--e1));
+    if (a == null || b == null || a === b) return null;
+    const up = b > a;
+    if (up ? target < a : target > a) return pos(e0 > 0 ? 0 : e0);
+    if (up ? target > b : target < b) return pos(e1 < n ? n : e1);
+    let i0 = e0, i1 = e1, v0 = a, v1 = b;
+    while (i1 - i0 > 1) { const im = (i0 + i1) >> 1, vm = await g(pos(im)); if (vm == null) break; if ((vm < target) === up) { i0 = im; v0 = vm; } else { i1 = im; v1 = vm; } }
+    return Math.abs(v0 - target) <= Math.abs(v1 - target) ? pos(i0) : pos(i1);
+  }
+  const textOf = el => { const c = el.cloneNode(true); c.querySelectorAll("sup").forEach(x => x.replaceWith("^" + x.textContent)); return c.textContent; };
+  const frame = () => new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+  function display(r) {
+    const ctl = r.closest(".ctl"), prev = r.previousElementSibling;
+    return (r.id && document.getElementById("o_" + r.id)) || (ctl && ctl.querySelectorAll('input[type="range"]').length === 1 && ctl.querySelector("label output, label b, label span.val, output")) ||
+      (prev && prev.tagName === "LABEL" && prev.querySelector("output, b, span.val"));
+  }
+  function attach(r) {
+    const out = display(r); if (!out || out.dataset.typein) return;
+    out.dataset.typein = "1"; out.classList.add("typein"); out.tabIndex = 0; out.title = "Click to type a value";
+    const fire = (type) => r.dispatchEvent(new Event(type, { bubbles: true }));
+    async function commit(raw) {
+      const shown = textOf(out), start = r.value, t = typedVal(raw, shown);
+      if (!t) return;
+      let probe = async p => { r.value = p; fire("input"); const q = parseVal(textOf(out)); return q ? q.v : null; };
+      let p = await invert(r, probe, t.v);
+      if (p == null) { probe = async p2 => { r.value = p2; fire("input"); fire("change"); await frame(); const q = parseVal(textOf(out)); return q ? q.v : null; }; p = await invert(r, probe, t.v); }
+      r.value = p == null ? start : p; fire("input"); fire("change");
+    }
+    function edit() {
+      if (out.querySelector("input")) return;
+      const shown = textOf(out), box = document.createElement("input"), q = parseVal(shown);
+      box.type = "text"; box.className = "typeinBox"; box.value = q ? shown.trim() : ""; box.setAttribute("aria-label", "Type a value");
+      out.style.display = "none"; out.after(box); box.focus(); box.select();
+      let done = false;
+      const finish = ok => { if (done) return; done = true; const v = box.value; box.remove(); out.style.display = ""; if (ok && v.trim() && v.trim() !== shown.trim()) commit(v); };
+      box.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); });
+      box.addEventListener("blur", () => finish(true));
+      box.addEventListener("click", e => { e.stopPropagation(); e.preventDefault(); });
+    }
+    out.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); edit(); });
+    out.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); edit(); } });
+  }
+  const css = document.createElement("style");
+  css.textContent = ".typein{cursor:text;border-bottom:1px dashed currentColor;padding:0 1px}.typein:hover,.typein:focus{outline:1px solid var(--accent,#6fb1ff);outline-offset:1px;border-radius:3px}.typeinBox{width:9em;font:inherit;font-size:12.5px;padding:1px 4px;margin-left:4px;border-radius:4px;border:1px solid var(--accent,#6fb1ff);background:var(--panel-2,#1b2438);color:var(--text,#eef2f8)}";
+  document.head.append(css);
+  const scan = () => document.querySelectorAll('input[type="range"]').forEach(attach);
+  window.addEventListener("load", () => setTimeout(scan, 400));
+  new MutationObserver(() => { clearTimeout(scan.t); scan.t = setTimeout(scan, 300); }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script>
+</body>
+</html>

@@ -68,6 +68,9 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["dna_cell_division.js", "dna_cell_division", "dna-cell-division.html", "DNA, Protein Synthesis and Cell Division", "biology"],
   ["ecosystems.js", "ecosystems", "ecosystems.html", "Ecosystems and Sampling", "biology"],
   ["homeostasis.js", "homeostasis", "homeostasis.html", "Homeostasis", "biology"],
+  ["aerofoil_flow.js", "aerofoil_flow", "aerofoil-flow.html", "Aerofoil Flow", "engineering"],
+  ["ice_albedo.js", "ice_albedo", "ice-albedo.html", "Ice–Albedo Tipping Points", "climate"],
+  ["carbon_cycle.js", "carbon_cycle", "carbon-cycle.html", "Carbon Cycle and CO₂", "climate"],
   ["training_adaptation.js", "training_adaptation", "training-adaptation.html", "Training and Adaptation", "physical_education"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
