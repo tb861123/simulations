@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Sixty-four simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): fifty-seven rebuilt showpieces, which replaced the earlier versions in
+Sixty-seven simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): sixty rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -31,7 +31,7 @@ Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, S
 Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
 and Competition, Arousal and Performance, Stellar Life Cycle, Inheritance, Simple Harmonic
 Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, Reactivity of
-Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, and Groups 1 and 7 are likewise kept in each folder's `original/`, with their worksheets,
+Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, and Homeostasis are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Typing slider values
@@ -127,9 +127,9 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`biology/enzymes/`](biology/enzymes/) | Enzymes ★: molecules colliding and fitting; temperature, pH, denaturing, substrate and enzyme concentration, inhibitors, Vmax, Q10 | Open `enzymes.html` |
 | [`biology/photosynthesis_respiration/`](biology/photosynthesis_respiration/) | Photosynthesis and Respiration ★: pondweed and limiting factors, leaf gas exchange and indicator tubes, respirometer, RQ and the Calvin cycle | Open `photosynthesis-respiration.html` |
 | [`biology/inheritance/`](biology/inheritance/) | Inheritance ★: fruit-fly breeding lab, Punnett squares, pedigrees, dihybrid crosses, sex linkage, linkage, epistasis, chi-squared | Open `inheritance.html` |
-| [`biology/dna_cell_division/`](biology/dna_cell_division/) | DNA, protein synthesis and cell division: genetic code, mutations, mitosis, meiosis, root tip mitotic index, replication, lac operon | Open `dna-cell-division.html` |
-| [`biology/ecosystems/`](biology/ecosystems/) | Ecosystems and sampling: food webs, energy transfer, nutrient cycles, quadrats and transects, succession, Simpson's index, sustainability | Open `ecosystems.html` |
-| [`biology/homeostasis/`](biology/homeostasis/) | Homeostasis: blood glucose, insulin and glucagon, diabetes, temperature control, the kidney and ADH, negative and positive feedback | Open `homeostasis.html` |
+| [`biology/dna_cell_division/`](biology/dna_cell_division/) | DNA and cell division ★: the double helix, protein synthesis from a real gene, mutations, mitosis, root tip squash, meiosis | Open `dna-cell-division.html` |
+| [`biology/ecosystems/`](biology/ecosystems/) | Ecosystems ★: food webs and energy pyramids, the nitrogen cycle, quadrats and transects, succession, eutrophication | Open `ecosystems.html` |
+| [`biology/homeostasis/`](biology/homeostasis/) | Homeostasis ★: blood glucose and diabetes, thermoregulation, the kidney and ADH, negative and positive feedback | Open `homeostasis.html` |
 | [`biology/immunity/`](biology/immunity/) | Immunity and vaccination: barriers, phagocytes, lymphocytes, antibodies, memory cells, vaccines, herd immunity, blood smears, antibiotic discs | Open `immunity.html` |
 | [`biology/plant_transport/`](biology/plant_transport/) | Plant transport and responses: xylem, phloem, transpiration and the potometer, translocation, tropisms, auxin and other plant hormones | Open `plant-transport.html` |
 | [`biology/biotechnology/`](biology/biotechnology/) | Biotechnology and genetic engineering: food production, selective breeding, fermenters, GM insulin and crops, cloning, PCR and gel electrophoresis | Open `biotechnology.html` |
