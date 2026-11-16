@@ -20,6 +20,11 @@ node build.js
 ```
 
 Do not edit the built `.html` files by hand: the next build overwrites them.
+
+Every `K.slider` lets the user click its value and type an exact one (units and
+prefixes optional). The kit tries each slider position through the slider's own
+`fmt` and picks the closest display, so log scales and custom formats work with
+no extra code. Sliders whose display is only words are not typeable.
 To add a simulation, write `src/<name>.js`, add a line to the `SIMS` table in
 `build.js`, and list its folder in `ENHANCED` in the front page `index.html`.
 

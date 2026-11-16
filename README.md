@@ -34,6 +34,13 @@ Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, Reacti
 Metals, and Young's Modulus (now Materials Science) are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
+## Typing slider values
+
+In every simulation you can click the value shown beside a slider (or Tab to
+it and press Enter), type an exact value and press Enter. The unit is
+optional: "2.2", "2.2 mF" and "2200 μF" all work on a slider showing farads.
+Values beyond the slider's range go to the nearest end.
+
 ## Batch run
 
 Every single-file simulation has a **📊 Batch run** button. It runs the model
