@@ -34,7 +34,8 @@ electrolysis, running_the_economy, radioactive_decay, photoelectric_effect,
 energy_systems, bonding, circuits, enzymes, greenhouse_effect,
 organic_chemistry, training_adaptation, projectile_motion,
 photosynthesis_respiration, externalities, flooding_hydrographs, queues,
-energy_changes, gas_exchange, tectonic_hazards.
+energy_changes, gas_exchange, tectonic_hazards, car_crash, firms_competition,
+arousal_performance, stellar_life_cycle, inheritance.
 
 ## Levels and the Revise tab
 

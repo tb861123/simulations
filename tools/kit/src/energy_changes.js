@@ -13,6 +13,7 @@
    re-forming; a polystyrene cup (Q = m c ΔT); burning alcohols under a
    can of water; and (A level) ΔG = ΔH − TΔS.
    ===================================================================== */
+const whole = f => v => Math.abs(v - Math.round(v)) < 0.01 ? f(v) : "";   // label category axes only at whole numbers
 
 // ---- bond energies (kJ/mol), from the usual data book ----
 const BE = { "H-H": 436, "C-H": 413, "C-C": 347, "C=C": 612, "C=O": 805, "O-H": 464, "O=O": 498, "Cl-Cl": 243, "H-Cl": 432, "I-I": 151, "H-I": 299, "N#N": 945, "N-H": 391, "N=O": 631 };
@@ -306,8 +307,8 @@ ui.run(dt => {
     const R = RX[P.rx], br = bondsIn(R.r), mk = bondsIn(R.p), bb = sumBonds(br), mm = sumBonds(mk);
     chA.opts.xLabel = ""; chA.opts.yLabel = "kJ"; chB.opts.xLabel = "bond"; chB.opts.yLabel = "kJ/mol";
     const keys = [...new Set(Object.keys(br).concat(Object.keys(mk)))];
-    chA.opts.xFmt = v => keys[Math.round(v)] || ""; chA.draw([{ pts: keys.map((k, i) => [i - 0.17, (br[k] || 0) * BE[k]]), type: "bars", w: 0.3, color: "#ff8a70", label: "broken (energy in)" }, { pts: keys.map((k, i) => [i + 0.17, (mk[k] || 0) * BE[k]]), type: "bars", w: 0.3, color: "#7fe3a0", label: "made (energy out)" }], { xMin: -0.6, xMax: keys.length - 0.4, yMin: 0 });
-    const all = Object.keys(BE); chB.opts.xFmt = v => all[Math.round(v)] || ""; chB.draw([{ pts: all.map((k, i) => [i, BE[k]]), type: "bars", w: 0.7, color: "#6fb1ff", label: "bond energy" }], { xMin: -0.6, xMax: all.length - 0.4, yMin: 0 });
+    chA.opts.xFmt = whole(v => keys[Math.round(v)] || ""); chA.draw([{ pts: keys.map((k, i) => [i - 0.17, (br[k] || 0) * BE[k]]), type: "bars", w: 0.3, color: "#ff8a70", label: "broken (energy in)" }, { pts: keys.map((k, i) => [i + 0.17, (mk[k] || 0) * BE[k]]), type: "bars", w: 0.3, color: "#7fe3a0", label: "made (energy out)" }], { xMin: -0.6, xMax: keys.length - 0.4, yMin: 0 });
+    const all = Object.keys(BE); chB.opts.xFmt = whole(v => all[Math.round(v)] || ""); chB.draw([{ pts: all.map((k, i) => [i, BE[k]]), type: "bars", w: 0.7, color: "#6fb1ff", label: "bond energy" }], { xMin: -0.6, xMax: all.length - 0.4, yMin: 0 });
     read.set("a", bb + " kJ"); read.set("b", mm + " kJ"); read.set("c", (bb - mm > 0 ? "+" : "") + (bb - mm) + " kJ/mol"); read.set("d", (R.data > 0 ? "+" : "") + R.data + " kJ/mol");
     ui.hud(pr < 0.35 ? "Reactants: collisions supply the activation energy…" : pr < 0.65 ? "<b>Bonds breaking</b>: energy taken in" : "<b>New bonds forming</b>: energy given out");
   } else if (P.mode === "cup") {

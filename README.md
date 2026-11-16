@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Forty-seven simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): forty rebuilt showpieces, which replaced the earlier versions in
+Fifty-two simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): forty-five rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -28,7 +28,8 @@ Rabbits, Electrolysis, Running the Economy, Radioactive Decay, Photoelectric
 Effect, Energy Systems, Bonding, Circuits, Enzymes, the Greenhouse Effect, Crude Oil,
 Cracking and Polymers, Training and Adaptation, Projectile Motion, Photosynthesis and
 Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, Supermarket
-Queues, Energy Changes, Lungs and Gas Exchange, and Tectonic Hazards are likewise kept in each folder's `original/`, with their worksheets,
+Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
+and Competition, Arousal and Performance, Stellar Life Cycle, and Inheritance are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Batch run
@@ -42,7 +43,7 @@ simulation has ready-made batch experiments that pose a question, such as
 
 ## Worksheets
 
-Every simulation with a batch run, apart from the forty-seven ★ Enhanced ones,
+Every simulation with a batch run, apart from the fifty-two ★ Enhanced ones,
 has a `worksheets.html` beside it: one
 printable A4 page per batch experiment (set-up, prediction, results table to
 fill in, questions), then teacher notes with the explanation and the numbers
@@ -116,7 +117,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`biology/membranes/`](biology/membranes/) | Membranes and movement: diffusion, osmosis, active transport, SA:V, potato osmosis, water potential, membrane permeability | Open `membranes.html` |
 | [`biology/enzymes/`](biology/enzymes/) | Enzymes ★: molecules colliding and fitting; temperature, pH, denaturing, substrate and enzyme concentration, inhibitors, Vmax, Q10 | Open `enzymes.html` |
 | [`biology/photosynthesis_respiration/`](biology/photosynthesis_respiration/) | Photosynthesis and Respiration ★: pondweed and limiting factors, leaf gas exchange and indicator tubes, respirometer, RQ and the Calvin cycle | Open `photosynthesis-respiration.html` |
-| [`biology/inheritance/`](biology/inheritance/) | Inheritance: fruit-fly breeding lab, Punnett squares, pedigrees, variation, dihybrid crosses, sex linkage, linkage, epistasis, chi-squared | Open `inheritance.html` |
+| [`biology/inheritance/`](biology/inheritance/) | Inheritance ★: fruit-fly breeding lab, Punnett squares, pedigrees, dihybrid crosses, sex linkage, linkage, epistasis, chi-squared | Open `inheritance.html` |
 | [`biology/dna_cell_division/`](biology/dna_cell_division/) | DNA, protein synthesis and cell division: genetic code, mutations, mitosis, meiosis, root tip mitotic index, replication, lac operon | Open `dna-cell-division.html` |
 | [`biology/ecosystems/`](biology/ecosystems/) | Ecosystems and sampling: food webs, energy transfer, nutrient cycles, quadrats and transects, succession, Simpson's index, sustainability | Open `ecosystems.html` |
 | [`biology/homeostasis/`](biology/homeostasis/) | Homeostasis: blood glucose, insulin and glucagon, diabetes, temperature control, the kidney and ADH, negative and positive feedback | Open `homeostasis.html` |
@@ -139,7 +140,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 |---|---|---|
 | [`engineering/earthquake_buildings/`](engineering/earthquake_buildings/) | Earthquake Engineering ★: a shake table for three buildings; resonance, bracing, base isolation, tuned mass damper | Open `earthquake-buildings.html` |
 | [`engineering/traffic_flow/`](engineering/traffic_flow/) | Traffic Flow and Phantom Jams ★: jams from nothing, backward-travelling waves, roadworks, self-driving cars | Open `traffic-flow.html` |
-| [`engineering/car_crash/`](engineering/car_crash/) | Car crash safety: crumple zones, seatbelts and airbags (momentum and impulse), plus a collisions lab (also listed under Physics) | Open `car-crash.html` |
+| [`engineering/car_crash/`](engineering/car_crash/) | Car Crash Safety ★: slow-motion crashes with crumple zones, seatbelts and airbags (momentum and impulse), plus a collisions lab (also listed under Physics) | Open `car-crash.html` |
 | [`engineering/aerofoil_flow/`](engineering/aerofoil_flow/) | Aerofoil flow: lift from shape, angle of attack and spin with the Hess–Smith panel method, plus starting vortex, flap and Kármán street (also listed under Physics) | Open `aerofoil-flow.html` |
 
 ## Climate and physical geography
@@ -168,7 +169,7 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | Folder | What it is | How to run |
 |---|---|---|
 | [`astrophysics/planet_formation/`](astrophysics/planet_formation/) | How a planetary system forms, from a collapsing cloud to rocky planets and gas giants | Open `planet-formation.html` |
-| [`astrophysics/stellar_life_cycle/`](astrophysics/stellar_life_cycle/) | A star's whole life, from nebula to white dwarf, neutron star or black hole | Open `stellar-life-cycle.html` |
+| [`astrophysics/stellar_life_cycle/`](astrophysics/stellar_life_cycle/) | Stellar Life Cycle ★: a star's whole life, its black-body spectrum and its H–R track | Open `stellar-life-cycle.html` |
 | [`astrophysics/exoplanet_hunting/`](astrophysics/exoplanet_hunting/) | Finding exoplanets by transits and the Doppler wobble | Open `exoplanet-hunting.html` |
 | [`astrophysics/galaxy_collisions/`](astrophysics/galaxy_collisions/) | Galaxy Collisions ★: hundreds of thousands of stars; tidal tails, rings, streams, mergers, the Milky Way and Andromeda | Open `galaxy-collisions.html` |
 | [`astrophysics/expanding_universe/`](astrophysics/expanding_universe/) | Hubble's law, redshift and the age of the universe | Open `expanding-universe.html` |
@@ -191,7 +192,7 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 |---|---|---|
 | [`economics/supply_demand/`](economics/supply_demand/) | The Trading Pit ★: supply and demand from haggling buyers and sellers; tax, price cap and floor | Open `supply-demand.html` |
 | [`economics/taxes_price_controls/`](economics/taxes_price_controls/) | Indirect taxes, subsidies, maximum and minimum prices: incidence, shortages, deadweight loss | Open `taxes-price-controls.html` |
-| [`economics/firms_competition/`](economics/firms_competition/) | Firms, costs and competition: cost and revenue curves, economies of scale, market structures, game theory, cartels | Open `firms-competition.html` |
+| [`economics/firms_competition/`](economics/firms_competition/) | Firms and Competition ★: cost and revenue curves, MC = MR, entry and exit across market structures, the prisoner's dilemma | Open `firms-competition.html` |
 | [`economics/labour_market/`](economics/labour_market/) | The labour market: wage determination, minimum wage, unions, monopsony, wage differences, division of labour | Open `labour-market.html` |
 | [`economics/circular_flow/`](economics/circular_flow/) | The circular flow and the multiplier: five sectors, injections and withdrawals, AD = C+I+G+X−M, AD/AS, accelerator | Open `circular-flow.html` |
 | [`economics/running_the_economy/`](economics/running_the_economy/) | Running the Economy ★: five targets, Bank Rate, fiscal and supply-side policy, shocks, the real UK 1997–2025, money creation | Open `running-the-economy.html` |
@@ -210,7 +211,7 @@ Standard level follows OCR GCSE (9–1) Physical Education (J587); Advanced foll
 | [`physical_education/sport_biomechanics/`](physical_education/sport_biomechanics/) | Sport biomechanics: levers, planes and axes, stability, impulse, projectiles, drag and lift, angular momentum, and Eduqas Physics Option C at A level (also listed under Physics) | Open `sport-biomechanics.html` |
 | [`physical_education/fitness_testing/`](physical_education/fitness_testing/) | Fitness testing: 12 fitness tests on a simulated squad, ratings, reliability, validity, typical error | Open `fitness-testing.html` |
 | [`physical_education/skill_acquisition/`](physical_education/skill_acquisition/) | Skill acquisition: your own reaction test and Hick's law, information processing, practice, guidance and feedback, classification, schema | Open `skill-acquisition.html` |
-| [`physical_education/arousal_performance/`](physical_education/arousal_performance/) | Arousal and performance: inverted-U, drive, catastrophe, ZOF, stress management, social facilitation, Ringelmann, attribution | Open `arousal-performance.html` |
+| [`physical_education/arousal_performance/`](physical_education/arousal_performance/) | Arousal and Performance ★: inverted-U, drive, catastrophe, ZOF, mental preparation, social facilitation, Ringelmann | Open `arousal-performance.html` |
 | [`physical_education/luck_and_skill/`](physical_education/luck_and_skill/) | Luck, Skill and the League ★: does the best team win? League against cup, home advantage, the sacked-manager bounce | Open `luck-and-skill.html` |
 
 ## History

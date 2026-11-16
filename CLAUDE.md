@@ -29,7 +29,7 @@ own folder inside the right subject folder and gets a row in the root
 `README.md`, a line in the `SIMS` list in the front page `index.html`, and a
 thumbnail `thumbs/<folder>.jpg` (a 640×360 screenshot).
 
-Forty-seven simulations are "★ Enhanced" (listed in `ENHANCED` in the front page
+Fifty-two simulations are "★ Enhanced" (listed in `ENHANCED` in the front page
 `index.html`, which marks them with a gold edge and star tag): `waves`,
 `dynamic_equilibrium`, `natural_selection`, `nerve_impulse`,
 `earthquake_buildings`, `forest_fire`, `three_body_chaos`,
@@ -43,7 +43,9 @@ Forty-seven simulations are "★ Enhanced" (listed in `ENHANCED` in the front pa
 `energy_systems`, `bonding`, `circuits`, `enzymes`, `greenhouse_effect`,
 `organic_chemistry`, `training_adaptation`, `projectile_motion`,
 `photosynthesis_respiration`, `externalities`, `flooding_hydrographs`, `queues`,
-`energy_changes`, `gas_exchange`, `tectonic_hazards`. They are the one
+`energy_changes`, `gas_exchange`, `tectonic_hazards`, `car_crash`,
+`firms_competition`, `arousal_performance`, `stellar_life_cycle`, `inheritance`.
+They are the one
 place with a shared toolkit: edit `tools/kit/kit.*` or
 `tools/kit/src/<name>.js`, then run `node build.js` from inside `tools/kit/`
 to regenerate the single-file pages in their subject folders. Never edit
