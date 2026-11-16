@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Fifty-seven simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): fifty rebuilt showpieces, which replaced the earlier versions in
+Fifty-eight simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): fifty-one rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -30,8 +30,8 @@ Cracking and Polymers, Training and Adaptation, Projectile Motion, Photosynthesi
 Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, Supermarket
 Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
 and Competition, Arousal and Performance, Stellar Life Cycle, Inheritance, Simple Harmonic
-Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, and Reactivity of
-Metals are likewise kept in each folder's `original/`, with their worksheets,
+Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, Reactivity of
+Metals, and Young's Modulus (now Materials Science) are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Batch run
@@ -62,7 +62,7 @@ changing a simulation's batch experiments.
 | [`physics/gas_in_a_box/`](physics/gas_in_a_box/) | Gas in a Box ★: every atom followed; pressure, the gas laws, Maxwell–Boltzmann speeds, Brownian motion and diffusion from collisions alone (also listed under Chemistry) | Open `gas-in-a-box.html` |
 | [`physics/simple_harmonic_motion/`](physics/simple_harmonic_motion/) | Simple Harmonic Motion ★: pendulums and springs, SHM graphs and energy, damping, forced oscillation and resonance, Barton's pendulums; plus a double-pendulum chaos tab | Open `simple-harmonic-motion.html` |
 | [`physics/states_of_matter/`](physics/states_of_matter/) | States of matter: particles, heating and cooling curves, specific heat capacity and latent heat (also listed under Chemistry) | Open `states-of-matter.html` |
-| [`physics/youngs_modulus/`](physics/youngs_modulus/) | Young's modulus: Hooke's law, stress–strain curves, breaking, Searle's method | Open `youngs-modulus.html` |
+| [`physics/youngs_modulus/`](physics/youngs_modulus/) | Materials Science ★: Young's modulus and Searle's method; stress–strain curves for ductile, brittle and polymer solids; edge dislocations and foreign atoms (atoms model); grain boundaries and Hall–Petch; crack propagation and toughened glass; rubber hysteresis and cross-links | Open `youngs-modulus.html` |
 | [`physics/projectile_motion/`](physics/projectile_motion/) | Projectile Motion ★: two motions at once (shadows, time markers, velocity arrows), range and angle, energy; drag, wind and spin at A level | Open `projectile-motion.html` |
 | [`physics/circular_motion/`](physics/circular_motion/) | Circular motion: whirling bung, banked bends, loop-the-loop, conical pendulum | Open `circular-motion.html` |
 | [`physics/waves/`](physics/waves/) | Ripple Tank ★: a 2-D wave-equation solver. Interference, slits, refraction, lenses, mirrors and Doppler; draw your own walls and glass | Open `waves.html` |

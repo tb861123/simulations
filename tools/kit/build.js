@@ -58,6 +58,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["antibiotic_resistance.js", "antibiotic_resistance", "antibiotic-resistance.html", "Antibiotic Resistance", "medical"],
   ["exoplanet_hunting.js", "exoplanet_hunting", "exoplanet-hunting.html", "Exoplanet Hunting", "astrophysics"],
   ["reactivity_metals.js", "reactivity_metals", "reactivity-metals.html", "Reactivity and Extracting Metals", "chemistry"],
+  ["youngs_modulus.js", "youngs_modulus", "youngs-modulus.html", "Materials Science", "physics"],
   ["training_adaptation.js", "training_adaptation", "training-adaptation.html", "Training and Adaptation", "physical_education"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
