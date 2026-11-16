@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Forty-three simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): thirty-six rebuilt showpieces, which replaced the earlier versions in
+Forty-seven simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): forty rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -27,7 +27,8 @@ Orbits, Traffic Flow, Optics, Heart and Circulation, Tropical Storms, Foxes and
 Rabbits, Electrolysis, Running the Economy, Radioactive Decay, Photoelectric
 Effect, Energy Systems, Bonding, Circuits, Enzymes, the Greenhouse Effect, Crude Oil,
 Cracking and Polymers, Training and Adaptation, Projectile Motion, Photosynthesis and
-Respiration, Market Failure and Externalities, and Flooding and Storm Hydrographs are likewise kept in each folder's `original/`, with their worksheets,
+Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, Supermarket
+Queues, Energy Changes, Lungs and Gas Exchange, and Tectonic Hazards are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Batch run
@@ -41,7 +42,7 @@ simulation has ready-made batch experiments that pose a question, such as
 
 ## Worksheets
 
-Every simulation with a batch run, apart from the forty-three ★ Enhanced ones,
+Every simulation with a batch run, apart from the forty-seven ★ Enhanced ones,
 has a `worksheets.html` beside it: one
 printable A4 page per batch experiment (set-up, prediction, results table to
 fill in, questions), then teacher notes with the explanation and the numbers
@@ -94,7 +95,7 @@ changing a simulation's batch experiments.
 | [`chemistry/periodic_groups/`](chemistry/periodic_groups/) | Groups 1 and 7: alkali metals with water, halogens and displacement, trends down a group | Open `periodic-groups.html` |
 | [`chemistry/reactivity_metals/`](chemistry/reactivity_metals/) | Reactivity series, metal displacement, and extracting metals (blast furnace, electrolysis) | Open `reactivity-metals.html` |
 | [`chemistry/electrolysis/`](chemistry/electrolysis/) | Electrolysis ★: ions drifting to the electrodes, products at each, half-equations, Faraday's law | Open `electrolysis.html` |
-| [`chemistry/energy_changes/`](chemistry/energy_changes/) | Energy changes: reaction profiles, calorimetry, fuels and bond energies | Open `energy-changes.html` |
+| [`chemistry/energy_changes/`](chemistry/energy_changes/) | Energy Changes ★: bonds breaking and forming on a profile, cup calorimetry with extrapolation, burning alcohols, ΔG at A level | Open `energy-changes.html` |
 | [`chemistry/acids_salts_tests/`](chemistry/acids_salts_tests/) | Acids, alkalis, titration, making salts, and a chemical tests lab (flame tests, ions, gases, unknowns) | Open `acids-salts-tests.html` |
 | [`chemistry/chromatography/`](chemistry/chromatography/) | Paper chromatography: Rf values, identifying components, solvent choice and measurement error | Open `chromatography.html` |
 | [`chemistry/crystallisation/`](chemistry/crystallisation/) | Cooling rate and crystal size: granite, basalt, obsidian, salt crystals, dendrites | Open `crystallisation.html` |
@@ -130,7 +131,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`medical/heart_circulation/`](medical/heart_circulation/) | Heart and Circulation ★: a beating heart from pressure and flow; valves, blood pressure, exercise, heart disease, ECG, pressure–volume loop | Open `heart-circulation.html` |
 | [`medical/nerve_impulse/`](medical/nerve_impulse/) | Nerve Impulse ★: Hodgkin–Huxley equations along an axon; threshold, refractory period, myelin, MS lesion, channel block | Open `nerve-impulse.html` |
 | [`medical/antibiotic_resistance/`](medical/antibiotic_resistance/) | Antibiotic resistance evolving during a course of treatment | Open `antibiotic-resistance.html` |
-| [`medical/gas_exchange/`](medical/gas_exchange/) | Lungs and gas exchange: Fick's law, altitude, exercise, lung disease | Open `gas-exchange.html` |
+| [`medical/gas_exchange/`](medical/gas_exchange/) | Lungs and Gas Exchange ★: breathing chest, an alveolus with red cells loading oxygen, altitude, exercise, lung disease, carbon monoxide, dissociation curve | Open `gas-exchange.html` |
 
 ## Engineering
 
@@ -158,7 +159,7 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`climate/coasts/`](climate/coasts/) | Coasts: waves, erosion, longshore drift, spits, cliff retreat, Holderness management, sea-level change | Open `coasts.html` |
 | [`climate/glaciers/`](climate/glaciers/) | Glaciers: mass balance and ELA, ice flow, corries, U-shaped valleys, moraines, freeze-thaw | Open `glaciers.html` |
 | [`climate/tropical_storms/`](climate/tropical_storms/) | Tropical Storms ★: grow, steer and land a hurricane; surge and impacts, a whole season, a warmer world | Open `tropical-storms.html` |
-| [`climate/tectonic_hazards/`](climate/tectonic_hazards/) | Tectonic hazards: plate boundaries, earthquakes, tsunami, volcanoes, risk and the Park and PAR models | Open `tectonic-hazards.html` |
+| [`climate/tectonic_hazards/`](climate/tectonic_hazards/) | Tectonic Hazards ★: plate boundaries and the Benioff zone, P and S waves and triangulation, a tsunami crossing the ocean, disaster risk | Open `tectonic-hazards.html` |
 | [`climate/slopes_landslides/`](climate/slopes_landslides/) | Weathering, slopes and landslides: weathering rates, factor of safety, mass movement, rainfall-triggered landslides | Open `slopes-landslides.html` |
 | [`climate/fieldwork_sampling/`](climate/fieldwork_sampling/) | Fieldwork: sampling methods, bias, descriptive statistics, Spearman's rank, chi-squared, Mann–Whitney U, power | Open `fieldwork-sampling.html` |
 
@@ -180,7 +181,7 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | Folder | What it is | How to run |
 |---|---|---|
 | [`statistics/central_limit_theorem/`](statistics/central_limit_theorem/) | Central Limit Theorem ★: draw any population, watch sample means form a bell curve; live confidence intervals | Open `central-limit-theorem.html` |
-| [`statistics/queues/`](statistics/queues/) | Supermarket queues and queueing theory | Open `queues.html` |
+| [`statistics/queues/`](statistics/queues/) | Supermarket Queues ★: random arrivals, utilisation and Erlang C, one snake or many queues, variability, Little's law | Open `queues.html` |
 
 ## Economics
 

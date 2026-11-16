@@ -33,7 +33,8 @@ heart_circulation, tropical_storms, turing_patterns, predator_prey,
 electrolysis, running_the_economy, radioactive_decay, photoelectric_effect,
 energy_systems, bonding, circuits, enzymes, greenhouse_effect,
 organic_chemistry, training_adaptation, projectile_motion,
-photosynthesis_respiration, externalities, flooding_hydrographs.
+photosynthesis_respiration, externalities, flooding_hydrographs, queues,
+energy_changes, gas_exchange, tectonic_hazards.
 
 ## Levels and the Revise tab
 
