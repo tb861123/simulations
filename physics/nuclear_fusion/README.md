@@ -1,151 +1,72 @@
-# Nuclear Fusion Barrier
+# Nuclear Fusion
 
-How much energy and pressure two nuclei need to fuse, shown on a
-potential-energy diagram. An incoming nucleus rolls up the Coulomb barrier (the
-electric repulsion between two positive nuclei). It bounces back, tunnels
-through, or goes over the top. If it gets through, it drops into the
-strong-force well, rolls across to the target nucleus at r = 0 and fuses. The
-new nucleus is shown on the left-hand side, and any neutron, proton, gamma ray
-or positron flies away.
+A single, self-contained HTML file for iGCSE and A level physics. It needs no
+install and no internet: **open `nuclear-fusion.html` in Chrome or Edge**.
 
-Open `nuclear-fusion.html` in Chrome or Edge, with no install and no internet
-needed.
-
-## Levels (new)
-
-A Standard (iGCSE) / Advanced (A level) switch at the top of the left panel,
-with a hint naming the spec, a key-ideas box with spec tags, physics notes and
-exam questions with mark schemes (right panel).
+★ Enhanced: built from `tools/kit/src/nuclear_fusion.js` by `node build.js`
+(run inside `tools/kit/`). Do not edit `nuclear-fusion.html` by hand. The
+earlier version and its worksheets are kept in [`original/`](original/) and
+linked from the notes.
 
 - **Standard (iGCSE):** Pearson Edexcel International GCSE Physics (4PH1)
-  7(c) Fission and fusion: fusion is the energy source of stars; it needs a
-  very high temperature and pressure because the positive nuclei repel; it is
-  hard to achieve on Earth. Also 5(d) (kelvin temperature ∝ mean kinetic
-  energy) and 8(c) (stars fuse hydrogen into helium). Seven questions: what
-  fusion is, why it needs high temperature, doubling the kelvin temperature,
-  why pressure helps, completing the D–T equation, why fusion power is hard,
-  fusion against fission.
+  7(c) fission and fusion (fusion powers stars; it needs a very high
+  temperature and pressure because positive nuclei repel; it is hard to
+  achieve on Earth), with 5(d) (kelvin temperature ∝ mean kinetic energy) and
+  8(c) (stars fuse hydrogen into helium).
 - **Advanced (A level):** WJEC Eduqas nuclear energy (mass defect, E = mc²),
-  fields of force (the barrier U = kQ₁Q₂/r) and kinetic theory (3/2 kT). Six
-  questions built from the chosen reaction and temperature: the barrier
-  height, the temperature at which 3/2 kT equals it, the mean kinetic energy
-  now, the D–T energy from masses, the binding-energy curve, and why the Sun
-  still fuses. The Gamow peak chart is shown at Advanced only.
-- Tunnelling, the Gamow peak and reaction rates are tagged "Beyond the spec".
-  The 14 reaction presets and 7 places work at both levels.
+  fields (the barrier U = kQ₁Q₂/r) and kinetic theory (³⁄₂kT). Tunnelling, the
+  Gamow peak and reaction rates are beyond the spec.
 
-## What you can do
+## What you see
 
-- **Choose a reaction.** 14 presets cover hydrogen–hydrogen (the Sun's p + p),
-  hydrogen–deuterium, hydrogen–helium (¹H + ⁴He, which makes no stable nucleus,
-  and the rare ¹H + ³He "hep" reaction), D–D, D–T, D–³He, ³He–³He, ³He–⁴He,
-  ⁴He–⁴He (triple-alpha), ¹H–⁷Li, ¹H–¹²C (CNO cycle) and ¹²C–¹²C. One more preset
-  runs D–T at room temperature, to show why "cold fusion" fails.
-- **Choose a place.** Room temperature, the Sun's surface, the Sun's core, a
-  tokamak (ITER), laser fusion (NIF), a red giant core, or a massive star core.
-- **Set the temperature and pressure yourself.** Temperature runs from 300 K to
-  10 billion K and pressure from 1 Pa to 10²⁴ Pa, both on logarithmic sliders.
-- **Switch quantum tunnelling on or off** to see why the Sun could not shine
-  without it.
-- **Watch nuclei come in.** The default is *demonstration odds*. Every
-  collision is shown, but the real chance of getting through the barrier is
-  multiplied by a fixed boost (×1 up to ×10⁶⁰, in 1-2-5 steps). The boost is
-  picked automatically for each reaction, so about 1 collision in 10 gets
-  through. It does **not** change when you move the temperature or pressure,
-  so the ratios between settings stay true and runs can be compared fairly.
-  If a setting would push the chance above 100%, a warning says so. A note
-  under the diagram gives the demonstration odds and the real odds per million
-  collisions. It also shows what you have seen so far divided by the boost: an
-  estimate of the real rate.
-- **Compare runs.** Press 📌 *Record this run* to add the counts to a table in
-  the right panel: through / sent, the boost, your estimate of the real number
-  per million collisions, and the model's exact value. Counts restart whenever
-  a setting changes, so each row belongs to one set of settings.
-- **Other modes.** *Fast-forward to the next fusion* keeps the true odds but
-  skips ahead. It draws at random how many collisions bounce back before the
-  next one gets through, adds them to the counters, shows one bounce, then
-  shows the collision that gets through. The other modes show every collision
-  at the true odds in real time (so you may wait a long time), show only the
-  rare ones that get through, or use an energy you choose.
-- **Change the axes.** The distance axis is fixed, so it does not jump about
-  when the temperature or reaction changes. On the logarithmic scale it runs
-  from 0.5 fm to 10⁵ fm (10⁻¹⁰ m, about the width of an atom); on the linear
-  scale it runs from 0 to 200 fm. A nucleus that turns back further out than
-  that is reported as turning back off the right-hand edge. Energy can show
-  the whole barrier at true proportions, or zoom in on the incoming nucleus.
-- **Picture quality** (Low / Medium / High / Ultra, default Medium): how sharply the live view is drawn. Low draws at standard resolution and redraws about 30 times a second, for slower laptops and tablets; High and Ultra draw at 1.5× and 2× the screen's resolution for smoother edges. Only the drawing changes: the model and batch-run results are identical at every level. The choice is remembered in this browser.
+A potential-energy diagram (distance on a log scale from 0.5 fm to 10⁵ fm):
+the Coulomb barrier, a schematic strong-force well, and lines for kT, ³⁄₂kT and
+the Gamow peak. Nuclei arrive from the right with energies drawn from the gas:
+most turn back on the barrier; a few tunnel through and fuse, and the reaction
+equation and energy released are shown. **Zoom** shows the incoming energies
+against the barrier.
 
-## Readouts
+- **Reactions (9):** ¹H + ¹H (the Sun), ¹H + ²H, D–D, D–T, ²H + ³He,
+  ³He + ³He, ¹H + ⁷Li, ¹H + ¹⁴N (the slowest step of the CNO cycle), ¹²C + ¹²C.
+- **Places (7):** room temperature, the Sun's surface and core, a tokamak
+  (ITER), laser fusion (NIF), a red giant's core, a massive star's core. Or set
+  the temperature (300 K to 10¹⁰ K) and pressure (1 to 10²⁴ Pa) yourself.
+- **Quantum tunnelling** on or off.
+- **Demonstration odds:** real chances are tiny, so each reaction has a fixed
+  1-2-5 boost (chosen so about 1 collision in 10 fuses at its usual place). It
+  does not change with temperature or pressure, so comparisons stay fair.
+  **True odds** removes it; **⏩ Skip to the next fusion** draws how many
+  collisions bounce off before one gets through. **📌 Record this run** keeps
+  each run's counts and estimate.
+- **Charts:** the Gamow peak (Boltzmann factor, tunnelling chance and their
+  product) and ⟨σv⟩ against temperature for four reactions.
+- **Readings:** kT and ³⁄₂kT, the barrier (and how many kT), the chance per
+  collision with and without tunnelling, the Gamow peak (and E_G at A level),
+  the power released per m³ and the average wait for one nucleus.
 
-- **Energies:**
-  - kT and the mean kinetic energy (1.5 kT)
-  - the barrier height and how many times kT it is
-  - the chance per collision, with and without tunnelling
-  - the Gamow peak E₀ and the Gamow energy E_G
-  - the temperature needed with no tunnelling
-- **Distances:**
-  - the touching distance R
-  - the turning points at kT and at E₀
-  - the de Broglie wavelength
-  - the average spacing between nuclei, plus a logarithmic distance ladder from
-    10⁻¹⁶ m to 10⁻⁶ m
-- **Whole gas:**
-  - nuclei per m³ and density
-  - reactions per m³ per second
-  - the average wait for one nucleus to fuse
-  - power released in W/m³
-  - ⟨σv⟩
-- **Gamow peak chart:** the Boltzmann factor, the tunnelling chance and their
-  product, on a linear or logarithmic scale.
+## Investigate
+
+Why so hot? · The Sun needs quantum physics · Hotter is much faster · Squeeze
+it · The easiest fuel · Bigger charges, hotter stars · (A level) The classical
+temperature · Energy from the mass defect · The Gamow peak.
+
+## Batch run
+
+| Experiment | Result when tested |
+|---|---|
+| Is the Sun hot enough without tunnelling? | Chance per collision at the Sun's core 10⁻⁴·⁵ with tunnelling, 10⁻¹⁹⁰ without |
+| Do the fusing nuclei sit at the Gamow peak? | D–T at 10 keV: Monte Carlo mean 46.7 keV, exact 46.7 keV |
+| How rare is fusion in a tokamak? | 2730 ± 180 per million collisions (model 2710) |
+| How steeply does the Sun's rate rise with temperature? | log–log gradient 3.8 (about T⁴) |
+| Why do heavy stars use the CNO cycle? | gradient 17 |
+| Squeeze it | gradient 2.00: rate ∝ P² |
+| How long does a proton in the Sun wait to fuse? | exponential waits, mean 3.6 billion years |
 
 ## The model
 
-- Coulomb barrier outside R: U = 1.44 MeV·fm × Z₁Z₂/r, with
-  R = 1.2 fm × (A₁^⅓ + A₂^⅓).
-- A schematic strong-force well inside R. It is drawn shallower than the real
-  30–50 MeV, with a note saying so.
-- Collision energies are weighted by the Boltzmann factor e^(−E/kT).
-- The tunnelling chance is the Gamow factor exp(−√(E_G/E)), where
-  E_G = 2μc²(παZ₁Z₂)². It is 1 above the barrier.
-- Rates use ⟨σv⟩ = √(8/πμ) (kT)^(−3/2) S ∫ e^(−E/kT) P(E) dE, with a constant
-  S-factor for each reaction.
-- Number density is n = P / ((1 + Z) kT), for a 50:50 mix of the two nuclei.
-
-The full list of assumptions is in the app under "How the model works". In
-short: electron screening, energy-dependent S-factors (D–T has a resonance),
-real stellar mixtures, radiation pressure and degenerate electrons are all left
-out.
-
-Checks against known values (Sun's core, 15.7 million K):
-
-| Quantity | Model | Accepted |
-|---|---|---|
-| Barrier for p + p | 600 keV | about 550–600 keV |
-| kT | 1.35 keV | 1.35 keV |
-| Gamow peak | 6.1 keV | about 6 keV |
-| ⟨σv⟩ for p + p | about 1.4 × 10⁻⁴⁹ m³/s | about 1 × 10⁻⁴⁹ m³/s |
-| Temperature dependence of the pp rate | about T⁴ | about T⁴ |
-| Temperature dependence of CNO at 20 million K | about T¹⁶ | about T¹⁶–T¹⁸ |
-
-At 10 keV, D–T comes out about half the accepted value, because the model
-leaves out the D–T resonance.
-
-## Batch experiments
-
-**📊 Batch run** runs the model many times with no drawing: Repeat gives a histogram against theory, Sweep
-steps one setting and plots mean ± 1 SD against the theory line, with summary statistics and CSV download.
-
-**Batch settings table.** The panel lists every setting the chosen outcome uses: the reaction, tunnelling on
-or off, the temperature and (for reaction rates and waiting times) the pressure, both as log₁₀ values, and
-(for the Monte Carlo outcomes) the number of collisions simulated per run. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill in the whole table (press ▶ Run batch to run), and **↺ Use my left-panel settings** copies the left panel into it. The number of runs,
-runs per step and random seed sit above the table.
-
-| Question | What it shows |
-|---|---|
-| Is the Sun hot enough without quantum tunnelling? | The classical chance is about 10⁻¹⁹⁰ at the Sun's core; with tunnelling it is about 10⁻⁵ |
-| Do the fusing nuclei sit at the Gamow peak? | D–T at 10 keV: a Monte Carlo mean of 39.3 keV against 39.3 keV theory |
-| How rare is a fusing collision in a tokamak? | D–T at 150 million K: 7.2 × 10⁻⁴ per collision, with Poisson scatter |
-| How steeply does the Sun's fusion rate rise with temperature? | The log–log gradient is about 4 |
-| Why do heavy stars use the CNO cycle? | The gradient is about 15–16 |
-| Squeeze it: does doubling the pressure double the rate? | The gradient is 2.00, because the rate goes as P² |
-| How long does a proton in the Sun wait to fuse? | Exponential waiting times averaging a few billion years |
+Barrier U = 1.44 MeV·fm × Z₁Z₂/r outside R = 1.2(A₁^⅓ + A₂^⅓) fm; collision
+energies spread as E e^(−E/kT); tunnelling chance e^(−√(E_G/E)) with
+E_G = 2μc²(παZ₁Z₂)²; ⟨σv⟩ from the Gamow integral with a constant S-factor;
+n = P/((1 + Z)kT). Checks: p + p barrier 600 keV, Gamow peak 6.1 keV in the
+Sun's core, D–T ⟨σv⟩ at 10 keV 1.1 × 10⁻²² m³/s (accepted). Left out:
+electron screening, resonances, real stellar mixtures, degenerate electrons.

@@ -42,7 +42,7 @@ photosynthesis_respiration, externalities, flooding_hydrographs, queues,
 energy_changes, gas_exchange, tectonic_hazards, car_crash, firms_competition,
 arousal_performance, stellar_life_cycle, inheritance, simple_harmonic_motion,
 membranes, antibiotic_resistance, exoplanet_hunting, reactivity_metals,
-youngs_modulus.
+youngs_modulus, nuclear_fusion, states_of_matter, circular_motion.
 
 ## Levels and the Revise tab
 
