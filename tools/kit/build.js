@@ -71,6 +71,9 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["aerofoil_flow.js", "aerofoil_flow", "aerofoil-flow.html", "Aerofoil Flow", "engineering"],
   ["ice_albedo.js", "ice_albedo", "ice-albedo.html", "Ice–Albedo Tipping Points", "climate"],
   ["carbon_cycle.js", "carbon_cycle", "carbon-cycle.html", "Carbon Cycle and CO₂", "climate"],
+  ["dark_matter.js", "dark_matter", "dark-matter.html", "Dark Matter and Rotation Curves", "astrophysics"],
+  ["expanding_universe.js", "expanding_universe", "expanding-universe.html", "The Expanding Universe", "astrophysics"],
+  ["planet_formation.js", "planet_formation", "planet-formation.html", "Planet Formation", "astrophysics"],
   ["training_adaptation.js", "training_adaptation", "training-adaptation.html", "Training and Adaptation", "physical_education"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");

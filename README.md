@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Seventy simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): sixty-three rebuilt showpieces, which replaced the earlier versions in
+Seventy-three simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): sixty-six rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -31,7 +31,7 @@ Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, S
 Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
 and Competition, Arousal and Performance, Stellar Life Cycle, Inheritance, Simple Harmonic
 Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, Reactivity of
-Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, and Carbon Cycle are likewise kept in each folder's `original/`, with their worksheets,
+Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, and Planet Formation are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Typing slider values
@@ -177,13 +177,13 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 
 | Folder | What it is | How to run |
 |---|---|---|
-| [`astrophysics/planet_formation/`](astrophysics/planet_formation/) | How a planetary system forms, from a collapsing cloud to rocky planets and gas giants | Open `planet-formation.html` |
+| [`astrophysics/planet_formation/`](astrophysics/planet_formation/) | Planet formation ★: embryos to planets over 100 Myr; the frost line, runaway gas giants, giant impacts, red dwarfs | Open `planet-formation.html` |
 | [`astrophysics/stellar_life_cycle/`](astrophysics/stellar_life_cycle/) | Stellar Life Cycle ★: a star's whole life, its black-body spectrum and its H–R track | Open `stellar-life-cycle.html` |
 | [`astrophysics/exoplanet_hunting/`](astrophysics/exoplanet_hunting/) | Exoplanet Hunting ★: transits and the Doppler wobble, folding light curves, Kepler's third law, the habitable zone | Open `exoplanet-hunting.html` |
 | [`astrophysics/galaxy_collisions/`](astrophysics/galaxy_collisions/) | Galaxy Collisions ★: hundreds of thousands of stars; tidal tails, rings, streams, mergers, the Milky Way and Andromeda | Open `galaxy-collisions.html` |
-| [`astrophysics/expanding_universe/`](astrophysics/expanding_universe/) | Hubble's law, redshift and the age of the universe | Open `expanding-universe.html` |
+| [`astrophysics/expanding_universe/`](astrophysics/expanding_universe/) | Expanding universe ★: red-shift, a galaxy survey with standard candles, Hubble's law, H₀ and the age of the universe | Open `expanding-universe.html` |
 | [`astrophysics/gravitational_lensing/`](astrophysics/gravitational_lensing/) | Black Holes and Gravitational Lensing ★: a ray-traced black hole with accretion disc, Einstein rings and arcs, microlensing planets, Eddington 1919 | Open `gravitational-lensing.html` |
-| [`astrophysics/dark_matter/`](astrophysics/dark_matter/) | Evidence for dark matter from galaxy rotation curves | Open `dark-matter.html` |
+| [`astrophysics/dark_matter/`](astrophysics/dark_matter/) | Dark matter ★: rotation curves of five galaxies, Doppler slit spectra, halo fitting with χ², MOND | Open `dark-matter.html` |
 | [`astrophysics/three_body_chaos/`](astrophysics/three_body_chaos/) | Three-Body Chaos ★: N-body gravity with a "twin universe" to watch prediction fail (the earlier outcome-map lab is in `original_lab/`) | Open `three-body-chaos.html` |
 
 ## Statistics

@@ -1,78 +1,54 @@
-# Dark Matter and Galaxy Rotation Curves
+# Dark Matter and Rotation Curves
 
-A single, self-contained HTML file (`dark-matter.html`) for GCSE / A-level physics teaching. It shows why galaxies' flat rotation curves are evidence for dark matter.
+A single, self-contained HTML file that shows why flat rotation curves mean
+galaxies are wrapped in dark matter. It needs no install and no internet:
+**open `dark-matter.html` in Chrome or Edge**.
 
-## How to run
+★ Enhanced: built from `tools/kit/src/dark_matter.js` by `node build.js` (run
+inside `tools/kit/`). Do not edit `dark-matter.html` by hand. The earlier
+version and its worksheets are kept in [`original/`](original/).
 
-Open `dark-matter.html` in Chrome or Edge. You do not need to install anything or be online.
+- **Standard (GCSE):** gravity and orbits (further out, slower), the Doppler
+  effect and red-shift, galaxies; dark matter as evidence.
+- **Advanced (A level):** v = √(GM/r), M = v²r/G, Δλ/λ = v/c, χ² fitting;
+  NFW haloes and MOND are beyond the spec.
 
 ## What it shows
 
-- **Face-on view.** A spiral galaxy made of stars and gas clouds. Each one orbits at the speed the mass model gives. Under the picture you can choose how the stars move:
-  - with the model's gravity;
-  - with the gravity of the visible matter only, so the outer stars lag behind;
-  - with the observed speeds but only visible gravity, so the stars fly off.
-- **Edge-on view.** Doppler colours show stars coming towards us in blue and going away in red. A spectrograph slit runs along the long axis.
-- **Slit spectrum.** The Hα line (656.3 nm), shifted by Δλ = λv/c at each position along the slit. This is how Vera Rubin measured rotation curves.
-- **Rotation curve.** The observed points with error bars, plus the speed from each part of the model: bulge, star disc, gas, black hole and dark halo. It also shows the total, the visible matter alone, the Kepler expectation √(GM_visible/r) and an optional MOND curve.
-- **Readouts.** Visible and dark mass inside the last data point, the dark ÷ visible ratio, χ², the mass from v²r/G, and the whole halo ÷ visible compared with the cosmic 5.3 (Planck). A chart shows the mass inside radius r.
-- **Fit the halo for me.** Finds the best halo mass by least squares, and the halo radius too if ticked.
+- A face-on galaxy whose stars move with the model's gravity, with the
+  visible mass only, or at the observed speeds with visible gravity only (so
+  the outer stars fly off).
+- An edge-on view in Doppler colours and a slit spectrum of the Hα line, the
+  way Vera Rubin measured rotation curves.
+- Galaxies: Milky Way, Andromeda (M31), NGC 3198, dwarf DDO 154 and a mystery
+  galaxy whose halo you fit, then reveal.
+- Mass model: bulge (Hernquist), exponential disc (Freeman), gas, central
+  black hole and a dark halo (NFW or isothermal); or MOND instead of a halo.
+- Charts: the rotation curve (observed points with error bars, total, visible
+  only, Kepler fall-off) and the mass inside radius r. A one-click halo fit
+  with χ².
 
-## Controls
+## Investigate
 
-- **Data set:** Milky Way, M31, M31 as Rubin & Ford 1970, NGC 3198, DDO 154, a mystery galaxy made by the computer, or the Solar System. The real-galaxy curves are approximate re-creations of published curves, for teaching.
-- **Bulge (Hernquist):** mass and size.
-- **Star disc and gas disc (exponential):** mass and scale length.
-- **Central black hole:** mass.
-- **Halo:** on/off, shape (NFW or pseudo-isothermal), mass out to r₂₀₀ and scale/core radius.
-- **MOND:** a toggle, with a₀ = 1.2 × 10⁻¹⁰ m/s².
-- **Mystery galaxy / batch data:** number of points, error, furthest point and seed.
-- **Display → Quality:** Low / Medium / High / Ultra sets how many stars the animation draws (about 900, 1800, 3700 or 7400; default Medium). Each star is drawn a little dimmer at High and Ultra so the crowded centre doesn't burn out. Only the moving picture changes: the rotation curve, fits and batch runs don't use the animated stars. The choice is remembered in this browser.
-
-## Presets
-
-1. Solar System (Keplerian)
-2. Milky Way
-3. Andromeda
-4. NGC 3198
-5. Dwarf galaxy (DDO 154)
-6. No dark matter (stars fly off)
-7. Vera Rubin, 1970
-8. Mystery galaxy (fit the hidden halo, then press Reveal)
-9. MOND instead
-
-## Model and equations
-
-All the speeds add as squares: v² = Σ v_i².
-
-- **Bulge:** M(<r) = M r²/(r + a)².
-- **Exponential discs (Freeman 1970):** v² = 4πGΣ₀R_d y²[I₀K₀ − I₁K₁], with y = R/2R_d. The Bessel functions use Abramowitz & Stegun polynomial approximations.
-- **NFW halo:** M(<r) ∝ ln(1 + x) − x/(1 + x).
-- **Pseudo-isothermal halo:** M(<r) ∝ x − arctan x.
-- **Halo mass:** the mass inside r₂₀₀ (200 × the critical density).
-- **MOND ("simple" interpolating function):** g = g_N[½ + √(¼ + a₀/g_N)].
-- **Goodness of fit:** χ² = Σ((v_obs − v_model)/σ)².
-- **Animation:** circular orbits, or leapfrog integration in "fly off" mode. The Quality setting only changes how many stars are drawn, not the physics.
-- **Units:** kpc, km/s and M☉, with G = 4.30 × 10⁻⁶ kpc (km/s)²/M☉. 1× speed = 10 million years a second.
-
-The model leaves out warps, non-circular motion, disc thickness and pressure support. The full list is in the app.
+What should happen? · Stars would fly off · Add the halo · Vera Rubin's
+method · A dwarf galaxy · Weigh the mystery halo · (A level) Mass from the
+speed · MOND instead.
 
 ## Batch run
 
-Each run makes noisy synthetic observations from a "true" galaxy and fits the halo mass automatically.
-
-**Batch settings table.** The batch panel lists every starting setting a run uses: halo shape, "fit the radius too" and random seed; trial ÷ true halo mass, number of observed points, measurement error, furthest point, true halo mass and halo radius; and the visible galaxy (bulge, disc and gas masses and sizes, central black hole). Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in (from fixed defaults, seed 1), and **↺ Use my left-panel settings** copies the left panel into it.
-
- The theory comes from the Fisher matrix (how much the speeds change with the halo mass), plus χ² statistics.
-
-| Experiment | Typical result |
+| Experiment | Result when tested |
 |---|---|
-| Which halo mass fits best? (χ² against trial ÷ true mass) | Minimum χ² ≈ 26 at a ratio of 1, for 25 points. All 13 steps agree with the theory N + misfit. |
-| How well can we weigh the halo? (500 fits) | Mean 1.045 × 10¹² M☉ (true 1.047 × 10¹²). SD 3.9 × 10¹⁰ (theory 3.8 × 10¹⁰). |
-| More data points | The SD of the fitted mass falls with gradient −0.41 ± 0.06 (theory −0.5; the small-N points are noisy). |
-| Noisier measurements | Gradient 1.01 ± 0.04 (theory +1). |
-| How far out must we look? | The SD falls about 4.5× from r_max = 5 to 60 kpc, following theory. |
-| Is the best fit as good as it should be? | Mean χ²_min 23.8 ± 6.7 (theory 24 ± 6.9). |
-| Dark-to-visible ratio vs the cosmic 5.3 | The Milky Way model gives about 15, well above the cosmic ratio. |
+| Which halo mass fits best? | χ² valley, lowest (about 26) at 1.0–1.05 × the true mass |
+| How well can we weigh the halo? | 200 fits: 1.20 ± 0.035 × 10¹² M☉ (true 1.2) |
+| More data points | error 5.9% (5 points) to 1.4% (80 points), about ∝ 1/√N |
+| Visible mass against total mass | Milky Way 23%, M31 28%, NGC 3198 20%, DDO 154 14% visible |
 
-Results can be downloaded as CSV.
+## The model
+
+Circular speeds add in quadrature: v² = v²bulge + v²disc + v²gas + v²BH +
+v²halo. The disc uses the Freeman formula with Bessel functions; the halo is
+NFW (with r₂₀₀ from the halo mass) or a cored isothermal sphere. MOND uses the
+simple interpolating function with a₀ = 1.2 × 10⁻¹⁰ m/s². "Observed" points
+are the model plus Gaussian errors. Leaves out non-circular motions,
+inclination corrections, the real shape of each galaxy's light, and
+adiabatic contraction.
