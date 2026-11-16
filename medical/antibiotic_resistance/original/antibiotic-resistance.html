@@ -1,0 +1,2159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Antibiotic Resistance</title>
+<!--
+  ANTIBIOTIC RESISTANCE DURING AN INFECTION — a teaching model
+  =============================================================
+  One self-contained file: no libraries, no internet needed.
+
+  We follow the bacteria at one infection site inside a patient, hour by hour.
+  Every bacterium can:
+    • divide   — doubling time about 3 hours in the body when there is room
+                 (logistic growth; in a lab flask it can be 20 minutes),
+    • die      — naturally, or killed by the immune system, or by the antibiotic.
+  The antibiotic kills according to a dose–response (Emax / Hill) curve. The
+  MIC (minimum inhibitory concentration, mg/L) is the drug level where killing
+  just balances growth. Mutations (chance μ per new cell) make cells partly
+  resistant (MIC × 8) and then fully resistant (MIC × 64). Resistance has a
+  fitness cost: resistant cells divide more slowly.
+
+  The drug level in the blood follows a one-compartment model: each tablet is
+  absorbed from the gut, then removed with a fixed half-life.
+
+  Numbers are huge (up to 10 000 000 000 bacteria), so instead of following every
+  cell we count them, and use Poisson / binomial random numbers to decide how many
+  divide, die or mutate in each 0.1-hour step. The picture shows a sample.
+
+  Units: time in hours (h) and days, drug level in milligrams per litre of blood
+  (mg/L), doses in milligrams (mg).
+
+  LEVELS. Standard (GCSE): Pearson Edexcel International GCSE Biology (4BI1)
+  Section 3(b): evolution by natural selection and how antibiotic
+  resistance increases in bacterial populations. Drug levels, MICs and the
+  mutant selection window go beyond 4BI1 and are tagged. Advanced (A level):
+  OCR A level Biology A (H420) 4.1.1 (antibiotics, resistance, MRSA and
+  C. difficile, reducing resistance) and 4.2.2 (the evolution of drug
+  resistance). Advanced adds readings (generations, the chance of
+  mutants before treatment), a virtual antibiotic-disc practical with
+  measurement error, A level presets and exam questions. Batch runs are the
+  same at both levels.
+-->
+<style>
+  :root { --bg:#0b0d0a; --panel:#141811; --panel-2:#1c2118; --line:#323a2b; --text:#eef0e8; --muted:#a3ab96; --accent:#f1af28; --ink-dark:#14133b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 9px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  header .sub { color: var(--muted); font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  main { display: grid; grid-template-columns: var(--lw, 250px) 10px minmax(0, 1fr) 10px var(--rw, 280px); grid-template-rows: minmax(0, 1fr);
+         gap: 10px 2px; padding: 10px; height: calc(100vh - 46px); min-height: 620px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; min-width: 0; }
+  #left, #right { overflow-y: auto; }
+  h2 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  h2.gap { margin-top: 14px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 7px; cursor: pointer; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  button:hover { filter: brightness(1.18); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  button.primary { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); font-weight: 700; }
+  button.on { background: var(--accent); color: var(--ink-dark); border-color: var(--accent); }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .presets button { text-align: left; padding: 5px 7px; font-size: 12px; line-height: 1.25; font-weight: 600; }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .presets button.on small { color: #3b3a5c; }
+  .ctl { margin-bottom: 9px; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .ctl output { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range], .ctl select { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  input[type=number], input[type=text] { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .check { display: flex; gap: 6px; align-items: center; font-size: 13px; margin-bottom: 8px; }
+
+  #centre { display: flex; flex-direction: column; gap: 8px; padding: 8px; position: relative; }
+  #topbar { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; padding: 0 4px; }
+  #clock { font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat { color: var(--muted); font-size: 12.5px; }
+  .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #viewWrap { position: relative; flex: 1 1 0; min-height: 160px; background: #050604; border-radius: 8px; overflow: hidden; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #tlWrap { position: relative; height: 32%; min-height: 190px; background: #10130e; border-radius: 8px; }
+  #timeline { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #outBanner { display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(470px, 86%);
+               background: rgba(14,18,12,.95); border: 2px solid #8fd694; border-radius: 12px; padding: 12px 18px; box-shadow: 0 8px 30px rgba(0,0,0,.6); }
+  #outBanner h3 { margin: 0 0 6px; font-size: 20px; }
+  #outBanner p { margin: 6px 0; font-size: 13.5px; }
+  #status { font-weight: 700; font-size: 13px; border-radius: 999px; padding: 1px 10px; }
+  .st-idle { background: #2a3024; color: var(--muted); }
+  .st-inf { background: #de252a; color: #fff; }
+  .st-better { background: #f18700; color: #14133b; }
+  .st-cured { background: #76b82a; color: #10200c; }
+  .st-res { background: #e83181; color: #fff; }
+  .st-virus { background: #a4cbe6; color: #14133b; }
+  #controlsRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .speed { display: inline-flex; gap: 3px; align-items: center; color: var(--muted); font-size: 12px; }
+  .speed button { padding: 2px 8px; font-size: 12px; }
+  @media (max-width: 1500px) { #speedNote { display: none; } }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .tile .s { color: var(--muted); font-size: 11.5px; }
+  #story { font-size: 13px; color: #dfe3d6; }
+  #story p { margin: 0 0 6px; }
+  .gauge { height: 12px; border-radius: 6px; background: linear-gradient(90deg, #76b82a, #a2c617 25%, #f1af28 50%, #f18700 70%, #de252a); position: relative; margin: 6px 0 2px; }
+  .gauge span { position: absolute; top: -4px; width: 4px; height: 20px; background: #fff; border-radius: 2px; transform: translateX(-2px); transition: left .3s; }
+  details { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  details summary { color: var(--text); cursor: pointer; font-weight: 600; }
+  details li { margin-bottom: 4px; }
+
+  /* Batch run overlay (covers the centre panel) */
+  #batch { display: none; position: absolute; inset: 0; z-index: 5; background: var(--panel); border-radius: 10px; padding: 10px 12px; flex-direction: column; gap: 8px; }
+  #batch.open { display: flex; }
+  #batch .bhead { display: flex; align-items: baseline; gap: 12px; }
+  #batch .bhead h2 { margin: 0; font-size: 15px; color: var(--text); text-transform: none; letter-spacing: 0; white-space: nowrap; }
+  #batch .bhead .hint { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  #batch .bbody { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr); gap: 12px; flex: 1; min-height: 0; }
+  /* Batch run: two columns, set-up on the left (scrolls), results with ▶ Run batch at the top on the right */
+  #batch .bhead button { white-space: nowrap; flex: none; }
+  #bsetup { overflow-y: auto; padding-right: 4px; min-height: 0; }
+  #bresults { display: flex; flex-direction: column; gap: 6px; min-height: 0; min-width: 0; }
+  #bresults .brow { margin: 0; flex-wrap: nowrap; }
+  #bresults .brow button { flex: none; }
+  #bresults .brow #bProg { flex: 1; min-width: 80px; }
+  /* Batch settings table: every starting setting, with a tick box to choose the one that is varied */
+  #bSetBox { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--panel-2); margin-top: 6px; color: var(--text); }
+  #bSetBox > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
+  #bSetBox .bhint { font-size: 11.5px; color: var(--muted); margin: 3px 0 5px; }
+  #bOpts { display: flex; flex-wrap: wrap; gap: 0 14px; font-size: 12.5px; margin-bottom: 4px; }
+  #bOpts .chk { display: inline-flex; gap: 5px; align-items: center; margin: 2px 0; font-size: 12.5px; cursor: pointer; }
+  #bOpts .chk input { accent-color: var(--accent); }
+  #bOpts .brow { margin: 2px 0; width: 100%; }
+  #bTbl { display: grid; grid-template-columns: 1fr; gap: 3px; }
+  .bt { display: flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 2px 4px; border-radius: 6px; flex-wrap: wrap; }
+  .bt.on { background: rgba(241,175,40,.13); outline: 1px solid var(--accent); }
+  .bt label { flex: 1; min-width: 150px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .bt input[type=number] { width: 78px !important; }
+  .bt .bsw { display: none; gap: 5px; align-items: center; flex-wrap: wrap; }
+  .bt.on .bsw { display: inline-flex; }
+  .bt.on .bval { display: none; }
+  .bt .bcount { color: var(--muted); font-size: 11.5px; }
+  #bSetBox select, #bSetBox input[type=number] { font: inherit; font-size: 12.5px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 2px 4px; }
+  #batch .bleft { overflow-y: auto; padding-right: 4px; }
+  #batch .bright { display: flex; flex-direction: column; gap: 6px; min-height: 0; min-width: 0; }
+  .exps { display: flex; flex-direction: column; gap: 4px; }
+  .exps button { text-align: left; font-size: 12px; padding: 5px 8px; line-height: 1.25; }
+  .brow { display: flex; gap: 6px; align-items: center; margin: 5px 0; font-size: 12.5px; flex-wrap: wrap; }
+  .brow label { color: var(--muted); }
+  .brow input[type=number] { width: 78px; }
+  .brow select { max-width: 100%; }
+  .seg { display: inline-flex; gap: 2px; }
+  .seg button { padding: 3px 10px; font-size: 12.5px; }
+  #bChartBox { position: relative; flex: 1; min-height: 180px; background: #10130e; border-radius: 8px; }
+  #bChart { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bProg { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; }
+  #bProg span { display: block; height: 100%; width: 0; background: var(--accent); }
+  #bSummary { font-size: 12px; max-height: 128px; overflow: auto; }
+  #bSummary table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  #bSummary td, #bSummary th { padding: 1px 6px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  #bSummary th { color: var(--muted); font-weight: 600; }
+  #bSummary td:first-child, #bSummary th:first-child { text-align: left; }
+  #bNote { max-height: 118px; overflow-y: auto; font-size: 12px; color: #dfe3d6; background: var(--panel-2); border-radius: 7px; padding: 6px 9px; }
+  #bNote:empty { display: none; }
+
+  /* Resizable, hideable side panels */
+  .splitter { position: relative; cursor: col-resize; touch-action: none; }
+  .splitter::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--line); border-radius: 2px; }
+  .splitter:hover::before, .splitter.drag::before { background: var(--accent); }
+  .splitter button { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 18px; height: 34px; padding: 0; border-radius: 9px; font-size: 13px; line-height: 1; z-index: 2; }
+  .side { position: relative; }
+  .side .reopen { display: none; }
+  .side.collapsed { padding: 0 !important; overflow: hidden !important; }
+  .side.collapsed > :not(.reopen) { display: none !important; }
+  .side.collapsed > .reopen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; writing-mode: vertical-rl;
+    border: 0; border-radius: 10px; background: none; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+  .side.collapsed > .reopen:hover { color: var(--text); background: var(--panel-2); }
+
+  /* LEVEL SWITCH, SPEC TAGS AND EXAM PRACTICE (the same look as the geography, economics and PE sims) */
+  .lvlseg { display: flex; gap: 4px; margin-bottom: 6px; }
+  .lvlseg button { flex: 1; padding: 4px 6px; font-size: 12.5px; }
+  body.lvl-std .advOnly, body.lvl-adv .stdOnly { display: none !important; }
+  .spec { display: inline-block; font-size: 10.5px; border-radius: 4px; padding: 0 5px; margin-left: 4px; background: #2a3024; color: #dfe3d6; font-weight: 400; vertical-align: 1px; text-transform: none; letter-spacing: 0; }
+  .spec.a { background: #3b2a44; color: #e6d4f2; }
+  .spec.b { background: #24303b; color: #cfe0ee; }
+  #ideas ul { margin: 0; padding-left: 16px; }
+  #ideas li { margin-bottom: 4px; }
+  .links a { color: #a4cbe6; }
+  #exam summary { color: var(--text); }
+  .exhead { font-size: 11.5px; color: var(--accent); text-transform: uppercase; letter-spacing: .05em; margin-top: 10px; }
+  .exq { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; margin-top: 7px; color: var(--text); font-size: 12.5px; }
+  .exq .qh { display: flex; gap: 8px; justify-content: space-between; align-items: flex-start; }
+  .exq .mk { flex: none; background: var(--accent); color: var(--ink-dark); border-radius: 4px; padding: 0 6px; font-size: 11px; font-weight: 700; }
+  .exq .ht { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  .exq button { margin-top: 5px; padding: 2px 8px; font-size: 12px; }
+  .exq .ms { display: none; margin-top: 5px; border-top: 1px dashed var(--line); padding-top: 4px; }
+  .exq.open .ms { display: block; }
+  .exq .ms div { margin: 1px 0 1px 6px; }
+  .exq .ans { color: #8fd694; font-weight: 700; margin-top: 3px; }
+  #examNow { margin-top: 5px; padding: 2px 8px; font-size: 12px; }
+  #discC { width: 100%; height: 120px; display: block; }
+  #discTable td, #discTable th { text-align: right; }
+</style>
+<style id="tidyCss">
+  /* ---- Tidy layout: one-line level, presets menu, folding sections, tabs on the right ---- */
+  .tidyHide { display: none !important; }
+  details.tidyInfo { margin: 6px 0 0; font-size: 12.5px; }
+  details.tidyInfo > summary { list-style: none; color: var(--text); font-weight: 600; line-height: 1.3; padding: 4px 6px; border-radius: 6px; background: var(--panel-2); }
+  details.tidyInfo > summary::-webkit-details-marker { display: none; }
+  details.tidyInfo > summary .tidyI { float: right; color: var(--accent); font-weight: 700; margin-left: 6px; }
+  details.tidyInfo[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  details.tidyInfo > .hint { padding: 6px; margin: 0; background: var(--panel-2); border-radius: 0 0 6px 6px; }
+  .tidyPresetsBtn { width: 100%; margin-top: 8px; text-align: left; display: flex; justify-content: space-between; gap: 6px; font-weight: 600; align-items: center; }
+  .tidyPresetsBtn > span:first-child { white-space: nowrap; flex-shrink: 0; }
+  .tidyPresetsBtn span.cur { color: var(--muted); font-weight: 400; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .tidyMenu { position: fixed; z-index: 50; background: var(--panel); border: 1px solid var(--accent); border-radius: 8px; padding: 8px;
+              box-shadow: 0 8px 28px rgba(0,0,0,.55); overflow-y: auto; }
+  .tidyMenu .presets button small { display: none; }
+  .tidyMenu .tidyMenuHint { font-size: 11.5px; color: var(--muted); margin: 0 0 6px; }
+  h2.tidyH { cursor: pointer; user-select: none; }
+  h2.tidyH::before { content: "▾"; display: inline-block; width: 12px; color: var(--muted); }
+  h2.tidyH.shut::before { content: "▸"; }
+  h2.tidyH:hover { color: var(--text); }
+  .tidyBody.shut { display: none !important; }
+  details.tidyMore { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 8px; }
+  details.tidyMore > summary { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .tidyTabs { position: sticky; top: -12px; z-index: 5; display: flex; gap: 3px; margin: -12px -12px 10px; padding: 8px 8px 0;
+              background: var(--panel); border-bottom: 1px solid var(--line); }
+  .tidyTabs button { flex: 1 1 auto; min-width: 0; padding: 5px 5px; font-size: 12px; border-radius: 6px 6px 0 0; border-bottom: none; margin-bottom: -1px;
+                     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tidyTabs button.on { background: var(--panel-2); color: var(--accent); border-color: var(--line); border-bottom: 1px solid var(--panel-2); }
+  .tidyPane > details:first-child, .tidyPane > h2:first-child { margin-top: 0; }
+  .tidyMoreR { display: block; margin: 6px 0 0; font-size: 12px; padding: 3px 8px; }
+  .tidyX { display: none !important; }
+</style>
+</head>
+<body class="lvl-std">
+<header>
+  <h1>Antibiotic Resistance</h1>
+  <span class="sub">How resistant bacteria can take over an infection: dose, timing, missed doses, the immune system, mutation and combination therapy.</span>
+</header>
+
+<main>
+  <!-- ======================= LEFT: THE PATIENT AND THE TREATMENT ======================= -->
+  <section class="panel side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <h2>Level</h2>
+    <div class="lvlseg" id="lvl"><button data-lvl="std">Standard (GCSE)</button><button data-lvl="adv">Advanced (A level)</button></div>
+    <div class="hint" id="lvlHint"></div>
+
+    <h2 class="gap">Presets</h2>
+    <div class="presets" id="presets"></div>
+    <p class="hint" style="margin:8px 0 0">Changing any setting starts a new patient.</p>
+
+    <h2 class="gap">The infection</h2>
+    <div class="ctl">
+      <label>What is making the patient ill?</label>
+      <select id="virus"><option value="0">Bacteria (e.g. a chest infection)</option><option value="1">A virus (a cold): antibiotics given anyway</option></select>
+    </div>
+    <div class="ctl">
+      <label>Bacteria at the start <output id="o_start"></output></label>
+      <input type="range" id="start" min="5" max="10" step="0.5" value="8">
+      <div class="hint">How many bacteria there are when treatment starts (log scale).</div>
+    </div>
+    <div class="ctl">
+      <label>Resistance already present <output id="o_pre"></output></label>
+      <input type="range" id="pre" min="0" max="4" step="1" value="0">
+      <div class="hint">Fully resistant bacteria caught from someone else, e.g. carrying a resistance plasmid.</div>
+    </div>
+
+    <h2 class="gap">The treatment</h2>
+    <div class="ctl">
+      <label>Antibiotic</label>
+      <select id="drug"></select>
+    </div>
+    <div class="ctl">
+      <label>Dose <output id="o_dose"></output></label>
+      <input type="range" id="dose" min="0" max="1500" step="25" value="500">
+    </div>
+    <div class="ctl">
+      <label>Take a dose every <output id="o_interval"></output></label>
+      <input type="range" id="interval" min="4" max="24" step="2" value="8">
+    </div>
+    <div class="ctl">
+      <label>Course length <output id="o_days"></output></label>
+      <input type="range" id="days" min="1" max="14" step="1" value="7">
+    </div>
+    <div class="ctl">
+      <label>Patient stops taking it <output id="o_stopDay"></output></label>
+      <input type="range" id="stopDay" min="1" max="15" step="1" value="15">
+      <div class="hint">Many people stop once they feel better.</div>
+    </div>
+    <div class="ctl">
+      <label>Chance of missing a dose <output id="o_miss"></output></label>
+      <input type="range" id="miss" min="0" max="60" step="5" value="0">
+    </div>
+    <div class="ctl">
+      <label>Second antibiotic (combination therapy)</label>
+      <select id="drug2"></select>
+      <div class="hint">Taken alongside, at its standard dose. A cell needs a separate mutation to resist it.</div>
+    </div>
+
+    <h2 class="gap">The patient and the bacteria</h2>
+    <div class="ctl">
+      <label>Immune system strength <output id="o_immune"></output></label>
+      <input type="range" id="immune" min="0" max="150" step="5" value="100">
+    </div>
+    <div class="ctl">
+      <label>Mutation rate (per new cell) <output id="o_mu"></output></label>
+      <input type="range" id="mu" min="-10" max="-6" step="0.5" value="-8">
+      <div class="hint">Chance that a new cell carries a mutation giving resistance. Real values: about 1 in 100 million to 1 in 10 billion.</div>
+    </div>
+    <div class="ctl">
+      <label>Fitness cost of resistance <output id="o_cost"></output></label>
+      <input type="range" id="cost" min="0" max="40" step="5" value="10">
+      <div class="hint">Resistant cells grow this much more slowly when there is no drug.</div>
+    </div>
+    <label class="check"><input type="checkbox" id="plasmid"> Bacteria can share resistance genes (plasmids)</label>
+    <div class="ctl">
+      <label>Random seed</label>
+      <input type="text" id="seed" value="1" style="width:100%">
+      <div class="hint">Same seed + same settings = same patient. <button id="btnSeed" style="padding:1px 8px;font-size:11.5px">New random patient</button></div>
+    </div>
+
+    <h2 class="gap">Display</h2>
+    <div class="ctl">
+      <label>Picture quality (bacteria drawn)</label>
+      <select id="quality"><option value="0">Low (half as many)</option><option value="1" selected>Medium</option><option value="2">High (twice as many)</option><option value="3">Ultra (three times as many)</option></select>
+      <div class="hint">Only the picture changes (it does not start a new patient): each drawn rod stands for fewer real bacteria at higher quality. The numbers, graphs and batch runs are the same at every level.</div>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- ======================= CENTRE: THE INFECTION ======================= -->
+  <section class="panel" id="centre">
+    <div id="topbar">
+      <span id="clock">Day 1, 00:00</span>
+      <span id="status" class="st-idle">Not started</span>
+      <span class="stat">Bacteria <b id="s_n">–</b></span>
+      <span class="stat">Resistant <b id="s_res">–</b></span>
+      <span class="stat">Drug level <b id="s_c">–</b></span>
+    </div>
+    <div id="viewWrap">
+      <canvas id="view" aria-label="A sample of the bacteria at the infection site"></canvas>
+      <div id="outBanner" role="status" aria-live="polite"></div>
+    </div>
+    <div id="controlsRow">
+      <button id="btnPlay" class="primary" style="min-width:86px">▶ Start</button>
+      <button id="btnReset" title="Start this patient again">Reset</button>
+      <span class="speed" title="1× = 1 hour of the infection per second">Speed <button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="4">4×</button><button data-s="12">12×</button><button data-s="48">48×</button></span>
+      <span class="hint" id="speedNote">1× = 1 h/s</span>
+      <span style="flex:1"></span>
+      <button id="btnBatch" title="Run many patients and compare with theory">📊 Batch run</button>
+    </div>
+    <div id="tlWrap"><canvas id="timeline" aria-label="Graphs of bacteria and drug level against time"></canvas></div>
+    <div class="legend" id="legend"></div>
+
+    <!-- ===== Batch run overlay ===== -->
+    <div id="batch" role="dialog" aria-label="Batch run">
+      <div class="bhead"><h2>📊 Batch run: many patients</h2><span class="hint">Every setting used is in the table: experiments fill it in, and you can change any of it. No drawing, so it is fast.</span><span style="flex:1"></span><button id="bClose">✕ Close</button></div>
+      <div class="bbody">
+        <div class="bleft" id="bsetup">
+          <h2>Batch experiments</h2>
+          <div class="exps" id="bExps"></div>
+          <h2 class="gap">Set up your own</h2>
+          <div class="brow"><span class="seg"><button id="bModeR" class="on">Repeat</button><button id="bModeS">Sweep</button></span></div>
+          <div class="brow"><label>Record</label><select id="bOut" style="flex:1"></select></div>
+          <div id="bRepeatOpts" class="brow"><label>Patients</label><select id="bN"><option>20</option><option selected>100</option><option>300</option><option>1000</option></select></div>
+          <details id="bSetBox" open>
+            <summary>Starting settings: tick the one to vary</summary>
+            <div class="bhint">Every setting a run uses is listed. Tick one to sweep it from → to in steps (+ adds the step each time, × multiplies by it); every other setting stays at the value shown. What you see is what runs.</div>
+            <div id="bOpts"></div>
+            <div id="bTbl"></div>
+            <div id="bSweepOpts" class="brow" style="display:none"><label>Repeats at each step</label><input type="number" id="bReps" min="1" max="1000" value="30"></div>
+            <div class="brow"><button id="bLeft" title="Fill the table from the settings on the left panel">↺ Use my left-panel settings</button></div>
+          </details>
+        </div>
+        <div class="bright" id="bresults">
+          <div class="brow"><button id="bRun" class="primary">▶ Run batch</button><button id="bStop" disabled>■ Stop</button><div id="bProg"><span></span></div><button id="bCsv" disabled title="Download every run as a CSV file">⬇ CSV</button></div>
+          <div class="hint" id="bStatus">Ready.</div>
+          <div id="bNote"></div>
+          <div id="bChartBox"><canvas id="bChart"></canvas></div>
+          <div id="bSummary"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- ======================= RIGHT: WHAT IS HAPPENING ======================= -->
+  <section class="panel side" id="right">
+    <button class="reopen" title="Show this panel">‹ Patient report</button>
+    <h2>What's happening</h2>
+    <div id="story"></div>
+    <h2 class="gap">How ill does the patient feel?</h2>
+    <div class="gauge"><span id="gaugeMark" style="left:0%"></span></div>
+    <div class="hint" style="display:flex;justify-content:space-between"><span>well</span><span>mild</span><span>ill</span><span>very ill</span></div>
+    <h2 class="gap">Patient report</h2>
+    <div class="tiles" id="tiles"></div>
+    <h2 class="gap advOnly">Antibiotic discs on agar <span class="spec a">A level practical skills (H420 PAG7 microbiological techniques)</span></h2>
+    <div class="advOnly">
+      <div class="hint">A virtual practical: a paper disc soaked in the antibiotic chosen on the left sits on a lawn of each strain. The drug spreads out; bacteria cannot grow where it is above their MIC, leaving a clear zone. Measure the diameter of each zone (to the nearest 0.5 mm, with real measurement error).</div>
+      <canvas id="discC"></canvas>
+      <div class="row" style="display:flex;gap:6px;margin:4px 0"><button id="discNew">Pour a plate and measure</button><button id="discClear">Clear results</button></div>
+      <div id="discTable"></div>
+    </div>
+    <h2 class="gap">Key ideas <span class="hint" style="text-transform:none;letter-spacing:0">(tags: which spec)</span></h2>
+    <div class="hint" id="ideas"></div>
+    <div class="hint links" style="margin-top:8px">The same idea in animals: <a href="../../biology/natural_selection/natural-selection.html">Natural Selection</a>. How the immune system and vaccines work across a population: <a href="../../biology/epidemics/epidemics.html">Epidemics and Vaccination</a>.</div>
+    <details id="exam" open>
+      <summary>📝 Exam practice</summary>
+      <div class="hint" style="margin-top:4px">Questions marked "Your…" use the numbers on screen. <button id="examNow" title="Rebuild the questions from what is on screen now">↻ Use the numbers on screen now</button></div>
+      <div id="examQs"></div>
+    </details>
+    <details>
+      <summary>How the model works (and what it leaves out)</summary>
+      <ul>
+        <li><b>One infection site, well mixed.</b> All the bacteria see the same drug level and the same immune response. The dish picture shows a sample: up to 40 bacteria it shows every one; above that each bacterium drawn stands for many (the number drawn grows with the logarithm of the real count).</li>
+        <li><b>Growth:</b> each cell divides at rate ln2 ÷ 3 h × (1 − N/K), where K = 10<sup>10</sup> is the most the tissue can hold. Natural death rate 0.05 per hour. Bacteria in the body divide far more slowly than in a lab flask (about every 20 minutes there).</li>
+        <li><b>Random events:</b> in each 0.1-hour step the number of divisions is a Poisson random number and the number of deaths a binomial one. With small numbers this randomness decides whether the last few cells survive.</li>
+        <li><b>Immune system:</b> kills each bacterium at rate 0.3 × strength × 30 000 ÷ (30 000 + N) per hour. With few bacteria it wins; with millions the immune cells are swamped. A healthy patient can clear about 20 000 bacteria alone, but not a big infection. A weak one (below about 60%) can never win alone, so the drug must do all the work.</li>
+        <li><b>Drug level</b> (one-compartment model): a tablet is absorbed from the gut at rate k<sub>a</sub>; the blood level C (mg/L) falls with the drug's half-life: C halves every t<sub>½</sub>. Peak after one dose ≈ F × dose ÷ V<sub>d</sub> × (a factor below 1 because removal starts before absorption finishes).</li>
+        <li><b>Killing (Emax / Hill dose–response):</b> kill rate = E<sub>max</sub> × (C/MIC)<sup>h</sup> ÷ ((C/MIC)<sup>h</sup> + E), with E chosen so that at C = MIC killing exactly balances growth.</li>
+        <li><b>Strains:</b> sensitive; partly resistant (MIC × 8); fully resistant (MIC × 64). A sensitive cell can mutate to partly resistant, and a partly resistant cell to fully resistant, each with chance μ per new cell. With a second drug, a separate mutation (chance μ) gives resistance to that drug (MIC × 64). Each resistance step slows growth by the fitness cost (full resistance costs 1.5 times as much).</li>
+        <li><b>Plasmids</b> (horizontal gene transfer): when switched on, fully resistant cells pass a resistance plasmid to other cells at a rate proportional to how many carriers there are (5 per hour when the tissue is packed with carriers).</li>
+        <li><b>Before treatment</b> the infection grows from 100 cells to the starting size, so resistant mutants may already be there (the Luria–Delbrück idea). The chance of at least one is close to 1 − e<sup>−μN</sup>.</li>
+        <li><b>Two drugs</b> combine by Bliss independence: if drug 1 alone gives a fraction f₁ of its maximum kill and drug 2 gives f₂, together they give 1 − (1 − f₁)(1 − f₂) of the larger maximum. So a second drug mainly fills the gaps (between doses, and against cells resistant to the first drug) rather than doubling the speed. Missed doses are decided at random, independently for each dose.</li>
+        <li><b>Outcome</b> (checked 7 days after the course should have ended): cured = no bacteria left; resistant infection = bacteria remain and more than half are resistant; otherwise still infected (the infection came back with ordinary bacteria).</li>
+        <li><b>Virus mode:</b> antibiotics do nothing to viruses. The model follows harmless bacteria that normally live in you (10<sup>9</sup>, 1% already resistant). The immune system leaves them alone, and about 100 new sensitive bacteria arrive each hour from food and the surroundings.</li>
+        <li><b>Disc practical (Advanced, illustrative):</b> the drug in the agar is taken to fall off with distance so that the zone radius beyond the 6 mm disc is 4.2 mm × √ln(40 × MIC<sub>sensitive</sub> ÷ MIC of the strain); no zone if the strain's MIC is above 40 × the sensitive MIC. Each reading has random error (SD 0.6 mm) and is rounded to 0.5 mm. Real labs compare zone sizes with published breakpoints; these numbers are for practice, not real breakpoints.</li>
+        <li><b>Not modelled:</b> where the bacteria hide (abscesses, biofilms, inside cells), drug reaching tissues more slowly than blood, bacteria that survive without being resistant ("persisters"), the immune response building up over days, side-effects, and drugs that only stop growth rather than kill (here every drug kills, at different speeds). Drug values are realistic but simplified, so do not use them for real dosing.</li>
+      </ul>
+    </details>
+  </section>
+</main>
+
+<script>
+"use strict";
+/* =====================================================================
+   THE MODEL (no drawing) — can run headlessly for batch runs
+   ===================================================================== */
+function hashSeed(str) { str = String(str); let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } return h >>> 0; }
+function mulberry32(a) { return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+// Random numbers with the right spread for counting things.
+function gauss(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+// Poisson: how many events happen when on average lambda are expected
+function poisson(rng, lambda) {
+  if (!(lambda > 0)) return 0;
+  if (lambda < 30) { const L = Math.exp(-lambda); let k = 0, p = 1; do { k++; p *= rng(); } while (p > L); return k - 1; }
+  return Math.max(0, Math.round(lambda + Math.sqrt(lambda) * gauss(rng)));
+}
+// Binomial: how many of n cells die (or change) when each has chance p
+function binomial(rng, n, p) {
+  if (n <= 0 || p <= 0) return 0;
+  if (p >= 1) return n;
+  if (n < 25) { let k = 0; for (let i = 0; i < n; i++) if (rng() < p) k++; return k; }
+  const m = n * p;
+  if (m < 25) return Math.min(n, poisson(rng, m));
+  if (n - m < 25) return n - Math.min(n, poisson(rng, n - m));
+  return Math.min(n, Math.max(0, Math.round(m + Math.sqrt(m * (1 - p)) * gauss(rng))));
+}
+
+/* ---- The antibiotics (illustrative values close to real adult doses) ----
+   half: elimination half-life (h); ka: absorption rate from the gut (per h);
+   F: fraction of the tablet absorbed; Vd: volume of distribution (L);
+   micS: MIC for a sensitive strain (mg/L); emax: fastest kill rate (per h);
+   hill: steepness of the dose–response curve; toxic: level where side-effects
+   become likely (mg/L) — the top of the therapeutic window.            */
+const DRUGS = {
+  amox:  { name: "Amoxicillin (penicillin-type)", short: "Amoxicillin", half: 1.0, ka: 2.0, F: 0.9, Vd: 30,  dose: 500, interval: 8,  days: 7, micS: 0.5,  emax: 0.5, hill: 2.0, toxic: 60 },
+  cipro: { name: "Ciprofloxacin (quinolone)",     short: "Ciprofloxacin", half: 4.0, ka: 1.5, F: 0.7, Vd: 150, dose: 500, interval: 12, days: 7, micS: 0.25, emax: 0.4, hill: 1.3, toxic: 8 },
+  doxy:  { name: "Doxycycline (long half-life)",  short: "Doxycycline", half: 18,  ka: 1.0, F: 0.9, Vd: 50,  dose: 100, interval: 12, days: 7, micS: 0.5,  emax: 0.4, hill: 1.5, toxic: 15 },
+};
+const MIC_PART = 8, MIC_FULL = 64;   // how many times higher the MIC is for partly / fully resistant strains
+const TD = 3.0;                      // doubling time in the body (hours): much slower than in a lab flask (about 20 min)
+const B0 = Math.LN2 / TD;            // birth (division) rate per cell per hour
+const D0 = 0.05;                     // natural death rate per cell per hour
+const K = 1e10;                      // the most bacteria the infected tissue can hold
+const IMAX = 0.3;                                       // fastest immune kill rate per cell per hour (healthy immune system)
+const NHALF = 3e4;                                     // immune kill rate halves when there are this many bacteria (immune cells get swamped)
+const HGT = 5;                       // plasmid transfer rate (per h) when the tissue is full of plasmid carriers
+const N0 = 100;                      // the infection starts from this many bacteria before you get ill
+const FOLLOW = 7;                    // days we keep watching after the course ends (batch runs can change it: p.follow)
+
+// Genotypes: index g = r1 + 3*r2.  r1 = resistance to drug 1 (0 none, 1 partly, 2 fully); r2 = resistance to drug 2 (0/1).
+const G = 6;
+function growthOf(g, p) { const r1 = g % 3, r2 = (g / 3) | 0; let f = 1; if (r1 === 1) f *= 1 - p.cost; if (r1 === 2) f *= 1 - 1.5 * p.cost; if (r2) f *= 1 - p.cost; return B0 * Math.max(0, f); }
+function micOf(drug, level) { return drug.micS * (level === 0 ? 1 : level === 1 ? MIC_PART : MIC_FULL); }
+// Kill rate from the drug (Emax / Hill dose–response). The constant E is chosen so that at C = MIC
+// the kill rate exactly cancels the strain's growth (that is what MIC means: growth just stops).
+function killRate(drug, C, mic, growth) {
+  if (!(C > 0)) return 0;
+  const g = Math.min(growth - D0, 0.95 * drug.emax), x = Math.max(0.02, g / drug.emax), E = 1 / x - 1;
+  const r = Math.pow(C / mic, drug.hill);
+  return drug.emax * r / (r + E);
+}
+// Two drugs together (Bliss independence): each drug alone would leave a fraction (1 − f) of its maximum
+// effect undone; together they reach 1 − (1 − f1)(1 − f2) of the larger maximum. So a second drug mostly
+// fills the gaps (between doses, or against cells resistant to the first) rather than doubling the kill rate.
+function combinedKill(d1, k1, d2, k2) {
+  if (!d2) return k1;
+  const f1 = k1 / d1.emax, f2 = k2 / d2.emax, emax = Math.max(d1.emax, d2.emax);
+  return emax * (1 - (1 - f1) * (1 - f2));
+}
+function defaultParams() {
+  return { drug: "amox", dose: 500, interval: 8, days: 7, stopDay: 99, miss: 0, immune: 1.0, mu: 1e-8, cost: 0.1,
+           start: 1e8, plasmid: false, drug2: "none", pre: 0, virus: false };
+}
+// Build the dosing timetable (hours), with missed doses decided by the random generator
+function schedule(p, interval, rng, days, stopDay) {
+  const out = [], end = Math.min(days, stopDay) * 24;
+  for (let t = 0; t < end - 1e-9; t += interval) out.push({ t, missed: rng() < p.miss });
+  return out;
+}
+function createSim(p, seed) {
+  const rng = mulberry32(hashSeed(seed));
+  const d1 = DRUGS[p.drug], d2 = p.drug2 !== "none" ? DRUGS[p.drug2] : null;
+  const s = { p, rng, t: 0, n: new Float64Array(G), d1, d2, A1: 0, C1: 0, A2: 0, C2: 0, done: false, outcome: null,
+              tEnd: (p.days + (p.follow ?? FOLLOW)) * 24, cureT: null, peakRes: 0, startMutants: 0, killedDrug: 0, killedImm: 0, births: 0 };
+  s.dose1 = schedule(p, p.interval, rng, p.days, p.stopDay);
+  s.dose2 = d2 ? schedule(p, d2.interval, rng, p.days, p.stopDay) : [];
+  s.k1 = 0; s.k2 = 0;
+  if (p.virus) {
+    // A cold: the illness is a virus. The only bacteria are harmless ones that normally live in you.
+    const N = 1e9; s.n[2] = Math.round(N * Math.max(p.pre, 0.01)); s.n[0] = N - s.n[2];
+  } else {
+    // Grow the infection from N0 cells to the starting size, one generation at a time.
+    // Each new cell has a chance mu of a mutation that makes it partly resistant (Luria–Delbrück).
+    let sens = N0, mut = 0;
+    const target = Math.round(Math.max(N0, p.start));
+    while (sens + mut < target) {
+      const births = Math.min(sens + mut, target - sens - mut);
+      const fromS = births * sens / (sens + mut);       // new cells made by sensitive parents
+      const m = poisson(rng, fromS * p.mu);              // ...a few of which are mutants
+      sens += fromS - m; mut += births - fromS + m;
+      sens = Math.round(sens); mut = Math.round(mut);
+    }
+    s.startMutants = mut;
+    const preR = Math.round(target * p.pre);           // resistance already present (e.g. a plasmid picked up earlier)
+    s.n[0] = Math.max(0, sens - preR); s.n[1] = mut; s.n[2] = preR;
+  }
+  s.n0 = Array.from(s.n);
+  return s;
+}
+const total = s => { let a = 0; for (let g = 0; g < G; g++) a += s.n[g]; return a; };
+function resistantFrac(s) { const N = total(s); if (!N) return 0; let r = 0; for (let g = 1; g < G; g++) r += s.n[g]; return r / N; }
+
+// Drug in the body: tablet in the gut (A, mg) is absorbed at rate ka; drug in the blood (C, mg/L)
+// is removed at rate ke = ln2 / half-life. Exact solution over a time step dt.
+function pkStep(drug, A, C, dt) {
+  const ke = Math.LN2 / drug.half, ka = drug.ka;
+  const eA = Math.exp(-ka * dt), eK = Math.exp(-ke * dt);
+  const Cn = C * eK + (drug.F * A / drug.Vd) * ka / (ka - ke) * (eK - eA);
+  return [A * eA, Math.max(0, Cn)];
+}
+
+function stepSim(s, dt) {
+  const p = s.p, rng = s.rng;
+  // 1. Tablets taken now
+  while (s.k1 < s.dose1.length && s.dose1[s.k1].t <= s.t + 1e-9) { if (!s.dose1[s.k1].missed) s.A1 += p.dose; s.k1++; s.lastDose = s.t; }
+  while (s.k2 < s.dose2.length && s.dose2[s.k2].t <= s.t + 1e-9) { if (!s.dose2[s.k2].missed) s.A2 += s.d2.dose; s.k2++; }
+  // 2. Drug levels
+  [s.A1, s.C1] = pkStep(s.d1, s.A1, s.C1, dt);
+  if (s.d2) [s.A2, s.C2] = pkStep(s.d2, s.A2, s.C2, dt);
+  // 3. Bacteria
+  const N = total(s);
+  const room = Math.max(0, 1 - N / (p.virus ? 1e9 : K));
+  const imm = p.virus ? 0 : p.immune * IMAX * NHALF / (NHALF + N);     // per-cell immune kill rate
+  let nDonor = s.n[2] + s.n[5];                                          // plasmid carriers (fully resistant)
+  const hgtRate = p.plasmid ? HGT * nDonor / K : 0;
+  const nn = Float64Array.from(s.n);
+  let kd = 0, ki = 0;
+  for (let g = 0; g < G; g++) {
+    const n = s.n[g]; if (n <= 0) continue;
+    const r1 = g % 3, r2 = (g / 3) | 0;
+    const gr = growthOf(g, p);
+    const drugK = combinedKill(s.d1, killRate(s.d1, s.C1, micOf(s.d1, r1), gr), s.d2, s.d2 ? killRate(s.d2, s.C2, micOf(s.d2, r2 ? 2 : 0), gr) : 0);
+    const births = poisson(rng, n * gr * room * dt);
+    const dieRate = D0 + imm + drugK;
+    const deaths = binomial(rng, n, 1 - Math.exp(-dieRate * dt));
+    kd += deaths * drugK / dieRate; ki += deaths * imm / dieRate;
+    nn[g] += births - deaths;
+    s.births += births;
+    // mutations among the new cells
+    if (r1 < 2) { const m = Math.min(poisson(rng, births * p.mu), births); nn[g] -= m; nn[g + 1] += m; }
+    if (!r2 && s.d2) { const m = Math.min(poisson(rng, births * p.mu), births); nn[g] -= m; nn[g + 3] += m; }
+    // plasmid (horizontal gene transfer): neighbours pass on a full-resistance gene
+    if (hgtRate > 0 && r1 < 2) { const c = binomial(rng, Math.max(0, n - deaths), 1 - Math.exp(-hgtRate * dt)); nn[g] -= c; nn[g + (2 - r1)] += c; }
+  }
+  // Virus mode: normal gut bacteria keep arriving from food and the surroundings (about 100 sensitive cells per hour)
+  if (p.virus) nn[0] += poisson(rng, 100 * dt);
+  for (let g = 0; g < G; g++) s.n[g] = Math.max(0, nn[g]);
+  s.killedDrug += kd; s.killedImm += ki;
+  s.t += dt;
+  const rf = resistantFrac(s); if (rf > s.peakRes) s.peakRes = rf;
+  const Nn = total(s);
+  if (!p.virus && Nn === 0 && s.cureT === null) s.cureT = s.t;
+  if (s.t >= s.tEnd - 1e-9 || (!p.virus && Nn === 0 && s.t >= Math.min(p.days, p.stopDay) * 24)) finish(s);
+}
+// Average net growth rate (per hour) of a strain over the whole course, ignoring the immune system and crowding.
+// Positive = the strain grows despite the drug. Used to predict the mutant selection window from theory.
+function netRateOver(p, dose, level) {
+  const d = DRUGS[p.drug], gr = growthOf(level, p), mic = micOf(d, level), end = Math.min(p.days, p.stopDay) * 24;
+  let A = 0, C = 0, sum = 0, n = 0;
+  for (let k = 0; k * 0.1 < end; k++) {
+    const t = k * 0.1;
+    if (Math.abs(t / p.interval - Math.round(t / p.interval)) < 1e-6) A += dose;
+    [A, C] = pkStep(d, A, C, 0.1);
+    if (t >= 24 || end <= 24) { sum += gr - D0 - killRate(d, C, mic, gr); n++; }   // skip day 1 while levels build up
+  }
+  return n ? sum / n : gr - D0;
+}
+// Theory for the mutant selection window, from the drug-level and dose–response equations only:
+//  lower edge: the drug gives partly resistant cells a big enough growth advantage over normal ones to take
+//              over within the course (advantage × course hours > ln(10^8) ≈ 18);
+//  upper edge: normal bacteria now die off faster than partly resistant ones can grow, so the infection
+//              shrinks to a size the immune system can mop up before the mutants become numerous.
+function doseWhere(p, f) {          // smallest dose where f(dose) becomes true (step up, then refine)
+  const step = DRUGS[p.drug].dose / 50; let d = 0;
+  while (!f(d + step) && d < DRUGS[p.drug].dose * 20) d += step;
+  let lo = d, hi = d + step;
+  for (let i = 0; i < 25; i++) { const m = (lo + hi) / 2; if (f(m)) hi = m; else lo = m; }
+  return (lo + hi) / 2;
+}
+function selectionDose(p) {
+  const hours = Math.min(p.days, p.stopDay) * 24;
+  return doseWhere(p, d => (netRateOver(p, d, 1) - netRateOver(p, d, 0)) * hours > 18);
+}
+function breakEvenDose(p) { return doseWhere(p, d => -netRateOver(p, d, 0) > netRateOver(p, d, 1)); }
+function finish(s) {
+  s.done = true;
+  const N = total(s), rf = resistantFrac(s);
+  if (s.p.virus) s.outcome = rf > 0.5 ? "resistant" : "infected";
+  else s.outcome = N === 0 ? "cured" : rf > 0.5 ? "resistant" : "infected";
+}
+const DT = 0.1;   // time step (hours)
+function runOnce(p, seed, startOnly) {
+  const s = createSim(p, seed);
+  if (startOnly) return { startMutants: s.startMutants, outcome: null };
+  const dt = p.dt ?? DT;               // batch runs can set the time step (default 0.1 h)
+  while (!s.done) stepSim(s, dt);
+  const N = total(s);
+  return { outcome: s.outcome, cureDays: s.cureT === null ? NaN : s.cureT / 24, finalRes: 100 * resistantFrac(s),
+           peakRes: 100 * s.peakRes, logN: Math.log10(N + 1), startMutants: s.startMutants };
+}
+/* =====================================================================
+   BATCH RUN — run the model many times without drawing, then compare
+   the results with theory. (Set up by Batch.init further down.)
+   ===================================================================== */
+const Batch = (function () {
+  const $ = id => document.getElementById(id);
+  let cfg, mode = "repeat", running = false, stopFlag = false, results = [], lastRun = null;
+  const C_MODEL = "#00aec3", C_THEORY = "#f1af28", C_REF = "#e83181";
+
+  // The batch settings table: src = the full set of settings it was filled from; vals/opts = what it shows.
+  // One-click experiments fill it in from fixed defaults; you can then change anything before pressing Run.
+  const TBL = { src: {}, shown: {}, vals: {}, opts: {}, vary: null, from: 0, to: 1, kind: "+", step: 1, exact: null };
+  const nice = x => (x === 0 || !Number.isFinite(x)) ? x : +(+x).toPrecision(4);
+  const clampV = (V, x) => { if (V.int) x = Math.round(x); if (V.min !== undefined) x = Math.max(V.min, x); if (V.max !== undefined) x = Math.min(V.max, x); return x; };
+
+  function init(config) {
+    cfg = config;
+    $("bExps").innerHTML = cfg.experiments.map((e, i) => `<button data-i="${i}">${e.q}</button>`).join("");
+    $("bExps").querySelectorAll("button").forEach(b => b.addEventListener("click", () => loadExperiment(+b.dataset.i)));
+    $("bModeR").addEventListener("click", () => { setMode("repeat"); tableEdited(); });
+    $("bModeS").addEventListener("click", () => { setMode("sweep"); tableEdited(); });
+    $("bN").addEventListener("change", tableEdited);
+    $("bReps").addEventListener("change", tableEdited);
+    $("bRun").addEventListener("click", run);
+    $("bStop").addEventListener("click", () => { stopFlag = true; });
+    $("bCsv").addEventListener("click", downloadCsv);
+    $("bClose").addEventListener("click", close);
+    $("btnBatch").addEventListener("click", open);
+    window.addEventListener("resize", () => { if (lastRun) draw(); });
+    hookTable();
+    fillTable(cfg.expBase(cfg.experiments[0]), null);
+    setMode("repeat");
+  }
+  function open() { $("batch").classList.add("open"); if (cfg.onOpen) cfg.onOpen(); if (lastRun) draw(); else if (!$("bNote").textContent) loadExperiment(0, true); }
+  function close() { $("batch").classList.remove("open"); }
+  function setMode(m) {
+    mode = m; $("bModeR").classList.toggle("on", m === "repeat"); $("bModeS").classList.toggle("on", m === "sweep");
+    if (m === "sweep" && !TBL.vary) { startVary(cfg.vars[0].id); renderTable(); }   // a sweep needs a ticked setting
+    if (m === "repeat" && TBL.vary) { TBL.vary = null; renderTable(); }
+    $("bRepeatOpts").style.display = m === "repeat" ? "" : "none"; $("bSweepOpts").style.display = m === "sweep" ? "" : "none";
+    fillOutcomes();
+  }
+  function curVar() { return cfg.vars.find(v => v.id === TBL.vary); }
+  function fillOutcomes() {
+    const keep = $("bOut").value;
+    const list = cfg.outcomes.filter(o => mode === "repeat" ? !o.sweepOnly : o.kind !== "cat");
+    $("bOut").innerHTML = list.map(o => `<option value="${o.id}">${o.label}</option>`).join("");
+    if (list.some(o => o.id === keep)) $("bOut").value = keep;
+  }
+
+  // ---------- The batch settings table ----------
+  // the values the varied setting takes: an experiment's own evenly spaced values, or from, from+step, … (× multiplies) up to "to" (at most 60)
+  function sweepValues() {
+    const V = curVar(); if (!V) return [];
+    if (TBL.exact) return TBL.exact.slice();
+    const out = [], up = TBL.to >= TBL.from;
+    if (TBL.kind === "×") {
+      let f = Math.abs(TBL.step); if (!(f > 1) || TBL.from <= 0 || TBL.to <= 0) return [TBL.from];
+      if (!up) f = 1 / f;
+      for (let v = TBL.from, i = 0; i < 60 && (up ? v <= TBL.to * 1.01 : v >= TBL.to * 0.99); i++, v *= f) out.push(nice(v));
+    } else {
+      let d = Math.abs(TBL.step); if (!(d > 0)) return [TBL.from];
+      if (!up) d = -d;
+      for (let i = 0; i < 60; i++) { const v = TBL.from + i * d; if (up ? v > TBL.to + 1e-3 * Math.abs(d) : v < TBL.to - 1e-3 * Math.abs(d)) break; out.push(nice(v)); }
+    }
+    const vals = out.map(v => clampV(V, v));
+    return vals.filter((v, i) => i === 0 || v !== vals[i - 1]);
+  }
+  // an experiment's sweep values, worked out exactly as before the table existed (so its results do not change)
+  function expValues(V, from, to, steps) {
+    if (V.min !== undefined) { from = Math.max(V.min, from); to = Math.max(V.min, to); }
+    if (V.max !== undefined) { from = Math.min(V.max, from); to = Math.min(V.max, to); }
+    const xs = [];
+    for (let k = 0; k < steps; k++) {
+      const f = steps === 1 ? 0 : k / (steps - 1);
+      let x = V.log ? Math.exp(Math.log(from) + f * (Math.log(to) - Math.log(from))) : from + f * (to - from);
+      if (V.int) x = Math.round(x);
+      xs.push(x);
+    }
+    return xs;
+  }
+  function fillTable(p, E) {        // from a full set of settings (an experiment's, or the left panel's)
+    TBL.src = JSON.parse(JSON.stringify(p)); TBL.vals = {}; TBL.shown = {}; TBL.opts = {}; TBL.exact = null;
+    for (const V of cfg.vars) TBL.vals[V.id] = TBL.shown[V.id] = nice(V.get(p));
+    for (const O of cfg.choices) TBL.opts[O.k] = p[O.k];
+    if (E) {
+      const V = cfg.vars.find(v => v.id === E.var), lg = !!V.log && E.from > 0 && E.to > 0;
+      TBL.vary = E.var; TBL.from = E.from; TBL.to = E.to;
+      if (lg) { TBL.kind = "×"; TBL.step = nice(Math.pow(E.to / E.from, 1 / (E.steps - 1))); } else { TBL.kind = "+"; TBL.step = nice((E.to - E.from) / (E.steps - 1)); }
+      TBL.exact = expValues(V, E.from, E.to, E.steps);   // kept until you edit the range
+    } else TBL.vary = null;
+    renderTable();
+  }
+  function renderTable() {
+    $("bOpts").innerHTML = cfg.choices.map(O => O.bool
+      ? `<label class="chk"><input type="checkbox" data-o="${O.k}" ${TBL.opts[O.k] ? "checked" : ""}> ${O.label}</label>`
+      : `<div class="brow"><label>${O.label}</label><select data-o="${O.k}" style="flex:1">${O.choices.map(([v, t]) => `<option value="${v}" ${String(TBL.opts[O.k]) === String(v) ? "selected" : ""}>${t}</option>`).join("")}</select></div>`).join("");
+    $("bTbl").innerHTML = cfg.vars.map(V => {
+      const k = V.id, on = TBL.vary === k, u = V.unit ? ` (${V.unit})` : "";
+      return `<div class="bt${on ? " on" : ""}" data-k="${k}"><label ${on ? "data-ws-change" : ""}><input type="checkbox" data-vary="${k}" ${on ? "checked" : ""}> ${V.label}${u}${V.hint ? ` <span class="bcount">${V.hint}</span>` : ""}</label>` +
+        `<input type="number" class="bval" data-v="${k}" step="any" value="${TBL.vals[k]}">` +
+        `<span class="bsw">from <input type="number" data-ws="from" data-r="from" step="any" value="${on ? TBL.from : ""}"> to <input type="number" data-ws="to" data-r="to" step="any" value="${on ? TBL.to : ""}">
+          step <select data-ws="step type" data-r="kind"><option value="+" ${TBL.kind === "+" ? "selected" : ""}>+</option><option value="×" ${TBL.kind === "×" ? "selected" : ""}>×</option></select>
+          <input type="number" data-ws="step" data-r="step" step="any" value="${on ? TBL.step : ""}"> <span class="bcount bsteps"></span></span></div>`;
+    }).join("");
+    updateCount();
+  }
+  function updateCount() {
+    const span = TBL.vary && $("bTbl").querySelector(`.bt[data-k="${TBL.vary}"] .bsteps`);
+    if (span) { const xs = [...new Set(sweepValues())]; span.textContent = `→ ${xs.length} steps: ${xs.slice(0, 4).map(v => +v.toPrecision(4)).join(", ")}${xs.length > 4 ? " … " + +xs[xs.length - 1].toPrecision(4) : ""}`; }
+  }
+  function startVary(k) {           // a sensible first range when a setting is ticked
+    const V = cfg.vars.find(v => v.id === k), cur = TBL.vals[k], lo = V.min ?? 0, hi = V.max ?? Math.max(10, cur * 4);
+    TBL.vary = k; TBL.exact = null;
+    if (V.log && cur > 0) { TBL.kind = "×"; TBL.from = nice(Math.max(lo, cur / 100)); TBL.to = nice(Math.min(hi, cur * 100)); TBL.step = 10; }
+    else {
+      TBL.kind = "+";
+      if (cur > 0) { TBL.from = nice(Math.max(lo, cur / 2)); TBL.to = nice(Math.min(hi, cur * 2)); } else { TBL.from = lo; TBL.to = nice(Math.min(hi, lo + 10)); }
+      TBL.step = nice((TBL.to - TBL.from) / 4); if (V.int) TBL.step = Math.max(1, Math.round(TBL.step));
+    }
+  }
+  let expChosen = -1;
+  function tableEdited() {          // anything changed by hand: it is now your own set-up
+    if (expChosen >= 0) $("bNote").innerHTML = "Your own set-up (changed from the experiment): press <b>▶ Run batch</b>.";
+    expChosen = -1; $("bExps").querySelectorAll("button").forEach(b => b.classList.remove("on"));
+  }
+  function hookTable() {
+    $("bSetBox").addEventListener("input", e => {
+      const t = e.target;
+      if (t.dataset.vary) {           // the tick boxes act like radio buttons: one varied setting at most
+        if (t.checked) { startVary(t.dataset.vary); setMode("sweep"); } else { TBL.vary = null; setMode("repeat"); }
+        renderTable(); tableEdited(); return;
+      }
+      if (t.dataset.v) TBL.vals[t.dataset.v] = +t.value;
+      if (t.dataset.o) TBL.opts[t.dataset.o] = t.type === "checkbox" ? t.checked : t.value;
+      if (t.dataset.r) { TBL.exact = null; TBL[t.dataset.r] = t.dataset.r === "kind" ? t.value : +t.value; }
+      if (t.dataset.v || t.dataset.o || t.dataset.r) { updateCount(); tableEdited(); }
+    });
+    $("bLeft").addEventListener("click", () => { if (running) return; fillTable(cfg.leftParams(), null); setMode("repeat"); tableEdited(); });
+  }
+  // the settings for a run: the set the table was filled from, then every choice and every value you changed in it
+  function tableParams() {
+    const p = JSON.parse(JSON.stringify(TBL.src));
+    for (const O of cfg.choices) if (TBL.opts[O.k] !== undefined) p[O.k] = TBL.opts[O.k];
+    for (const V of cfg.vars) { const x = TBL.vals[V.id]; if (x !== TBL.shown[V.id] && Number.isFinite(x)) V.apply(p, clampV(V, x)); }
+    return p;
+  }
+  function loadExperiment(i, quiet) {
+    if (running) return;
+    const e = cfg.experiments[i];
+    // a one-click experiment starts from fixed defaults (never from the left panel)
+    fillTable(cfg.expBase(e), e.mode === "sweep" ? e : null);
+    setMode(e.mode);
+    if (e.mode === "repeat") $("bN").value = String(e.n);
+    else $("bReps").value = e.reps;
+    fillOutcomes(); $("bOut").value = e.out;
+    $("bNote").innerHTML = `<b>${e.q}</b> ${e.note}`;
+    expChosen = i;
+    $("bExps").querySelectorAll("button").forEach((b, k) => b.classList.toggle("on", k === i));
+  }
+
+  // ---------- Running ----------
+  function run() {
+    if (running) return;
+    const out = cfg.outcomes.find(o => o.id === $("bOut").value);
+    const base = tableParams();
+    const jobs = [];
+    const seedBase = String(cfg.seedBase ? cfg.seedBase(base) : "b");
+    if (mode === "repeat") {
+      const n = +$("bN").value;
+      for (let i = 0; i < n; i++) jobs.push({ x: null, seed: seedBase + "|r" + i, p: base });
+    } else {
+      const v = curVar();
+      const reps = Math.max(1, Math.min(1000, +$("bReps").value | 0));
+      const xs = [...new Set(sweepValues())];
+      if (v.log && xs.some(x => !(x > 0))) { $("bStatus").textContent = "This setting needs values above zero."; return; }
+      xs.forEach((x, j) => { const p = JSON.parse(JSON.stringify(base)); v.apply(p, x); for (let i = 0; i < reps; i++) jobs.push({ x, seed: seedBase + "|s" + j + "|" + i, p }); });
+    }
+    results = []; running = true; stopFlag = false;
+    lastRun = { mode, out, v: mode === "sweep" ? curVar() : null, base, total: jobs.length };
+    $("bRun").disabled = true; $("bStop").disabled = false; $("bCsv").disabled = true;
+    const t0 = performance.now();
+    let k = 0, lastDraw = 0;
+    (function chunk() {
+      const tc = performance.now();
+      while (k < jobs.length && performance.now() - tc < 30 && !stopFlag) {
+        const j = jobs[k++];
+        results.push({ x: j.x, seed: j.seed, r: cfg.run(j.p, j.seed, out) });
+      }
+      $("bProg").firstElementChild.style.width = (100 * k / jobs.length) + "%";
+      $("bStatus").textContent = `${k} of ${jobs.length} runs · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+      if (performance.now() - lastDraw > 400) { draw(); lastDraw = performance.now(); }
+      if (k < jobs.length && !stopFlag) setTimeout(chunk, 0);
+      else {
+        running = false; $("bRun").disabled = false; $("bStop").disabled = true; $("bCsv").disabled = !results.length;
+        $("bStatus").textContent = (stopFlag ? "Stopped: " : "Finished: ") + `${k} runs in ${((performance.now() - t0) / 1000).toFixed(1)} s.`;
+        draw();
+      }
+    })();
+  }
+
+  // ---------- Statistics ----------
+  function stats(vals) {
+    const a = vals.filter(Number.isFinite), n = a.length;
+    if (!n) return { n: 0, mean: NaN, sd: NaN, se: NaN, min: NaN, max: NaN };
+    const mean = a.reduce((s, v) => s + v, 0) / n;
+    const sd = n > 1 ? Math.sqrt(a.reduce((s, v) => s + (v - mean) * (v - mean), 0) / (n - 1)) : 0;
+    let mn = Infinity, mx = -Infinity; for (const v of a) { if (v < mn) mn = v; if (v > mx) mx = v; }
+    return { n, mean, sd, se: sd / Math.sqrt(n), min: mn, max: mx };
+  }
+  const fmt = (v, d = 3) => !Number.isFinite(v) ? "–" : Math.abs(v) >= 1e5 || (Math.abs(v) < 1e-3 && v !== 0) ? v.toExponential(2) : (+v.toPrecision(d)).toLocaleString("en-GB", { maximumFractionDigits: 6 });
+  const valsOf = (rs, s) => rs.map(o => s.get(o.r));
+
+  // ---------- Drawing helpers ----------
+  function setup() {
+    const c = $("bChart"), dpr = window.devicePixelRatio || 1;
+    const W = Math.round(c.clientWidth * dpr), H = Math.round(c.clientHeight * dpr);
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H);
+    ctx.font = `${11 * dpr}px system-ui`;
+    return { ctx, W, H, dpr };
+  }
+  function niceTicks(lo, hi, n) {
+    const span = hi - lo || 1, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+    const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= step0) || mag * 10;
+    const out = []; for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10));
+    return out;
+  }
+  function axes(g, box, xr, yr, xlab, ylab, xlog, xticksOverride) {
+    const { ctx, dpr } = g;
+    const X = v => box.l + (xlog ? (Math.log(v) - Math.log(xr[0])) / (Math.log(xr[1]) - Math.log(xr[0])) : (v - xr[0]) / (xr[1] - xr[0])) * (box.r - box.l);
+    const Y = v => box.b - (v - yr[0]) / (yr[1] - yr[0]) * (box.b - box.t);
+    ctx.strokeStyle = "rgba(160,170,150,0.16)"; ctx.fillStyle = "#a3ab96"; ctx.lineWidth = 1; ctx.font = `${11 * dpr}px system-ui`;
+    for (const v of niceTicks(yr[0], yr[1], 5)) { const y = Y(v); ctx.beginPath(); ctx.moveTo(box.l, y); ctx.lineTo(box.r, y); ctx.stroke(); ctx.textAlign = "right"; ctx.fillText(fmt(v), box.l - 5 * dpr, y + 4 * dpr); }
+    let xt = xticksOverride;
+    if (!xt) {
+      if (xlog) { xt = []; for (let e = Math.floor(Math.log10(xr[0])); e <= Math.ceil(Math.log10(xr[1])); e++) { const v = Math.pow(10, e); if (v >= xr[0] * 0.999 && v <= xr[1] * 1.001) xt.push(v); } if (xt.length < 2) xt = [xr[0], xr[1]]; }
+      else xt = niceTicks(xr[0], xr[1], 6);
+    }
+    ctx.textAlign = "center";
+    for (const v of xt) { const x = X(v); ctx.beginPath(); ctx.moveTo(x, box.t); ctx.lineTo(x, box.b); ctx.stroke(); ctx.fillText(fmt(v), x, box.b + 15 * dpr); }
+    ctx.strokeStyle = "#5a6450"; ctx.beginPath(); ctx.moveTo(box.l, box.t); ctx.lineTo(box.l, box.b); ctx.lineTo(box.r, box.b); ctx.stroke();
+    ctx.fillStyle = "#cfd5c4"; ctx.fillText(xlab, (box.l + box.r) / 2, box.b + 32 * dpr);
+    ctx.save(); ctx.translate(14 * dpr, (box.t + box.b) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(ylab, 0, 0); ctx.restore();
+    return { X, Y };
+  }
+  function legend(g, items) {
+    // laid out right-to-left along the top; wraps to a second row if needed
+    const { ctx, W, dpr } = g; ctx.font = `${11 * dpr}px system-ui`; ctx.textAlign = "right";
+    let x = W - 10 * dpr, y = 14 * dpr;
+    for (let i = items.length - 1; i >= 0; i--) {
+      const [txt, col, kind] = items[i]; const w = ctx.measureText(txt).width;
+      if (x - w - 30 * dpr < 70 * dpr) { x = W - 10 * dpr; y += 15 * dpr; }
+      ctx.fillStyle = "#dfe3d6"; ctx.fillText(txt, x, y);
+      ctx.fillStyle = col; ctx.strokeStyle = col;
+      if (kind === "line") { ctx.lineWidth = 2.5 * dpr; ctx.beginPath(); ctx.moveTo(x - w - 26 * dpr, y - 4 * dpr); ctx.lineTo(x - w - 6 * dpr, y - 4 * dpr); ctx.stroke(); }
+      else if (kind === "band") { ctx.globalAlpha = .35; ctx.fillRect(x - w - 22 * dpr, y - 10 * dpr, 14 * dpr, 12 * dpr); ctx.globalAlpha = 1; }
+      else if (kind === "diamond") { ctx.save(); ctx.translate(x - w - 14 * dpr, y - 4 * dpr); ctx.rotate(Math.PI / 4); ctx.fillRect(-4 * dpr, -4 * dpr, 8 * dpr, 8 * dpr); ctx.restore(); }
+      else { ctx.beginPath(); ctx.arc(x - w - 14 * dpr, y - 4 * dpr, 4 * dpr, 0, 7); ctx.fill(); }
+      x -= w + 38 * dpr;
+    }
+    return y;
+  }
+  const box = (g, top) => ({ l: 62 * g.dpr, r: g.W - 16 * g.dpr, t: (top || 26) * g.dpr, b: g.H - 40 * g.dpr });
+
+  // ---------- Results chart + summary ----------
+  function draw() {
+    if (!lastRun) return;
+    const g = setup(), { ctx, dpr } = g, o = lastRun.out, rs = results;
+    const sumEl = $("bSummary");
+    if (!rs.length) { sumEl.innerHTML = ""; return; }
+    const theoryP = o.theory ? o.theory(lastRun.base) : null;
+    if (lastRun.mode === "repeat") {
+      if (o.kind === "cat") {
+        // Bar chart of the share of runs in each category, ± 1 standard error
+        const n = rs.length, counts = o.cats.map((c, i) => rs.filter(q => o.catOf(q.r) === i).length);
+        const B = box(g), a = axes(g, B, [0, o.cats.length], [0, 100], "", "% of runs", false, []);
+        o.cats.forEach((c, i) => {
+          const p = counts[i] / n, se = Math.sqrt(p * (1 - p) / n) * 100, x0 = a.X(i + 0.18), x1 = a.X(i + 0.82), xm = (x0 + x1) / 2;
+          ctx.fillStyle = c.color; ctx.fillRect(x0, a.Y(p * 100), x1 - x0, a.Y(0) - a.Y(p * 100));
+          ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5 * dpr;
+          ctx.beginPath(); ctx.moveTo(xm, a.Y(Math.min(100, p * 100 + se))); ctx.lineTo(xm, a.Y(Math.max(0, p * 100 - se))); ctx.stroke();
+          ctx.fillStyle = "#eef0e8"; ctx.textAlign = "center"; ctx.font = `bold ${13 * dpr}px system-ui`;
+          ctx.fillText(`${(p * 100).toFixed(1)}%`, xm, Math.max(B.t + 12 * dpr, a.Y(p * 100) - 8 * dpr));
+          ctx.font = `${11.5 * dpr}px system-ui`; ctx.fillText(c.name, xm, B.b + 16 * dpr);
+        });
+        legend(g, [["white bar = ± 1 standard error", "#fff", "line"]]);
+        sumEl.innerHTML = `<table><tr><th>Outcome</th><th>runs</th><th>%</th><th>± SE (%)</th></tr>` +
+          o.cats.map((c, i) => { const p = counts[i] / n; return `<tr><td>${c.name}</td><td>${counts[i]}</td><td>${(100 * p).toFixed(1)}</td><td>${(100 * Math.sqrt(p * (1 - p) / n)).toFixed(1)}</td></tr>`; }).join("") +
+          `</table><div class="hint">n = ${n}. Standard error of a percentage = √(p(1 − p)/n).</div>`;
+        return;
+      }
+      const s0 = o.series[0], st = stats(valsOf(rs, s0));
+      if (o.kind === "prob") {
+        // One proportion, compared with the theory value
+        const p = st.mean, se = Math.sqrt(p * (1 - p) / st.n);
+        const B = box(g), a = axes(g, B, [0, 2], [0, 1], "", "probability", false, []);
+        [["Model", p, s0.color || C_MODEL, se], ["Theory", theoryP, C_THEORY, 0]].forEach(([name, v, col, e], i) => {
+          if (!Number.isFinite(v)) return;
+          const x0 = a.X(i + 0.25), x1 = a.X(i + 0.75), xm = (x0 + x1) / 2;
+          ctx.fillStyle = col; ctx.fillRect(x0, a.Y(v), x1 - x0, a.Y(0) - a.Y(v));
+          if (e) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.moveTo(xm, a.Y(Math.min(1, v + e))); ctx.lineTo(xm, a.Y(Math.max(0, v - e))); ctx.stroke(); }
+          ctx.fillStyle = "#eef0e8"; ctx.textAlign = "center"; ctx.font = `bold ${13 * dpr}px system-ui`; ctx.fillText(v.toFixed(3), xm, Math.max(B.t + 12 * dpr, a.Y(v) - 8 * dpr));
+          ctx.font = `${11.5 * dpr}px system-ui`; ctx.fillText(name, xm, B.b + 16 * dpr);
+        });
+        legend(g, [[s0.name, s0.color || C_MODEL, "dot"]].concat(Number.isFinite(theoryP) ? [[o.theoryName || "theory", C_THEORY, "dot"]] : []));
+        sumEl.innerHTML = summaryTable([{ label: s0.name, st: { ...st, se }, th: theoryP }]);
+        return;
+      }
+      // Histogram of a number
+      const a0 = valsOf(rs, s0).filter(Number.isFinite);
+      if (!a0.length) { sumEl.innerHTML = `<div class="hint">No runs gave a value for this measure (${o.emptyNote || "none"}).</div>`; return; }
+      let lo = Infinity, hi = -Infinity; for (const v of a0) { if (v < lo) lo = v; if (v > hi) hi = v; }
+      if (Number.isFinite(theoryP)) { lo = Math.min(lo, theoryP); hi = Math.max(hi, theoryP); }
+      if (o.histMax && hi > o.histMax(lastRun.base, st)) hi = o.histMax(lastRun.base, st);
+      if (hi - lo < 1e-9) { lo -= 0.5; hi += 0.5; }
+      const nb = Math.min(30, Math.max(8, Math.round(Math.sqrt(a0.length) * 1.5)));
+      const pad = (hi - lo) * 0.04; lo -= pad; hi += pad;
+      const w = (hi - lo) / nb, bins = new Array(nb).fill(0);
+      let over = 0;
+      a0.forEach(v => { if (v > hi) { over++; return; } bins[Math.max(0, Math.min(nb - 1, Math.floor((v - lo) / w)))]++; });
+      const B = box(g), a = axes(g, B, [lo, hi], [0, Math.max(...bins) * 1.15], `${o.label}${o.unit ? " (" + o.unit + ")" : ""}`, "number of runs");
+      ctx.fillStyle = s0.color || C_MODEL;
+      bins.forEach((c, i) => { const x0 = a.X(lo + i * w), x1 = a.X(lo + (i + 1) * w); ctx.fillRect(x0 + 1, a.Y(c), Math.max(1, x1 - x0 - 2), a.Y(0) - a.Y(c)); });
+      ctx.lineWidth = 2.5 * dpr; ctx.setLineDash([6 * dpr, 4 * dpr]); ctx.strokeStyle = "#fff";
+      if (st.mean <= hi) { ctx.beginPath(); ctx.moveTo(a.X(st.mean), B.t); ctx.lineTo(a.X(st.mean), B.b); ctx.stroke(); }
+      ctx.setLineDash([]);
+      const items = [["runs", s0.color || C_MODEL, "dot"], ["model mean", "#fff", "line"]];
+      if (Number.isFinite(theoryP)) { ctx.strokeStyle = C_THEORY; ctx.beginPath(); ctx.moveTo(a.X(theoryP), B.t); ctx.lineTo(a.X(theoryP), B.b); ctx.stroke(); items.push([o.theoryName || "theory", C_THEORY, "line"]); }
+      legend(g, items);
+      sumEl.innerHTML = summaryTable([{ label: s0.name, st, th: theoryP }]) + (over ? `<div class="hint">${over} run(s) above ${fmt(hi)} are off the right of the chart (still counted in the table).</div>` : "");
+      return;
+    }
+    // ---------- Sweep: mean ± error at each x, with theory curve ----------
+    const v = lastRun.v, xs = [...new Set(rs.map(q => q.x))];
+    const groups = xs.map(x => rs.filter(q => q.x === x));
+    const series = o.series.map(s => ({ s, pts: groups.map((grp, j) => {
+      const st = stats(valsOf(grp, s));
+      const err = o.kind === "prob" ? Math.sqrt(st.mean * (1 - st.mean) / st.n) : st.sd;
+      return { x: xs[j], st, err };
+    }) }));
+    let ylo = Infinity, yhi = -Infinity;
+    series.forEach(S => S.pts.forEach(p => { if (Number.isFinite(p.st.mean)) { ylo = Math.min(ylo, p.st.mean - (p.err || 0)); yhi = Math.max(yhi, p.st.mean + (p.err || 0)); } }));
+    const xlo = Math.min(...xs), xhi = Math.max(...xs);
+    // Theory curve on a fine grid
+    let theoryPts = null;
+    if (o.theory) {
+      theoryPts = [];
+      for (let k = 0; k <= 120; k++) {
+        const f = k / 120, x = v.log ? Math.exp(Math.log(xlo) + f * (Math.log(xhi) - Math.log(xlo))) : xlo + f * (xhi - xlo);
+        const p = JSON.parse(JSON.stringify(lastRun.base)); v.apply(p, x);
+        const y = o.theory(p); if (Number.isFinite(y)) { theoryPts.push([x, y]); ylo = Math.min(ylo, y); yhi = Math.max(yhi, y); }
+      }
+    }
+    const ref = v.ref && v.ref[o.id];
+    if (ref) ref.pts.forEach(([x, y, e]) => { if (x >= xlo && x <= xhi) { ylo = Math.min(ylo, y - (e || 0)); yhi = Math.max(yhi, y + (e || 0)); } });
+    if (o.kind === "prob") { ylo = 0; yhi = 1; }
+    if (o.yZero && ylo > 0) ylo = 0;
+    if (o.yMax !== undefined) yhi = Math.min(yhi, o.yMax);
+    if (!Number.isFinite(ylo)) { ylo = 0; yhi = 1; }
+    if (yhi - ylo < 1e-9) { yhi += 1; ylo -= 1; }
+    const padY = o.kind === "prob" ? 0 : (yhi - ylo) * 0.08;
+    const items = [];
+    if (v.band) { const bd = v.band(lastRun.base); if (bd) items.push([bd[2], "#f18700", "band"]); }
+    if (theoryPts && theoryPts.length) items.push([o.theoryName || "theory", C_THEORY, "line"]);
+    if (ref) items.push([ref.name, C_REF, "diamond"]);
+    series.forEach(S => items.unshift([S.s.name + (o.kind === "prob" ? " ± SE" : " (mean ± SD)"), S.s.color || C_MODEL, "dot"]));
+    const legY = legend(g, items);
+    const B = box(g, legY / dpr + 12);
+    const a = axes(g, B, v.log ? [xlo, xhi] : [xlo - (xhi - xlo) * 0.03, xhi + (xhi - xlo) * 0.03], [ylo - padY, yhi + padY],
+                   `${v.label}${v.unit ? " (" + v.unit + ")" : ""}`, o.kind === "prob" ? "probability" : `${o.label}${o.unit ? " (" + o.unit + ")" : ""}`, v.log);
+    ctx.save(); ctx.beginPath(); ctx.rect(B.l, B.t, B.r - B.l, B.b - B.t); ctx.clip();
+    if (v.band) {
+      const bd = v.band(lastRun.base);
+      if (bd) { const x0 = Math.max(B.l, a.X(Math.max(bd[0], v.log ? xlo : -1e99))), x1 = Math.min(B.r, a.X(Math.min(bd[1], xhi * 2))); if (x1 > x0) { ctx.fillStyle = "rgba(241,135,0,0.18)"; ctx.fillRect(x0, B.t, x1 - x0, B.b - B.t); } }
+    }
+    if (theoryPts && theoryPts.length) {
+      ctx.strokeStyle = C_THEORY; ctx.lineWidth = 2.5 * dpr; ctx.beginPath();
+      theoryPts.forEach(([x, y], k) => k ? ctx.lineTo(a.X(x), a.Y(y)) : ctx.moveTo(a.X(x), a.Y(y))); ctx.stroke();
+    }
+    if (ref) {
+      ref.pts.forEach(([x, y, e]) => { if (x < xlo || x > xhi) return;
+        if (e) { ctx.strokeStyle = C_REF; ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.moveTo(a.X(x), a.Y(y - e)); ctx.lineTo(a.X(x), a.Y(y + e)); ctx.stroke(); }
+        ctx.fillStyle = C_REF; ctx.save(); ctx.translate(a.X(x), a.Y(y)); ctx.rotate(Math.PI / 4); ctx.fillRect(-5 * dpr, -5 * dpr, 10 * dpr, 10 * dpr); ctx.restore(); });
+    }
+    series.forEach(S => {
+      const col = S.s.color || C_MODEL;
+      ctx.strokeStyle = col; ctx.globalAlpha = 0.5; ctx.lineWidth = 1.2 * dpr; ctx.beginPath();
+      S.pts.filter(p => Number.isFinite(p.st.mean)).forEach((p, k) => k ? ctx.lineTo(a.X(p.x), a.Y(p.st.mean)) : ctx.moveTo(a.X(p.x), a.Y(p.st.mean))); ctx.stroke(); ctx.globalAlpha = 1;
+      S.pts.forEach(p => {
+        if (!Number.isFinite(p.st.mean)) return;
+        const x = a.X(p.x), y = a.Y(p.st.mean);
+        if (p.err > 0) { const yt = a.Y(p.st.mean + p.err), yb = a.Y(p.st.mean - p.err); ctx.strokeStyle = col; ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.moveTo(x, yt); ctx.lineTo(x, yb); ctx.moveTo(x - 4 * dpr, yt); ctx.lineTo(x + 4 * dpr, yt); ctx.moveTo(x - 4 * dpr, yb); ctx.lineTo(x + 4 * dpr, yb); ctx.stroke(); }
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, 4.5 * dpr, 0, 7); ctx.fill();
+      });
+    });
+    ctx.restore();
+    // Summary table, one row per x
+    const thAt = x => { if (!o.theory) return NaN; const p = JSON.parse(JSON.stringify(lastRun.base)); v.apply(p, x); return o.theory(p); };
+    const refAt = x => { if (!ref) return null; const q = ref.pts.find(r => Math.abs(r[0] - x) < 1e-9); return q ? q[1] : null; };
+    let html = `<table><tr><th>${v.label}</th>` + series.map(S => `<th>${S.s.name}: mean</th><th>SD</th><th>SE</th>`).join("") + (o.theory ? `<th>theory</th><th>diff</th>` : "") + (ref ? `<th>${ref.short || "measured"}</th>` : "") + `<th>n</th></tr>`;
+    xs.forEach((x, j) => {
+      html += `<tr><td>${fmt(x)}</td>` + series.map(S => { const p = S.pts[j]; const se = o.kind === "prob" ? p.err : p.st.se; return `<td>${fmt(p.st.mean)}</td><td>${fmt(o.kind === "prob" ? Math.sqrt(p.st.mean * (1 - p.st.mean)) : p.st.sd)}</td><td>${fmt(se)}</td>`; }).join("");
+      if (o.theory) { const t = thAt(x), m = series[0].pts[j].st.mean, se = o.kind === "prob" ? series[0].pts[j].err : series[0].pts[j].st.se; html += `<td>${fmt(t)}</td><td>${diffText(m, t, se)}</td>`; }
+      if (ref) html += `<td>${fmt(refAt(x))}</td>`;
+      html += `<td>${series[0].pts[j].st.n}</td></tr>`;
+    });
+    html += "</table>";
+    // Fitted relationship: gradient of a log–log plot
+    if (v.fit === "loglog" && (!v.fitOutcomes || v.fitOutcomes.includes(o.id))) {
+      const P = series[0].pts.filter(p => p.x > 0 && p.st.mean > 0).map(p => [Math.log10(p.x), Math.log10(p.st.mean)]);
+      if (P.length >= 3) { const mx = P.reduce((s, q) => s + q[0], 0) / P.length, my = P.reduce((s, q) => s + q[1], 0) / P.length;
+        const gr = P.reduce((s, q) => s + (q[0] - mx) * (q[1] - my), 0) / P.reduce((s, q) => s + (q[0] - mx) ** 2, 0);
+        html += `<div class="hint">Fitted relationship: gradient of log(${o.label}) against log(${v.label}) = <b>${gr.toFixed(2)}</b>${v.fitNote ? " — " + v.fitNote : ""}.</div>`; }
+    }
+    if (v.band) { const bd = v.band(lastRun.base); if (bd) html += `<div class="hint">Shaded: ${bd[2]} ≈ ${fmt(bd[0])} to ${fmt(bd[1])} ${v.unit}.</div>`; }
+    if (ref && ref.note) html += `<div class="hint">${ref.note}</div>`;
+    html += `<div class="hint">${o.kind === "prob" ? "Error bars: ± 1 standard error, √(p(1 − p)/n)." : "Error bars: ± 1 standard deviation (spread between runs). SE = SD ÷ √n."}</div>`;
+    sumEl.innerHTML = html;
+  }
+  function diffText(m, t, se) {
+    if (!Number.isFinite(m) || !Number.isFinite(t)) return "–";
+    const pc = t !== 0 ? `${((m - t) / Math.abs(t) * 100).toFixed(1)}%` : "";
+    const z = se > 0 ? ` (${((m - t) / se).toFixed(1)} SE)` : "";
+    return pc + z;
+  }
+  function summaryTable(rows) {
+    return `<table><tr><th>Measure</th><th>n</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th><th>theory</th><th>difference</th></tr>` +
+      rows.map(({ label, st, th }) => `<tr><td>${label}</td><td>${st.n}</td><td>${fmt(st.mean)}</td><td>${fmt(st.sd)}</td><td>${fmt(st.se)}</td><td>${fmt(st.min)}</td><td>${fmt(st.max)}</td><td>${fmt(th)}</td><td>${diffText(st.mean, th, st.se)}</td></tr>`).join("") +
+      `</table><div class="hint">SE = standard error of the mean = SD ÷ √n. A difference of less than about 2 SE is what chance alone usually gives.</div>`;
+  }
+  // ---------- CSV ----------
+  function downloadCsv() {
+    if (!lastRun || !results.length) return;
+    const v = lastRun.v, cols = cfg.csvColumns;
+    const q = s => /[",\n]/.test(String(s)) ? `"${String(s).replace(/"/g, '""')}"` : s;
+    const head = ["run", "seed"].concat(v ? [v.label + (v.unit ? " (" + v.unit + ")" : "")] : []).concat(cols.map(c => c[0]));
+    const lines = [head.map(q).join(",")].concat(results.map((r, i) => [i + 1, r.seed].concat(v ? [r.x] : []).concat(cols.map(c => { const val = c[1](r.r); return val === undefined || val === null || (typeof val === "number" && !Number.isFinite(val)) ? "" : val; })).map(q).join(",")));
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = (cfg.csvName || "batch") + ".csv";
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+  return { init, open, close, run, loadExperiment, fillTable, tableParams, get results() { return results; }, get running() { return running; }, get lastRun() { return lastRun; } };
+})();
+
+/* =====================================================================
+   THE PAGE: controls, presets, animation, graphs and readouts
+   ===================================================================== */
+const el = id => document.getElementById(id);
+const PRE_LEVELS = [0, 1e-5, 1e-4, 1e-3, 1e-2];
+const CATS = [
+  { name: "Sensitive", color: "#00aec3" },
+  { name: "Partly resistant", color: "#f1af28" },
+  { name: "Fully resistant", color: "#de252a" },
+  { name: "Resistant to drug 2", color: "#a86dab" },
+  { name: "Resistant to both", color: "#e83181" },
+];
+const catOfG = g => (g <= 3 ? g : 4);
+const DRUG1_COL = "#a4cbe6", DRUG2_COL = "#a2c617";
+const SUP = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
+function fmtN(n) {
+  if (!(n > 0)) return "0";
+  if (n < 1e5) return Math.round(n).toLocaleString("en-GB");
+  const e = Math.floor(Math.log10(n)), m = n / Math.pow(10, e);
+  return `${m.toFixed(1)} × 10${String(e).split("").map(c => SUP[c]).join("")}`;
+}
+const fmtMu = mu => { const e = Math.log10(mu); return Number.isInteger(e) ? `1 in ${fmtN(Math.pow(10, -e))}` : `1 in ${fmtN(Math.round(1 / mu))}`; };
+function clockText(t) { const d = Math.floor(t / 24) + 1, h = Math.floor(t % 24), m = Math.floor((t * 60) % 60); return `Day ${d}, ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; }
+
+// ---------- Controls ----------
+el("drug").innerHTML = Object.entries(DRUGS).map(([k, d]) => `<option value="${k}">${d.name}: half-life ${d.half} h</option>`).join("");
+function fillDrug2() {
+  const d1 = el("drug").value, keep = el("drug2").value;
+  el("drug2").innerHTML = `<option value="none">None</option>` + Object.entries(DRUGS).filter(([k]) => k !== d1).map(([k, d]) => `<option value="${k}">${d.name}</option>`).join("");
+  el("drug2").value = keep !== d1 && [...el("drug2").options].some(o => o.value === keep) ? keep : "none";
+}
+fillDrug2();
+function setDrugDefaults() {
+  const d = DRUGS[el("drug").value];
+  el("dose").max = d.dose * 3; el("dose").step = d.dose / 20; el("dose").value = d.dose;
+  el("interval").value = d.interval;
+}
+function params() {
+  const days = +el("days").value, sd = +el("stopDay").value;
+  return {
+    drug: el("drug").value, dose: +el("dose").value, interval: +el("interval").value, days,
+    stopDay: sd >= 15 ? 99 : sd, miss: +el("miss").value / 100, immune: +el("immune").value / 100,
+    mu: Math.pow(10, +el("mu").value), cost: +el("cost").value / 100, start: Math.pow(10, +el("start").value),
+    plasmid: el("plasmid").checked, drug2: el("drug2").value, pre: PRE_LEVELS[+el("pre").value], virus: el("virus").value === "1",
+  };
+}
+function showOutputs() {
+  const p = params(), d = DRUGS[p.drug];
+  el("o_start").textContent = fmtN(p.start);
+  el("o_pre").textContent = p.pre ? `${+(p.pre * 100).toPrecision(2)}% of them` : "none";
+  el("o_dose").textContent = `${p.dose} mg${p.dose === d.dose ? " (standard)" : ` (${+(p.dose / d.dose).toFixed(2)}× standard)`}`;
+  el("o_interval").textContent = `${p.interval} h (${+(24 / p.interval).toFixed(1)} a day)`;
+  el("o_days").textContent = `${p.days} day${p.days > 1 ? "s" : ""}`;
+  el("o_stopDay").textContent = p.stopDay >= p.days ? "finishes the course" : `after day ${p.stopDay}`;
+  el("o_miss").textContent = `${Math.round(p.miss * 100)}%`;
+  el("o_immune").textContent = `${Math.round(p.immune * 100)}%${p.immune >= 0.9 && p.immune <= 1.1 ? " (healthy)" : p.immune < 0.5 ? " (weak)" : ""}`;
+  el("o_mu").textContent = fmtMu(p.mu);
+  el("o_cost").textContent = `${Math.round(p.cost * 100)}% slower`;
+  el("start").disabled = p.virus;
+}
+
+// ---------- Presets ----------
+const PRESETS = [
+  { name: "Full course works", d: "Standard dose for 7 days", set: {}, seed: "1" },
+  { name: "Stops after 2 days", d: "Feels better, stops early", set: { stopDay: 2 }, seed: "1" },
+  { name: "Missed doses", d: "Forgets 4 doses in 10", set: { miss: 40 }, seed: "3" },
+  { name: "Dose too low", d: "In the mutant selection window", set: { dose: 150 }, seed: "2" },
+  { name: "Weak immune system", d: "Can't mop up the mutants", set: { immune: 30 }, seed: "2" },
+  { name: "Combination therapy", d: "Same low dose + a second drug", set: { dose: 150, drug2: "cipro" }, seed: "2" },
+  { name: "Long half-life, missed doses", d: "Doxycycline forgives a gap", set: { drug: "doxy", miss: 40 }, seed: "1" },
+  { name: "Resistance already there", d: "0.1% carry a resistance plasmid", set: { pre: 3, plasmid: true }, seed: "1" },
+  { name: "Antibiotics for a cold", d: "Nothing to treat: a virus", set: { virus: "1", days: 5 }, seed: "1" },
+  { name: "No treatment", d: "What the infection does alone", set: { dose: 0 }, seed: "1" },
+  { name: "Long half-life drug", d: "Doxycycline: steady levels", set: { drug: "doxy" }, seed: "1" },
+  { name: "High dose", d: "Double dose: faster cure", set: { dose: 1000 }, seed: "1" },
+  // A level (shown at Advanced only)
+  { name: "Mutants before treatment", d: "A level: a huge infection, μ = 10⁻⁷", set: { start: 10, mu: -7 }, seed: "1", lvl: "adv" },
+  { name: "Hospital (MRSA-like)", d: "A level: plasmids, weak patient", set: { pre: 3, plasmid: true, immune: 50 }, seed: "1", lvl: "adv" },
+  { name: "Resistance costs", d: "A level: no drug, resistant cells lose out", set: { dose: 0, pre: 4, cost: 30, days: 14 }, seed: "1", lvl: "adv" },
+];
+let presetIdx = 0;
+el("presets").innerHTML = PRESETS.map((p, i) => `<button data-i="${i}" class="${p.lvl === "adv" ? "advOnly" : ""}">${p.name}<small>${p.d}</small></button>`).join("");
+el("presets").querySelectorAll("button").forEach(b => b.addEventListener("click", () => setPreset(+b.dataset.i)));
+function setPreset(i) {
+  presetIdx = i; const P = PRESETS[i];
+  if (P.lvl) setLevel(P.lvl);
+  const def = { virus: "0", start: 8, pre: 0, drug: "amox", days: 7, stopDay: 15, miss: 0, drug2: "none", immune: 100, mu: -8, cost: 10 };
+  const v = Object.assign({}, def, P.set);
+  el("drug").value = v.drug; fillDrug2(); setDrugDefaults();
+  for (const k of ["virus", "start", "pre", "days", "stopDay", "miss", "immune", "mu", "cost"]) el(k).value = v[k];
+  el("drug2").value = v.drug2;
+  if (v.dose !== undefined) el("dose").value = v.dose;
+  el("plasmid").checked = !!v.plasmid;
+  el("seed").value = P.seed;
+  newPatient();
+  el("presets").querySelectorAll("button").forEach((b, k) => b.classList.toggle("on", k === i));
+  examSoon(500);
+}
+// Any change to a setting starts a new patient
+document.querySelectorAll("#left input, #left select").forEach(c => c.id !== "quality" && c.addEventListener(c.type === "range" ? "input" : "change", () => {
+  if (c.id === "drug") { fillDrug2(); setDrugDefaults(); }
+  el("presets").querySelectorAll("button").forEach(b => b.classList.remove("on"));
+  newPatient();
+}));
+// QUALITY: remembered in this browser; changing it redraws the sample at once without a new patient
+const Q_KEY = "antibiotic-resistance-quality";
+try { const v = localStorage.getItem(Q_KEY); if (["0", "1", "2", "3"].includes(v)) el("quality").value = v; } catch (e) {}
+el("quality").addEventListener("change", () => { try { localStorage.setItem(Q_KEY, el("quality").value); } catch (e) {} if (sim) syncSprites(true); });
+el("btnSeed").addEventListener("click", () => { el("seed").value = String(Math.floor(Math.random() * 100000)); newPatient(); });
+
+// ---------- The live patient ----------
+let sim, hist, running = false, speed = 1, sprites = [], wbcs = [], viewRng = mulberry32(99), bannerShown = false;
+function newPatient() {
+  showOutputs();
+  sim = createSim(params(), el("seed").value);
+  hist = [snapshot()];
+  running = false; bannerShown = false; el("outBanner").style.display = "none";
+  el("btnPlay").textContent = "▶ Start";
+  sprites = []; wbcs = [];
+  const nW = sim.p.virus ? 0 : Math.round(2 + 4 * sim.p.immune);
+  for (let i = 0; i < nW; i++) { const a = viewRng() * 6.28, r = Math.sqrt(viewRng()) * 0.8; wbcs.push({ x: r * Math.cos(a), y: r * Math.sin(a), vx: 0, vy: 0 }); }
+  syncSprites(true);
+  updateUI();
+}
+function snapshot() { const c = [0, 0, 0, 0, 0]; for (let g = 0; g < G; g++) c[catOfG(g)] += sim.n[g]; return { t: sim.t, c, C1: sim.C1, C2: sim.C2 }; }
+el("btnPlay").addEventListener("click", () => {
+  if (sim.done) newPatient();
+  running = !running; el("btnPlay").textContent = running ? "❚❚ Pause" : "▶ Resume";
+});
+el("btnReset").addEventListener("click", newPatient);
+document.querySelectorAll(".speed button").forEach(b => b.addEventListener("click", () => {
+  speed = +b.dataset.s; document.querySelectorAll(".speed button").forEach(x => x.classList.toggle("on", x === b));
+  el("speedNote").textContent = `${speed}× = ${speed} h/s`;
+}));
+
+// ---------- Sample of bacteria drawn in the dish ----------
+// Up to 40 bacteria: draw every one. Above that, the number drawn grows with log10(N).
+const shownTarget = [0, 0, 0, 0, 0];
+// QUALITY (picture only): Low draws half as many, High twice and Ultra three times as many (but never fewer
+// than 40, and every bacterium when there are 40 or fewer). The model's numbers don't depend on this.
+const QUAL = [0.5, 1, 2, 3];
+const qk = () => QUAL[+el("quality").value] || 1;
+function shownFor(N) { return N <= 40 ? N : Math.max(40, Math.round(qk() * (40 + 28 * Math.log10(N / 40)))); }
+function counts() { const c = [0, 0, 0, 0, 0]; for (let g = 0; g < G; g++) c[catOfG(g)] += sim.n[g]; return c; }
+function randInDish(r = 0.9) { const a = viewRng() * 6.283, d = Math.sqrt(viewRng()) * r; return [d * Math.cos(a), d * Math.sin(a)]; }
+function syncSprites(instant) {
+  const c = counts(), N = c.reduce((a, b) => a + b, 0), T = shownFor(N);
+  const alive = [0, 0, 0, 0, 0]; sprites.forEach(s => { if (!s.dying) alive[s.cat]++; });
+  // Why cells are dying now: drug or immune system?
+  const imm = sim.p.virus ? 0 : sim.p.immune * IMAX * NHALF / (NHALF + N);
+  const drugK = killRate(sim.d1, sim.C1, sim.d1.micS, B0) + (sim.d2 ? killRate(sim.d2, sim.C2, sim.d2.micS, B0) : 0);
+  for (let k = 0; k < 5; k++) {
+    let target = N ? Math.round(T * c[k] / N) : 0;
+    if (c[k] > 0) target = Math.max(1, target);
+    target = Math.min(target, Math.ceil(c[k]));
+    shownTarget[k] = target;
+    let diff = target - alive[k], lim = instant ? 1e9 : Math.ceil(4 * qk());
+    while (diff > 0 && lim-- > 0) { addSprite(k, instant); diff--; }
+    while (diff < 0 && lim-- > 0) {
+      const cand = sprites.filter(s => s.cat === k && !s.dying);
+      const s = cand[Math.floor(viewRng() * cand.length)];
+      if (instant) sprites.splice(sprites.indexOf(s), 1);
+      else { s.dying = 0.001; s.how = viewRng() * (drugK + imm + 1e-9) < drugK ? "drug" : imm > 0.05 ? "immune" : "drug"; }
+      diff++;
+    }
+  }
+}
+function addSprite(k, instant) {
+  // a new cell appears by division next to a parent of the same kind; a new strain appears by mutation
+  const parents = sprites.filter(s => s.cat === k && !s.dying);
+  let x, y, ang = viewRng() * Math.PI, mut = false;
+  // the tissue is well mixed: when a strain is far below its share, new cells appear all over the dish
+  const spread = parents.length < 0.6 * shownTarget[k];
+  if (parents.length && !instant && !spread) {
+    const p = parents[Math.floor(viewRng() * parents.length)]; ang = p.ang;
+    x = p.x + Math.cos(ang) * 0.035; y = p.y + Math.sin(ang) * 0.035; p.x -= Math.cos(ang) * 0.01; p.y -= Math.sin(ang) * 0.01; p.born = 0;
+  } else if (!instant && k > 0 && !parents.length) {
+    const others = sprites.filter(s => !s.dying && s.cat !== k);
+    if (others.length) { const p = others[Math.floor(viewRng() * others.length)]; x = p.x + 0.035; y = p.y; mut = true; } else [x, y] = randInDish();
+  } else [x, y] = randInDish();
+  const r = Math.hypot(x, y); if (r > 0.92) { x *= 0.92 / r; y *= 0.92 / r; }
+  sprites.push({ x, y, ang, cat: k, born: instant ? 1 : 0, dying: 0, mut: mut ? 1 : 0 });
+}
+function moveSprites(dtReal) {
+  for (const s of sprites) {
+    s.ang += (viewRng() - 0.5) * 0.15;
+    s.x += (viewRng() - 0.5) * 0.007; s.y += (viewRng() - 0.5) * 0.007;
+    const r = Math.hypot(s.x, s.y); if (r > 0.93) { s.x *= 0.93 / r; s.y *= 0.93 / r; }
+    if (s.born < 1) s.born = Math.min(1, s.born + dtReal * 2.5);
+    if (s.mut > 0) s.mut = Math.max(0, s.mut - dtReal * 0.7);
+    if (s.dying) {
+      s.dying += dtReal * 1.3;
+      if (s.how === "immune" && wbcs.length) { const w = nearestWbc(s); s.x += (w.x - s.x) * 0.06; s.y += (w.y - s.y) * 0.06; }
+    }
+  }
+  sprites = sprites.filter(s => !s.dying || s.dying < 1);
+  for (const w of wbcs) {
+    // immune cells crawl towards bacteria
+    const near = sprites.length ? sprites[Math.floor(viewRng() * sprites.length)] : null;
+    if (near) { w.vx += (near.x - w.x) * 0.0006; w.vy += (near.y - w.y) * 0.0006; }
+    w.vx = (w.vx + (viewRng() - 0.5) * 0.0015) * 0.96; w.vy = (w.vy + (viewRng() - 0.5) * 0.0015) * 0.96;
+    w.x += w.vx; w.y += w.vy; const r = Math.hypot(w.x, w.y); if (r > 0.85) { w.x *= 0.85 / r; w.y *= 0.85 / r; w.vx *= -0.5; w.vy *= -0.5; }
+  }
+}
+function nearestWbc(s) { let best = wbcs[0], bd = 1e9; for (const w of wbcs) { const d = (w.x - s.x) ** 2 + (w.y - s.y) ** 2; if (d < bd) { bd = d; best = w; } } return best; }
+
+// ---------- Drawing: the dish ----------
+function fitCanvas(c) { const dpr = window.devicePixelRatio || 1, W = Math.round(c.clientWidth * dpr), H = Math.round(c.clientHeight * dpr); if (c.width !== W || c.height !== H) { c.width = W; c.height = H; } return { ctx: c.getContext("2d"), W, H, dpr }; }
+function drawView(now) {
+  const { ctx, W, H, dpr } = fitCanvas(el("view"));
+  ctx.fillStyle = "#050604"; ctx.fillRect(0, 0, W, H);
+  const R = Math.min(W * 0.62, H) / 2 - 12 * dpr, cx = W / 2, cy = H / 2;
+  // tissue
+  const grd = ctx.createRadialGradient(cx, cy, R * 0.1, cx, cy, R);
+  grd.addColorStop(0, "#2a1c22"); grd.addColorStop(1, "#1a1216");
+  ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
+  // drug tint: the more drug (compared with the MIC), the bluer the tissue
+  const tint = Math.min(1, sim.C1 / (4 * sim.d1.micS));
+  if (tint > 0.01) { ctx.fillStyle = `rgba(164,203,230,${0.22 * tint})`; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill(); }
+  if (sim.d2 && sim.C2 > 0) { const t2 = Math.min(1, sim.C2 / (4 * sim.d2.micS)); ctx.fillStyle = `rgba(162,198,23,${0.12 * t2})`; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill(); }
+  ctx.strokeStyle = "#4a3a40"; ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
+  const P = (x, y) => [cx + x * R, cy + y * R];
+  // viruses (virus mode): fade away as the cold gets better over about a week
+  if (sim.p.virus) {
+    const nv = Math.round(26 * Math.max(0, 1 - sim.t / (7 * 24)));
+    const vr = mulberry32(5);
+    for (let i = 0; i < nv; i++) { const a = vr() * 6.28, d = Math.sqrt(vr()) * 0.85; const [x, y] = P(d * Math.cos(a + now / 9000), d * Math.sin(a + now / 9000)); const rr = R * 0.018;
+      ctx.strokeStyle = "#e8a0d0"; ctx.lineWidth = 1.2 * dpr; ctx.beginPath(); ctx.arc(x, y, rr, 0, 7); ctx.stroke();
+      for (let k = 0; k < 8; k++) { const b = k * 0.785; ctx.beginPath(); ctx.moveTo(x + Math.cos(b) * rr, y + Math.sin(b) * rr); ctx.lineTo(x + Math.cos(b) * rr * 1.7, y + Math.sin(b) * rr * 1.7); ctx.stroke(); } }
+  }
+  // white blood cells
+  for (const w of wbcs) {
+    const [x, y] = P(w.x, w.y), rr = R * 0.065;
+    ctx.fillStyle = "rgba(235,235,250,0.18)"; ctx.strokeStyle = "rgba(235,235,250,0.55)"; ctx.lineWidth = 1.2 * dpr;
+    ctx.beginPath(); ctx.arc(x, y, rr, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "rgba(168,109,171,0.75)";
+    for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(x + Math.cos(k * 2.1) * rr * 0.35, y + Math.sin(k * 2.1) * rr * 0.35, rr * 0.25, 0, 7); ctx.fill(); }
+  }
+  // bacteria: rounded rods
+  const L = Math.max(6 * dpr, R * 0.05 * Math.min(1, Math.pow(qk(), -0.25))), Wd = L * 0.42;   // QUALITY: slightly smaller rods when more are drawn
+  for (const s of sprites) {
+    const [x, y] = P(s.x, s.y);
+    let sc = 0.5 + 0.5 * s.born, alpha = 1, col = CATS[s.cat].color, broken = false;
+    if (s.dying) {
+      if (s.how === "immune") { sc *= 1 - s.dying; }
+      else { alpha = 1 - s.dying * 0.8; broken = true; col = "#8a8f86"; }
+    }
+    ctx.save(); ctx.translate(x, y); ctx.rotate(s.ang); ctx.globalAlpha = alpha;
+    if (s.mut > 0) { ctx.strokeStyle = `rgba(255,255,255,${s.mut})`; ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.arc(0, 0, L * 1.1, 0, 7); ctx.stroke(); }
+    const l = L * sc, w = Wd * sc;
+    if (broken) {
+      // a burst cell: the wall breaks open and the insides leak out
+      ctx.strokeStyle = col; ctx.lineWidth = 1.2 * dpr; ctx.setLineDash([2 * dpr, 2 * dpr]);
+      roundRect(ctx, -l / 2, -w / 2, l, w, w / 2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = col; for (let k = 0; k < 4; k++) { const a = k * 1.6 + s.x * 9, d = s.dying * L; ctx.fillRect(Math.cos(a) * d - dpr, Math.sin(a) * d - dpr, 2 * dpr, 2 * dpr); }
+    } else {
+      ctx.fillStyle = col; roundRect(ctx, -l / 2, -w / 2, l, w, w / 2); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.25)"; roundRect(ctx, -l / 2 + w * 0.3, -w / 2 + w * 0.2, l - w * 0.6, w * 0.25, w * 0.12); ctx.fill();
+    }
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+  // labels
+  const N = counts().reduce((a, b) => a + b, 0), shown = sprites.filter(s => !s.dying).length;
+  ctx.fillStyle = "#a3ab96"; ctx.font = `${11.5 * dpr}px system-ui`; ctx.textAlign = "left";
+  ctx.fillText(sim.p.virus ? "Harmless bacteria that live in you (a sample)" : "Sample of the infection site", 10 * dpr, 18 * dpr);
+  ctx.fillText(N <= 40 ? `Every bacterium is shown (${Math.round(N)})` : `${shown} drawn; each stands for about ${fmtN(N / Math.max(1, shown))}`, 10 * dpr, 34 * dpr);
+  if (wbcs.length) { ctx.fillText("Large pale cells: white blood cells", 10 * dpr, H - 26 * dpr); }
+  ctx.fillText(tint > 0.05 ? "Blue tint: antibiotic in the tissue" : "", 10 * dpr, H - 10 * dpr);
+  // a pill icon flashes when a dose is taken or missed
+  const last = [...sim.dose1.slice(0, sim.k1)].pop();
+  if (last && sim.t - last.t < 1.5) {
+    ctx.textAlign = "right"; ctx.font = `bold ${15 * dpr}px system-ui`;
+    ctx.fillStyle = last.missed ? "#de252a" : "#f1af28";
+    ctx.fillText(last.missed ? "✗ Dose missed" : `💊 ${sim.p.dose} mg dose taken`, W - 12 * dpr, 22 * dpr);
+  }
+}
+function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+// ---------- Drawing: the two graphs against time ----------
+function drawTimeline() {
+  const { ctx, W, H, dpr } = fitCanvas(el("timeline"));
+  ctx.fillStyle = "#10130e"; ctx.fillRect(0, 0, W, H);
+  const L = 52 * dpr, Rr = 12 * dpr, gap = 26 * dpr, Bm = 30 * dpr;
+  const h1 = (H - gap - Bm - 8 * dpr) * 0.55, top1 = 8 * dpr, bot1 = top1 + h1, top2 = bot1 + gap, bot2 = H - Bm;
+  const tMaxD = sim.tEnd / 24;
+  const X = t => L + (t / 24) / tMaxD * (W - L - Rr);
+  ctx.font = `${10 * dpr}px system-ui`;
+  // day grid
+  ctx.strokeStyle = "rgba(160,170,150,0.12)"; ctx.fillStyle = "#a3ab96"; ctx.textAlign = "center";
+  const stepD = tMaxD > 14 ? 2 : 1;
+  for (let d = 0; d <= tMaxD; d += stepD) { const x = X(d * 24); ctx.beginPath(); ctx.moveTo(x, top1); ctx.lineTo(x, bot2); ctx.stroke(); ctx.fillText(String(d), x, bot2 + 13 * dpr); }
+  ctx.fillText("time (days since treatment started)", (L + W) / 2, H - 1 * dpr);
+  // course end / stop marker
+  const p = sim.p, endT = Math.min(p.days, p.stopDay) * 24;
+  ctx.fillStyle = "rgba(241,175,40,0.06)"; ctx.fillRect(X(0), top1, X(endT) - X(0), bot2 - top1);
+  if (p.stopDay < p.days) { ctx.strokeStyle = "#de252a"; ctx.setLineDash([4 * dpr, 3 * dpr]); ctx.beginPath(); ctx.moveTo(X(endT), top1); ctx.lineTo(X(endT), bot2); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "#de252a"; ctx.textAlign = "left"; ctx.fillText("stopped early", X(endT) + 3 * dpr, top1 + 10 * dpr); }
+
+  // --- Panel 1: bacteria (log scale) ---
+  const Y1 = v => bot1 - (Math.log10(Math.max(1, v)) / 10) * (bot1 - top1);
+  ctx.textAlign = "right"; ctx.fillStyle = "#a3ab96";
+  for (let e = 0; e <= 10; e += 2) { const y = Y1(Math.pow(10, e)); ctx.strokeStyle = "rgba(160,170,150,0.12)"; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - Rr, y); ctx.stroke(); ctx.fillText(e === 0 ? "1" : "10" + String(e).split("").map(c => SUP[c]).join(""), L - 4 * dpr, y + 3 * dpr); }
+  ctx.save(); ctx.translate(11 * dpr, (top1 + bot1) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText("bacteria (log scale)", 0, 0); ctx.restore();
+  if (!p.virus) { const y = Y1(1e7); ctx.strokeStyle = "rgba(222,37,42,0.5)"; ctx.setLineDash([3 * dpr, 3 * dpr]); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - Rr, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "rgba(222,37,42,0.85)"; ctx.textAlign = "right"; ctx.fillText("feels ill above here", W - Rr - 2 * dpr, y - 3 * dpr); }
+  const tot = hist.map(q => q.c.reduce((a, b) => a + b, 0));
+  ctx.lineWidth = 1.2 * dpr; ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.beginPath(); hist.forEach((q, i) => i ? ctx.lineTo(X(q.t), Y1(tot[i])) : ctx.moveTo(X(q.t), Y1(tot[i]))); ctx.stroke();
+  for (let k = 0; k < 5; k++) {
+    if (!hist.some(q => q.c[k] > 0)) continue;
+    ctx.strokeStyle = CATS[k].color; ctx.lineWidth = 2 * dpr; ctx.beginPath(); let on = false;
+    hist.forEach(q => { if (q.c[k] >= 1) { const x = X(q.t), y = Y1(q.c[k]); on ? ctx.lineTo(x, y) : ctx.moveTo(x, y); on = true; } else on = false; });
+    ctx.stroke();
+  }
+
+  // --- Panel 2: drug concentration ---
+  const d1 = sim.d1, d2 = sim.d2;
+  const peak = Math.max(1e-6, ...hist.map(q => q.C1), expectedPeak(p));
+  const yMax = Math.max(peak * 1.15, d1.micS * MIC_PART * 1.25);
+  const Y2 = v => bot2 - Math.min(1.02, v / yMax) * (bot2 - top2);
+  // therapeutic window (MIC of normal bacteria up to the toxic level) and mutant selection window
+  ctx.fillStyle = "rgba(118,184,42,0.10)"; ctx.fillRect(L, Y2(Math.min(yMax, d1.toxic)), W - Rr - L, Y2(d1.micS) - Y2(Math.min(yMax, d1.toxic)));
+  ctx.fillStyle = "rgba(241,135,0,0.16)"; ctx.fillRect(L, Y2(d1.micS * MIC_PART), W - Rr - L, Y2(d1.micS) - Y2(d1.micS * MIC_PART));
+  ctx.textAlign = "right"; ctx.fillStyle = "#a3ab96";
+  for (const v of niceTicksTL(yMax)) { const y = Y2(v); ctx.strokeStyle = "rgba(160,170,150,0.10)"; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - Rr, y); ctx.stroke(); ctx.fillText(String(v), L - 4 * dpr, y + 3 * dpr); }
+  ctx.save(); ctx.translate(11 * dpr, (top2 + bot2) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText("drug (mg/L)", 0, 0); ctx.restore();
+  const labels = [];
+  const micLine = (v, col, txt) => { if (v > yMax) return; const y = Y2(v); ctx.strokeStyle = col; ctx.setLineDash([5 * dpr, 3 * dpr]); ctx.lineWidth = 1.2 * dpr; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - Rr, y); ctx.stroke(); ctx.setLineDash([]); if (txt) labels.push([y, col, txt]); };
+  micLine(d1.micS, CATS[0].color, `MIC sensitive ${d1.micS}`);
+  micLine(d1.micS * MIC_PART, CATS[1].color, `MIC partly resistant ${d1.micS * MIC_PART}`);
+  if (d1.toxic <= yMax) micLine(d1.toxic, "#de252a", `toxic level ${d1.toxic}`);
+  
+  ctx.lineWidth = 2 * dpr; ctx.strokeStyle = DRUG1_COL; ctx.beginPath(); hist.forEach((q, i) => i ? ctx.lineTo(X(q.t), Y2(q.C1)) : ctx.moveTo(X(q.t), Y2(q.C1))); ctx.stroke();
+  if (d2) { ctx.strokeStyle = DRUG2_COL; ctx.beginPath(); hist.forEach((q, i) => i ? ctx.lineTo(X(q.t), Y2(q.C2)) : ctx.moveTo(X(q.t), Y2(q.C2))); ctx.stroke(); micLine(d2.micS, DRUG2_COL, ""); }
+  // MIC labels on dark boxes at the right, nudged apart so they never overlap
+  labels.sort((a, b) => b[0] - a[0]); let lastY = 1e9;
+  for (const [y0, col, txt] of labels) { const y = Math.min(y0 - 3 * dpr, lastY - 13 * dpr); lastY = y; const w = ctx.measureText(txt).width; ctx.fillStyle = "rgba(16,19,14,0.85)"; ctx.fillRect(W - Rr - w - 6 * dpr, y - 10 * dpr, w + 4 * dpr, 13 * dpr); ctx.fillStyle = col; ctx.textAlign = "right"; ctx.fillText(txt, W - Rr - 4 * dpr, y); }
+  { const txt = `fully resistant MIC = ${d1.micS * MIC_FULL} mg/L${d1.micS * MIC_FULL > yMax ? " (off the top)" : ""}`; ctx.fillStyle = "rgba(16,19,14,0.85)"; ctx.fillRect(L + 2 * dpr, top2 + 1 * dpr, ctx.measureText(txt).width + 4 * dpr, 12 * dpr); ctx.fillStyle = CATS[2].color; ctx.textAlign = "left"; ctx.fillText(txt, L + 4 * dpr, top2 + 10 * dpr); }
+  // dose markers: taken (gold), missed (red cross), still to come (faint)
+  for (let i = 0; i < sim.dose1.length; i++) {
+    const ds = sim.dose1[i], x = X(ds.t), y = bot2 - 4 * dpr, done = i < sim.k1;
+    if (!done) { ctx.fillStyle = "rgba(241,175,40,0.3)"; ctx.fillRect(x - 1.5 * dpr, y - 3 * dpr, 3 * dpr, 6 * dpr); }
+    else if (ds.missed) { ctx.strokeStyle = "#de252a"; ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.moveTo(x - 3 * dpr, y - 3 * dpr); ctx.lineTo(x + 3 * dpr, y + 3 * dpr); ctx.moveTo(x + 3 * dpr, y - 3 * dpr); ctx.lineTo(x - 3 * dpr, y + 3 * dpr); ctx.stroke(); }
+    else { ctx.fillStyle = "#f1af28"; ctx.fillRect(x - 1.5 * dpr, y - 3 * dpr, 3 * dpr, 6 * dpr); }
+  }
+  // now
+  const xn = X(sim.t); ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1 * dpr; ctx.beginPath(); ctx.moveTo(xn, top1); ctx.lineTo(xn, bot2); ctx.stroke();
+}
+function niceTicksTL(max) { const raw = max / 4, mag = Math.pow(10, Math.floor(Math.log10(raw))); const st = [1, 2, 5, 10].map(m => m * mag).find(s => s >= raw); const out = []; for (let v = 0; v <= max + 1e-9; v += st) out.push(+v.toPrecision(6)); return out; }
+// Highest drug level reached on the planned regimen with no missed doses (also used for the mutant selection window)
+const peakCache = {};
+function peakPerMg(drugKey, interval, days) {
+  const key = drugKey + "|" + interval + "|" + days; if (peakCache[key]) return peakCache[key];
+  const d = DRUGS[drugKey]; let A = 0, C = 0, mx = 0;
+  for (let t = 0; t < days * 24; t = +(t + 0.05).toFixed(6)) { if (Math.abs(t / interval - Math.round(t / interval)) < 1e-6) A += 1; [A, C] = pkStep(d, A, C, 0.05); mx = Math.max(mx, C); }
+  return (peakCache[key] = mx);
+}
+const expectedPeak = p => p.dose * peakPerMg(p.drug, p.interval, Math.min(p.days, p.stopDay));
+
+// ---------- Readouts and the story ----------
+function setStatus() {
+  const N = total(sim), rf = resistantFrac(sim), st = el("status");
+  let cls = "st-inf", txt = "Infected";
+  if (sim.p.virus) { cls = "st-virus"; txt = sim.t / 24 >= 7 ? "Cold gone (by itself)" : "Viral cold"; }
+  else if (N === 0) { cls = "st-cured"; txt = "Cured"; }
+  else if (rf > 0.5 && N > 1e5) { cls = "st-res"; txt = "Resistant infection"; }
+  else if (hist.length > 8 && N < 0.5 * hist[Math.max(0, hist.length - 9)].c.reduce((a, b) => a + b, 0)) { cls = "st-better"; txt = "Getting better"; }
+  if (sim.t === 0) { cls = "st-idle"; txt = sim.p.virus ? "Viral cold: not started" : "Not started"; }
+  st.className = cls; st.textContent = txt;
+}
+function updateUI() {
+  const N = total(sim), rf = resistantFrac(sim), p = sim.p, d1 = sim.d1;
+  el("clock").textContent = clockText(sim.t);
+  setStatus();
+  el("s_n").textContent = fmtN(N);
+  el("s_res").textContent = N ? `${(rf * 100).toFixed(rf < 0.01 && rf > 0 ? 3 : 1)}%` : "–";
+  el("s_c").textContent = `${sim.C1.toFixed(2)} mg/L`;
+  const taken = sim.dose1.slice(0, sim.k1).filter(d => !d.missed).length, missed = sim.dose1.slice(0, sim.k1).filter(d => d.missed).length;
+  const c = counts();
+  const tiles = [
+    ["Bacteria", fmtN(N), p.virus ? "harmless gut/nose bacteria" : "at the infection site"],
+    ["Resistant", N ? `${(rf * 100).toFixed(1)}%` : "–", `partly ${fmtN(c[1])} · fully ${fmtN(c[2])}`],
+    [d1.short + " level", `${sim.C1.toFixed(2)} mg/L`, `${(sim.C1 / d1.micS).toFixed(1)} × MIC of normal bacteria`],
+    ["Doses", `${taken} taken`, `${missed} missed · ${sim.dose1.length} planned`],
+    ["Killed by drug", fmtN(sim.killedDrug), "since treatment started"],
+    ["Killed by immune system", fmtN(sim.killedImm), `strength ${Math.round(p.immune * 100)}%`],
+  ];
+  if (isAdv()) {   // A level readings (H420 4.1.1, 4.2.2)
+    const pMut = 1 - Math.exp(-p.mu * p.start);
+    tiles.push(["Generations so far", (sim.t / TD).toFixed(1), `time ÷ doubling time = ${sim.t.toFixed(0)} h ÷ ${TD} h`]);
+    tiles.push(["Mutants before treatment?", `${(100 * pMut).toPrecision(pMut < 0.01 ? 2 : 3)}% chance`, `1 − e^(−μN), μN = ${(p.mu * p.start).toPrecision(2)}`]);
+  }
+  if (sim.d2) tiles.push([sim.d2.short + " level", `${sim.C2.toFixed(2)} mg/L`, `${(sim.C2 / sim.d2.micS).toFixed(1)} × MIC`], ["Resistant to drug 2", fmtN(c[3] + c[4]), `${fmtN(c[4])} resist both`]);
+  el("tiles").innerHTML = tiles.map(([k, v, s]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+  el("gaugeMark").style.left = (p.virus ? Math.max(0, 70 * (1 - sim.t / 168)) : Math.max(0, Math.min(100, (Math.log10(N + 1) - 4) / 6 * 100))) + "%";
+  el("story").innerHTML = story().map(s => `<p>${s}</p>`).join("");
+  // legend (only strains that matter here)
+  const show = [0, 1, 2].concat(sim.d2 ? [3, 4] : []);
+  el("legend").innerHTML = show.map(k => `<span><i style="background:${CATS[k].color}"></i>${CATS[k].name}</span>`).join("") +
+    `<span><i style="background:rgba(255,255,255,.55)"></i>All bacteria</span><span><i style="background:${DRUG1_COL}"></i>${d1.short}</span>` +
+    (sim.d2 ? `<span><i style="background:${DRUG2_COL}"></i>${sim.d2.short}</span>` : "") +
+    `<span><i style="background:rgba(118,184,42,.35)"></i>Therapeutic window</span><span><i style="background:rgba(241,135,0,.45)"></i>Mutant selection window</span>`;
+}
+function story() {
+  const p = sim.p, d1 = sim.d1, N = total(sim), rf = resistantFrac(sim), c = counts(), out = [];
+  const endT = Math.min(p.days, p.stopDay) * 24, onDrug = sim.t < endT + 6;
+  if (p.virus) {
+    out.push("This patient has a <b>cold, caused by a virus</b>. Antibiotics do not harm viruses, so the cold gets better by itself in about a week whatever happens.");
+    out.push(`But the antibiotic still reaches the harmless bacteria that live in the nose and gut. ${rf > 0.05 ? `It has killed the sensitive ones, so <b>${(rf * 100).toFixed(0)}% are now resistant</b>. These can pass on resistance genes, or cause a resistant infection later.` : "At first only about 1% of them are resistant."}`);
+    if (sim.t > endT) out.push("The course is over. Sensitive bacteria arrive again from food and slowly grow back, because resistance has a fitness cost, but resistant ones hang on for weeks.");
+    return out;
+  }
+  if (sim.t === 0) {
+    out.push(`The patient has an infection with <b>${fmtN(N)}</b> bacteria. Press <b>Start</b> to begin the course of ${d1.short.toLowerCase()}.`);
+    if (sim.startMutants > 0) out.push(`While the infection was growing, random mutations already made <b>${fmtN(sim.startMutants)}</b> partly resistant bacteria. The patient doesn't know they are there.`);
+    else if (!p.pre) out.push("By chance, no resistant mutants have appeared yet.");
+    if (p.pre) out.push(`About ${fmtN(c[2])} are already fully resistant: they were caught from someone else.`);
+    return out;
+  }
+  if (sim.done) {
+    if (sim.outcome === "cured") out.push(`<b>Cured</b> on day ${Math.floor(sim.cureT / 24) + 1}: the drug and the immune system killed every bacterium.`);
+    else if (sim.outcome === "resistant") out.push(`<b>Resistant infection.</b> ${(rf * 100).toFixed(0)}% of the bacteria are now resistant. Another course of the same drug will not work; doctors would need a different antibiotic.`);
+    else out.push(`<b>Still infected.</b> Enough ordinary bacteria survived to grow back once the drug was gone.`);
+  }
+  if (sim.t < endT) {
+    if (p.dose === 0) out.push("No antibiotic is being given. The immune system cannot keep up with a large infection, so the bacteria grow until the tissue is full.");
+    else if (sim.C1 >= d1.micS * MIC_PART) out.push(`The drug level is above the MIC of even the partly resistant bacteria, so they are being killed too.`);
+    else if (sim.C1 >= d1.micS) out.push(`The drug level is in the <b>mutant selection window</b>: high enough to kill normal bacteria, too low to stop partly resistant ones. ${c[1] + c[2] > 0 ? "The resistant cells are being given an advantage." : ""}`);
+    else out.push("The drug level has fallen below the MIC, so the bacteria are growing again until the next dose.");
+    const lastMiss = sim.dose1.slice(0, sim.k1).reverse().find(d => d.missed);
+    if (lastMiss && sim.t - lastMiss.t < p.interval) out.push("<b>A dose was missed</b>, so the drug level stays low for longer and the bacteria can recover.");
+  } else if (onDrug && p.stopDay < p.days) out.push(`<b>The patient stopped taking the tablets after day ${p.stopDay}</b>, probably because they felt better. ${N > 0 ? "But bacteria were still there." : ""}`);
+  else if (N > 0 && !sim.done) out.push("The drug has gone. Whatever bacteria are left will either be cleared by the immune system or grow back.");
+  if (N > 0 && N < 20000 && p.immune >= 0.6 && !sim.done) out.push("Fewer than 20 000 bacteria are left, so the immune system can kill them faster than they divide. It mops up the survivors.");
+  else if (N > 1e5 && p.immune >= 0.5 && !sim.done && sim.t > 0) out.push("With this many bacteria the immune cells are swamped: each bacterium is unlikely to be caught.");
+  if (p.immune < 0.6 && N > 0 && !sim.done) out.push("This patient's immune system is weak, so the drug must kill <i>every</i> bacterium by itself.");
+  if (rf > 0.01 && N > 0) out.push(`Resistant bacteria now make up <b>${(rf * 100).toFixed(rf < 0.1 ? 1 : 0)}%</b> of the infection. The antibiotic did not make them; it killed their competitors (natural selection).`);
+  else if (c[1] + c[2] > 0 && N > 0) out.push(`A few resistant mutants are present (${fmtN(c[1] + c[2])}).`);
+  if (sim.d2 && N > 0) out.push(`With two drugs, a bacterium needs <b>two</b> separate mutations to survive. That is about μ² = ${fmtMu(p.mu * p.mu)} per new cell, so it almost never happens.`);
+  if (sim.C1 > d1.toxic) out.push("<b>Warning:</b> the drug level is above the safe (toxic) level: the patient may get side-effects.");
+  return out;
+}
+function showBanner() {
+  const b = el("outBanner"), o = sim.outcome, p = sim.p;
+  const col = { cured: "#76b82a", infected: "#f18700", resistant: "#e83181" }[o];
+  let h = "", t = "";
+  if (p.virus) { h = "The cold has gone, by itself"; t = `Antibiotics did nothing for the cold. But ${(resistantFrac(sim) * 100).toFixed(0)}% of your normal bacteria are now resistant (it was 1%).`; }
+  else if (o === "cured") { h = `Cured on day ${Math.floor(sim.cureT / 24) + 1}`; t = "Every bacterium was killed, so no resistant ones were left to grow."; }
+  else if (o === "resistant") { h = "Resistant infection"; t = "The antibiotic killed the sensitive bacteria and left the resistant ones to take over. Try a full dose, no missed doses, or a second drug."; }
+  else { h = "Still infected"; t = "Some ordinary bacteria survived and grew back. Try a longer course, or finish the course."; }
+  b.style.borderColor = col; b.innerHTML = `<h3 style="color:${col}">${h}</h3><p>${t}</p><p class="hint">Try <b>New random patient</b> (left panel) to see if luck changes the result, or use <b>Batch run</b> to treat many patients.</p><div style="display:flex;gap:8px;margin-top:8px"><button id="bnClose">Close</button><button id="bnBatch">📊 Batch run</button></div>`;
+  b.style.display = "block";
+  el("bnClose").onclick = () => (b.style.display = "none");
+  el("bnBatch").onclick = () => { b.style.display = "none"; Batch.open(); };
+}
+
+// ---------- Main loop ----------
+let lastT = performance.now();
+function frame(now) {
+  const real = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (running && !sim.done) {
+    let left = real * speed;                 // 1× = 1 hour of the infection per second
+    const t0 = performance.now();
+    while (left > 1e-9 && !sim.done && performance.now() - t0 < 30) {
+      stepSim(sim, DT); left -= DT;
+      const lastH = hist[hist.length - 1];
+      if (sim.t - lastH.t >= 0.249) hist.push(snapshot());
+    }
+    if (sim.done) { hist.push(snapshot()); running = false; el("btnPlay").textContent = "▶ New run"; if (!bannerShown) { bannerShown = true; showBanner(); } }
+  }
+  if (running || sim.done) syncSprites(false);
+  moveSprites(real);
+  drawView(now);
+  drawTimeline();
+  if (Math.floor(now / 200) !== Math.floor((now - real * 1000) / 200)) updateUI();
+  examTick();
+  requestAnimationFrame(frame);
+}
+
+// ---------- Batch run set-up ----------
+const bandCache = {};
+const OUTC = [{ name: "Cured", color: "#76b82a" }, { name: "Still infected (not resistant)", color: "#f18700" }, { name: "Resistant infection", color: "#e83181" }];
+const outIdx = r => (r.outcome === "cured" ? 0 : r.outcome === "infected" ? 1 : 2);
+// The fixed settings a preset gives (what setPreset(i) puts in the left panel, read back by params()), without touching the left panel.
+// Every one-click experiment starts from one of these, so experiments never depend on the left panel.
+function presetParams(i) {
+  const P = PRESETS[i];
+  const def = { virus: "0", start: 8, pre: 0, drug: "amox", days: 7, stopDay: 15, miss: 0, drug2: "none", immune: 100, mu: -8, cost: 10 };
+  const v = Object.assign({}, def, P.set), d = DRUGS[v.drug];
+  return { drug: v.drug, dose: v.dose !== undefined ? +v.dose : d.dose, interval: d.interval, days: +v.days, stopDay: +v.stopDay >= 15 ? 99 : +v.stopDay,
+    miss: +v.miss / 100, immune: +v.immune / 100, mu: Math.pow(10, +v.mu), cost: +v.cost / 100, start: Math.pow(10, +v.start),
+    plasmid: !!v.plasmid, drug2: v.drug2, pre: PRE_LEVELS[+v.pre], virus: v.virus === "1", seed: P.seed, follow: FOLLOW, dt: DT };
+}
+const pct = (k) => ({ get: p => 100 * p[k], apply: (p, x) => { p[k] = x / 100; } });
+Batch.init({
+  csvName: "antibiotic-resistance-batch",
+  leftParams: () => Object.assign(params(), { seed: el("seed").value, follow: FOLLOW, dt: DT }),
+  expBase: e => presetParams(e.preset || 0),
+  seedBase: p => "batch" + p.seed,
+  run: (p, seed, out) => runOnce(p, seed, !!out.startOnly),
+  outcomes: [
+    { id: "outcome", label: "Outcome (cured / still infected / resistant)", kind: "cat", cats: OUTC, catOf: outIdx, series: [] },
+    { id: "both", label: "Chance of cure and of a resistant infection", kind: "prob", sweepOnly: true, series: [
+      { name: "P(cured)", color: "#76b82a", get: r => (r.outcome === "cured" ? 1 : 0) },
+      { name: "P(resistant infection)", color: "#e83181", get: r => (r.outcome === "resistant" ? 1 : 0) }] },
+    { id: "pcured", label: "Chance of cure", kind: "prob", series: [{ name: "P(cured)", color: "#76b82a", get: r => (r.outcome === "cured" ? 1 : 0) }] },
+    { id: "pres", label: "Chance of a resistant infection", kind: "prob", series: [{ name: "P(resistant infection)", color: "#e83181", get: r => (r.outcome === "resistant" ? 1 : 0) }] },
+    { id: "mut", label: "Chance of ≥ 1 resistant mutant before treatment", kind: "prob", startOnly: true,
+      series: [{ name: "P(≥ 1 mutant at start)", get: r => (r.startMutants > 0 ? 1 : 0) }],
+      theory: p => (p.virus ? NaN : 1 - Math.exp(-p.mu * (Math.max(N0, p.start) - N0))), theoryName: "theory 1 − e^(−μN)" },
+    { id: "nmut", label: "Resistant mutants before treatment", kind: "num", startOnly: true, unit: "cells",
+      series: [{ name: "mutants at start", get: r => r.startMutants }],
+      theory: p => (p.virus ? NaN : 0.5 * p.mu * p.start * Math.log2(p.start / N0)), theoryName: "theory mean ½μN log₂(N/N₀)", histMax: (p, st) => Math.max(20, 6 * 0.5 * p.mu * p.start * Math.log2(p.start / N0)) },
+    { id: "cure", label: "Time to cure", unit: "days", kind: "num", emptyNote: "no patient was cured", series: [{ name: "days to cure (cured patients only)", get: r => r.cureDays }] },
+    { id: "final", label: "Resistant at the end", unit: "%", kind: "num", series: [{ name: "% resistant at the end", get: r => r.finalRes }] },
+    { id: "logn", label: "Bacteria left at the end (log₁₀)", unit: "log₁₀ cells", kind: "num", series: [{ name: "log₁₀(bacteria + 1)", get: r => r.logN }] },
+  ],
+  // EVERY numeric starting setting, for the batch settings table (get = the value shown, apply = put a value into the settings)
+  vars: [
+    { id: "stopDay", label: "Patient stops after day", unit: "", hint: "(99 = finishes the course)", int: true, min: 1, max: 99, get: p => p.stopDay, apply: (p, x) => { p.stopDay = x; } },
+    { id: "dose", label: "Dose", unit: "mg", min: 0, max: 5000, get: p => p.dose, apply: (p, x) => { p.dose = x; },
+      band: p => { const k = JSON.stringify([p.drug, p.interval, p.days, p.stopDay, p.cost, p.immune]); if (!bandCache[k]) bandCache[k] = [selectionDose(p), breakEvenDose(p), "predicted mutant selection window"]; return bandCache[k]; } },
+    { id: "miss", label: "Chance of missing a dose", unit: "%", min: 0, max: 100, ...pct("miss") },
+    { id: "start", label: "Bacteria at the start", unit: "cells", log: true, min: 100, max: 1e10, get: p => p.start, apply: (p, x) => { p.start = x; } },
+    { id: "mu", label: "Mutation rate", unit: "per new cell", log: true, min: 1e-12, max: 1e-4, get: p => p.mu, apply: (p, x) => { p.mu = x; } },
+    { id: "immune", label: "Immune strength", unit: "%", min: 0, max: 200, ...pct("immune") },
+    { id: "days", label: "Course length", unit: "days", int: true, min: 1, max: 21, get: p => p.days, apply: (p, x) => { p.days = x; } },
+    { id: "cost", label: "Fitness cost of resistance", unit: "%", min: 0, max: 60, ...pct("cost") },
+    { id: "interval", label: "Dose interval", unit: "h", int: true, min: 2, max: 48, get: p => p.interval, apply: (p, x) => { p.interval = x; } },
+    { id: "pre", label: "Already resistant at the start", unit: "%", min: 0, max: 100, ...pct("pre") },
+    { id: "follow", label: "Days watched after the course ends", unit: "days", min: 0, max: 30, get: p => p.follow, apply: (p, x) => { p.follow = x; } },
+    { id: "dt", label: "Time step", unit: "h", min: 0.01, max: 1, get: p => p.dt, apply: (p, x) => { p.dt = x; } },
+    { id: "seed", label: "Patient number (random seed)", unit: "", int: true, min: 0, max: 1e9, get: p => (Number.isFinite(+p.seed) ? +p.seed : 1), apply: (p, x) => { p.seed = String(x); } },
+  ],
+  // the settings that are choices rather than numbers
+  choices: [
+    { k: "drug", label: "Antibiotic", choices: Object.entries(DRUGS).map(([k, d]) => [k, d.name]) },
+    { k: "drug2", label: "Second antibiotic", choices: [["none", "None"]].concat(Object.entries(DRUGS).map(([k, d]) => [k, d.name])) },
+    { k: "virus", label: "The illness is a virus (a cold)", bool: true },
+    { k: "plasmid", label: "Resistance spreads on plasmids", bool: true },
+  ],
+  experiments: [
+    { q: "Does stopping early cause resistance?", mode: "sweep", var: "stopDay", from: 1, to: 7, steps: 7, reps: 40, out: "both",
+      note: "Each dot is the share of 40 patients. Stopping after only 1–2 days lets the infection come back, but with <i>ordinary</i> bacteria: without the drug they out-grow the resistant ones, which pay a fitness cost. From day 3 the drug and the immune system have already cleared it, so finishing the full 7 days makes no difference here. This matches recent medical thinking: the danger is under-dosing or missing many doses, not a slightly shorter course (doctors are now testing shorter courses). Real infections vary much more than this model, which is why doctors still give a safety margin." },
+    { q: "Where is the mutant selection window?", mode: "sweep", var: "dose", from: 0, to: 500, steps: 11, reps: 30, out: "both",
+      note: "Very low doses do nothing: ordinary bacteria win because resistance has a fitness cost. The orange band is predicted from theory using only the drug-level and dose–response equations. Lower edge: the drug gives partly resistant cells enough of a growth advantage to take over during the course. Upper edge: normal bacteria now die off faster than the mutants can grow, so the infection shrinks to a size the immune system can mop up first. Inside the band, the drug clears the competition while the infection stays big enough to swamp the immune system, so resistance takes over. Above it nearly every patient is cured." },
+    { q: "Is a resistant mutant there before treatment? Test 1 − e^(−μN)", mode: "sweep", var: "start", from: 1e5, to: 1e10, steps: 11, reps: 300, out: "mut",
+      note: "As an infection grows to N cells there are about N divisions, each with a chance μ of a resistance mutation, so the number of mutation events is a Poisson count with mean μN. The chance of at least one is 1 − e<sup>−μN</sup> (gold). With μ = 1 in 100 million, a 10⁸ infection has a 63% chance. Dots scatter around the curve by about one standard error, as chance predicts." },
+    { q: "How many patients does a full course cure?", mode: "repeat", n: 300, out: "outcome",
+      note: "300 patients, same treatment, different luck. Every one is cured, even though about 63% start with a few partly resistant mutants: a full dose taken on time keeps the drug above their MIC for part of each dose, and once the normal bacteria are gone the immune system mops the mutants up." },
+    { q: "Do missed doses matter?", mode: "sweep", var: "miss", from: 0, to: 60, steps: 7, reps: 40, out: "both",
+      note: "Missing the odd dose (10%) hardly matters: the next doses catch up. Missing many doses (30–40%) leaves long gaps. Some patients relapse with ordinary bacteria, and about 1 in 4 get a resistant infection, because the drug keeps knocking back the normal bacteria while the mutants recover between doses. Missing over half the doses is like hardly being treated: ordinary bacteria win again." },
+    { q: "Luria–Delbrück: how many mutants are there before treatment?", mode: "repeat", n: 1000, out: "nmut",
+      note: "Most infections have no mutants or just a few, but a few have hundreds: a mutation early in the growth gives a 'jackpot' family. Here N = 10⁸ and μ = 10⁻⁸, so on average one mutation happens. Each of the log₂(N/N₀) ≈ 20 generations adds ½μN mutants on average, so the theory mean is ½μN log₂(N/N₀) ≈ 10. That mean is pulled up by very rare, very early jackpots that 1000 patients will hardly ever include, so the model's mean usually lands below the theory and the SD is huge. Luria and Delbrück used this lumpy pattern in 1943 to show mutations happen at random, before the drug arrives." },
+    { q: "How long a course does a weak immune system need?", mode: "sweep", var: "days", from: 1, to: 10, steps: 10, reps: 40, out: "both", preset: 4,
+      note: "With a weak immune system (30%) the drug has to do almost all the work. Courses shorter than 5 days fail, and even with a full course 1 in 4 patients end up with a resistant infection, because the immune system cannot mop up the mutants the drug leaves behind. Longer courses help. Doctors give longer courses, or two drugs, to patients with weak immune systems (e.g. during chemotherapy)." },
+  ],
+  csvColumns: [["outcome", r => r.outcome], ["days to cure", r => r.cureDays], ["% resistant at end", r => r.finalRes], ["peak % resistant", r => r.peakRes], ["log10 bacteria at end", r => r.logN], ["resistant mutants at start", r => r.startMutants]],
+});
+
+/* =====================================================================
+   PANEL LAYOUT — resize or hide the side panels
+   ===================================================================== */
+(function () {
+  const main = document.querySelector("main"), left = el("left"), right = el("right");
+  const KEY = "antibiotic-resistance-layout", STRIP = 30, MIN = 170, DEF = { lw: 250, rw: 280, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY + "-v2") || "{}")); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty("--lw", (st.lc ? STRIP : st.lw) + "px"); main.style.setProperty("--rw", (st.rc ? STRIP : st.rw) + "px");
+    left.classList.toggle("collapsed", st.lc); right.classList.toggle("collapsed", st.rc);
+    document.querySelector("#splitL button").textContent = st.lc ? "›" : "‹";
+    document.querySelector("#splitR button").textContent = st.rc ? "‹" : "›";
+    try { localStorage.setItem(KEY + "-v2", JSON.stringify(st)); } catch (e) {}
+  }
+  function drag(sp, side) {
+    sp.addEventListener("pointerdown", e => {
+      if (e.target.tagName === "BUTTON") return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add("drag");
+      const box = main.getBoundingClientRect(), pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+      const move = ev => { const w = side === "l" ? ev.clientX - box.left - pad : box.right - pad - ev.clientX; if (w < 110) st[side + "c"] = true; else { st[side + "c"] = false; st[side + "w"] = w; } apply(); };
+      const up = () => { sp.classList.remove("drag"); sp.removeEventListener("pointermove", move); sp.removeEventListener("pointerup", up); };
+      sp.addEventListener("pointermove", move); sp.addEventListener("pointerup", up);
+    });
+    sp.addEventListener("dblclick", () => { st = { ...DEF }; apply(); });
+    sp.querySelector("button").addEventListener("click", () => { st[side + "c"] = !st[side + "c"]; apply(); });
+  }
+  drag(el("splitL"), "l"); drag(el("splitR"), "r");
+  left.querySelector(".reopen").addEventListener("click", () => { st.lc = false; apply(); });
+  right.querySelector(".reopen").addEventListener("click", () => { st.rc = false; apply(); });
+  window.addEventListener("resize", apply);
+  apply();
+})();
+
+
+/* =====================================================================
+   LEVEL: Standard (GCSE: Pearson Edexcel International GCSE Biology 4BI1)
+   or Advanced (A level: OCR A level Biology A H420). Advanced keeps
+   everything in Standard and adds A level views, readings, key ideas,
+   presets and exam questions. The choice is remembered in this browser.
+   Spec tags: grey-green = GCSE (4BI1), purple = A level (H420),
+   blue-grey = beyond both specifications.
+   ===================================================================== */
+const LEVEL = { key: "antibiotic-resistance-level", hint: { std: "", adv: "" }, onChange: null, ideas: null, exam: null };
+const isAdv = () => document.body.classList.contains("lvl-adv");
+const spec = (t, k) => `<span class="spec${k ? " " + k : ""}">${t}</span>`;
+const examOpen = new Set();
+// Exam questions with marks, hint and a "Show mark scheme" toggle. Open mark schemes stay open when the numbers change.
+function renderExam(box, groups) {
+  let html = "", n = 0;
+  for (const g of groups) {
+    if (g.title) html += `<div class="exhead">${g.title}</div>`;
+    g.qs.forEach((q, i) => {
+      const id = (g.id || "q") + i; n++;
+      html += `<div class="exq${examOpen.has(id) ? " open" : ""}" data-id="${id}"><div class="qh"><span><b>Q${n}.</b> ${q.q}</span><span class="mk">${q.marks} mark${q.marks === 1 ? "" : "s"}</span></div>` +
+        (q.hint ? `<div class="ht">💡 Hint: ${q.hint}</div>` : "") + `<button>${examOpen.has(id) ? "Hide" : "Show"} mark scheme</button>` +
+        `<div class="ms">${(q.working || []).map(s => `<div>→ ${s}</div>`).join("")}<div class="ans">${q.answerLabel === false ? "" : "Answer: "}${q.answer}</div></div></div>`;
+    });
+  }
+  box.innerHTML = html;
+  box.querySelectorAll(".exq button").forEach(b => b.addEventListener("click", () => {
+    const d = b.parentElement, id = d.dataset.id; d.classList.toggle("open");
+    if (d.classList.contains("open")) examOpen.add(id); else examOpen.delete(id);
+    b.textContent = (d.classList.contains("open") ? "Hide" : "Show") + " mark scheme";
+  }));
+}
+// Rebuild the questions a little later (so the numbers on screen have settled), or at once
+let examDue = 0;
+function examSoon(ms) { examDue = performance.now() + (ms || 0); }
+function examTick() { if (examDue && performance.now() >= examDue) { examDue = 0; if (LEVEL.exam) LEVEL.exam(); } }
+function setLevel(l) {
+  document.body.classList.toggle("lvl-adv", l === "adv"); document.body.classList.toggle("lvl-std", l !== "adv");
+  document.querySelectorAll("#lvl button").forEach(b => b.classList.toggle("on", b.dataset.lvl === l));
+  try { localStorage.setItem(LEVEL.key, l); } catch (e) {}
+  document.getElementById("lvlHint").innerHTML = l === "adv" ? LEVEL.hint.adv : LEVEL.hint.std;
+  if (LEVEL.ideas) document.getElementById("ideas").innerHTML = `<ul>${LEVEL.ideas(l === "adv")}</ul>`;
+  if (LEVEL.onChange) LEVEL.onChange(l);
+  examSoon(0);
+}
+function levelInit() {
+  document.querySelectorAll("#lvl button").forEach(b => b.addEventListener("click", () => setLevel(b.dataset.lvl)));
+  document.getElementById("examNow").addEventListener("click", () => examSoon(0));
+  let l = "std"; try { l = localStorage.getItem(LEVEL.key) || "std"; } catch (e) {}
+  setLevel(l === "adv" ? "adv" : "std");
+}
+
+// A LEVEL: virtual antibiotic-disc practical (illustrative numbers; uses Math.random, never the patient's random numbers)
+const disc = { rows: [] };
+const STRAINS = [["sensitive", 1], ["partly resistant", MIC_PART], ["fully resistant", MIC_FULL]];
+function zoneTrue(level) { const x = Math.log(40 / level); return 6 + (x > 0 ? 2 * 4.2 * Math.sqrt(x) : 0); }   // diameter (mm)
+function zoneRead(level) { const d = zoneTrue(level); if (d <= 6) return 6; const g = Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(6.283 * Math.random()); return Math.max(6, Math.round(2 * (d + 0.6 * g)) / 2); }
+function drawDiscs() {
+  const { ctx, W, H, dpr } = fitCanvas(el("discC"));
+  ctx.clearRect(0, 0, W, H); if (W < 30) return;
+  const last = disc.rows[disc.rows.length - 1], r = Math.min(H / 2 - 6 * dpr, W / 6 - 6 * dpr), sc = r / 45;   // 90 mm dish
+  STRAINS.forEach(([name, lev], k) => {
+    const cx = W * (k + 0.5) / 3, cy = H / 2 - 6 * dpr;
+    ctx.fillStyle = "#c9b37a"; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill();   // lawn of bacteria
+    const d = last ? last.z[k] : zoneTrue(lev);
+    ctx.fillStyle = "#f3ecd2"; ctx.beginPath(); ctx.arc(cx, cy, d / 2 * sc, 0, 7); ctx.fill();   // clear zone
+    ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#999"; ctx.beginPath(); ctx.arc(cx, cy, 3 * sc, 0, 7); ctx.fill(); ctx.stroke();   // 6 mm disc
+    ctx.strokeStyle = "#555"; ctx.lineWidth = 1 * dpr; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke();
+    ctx.fillStyle = "#cfd5c4"; ctx.font = `${10 * dpr}px system-ui`; ctx.textAlign = "center"; ctx.fillText(name, cx, H - 2 * dpr);
+  });
+}
+function discTable() {
+  if (!disc.rows.length) { el("discTable").innerHTML = `<div class="hint">No plates yet. ${DRUGS[el("drug").value].short} discs.</div>`; return; }
+  const col = k => disc.rows.map(r => r.z[k]), mn = a => a.reduce((s, v) => s + v, 0) / a.length, sdv = a => { const m = mn(a); return a.length > 1 ? Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / (a.length - 1)) : NaN; };
+  el("discTable").innerHTML = `<table class="data" style="width:100%;font-size:11.5px;border-collapse:collapse"><tr><th style="text-align:left">Plate</th>${STRAINS.map(s => `<th>${s[0]}</th>`).join("")}</tr>` +
+    disc.rows.map((r, i) => `<tr><td style="text-align:left">${i + 1} (${r.drug})</td>${r.z.map(v => `<td>${v.toFixed(1)}</td>`).join("")}</tr>`).join("") +
+    `<tr><td style="text-align:left"><b>mean</b></td>${[0, 1, 2].map(k => `<td><b>${mn(col(k)).toFixed(1)}</b></td>`).join("")}</tr>` +
+    (disc.rows.length > 1 ? `<tr><td style="text-align:left">SD (n − 1)</td>${[0, 1, 2].map(k => `<td>${sdv(col(k)).toFixed(2)}</td>`).join("")}</tr>` : "") +
+    `</table><div class="hint">Zone diameters in mm (6.0 = no zone: the bacteria grow right up to the disc). Area of a clear zone = π(d/2)² − the disc's area.</div>`;
+}
+el("discNew").addEventListener("click", () => { disc.rows.push({ drug: DRUGS[el("drug").value].short, z: STRAINS.map(s => zoneRead(s[1])) }); if (disc.rows.length > 8) disc.rows.shift(); drawDiscs(); discTable(); examSoon(0); });
+el("discClear").addEventListener("click", () => { disc.rows = []; drawDiscs(); discTable(); });
+window.addEventListener("resize", () => { if (isAdv()) drawDiscs(); });
+LEVEL.hint.std = "GCSE: Edexcel International GCSE Biology (4BI1) Section 3(b): evolution by natural selection, mutation, and how resistance to antibiotics can increase in bacterial populations (and make infections hard to control). Drug levels, the MIC, the therapeutic and mutant selection windows, and plasmids go beyond 4BI1: tagged.";
+LEVEL.hint.adv = "A level: OCR Biology A (H420) 4.1.1: antibiotics, the development of resistance, hospital-acquired infections such as MRSA and C. difficile, and ways to reduce resistance; 4.2.2: the evolution of drug resistance by natural selection. Advanced adds readings, a virtual antibiotic-disc practical and A level presets.";
+LEVEL.ideas = a => {
+  const G = spec("4BI1 3(b) Inheritance and evolution"), A1 = spec("A level (H420 4.1.1)", "a"), A2 = spec("A level (H420 4.2.2)", "a"), B = spec("Beyond the spec", "b");
+  let h = `<li><b>Natural selection</b>: a random <b>mutation</b> makes a few bacteria resistant. The antibiotic does not cause the mutations; it kills the bacteria that are not resistant. The resistant ones survive, reproduce and pass on the resistance allele, so the population becomes resistant. ${G}</li>
+<li>Bacteria reproduce very quickly, so resistance can spread within days. Resistant infections are hard to treat. ${G}</li>
+<li>To slow resistance: only use antibiotics when needed (never for viruses such as colds), finish the course, and keep hospitals clean. ${G}</li>
+<li><b>MIC</b>: the lowest drug level that stops a strain growing. <b>Therapeutic window</b>: levels high enough to work but low enough to be safe. ${B}</li>
+<li><b>Mutant selection window</b>: levels above the MIC of normal bacteria but below the MIC of resistant ones. Here the drug kills the competition and the resistant cells take over. ${B}</li>`;
+  if (a) h += `<li><b>Selection pressure</b>: the antibiotic is a strong selection pressure. Resistance genes can also pass between bacteria on <b>plasmids</b> (horizontal gene transfer, e.g. by conjugation), even between species. ${A2}</li>
+<li><b>Hospital-acquired infections</b> such as <b>MRSA</b> and <b>C. difficile</b>: many patients with weak immune systems, much antibiotic use and close contact. Reduce them with hand-washing, isolating patients, and careful prescribing (narrow-spectrum drugs, shorter targeted courses). ${A1}</li>
+<li><b>Combination therapy</b> (e.g. for TB): a cell would need two separate mutations to survive, which is far less likely. ${A1}</li>
+<li><b>Growth</b>: bacteria divide by binary fission; after n generations N = N₀ × 2ⁿ. A resistance mutation of chance μ per new cell is likely to be present already once N ≈ 1/μ (chance 1 − e<sup>−μN</sup>). ${B}</li>`;
+  return h;
+};
+LEVEL.onChange = l => { if (sim) updateUI(); if (l === "adv") { drawDiscs(); discTable(); } };
+LEVEL.exam = () => {
+  const p = sim.p, N = total(sim), rf = resistantFrac(sim), muN = p.mu * p.start;
+  const rows = disc.rows, haveDisc = rows.length > 0, z = haveDisc ? [0, 1, 2].map(k => rows.reduce((s, r) => s + r.z[k], 0) / rows.length) : [22, 16.5, 6];
+  const area = d => Math.PI * (d / 2) ** 2 - Math.PI * 9;
+  const groups = [{ title: "GCSE (Edexcel International GCSE Biology 4BI1)", id: "g", qs: [
+    { q: "Explain how a population of bacteria can become resistant to an antibiotic.", marks: 5,
+      working: ["A random mutation (in the DNA) makes some bacteria resistant (1)", "the antibiotic kills the non-resistant bacteria (1)", "the resistant bacteria survive (1)", "and reproduce, passing on the resistance gene/allele (1)", "so the proportion of resistant bacteria increases: natural selection (1)"], answer: "5 marks." },
+    { q: "Explain why patients are told to finish a course of antibiotics, even when they feel better.", marks: 3,
+      working: ["Some bacteria are still alive when the patient feels better (1)", "those left are the hardest to kill / the most resistant (1)", "finishing the course kills them, so they cannot multiply and spread resistance (1)"], answer: "3 marks. Compare 'Full course works' with 'Stops after 2 days'." },
+    { q: "Explain why a doctor should not prescribe antibiotics for a cold.", marks: 2,
+      working: ["Colds are caused by viruses; antibiotics do not kill viruses (1)", "using them anyway kills sensitive harmless bacteria and selects for resistant ones (1)"], answer: "2 marks. Try 'Antibiotics for a cold'." },
+    { q: "One bacterium divides every 3 hours. How many bacteria could there be after 24 hours, starting from 100?", marks: 2, hint: "number of divisions = 24 ÷ 3",
+      working: ["24 ÷ 3 = 8 divisions (1)", "100 × 2⁸ = 25 600 (1)"], answer: "25 600" },
+    { q: `Your patient now has ${fmtN(N)} bacteria, of which ${(100 * rf).toFixed(1)}% are resistant. Explain how this percentage changes during treatment.`, marks: 3,
+      working: ["The drug kills sensitive bacteria faster than resistant ones (1)", "so resistant bacteria make up a larger share / rise (1)", "unless the dose is high enough / the immune system kills the few resistant ones (1)"], answer: "3 marks." },
+    { q: "Suggest three ways hospitals can reduce the spread of antibiotic-resistant bacteria.", marks: 3,
+      working: ["Wash hands / use alcohol gel between patients (1)", "isolate infected patients (1)", "only prescribe antibiotics when needed; use the right drug; clean wards and equipment (1)"], answer: "Any three." },
+  ] }];
+  if (isAdv()) groups.push({ title: "A level (OCR Biology A H420: 4.1.1; 4.2.2)", id: "a", qs: [
+    { q: `Your patient's infection has ${fmtN(p.start)} bacteria when treatment starts, and the chance of a resistance mutation is ${fmtMu(p.mu)} per new cell. Calculate the expected number of mutants made while it grew (≈ μN), and the chance that at least one is present (1 − e^(−μN)).`, marks: 3,
+      working: [`μN = ${fmtMu(p.mu)} × ${fmtN(p.start)} = ${muN.toPrecision(3)} (1)`, `chance = 1 − e^(−${muN.toPrecision(3)}) (1)`, `= ${(1 - Math.exp(-muN)).toPrecision(3)} (1)`], answer: `${(1 - Math.exp(-muN)).toPrecision(3)}. So resistant mutants are often there before the first dose.` },
+    { q: "Explain how resistance genes can spread between bacteria without being inherited from a parent cell.", marks: 3,
+      working: ["Resistance genes are often carried on plasmids (1)", "plasmids can be copied and passed from one bacterium to another by conjugation (horizontal gene transfer) (1)", "even between different species, so resistance spreads faster than by mutation alone (1)"], answer: "3 marks. Try 'Hospital (MRSA-like)'." },
+    { q: `Antibiotic-disc practical: ${haveDisc ? "your" : "these"} mean zone diameters were ${z.map(v => v.toFixed(1)).join(", ")} mm for the sensitive, partly resistant and fully resistant strains (disc diameter 6 mm). Calculate the area of the clear zone around the disc for the sensitive strain, and explain the differences.`, marks: 4, hint: "area of a circle = πr²",
+      working: [`r = ${(z[0] / 2).toFixed(2)} mm; area = π × ${(z[0] / 2).toFixed(2)}² − π × 3² (1)`, `= ${area(z[0]).toFixed(0)} mm² (1)`, "the antibiotic diffuses out, so its concentration falls with distance from the disc (1)", "resistant strains have a higher MIC, so they can grow closer to the disc: smaller (or no) clear zone (1)"], answer: `${area(z[0]).toFixed(0)} mm²` },
+    { q: "Explain why the evolution of antibiotic resistance is faster in bacteria than resistance to pesticides is in insects.", marks: 3,
+      working: ["Bacteria reproduce asexually and very quickly (generation time of hours) (1)", "huge population sizes, so rare mutations are likely to be present (1)", "resistance genes can spread horizontally on plasmids (1)"], answer: "3 marks." },
+    { q: "Explain why patients with TB are treated with several antibiotics at the same time.", marks: 3,
+      working: ["A bacterium resistant to one drug is still killed by the other(s) (1)", "it would need two (or more) separate mutations to resist both (1)", "the chance of both together is the product of the two small chances, so resistance is very unlikely to arise (1)"], answer: "3 marks. Try 'Combination therapy'." },
+    { q: "Suggest why resistant bacteria often become less common when an antibiotic stops being used.", marks: 2,
+      working: ["Resistance has a fitness cost: resistant cells grow more slowly without the drug (1)", "so without the selection pressure the sensitive bacteria out-compete them (1)"], answer: "2 marks. Try 'Resistance costs'." },
+  ] });
+  renderExam(el("examQs"), groups);
+};
+levelInit();
+setPreset(0);
+requestAnimationFrame(frame);
+</script>
+<!-- VIEW BAR (start): hide/show the side panels and full-screen the simulation. Same block in every simulation. -->
+<style>
+  #viewBar { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-shrink: 0; align-self: center; }
+  #viewBar button { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  #viewBar button.on { border-color: var(--accent); }
+  #viewBar .vbKey { opacity: .55; font-size: 11px; margin-left: 4px; }
+  /* bigger, clearer drag handles between the panels */
+  .splitter::before { width: 4px !important; margin-left: -2px !important; }
+  .splitter::after { content: "⋮"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--muted); font-size: 16px; pointer-events: none; }
+  .splitter button { width: 22px !important; height: 52px !important; font-size: 15px !important; font-weight: 700; background: var(--accent) !important; color: #14133b !important; border: none !important; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  /* full screen: the centre panel fills the screen */
+  #centre:fullscreen { background: var(--bg); padding: 10px; width: 100vw; height: 100vh; box-sizing: border-box; }
+  #centre .vbExit { display: none; }
+  #centre:fullscreen .vbExit { display: block; position: absolute; top: 10px; right: 12px; z-index: 50; }
+  #centre:fullscreen { position: relative; }
+  #vbTip { position: fixed; top: 52px; right: 14px; z-index: 60; max-width: 330px; background: var(--panel-2, #1b2017); border: 1px solid var(--accent);
+           border-radius: 10px; padding: 9px 12px; font-size: 13px; line-height: 1.45; box-shadow: 0 4px 16px rgba(0,0,0,.5); cursor: pointer; }
+</style>
+<script>
+(function () {
+  // Buttons in the header: hide/show the left (controls) and right (readouts) panels, and full screen.
+  // They click the existing ‹ › buttons on the drag handles, so each simulation's own layout code stays in charge.
+  const header = document.querySelector("header"), centre = document.getElementById("centre");
+  const sL = document.getElementById("splitL"), sR = document.getElementById("splitR");
+  const left = sL && sL.previousElementSibling, right = sR && sR.nextElementSibling;   // the panels either side of the drag handles
+  const bL = sL && sL.querySelector("button"), bR = sR && sR.querySelector("button");
+  if (!header || !centre || !left || !right || !bL || !bR) return;
+  const bar = document.createElement("div"); bar.id = "viewBar";
+  bar.innerHTML = '<button id="vbL" title="Hide or show the controls panel (key: [ )"></button>' +
+                  '<button id="vbR" title="Hide or show the readouts panel (key: ] )"></button>' +
+                  '<button id="vbF" title="Show only the simulation, full screen (key: F; Esc to leave)">⛶ Full screen</button>';
+  header.appendChild(bar);
+  const exit = document.createElement("button"); exit.className = "vbExit"; exit.textContent = "✕ Exit full screen (Esc)";
+  centre.appendChild(exit);
+  const vbL = bar.querySelector("#vbL"), vbR = bar.querySelector("#vbR"), vbF = bar.querySelector("#vbF");
+  function label() {
+    const lc = left.classList.contains("collapsed"), rc = right.classList.contains("collapsed");
+    vbL.textContent = lc ? "◧ Show controls" : "◧ Hide controls"; vbL.classList.toggle("on", !lc);
+    vbR.textContent = rc ? "Show readouts ◨" : "Hide readouts ◨"; vbR.classList.toggle("on", !rc);
+  }
+  new MutationObserver(label).observe(left, { attributes: true, attributeFilter: ["class"] });
+  new MutationObserver(label).observe(right, { attributes: true, attributeFilter: ["class"] });
+  label();
+  const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else if (centre.requestFullscreen) centre.requestFullscreen().catch(() => {}); };
+  vbL.onclick = () => bL.click(); vbR.onclick = () => bR.click(); vbF.onclick = full; exit.onclick = full;
+  document.addEventListener("fullscreenchange", () => {
+    vbF.textContent = document.fullscreenElement ? "✕ Exit full screen" : "⛶ Full screen";
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 60);    // canvases re-measure themselves
+  });
+  // The batch-run window lives outside the full-screen area, so leave full screen when it is opened
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("button");
+    if (document.fullscreenElement && b && /Batch run/.test(b.textContent)) document.exitFullscreen();
+  }, true);
+  document.addEventListener("keydown", e => {
+    const t = e.target.tagName; if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA" || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "f" || e.key === "F") { full(); e.preventDefault(); }
+    else if (e.key === "[") bL.click(); else if (e.key === "]") bR.click();
+  });
+  // A one-time tip so people notice the panels can be hidden or resized
+  let seen = false; try { seen = localStorage.getItem("sims-viewbar-tip") === "1"; } catch (e) {}
+  if (!seen) {
+    const tip = document.createElement("div"); tip.id = "vbTip";
+    tip.innerHTML = "<b>Make the simulation bigger:</b> hide the side panels with the buttons above (or the yellow ‹ › tabs), drag the ⋮ bars to resize them, or press <b>⛶ Full screen</b>. Click to close.";
+    document.body.appendChild(tip);
+    const close = () => { tip.remove(); try { localStorage.setItem("sims-viewbar-tip", "1"); } catch (e) {} };
+    tip.onclick = close; setTimeout(close, 12000);
+  }
+})();
+</script>
+<!-- VIEW BAR (end) -->
+<script id="tidyCfg">window.TIDY = {"std": "GCSE · 4BI1 3(b): natural selection and resistance", "adv": "A level · H420 4.1.1 and 4.2.2: Antibiotic resistance"};</script>
+<script id="tidyJs">
+/* ==== Tidy layout ====
+   Rearranges the side panels after the simulation has built them. It never changes the model.
+   Left:  the level note becomes one line ("iGCSE · topic") with the full note in a drop-down;
+          presets become a drop-down menu; every section heading folds; seed / quality / picture
+          go into a "More settings" group at the bottom.
+   Right: tabs (Live, Graphs, Practical, Learn, Exam); four to six key readings with "More readings";
+          every section folds. Folding and the chosen tab are remembered in this browser only.
+   Each simulation can set window.TIDY = { std: "...", adv: "...", live: [], graphs: [], learn: [],
+   practical: [], settings: [], readings: 6, move: { "<id or CSS selector>": "graphs" (or "learn:last" to go after the tab's own blocks) },
+   hint: "#lvlHint", presets: "#presets" (may match several containers; a .pgroup label just before each goes too),
+   levelHead: "Level", readingsHead: ["Readings"], readingsGrid: "<CSS selector>",
+   advTest: "body.lvl-adv" (a selector that matches only at A level), left: "#left", right: "#right" }
+   before this runs (headings are matched by their start; a moved <h2> takes its folding body with it). */
+function tidyRun() {
+  "use strict";
+  const CFG = Object.assign({ std: "", adv: "", live: [], graphs: [], learn: [], practical: [], exam: [], settings: [], readings: 6, move: {}, hint: "#lvlHint", presets: "#presets", levelHead: "Level", readingsHead: ["Readings"], readingsGrid: "",
+    advTest: "body.lvl-adv", left: "#left", right: "#right" }, window.TIDY || {});
+  const L = document.querySelector(CFG.left), R = document.querySelector(CFG.right);
+  if (!L || !R || L.dataset.tidy) return;
+  L.dataset.tidy = "1";
+  const KEY = "tidy:" + location.pathname.split("/").slice(-2).join("/") + ":";
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(KEY + k); return v === null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(KEY + k, v); } catch (e) { /* private window: just don't remember */ } }
+  };
+  const txt = el => (el ? el.textContent : "").replace(/\s+/g, " ").trim();
+  const head = el => el.tagName === "H2" ? txt(el) : el.tagName === "DETAILS" ? txt(el.querySelector("summary")) : (el.querySelector && el.querySelector("h2") ? txt(el.querySelector("h2")) : "");
+  const starts = (t, list) => list.some(s => t.toLowerCase().startsWith(s.toLowerCase()));
+  const isAdv = () => !!document.querySelector(CFG.advTest);
+  /* Things to refresh when the level (or a mode) may have changed: after any click or change, and when <body>'s class changes */
+  const refreshers = [];
+  let refreshQueued = false;
+  const refresh = () => { if (refreshQueued) return; refreshQueued = true; setTimeout(() => { refreshQueued = false; refreshers.forEach(f => f()); }, 30); };
+  new MutationObserver(refresh).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  document.addEventListener("click", refresh, true);
+  document.addEventListener("change", refresh, true);
+  const nudge = () => { window.dispatchEvent(new Event("resize")); };
+
+  /* Wrap each <h2> and the siblings after it (up to the next heading or block that holds one) in a folding group. */
+  function foldHeadings(panel, skip) {
+    panel.querySelectorAll("h2").forEach(h => {
+      if (skip(h) || h.closest("details") || h.closest(".tidyMenu") || h.dataset.tidyDone) return;
+      if (h.parentNode.id === "tour" || h.closest("#tour")) return;
+      h.dataset.tidyDone = "1";
+      const body = document.createElement("div"); body.className = "tidyBody";
+      let n = h.nextSibling;
+      while (n && !(n.nodeType === 1 && (n.tagName === "H2" || n.tagName === "DETAILS" || n.classList.contains("reopen") || (n.querySelector && n.querySelector("h2"))))) {
+        const next = n.nextSibling; body.appendChild(n); n = next;
+      }
+      h.after(body);
+      h.classList.add("tidyH");
+      const k = "fold:" + panel.id + ":" + txt(h).slice(0, 40);
+      const set = shut => { h.classList.toggle("shut", shut); body.classList.toggle("shut", shut); };
+      set(store.get(k, "0") === "1");
+      h.addEventListener("click", e => {
+        if (e.target.closest("button,input,select,a,label")) return;
+        const shut = !h.classList.contains("shut"); set(shut); store.set(k, shut ? "1" : "0"); nudge();
+      });
+    });
+  }
+
+  /* ---- Left: level line ---- */
+  const hint = CFG.hint ? document.querySelector(CFG.hint) : null;
+  if (hint) {
+    const lvH = [...L.querySelectorAll("h2")].find(h => txt(h).toLowerCase() === String(CFG.levelHead).toLowerCase());
+    if (lvH) lvH.classList.add("tidyHide");
+    const det = document.createElement("details"); det.className = "tidyInfo";
+    const sum = document.createElement("summary"); det.appendChild(sum);
+    hint.before(det); det.appendChild(hint);
+    const line = () => {
+      const s = isAdv() ? CFG.adv : CFG.std;
+      sum.innerHTML = (s || (isAdv() ? "A level" : "GCSE")) + '<span class="tidyI" title="What this level covers">ⓘ</span>';
+    };
+    line();
+    refreshers.push(line);
+    det.addEventListener("toggle", nudge);
+  }
+
+  /* ---- Left: presets menu ---- */
+  const pres = CFG.presets ? [...document.querySelectorAll(CFG.presets)] : [];
+  if (pres.length) {
+    const pre = pres[0];
+    const pH = [...L.querySelectorAll("h2")].find(h => /^presets/i.test(txt(h)));
+    if (pH) pH.classList.add("tidyHide");
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "tidyPresetsBtn";
+    btn.innerHTML = '<span>Presets ▾</span><span class="cur"></span>';
+    pre.before(btn);
+    const menu = document.createElement("div"); menu.className = "tidyMenu tidyHide";
+    menu.innerHTML = '<p class="tidyMenuHint">Hover over a preset to see what it sets up.</p>';
+    pres.forEach(p => { let g = p.previousElementSibling; if (g === btn) g = btn.previousElementSibling; if (g && g.matches(".pgroup")) menu.appendChild(g); menu.appendChild(p); });
+    document.body.appendChild(menu);
+    const titles = () => menu.querySelectorAll("button").forEach(b => {
+      const sm = b.querySelector("small"); if (sm && !b.title) b.title = txt(sm);
+    });
+    const cur = () => {
+      const on = menu.querySelector("button.on");
+      let t = "";
+      if (on) { const c = on.cloneNode(true); c.querySelectorAll("small").forEach(s => s.remove()); t = txt(c); }
+      btn.querySelector(".cur").textContent = t;
+    };
+    titles(); cur();
+    new MutationObserver(() => { titles(); cur(); }).observe(menu, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+    const close = () => menu.classList.add("tidyHide");
+    const open = () => {
+      const r = btn.getBoundingClientRect();
+      const w = Math.min(460, window.innerWidth - r.left - 16);
+      menu.style.left = r.left + "px"; menu.style.top = (r.bottom + 4) + "px"; menu.style.width = w + "px";
+      menu.style.maxHeight = (window.innerHeight - r.bottom - 14) + "px";
+      menu.classList.remove("tidyHide");
+    };
+    btn.addEventListener("click", e => { e.stopPropagation(); menu.classList.contains("tidyHide") ? open() : close(); });
+    menu.addEventListener("click", e => { if (e.target.closest("button")) setTimeout(close, 0); });
+    document.addEventListener("click", e => { if (!menu.contains(e.target) && e.target !== btn) close(); });
+    document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+    window.addEventListener("resize", close);
+    L.addEventListener("scroll", close);
+  }
+
+  /* ---- Left: fold headings, then gather the "More settings" ---- */
+  const SET_RE = /^(picture|quality|display|graphics|random seed|seed|animation)\b/i;
+  foldHeadings(L, h => h.classList.contains("tidyHide"));
+  const more = document.createElement("details"); more.className = "tidyMore";
+  more.innerHTML = "<summary>More settings</summary>";
+  L.querySelectorAll("h2.tidyH").forEach(h => {
+    const t = txt(h);
+    if (SET_RE.test(t) || starts(t, CFG.settings)) { const bd = h.nextElementSibling; more.appendChild(h); if (bd) more.appendChild(bd); h.classList.remove("tidyH"); h.style.cursor = "default"; }
+  });
+  ["#quality", "#seed", "#rseed", "[id$='Seed']", "[id$='seed']"].forEach(sel => L.querySelectorAll(sel).forEach(inp => {
+    if (more.contains(inp)) return;
+    const c = inp.closest(".ctl") || inp.closest(".row"); if (c && L.contains(c)) more.appendChild(c);
+  }));
+  /* "How the model works" belongs with the other explanations on the right */
+  const toLearn = [];
+  [...L.querySelectorAll("details")].forEach(d => { if (/how the model works/i.test(head(d))) toLearn.push(d); });
+  if (more.children.length > 1) {
+    L.appendChild(more);
+    more.open = store.get("more", "0") === "1";
+    more.addEventListener("toggle", () => store.set("more", more.open ? "1" : "0"));
+  }
+
+  /* ---- Right: tabs ---- */
+  foldHeadings(R, () => false);
+  const TABS = [["live", "Live"], ["graphs", "Graphs"], ["practical", "Practical"], ["learn", "Learn"], ["exam", "Exam"]];
+  const panes = {}, bar = document.createElement("div"); bar.className = "tidyTabs";
+  const kids = [...R.children].filter(k => !k.classList.contains("reopen"));
+  let firstChart = true;
+  const classify = (t, els) => {
+    const low = t.toLowerCase(), has = sel => els.some(e => e.matches && (e.matches(sel) || e.querySelector(sel)));
+    for (const [k] of TABS) if (t && starts(t, CFG[k] || [])) return k;
+    if (has("#tour")) return "live";
+    if (has("#exam") || /exam practice|exam question/.test(low)) return "exam";
+    if (!t) return "live";   // unheaded blocks (e.g. a readout above the first heading) stay on Live
+    if (/practical|^🧪/.test(low) || els[0].matches && els[0].matches(".lab")) return "practical";
+    if (/key idea|key equation|how the model|equations|spec|glossary|data source|story|notes|definitions|further/.test(low)) return "learn";
+    if (/what's happening|what is happening|readings|guided tour|^tour/.test(low)) return "live";
+    if (has("canvas,svg")) { if (firstChart) { firstChart = false; return "live"; } return "graphs"; }
+    return "live";
+  };
+  // an h2 and its folding body travel together
+  const groups = [];
+  for (let i = 0; i < kids.length; i++) {
+    const k = kids[i];
+    if (k.tagName === "H2" && kids[i + 1] && kids[i + 1].classList.contains("tidyBody")) { groups.push([k, kids[i + 1]]); i++; }
+    else groups.push([k]);
+  }
+  const order = new Map(); [...document.querySelectorAll("*")].forEach((e, i) => order.set(e, i));
+  // elements a simulation asks to move (e.g. charts that sit under the readings) go to their own tab
+  const last = new Set();   // moved with "<tab>:last": placed after the tab's own blocks
+  Object.entries(CFG.move).forEach(([key, where]) => {
+    const [tab, pos] = String(where).split(":");
+    const list = /^[A-Za-z][\w-]*$/.test(key) ? [document.getElementById(key)] : [...R.querySelectorAll(key)];
+    list.forEach(e => {
+      if (!e || !R.contains(e)) return;
+      const body = e.tagName === "H2" && e.nextElementSibling && e.nextElementSibling.classList.contains("tidyBody") ? e.nextElementSibling : null;
+      groups.forEach(g => { const i = g.indexOf(e); if (i >= 0) g.splice(i, body ? 2 : 1); });
+      e.remove(); if (body) body.remove();
+      (panes[tab] = panes[tab] || []).push(e); if (body) panes[tab].push(body);
+      if (pos === "last") { last.add(e); if (body) last.add(body); }
+    });
+  });
+  groups.forEach(g => { if (!g.some(n => R.contains(n))) return; const tab = classify(head(g[0]), g); (panes[tab] = panes[tab] || []).push(...g); });
+  toLearn.forEach(d => (panes.learn = panes.learn || []).push(d));
+  const reopen = R.querySelector(":scope > .reopen");
+  const paneEls = {};
+  TABS.forEach(([k, name]) => {
+    if (!panes[k] || !panes[k].length) return;
+    const p = document.createElement("div"); p.className = "tidyPane"; p.dataset.tab = k;
+    panes[k].sort((a, b) => (last.has(a) - last.has(b)) || (order.get(a) || 0) - (order.get(b) || 0)).forEach(n => p.appendChild(n));
+    paneEls[k] = p;
+    const b = document.createElement("button"); b.type = "button"; b.textContent = name; b.dataset.tab = k;
+    bar.appendChild(b);
+  });
+  if (reopen) reopen.after(bar); else R.prepend(bar);
+  Object.values(paneEls).forEach(p => R.appendChild(p));
+  const show = k => {
+    const hidden = n => { const b = bar.querySelector('button[data-tab="' + n + '"]'); return !paneEls[n] || (b && b.classList.contains("tidyHide")); };
+    if (hidden(k)) k = Object.keys(paneEls).find(n => !hidden(n)) || Object.keys(paneEls)[0];
+    Object.entries(paneEls).forEach(([n, p]) => p.classList.toggle("tidyHide", n !== k));
+    bar.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.tab === k));
+    store.set("tab", k); R.scrollTop = 0; nudge();
+  };
+  bar.addEventListener("click", e => { const b = e.target.closest("button"); if (b) show(b.dataset.tab); });
+  // a tab whose contents are all for the other level (e.g. A level practicals at Standard) is hidden
+  // ... and so is a tab whose contents are all hidden just now (e.g. charts only shown in another mode)
+  const shown = el => getComputedStyle(el).display !== "none";
+  const visible = c => {
+    if (c.matches(".tidyBody")) return (!c.previousElementSibling || shown(c.previousElementSibling)) && [...c.children].some(shown);
+    if (c.matches("h2.tidyH") && c.nextElementSibling && c.nextElementSibling.matches(".tidyBody")) return shown(c) && [...c.nextElementSibling.children].some(shown);
+    return shown(c);
+  };
+  const levelTabs = () => {
+    let cur = store.get("tab", "live");
+    bar.querySelectorAll("button").forEach(b => {
+      const empty = ![...paneEls[b.dataset.tab].children].some(visible);
+      b.classList.toggle("tidyHide", empty);
+      if (empty && b.dataset.tab === cur) cur = null;
+    });
+    if (!cur) show("live");
+  };
+  refreshers.push(levelTabs);
+  if (Object.keys(paneEls).length < 2) bar.classList.add("tidyHide");
+  show(store.get("tab", "live"));
+  levelTabs();
+  window.tidyShowTab = show;   // a simulation (or test) can switch tab
+
+  /* ---- Right: only the first few readings, with "More readings" ---- */
+  const rH = [...R.querySelectorAll("h2.tidyH")].find(h => starts(txt(h), CFG.readingsHead));
+  if (rH || CFG.readingsGrid) {
+    const body = rH && rH.nextElementSibling;
+    const grid = CFG.readingsGrid ? R.querySelector(CFG.readingsGrid) : body && [...body.children].sort((a, b) => b.children.length - a.children.length)[0];
+    if (grid) {
+      const tg = document.createElement("button"); tg.type = "button"; tg.className = "tidyMoreR";
+      grid.after(tg);
+      let all = store.get("allReadings", "0") === "1";
+      const apply = () => {
+        const items = [...grid.children];
+        items.forEach(c => c.classList.remove("tidyX"));
+        if (grid.offsetParent === null) return;
+        const vis = items.filter(c => c.offsetParent !== null || getComputedStyle(c).display !== "none" && c.getClientRects().length);
+        const extra = vis.slice(CFG.readings);
+        tg.classList.toggle("tidyHide", !extra.length);
+        tg.textContent = all ? "Fewer readings ▴" : "More readings (" + extra.length + ") ▾";
+        if (!all) extra.forEach(c => c.classList.add("tidyX"));
+      };
+      tg.addEventListener("click", () => { all = !all; store.set("allReadings", all ? "1" : "0"); apply(); nudge(); });
+      apply();
+      new MutationObserver(apply).observe(grid, { childList: true });
+      refreshers.push(apply);
+    }
+  }
+  nudge();
+}
+// wait until the simulation has drawn its first frames, so headings and readings it fills in then exist
+window.addEventListener("load", () => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(tidyRun, 250))));
+</script>
+</body>
+</html>
