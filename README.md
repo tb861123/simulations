@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Sixty-one simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): fifty-four rebuilt showpieces, which replaced the earlier versions in
+Sixty-four simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): fifty-seven rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -31,7 +31,7 @@ Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, S
 Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
 and Competition, Arousal and Performance, Stellar Life Cycle, Inheritance, Simple Harmonic
 Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, Reactivity of
-Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, and Circular Motion are likewise kept in each folder's `original/`, with their worksheets,
+Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, and Groups 1 and 7 are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Typing slider values
@@ -99,16 +99,16 @@ changing a simulation's batch experiments.
 |---|---|---|
 | [`chemistry/collision_theory/`](chemistry/collision_theory/) | Collision Theory and Rates ★: reacting molecules, activation energy, catalysts, surface area, runaway reactions, the Arrhenius plot | Open `collision-theory.html` |
 | [`chemistry/dynamic_equilibrium/`](chemistry/dynamic_equilibrium/) | Dynamic Equilibrium ★: A + B ⇌ AB with real particle collisions; Le Chatelier, K and Q, energy profile | Open `dynamic-equilibrium.html` |
-| [`chemistry/atomic_structure/`](chemistry/atomic_structure/) | Atomic structure: protons, neutrons, electrons, shells, ions, isotopes and relative atomic mass | Open `atomic-structure.html` |
+| [`chemistry/atomic_structure/`](chemistry/atomic_structure/) | Atomic structure ★: build atoms and ions, isotopes, weighing atoms for Ar; s, p, d and ionisation energies at A level | Open `atomic-structure.html` |
 | [`chemistry/bonding/`](chemistry/bonding/) | Bonding and Structure ★: ionic, covalent and metallic bonds forming; heat, conduct and hammer the structure | Open `bonding.html` |
 | [`chemistry/organic_chemistry/`](chemistry/organic_chemistry/) | Crude Oil, Cracking and Polymers ★: molecules in a fractionating column, cracking and the bromine test, combustion, addition polymers, free-radical substitution | Open `organic-chemistry.html` |
-| [`chemistry/periodic_groups/`](chemistry/periodic_groups/) | Groups 1 and 7: alkali metals with water, halogens and displacement, trends down a group | Open `periodic-groups.html` |
+| [`chemistry/periodic_groups/`](chemistry/periodic_groups/) | Groups 1 and 7 ★: alkali metals with water, halogen states and displacement, trends down the groups | Open `periodic-groups.html` |
 | [`chemistry/reactivity_metals/`](chemistry/reactivity_metals/) | Reactivity ★: metals with water and acid, displacement with temperature rises, extraction (blast furnace, electrolysis), redox | Open `reactivity-metals.html` |
 | [`chemistry/electrolysis/`](chemistry/electrolysis/) | Electrolysis ★: ions drifting to the electrodes, products at each, half-equations, Faraday's law | Open `electrolysis.html` |
 | [`chemistry/energy_changes/`](chemistry/energy_changes/) | Energy Changes ★: bonds breaking and forming on a profile, cup calorimetry with extrapolation, burning alcohols, ΔG at A level | Open `energy-changes.html` |
 | [`chemistry/acids_salts_tests/`](chemistry/acids_salts_tests/) | Acids, alkalis, titration, making salts, and a chemical tests lab (flame tests, ions, gases, unknowns) | Open `acids-salts-tests.html` |
 | [`chemistry/chromatography/`](chemistry/chromatography/) | Paper chromatography: Rf values, identifying components, solvent choice and measurement error | Open `chromatography.html` |
-| [`chemistry/crystallisation/`](chemistry/crystallisation/) | Cooling rate and crystal size: granite, basalt, obsidian, salt crystals, dendrites | Open `crystallisation.html` |
+| [`chemistry/crystallisation/`](chemistry/crystallisation/) | Crystallisation ★: crystals growing in cooling magma (granite, basalt, obsidian) and in salt solutions; solubility curves, seeds, JMAK theory | Open `crystallisation.html` |
 | [`chemistry/moles_reacting_masses/`](chemistry/moles_reacting_masses/) | Moles, reacting masses and yield: Mr, limiting reactants, empirical formulae and hydrates by experiment, percentage yield, gas volumes, concentration | Open `moles-reacting-masses.html` |
 | [`chemistry/electrochemical_cells/`](chemistry/electrochemical_cells/) | Electrochemical cells: displacement, simple cells, half-cells and E°, feasibility, fuel and lithium-ion cells, redox titrations | Open `electrochemical-cells.html` |
 
