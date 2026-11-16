@@ -1,120 +1,116 @@
-# Young's Modulus and Stress–Strain
+# Materials Science
 
-A single, self-contained HTML file for iGCSE and A level physics. It needs no
-install and no internet: **open `youngs-modulus.html` in Chrome or Edge**.
+A single, self-contained HTML file for A level physics (and iGCSE for the
+practical and tensile test). It needs no install and no internet: **open
+`youngs-modulus.html` in Chrome or Edge**.
 
-- **Standard (iGCSE):** Pearson Edexcel International GCSE Physics (4PH1),
-  Section 1(c): the practical on how extension varies with applied force for
-  springs, metal wires and rubber bands, Hooke's law (the straight part of the
-  graph) and elastic behaviour.
-- **Advanced (A level):** WJEC Eduqas A level Physics, Component 1, Topic 3
-  (Deformation of Solids): stress, strain, Young's modulus, stress–strain
-  curves, hysteresis, strain energy, and the specified practical to find the
-  Young modulus of a metal wire (the Batch run).
+It expands the earlier Young's Modulus simulation into a full materials
+science lab. The earlier version and its worksheets are kept in
+[`original/`](original/), and the new page's notes link to it.
 
-A key-ideas box tags each idea (iGCSE 4PH1, A level Eduqas, beyond the spec).
+★ Enhanced: built from `tools/kit/src/youngs_modulus.js` by `node build.js` (run
+inside `tools/kit/`). Do not edit `youngs-modulus.html` by hand.
 
-It replaces the old WJEC Streamlit page *Young's Modulus & Stress-Strain*
-(`physics_sims/pages/20_Youngs_Modulus.py`) and keeps all of its controls,
-graphs, material data, notes and exam questions.
+- **Standard (A level):** WJEC Eduqas A level Physics, Component 1, Topic 1.5
+  *Solids under stress*. It covers:
+  - Hooke's law; stress, strain and the Young modulus
+  - work done as the area under a force–extension graph (½Fx = ½kx²)
+  - crystalline, amorphous and polymeric solids
+  - stress–strain curves for ductile metals, brittle materials and rubber
+  - edge dislocations, foreign atoms and grain boundaries
+  - necking and ductile fracture
+  - crack propagation and brittle fracture, and toughened glass
+  - rubber and hysteresis
+  - the specified practical: the Young modulus of a metal wire
 
-A wire hangs from a support with slotted masses on a hanger. Load it with the
-force sliders or **Auto-stretch** (the load rises steadily until the wire breaks)
-and watch it stretch elastically, yield, neck and snap. **Unload** takes the load
-off: after plastic stretching the wire unloads along a line of gradient E and is
-left permanently longer.
+  The Practical and Tensile test views also cover Pearson Edexcel International
+  GCSE Physics (4PH1) 1(c): force–extension of springs, wires and rubber bands,
+  and Hooke's law.
+- **Advanced (stretch, beyond the spec):**
+  - the Hall–Petch equation σy = σ0 + k ÷ √d
+  - Griffith's crack equation (σf ∝ 1 ÷ √a) and stress concentration at a crack tip
+  - the Schmid factor
+  - the theoretical strength of a perfect crystal
 
-## Controls
+The Revise tab has key ideas tagged to the spec and exam questions. Some
+questions use the numbers on screen.
 
-- **Level:** Standard (iGCSE) or Advanced (A level), with a hint naming the spec.
-- **Material:** steel, copper, aluminium, rubber, bone, glass (typical values below).
-- **Cross-section area A** 0.1–5 mm² (diameter shown), **original length L₀** 0.1–2 m.
-- **Applied force F** 0–10 000 N, plus a fine slider (0–500 N) for thin or weak wires.
-- **Advanced:** show the hysteresis loop (unloading path and the energy lost per m³);
-  choose the materials for the comparison chart.
-- **Magnify the extension** on the picture (Auto, ×1, ×10, ×100, ×1000): elastic
-  extensions are often under a millimetre. Graphs and numbers are never magnified.
-- **Picture quality** (Low / Medium / High / Ultra, default Medium): how sharply the live view is drawn. Low draws at standard resolution and redraws about 30 times a second, for slower laptops and tablets; High and Ultra draw at 1.5× and 2× the screen's resolution for smoother edges. Only the drawing changes: the model and batch-run results are identical at every level. The choice is remembered in this browser.
-- Auto-stretch / Pause, Unload, New wire, speed ½×–4× (1×: the breaking load is
-  reached in about 12 s).
+## Six views
 
-## Views and readouts
+| View | What you see | The model |
+|---|---|---|
+| 🔬 **Practical** | Searle's apparatus: a reference wire and a test wire (steel or copper) with a vernier scale. Add 0.25 kg masses one at a time; each load records a vernier reading. Measure the diameter with the micrometer in several places. The graph of extension against load gives the gradient, and E = L ÷ (A × gradient). | The same material model as the tensile test, under a fixed load. Readings have random errors: vernier SD 0.01 mm, micrometer SD 0.005 mm. Copper goes past its elastic limit within the masses available. |
+| 📈 **Tensile test** | A wire or strip in grips, pulled until it breaks. You choose mild steel, copper, aluminium alloy, cast iron, glass, alumina ceramic, bone, rubber or polythene. It shows necking, cup-and-cone or flat brittle fracture, and polythene's travelling neck. **Release** unloads it. A card shows how the particles are arranged. | Typical published stress–strain curves. Metals and polythene are elastic, then flow plastically with work hardening, then neck. Brittle materials break at a stress that varies from sample to sample. Rubber has separate loading and unloading curves. |
+| ⊥ **Atoms** | About 700 atoms in a perfect crystal or with one **edge dislocation**. The extra half-plane is outlined and a ⊥ marks the core. You can add larger **foreign atoms** on the slip plane. **Shear** it and watch the half-plane move one row of bonds at a time, leaving a step at the surface. | Molecular dynamics: Lennard-Jones forces between atoms and Newton's second law in tiny time steps. Atoms with 5 or 7 neighbours (defects) are shown orange. |
+| ▦ **Grains** | A 240 × 150 μm slice of polycrystalline metal. Each grain is striped along its slip planes. Dislocations (⊥) glide out from sources, **pile up at grain boundaries** and turn red as they press harder. Green rings mark slip breaking through. Grain size and foreign atoms are adjustable. | A two-dimensional dislocation model. Dislocations repel one another (∝ 1/distance) and have to overcome a friction stress. They cross a boundary only when the stress at the head of the pile-up passes a critical value. |
+| 💥 **Brittle** | A crystalline ceramic or an amorphous glass, with a notch (crack) 0–12 atoms deep and an option for **toughened** surface layers in compression. Bonds are coloured by strain, so you can see the stress concentrate at the crack tip and the crack run. | Atoms joined by springs that snap at about 10% stretch. After each step the atoms settle, then the most over-stretched bond breaks. |
+| 〰 **Polymers** | Tangled chain molecules in rubber, with an adjustable number of cross-links, or in polythene, which has none. They straighten as the sample is stretched. The hysteresis loop is shaded, and bars show the work put in, the work given back and the energy lost as heat. | The rubber equation σ = G(λ − 1/λ²) with a term for the chains running out of slack. The unloading curve is lower than the loading curve. Polythene flows plastically. |
 
-- The wire and hanger, with L₀, ΔL, the region (elastic, plastic, failed), necking,
-  the snap and the falling load.
-- **Stress–strain graph** for the material, coloured by region, with the elastic
-  limit / yield point, UTS and fracture marked, the path this wire has followed and
-  where it is now; "Zoom: elastic region" button.
-- **Force against extension** for this wire, with Hooke's law F = kΔL.
-- Tiles: stress, strain, extension (and how much is permanent), E, k = EA/L₀, force
-  and breaking force. Advanced adds elastic energy stored, resilience, toughness and
-  the energy lost in the hysteresis loop.
-- **Material data** (E, UTS, yield stress, fracture strain); Advanced: **material
-  comparison** chart (strain axis capped at 30%) and a **spring constant table**
-  k = EA/L₀ for every material.
-- What's happening, 📐 Physics notes (spec reference, equations, explanation,
-  Advanced context), **📝 Exam practice**: the old page's 3 questions (extension,
-  stress, definition of E) with numbers from the current settings and a "Show mark
-  scheme" toggle, and "How the model works (and what it leaves out)".
+## Charts and readouts
 
-| Material | E (GPa) | Yield (MPa) | UTS (MPa) | Fracture strain |
-|---|---|---|---|---|
-| Steel | 200 | 250 | 400 | 25% |
-| Copper | 120 | 70 | 220 | 40% |
-| Aluminium (alloy) | 70 | 270 | 310 | 12% |
-| Rubber | 0.01 | — | 16 | 500% |
-| Bone | 17 | 100 | 130 | 2% |
-| Glass | 70 | — | 33 | 0.047% (= UTS/E) |
+Each view has two linked charts:
 
-## Presets
+- **Practical:** extension against load with a best-fit line; plus the micrometer readings and their mean.
+- **Tensile test:** stress–strain, with the elastic limit or yield, UTS and fracture marked, and a zoom on the elastic region; plus force–extension for this sample, where the area gives the work done in joules.
+- **Atoms:** shear stress against shear strain; plus the slip stress from each test.
+- **Grains:** stress–strain over the start of plastic flow; plus yield stress against 1 ÷ √d for every sample tested, with a best-fit line.
+- **Brittle:** stress–strain; plus breaking stress against notch depth.
+- **Polymers:** the loading and unloading loop; plus the energy bars.
 
-Steel: Hooke's law · Copper beyond yield · Permanent stretch (load copper to 180 N
-then unload) · Pull steel to breaking · Glass: brittle · Rubber band (J-curve) ·
-Thick steel bar (5 mm²) · Bone · Aluminium alloy · Elastic: load, unload
-(copper to 60 N, below its elastic limit) · iGCSE practical: wire (2 m thin
-steel wire, auto-loaded) · Hysteresis loop (Advanced only: copper loaded to
-180 N and unloaded, with the loop shown).
+Readouts include stress, strain, the Young modulus, work done per m³, the
+dislocation's position, the stress concentration at the crack tip, and the
+number of bonds broken.
 
-## Exam practice
+## Investigate (missions)
 
-Built from the numbers on screen, with mark schemes.
+Standard level:
 
-- **Standard (iGCSE 4PH1):** describe the extension-against-force practical,
-  doubling the force (Hooke's law), elastic behaviour, reading a
-  force–extension graph, rubber against steel, the weight of a hanging mass.
-- **Advanced (A level, Eduqas):** the three questions from the old page
-  (extension, stress, definition of E), plus the spring constant and strain
-  energy of your wire, the hysteresis loop, and ductile versus brittle.
+1. Searle's method
+2. Stay below the elastic limit
+3. Hooke's law and the Young modulus
+4. Reading a ductile metal's curve
+5. Permanent stretch and work hardening
+6. Tough or brittle?
+7. Rubber and hysteresis
+8. An edge dislocation
+9. Foreign atoms
+10. Grain boundaries
+11. Cracks concentrate stress
+12. Toughened glass
+13. Crystalline or amorphous?
+14. Cross-links
 
-## The model
+Advanced level adds:
 
-Same curve shapes as the old page: ductile materials are linear (σ = Eε) to the
-yield point, a parabola up to the UTS (halfway between the yield and fracture
-strains), then necking down to 5% of the UTS at the fracture strain. Glass is linear
-to fracture; rubber is a J-curve σ ∝ ε + ε³/3 + ε⁵/5. Hanging a load controls the
-force, so the wire breaks as soon as the stress reaches the UTS. Unloading after
-plastic strain follows a line of gradient E (permanent set). Engineering stress
-(original area) throughout. Left out: true stress, temperature, creep and strain
-rate, work hardening beyond the old maximum on reloading, the wire's own weight.
+- Theoretical strength
+- Hall–Petch
 
 ## Batch run
 
-**📊 Batch run** runs model experiments with no drawing. Repeat mode gives a
-histogram with mean, SD, standard error and the theory value; Sweep steps any one
-setting from the batch settings table (below) and plots mean ±
-1 SD with the theory line. Results download as CSV. Every one-click experiment sets
-all of its own inputs, so it gives the same result in any order.
-Searle's-method runs add random reading errors (extension scale and micrometer);
-breaking-strength runs give each wire a random strength from a Weibull distribution
-(wide for glass, narrow for metals).
+Each experiment runs the model many times without drawing it. It plots each
+result with the mean ± standard error and the SD, compares them with theory
+or a best-fit line where there is one, and exports CSV.
 
-**Batch settings table.** The batch panel lists every starting setting the chosen outcome uses (material; wire length, area, force, number of load steps, largest load (fraction of the elastic limit), extension reading error and micrometer error). Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill the whole table in, and **↺ Use my left-panel settings** copies the left panel into it.
-
-| Question | Result (test run) |
+| Experiment | What it does |
 |---|---|
-| Measure E for steel (200 runs, 2 m, 0.2 mm², 8 loads) | mean 200.4 GPa, SD 4.4 GPa (theory 200), 1.3 standard errors |
-| Why use a long, thin wire? (L₀ 0.25–3 m, 40 runs each) | SD falls from 13 GPa at 0.25 m to 1.1 GPa at 3 m; means 200.1–201.7 |
-| Is extension proportional to force? (copper, 10–210 N, log–log) | on Hooke's line within 0.5% up to 65 N; 8.9 mm instead of 0.69 mm at 82 N; 149 mm at 210 N |
-| Thicker wire, less stretch? (steel, 40 N, 0.2–5 mm²) | log–log gradient −1.002 (theory −1) |
-| Why is glass so unpredictable? (200 fibres) | mean breaking force 32.2 N, SD 6.4 N (theory 33 N, SD 6.4 N) |
-| Breaking force against area (steel) | gradient 398 N per mm² (UTS 400 MPa); about 6% scatter |
+| Searle's method: measuring E for steel | A histogram of 200 students' results, each with vernier and micrometer errors, against the true 200 GPa. |
+| Why use a long, thin wire? | Wire length 0.25–3 m: the spread of E shrinks as the wire gets longer. |
+| Grain size and yield stress | Grain-scale model. Plots yield stress against 1 ÷ √d with a best-fit line (Hall–Petch). |
+| Foreign atoms and yield stress | 0–2% foreign atoms. |
+| Perfect crystal or dislocation? | Molecular dynamics: the shear stress to make a perfect crystal slip, against a crystal with one edge dislocation (about a sixth as much). Takes a few seconds. Foreign atoms are shown in the live Atoms view. |
+| Crack length and breaking stress | Bond-network model, compared with Griffith's ∝ 1 ÷ √a. It fits from about 4 atoms deep; shallower notches fall below the line. |
+| Scatter in the strength of glass | A histogram of 300 rods, each breaking at its deepest scratch. |
+| Rubber: energy lost per cycle | The area of the hysteresis loop against the maximum strain. |
+| Toughness of materials | Energy absorbed per m³ to fracture, for six materials. |
+
+## Assumptions and simplifications
+
+These are also listed in the simulation's notes.
+
+- Everything is two-dimensional. Real dislocations are lines, and real grains are 3D with several slip systems.
+- The atom model is a few nanometres across and is sheared very fast. Its stresses are in model units and show the pattern, not real values.
+- In the grain model, each ⊥ stands for a group of dislocations. Its constants are tuned to give realistic yield stresses for mild steel.
+- Mild steel's yield drop appears only in the tensile test.
+- The brittle model's bonds are identical apart from a small scatter.
+- Real cracks are thousands of atoms long and can branch.
+- Temperature, loading rate and creep are not modelled.

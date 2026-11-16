@@ -587,6 +587,9 @@ function mdStep(S, rate, gam, T, r) {
 // count each atom's close neighbours: 6 in a perfect lattice, 5 or 7 at the core of a dislocation
 function mdCoord(S) {
   S.coord.fill(0); const P = S.pairs;
+  const lo = {}, hi = {}; S.side = S.side || new Uint8Array(S.N);
+  for (let k = 0; k < S.N; k++) { const j = S.row[k]; lo[j] = Math.min(lo[j] ?? 1e9, S.x[k]); hi[j] = Math.max(hi[j] ?? -1e9, S.x[k]); }
+  for (let k = 0; k < S.N; k++) S.side[k] = S.x[k] < lo[S.row[k]] + 0.8 * A0 || S.x[k] > hi[S.row[k]] - 0.8 * A0 ? 1 : 0;
   for (let p = 0; p < S.np; p += 2) { const a = P[p], b = P[p + 1], dx = S.x[b] - S.x[a], dy = S.y[b] - S.y[a], lim = 1.3 * A0 * (S.s[a] + S.s[b]) / 2; if (dx * dx + dy * dy < lim * lim) { S.coord[a]++; S.coord[b]++; } }
 }
 // where is the dislocation core? the average position of 5- and 7-neighbour atoms near the slip plane (null if none)
@@ -602,14 +605,16 @@ function mdCore(S) {
   }
   return n ? sx / n : null;
 }
+// has the dislocation left the block? (the core can vanish from view for a moment next to a foreign atom, so it must have been near the edge)
+const mdGone = (S, c, last) => last != null && (c == null ? last > S.W - 6 : c > S.W - 2.5);
 // the shear stress needed to make a block slip (batch run). kind 1: perfect, 2: one dislocation, 3: dislocation + foreign atoms
 function mdSlipStress(kind, r) {
   const S = mdMake({ nx: 26, ny: 14, disloc: kind > 1, sol: kind === 3 ? 4 : 0, relax: 1200 }, r);
-  let tmax = 0, seen = false;
+  let tmax = 0, last = null;
   for (let k = 0; k < 14000; k++) {
     mdStep(S, 0.0004, 1, 0.002, r); if (S.tauAvg > tmax) tmax = S.tauAvg;
     if (k % 50) continue;
-    if (kind > 1) { mdCoord(S); const c = mdCore(S); if (c != null) seen = true; if (seen && (c == null || c > S.W - 2.5)) return tmax; }
+    if (kind > 1) { mdCoord(S); const c = mdCore(S); if ((c != null && c > S.W - 2.5) || (tmax > 0.12 && S.tauAvg < 0.4 * tmax)) return tmax; if (c != null) last = c; }
     else if (tmax > 0.4 && S.tauAvg < 0.6 * tmax) return tmax;
   }
   return tmax;
@@ -643,7 +648,7 @@ function ddMake(d, sol, r) {
     for (const [k, W] of [[0, DD.WX], [1, DD.WY]]) { if (u[k] > 1e-9) { hi = Math.min(hi, (W - s[k]) / u[k]); lo = Math.max(lo, -s[k] / u[k]); } else if (u[k] < -1e-9) { hi = Math.min(hi, -s[k] / u[k]); lo = Math.max(lo, (W - s[k]) / u[k]); } }
     return { s, phi, u, m: Math.abs(Math.sin(2 * phi)) / 2, lo, hi, dis: [], through: 0 };   // m = Schmid factor: the fraction of the pull that shears the slip plane
   });
-  return { G, d, sol, w: 2.8 * Math.sqrt(d), eps: 0, ep: 0, sig: 0, tf0: 20 + 30 * Math.sqrt(sol), tsrc: 15, through: 0, flashes: [], sy: null, path: [[0, 0]] };
+  return { G, d, sol, w: 2.8 * Math.sqrt(d), eps: 0, ep: 0, sig: 0, tf0: 20 + 70 * Math.sqrt(sol), tsrc: 15, through: 0, flashes: [], sy: null, path: [[0, 0]] };
 }
 function ddStep(S, dt, rate) {
   S.eps += rate * dt; S.sig = DD.E * (S.eps - S.ep);
@@ -722,7 +727,7 @@ function frMake(o, r) {
   let pairs = [];
   if (!o.amorph) { const id = (i, j) => j * nx + i; for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const nb = [[i + 1, j]].concat(j % 2 ? [[i, j + 1], [i + 1, j + 1]] : [[i - 1, j + 1], [i, j + 1]]); for (const [a, b] of nb) if (a >= 0 && a < nx && b < ny) pairs.push([id(i, j), id(a, b)]); } }
   else pairs = delaunay(pts).filter(([a, b]) => Math.hypot(pts[a][0] - pts[b][0], pts[a][1] - pts[b][1]) < 1.75);
-  const xm = Wx / 2 - 0.25, ytop = H - (o.notch || 0) * h - 0.01, band = 2.6 * h;
+  const xm = Math.floor(Wx / 2) + 0.25, ytop = H - (o.notch || 0) * h - 0.01, band = 2.6 * h;
   const nSurf = pairs.filter(([a, b]) => Math.max(pts[a][1], pts[b][1]) < band || Math.min(pts[a][1], pts[b][1]) > H - band).length, nIn = pairs.length - nSurf;
   const A = [], B = [], L = [], EB = [];
   for (const [a, b] of pairs) {
@@ -792,8 +797,8 @@ const ui = K.app({
     { title: "Why use a long, thin wire?", question: "How does the length of the wire change how precisely E is measured?", how: "Steel, 0.35 mm diameter, perfect micrometer; only the vernier reading error (SD 0.01 mm). 20 students for each length.", xLabel: "wire length (m)", yLabel: "E measured (GPa)", xs: [0.25, 0.5, 1, 1.5, 2, 3], reps: 20, theory: () => 200, theoryLabel: "true E", run: (x, r) => searleE({ mat: "steel", D: 0.35, L: x, errE: 0.01, errD: 0 }, r), note: "Short wires give widely scattered answers: they stretch so little that the ±0.01 mm reading error is a big fraction of the extension. A longer (or thinner) wire stretches more, so the same reading error matters less. The mean is right either way; the precision is not." },
     { title: "Grain size and yield stress", question: "Does a metal with smaller grains yield at a higher stress (Hall–Petch)?", how: "Grain-scale dislocation model; grain size d from about 70 μm down to 15 μm; yield = 0.2% proof stress. x = 1 ÷ √d, so Hall–Petch predicts a straight line.", xLabel: "1 ÷ √(grain size) (μm^−½)", yLabel: "yield stress (MPa)", xs: [0.12, 0.15, 0.18, 0.22, 0.26], reps: 4, yMin: 0, fit: true, run: (x, r) => ddYield(1 / (x * x), 0, r), note: "A straight line: σy = σ0 + k ÷ √d. The gradient is k; the intercept is the stress to move dislocations inside a grain. Each sample has randomly placed, randomly oriented grains, so the points scatter." },
     { title: "Foreign atoms and yield stress", question: "How does adding foreign (alloying) atoms change the yield stress?", how: "Grain size 30 μm; foreign atoms 0 to 2% by number. They add friction that every moving dislocation must overcome.", xLabel: "foreign atoms (%)", yLabel: "yield stress (MPa)", xs: [0, 0.25, 0.5, 1, 1.5, 2], reps: 4, yMin: 0, run: (x, r) => ddYield(30, x, r), note: "The yield stress rises with more foreign atoms, quickly at first then more slowly (the model's friction rises as √concentration, roughly as in real solid solutions)." },
-    { title: "Perfect crystal or dislocation?", question: "How much shear stress makes a block of atoms slip?", how: "Molecular dynamics of about 360 atoms, sheared slowly. 1 = perfect crystal, 2 = one edge dislocation, 3 = edge dislocation with 4 foreign atoms in its path. Takes a few seconds.", xLabel: "crystal (1 perfect, 2 dislocation, 3 dislocation + foreign atoms)", yLabel: "shear stress to slip (model units)", xs: [1, 2, 3], reps: 3, yMin: 0, run: (x, r) => mdSlipStress(x, r), note: "The perfect crystal must break a whole plane of bonds at once. A dislocation lets the slip happen one row at a time, at a small fraction of the stress. Foreign atoms pin the dislocation, so more stress is needed." },
-    { title: "Crack length and breaking stress", question: "How does the depth of a surface crack change the stress at which a brittle solid breaks?", how: "Bond-network model (crystalline ceramic), notch 1 to 12 atoms deep. Theory (Griffith): σ ∝ 1 ÷ √a, using a + 1.5 atoms to allow for the size of the tip.", xLabel: "crack depth a (atoms)", yLabel: "breaking stress (GPa)", xs: [1, 2, 3, 4, 6, 8, 10, 12], reps: 3, yMin: 0, theory: a => 7.4 / Math.sqrt(a + 1.5), theoryLabel: "∝ 1 ÷ √(a + 1.5)", run: (x, r) => frBreakStress(x, r), note: "Deeper cracks concentrate the stress more, so the solid breaks at a lower applied stress. Real glass has scratches thousands of atoms deep, which is why it breaks at about 50 MPa instead of several GPa." },
+    { title: "Perfect crystal or dislocation?", question: "How much shear stress makes a block of atoms slip?", how: "Molecular dynamics of about 360 atoms, sheared slowly. 1 = perfect crystal, 2 = one edge dislocation. Takes a few seconds. (Foreign atoms are best seen in the larger live crystal: this small one is too narrow for them to pin the dislocation reliably.)", xLabel: "crystal (1 perfect, 2 one edge dislocation)", yLabel: "shear stress to slip (model units)", xs: [1, 2], reps: 4, yMin: 0, run: (x, r) => mdSlipStress(x, r), note: "The perfect crystal must break a whole plane of bonds at once. A dislocation lets the slip happen one row at a time, at a small fraction of the stress (here about a sixth)." },
+    { title: "Crack length and breaking stress", question: "How does the depth of a surface crack change the stress at which a brittle solid breaks?", how: "Bond-network model (crystalline ceramic, 20 rows of atoms), notch 2 to 12 atoms deep. Theory (Griffith): σ ∝ 1 ÷ √a.", xLabel: "crack depth a (atoms)", yLabel: "breaking stress (GPa)", xs: [2, 3, 4, 6, 8, 10, 12], reps: 3, yMin: 0, theory: a => 6.9 / Math.sqrt(a), theoryLabel: "Griffith ∝ 1 ÷ √a", run: (x, r) => frBreakStress(x, r), note: "Deeper cracks concentrate the stress more, so the solid breaks at a lower applied stress. The Griffith line fits from about 4 atoms deep. Very shallow notches break at less than it predicts, because Griffith's equation assumes a crack far longer than the spacing of the atoms. Real glass has scratches thousands of atoms deep, which is why it breaks at about 50 MPa instead of several GPa." },
     { title: "Scatter in the strength of glass", question: "Glass rods that look identical: do they all break at the same stress?", how: "300 rods, each with 20 to 40 random surface scratches; each breaks at its deepest scratch (Griffith equation, toughness 0.75 MPa √m).", yLabel: "breaking stress (MPa)", reps: 300, bins: 24, run: (x, r) => glassStrength(r), note: "Brittle strength scatters a lot, because it depends on the worst scratch, which is a matter of chance. Engineers using glass or ceramics need big safety factors; metals are far more predictable." },
     { title: "Rubber: energy lost per cycle", question: "How much energy is turned into heat when rubber is stretched and released?", how: "Stretch to a maximum strain of 100% to 500% and release; area of the hysteresis loop (MJ per m³), with ±3% measurement error.", xLabel: "maximum strain (%)", yLabel: "energy lost (MJ per m³)", xs: [100, 200, 300, 400, 500], reps: 4, yMin: 0, run: (x, r) => rubberLoss(x / 100) * (1 + 0.03 * r.gauss()), note: "The loop gets bigger, faster than in proportion, as the chains straighten and the stress climbs. This heat is why car tyres warm up as they roll." },
     { title: "Toughness of materials", question: "How much energy per m³ does each material absorb before it breaks?", how: "Area under the full stress–strain curve. 1 glass, 2 alumina, 3 cast iron, 4 aluminium alloy, 5 mild steel, 6 copper. Fracture strain varies ±8% from sample to sample.", xLabel: "material (1 glass, 2 alumina, 3 cast iron, 4 Al alloy, 5 steel, 6 copper)", yLabel: "energy absorbed (MJ per m³)", xs: [1, 2, 3, 4, 5, 6], reps: 4, yMin: 0, run: (x, r) => toughness(["glass", "ceramic", "castiron", "alu", "steel", "copper"][x - 1], r), note: "The brittle materials absorb almost nothing (well under 1 MJ per m³) because they break at a tiny strain. Ductile metals absorb thousands of times more because they stretch plastically, by tens of percent, before breaking." }
@@ -904,17 +909,17 @@ function newTensile() {
   T = { e: 0, ep: 0, sig: 0, dir: 0, broken: false, W: 0, up: [[0, 0]], down: [], path: [[0, 0]], released: false, yieldPt: null, uts: [0, 0], frac: null, emax: 0, sf: M.sf ? M.sf * Math.max(0.4, 1 + M.scatter * rnd.gauss() * (P.mat === "glass" ? 1 : 0.5)) : 0 };
 }
 function pull(d) { T.dir = T.broken ? 0 : d; if (d < 0 && !T.broken) T.released = true; ctl.pull.textContent = T.dir > 0 ? "⏸ Stop" : "▶ Pull"; }
-function newMD() { MDS = { S: mdMake({ nx: 36, ny: 20, disloc: P.disloc, sol: P.sol }, rnd), dir: 0, path: [[0, 0]], tmax: 0, seen: false, slipped: false, core: null, frame: 0 }; mdCoord(MDS.S); MDS.core = mdCore(MDS.S); MDS.core0 = MDS.core; }
+function newMD() { MDS = { S: mdMake({ nx: 36, ny: 20, disloc: P.disloc, sol: P.sol }, rnd), dir: 0, path: [[0, 0]], tmax: 0, seen: false, slipped: false, core: null, frame: 0 }; mdCoord(MDS.S); MDS.core = mdCore(MDS.S); MDS.last = MDS.core; MDS.gone = false; }
 function shearGo(d) { MDS.dir = d; ctl.shear.textContent = d ? "⏸ Stop" : "▶ Shear"; }
 let grainImg = null;
 function newGrains() { DDS = { S: ddMake(P.d, P.dsol, rnd), dir: 0, done: false }; grainImg = null; }
 function newFrac() { FRS = { S: frMake({ nx: 48, ny: 28, notch: P.notch, amorph: P.amorph, pre: P.tough ? 0.045 : 0 }, rnd), dir: 0, done: false }; }
 function newPoly() {
   // chain molecules: random walks of 34 beads, each step turning a random amount; spread over a region taller than the window (the stretched material narrows)
-  const chains = [], VW = 36, VH = 22;
-  for (let c = 0; c < 26; c++) {
-    let x = (rnd() - 0.5) * VW * 0.9, y = (rnd() - 0.5) * VH * 2.4, a = rnd() * 6.28; const pts = [];
-    for (let i = 0; i < 34; i++) { pts.push({ rx: x, ry: y, x, y }); a += (rnd() - 0.5) * 2.2; x += Math.cos(a); y += Math.sin(a); if (Math.abs(x) > VW * 0.55) a = Math.PI - a; }
+  const chains = [], VW = 32, VH = 20;
+  for (let c = 0; c < 44; c++) {
+    let x = (rnd() - 0.5) * VW * 0.9, y = (rnd() - 0.5) * VH * 0.9, a = rnd() * 6.28; const pts = [];
+    for (let i = 0; i < 34; i++) { pts.push({ rx: x, ry: y, x, y }); a += (rnd() - 0.5) * 2.2; x += Math.cos(a); y += Math.sin(a); if (Math.abs(x) > VW / 2 - 0.5) { a = Math.PI - a; x = Math.sign(x) * (VW / 2 - 0.5); } if (Math.abs(y) > VH / 2 - 0.5) { a = -a; y = Math.sign(y) * (VH / 2 - 0.5); } }
     pts[0].pin = pts[33].pin = true; chains.push({ pts, col: K.col(c % 8) });
   }
   // cross-links: tie together beads on different chains that happen to be close
@@ -945,7 +950,7 @@ function set(o) {
 // ---------------- Stepping each model ----------------
 function stepTensile(dt) {
   const M = MATS[P.mat]; if (T.broken || !T.dir) return;
-  const rate = speed * 0.15 * (T.e + 3 * M.eref) * (M.kind === "brittle" ? 0.35 : M.kind === "rubber" ? 0.6 : 1), e0 = T.e, s0 = T.sig;
+  const rate = speed * 0.25 * (T.e + 3 * M.eref) * (M.kind === "brittle" ? 0.35 : M.kind === "rubber" ? 0.6 : 1), e0 = T.e, s0 = T.sig;
   T.e = Math.max(0, T.e + T.dir * rate * dt);
   if (T.stopAt && T.dir > 0 && T.e >= T.stopAt) { T.e = T.stopAt; T.stopAt = 0; pull(0); ui.tip("Stopped here: read off the stress and strain, then Pull on or Release.", 5000); }
   if (M.kind === "metal") {
@@ -974,9 +979,9 @@ function stepMD(dt) {
   const gam = S.shift / ((S.ny - 3) * ROWH);
   MDS.path.push([gam, S.tauAvg]); if (MDS.path.length > 3000) MDS.path = MDS.path.filter((_, i) => i % 2 === 0);
   if (!MDS.slipped && S.tauAvg > MDS.tmax) MDS.tmax = S.tauAvg;
-  if (MDS.frame++ % 4 === 0) { mdCoord(S); MDS.core = mdCore(S); if (MDS.core != null) MDS.seen = true; }
+  if (MDS.frame++ % 4 === 0) { mdCoord(S); const c = mdCore(S); if (mdGone(S, c, MDS.last)) MDS.gone = true; if (c != null) MDS.last = c; MDS.core = MDS.gone ? null : c ?? MDS.last; if (MDS.core != null) MDS.seen = true; }
   if (!MDS.slipped) {
-    const slip = S.disloc ? MDS.seen && (MDS.core == null || MDS.core > S.W - 2.5) : MDS.tmax > 0.4 && S.tauAvg < 0.6 * MDS.tmax;
+    const slip = S.disloc ? MDS.gone || (MDS.tmax > 0.12 && S.tauAvg < 0.4 * MDS.tmax) : MDS.tmax > 0.4 && S.tauAvg < 0.6 * MDS.tmax;
     if (slip) { MDS.slipped = true; mdTests.push({ label: !S.disloc ? "perfect" : S.nsol ? `dislocation + ${S.nsol} foreign` : "dislocation", tau: MDS.tmax }); if (mdTests.length > 6) mdTests.shift(); ui.tip(`Slip! It took a shear stress of ${MDS.tmax.toFixed(2)} model units.`, 4000); }
   }
   if (S.shift > 3.2) shearGo(0);
@@ -992,7 +997,7 @@ function stepFrac(dt) {
   const S = FRS.S; if (!FRS.dir || FRS.done) return;
   S.ext += 0.006 * speed; frRelax(S, 30); frBreak(S, 4, 10);
   S.sig = frStress(S); S.path.push([S.ext / S.Wx * 100, S.sig]); if (S.sig > S.max) S.max = S.sig;
-  if (S.broke > 0 && S.sig < 0.08 * S.max) { FRS.done = true; FRS.dir = 0; frTests.push({ a: S.notch, s: S.max, am: S.amorph, pre: S.pre > 0 }); ui.tip(`Snapped at ${S.max.toFixed(2)} GPa.`, 3500); }
+  if (S.broke > 0 && S.sig < 0.15 * S.max) { FRS.done = true; FRS.dir = 0; frTests.push({ a: S.notch, s: S.max, am: S.amorph, pre: S.pre > 0 }); ui.tip(`Snapped at ${S.max.toFixed(2)} GPa.`, 3500); }
 }
 function polySig(e, up) {
   if (P.pmat === "rubber") return up ? rubberUp(e, P.xl) : rubberDown(e, PO.emax, P.xl);
@@ -1035,7 +1040,7 @@ function drawTensile(c, w, h) {
   const necking = M.kind === "metal" && T.ep > M.epU, nf = necking ? Math.min(1, (T.ep - M.epU) / (M.epF - M.epU)) : 0;
   const thin = M.kind === "rubber" ? 1 / Math.sqrt(1 + T.e) : 1 / Math.sqrt(1 + T.e * 0.6);
   const drawLen = M.draws && T.ep > 0.08 ? Math.min(1, (T.ep - 0.08) / 3.5) : 0;
-  const widthAt = u => { let k = thin; if (necking && !M.draws) k *= 1 - 0.55 * nf * Math.exp(-((u - 0.5) / 0.08) ** 2); if (M.draws && T.ep > 0.05) { const half = 0.03 + 0.47 * drawLen; k *= Math.abs(u - 0.5) < half ? 0.5 : 1 - 0.5 * Math.exp(-((Math.abs(u - 0.5) - half) / 0.02) ** 2); } return bw * k; };
+  const widthAt = u => { let k = thin; if (necking && !M.draws) k *= 1 - 0.55 * nf * Math.exp(-(((u - 0.5) / 0.08) ** 2)); if (M.draws && T.ep > 0.05) { const half = 0.03 + 0.47 * drawLen; k *= Math.abs(u - 0.5) < half ? 0.5 : 1 - 0.5 * Math.exp(-(((Math.abs(u - 0.5) - half) / 0.02) ** 2)); } return bw * k; };
   const shape = (u0, u1, shift) => { c.beginPath(); for (let i = 0; i <= 60; i++) { const u = u0 + (u1 - u0) * i / 60; c.lineTo(x0 + shift + u * lenNow, cy - widthAt(u) / 2); } for (let i = 60; i >= 0; i--) { const u = u0 + (u1 - u0) * i / 60; c.lineTo(x0 + shift + u * lenNow, cy + widthAt(u) / 2); } c.closePath(); };
   c.fillStyle = M.col;
   if (!T.broken) { shape(0, 1, 0); c.fill(); }
@@ -1075,7 +1080,7 @@ function drawStructure(c, x, y, w, h, M) {
   c.restore(); TX(c, "how the particles are arranged", x, y - 6, "#7d8aa5", "left", "10.5px");
 }
 function drawMD(c, w, h) {
-  const S = MDS.S, Hb = S.ny * ROWH, sc = Math.min((w - 80) / (S.W + 4), (h - 120) / (Hb + 2)), ox = (w - S.W * sc) / 2, oy = h - 60;
+  const S = MDS.S, Hb = S.ny * ROWH, sc = Math.min((w - 80) / (S.W + 4), (h - 150) / (Hb + 2)), ox = (w - S.W * sc) / 2, oy = h - 70;
   const X = x => ox + x * sc, Y = y => oy - y * sc;
   // the slip plane, between the middle rows
   const yg = (S.ny / 2 - 0.5) * ROWH; c.strokeStyle = "rgba(255,209,102,0.35)"; c.setLineDash([6, 5]); c.beginPath(); c.moveTo(X(-1), Y(yg)); c.lineTo(X(S.W + 1.5), Y(yg)); c.stroke(); c.setLineDash([]); TX(c, "slip plane", X(S.W + 1.6), Y(yg) + 4, "#ffd166", "left", "11px");
@@ -1084,13 +1089,13 @@ function drawMD(c, w, h) {
   if (P.planes && S.disloc && MDS.core != null) {
     let best = -1, bd = 1e9; for (let k = 0; k < S.N; k++) if (S.row[k] === S.ny / 2 && Math.abs(S.x[k] - MDS.core) < bd) { bd = Math.abs(S.x[k] - MDS.core); best = S.col[k]; }
     const pts = []; for (let k = 0; k < S.N; k++) if (S.row[k] >= S.ny / 2 && S.col[k] === best) pts.push([S.x[k], S.y[k]]); pts.sort((a, b) => a[1] - b[1]);
-    c.strokeStyle = "#ffd166"; c.lineWidth = sc * 0.55; c.globalAlpha = 0.35; c.lineCap = "round"; c.beginPath(); pts.forEach(p => c.lineTo(X(p[0]), Y(p[1]))); c.stroke(); c.globalAlpha = 1; c.lineCap = "butt";
+    c.strokeStyle = "#ffd166"; c.lineWidth = sc * 0.55; c.globalAlpha = 0.5; c.lineCap = "round"; c.beginPath(); pts.forEach(p => c.lineTo(X(p[0]), Y(p[1]))); c.stroke(); c.globalAlpha = 1; c.lineCap = "butt";
     if (pts.length) TX(c, "extra half-plane", X(pts[pts.length - 1][0]), Y(Hb) - 14, "#ffd166", "center", "600 12px");
   }
   const rad = sc * 0.42;
   for (let k = 0; k < S.N; k++) {
     const cd = S.coord[k], foreign = S.s[k] !== 1;
-    c.fillStyle = S.g[k] ? "#56607a" : foreign ? "#7fe3a0" : (cd === 5 || cd === 7) && S.y[k] > 2.5 * ROWH && S.y[k] < Hb - 3.5 * ROWH ? "#ff8a3d" : "#6fa8dc";
+    c.fillStyle = S.g[k] ? "#56607a" : foreign ? "#7fe3a0" : (cd === 5 || cd === 7) && !(S.side && S.side[k]) && S.y[k] > 2.5 * ROWH && S.y[k] < Hb - 3.5 * ROWH ? "#ff8a3d" : "#6fa8dc";
     c.beginPath(); c.arc(X(S.x[k]), Y(S.y[k]), rad * S.s[k], 0, 6.3); c.fill();
   }
   // the ⊥ symbol at the core
@@ -1100,7 +1105,7 @@ function drawMD(c, w, h) {
   TX(c, "bottom rows held still", X(S.W / 2), oy + 26, "#7d8aa5", "center", "12px");
   TX(c, `${S.N} atoms · ${S.disloc ? "one edge dislocation" : "perfect crystal"}${S.nsol ? ` · ${S.nsol} foreign atoms (green)` : ""}`, 20, 26, "#eef2f8", "left", "600 13px");
   TX(c, "orange: atoms with 5 or 7 neighbours instead of 6 (a defect)", 20, 46, "#ff8a3d", "left", "11.5px");
-  if (S.disloc && MDS.core == null && MDS.seen) TX(c, "The dislocation has reached the surface: the top half has slipped one atom spacing (look at the step at the right-hand side).", 20, 66, "#7fe3a0", "left", "12px");
+  if (S.disloc && MDS.core == null && MDS.seen) TX(c, "The dislocation has reached the surface: the top half has slipped one atom spacing (look for the step at the right-hand side).", X(S.W / 2), oy + 46, "#7fe3a0", "center", "600 12px");
 }
 function makeGrainImg(c, rw, rh) {
   // colour every few pixels by its nearest grain centre (that is what a Voronoi grain map is); stripes show each grain's slip planes
@@ -1116,7 +1121,7 @@ function makeGrainImg(c, rw, rh) {
   ix.putImageData(id, 0, 0); return img;
 }
 function drawGrains(c, w, h) {
-  const S = DDS.S, sc = Math.min((w - 60) / DD.WX, (h - 90) / DD.WY), rw = DD.WX * sc, rh = DD.WY * sc, ox = (w - rw) / 2, oy = 40;
+  const S = DDS.S, sc = Math.min((w - 60) / DD.WX, (h - 140) / DD.WY), rw = DD.WX * sc, rh = DD.WY * sc, ox = (w - rw) / 2, oy = 34;
   if (!grainImg || grainImg.key !== S) { grainImg = makeGrainImg(c, rw, rh); grainImg.key = S; }
   c.imageSmoothingEnabled = false; c.drawImage(grainImg, ox, oy, rw, rh); c.imageSmoothingEnabled = true;
   const X = x => ox + x * sc, Y = y => oy + rh - y * sc;
@@ -1155,7 +1160,7 @@ function drawFrac(c, w, h) {
   TX(c, "bond colour: blue squashed · grey unstretched · yellow → red close to breaking", 20, 46, "#aab6cc", "left", "11.5px");
 }
 function drawPoly(c, w, h) {
-  const lam = 1 + PO.e, sx = lam, sy = 1 / Math.sqrt(lam), sc = Math.min(w / 46, h / 32), cx = w / 2, cy = h / 2 + 10;
+  const lam = 1 + PO.e, sx = lam, sy = 1 / Math.sqrt(lam), lmax = P.pmat === "rubber" ? 1 + rubberBreak(P.xl) : 6, z = 1 / Math.sqrt(lam), sc = Math.min((w - 160) / (32 * Math.sqrt(lmax)), (h - 120) / 20) * z, cx = w / 2, cy = h / 2 + 20;
   // affine stretch: where the material around each point has been carried to
   const aff = p => [p.rx * sx, p.ry * sy];
   for (const ch of PO.chains) for (const p of ch.pts) { const [ax, ay] = aff(p); if (p.pin) { p.x = ax; p.y = ay; } else { p.x += (ax - p.x) * 0.06; p.y += (ay - p.y) * 0.06; } }
@@ -1167,18 +1172,18 @@ function drawPoly(c, w, h) {
     if (!p.pin && !q.pin) { p.x += dx * k; p.y += dy * k; q.x -= dx * k; q.y -= dy * k; } else if (!p.pin) { p.x += dx * k * 2 * 0.9; p.y += dy * k * 2 * 0.9; } else if (!q.pin) { q.x -= dx * k * 2 * 0.9; q.y -= dy * k * 2 * 0.9; }
   }
   PO.taut = taut;
-  c.save(); const vw = 36 * sc, vh = 22 * sc; c.beginPath(); c.rect(cx - vw / 2, cy - vh / 2, vw, vh); c.fillStyle = "#111a30"; c.fill(); c.clip();
+  c.save(); const vw = 32 * sx * sc, vh = 20 * sy * sc; c.beginPath(); c.rect(cx - vw / 2, cy - vh / 2, vw, vh); c.fillStyle = "#111a30"; c.fill();
   for (const ch of PO.chains) { c.strokeStyle = ch.col; c.lineWidth = 2; c.beginPath(); for (const p of ch.pts) c.lineTo(cx + p.x * sc, cy + p.y * sc); c.stroke(); }
   c.fillStyle = "#ffd166"; for (const [p] of PO.links) { c.beginPath(); c.arc(cx + p.x * sc, cy + p.y * sc, 3.5, 0, 6.3); c.fill(); }
   if (PO.broken) { c.fillStyle = "rgba(11,16,32,0.7)"; c.fillRect(cx - 4, cy - vh / 2, 8, vh); }
   c.restore(); c.strokeStyle = "#3a4560"; c.strokeRect(cx - vw / 2, cy - vh / 2, vw, vh);
   TX(c, "← pulled", cx - vw / 2 - 8, cy, "#ff8a70", "right", "600 12px"); TX(c, "pulled →", cx + vw / 2 + 8, cy, "#ff8a70", "left", "600 12px");
   TX(c, P.pmat === "rubber" ? `Rubber: tangled chains${PO.links.length ? `, ${PO.links.length} cross-links (yellow dots) in view` : ""}` : "Polythene: long chains, no cross-links", 20, 26, "#eef2f8", "left", "600 13px");
-  TX(c, `a magnified window into the middle of the sample · strain ${(PO.e * 100).toFixed(0)}%`, 20, 46, "#aab6cc", "left", "11.5px");
+  TX(c, `the whole sample, magnified (zooming out as it stretches) · strain ${(PO.e * 100).toFixed(0)}%`, 20, 46, "#aab6cc", "left", "11.5px");
 }
 function drawPractical(c, w, h) {
   // Searle's apparatus: a reference wire and a test wire hang from one beam; a vernier between them reads the extension
-  const M = MATS[P.smat], top = 40, len = h * 0.62, xr = w * 0.3, xt = w * 0.3 + 70, ext = PR.e * P.sL * 1000, shown = Math.min(60, ext * 12);
+  const M = MATS[P.smat], top = 40, len = h * 0.36, xr = w * 0.3, xt = w * 0.3 + 70, ext = PR.e * P.sL * 1000, shown = Math.min(60, ext * 12);
   c.fillStyle = "#56607a"; c.fillRect(xr - 60, top - 16, 200, 16); TX(c, "rigid support", xr + 40, top - 22, "#7d8aa5", "center", "11px");
   c.strokeStyle = "#c9d3e6"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(xr, top); c.lineTo(xr, top + len); c.stroke();
   c.strokeStyle = M.col; c.lineWidth = Math.max(1.5, P.sD * 5); c.beginPath(); c.moveTo(xt, top); c.lineTo(xt, top + len + shown); c.stroke();
@@ -1194,7 +1199,7 @@ function drawPractical(c, w, h) {
   if (PR.broken) TX(c, "SNAPPED", xt, top + len / 2, "#ff5d6c", "center", "700 16px");
   TX(c, `(extension drawn × ${shown > 0 && ext > 0 ? Math.round(shown / ext) : 12})`, xr - 60, h - 14, "#7d8aa5", "left", "11px");
   // the readings table
-  const tx = w * 0.56; let y = 40; TX(c, "load F (N)        vernier reading (mm)", tx, y, "#eef2f8", "left", "600 12.5px"); y += 20;
+  const tx = w * 0.56; let y = 120; TX(c, "load F (N)        vernier reading (mm)", tx, y, "#eef2f8", "left", "600 12.5px"); y += 20;
   for (const q of PR.reads.slice(-16)) { TX(c, `${q.F.toFixed(2).padStart(6)}            ${q.x.toFixed(2)} ${q.up ? "" : "(unloading)"}`, tx, y, q.up ? "#aab6cc" : "#ff8a70", "left", "12px"); y += 17; }
   y += 10; TX(c, "micrometer readings (mm): " + (PR.dReads.length ? PR.dReads.map(d => d.toFixed(2)).join(", ") : "none yet: press 📏 Micrometer"), tx, y, "#ffd166", "left", "12px");
 }
@@ -1231,7 +1236,7 @@ function chartsTensile() {
   chA.draw(series, { xMin: 0, xMax: xMax * 100, yMin: 0, yMax: (M.kind === "metal" ? Math.max(...M.flow.map(p => p[1])) : M.kind === "brittle" ? T.sf : rubberUp(rubberBreak())) * 1.12, vlines: vl });
   // force–extension for this wire
   const Fp = T.path.map(p => [p[0] * P.Lw * 1000, p[1] * A]), Wj = T.W * A * P.Lw;
-  chB.opts.title = `Force–extension for this sample: work done = area = ${K.sig(Wj, 3)} J`; chB.opts.xLabel = "extension (mm)"; chB.opts.yLabel = "force (N)"; chB.opts.xFmt = null;
+  chB.opts.title = `Force–extension: work done = ${K.sig(Wj, 3)} J`; chB.opts.xLabel = "extension (mm)"; chB.opts.yLabel = "force (N)"; chB.opts.xFmt = null;
   chB.draw([{ pts: Fp.filter(p => p[0] <= xMax * P.Lw * 1000 * 1.02), type: T.released ? undefined : "area", color: "#7fe3a0", label: `A = ${K.sig(A, 3)} mm²` }], { xMin: 0, xMax: xMax * P.Lw * 1000, yMin: 0 });
   read.set("a", K.sig(T.sig, 3) + " MPa"); read.set("b", pct(T.e)); read.set("c", M.kind === "rubber" ? "≈ " + K.sig(3 * 0.3, 2) + " MPa (not constant)" : K.sig(M.E / 1000, 3) + " GPa");
   read.set("d", K.sig(T.W, 3) + " MJ per m³"); read.set("e", T.broken ? "broken" : T.e === 0 ? "–" : M.kind === "metal" ? (T.ep < 1e-5 ? "elastic" : T.ep < M.epU ? "plastic" : "necking") : "elastic");
@@ -1252,7 +1257,7 @@ function chartsGrains() {
   const S = DDS.S;
   chA.opts.title = "Stress–strain (the start of plastic flow)"; chA.opts.xLabel = "strain (%)"; chA.opts.yLabel = "stress (MPa)"; chA.opts.xFmt = null;
   chA.draw([{ pts: S.path, color: "#6fb1ff", label: `grains ${S.d} μm` }], { xMin: 0, xMax: 3, yMin: 0, yMax: 700, hlines: S.sy ? [{ y: S.sy, color: "#7fe3a0", label: "yield (0.2% proof) " + S.sy.toFixed(0) + " MPa" }] : [] });
-  chB.opts.title = "Yield stress against 1 ÷ √(grain size)"; chB.opts.xLabel = "1 ÷ √d (μm^−½)"; chB.opts.yLabel = "yield stress (MPa)"; chB.opts.xFmt = null;
+  chB.opts.title = "Hall–Petch"; chB.opts.xLabel = "1 ÷ √d (μm^−½)"; chB.opts.yLabel = "yield stress (MPa)"; chB.opts.xFmt = null;
   const pure = ddTests.filter(q => !q.sol), ser = [{ pts: pure.map(q => [1 / Math.sqrt(q.d), q.sy]), type: "dots", r: 5, color: "#ffd166", label: "pure metal" }, { pts: ddTests.filter(q => q.sol).map(q => [1 / Math.sqrt(q.d), q.sy]), type: "dots", r: 5, color: "#7fe3a0", label: "with foreign atoms" }];
   if (pure.length > 2) { const f = K.linfit(pure.map(q => [1 / Math.sqrt(q.d), q.sy])); ser.push({ pts: [[0.1, f.m * 0.1 + f.c], [0.27, f.m * 0.27 + f.c]], color: "#6fb1ff", dash: [5, 4], label: `σ0 = ${f.c.toFixed(0)} MPa, k = ${f.m.toFixed(0)} MPa√μm` }); }
   chB.draw(ser, { xMin: 0.1, xMax: 0.27, yMin: 0, yMax: 700 });
@@ -1264,19 +1269,19 @@ function chartsFrac() {
   const S = FRS.S;
   chA.opts.title = "Stress–strain: a straight line, then a sudden break"; chA.opts.xLabel = "strain (%)"; chA.opts.yLabel = "stress (GPa)"; chA.opts.xFmt = null;
   chA.draw([{ pts: S.path, color: "#6fb1ff", label: "this sample" }], { xMin: 0, xMax: 10, yMin: 0, yMax: 7 });
-  chB.opts.title = "Breaking stress against notch depth"; chB.opts.xLabel = "notch depth (atoms)"; chB.opts.yLabel = "breaking stress (GPa)"; chB.opts.xFmt = null;
-  const th = []; for (let a = 0.5; a <= 12; a += 0.25) th.push([a, 7.4 / Math.sqrt(a + 1.5)]);
+  chB.opts.title = "Breaking stress"; chB.opts.xLabel = "notch depth (atoms)"; chB.opts.yLabel = "breaking stress (GPa)"; chB.opts.xFmt = null;
+  const th = []; for (let a = 2; a <= 12; a += 0.25) th.push([a, 6.9 / Math.sqrt(a)]);
   const grp2 = (f, col, lab) => ({ pts: frTests.filter(f).map(q => [q.a, q.s]), type: "dots", r: 5, color: col, label: lab });
-  chB.draw([{ pts: th, color: "#56607a", dash: [5, 4], label: ui.level === "adv" ? "Griffith: ∝ 1 ÷ √a" : "pattern" }, grp2(q => !q.am && !q.pre, "#ffd166", "ceramic"), grp2(q => q.am && !q.pre, "#6fb1ff", "glass"), grp2(q => q.pre, "#7fe3a0", "toughened")], { xMin: -0.5, xMax: 12.5, yMin: 0, yMax: 7 });
+  chB.draw([{ pts: th, color: "#56607a", dash: [5, 4], label: "Griffith: ∝ 1 ÷ √a" }, grp2(q => !q.am && !q.pre, "#ffd166", "ceramic"), grp2(q => q.am && !q.pre, "#6fb1ff", "glass"), grp2(q => q.pre, "#7fe3a0", "toughened")], { xMin: -0.5, xMax: 12.5, yMin: 0, yMax: 7 });
   let mx = 0; for (let i = 0; i < S.nb; i++) if (!S.broken[i] && S.e[i] > mx) mx = S.e[i]; const far = S.ext / S.Wx;
   read.set("a", S.sig.toFixed(2) + " GPa"); read.set("b", pct(S.ext / S.Wx)); read.set("c", far > 0.002 && !FRS.done ? "× " + (mx / far).toFixed(1) : "–"); read.set("d", S.broke); read.set("e", FRS.done ? S.max.toFixed(2) + " GPa" : "–");
   ui.hud(FRS.done ? "Broken: the crack ran right across" : S.broke ? "The crack is running" : "Bonds at the notch tip stretch most");
 }
 function chartsPoly() {
   const rub = P.pmat === "rubber", xm = rub ? Math.max(rubberBreak(P.xl) * 100 * 1.05, 50) : 520;
-  chA.opts.title = rub ? "Stress–strain: loading and unloading (the loop is hysteresis)" : "Stress–strain for polythene"; chA.opts.xLabel = "strain (%)"; chA.opts.yLabel = "stress (MPa)"; chA.opts.xFmt = null;
-  chA.draw([{ pts: PO.up, type: "area", color: "#6fb1ff", label: "loading (area = work in)" }, { pts: PO.down, type: "area", color: "#ff8a70", label: "unloading (area = work back)" }], { xMin: 0, xMax: xm, yMin: 0, yMax: rub ? Math.min(40, rubberUp(rubberBreak(P.xl), P.xl) * 1.1) : 36 });
-  chB.opts.title = "Energy per m³: put in, given back, turned into heat"; chB.opts.xLabel = ""; chB.opts.yLabel = "MJ per m³"; chB.opts.xFmt = whole(v => ["work in", "work back", "lost as heat"][Math.round(v)] || "");
+  chA.opts.title = rub ? "Hysteresis loop" : "Polythene"; chA.opts.xLabel = "strain (%)"; chA.opts.yLabel = "stress (MPa)"; chA.opts.xFmt = null;
+  chA.draw([{ pts: PO.up, type: "area", color: "#6fb1ff", label: "loading: work in" }, { pts: PO.down, type: "area", color: "#ff8a70", label: "unloading: work back" }], { xMin: 0, xMax: xm, yMin: 0, yMax: Math.max(rub ? 2 : 30, ...PO.up.map(q => q[1] * 1.25)) });
+  chB.opts.title = "Energy per m³"; chB.opts.xLabel = ""; chB.opts.yLabel = "MJ per m³"; chB.opts.xFmt = whole(v => ["work in", "work back", PO.dir > 0 ? "not given back (yet)" : P.pmat === "rubber" ? "lost as heat" : "kept as permanent stretch"][Math.round(v)] || "");
   chB.draw([{ pts: [[0, PO.Win], [1, PO.Wout], [2, Math.max(0, PO.Win - PO.Wout)]], type: "bars", w: 0.6, color: "#ffd166" }], { xMin: -0.6, xMax: 2.6, yMin: 0 });
   read.set("a", PO.sig.toFixed(2) + " MPa"); read.set("b", (PO.e * 100).toFixed(0) + "%"); read.set("c", rub ? (3 * 0.3 * P.xl).toFixed(1) + " MPa" : "0.8 GPa");
   read.set("d", PO.Win.toFixed(2) + " / " + PO.Wout.toFixed(2)); read.set("e", PO.broken ? "snapped" : PO.taut > 40 ? "many pulled straight" : PO.e > 0.5 ? "uncoiling, lining up" : "tangled");
