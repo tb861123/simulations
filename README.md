@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Fifty-two simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): forty-five rebuilt showpieces, which replaced the earlier versions in
+Fifty-seven simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): fifty rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -29,7 +29,9 @@ Effect, Energy Systems, Bonding, Circuits, Enzymes, the Greenhouse Effect, Crude
 Cracking and Polymers, Training and Adaptation, Projectile Motion, Photosynthesis and
 Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, Supermarket
 Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
-and Competition, Arousal and Performance, Stellar Life Cycle, and Inheritance are likewise kept in each folder's `original/`, with their worksheets,
+and Competition, Arousal and Performance, Stellar Life Cycle, Inheritance, Simple Harmonic
+Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, and Reactivity of
+Metals are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Batch run
@@ -43,7 +45,7 @@ simulation has ready-made batch experiments that pose a question, such as
 
 ## Worksheets
 
-Every simulation with a batch run, apart from the fifty-two ★ Enhanced ones,
+Every simulation with a batch run, apart from the fifty-seven ★ Enhanced ones,
 has a `worksheets.html` beside it: one
 printable A4 page per batch experiment (set-up, prediction, results table to
 fill in, questions), then teacher notes with the explanation and the numbers
@@ -58,7 +60,7 @@ changing a simulation's batch experiments.
 | Folder | What it is | How to run |
 |---|---|---|
 | [`physics/gas_in_a_box/`](physics/gas_in_a_box/) | Gas in a Box ★: every atom followed; pressure, the gas laws, Maxwell–Boltzmann speeds, Brownian motion and diffusion from collisions alone (also listed under Chemistry) | Open `gas-in-a-box.html` |
-| [`physics/simple_harmonic_motion/`](physics/simple_harmonic_motion/) | Simple harmonic motion: pendulums and springs, SHM graphs and energy, damping, forced oscillation and resonance, Barton's pendulums; plus a double-pendulum chaos tab | Open `simple-harmonic-motion.html` |
+| [`physics/simple_harmonic_motion/`](physics/simple_harmonic_motion/) | Simple Harmonic Motion ★: pendulums and springs, SHM graphs and energy, damping, forced oscillation and resonance, Barton's pendulums; plus a double-pendulum chaos tab | Open `simple-harmonic-motion.html` |
 | [`physics/states_of_matter/`](physics/states_of_matter/) | States of matter: particles, heating and cooling curves, specific heat capacity and latent heat (also listed under Chemistry) | Open `states-of-matter.html` |
 | [`physics/youngs_modulus/`](physics/youngs_modulus/) | Young's modulus: Hooke's law, stress–strain curves, breaking, Searle's method | Open `youngs-modulus.html` |
 | [`physics/projectile_motion/`](physics/projectile_motion/) | Projectile Motion ★: two motions at once (shadows, time markers, velocity arrows), range and angle, energy; drag, wind and spin at A level | Open `projectile-motion.html` |
@@ -94,7 +96,7 @@ changing a simulation's batch experiments.
 | [`chemistry/bonding/`](chemistry/bonding/) | Bonding and Structure ★: ionic, covalent and metallic bonds forming; heat, conduct and hammer the structure | Open `bonding.html` |
 | [`chemistry/organic_chemistry/`](chemistry/organic_chemistry/) | Crude Oil, Cracking and Polymers ★: molecules in a fractionating column, cracking and the bromine test, combustion, addition polymers, free-radical substitution | Open `organic-chemistry.html` |
 | [`chemistry/periodic_groups/`](chemistry/periodic_groups/) | Groups 1 and 7: alkali metals with water, halogens and displacement, trends down a group | Open `periodic-groups.html` |
-| [`chemistry/reactivity_metals/`](chemistry/reactivity_metals/) | Reactivity series, metal displacement, and extracting metals (blast furnace, electrolysis) | Open `reactivity-metals.html` |
+| [`chemistry/reactivity_metals/`](chemistry/reactivity_metals/) | Reactivity ★: metals with water and acid, displacement with temperature rises, extraction (blast furnace, electrolysis), redox | Open `reactivity-metals.html` |
 | [`chemistry/electrolysis/`](chemistry/electrolysis/) | Electrolysis ★: ions drifting to the electrodes, products at each, half-equations, Faraday's law | Open `electrolysis.html` |
 | [`chemistry/energy_changes/`](chemistry/energy_changes/) | Energy Changes ★: bonds breaking and forming on a profile, cup calorimetry with extrapolation, burning alcohols, ΔG at A level | Open `energy-changes.html` |
 | [`chemistry/acids_salts_tests/`](chemistry/acids_salts_tests/) | Acids, alkalis, titration, making salts, and a chemical tests lab (flame tests, ions, gases, unknowns) | Open `acids-salts-tests.html` |
@@ -114,7 +116,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`biology/turing_patterns/`](biology/turing_patterns/) | Turing Patterns ★: spots, stripes and mazes from a reaction–diffusion model; paint, heal, and map the patterns | Open `turing-patterns.html` |
 | [`biology/epidemics/`](biology/epidemics/) | Epidemics and Vaccination ★: a town followed hour by hour; R0, herd immunity, flattening the curve, isolation | Open `epidemics.html` |
 | [`biology/predator_prey/`](biology/predator_prey/) | Foxes and Rabbits ★: every animal followed; population cycles, carrying capacity, culling, refuges, extinction | Open `predator-prey.html` |
-| [`biology/membranes/`](biology/membranes/) | Membranes and movement: diffusion, osmosis, active transport, SA:V, potato osmosis, water potential, membrane permeability | Open `membranes.html` |
+| [`biology/membranes/`](biology/membranes/) | Membranes and Movement ★: particles crossing by diffusion, osmosis and active transport, agar cubes (SA:V), potato osmosis, water potential | Open `membranes.html` |
 | [`biology/enzymes/`](biology/enzymes/) | Enzymes ★: molecules colliding and fitting; temperature, pH, denaturing, substrate and enzyme concentration, inhibitors, Vmax, Q10 | Open `enzymes.html` |
 | [`biology/photosynthesis_respiration/`](biology/photosynthesis_respiration/) | Photosynthesis and Respiration ★: pondweed and limiting factors, leaf gas exchange and indicator tubes, respirometer, RQ and the Calvin cycle | Open `photosynthesis-respiration.html` |
 | [`biology/inheritance/`](biology/inheritance/) | Inheritance ★: fruit-fly breeding lab, Punnett squares, pedigrees, dihybrid crosses, sex linkage, linkage, epistasis, chi-squared | Open `inheritance.html` |
@@ -131,7 +133,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 |---|---|---|
 | [`medical/heart_circulation/`](medical/heart_circulation/) | Heart and Circulation ★: a beating heart from pressure and flow; valves, blood pressure, exercise, heart disease, ECG, pressure–volume loop | Open `heart-circulation.html` |
 | [`medical/nerve_impulse/`](medical/nerve_impulse/) | Nerve Impulse ★: Hodgkin–Huxley equations along an axon; threshold, refractory period, myelin, MS lesion, channel block | Open `nerve-impulse.html` |
-| [`medical/antibiotic_resistance/`](medical/antibiotic_resistance/) | Antibiotic resistance evolving during a course of treatment | Open `antibiotic-resistance.html` |
+| [`medical/antibiotic_resistance/`](medical/antibiotic_resistance/) | Antibiotic Resistance ★: bacteria, drug levels and the immune system in one patient; stopping early, missed doses, resistance | Open `antibiotic-resistance.html` |
 | [`medical/gas_exchange/`](medical/gas_exchange/) | Lungs and Gas Exchange ★: breathing chest, an alveolus with red cells loading oxygen, altitude, exercise, lung disease, carbon monoxide, dissociation curve | Open `gas-exchange.html` |
 
 ## Engineering
@@ -170,7 +172,7 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 |---|---|---|
 | [`astrophysics/planet_formation/`](astrophysics/planet_formation/) | How a planetary system forms, from a collapsing cloud to rocky planets and gas giants | Open `planet-formation.html` |
 | [`astrophysics/stellar_life_cycle/`](astrophysics/stellar_life_cycle/) | Stellar Life Cycle ★: a star's whole life, its black-body spectrum and its H–R track | Open `stellar-life-cycle.html` |
-| [`astrophysics/exoplanet_hunting/`](astrophysics/exoplanet_hunting/) | Finding exoplanets by transits and the Doppler wobble | Open `exoplanet-hunting.html` |
+| [`astrophysics/exoplanet_hunting/`](astrophysics/exoplanet_hunting/) | Exoplanet Hunting ★: transits and the Doppler wobble, folding light curves, Kepler's third law, the habitable zone | Open `exoplanet-hunting.html` |
 | [`astrophysics/galaxy_collisions/`](astrophysics/galaxy_collisions/) | Galaxy Collisions ★: hundreds of thousands of stars; tidal tails, rings, streams, mergers, the Milky Way and Andromeda | Open `galaxy-collisions.html` |
 | [`astrophysics/expanding_universe/`](astrophysics/expanding_universe/) | Hubble's law, redshift and the age of the universe | Open `expanding-universe.html` |
 | [`astrophysics/gravitational_lensing/`](astrophysics/gravitational_lensing/) | Black Holes and Gravitational Lensing ★: a ray-traced black hole with accretion disc, Einstein rings and arcs, microlensing planets, Eddington 1919 | Open `gravitational-lensing.html` |

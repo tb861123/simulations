@@ -1,0 +1,239 @@
+/* =====================================================================
+   SIMPLE HARMONIC MOTION
+   Pull a pendulum aside, or stretch a spring, and let go: a restoring
+   force pulls it back towards the middle, it overshoots, and it swings
+   to and fro. When the restoring force is proportional to the
+   displacement (F = −kx), the motion is SIMPLE HARMONIC:
+       a = −ω² x,  x = A cos(ωt),  period T = 2π ÷ ω
+       mass on a spring:  T = 2π √(m ÷ k)
+       pendulum:          T = 2π √(L ÷ g)   (small swings)
+   The period does not depend on the size of the swing.
+   A level adds damping (friction drains the energy), forcing and
+   resonance, and (beyond the spec) the chaotic double pendulum.
+   Everything is worked out with small time steps (Runge–Kutta).
+   ===================================================================== */
+const whole = f => v => Math.abs(v - Math.round(v)) < 0.01 ? f(v) : "";
+const GRAV = { earth: ["Earth", 9.81], moon: ["Moon", 1.62], mars: ["Mars", 3.71], jupiter: ["Jupiter", 24.8] };
+// one oscillator: state [x, v]; x is the angle (rad) for a pendulum or the displacement (m) for a spring
+function accel(o, x, v, t) {
+  const restore = o.sys === "pend" ? -(o.g / o.L) * (o.small ? x : Math.sin(x)) : -(o.k / o.m) * x;      // restoring acceleration
+  return restore - (o.b || 0) * v + (o.F ? o.F * Math.cos(o.wd * t) : 0);                                                    // damping (b per second) and a driving force
+}
+function rk4(o, s, dt) {
+  const [x, v, t] = s, k1x = v, k1v = accel(o, x, v, t), k2x = v + k1v * dt / 2, k2v = accel(o, x + k1x * dt / 2, k2x, t + dt / 2), k3x = v + k2v * dt / 2, k3v = accel(o, x + k2x * dt / 2, k3x, t + dt / 2), k4x = v + k3v * dt, k4v = accel(o, x + k3x * dt, k4x, t + dt);
+  return [x + dt / 6 * (k1x + 2 * k2x + 2 * k3x + k4x), v + dt / 6 * (k1v + 2 * k2v + 2 * k3v + k4v), t + dt];
+}
+const omega0 = o => o.sys === "pend" ? Math.sqrt(o.g / o.L) : Math.sqrt(o.k / o.m);
+// measure the period: time between successive upward zero crossings
+function measurePeriod(o, x0, cycles = 5) { let s = [x0, 0, 0], dt = 0.001, ups = [], prevX = x0; while (s[2] < 200 && ups.length < cycles + 1) { s = rk4(o, s, dt); if (prevX < 0 && s[0] >= 0) ups.push(s[2] - dt * s[0] / (s[0] - prevX)); prevX = s[0]; } return ups.length > 1 ? (ups[ups.length - 1] - ups[0]) / (ups.length - 1) : NaN; }
+// steady-state amplitude of a driven, damped oscillator
+const resAmp = (w0, b, F, w) => F / Math.sqrt((w0 * w0 - w * w) ** 2 + (b * w) ** 2);
+// ---- double pendulum (equal masses and lengths): the standard equations of motion ----
+function dpAcc(s, g, L) {
+  const [a1, a2, w1, w2] = s, d = a1 - a2, den = 3 - Math.cos(2 * d);
+  const z1 = (-3 * g * Math.sin(a1) - g * Math.sin(a1 - 2 * a2) - 2 * Math.sin(d) * (w2 * w2 * L + w1 * w1 * L * Math.cos(d))) / (L * den);
+  const z2 = (2 * Math.sin(d) * (2 * w1 * w1 * L + 2 * g * Math.cos(a1) + w2 * w2 * L * Math.cos(d))) / (L * den);
+  return [w1, w2, z1, z2];
+}
+function dpStep(s, dt, g, L) { const k1 = dpAcc(s, g, L), s2 = s.map((v, i) => v + k1[i] * dt / 2), k2 = dpAcc(s2, g, L), s3 = s.map((v, i) => v + k2[i] * dt / 2), k3 = dpAcc(s3, g, L), s4 = s.map((v, i) => v + k3[i] * dt), k4 = dpAcc(s4, g, L); return s.map((v, i) => v + dt / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i])); }
+function separationTime(d0, a0, r) { let A = [a0, a0, 0, 0], B = [a0 + d0, a0, 0, 0], t = 0; while (t < 60) { A = dpStep(A, 0.002, 9.81, 1); B = dpStep(B, 0.002, 9.81, 1); t += 0.002; if (Math.abs(A[1] - B[1]) > 0.5) return t; } return 60; }
+
+// ---------------- The page ----------------
+const P = { mode: "shm", sys: "pend", L: 1, planet: "earth", k: 20, m: 0.5, amp: 10, xs: 0.1, damp: 0, small: false, F: 0, wd: 3.13, bart: 0.6, d0: 1e-3 };
+let S = [0, 0, 0], log = [], speed = 1, dp = null, dpLog = [], bart = null, trail = [];
+const opts = () => ({ sys: P.sys, g: GRAV[P.planet][1], L: P.L, k: P.k, m: P.m, b: P.damp, F: P.mode === "res" ? P.F : 0, wd: P.wd, small: P.small });
+const ui = K.app({
+  title: "Simple Harmonic Motion", subject: "Physics",
+  blurb: "Pendulums and springs, damping and resonance, and the chaotic double pendulum",
+  reset: () => set({ mode: P.mode }),
+  levels: { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "Not in Pearson Edexcel International GCSE Physics (4PH1): a gentle introduction using 4PH1 ideas: period and frequency f = 1/T, kinetic energy ½mv² and GPE mgh, Hooke's law, weight = mg, and timing many swings to reduce random error.", adv: "WJEC Eduqas A level Physics Component 1 Topic 6 Vibrations: SHM (a = −ω²x), x, v and a against time, T = 2π√(m/k) and 2π√(l/g), energy in SHM, damped and forced oscillations, resonance and Barton's pendulums; the specified practical timing a pendulum or a mass–spring system. Chaos is beyond the spec." } },
+  missions: [
+    { title: "Does the size of the swing matter?", q: "Time a 1 m pendulum swinging through 5°, then 20°. Does a bigger swing take longer? (Watch the 'measured period'.)", hint: "Hardly at all: about 2.007 s at 5° and 2.02 s at 20°. A bigger swing travels further but moves faster, and the two almost cancel: the period is (nearly) independent of amplitude. Only at large angles (try 60°) does it grow noticeably, because sin θ is no longer close to θ.", setup() { set({ amp: 5 }); } },
+    { title: "Length and period", q: "Make the pendulum 4 times longer. What happens to the period? What about on the Moon?", hint: "T = 2π√(L/g): 4 times the length doubles the period. On the Moon g is about a sixth, so the period is about 2.5 times longer. A pendulum clock taken to the Moon would run very slow.", setup() { set({ L: 0.25 }); } },
+    { title: "A mass on a spring", q: "Switch to a spring. Double the mass, then double the spring constant. How does each change the period?", hint: "T = 2π√(m/k): doubling the mass multiplies T by √2 (1.41); doubling k divides it by √2. A heavier mass is harder to accelerate; a stiffer spring pulls harder.", setup() { set({ sys: "spring" }); } },
+    { title: "Where is it fastest?", q: "Look at the graphs of displacement, velocity and acceleration. Where in the swing is the speed greatest? Where is the acceleration greatest? Watch the energy too.", hint: "Speed is greatest at the middle (displacement zero), where all the energy is kinetic. Acceleration is greatest at the ends, where the restoring force is biggest and the speed is zero; there all the energy is potential. Velocity is a quarter of a cycle ahead of displacement; acceleration is exactly opposite to displacement: a = −ω²x.", setup() { set({ sys: "spring", xs: 0.15 }); } },
+    { lvl: "adv", title: "Damping", q: "Add damping. How does the amplitude die away? Does the period change?", hint: "With light damping the amplitude falls by the same fraction each cycle (exponential decay), and the period is almost unchanged. With heavy damping the system returns slowly without oscillating; critical damping (car suspension) returns fastest without overshooting.", setup() { set({ sys: "spring", damp: 0.3 }); } },
+    { lvl: "adv", title: "Resonance", q: "Drive the spring at different frequencies. At which frequency is the amplitude largest? What does more damping do to the peak?", hint: "Resonance: the amplitude is greatest when the driving frequency equals the natural frequency (here about 1 Hz). More damping makes the peak lower and broader and shifts it slightly lower in frequency. Bridges, buildings and car parts are designed so that resonance does not happen in use.", setup() { set({ mode: "res", sys: "spring", F: 1, damp: 0.25, wd: 4 }); } },
+    { lvl: "adv", title: "Barton's pendulums", q: "A heavy driver pendulum swings a row of light pendulums of different lengths. Which one swings most? What is the phase of each compared with the driver?", hint: "The pendulum with the same length as the driver resonates: largest amplitude, and it lags the driver by a quarter of a cycle. Shorter ones (higher natural frequency) swing in phase with the driver; longer ones swing half a cycle out of phase.", setup() { set({ mode: "bart" }); } },
+    { lvl: "adv", title: "Chaos", q: "Release two double pendulums from angles that differ by only 0.001 rad (0.06°). How long do they stay together?", hint: "For a few seconds they move together; then the tiny difference grows exponentially and the motion becomes completely different. This is chaos: perfectly deterministic rules, but unpredictable in practice, because no measurement is perfect. Weather forecasts face the same limit.", setup() { set({ mode: "chaos" }); } }
+  ],
+  batch: [
+    { title: "Period against length", question: "How does the period of a pendulum depend on its length?", how: "Small swings (5°) on Earth; length 0.1 to 2 m; timing 10 swings with a reaction-time error of ±0.15 s. Theory: T = 2π√(L/g).", xLabel: "length (m)", yLabel: "period (s)", xs: [0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2], reps: 4, yMin: 0, theory: L => 2 * Math.PI * Math.sqrt(L / 9.81), theoryLabel: "2π√(L/g)", run: (x, r) => measurePeriod({ sys: "pend", g: 9.81, L: x, b: 0, F: 0 }, 5 * Math.PI / 180) + 0.15 * r.gauss() / 10, note: "A curve: T grows as √L. Plotting T² against L gives a straight line through the origin with gradient 4π² ÷ g, the usual way to measure g." },
+    { title: "Timing one swing or ten?", question: "How much more precise is g if you time 10 swings instead of 1?", how: "1 m pendulum; your reaction time adds a random ±0.15 s to each timing. Each run: g from timing one swing (left) — compare with the next experiment.", reps: 200, bins: 24, theory: 9.81, theoryLabel: "true g", yLabel: "g from one swing (m/s²)", run: (x, r) => { const T = measurePeriod({ sys: "pend", g: 9.81, L: 1, b: 0, F: 0 }, 0.05) + 0.15 * r.gauss(); return 4 * Math.PI ** 2 * 1 / (T * T); }, note: "Timing a single 2-second swing with a 0.15 s error gives g anywhere from about 8.5 to 11.5. Timing 10 swings divides the timing error by 10: try the next experiment." },
+    { title: "Timing ten swings", question: "With 10 swings timed together, how precise is g?", how: "As before, but the ±0.15 s error is spread over 10 swings.", reps: 200, bins: 24, theory: 9.81, theoryLabel: "true g", yLabel: "g from ten swings (m/s²)", run: (x, r) => { const T = measurePeriod({ sys: "pend", g: 9.81, L: 1, b: 0, F: 0 }, 0.05) + 0.15 * r.gauss() / 10; return 4 * Math.PI ** 2 * 1 / (T * T); }, note: "The spread is about ten times smaller. Timing many oscillations is the best way to reduce the effect of reaction time." },
+    { title: "Mass on a spring", question: "How does the period depend on the mass hung on a spring (k = 20 N/m)?", how: "Masses 0.1 to 2 kg; timed over 10 oscillations with a ±0.15 s error. Theory: T = 2π√(m/k).", xLabel: "mass (kg)", yLabel: "period (s)", xs: [0.1, 0.25, 0.5, 0.75, 1, 1.5, 2], reps: 4, yMin: 0, theory: m => 2 * Math.PI * Math.sqrt(m / 20), theoryLabel: "2π√(m/k)", run: (x, r) => measurePeriod({ sys: "spring", k: 20, m: x, b: 0, F: 0 }, 0.1) + 0.15 * r.gauss() / 10, note: "T grows as √m: four times the mass, twice the period." },
+    { lvl: "adv", title: "Big swings take longer", question: "How does a pendulum's period depend on the amplitude when the swings are large?", how: "1 m pendulum, amplitude 5° to 85° (exact equation, no small-angle approximation); timing error ±0.15 s over 10 swings. Theory: T₀(1 + θ²/16 + 11θ⁴/3072).", xLabel: "amplitude (°)", yLabel: "period (s)", xs: [5, 15, 25, 35, 45, 55, 65, 75, 85], reps: 3, theory: a => { const t = a * Math.PI / 180; return 2 * Math.PI * Math.sqrt(1 / 9.81) * (1 + t * t / 16 + 11 * t ** 4 / 3072); }, theoryLabel: "series", run: (x, r) => measurePeriod({ sys: "pend", g: 9.81, L: 1, b: 0, F: 0 }, x * Math.PI / 180) + 0.15 * r.gauss() / 10, note: "Below about 15° the period hardly changes (isochronous); by 80° it is about 13% longer. Simple harmonic motion is an approximation for small swings." },
+    { lvl: "adv", title: "The resonance curve", question: "How does the amplitude of a driven spring depend on the driving frequency?", how: "k = 20 N/m, m = 0.5 kg (natural frequency 1.0 Hz), damping 0.3 s⁻¹, driving force 1 N/kg; amplitude measured after the motion settles, ±3%. Theory: A = F ÷ √((ω₀² − ω²)² + (bω)²).", xLabel: "driving frequency (Hz)", yLabel: "amplitude (m)", xs: [0.4, 0.6, 0.8, 0.9, 0.95, 1, 1.05, 1.1, 1.2, 1.4, 1.6], reps: 2, yMin: 0, theory: f => resAmp(Math.sqrt(40), 0.3, 1, 2 * Math.PI * f), theoryLabel: "theory", run: (x, r) => { const o = { sys: "spring", k: 20, m: 0.5, b: 0.3, F: 1, wd: 2 * Math.PI * x }; let s = [0, 0, 0], mx = 0; while (s[2] < 60) { s = rk4(o, s, 0.005); if (s[2] > 40) mx = Math.max(mx, Math.abs(s[0])); } return mx * (1 + 0.03 * r.gauss()); }, note: "A sharp peak at the natural frequency: resonance. The lighter the damping, the taller and narrower the peak." },
+    { lvl: "adv", title: "How long can you predict a double pendulum?", question: "How long do two double pendulums stay together, when their starting angles differ by a tiny amount?", how: "Released from 120°, the second one higher by 10⁻¹ to 10⁻⁷ rad (the x-axis is log₁₀ of the difference); 'apart' when the lower arms differ by 0.5 rad.", xLabel: "log₁₀ (starting difference in rad)", yLabel: "time before they separate (s)", xs: [-1, -2, -3, -4, -5, -6, -7], reps: 2, yMin: 0, run: (x, r) => separationTime(Math.pow(10, x) * (1 + 0.2 * r()), 120 * Math.PI / 180, r), note: "Roughly a straight line: each 10 times better measurement buys only about the same extra few seconds of prediction. This is the signature of chaos (exponential growth of errors)." }
+  ],
+  revise: {
+    ideas: [
+      { lvl: "std", tag: "4PH1 3.6", text: "Period T is the time for one complete oscillation; frequency f = 1 ÷ T (in hertz)." },
+      { lvl: "std", tag: "4PH1 practical", text: "Timing 10 or 20 oscillations and dividing reduces the effect of reaction time on the period." },
+      { lvl: "std", tag: "4PH1 4.4", text: "In a swinging pendulum, energy changes between kinetic (fastest at the bottom) and gravitational potential (highest at the ends)." },
+      { lvl: "adv", tag: "Eduqas 1.6", text: "SHM: acceleration ∝ displacement and directed towards the centre: a = −ω²x. x = A cos ωt, v = −Aω sin ωt; vmax = Aω." },
+      { lvl: "adv", tag: "Eduqas 1.6", text: "Mass–spring: T = 2π√(m/k). Simple pendulum (small angles): T = 2π√(l/g). The period does not depend on amplitude." },
+      { lvl: "adv", tag: "Eduqas 1.6", text: "Energy in SHM: total E = ½kA² = ½mω²A², shared between KE and PE." },
+      { lvl: "adv", tag: "Eduqas 1.6", text: "Damping removes energy; forced oscillations at the natural frequency give resonance (maximum amplitude). Barton's pendulums show the phase lag." },
+      { lvl: "beyond", tag: "Beyond the spec", text: "Chaos: a deterministic system whose tiny differences in starting conditions grow exponentially, so long-term prediction is impossible." }
+    ],
+    questions: [
+      { lvl: "std", marks: 2, q: "A pendulum makes 20 complete swings in 34.0 s. Calculate its period and frequency.", ans: "<ul><li>T = 34.0 ÷ 20 = 1.70 s</li><li>f = 1 ÷ 1.70 = 0.59 Hz</li></ul>" },
+      { lvl: "std", marks: 2, q: "Explain why students time 20 swings rather than one.", ans: "<ul><li>reaction time error is about the same whatever is timed</li><li>spread over 20 swings, the error in each period is 20 times smaller</li></ul>" },
+      { lvl: "adv", marks: 3, q: () => `Calculate the period of a ${P.m} kg mass on a spring of stiffness ${P.k} N/m, and its maximum speed for an amplitude of ${P.xs} m.`, ans: () => { const w = Math.sqrt(P.k / P.m); return `<ul><li>T = 2π√(m/k) = 2π√(${P.m}/${P.k}) = ${(2 * Math.PI / w).toFixed(3)} s</li><li>ω = 2π ÷ T = ${w.toFixed(2)} rad/s</li><li>vmax = Aω = ${(P.xs * w).toFixed(3)} m/s</li></ul>`; } },
+      { lvl: "adv", marks: 3, q: "Sketch and explain the variation of KE, PE and total energy with displacement for an undamped oscillator.", ans: "<ul><li>PE = ½kx²: a parabola, zero at the centre</li><li>KE = ½k(A² − x²): maximum at the centre, zero at ±A</li><li>total constant = ½kA²</li></ul>" },
+      { lvl: "adv", marks: 3, q: "Describe how the amplitude of a forced oscillator depends on the driving frequency, and the effect of damping.", ans: "<ul><li>small at low and high frequencies; a maximum (resonance) at the natural frequency</li><li>more damping: lower, broader peak</li><li>the peak shifts slightly below the natural frequency</li></ul>" }
+    ]
+  },
+  notes: `<h3>What is being modelled</h3>
+<ul><li><b>Pendulum</b>: θ″ = −(g/L) sin θ (the full equation; tick 'small-angle' to use θ instead of sin θ). <b>Spring</b>: x″ = −(k/m) x. Solved with fourth-order Runge–Kutta in small time steps.</li>
+<li><b>Damping</b> adds an acceleration −b v; <b>forcing</b> adds F cos(ω_d t) (per kg).</li>
+<li>The measured period is the time between upward crossings of the centre, averaged.</li>
+<li><b>Barton's pendulums</b>: each light pendulum is driven by the heavy driver's swing; their steady amplitudes and phases follow the driven, damped oscillator.</li>
+<li><b>Double pendulum</b>: two equal 1 m arms with equal masses, no friction; the second copy starts with its top arm higher by the difference you set.</li>
+<li>Batch timings add a random reaction-time error of ±0.15 s (one standard deviation).</li></ul>
+<h3>Simplifications</h3>
+<ul><li>The pendulum bob is a point on a massless, rigid string; the spring is massless and perfectly elastic; no air resistance unless you add damping.</li>
+<li>The earlier version's separate chaos settings (masses, lengths, friction) and picture-quality option are not in this version.</li></ul>
+<p>The earlier version of this simulation, with its worksheets, is kept in <a href="original/simple-harmonic-motion.html">original/simple-harmonic-motion.html</a>.</p>`
+});
+
+// ---------------- Controls ----------------
+const ctl = {}, grp = {};
+let g = ui.group("View");
+ctl.mode = K.seg(g, { value: "shm", options: [["shm", "〰 Oscillator"], ["res", "📈 Resonance (A level)"], ["bart", "🎐 Barton's pendulums"], ["chaos", "🌀 Double pendulum"]], on: v => set({ mode: v }) });
+grp.osc = g = ui.group("The oscillator");
+ctl.sys = K.seg(g, { value: "pend", options: [["pend", "Pendulum"], ["spring", "Mass on a spring"]], on: v => { P.sys = v; restart(); } });
+ctl.L = K.slider(g, { label: "Length", min: 0.1, max: 5, step: 0.05, value: 1, unit: "m", on: v => { P.L = v; restart(); } });
+ctl.planet = K.seg(g, { value: "earth", options: Object.entries(GRAV).map(([k, x]) => [k, x[0]]), on: v => { P.planet = v; restart(); } });
+ctl.amp = K.slider(g, { label: "Starting angle", min: 1, max: 85, step: 1, value: 10, unit: "°", on: v => { P.amp = v; restart(); } });
+ctl.k = K.slider(g, { label: "Spring constant k", min: 2, max: 200, step: 1, value: 20, unit: "N/m", on: v => { P.k = v; restart(); } });
+ctl.m = K.slider(g, { label: "Mass", min: 0.1, max: 5, step: 0.05, value: 0.5, unit: "kg", on: v => { P.m = v; restart(); } });
+ctl.xs = K.slider(g, { label: "Starting displacement", min: 0.01, max: 0.3, step: 0.01, value: 0.1, unit: "m", on: v => { P.xs = v; restart(); } });
+K.note(g, "Or drag the bob or the mass to a new starting point.");
+grp.adv = g = ui.group("Damping and forcing (A level)");
+ctl.damp = K.slider(g, { label: "Damping b", min: 0, max: 3, step: 0.05, value: 0, unit: "s⁻¹", on: v => { P.damp = v; } });
+ctl.small = K.toggle(g, { label: "Small-angle approximation (sin θ ≈ θ)", value: false, on: v => { P.small = v; } });
+ctl.F = K.slider(g, { label: "Driving force", min: 0, max: 3, step: 0.1, value: 0, unit: "N/kg", on: v => P.F = v });
+ctl.wd = K.slider(g, { label: "Driving frequency", min: 0.2, max: 3, step: 0.01, value: 0.5, fmt: v => (v).toFixed(2) + " Hz", on: v => P.wd = 2 * Math.PI * v });
+grp.bart = g = ui.group("Barton's pendulums");
+ctl.bart = K.slider(g, { label: "Driver length", min: 0.3, max: 1.2, step: 0.05, value: 0.6, unit: "m", on: v => { P.bart = v; newBart(); } });
+grp.chaos = g = ui.group("Two double pendulums");
+ctl.d0 = K.slider(g, { label: "Difference in starting angle", min: -7, max: -1, step: 0.5, value: -3, fmt: v => `10^${v} rad`, on: v => { P.d0 = Math.pow(10, v); newDP(); } });
+K.btn(K.row(g), "↺ Release again", () => newDP(), "primary");
+g = ui.group("Watch");
+ctl.speed = K.slider(g, { label: "Speed", min: 0.1, max: 2, step: 0.1, value: 1, fmt: v => "× " + v.toFixed(1) + (v === 1 ? " (real time)" : ""), on: v => speed = v });
+const read = K.readout(g, [["T", "measured period"], ["Tth", "theory"], ["f", "frequency"], ["A", "amplitude now"]]);
+let ups = [];
+function restart() {
+  const x0 = P.sys === "pend" ? P.amp * Math.PI / 180 : P.xs; S = [x0, 0, 0]; log = []; ups = []; trail = [];
+  for (const k of ["L", "planet", "amp"]) ctl[k].el.style.display = P.sys === "pend" ? "" : "none"; for (const k of ["k", "m", "xs"]) ctl[k].el.style.display = P.sys === "spring" ? "" : "none";
+  ctl.small.el.style.display = P.sys === "pend" ? "" : "none"; for (const k of ["F", "wd"]) ctl[k].el.style.display = P.mode === "res" ? "" : "none";
+}
+function newBart() { bart = { t: 0, len: [0.3, 0.45, 0.6, 0.75, 0.9, 1.05, 1.2].map(L => ({ L, x: 0, v: 0, amp: 0 })), log: [] }; }
+function newDP() { const a = 120 * Math.PI / 180; dp = { A: [a, a, 0, 0], B: [a + P.d0, a, 0, 0], t: 0, trA: [], trB: [] }; dpLog = []; }
+function set(o) {
+  Object.assign(P, { sys: "pend", L: 1, planet: "earth", k: 20, m: 0.5, amp: 10, xs: 0.1, damp: 0, small: false, F: 0, wd: 2 * Math.PI * 0.5, bart: 0.6, d0: 1e-3 }, o);
+  if (o.wd != null) P.wd = o.wd;
+  for (const k of ["L", "amp", "k", "m", "xs", "damp", "F", "bart"]) ctl[k].set(P[k]); ctl.wd.set(P.wd / (2 * Math.PI)); ctl.d0.set(Math.log10(P.d0)); for (const k of ["mode", "sys", "planet"]) ctl[k].set(P[k]); ctl.small.set(P.small);
+  grp.osc.style.display = P.mode === "shm" || P.mode === "res" ? "" : "none"; grp.adv.style.display = (P.mode === "shm" || P.mode === "res") && ui.level === "adv" ? "" : "none"; grp.bart.style.display = P.mode === "bart" ? "" : "none"; grp.chaos.style.display = P.mode === "chaos" ? "" : "none";
+  restart(); newBart(); newDP();
+  ({ shm: ["measured period", "theory", "frequency", "amplitude now"], res: ["measured period", "theory", "frequency", "amplitude now"], bart: ["driver period", "largest swing", "driver frequency", "time"], chaos: ["time", "separated?", "starting difference", "difference now"] })[P.mode].forEach((t, i) => read.el.children[i].firstElementChild.textContent = t);
+  chA.opts.title = { shm: "Displacement, velocity and acceleration", res: "Displacement against time", bart: "Amplitude of each light pendulum", chaos: "Angle of the lower arm" }[P.mode];
+  chB.opts.title = { shm: "Energy", res: "Resonance curve", bart: "Phase behind the driver", chaos: "How far apart (log scale)" }[P.mode];
+  const adv = ui.level === "adv"; ctl.mode.el.querySelectorAll("button")[1].style.display = ctl.mode.el.querySelectorAll("button")[2].style.display = adv ? "" : "none";
+}
+ui.onLevel = () => set({ mode: ui.level === "adv" ? P.mode : (P.mode === "res" || P.mode === "bart" ? "shm" : P.mode) });
+
+// ---------------- Drawing ----------------
+const cv = ui.canvas(() => { });
+const chA = K.chart(ui.dock, {}), chB = K.chart(ui.dock, {});
+const T = (c, s, x, y, col = "#aab6cc", al = "left", f = "12px") => { c.fillStyle = col; c.font = f + " Segoe UI,sans-serif"; c.textAlign = al; c.fillText(s, x, y); };
+let geo = null, dragging = false;
+function drawOsc(c, w, h) {
+  const x = S[0], cx = w * 0.4;
+  if (P.sys === "pend") {
+    const top = 50, Lpx = Math.min(h - 110, 130 + 60 * Math.log2(1 + P.L)), bx = cx + Lpx * Math.sin(x), by = top + Lpx * Math.cos(x); geo = { cx, top, Lpx };
+    c.fillStyle = "#56607a"; c.fillRect(cx - 60, top - 8, 120, 8); c.strokeStyle = "#aab6cc"; c.lineWidth = 2; c.beginPath(); c.moveTo(cx, top); c.lineTo(bx, by); c.stroke();
+    c.setLineDash([3, 4]); c.strokeStyle = "rgba(255,255,255,0.2)"; c.beginPath(); c.moveTo(cx, top); c.lineTo(cx, top + Lpx + 20); c.stroke(); c.setLineDash([]);
+    for (const p of trail) { c.fillStyle = "rgba(255,209,102,0.25)"; c.beginPath(); c.arc(p[0], p[1], 2, 0, 6.3); c.fill(); }
+    c.fillStyle = "#ffd166"; c.beginPath(); c.arc(bx, by, 10 + 6 * Math.sqrt(P.m), 0, 6.3); c.fill();
+    const a = accel(opts(), S[0], S[1], S[2]); c.strokeStyle = c.fillStyle = "#ff5d6c"; c.lineWidth = 3; const ax = a * Lpx * 0.15; c.beginPath(); c.moveTo(bx, by); c.lineTo(bx + ax * Math.cos(x), by - ax * Math.sin(x) * 0); c.stroke(); T(c, "restoring force", bx + ax * Math.cos(x) + (ax < 0 ? -90 : 6), by - 10, "#ff5d6c", "left", "11px");
+    T(c, `θ = ${(x * 180 / Math.PI).toFixed(1)}°`, cx, top + Lpx + 50, "#eef2f8", "center", "600 13px");
+  } else {
+    const top = 40, eq = h * 0.45, scale = Math.min(500, (h * 0.35) / 0.3), y = eq + x * scale, coils = 14; geo = { cx, eq, scale };
+    c.fillStyle = "#56607a"; c.fillRect(cx - 60, top - 8, 120, 8); c.strokeStyle = "#aab6cc"; c.lineWidth = 2; c.beginPath(); c.moveTo(cx, top);
+    for (let i = 1; i <= coils; i++) c.lineTo(cx + (i % 2 ? 14 : -14), top + (y - 30 - top) * i / coils); c.lineTo(cx, y - 30); c.stroke();
+    c.fillStyle = "#6fb1ff"; c.fillRect(cx - 28, y - 30, 56, 56); T(c, P.m + " kg", cx, y + 3, "#0b1020", "center", "600 12px");
+    c.setLineDash([4, 4]); c.strokeStyle = "rgba(255,255,255,0.3)"; c.beginPath(); c.moveTo(cx - 80, eq - 2); c.lineTo(cx + 80, eq - 2); c.stroke(); c.setLineDash([]); T(c, "equilibrium", cx + 84, eq + 2, "#7d8aa5", "left", "11px");
+    T(c, `x = ${(x * 100).toFixed(1)} cm`, cx + 84, y, "#eef2f8", "left", "600 13px");
+  }
+  // energy bars
+  const o = opts(), m = P.sys === "pend" ? P.m : P.m, v = P.sys === "pend" ? S[1] * P.L : S[1], ke = 0.5 * m * v * v, pe = P.sys === "pend" ? m * o.g * P.L * (1 - Math.cos(S[0])) : 0.5 * P.k * S[0] ** 2, tot = ke + pe || 1e-9;
+  const bx = w * 0.75, bh = h * 0.5, by = h * 0.75; T(c, "energy", bx + 30, by - bh - 14, "#aab6cc", "center"); const E0 = log.length ? Math.max(tot, log[0][4]) : tot;
+  [["KE", ke, "#ffd166"], ["PE", pe, "#7fe3a0"]].forEach(([n, e, col], i) => { const hh = bh * e / E0; c.fillStyle = col; c.fillRect(bx + i * 40, by - hh, 30, hh); T(c, n, bx + i * 40 + 15, by + 16, col, "center", "600 12px"); });
+}
+function drawBart(c, w, h) {
+  const top = 50, B = bart, sc = Math.min(260, h - 120), drvX = w * 0.15, dAng = 0.25 * Math.sin(Math.sqrt(9.81 / P.bart) * B.t);
+  c.strokeStyle = "#aab6cc"; c.lineWidth = 3; c.beginPath(); c.moveTo(40, top); c.lineTo(w - 40, top); c.stroke(); T(c, "string carrying the driver's swing to the others", w / 2, top - 10, "#7d8aa5", "center", "11px");
+  const dl = P.bart * sc; c.lineWidth = 2; c.beginPath(); c.moveTo(drvX, top); c.lineTo(drvX + dl * Math.sin(dAng), top + dl * Math.cos(dAng)); c.stroke(); c.fillStyle = "#ff8a70"; c.beginPath(); c.arc(drvX + dl * Math.sin(dAng), top + dl * Math.cos(dAng), 16, 0, 6.3); c.fill(); T(c, "driver", drvX, top + dl + 36, "#ff8a70", "center", "600 12px");
+  B.len.forEach((p, i) => { const x = w * 0.3 + i * (w * 0.6) / 6, l = p.L * sc; c.strokeStyle = "#aab6cc"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(x, top); c.lineTo(x + l * Math.sin(p.x), top + l * Math.cos(p.x)); c.stroke(); c.fillStyle = Math.abs(p.L - P.bart) < 0.03 ? "#ffd166" : "#c9d3e6"; c.beginPath(); c.moveTo(x + l * Math.sin(p.x), top + l * Math.cos(p.x) - 8); c.lineTo(x + l * Math.sin(p.x) - 7, top + l * Math.cos(p.x) + 6); c.lineTo(x + l * Math.sin(p.x) + 7, top + l * Math.cos(p.x) + 6); c.fill(); T(c, p.L + " m", x, top + l + 26, "#7d8aa5", "center", "10.5px"); });
+}
+function drawChaos(c, w, h) {
+  const cx = w / 2, cy = h * 0.35, Lp = Math.min(h * 0.3, 140), pos = s => { const x1 = cx + Lp * Math.sin(s[0]), y1 = cy + Lp * Math.cos(s[0]); return [x1, y1, x1 + Lp * Math.sin(s[1]), y1 + Lp * Math.cos(s[1])]; };
+  for (const [tr, col] of [[dp.trA, "rgba(255,209,102,0.35)"], [dp.trB, "rgba(111,177,255,0.35)"]]) { c.strokeStyle = col; c.lineWidth = 1.2; c.beginPath(); tr.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.stroke(); }
+  for (const [s, col] of [[dp.A, "#ffd166"], [dp.B, "#6fb1ff"]]) { const [x1, y1, x2, y2] = pos(s); c.strokeStyle = col; c.lineWidth = 3; c.beginPath(); c.moveTo(cx, cy); c.lineTo(x1, y1); c.lineTo(x2, y2); c.stroke(); c.fillStyle = col; c.beginPath(); c.arc(x1, y1, 8, 0, 6.3); c.arc(x2, y2, 8, 0, 6.3); c.fill(); }
+  T(c, `t = ${dp.t.toFixed(1)} s · starting difference ${P.d0.toExponential(0)} rad`, 20, 30, "#eef2f8", "left", "600 14px");
+}
+function draw() { const c = cv.ctx, w = cv.w, h = cv.h; c.fillStyle = "#0b1020"; c.fillRect(0, 0, w, h); ({ shm: drawOsc, res: drawOsc, bart: drawBart, chaos: drawChaos })[P.mode](c, w, h); }
+K.pointer(cv.el, {
+  down(p) { if ((P.mode === "shm" || P.mode === "res") && geo) dragging = true; },
+  drag(p) { if (!dragging) return; if (P.sys === "pend") { const a = Math.atan2(p.x - geo.cx, p.y - geo.top); P.amp = Math.round(K.clamp(Math.abs(a) * 180 / Math.PI, 1, 85)); S = [a, 0, 0]; ctl.amp.set(P.amp); } else { const x = K.clamp((p.y - geo.eq) / geo.scale, -0.3, 0.3); P.xs = Math.abs(+x.toFixed(2)) || 0.01; S = [x, 0, 0]; ctl.xs.set(P.xs); } log = []; ups = []; },
+  up() { dragging = false; }
+});
+
+// ---------------- The loop ----------------
+let frame = 0;
+ui.run(dt => {
+  if (!(dt > 0) || dragging) return; const s = dt * speed;
+  if (P.mode === "shm" || P.mode === "res") {
+    const o = opts(), n = 20; for (let k = 0; k < n; k++) { const px = S[0]; S = rk4(o, S, s / n); if (px < 0 && S[0] >= 0) ups.push(S[2]); }
+    const v = P.sys === "pend" ? S[1] * P.L : S[1], ke = 0.5 * P.m * v * v, pe = P.sys === "pend" ? P.m * o.g * P.L * (1 - Math.cos(S[0])) : 0.5 * P.k * S[0] ** 2;
+    log.push([S[2], S[0], S[1], accel(Object.assign({}, o, { F: 0 }), S[0], S[1], S[2]), ke + pe, ke, pe]); while (log.length && log[0][0] < S[2] - 12) log.shift();
+    if (P.sys === "pend" && geo) { trail.push([geo.cx + geo.Lpx * Math.sin(S[0]), geo.top + geo.Lpx * Math.cos(S[0])]); if (trail.length > 60) trail.shift(); }
+  } else if (P.mode === "bart") {
+    const B = bart, wdr = Math.sqrt(9.81 / P.bart); for (let k = 0; k < 20; k++) { const ds = s / 20; B.t += ds; const drive = 0.25 * Math.sin(wdr * B.t); for (const p of B.len) { const a = -(9.81 / p.L) * p.x - 0.35 * p.v + 0.8 * (9.81 / p.L) * drive * 0.1; p.v += a * ds; p.x += p.v * ds; p.amp = Math.max(p.amp * 0.9995, Math.abs(p.x)); } }
+  } else {
+    for (let k = 0; k < 10; k++) { dp.A = dpStep(dp.A, s / 10, 9.81, 1); dp.B = dpStep(dp.B, s / 10, 9.81, 1); dp.t += s / 10; }
+    const w = cv.w, h = cv.h, cx = w / 2, cy = h * 0.35, Lp = Math.min(h * 0.3, 140), tip = st => [cx + Lp * (Math.sin(st[0]) + Math.sin(st[1])), cy + Lp * (Math.cos(st[0]) + Math.cos(st[1]))];
+    dp.trA.push(tip(dp.A)); dp.trB.push(tip(dp.B)); if (dp.trA.length > 300) { dp.trA.shift(); dp.trB.shift(); }
+    dpLog.push([dp.t, dp.A[1], dp.B[1], Math.max(1e-12, Math.abs(dp.A[1] - dp.B[1]) + Math.abs(dp.A[0] - dp.B[0]))]); if (dpLog.length > 1500) dpLog.shift();
+  }
+}, () => {
+  draw(); if (frame++ % 5) return; const o = opts(), w0 = omega0(o);
+  if (P.mode === "shm" || P.mode === "res") {
+    const Tm = ups.length > 1 ? (ups[ups.length - 1] - ups[0]) / (ups.length - 1) : NaN, Tth = 2 * Math.PI / w0, u = P.sys === "pend" ? "rad" : "m";
+    const L = log.filter((q, i) => i % 2 === 0), mx = Math.max(1e-6, ...L.map(q => Math.abs(q[1]))), mv = Math.max(1e-6, ...L.map(q => Math.abs(q[2]))), ma = Math.max(1e-6, ...L.map(q => Math.abs(q[3])));
+    chA.opts.xLabel = "time (s)"; chA.opts.yLabel = P.mode === "res" ? `displacement (${u})` : "each scaled to its largest"; chA.opts.xFmt = null;
+    if (P.mode === "shm") chA.draw([{ pts: L.map(q => [q[0], q[1] / mx]), color: "#ffd166", label: "displacement" }, { pts: L.map(q => [q[0], q[2] / mv]), color: "#6fb1ff", label: "velocity" }, { pts: L.map(q => [q[0], q[3] / ma]), color: "#ff5d6c", label: "acceleration" }], { yMin: -1.1, yMax: 1.1 });
+    else chA.draw([{ pts: L.map(q => [q[0], q[1]]), color: "#ffd166", label: "displacement" }], {});
+    if (P.mode === "shm") { chB.opts.xLabel = "time (s)"; chB.opts.yLabel = "energy (J)"; chB.draw([{ pts: L.map(q => [q[0], q[5]]), color: "#ffd166", label: "kinetic" }, { pts: L.map(q => [q[0], q[6]]), color: "#7fe3a0", label: "potential" }, { pts: L.map(q => [q[0], q[4]]), color: "#eef2f8", label: "total" }], { yMin: 0 }); }
+    else { const pts = []; for (let f = 0.05; f <= 3; f += 0.02) pts.push([f, resAmp(w0, Math.max(0.02, P.damp), P.F || 1, 2 * Math.PI * f)]); const amp = Math.max(...L.filter(q => q[0] > S[2] - 6).map(q => Math.abs(q[1]))); chB.opts.xLabel = "driving frequency (Hz)"; chB.opts.yLabel = "amplitude"; chB.draw([{ pts, color: "#7d8aa5", label: "steady-state theory" }, { pts: [[P.wd / (2 * Math.PI), amp]], type: "dots", color: "#ffd166", r: 6, label: "now" }], { xMin: 0, xMax: 3, yMin: 0, vlines: [{ x: w0 / (2 * Math.PI), color: "#7fe3a0", label: "natural frequency" }] }); }
+    read.set("T", isFinite(Tm) ? Tm.toFixed(3) + " s" : "timing…"); read.set("Tth", (P.sys === "pend" ? "2π√(L/g) = " : "2π√(m/k) = ") + Tth.toFixed(3) + " s"); read.set("f", (isFinite(Tm) ? 1 / Tm : 1 / Tth).toFixed(3) + " Hz"); read.set("A", P.sys === "pend" ? (mx * 180 / Math.PI).toFixed(1) + "°" : (mx * 100).toFixed(1) + " cm");
+    ui.hud(`${ups.length > 1 ? `${ups.length - 1} oscillations timed` : "timing…"}<br>${P.sys === "pend" ? `${GRAV[P.planet][0]}, g = ${o.g} N/kg` : `k = ${P.k} N/m, m = ${P.m} kg`}`);
+  } else if (P.mode === "bart") {
+    const wdr = Math.sqrt(9.81 / P.bart); chA.opts.xLabel = "length (m)"; chA.opts.yLabel = "amplitude (rad)"; chA.opts.xFmt = null; chB.opts.xLabel = "length (m)"; chB.opts.yLabel = "phase lag (cycles)";
+    chA.draw([{ pts: bart.len.map(p => [p.L, p.amp]), type: "bars", w: 0.1, color: "#ffd166", label: "measured" }], { xMin: 0.2, xMax: 1.3, yMin: 0, vlines: [{ x: P.bart, color: "#ff8a70", label: "driver" }] });
+    const ph = []; for (let L = 0.25; L <= 1.25; L += 0.02) { const w0b = Math.sqrt(9.81 / L); ph.push([L, Math.atan2(0.35 * wdr, w0b * w0b - wdr * wdr) / (2 * Math.PI)]); } chB.draw([{ pts: ph, color: "#6fb1ff", label: "theory" }], { xMin: 0.2, xMax: 1.3, yMin: 0, yMax: 0.55, hlines: [{ y: 0.25, color: "#7d8aa5", label: "¼ cycle at resonance" }] });
+    read.set("T", (2 * Math.PI / wdr).toFixed(2) + " s"); read.set("Tth", bart.len.reduce((a, b) => b.amp > a.amp ? b : a).L + " m long"); read.set("f", (wdr / (2 * Math.PI)).toFixed(2) + " Hz"); read.set("A", bart.t.toFixed(0) + " s");
+    ui.hud("The pendulum matching the driver's length resonates");
+  } else {
+    chA.opts.xLabel = "time (s)"; chA.opts.yLabel = "lower arm angle (rad)"; chA.opts.xFmt = null; chB.opts.xLabel = "time (s)"; chB.opts.yLabel = "log₁₀ difference (rad)";
+    chA.draw([{ pts: dpLog.map(q => [q[0], q[1]]), color: "#ffd166", label: "pendulum 1" }, { pts: dpLog.map(q => [q[0], q[2]]), color: "#6fb1ff", label: "pendulum 2" }], {});
+    chB.draw([{ pts: dpLog.map(q => [q[0], Math.log10(q[3])]), color: "#ff8a70", label: "difference" }], { yMin: -8, yMax: 1, hlines: [{ y: Math.log10(0.5), color: "#7d8aa5", label: "clearly different" }] });
+    const sep = dpLog.find(q => q[3] > 0.5); read.set("T", dp.t.toFixed(1) + " s"); read.set("Tth", sep ? "apart after " + sep[0].toFixed(1) + " s" : "still together"); read.set("f", P.d0.toExponential(0) + " rad"); read.set("A", K.sig(dpLog.length ? dpLog[dpLog.length - 1][3] : 0, 2) + " rad");
+    ui.hud("Same rules, almost the same start…");
+  }
+});
+set({});
+ui.tip("Drag the bob (or the mass) to set it swinging · the graphs show x, v, a and energy", 7000);
