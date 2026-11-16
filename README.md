@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Sixty-seven simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): sixty rebuilt showpieces, which replaced the earlier versions in
+Seventy simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): sixty-three rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -31,7 +31,7 @@ Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, S
 Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
 and Competition, Arousal and Performance, Stellar Life Cycle, Inheritance, Simple Harmonic
 Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, Reactivity of
-Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, and Homeostasis are likewise kept in each folder's `original/`, with their worksheets,
+Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, and Carbon Cycle are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Typing slider values
@@ -150,7 +150,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`engineering/earthquake_buildings/`](engineering/earthquake_buildings/) | Earthquake Engineering ★: a shake table for three buildings; resonance, bracing, base isolation, tuned mass damper | Open `earthquake-buildings.html` |
 | [`engineering/traffic_flow/`](engineering/traffic_flow/) | Traffic Flow and Phantom Jams ★: jams from nothing, backward-travelling waves, roadworks, self-driving cars | Open `traffic-flow.html` |
 | [`engineering/car_crash/`](engineering/car_crash/) | Car Crash Safety ★: slow-motion crashes with crumple zones, seatbelts and airbags (momentum and impulse), plus a collisions lab (also listed under Physics) | Open `car-crash.html` |
-| [`engineering/aerofoil_flow/`](engineering/aerofoil_flow/) | Aerofoil flow: lift from shape, angle of attack and spin with the Hess–Smith panel method, plus starting vortex, flap and Kármán street (also listed under Physics) | Open `aerofoil-flow.html` |
+| [`engineering/aerofoil_flow/`](engineering/aerofoil_flow/) | Aerofoil flow ★: a 2D wind tunnel with the panel method; pressure, streamlines, lift, camber and the Magnus effect | Open `aerofoil-flow.html` |
 
 ## Climate and physical geography
 
@@ -159,8 +159,8 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | Folder | What it is | How to run |
 |---|---|---|
 | [`climate/greenhouse_effect/`](climate/greenhouse_effect/) | The Greenhouse Effect ★: sunlight and infrared packets, the energy balance, feedbacks, volcanoes, Venus and Mars, 1850 to 2100 | Open `greenhouse-effect.html` |
-| [`climate/ice_albedo/`](climate/ice_albedo/) | Ice–albedo feedback, Snowball Earth and tipping points | Open `ice-albedo.html` |
-| [`climate/carbon_cycle/`](climate/carbon_cycle/) | The carbon cycle and CO₂ from 1750 to 2300 under emissions scenarios | Open `carbon-cycle.html` |
+| [`climate/ice_albedo/`](climate/ice_albedo/) | Ice–albedo ★: the ice–albedo feedback, snowball Earth, tipping points and hysteresis (energy balance model) | Open `ice-albedo.html` |
+| [`climate/carbon_cycle/`](climate/carbon_cycle/) | Carbon cycle ★: stores and flows from 1750 to 2300, the ocean and land sinks, acidification, emission scenarios | Open `carbon-cycle.html` |
 | [`climate/sea_level_rise/`](climate/sea_level_rise/) | Sea level rise: where the water comes from, flooding and storm surges | Open `sea-level-rise.html` |
 | [`climate/forest_fire/`](climate/forest_fire/) | Wildfire ★: fire spread with wind, slope, drought and embers; percolation tipping point; firebreak challenge | Open `forest-fire.html` |
 | [`climate/weather_chaos/`](climate/weather_chaos/) | The butterfly effect: Lorenz 63 and Lorenz 96 models, twin forecasts, ensembles, and why forecast skill is limited | Open `weather-chaos.html` |
