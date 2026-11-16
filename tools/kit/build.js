@@ -48,6 +48,11 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["energy_changes.js", "energy_changes", "energy-changes.html", "Energy Changes", "chemistry"],
   ["gas_exchange.js", "gas_exchange", "gas-exchange.html", "Lungs and Gas Exchange", "medical"],
   ["tectonic_hazards.js", "tectonic_hazards", "tectonic-hazards.html", "Tectonic Hazards", "climate"],
+  ["car_crash.js", "car_crash", "car-crash.html", "Car Crash Safety and Collisions", "engineering"],
+  ["firms_competition.js", "firms_competition", "firms-competition.html", "Firms, Costs and Competition", "economics"],
+  ["arousal_performance.js", "arousal_performance", "arousal-performance.html", "Arousal, Anxiety and Performance", "physical_education"],
+  ["stellar_life_cycle.js", "stellar_life_cycle", "stellar-life-cycle.html", "Stellar Life Cycle", "astrophysics"],
+  ["inheritance.js", "inheritance", "inheritance.html", "Inheritance and Genetics", "biology"],
   ["training_adaptation.js", "training_adaptation", "training-adaptation.html", "Training and Adaptation", "physical_education"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
