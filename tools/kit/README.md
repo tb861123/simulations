@@ -42,7 +42,7 @@ photosynthesis_respiration, externalities, flooding_hydrographs, queues,
 energy_changes, gas_exchange, tectonic_hazards, car_crash, firms_competition,
 arousal_performance, stellar_life_cycle, inheritance, simple_harmonic_motion,
 membranes, antibiotic_resistance, exoplanet_hunting, reactivity_metals,
-youngs_modulus, nuclear_fusion, states_of_matter, circular_motion, crystallisation, atomic_structure, periodic_groups, dna_cell_division, ecosystems, homeostasis, aerofoil_flow, ice_albedo, carbon_cycle, dark_matter, expanding_universe, planet_formation.
+youngs_modulus, nuclear_fusion, states_of_matter, circular_motion, crystallisation, atomic_structure, periodic_groups, dna_cell_division, ecosystems, homeostasis, aerofoil_flow, ice_albedo, carbon_cycle, dark_matter, expanding_universe, planet_formation, taxes_price_controls, labour_market, circular_flow.
 
 ## Levels and the Revise tab
 

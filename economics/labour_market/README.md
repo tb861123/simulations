@@ -1,104 +1,64 @@
 # The Labour Market
 
-Employers and workers set wages in weekly hiring rounds. Each employer has a job worth
-its marginal revenue product (MRP); each worker has a reservation wage. Nobody can see
-the curves, yet the wage settles where the demand for labour meets the supply. Add the
-National Living Wage or a union wage and watch unemployment appear in a competitive
-market, or (Advanced) employment rise under monopsony. Compare two labour markets to see
-why wages differ and how mobility closes (or fails to close) the gap, and watch the
-division of labour in a workshop.
+A single, self-contained HTML file in which employers and workers set wages in
+weekly hiring rounds. It needs no install and no internet:
+**open `labour-market.html` in Chrome or Edge**.
 
-Standard: Edexcel International GCSE Economics (4EC1). Advanced: Edexcel A level
-Economics A (9EC0), Theme 3.
+★ Enhanced: built from `tools/kit/src/labour_market.js` by `node build.js` (run
+inside `tools/kit/`). Do not edit `labour-market.html` by hand. The earlier
+version (with a division-of-labour workshop) and its worksheets are kept in
+[`original/`](original/).
 
-## How to run
+- **Standard (GCSE):** Edexcel International GCSE Economics (4EC1): demand for
+  and supply of labour, wage determination, the national minimum wage, trade
+  unions, why wages differ.
+- **Advanced (A level):** Edexcel A level Economics A (9EC0) Theme 3: MRP and
+  derived demand, monopsony (MCL, the wage gap), minimum wages and unions in a
+  monopsony, occupational and geographical immobility.
 
-Open `labour-market.html` in Chrome or Edge, with no install and no internet.
+## Three views
 
-## The four views
+1. **Wage determination.** 40 employers (each job worth its MRP) and 40
+   workers (reservation wages) haggle each week; hires, and workers who want
+   a job at the wage but were not hired. Diagram: D = MRP, S, the minimum
+   wage and the unemployment it causes. Product price and productivity
+   (derived demand), migration.
+2. **Monopsony (A level).** One employer learns, week by week, how many
+   workers to hire; diagram with MRP, supply, MCL, the monopsony and
+   competitive points and the MRP − wage gap; a chart of employment against
+   the minimum wage in both models.
+3. **Wage differences.** Two labour markets (identical; skills; London and the
+   North East; a union in one market; migration into one market) with workers
+   moving when the gap in expected wages beats their cost of moving.
 
-1. **Wage determination.** The hiring floor (employers by MRP, workers by reservation wage;
-   hires ticked; unemployed workers ringed red at the end of a week) beside the labour
-   market diagram (D = MRP, S, the people's own step curves, the wage floor and the
-   unemployment it causes) and every hire's wage. Derived demand: the product's price and
-   productivity shift MRP. Migration shifts supply. Wage floors: UK minimum wage rates by
-   date, your own value, and a union wage.
-2. **Monopsony (Advanced).** One employer owns every job. Left: who applies at the wage it
-   offers, who is hired, the MRP of each job. Right: MRP, supply (= average cost of labour),
-   MCL, the monopsony wage and employment, the competitive point, and the outcome with a
-   minimum wage or a union (bargaining power from none to all). The employer learns its
-   best wage week by week.
-3. **Wage differences.** Two labour markets side by side, with workers moving between them
-   when the expected-wage gap beats the cost of moving. Scenarios: skills (occupational
-   immobility), London vs the North East (geographical immobility), discrimination, a
-   union in one market, migration into one market, or identical markets.
-4. **Division of labour** (4EC1 1.2.2 Productivity and division of labour, in the
-   production section). Two workshops making chairs in four tasks: generalists making
-   whole chairs vs specialists passing work along (practice, no switching time, boredom).
+Jobs: hospitality and retail, care workers, HGV drivers, nurses, software
+developers (illustrative wages and elasticities), with the National Living
+Wage of £12.71 (April 2026).
 
-Right panel: what's happening, readings (wage, employment, unemployment, wage bill; in
-Advanced elasticities and the % changes), a chart comparing employment against the minimum
-wage in the competitive and monopsony models, a table of UK minimum wage rates with dates,
-real examples, key ideas, 12 exam questions (6 Standard, 6 Advanced; several built from the
-numbers on screen) with mark schemes, and "How the model works (and what it leaves out)".
+## Investigate
 
-## Controls
-
-- Standard / Advanced toggle (the monopsony view, union bargaining power, elasticity
-  readings and A level questions appear in Advanced).
-- 12 presets: how wages are set; National Living Wage 2026 (£12.71); derived demand: a
-  boom; lorry driver shortage (2021); a trade union; monopsony: one big employer (A level);
-  minimum wage in a monopsony (A level); union in a monopsony (A level); skills and wage
-  differences; London and the North East; discrimination; division of labour.
-- Job (hospitality and retail, care workers, HGV drivers, nurses, software developers),
-  elasticities of labour demand and supply, numbers, product price, productivity,
-  migration, minimum wage, union wage / bargaining power, learning or random traders.
-- Play / pause, reset, end the week (or step), speed ½× to 20×; hide / show panels,
-  full screen. A hover tip on the hiring floor shows each person's MRP or reservation wage.
-- No quality setting: the views are a few shapes and lines (at most 200 people).
-
-## The model
-
-- The same double auction with learning (ZIP) traders as Supply, Demand and Elasticity,
-  with employers as buyers (value = MRP = MPP × MR) and workers as sellers (cost =
-  reservation wage). Straight-line theory curves through the reference wage with the chosen
-  elasticities; MRP scales with the product price and productivity (derived demand).
-- A minimum wage or union wage is a wage floor (a minimum price): unemployment =
-  people willing to work at the floor who are not hired.
-- Monopsony: S(L) = cLo + sL, MCL = cLo + 2sL, MRP = vHi − dL; hires where MRP = MCL;
-  with a floor f above the monopsony wage, employment = min(Ls(f), Ld(f)). Union wage =
-  monopsony wage + power × (MRP at monopsony employment − monopsony wage).
-- Two markets: each clears every week (or sits at a union floor); a share of workers (the
-  mobility setting) move when the expected wage (wage × chance of a job) elsewhere is higher
-  by more than the cost of moving; only workers with the skills can enter market B;
-  discrimination lowers employers' valuation of group B.
-- Wage rates are the real UK NMW/NLW rates with their dates; the reference wages,
-  elasticities and job sizes are illustrative. All assumptions are listed in the simulation.
+How wages are set · The National Living Wage · Derived demand: a boom · Lorry
+driver shortage · A trade union · Why wages differ: skills · London and the
+North East · (A level) Monopsony · Minimum wage in a monopsony · Elasticity of
+labour demand.
 
 ## Batch run
 
-| Experiment | Result from the test run (theory) |
+| Experiment | Result when tested (theory) |
 |---|---|
-| Does hiring find the market wage? (100 markets) | £12.25, SD £1.66 (£12.00, SD £1.69) |
-| Minimum wage in a competitive market (£10–£16) | employment 30.4 → 24.6 (30 → 25); monopsony model shown for contrast |
-| Minimum wage in a monopsony (£8–£16) | 23.8 → 27.4 at £12 → 24.6 at £16 (22 → 30 → 25) |
-| A union in a monopsony (bargaining power 0–1) | 25.2 → 28.0 → 24.6 (25 → 30 → 25) |
-| Elastic labour demand: more jobs lost (NLW £12.71, elasticity 0.1–2) | about 1.9% → 10.8% (0.6% → 11.8%) |
-| Skill shortages: fewer workers, higher pay (15–120 workers, 60 jobs) | £37.80 → £6.93 an hour (£36.62 → £6.75) |
+| Minimum wage and unemployment (90–130% of the market wage) | 1.5, 4.4, 5.1, 6.8, 9.2, 13.2 (0, 0, 2, 4, 8, 12, plus a little frictional unemployment) |
+| Minimum wage in a monopsony | employment 14 → 20 as the minimum wage rises to the competitive wage (£12), then falls |
+| Derived demand (product price × 0.7–1.3) | wage £10.3–£13.2 (theory £10.2–£13.2) |
+| Does mobility close the wage gap? (cost of moving £0–£6) | expected-wage gap 0.2 → 4.3 (≈ 0.8 × cost) |
+| Does haggling find the market wage? (200 markets) | £12.0 ± 0.19 (theory £12.00) |
 
-Each experiment's note explains what the result shows and why results scatter (and, for
-the monopsony peak, why the mean falls short of the theory). Re-run `tools/worksheets` for
-this simulation if the batch experiments change.
+## The model
 
-## Data sources
-
-National Minimum Wage and National Living Wage rates (GOV.UK, Low Pay Commission): the NMW
-started on 1 April 1999 at £3.60 for workers aged 22 and over (£3.00 for ages 18–21); the NLW
-started on 1 April 2016 at £7.20 for ages 25 and over; then £8.72 (2020), £8.91 (2021), £9.50 (2022), £10.42 (2023), £11.44
-(2024), £12.21 (April 2025; 18–20 £10.00, 16–17 and apprentices £7.55), £12.71 (April 2026;
-18–20 £10.85, 16–17 and apprentices £8.00).
-ONS ASHE: median full-time pay £37,439 (2024) and £39,039 (2025, provisional); gender pay
-gap 6.9% full-time and 12.8% all employees in 2025 (7.0% and 13.1% in 2024); Department for
-Business and Trade trade union statistics: 22.0% of employees in 2024, 22.4% in 2025; ONS net migration (peak about 906,000, year to June 2023); the EU bankers'
-bonus cap (UK 2014 to October 2023); public-sector pay freeze 2011–12 and 1% cap to 2017;
-Card and Krueger (1994); Adam Smith's pin factory (1776).
+Straight-line labour demand (MRP) and supply through the market wage with
+the chosen elasticities; haggling as in the trading pit, with a minimum wage
+making lower wages illegal. The monopsonist pays the L-th worker's
+reservation wage (or the minimum wage) to all L workers and picks L for the
+most profit. Two markets clear each week at their competitive (or union)
+wage, and workers move with an 8% chance a week if the expected-wage gap beats
+their own cost of moving. Leaves out hours, benefits, taxes, search, training
+and discrimination.

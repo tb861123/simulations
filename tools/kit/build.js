@@ -74,6 +74,9 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["dark_matter.js", "dark_matter", "dark-matter.html", "Dark Matter and Rotation Curves", "astrophysics"],
   ["expanding_universe.js", "expanding_universe", "expanding-universe.html", "The Expanding Universe", "astrophysics"],
   ["planet_formation.js", "planet_formation", "planet-formation.html", "Planet Formation", "astrophysics"],
+  ["taxes_price_controls.js", "taxes_price_controls", "taxes-price-controls.html", "Taxes, Subsidies and Price Controls", "economics"],
+  ["labour_market.js", "labour_market", "labour-market.html", "The Labour Market", "economics"],
+  ["circular_flow.js", "circular_flow", "circular-flow.html", "The Circular Flow and the Multiplier", "economics"],
   ["training_adaptation.js", "training_adaptation", "training-adaptation.html", "Training and Adaptation", "physical_education"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");

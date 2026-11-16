@@ -29,7 +29,7 @@ own folder inside the right subject folder and gets a row in the root
 `README.md`, a line in the `SIMS` list in the front page `index.html`, and a
 thumbnail `thumbs/<folder>.jpg` (a 640×360 screenshot).
 
-Seventy-three simulations are "★ Enhanced" (listed in `ENHANCED` in the front page
+Seventy-six simulations are "★ Enhanced" (listed in `ENHANCED` in the front page
 `index.html`, which marks them with a gold edge and star tag): `waves`,
 `dynamic_equilibrium`, `natural_selection`, `nerve_impulse`,
 `earthquake_buildings`, `forest_fire`, `three_body_chaos`,
@@ -46,7 +46,7 @@ Seventy-three simulations are "★ Enhanced" (listed in `ENHANCED` in the front 
 `energy_changes`, `gas_exchange`, `tectonic_hazards`, `car_crash`,
 `firms_competition`, `arousal_performance`, `stellar_life_cycle`, `inheritance`,
 `simple_harmonic_motion`, `membranes`, `antibiotic_resistance`, `exoplanet_hunting`,
-`reactivity_metals`, `youngs_modulus`, `nuclear_fusion`, `states_of_matter`, `circular_motion`, `crystallisation`, `atomic_structure`, `periodic_groups`, `dna_cell_division`, `ecosystems`, `homeostasis`, `aerofoil_flow`, `ice_albedo`, `carbon_cycle`, `dark_matter`, `expanding_universe`, `planet_formation`. They are the one
+`reactivity_metals`, `youngs_modulus`, `nuclear_fusion`, `states_of_matter`, `circular_motion`, `crystallisation`, `atomic_structure`, `periodic_groups`, `dna_cell_division`, `ecosystems`, `homeostasis`, `aerofoil_flow`, `ice_albedo`, `carbon_cycle`, `dark_matter`, `expanding_universe`, `planet_formation`, `taxes_price_controls`, `labour_market`, `circular_flow`. They are the one
 place with a shared toolkit: edit `tools/kit/kit.*` or
 `tools/kit/src/<name>.js`, then run `node build.js` from inside `tools/kit/`
 to regenerate the single-file pages in their subject folders. Never edit

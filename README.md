@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Seventy-three simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): sixty-six rebuilt showpieces, which replaced the earlier versions in
+Seventy-six simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): sixty-nine rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -31,7 +31,7 @@ Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, S
 Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
 and Competition, Arousal and Performance, Stellar Life Cycle, Inheritance, Simple Harmonic
 Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, Reactivity of
-Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, and Planet Formation are likewise kept in each folder's `original/`, with their worksheets,
+Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, and Circular Flow are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Typing slider values
@@ -200,10 +200,10 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 | Folder | What it is | How to run |
 |---|---|---|
 | [`economics/supply_demand/`](economics/supply_demand/) | The Trading Pit ★: supply and demand from haggling buyers and sellers; tax, price cap and floor | Open `supply-demand.html` |
-| [`economics/taxes_price_controls/`](economics/taxes_price_controls/) | Indirect taxes, subsidies, maximum and minimum prices: incidence, shortages, deadweight loss | Open `taxes-price-controls.html` |
+| [`economics/taxes_price_controls/`](economics/taxes_price_controls/) | Taxes and price controls ★: tax incidence and elasticity, subsidies, maximum and minimum prices, black markets, deadweight loss, UK examples | Open `taxes-price-controls.html` |
 | [`economics/firms_competition/`](economics/firms_competition/) | Firms and Competition ★: cost and revenue curves, MC = MR, entry and exit across market structures, the prisoner's dilemma | Open `firms-competition.html` |
-| [`economics/labour_market/`](economics/labour_market/) | The labour market: wage determination, minimum wage, unions, monopsony, wage differences, division of labour | Open `labour-market.html` |
-| [`economics/circular_flow/`](economics/circular_flow/) | The circular flow and the multiplier: five sectors, injections and withdrawals, AD = C+I+G+X−M, AD/AS, accelerator | Open `circular-flow.html` |
+| [`economics/labour_market/`](economics/labour_market/) | Labour market ★: wages from MRP and reservation wages, minimum wage, monopsony with MCL, two markets and mobility | Open `labour-market.html` |
+| [`economics/circular_flow/`](economics/circular_flow/) | Circular flow ★: five sectors, injections and withdrawals, the multiplier round by round, the accelerator, AD/AS and output gaps | Open `circular-flow.html` |
 | [`economics/running_the_economy/`](economics/running_the_economy/) | Running the Economy ★: five targets, Bank Rate, fiscal and supply-side policy, shocks, the real UK 1997–2025, money creation | Open `running-the-economy.html` |
 | [`economics/externalities/`](economics/externalities/) | Market Failure and Externalities ★: externalities with the welfare-loss triangle, taxes, subsidies, limits, information, cap and trade, public goods, lemons | Open `externalities.html` |
 | [`economics/trade_exchange_rates/`](economics/trade_exchange_rates/) | Trade and exchange rates: comparative advantage, terms of trade, tariffs, quotas, floating and fixed rates, J-curve | Open `trade-exchange-rates.html` |
