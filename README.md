@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Thirty-nine simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): thirty-two rebuilt showpieces, which replaced the earlier versions in
+Forty-three simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): thirty-six rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -26,7 +26,8 @@ Gas in a Box, Collision Theory, Galaxy Collisions, Epidemics, Fields and
 Orbits, Traffic Flow, Optics, Heart and Circulation, Tropical Storms, Foxes and
 Rabbits, Electrolysis, Running the Economy, Radioactive Decay, Photoelectric
 Effect, Energy Systems, Bonding, Circuits, Enzymes, the Greenhouse Effect, Crude Oil,
-Cracking and Polymers, and Training and Adaptation are likewise kept in each folder's `original/`, with their worksheets,
+Cracking and Polymers, Training and Adaptation, Projectile Motion, Photosynthesis and
+Respiration, Market Failure and Externalities, and Flooding and Storm Hydrographs are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Batch run
@@ -40,7 +41,7 @@ simulation has ready-made batch experiments that pose a question, such as
 
 ## Worksheets
 
-Every simulation with a batch run, apart from the thirty-nine ★ Enhanced ones,
+Every simulation with a batch run, apart from the forty-three ★ Enhanced ones,
 has a `worksheets.html` beside it: one
 printable A4 page per batch experiment (set-up, prediction, results table to
 fill in, questions), then teacher notes with the explanation and the numbers
@@ -58,7 +59,7 @@ changing a simulation's batch experiments.
 | [`physics/simple_harmonic_motion/`](physics/simple_harmonic_motion/) | Simple harmonic motion: pendulums and springs, SHM graphs and energy, damping, forced oscillation and resonance, Barton's pendulums; plus a double-pendulum chaos tab | Open `simple-harmonic-motion.html` |
 | [`physics/states_of_matter/`](physics/states_of_matter/) | States of matter: particles, heating and cooling curves, specific heat capacity and latent heat (also listed under Chemistry) | Open `states-of-matter.html` |
 | [`physics/youngs_modulus/`](physics/youngs_modulus/) | Young's modulus: Hooke's law, stress–strain curves, breaking, Searle's method | Open `youngs-modulus.html` |
-| [`physics/projectile_motion/`](physics/projectile_motion/) | Projectile motion: range, angle and time of flight, with air resistance, spin and wind | Open `projectile-motion.html` |
+| [`physics/projectile_motion/`](physics/projectile_motion/) | Projectile Motion ★: two motions at once (shadows, time markers, velocity arrows), range and angle, energy; drag, wind and spin at A level | Open `projectile-motion.html` |
 | [`physics/circular_motion/`](physics/circular_motion/) | Circular motion: whirling bung, banked bends, loop-the-loop, conical pendulum | Open `circular-motion.html` |
 | [`physics/waves/`](physics/waves/) | Ripple Tank ★: a 2-D wave-equation solver. Interference, slits, refraction, lenses, mirrors and Doppler; draw your own walls and glass | Open `waves.html` |
 | [`physics/optics_refraction/`](physics/optics_refraction/) | Light: Refraction, Lenses and Fibres ★: a ray-traced optical bench with blocks, prisms, real lenses, a fibre and a raindrop | Open `optics-refraction.html` |
@@ -113,7 +114,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`biology/predator_prey/`](biology/predator_prey/) | Foxes and Rabbits ★: every animal followed; population cycles, carrying capacity, culling, refuges, extinction | Open `predator-prey.html` |
 | [`biology/membranes/`](biology/membranes/) | Membranes and movement: diffusion, osmosis, active transport, SA:V, potato osmosis, water potential, membrane permeability | Open `membranes.html` |
 | [`biology/enzymes/`](biology/enzymes/) | Enzymes ★: molecules colliding and fitting; temperature, pH, denaturing, substrate and enzyme concentration, inhibitors, Vmax, Q10 | Open `enzymes.html` |
-| [`biology/photosynthesis_respiration/`](biology/photosynthesis_respiration/) | Photosynthesis and respiration: limiting factors, pondweed practical, gas exchange in leaves, respirometer, RQ, Calvin and Krebs cycles | Open `photosynthesis-respiration.html` |
+| [`biology/photosynthesis_respiration/`](biology/photosynthesis_respiration/) | Photosynthesis and Respiration ★: pondweed and limiting factors, leaf gas exchange and indicator tubes, respirometer, RQ and the Calvin cycle | Open `photosynthesis-respiration.html` |
 | [`biology/inheritance/`](biology/inheritance/) | Inheritance: fruit-fly breeding lab, Punnett squares, pedigrees, variation, dihybrid crosses, sex linkage, linkage, epistasis, chi-squared | Open `inheritance.html` |
 | [`biology/dna_cell_division/`](biology/dna_cell_division/) | DNA, protein synthesis and cell division: genetic code, mutations, mitosis, meiosis, root tip mitotic index, replication, lac operon | Open `dna-cell-division.html` |
 | [`biology/ecosystems/`](biology/ecosystems/) | Ecosystems and sampling: food webs, energy transfer, nutrient cycles, quadrats and transects, succession, Simpson's index, sustainability | Open `ecosystems.html` |
@@ -152,7 +153,7 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`climate/sea_level_rise/`](climate/sea_level_rise/) | Sea level rise: where the water comes from, flooding and storm surges | Open `sea-level-rise.html` |
 | [`climate/forest_fire/`](climate/forest_fire/) | Wildfire ★: fire spread with wind, slope, drought and embers; percolation tipping point; firebreak challenge | Open `forest-fire.html` |
 | [`climate/weather_chaos/`](climate/weather_chaos/) | The butterfly effect: Lorenz 63 and Lorenz 96 models, twin forecasts, ensembles, and why forecast skill is limited | Open `weather-chaos.html` |
-| [`climate/flooding_hydrographs/`](climate/flooding_hydrographs/) | Flooding and storm hydrographs: drainage basins, lag time, urbanisation, flood management, return periods, water budgets | Open `flooding-hydrographs.html` |
+| [`climate/flooding_hydrographs/`](climate/flooding_hydrographs/) | Flooding and Storm Hydrographs ★: drainage basin and hillslope flows, storm hydrographs, lag time, urbanisation, flood management, case studies, flood frequency | Open `flooding-hydrographs.html` |
 | [`climate/river_landforms/`](climate/river_landforms/) | Rivers and landforms: Bradshaw model, Hjulström curve, meanders and oxbow lakes, waterfalls, river fieldwork | Open `river-landforms.html` |
 | [`climate/coasts/`](climate/coasts/) | Coasts: waves, erosion, longshore drift, spits, cliff retreat, Holderness management, sea-level change | Open `coasts.html` |
 | [`climate/glaciers/`](climate/glaciers/) | Glaciers: mass balance and ELA, ice flow, corries, U-shaped valleys, moraines, freeze-thaw | Open `glaciers.html` |
@@ -193,7 +194,7 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 | [`economics/labour_market/`](economics/labour_market/) | The labour market: wage determination, minimum wage, unions, monopsony, wage differences, division of labour | Open `labour-market.html` |
 | [`economics/circular_flow/`](economics/circular_flow/) | The circular flow and the multiplier: five sectors, injections and withdrawals, AD = C+I+G+X−M, AD/AS, accelerator | Open `circular-flow.html` |
 | [`economics/running_the_economy/`](economics/running_the_economy/) | Running the Economy ★: five targets, Bank Rate, fiscal and supply-side policy, shocks, the real UK 1997–2025, money creation | Open `running-the-economy.html` |
-| [`economics/externalities/`](economics/externalities/) | Market failure: externalities, welfare loss, taxes, subsidies, regulation, tradable permits, public goods, information failure | Open `externalities.html` |
+| [`economics/externalities/`](economics/externalities/) | Market Failure and Externalities ★: externalities with the welfare-loss triangle, taxes, subsidies, limits, information, cap and trade, public goods, lemons | Open `externalities.html` |
 | [`economics/trade_exchange_rates/`](economics/trade_exchange_rates/) | Trade and exchange rates: comparative advantage, terms of trade, tariffs, quotas, floating and fixed rates, J-curve | Open `trade-exchange-rates.html` |
 | [`economics/inequality/`](economics/inequality/) | Inequality and redistribution: Lorenz curve and Gini, income vs wealth, poverty, UK taxes and benefits, Kuznets and Laffer curves (also listed under Statistics) | Open `inequality.html` |
 
