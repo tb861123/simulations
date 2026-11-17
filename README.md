@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Eighty-two simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): seventy-five rebuilt showpieces, which replaced the earlier versions in
+Eighty-five simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): seventy-eight rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -31,7 +31,7 @@ Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, S
 Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
 and Competition, Arousal and Performance, Stellar Life Cycle, Inheritance, Simple Harmonic
 Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, Reactivity of
-Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, Sport Biomechanics, Fitness Testing, Skill Acquisition, Atomic Spectra, Nuclear Fission, and Particle Physics are likewise kept in each folder's `original/`, with their worksheets,
+Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, Sport Biomechanics, Fitness Testing, Skill Acquisition, Atomic Spectra, Nuclear Fission, Particle Physics, Acids, Salts and Tests, Chromatography, and Moles and Reacting Masses are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Typing slider values
@@ -115,10 +115,10 @@ and press **Print** (or save as PDF).
 | [`chemistry/reactivity_metals/`](chemistry/reactivity_metals/) | Reactivity ★: metals with water and acid, displacement with temperature rises, extraction (blast furnace, electrolysis), redox | Open `reactivity-metals.html` |
 | [`chemistry/electrolysis/`](chemistry/electrolysis/) | Electrolysis ★: ions drifting to the electrodes, products at each, half-equations, Faraday's law | Open `electrolysis.html` |
 | [`chemistry/energy_changes/`](chemistry/energy_changes/) | Energy Changes ★: bonds breaking and forming on a profile, cup calorimetry with extrapolation, burning alcohols, ΔG at A level | Open `energy-changes.html` |
-| [`chemistry/acids_salts_tests/`](chemistry/acids_salts_tests/) | Acids, alkalis, titration, making salts, and a chemical tests lab (flame tests, ions, gases, unknowns) | Open `acids-salts-tests.html` |
-| [`chemistry/chromatography/`](chemistry/chromatography/) | Paper chromatography: Rf values, identifying components, solvent choice and measurement error | Open `chromatography.html` |
+| [`chemistry/acids_salts_tests/`](chemistry/acids_salts_tests/) | Acids, salts and tests ★: pH and indicators, titration and pH curves, solubility and precipitation, ion and gas tests with unknowns, buffers | Open `acids-salts-tests.html` |
+| [`chemistry/chromatography/`](chemistry/chromatography/) | Chromatography ★: paper chromatography and Rf, purity and identification, method mistakes, TLC and gas chromatography | Open `chromatography.html` |
 | [`chemistry/crystallisation/`](chemistry/crystallisation/) | Crystallisation ★: crystals growing in cooling magma (granite, basalt, obsidian) and in salt solutions; solubility curves, seeds, JMAK theory | Open `crystallisation.html` |
-| [`chemistry/moles_reacting_masses/`](chemistry/moles_reacting_masses/) | Moles, reacting masses and yield: Mr, limiting reactants, empirical formulae and hydrates by experiment, percentage yield, gas volumes, concentration | Open `moles-reacting-masses.html` |
+| [`chemistry/moles_reacting_masses/`](chemistry/moles_reacting_masses/) | Moles and reacting masses ★: the mole, limiting reactants, empirical formula and water of crystallisation practicals, gas volumes, atom economy | Open `moles-reacting-masses.html` |
 | [`chemistry/electrochemical_cells/`](chemistry/electrochemical_cells/) | Electrochemical cells: displacement, simple cells, half-cells and E°, feasibility, fuel and lithium-ion cells, redox titrations | Open `electrochemical-cells.html` |
 
 ## Biology and medicine
