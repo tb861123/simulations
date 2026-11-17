@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Seventy-seven simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): seventy rebuilt showpieces, which replaced the earlier versions in
+Seventy-nine simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): seventy-two rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -31,7 +31,7 @@ Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, S
 Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
 and Competition, Arousal and Performance, Stellar Life Cycle, Inheritance, Simple Harmonic
 Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, Reactivity of
-Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, and Sport Biomechanics are likewise kept in each folder's `original/`, with their worksheets,
+Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, Sport Biomechanics, Fitness Testing, and Skill Acquisition are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Typing slider values
@@ -227,8 +227,8 @@ Standard level follows OCR GCSE (9–1) Physical Education (J587); Advanced foll
 | [`physical_education/energy_systems/`](physical_education/energy_systems/) | Energy Systems ★: ATP, PC, glycogen and oxygen tanks in races, intervals and games; deficit, OBLA, EPOC, recovery | Open `energy-systems.html` |
 | [`physical_education/training_adaptation/`](physical_education/training_adaptation/) | Training and Adaptation ★: Q = SV × HR in a session, then weeks of training: principles, methods, fitness and fatigue, adaptations, tapering, injury risk (also listed under Biology) | Open `training-adaptation.html` |
 | [`physical_education/sport_biomechanics/`](physical_education/sport_biomechanics/) | Sport biomechanics ★: levers, planes and axes, stability, force plates and impulse, projectiles with spin, tuck and spin, bounce | Open `sport-biomechanics.html` |
-| [`physical_education/fitness_testing/`](physical_education/fitness_testing/) | Fitness testing: 12 fitness tests on a simulated squad, ratings, reliability, validity, typical error | Open `fitness-testing.html` |
-| [`physical_education/skill_acquisition/`](physical_education/skill_acquisition/) | Skill acquisition: your own reaction test and Hick's law, information processing, practice, guidance and feedback, classification, schema | Open `skill-acquisition.html` |
+| [`physical_education/fitness_testing/`](physical_education/fitness_testing/) | Fitness testing ★: 11 tests on a simulated squad, ratings, protocols, test–retest reliability, validity, training and the smallest worthwhile change | Open `fitness-testing.html` |
+| [`physical_education/skill_acquisition/`](physical_education/skill_acquisition/) | Skill acquisition ★: Hick's law (test yourself), information processing and the PRP, practice types, guidance, feedback, classification, schema | Open `skill-acquisition.html` |
 | [`physical_education/arousal_performance/`](physical_education/arousal_performance/) | Arousal and Performance ★: inverted-U, drive, catastrophe, ZOF, mental preparation, social facilitation, Ringelmann | Open `arousal-performance.html` |
 | [`physical_education/luck_and_skill/`](physical_education/luck_and_skill/) | Luck, Skill and the League ★: does the best team win? League against cup, home advantage, the sacked-manager bounce | Open `luck-and-skill.html` |
 
