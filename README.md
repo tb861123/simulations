@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Seventy-nine simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): seventy-two rebuilt showpieces, which replaced the earlier versions in
+Eighty-two simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): seventy-five rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -31,7 +31,7 @@ Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, S
 Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
 and Competition, Arousal and Performance, Stellar Life Cycle, Inheritance, Simple Harmonic
 Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, Reactivity of
-Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, Sport Biomechanics, Fitness Testing, and Skill Acquisition are likewise kept in each folder's `original/`, with their worksheets,
+Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, Sport Biomechanics, Fitness Testing, Skill Acquisition, Atomic Spectra, Nuclear Fission, and Particle Physics are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Typing slider values
@@ -88,10 +88,10 @@ and press **Print** (or save as PDF).
 | [`physics/capacitors/`](physics/capacitors/) | Capacitors: charge and discharge, time constant, energy | Open `capacitors.html` |
 | [`physics/magnetism_induction/`](physics/magnetism_induction/) | Magnetism and induction: motor effect, Faraday's law, transformers, DC motor | Open `magnetism-induction.html` |
 | [`physics/photoelectric_effect/`](physics/photoelectric_effect/) | The Photoelectric Effect ★: photons, work function, stopping potential, Millikan's h, the gold-leaf electroscope | Open `photoelectric-effect.html` |
-| [`physics/atomic_spectra/`](physics/atomic_spectra/) | Atomic spectra: energy levels, emission and absorption lines, Rydberg formula | Open `atomic-spectra.html` |
+| [`physics/atomic_spectra/`](physics/atomic_spectra/) | Atomic spectra ★: energy levels, emission and absorption lines, ΔE = hc/λ, diffraction grating, lasers and population inversion | Open `atomic-spectra.html` |
 | [`physics/radioactive_decay/`](physics/radioactive_decay/) | Radioactive Decay ★: random decay and half-life of real isotopes; α, β and γ through paper, aluminium and lead | Open `radioactive-decay.html` |
-| [`physics/nuclear_fission/`](physics/nuclear_fission/) | Nuclear fission: chain reactions, k, critical mass, control rods | Open `nuclear-fission.html` |
-| [`physics/particle_physics/`](physics/particle_physics/) | Particle physics: quarks, leptons, conservation laws, Feynman diagrams | Open `particle-physics.html` |
+| [`physics/nuclear_fission/`](physics/nuclear_fission/) | Nuclear fission ★: chain reactions, k and critical mass, control rods, mass defect and binding energy per nucleon | Open `nuclear-fission.html` |
+| [`physics/particle_physics/`](physics/particle_physics/) | Particle physics ★: the atom and isotopes, quarks and hadrons, conservation of Q, B, L and S, bubble chamber, Feynman diagrams | Open `particle-physics.html` |
 | [`physics/nuclear_fusion/`](physics/nuclear_fusion/) | Nuclear fusion ★: the Coulomb barrier, quantum tunnelling, the Gamow peak, and the temperature and pressure needed in stars and reactors | Open `nuclear-fusion.html` |
 | [`physics/heating_insulation/`](physics/heating_insulation/) | Heating and insulating a house: conduction, convection, radiation, insulation costs and payback, cooling-can and Leslie cube practicals, cooling curves | Open `heating-insulation.html` |
 | [`physics/density_pressure/`](physics/density_pressure/) | Density and pressure: density practicals, p = F/A, liquid pressure, floating, gas pressure, terminal velocity | Open `density-pressure.html` |

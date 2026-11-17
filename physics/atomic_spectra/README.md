@@ -1,105 +1,33 @@
 # Atomic Spectra and Energy Levels
 
-A single, self-contained HTML file for WJEC Eduqas A level Physics, Component 3,
-Topic 4 (Quantum physics) and Component 2, Topic 6 (Photons). It needs no install
-and no internet: **open `atomic-spectra.html` in Chrome or Edge**.
+A single, self-contained HTML file about energy levels, emission and absorption
+lines, photon energies, the diffraction grating and lasers. It needs no install
+and no internet: **open `atomic-spectra.html` in Chrome or Edge**. Printable
+worksheets (one per investigation and per batch experiment, with teacher notes)
+are in `worksheets.html`.
 
-It replaces the old WJEC Streamlit page *Atomic Spectra & Bohr Model*
-(`physics_sims/pages/22_Atomic_Spectra.py`) and also takes over the "Energy Level
-Transitions" tab of the old *Photoelectric Effect* page (n<sub>i</sub>/n<sub>f</sub>
-sliders, emission/absorption of one chosen transition, all Balmer lines).
+★ Enhanced: built from `tools/kit/src/atomic_spectra.js` by `node build.js` (run
+inside `tools/kit/`). Do not edit `atomic-spectra.html` by hand. The earlier
+version and its worksheets are kept in [`original/`](original/).
 
-It is about energy levels, emission and absorption lines and photon energies.
-It does not repeat what other simulations cover, and links to them instead:
-black-body spectra and Wien's law are in `../../astrophysics/stellar_life_cycle/`,
-and red-shift of spectral lines is in `../../astrophysics/expanding_universe/`.
+- **Standard (iGCSE):** Pearson Edexcel 4PH1 3(c), the electromagnetic spectrum
+  (energy levels are not in 4PH1, and the level hint says so).
+- **Advanced (A level):** WJEC Eduqas photons, energy levels, line spectra,
+  ionisation and lasers; the Rydberg formula is tagged beyond the spec.
 
-## Levels
+## Three views
 
-- **Standard (iGCSE):** Pearson Edexcel International GCSE Physics (4PH1).
-  Energy levels and line spectra are not in 4PH1, and the level hint says so.
-  Standard uses the sim for 4PH1 Section 3(c) The electromagnetic spectrum:
-  the order of the spectrum, the same speed in a vacuum, visible colours,
-  v = fλ, and the uses and dangers of infrared and ultraviolet.
-- **Advanced (A level):** WJEC Eduqas photons (E = hf, the electronvolt,
-  energy levels, line spectra, ionisation) and **lasers**: a new laser box
-  (right panel, Advanced only) shows a 3-level (ruby) or 4-level (Nd:YAG)
-  system with a pumping slider, the populations of the laser levels, and
-  whether there is a population inversion. The Rydberg formula and orbit radii
-  are tagged "Beyond the spec".
-
-The level switch (Standard (iGCSE) / Advanced (A level)) has a hint naming the
-spec, and a key-ideas box tags each idea. The 12 presets are shared by both
-levels.
-
-## What you see
-
-- **Bohr atom** (not to scale): the electron orbits on its level. In "discharge
-  tube" mode collisions lift it to a higher level and it drops back by random
-  jumps, sending out one photon per jump (coloured by wavelength; UV and IR drawn
-  pale and labelled). In absorption mode white-light photons stream through; only
-  those with exactly the right energy are absorbed, and the excited atom re-emits
-  in a random direction. "Repeat the chosen transition" plays your n<sub>i</sub> →
-  n<sub>f</sub> jump; **⚡ Do my transition** makes it happen now.
-- **Energy level diagram** (E<sub>n</sub> = −13.6/n² eV, spacing drawn ∝ 1/n so the
-  upper levels can be seen) with every line of the chosen series as an arrow, the
-  latest jump highlighted, and your chosen transition with ΔE and λ.
-  For helium, sodium and neon it shows the photon energy ΔE = hc/λ of each line.
-- **Spectrum**: a log-scale strip from 90 to 2000 nm (UV, visible, IR) and the
-  visible part as seen in a spectroscope, with H-α … H-δ labelled; bright lines on
-  black (emission) or dark lines on a continuous spectrum (absorption).
-
-## Controls
-
-- **Level:** Standard or Advanced. **Element:** hydrogen, helium, sodium, neon.
-  **Spectrum mode:** emission or absorption. **Series** (hydrogen): All, Lyman,
-  Balmer, Paschen. **n<sub>max</sub>** 2–8. **Initial / final level** 1–8 (they
-  must differ; the mode follows the direction of the jump).
-- Advanced: Balmer series table; Balmer swatches (n = 3–6 → 2); extra tiles
-  (1/λ from Rydberg, orbit radius n²a₀); Rydberg formula and extra notes.
-- Animation: random jumps or repeat the chosen transition; Play/Pause, Reset,
-  speed ½×–4×; **quality** Low/Medium/High/Ultra (number of photons and glow only).
-- Presets (12): hydrogen's visible lines; H-α; Lyman (UV); Paschen (IR); all
-  hydrogen lines; absorption dark lines; ground-state absorption; biggest jump
-  (8 → 1); helium; sodium yellow doublet; neon sign; sodium absorption.
-
-Readouts: E initial/final, ΔE (eV and J), λ, frequency, series and region, the
-ionisation energy, physics notes (Standard and Advanced), and exam questions with
-live mark schemes: at Standard, seven iGCSE questions on the EM spectrum (f = v/λ
-for the chosen line, its neighbours in the spectrum, the order, UV and IR uses and
-dangers, what all EM waves share); at Advanced, the old page's 3 questions for the
-chosen transition plus line spectra and ionisation energy, and seven laser
-questions (stimulated emission, population inversion and pumping, 3- against
-4-level lasers using the laser box setting, photons per second from a laser
-pointer, the mirrors, properties of laser light, diode lasers).
-
-## The model
-
-    E_n = −13.6/n² eV      ΔE = E_upper − E_lower = hf = hc/λ      λ(nm) ≈ 1240/ΔE(eV)
-    1/λ = R(1/n_lower² − 1/n_upper²),   R = 13.6 eV / hc ≈ 1.097 × 10⁷ m⁻¹
-
-hc ≈ 1240 eV nm as in the old page (H-α comes out at 656.5 nm; 656.3 nm measured in
-air). Helium, sodium and neon use measured wavelengths. Left out: fine structure,
-line widths, atom recoil, reduced mass, real transition probabilities (random jumps
-are equally likely in the model).
+Atom and spectrum (a Bohr atom in a discharge tube or white light; hydrogen,
+helium, sodium, neon; series; your own transition with ΔE and λ; an energy-level
+diagram; log and spectroscope spectra) · Grating (d sin θ = λ with a reading
+error) · Laser (3-level and 4-level populations and inversion).
 
 ## Batch run
 
-A diffraction-grating spectrometer (d sin θ = λ, first order) with a random error
-in each angle reading. Repeat or sweep, histogram or mean ± SD with theory, summary
-statistics and CSV download.
-
-**Batch settings table.** The batch panel lists every setting the chosen outcome uses: upper and lower level n, grating lines per mm and angle error SD; for the cascade, the starting level and the number of atoms in each run. Tick one setting to vary it and give from / to / step (+ adds the step, × multiplies by it; up to 60 steps, previewed as you type); every other setting stays at the value shown, and a run uses exactly what the table shows. Unticking goes back to Repeat. One-click experiments fill in the whole table. **↺ Use my left-panel settings** copies the left panel into the table.
-
-One-click experiments:
-
-1. **Do the Balmer lines fit Rydberg's formula?** n = 3–9: means on the formula,
-   converging to 365 nm.
-2. **Measure the Rydberg constant** (200 students, H-α–H-δ): mean 1.097 × 10⁷ m⁻¹,
-   SD about 0.8%.
-3. **The Lyman series converges to 13.6 eV** (n = 2–20).
-4. **Ionisation energy from the Lyman lines** (intercept at 1/n² = 0): mean 13.6 eV.
-5. **Finer grating, better wavelength?** The spread of H-α falls from about 10 nm
-   (100 lines/mm) to 0.5 nm (1200 lines/mm).
-6. **How many photons can we see?** Random cascades from n = 6: about 22% visible
-   (exact average 21.9%).
+| Experiment | Result when tested (theory) |
+|---|---|
+| Do the Balmer lines fit Rydberg's formula? | 656, 486, 434 … 384 nm (the same) |
+| Measure the Rydberg constant (200 students) | 1.10 ± 0.003 × 10⁷ m⁻¹ (1.097) |
+| The Lyman series converges to 13.6 eV | 10.2 → 13.6 eV |
+| How fine a grating? | error 12.9 nm (100 lines/mm) to 0.9 nm (1200) |
+| How many photons can we see? | 21.6% visible (exact 21.9%) |
