@@ -77,6 +77,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["taxes_price_controls.js", "taxes_price_controls", "taxes-price-controls.html", "Taxes, Subsidies and Price Controls", "economics"],
   ["labour_market.js", "labour_market", "labour-market.html", "The Labour Market", "economics"],
   ["circular_flow.js", "circular_flow", "circular-flow.html", "The Circular Flow and the Multiplier", "economics"],
+  ["sport_biomechanics.js", "sport_biomechanics", "sport-biomechanics.html", "Sport Biomechanics", "physical_education"],
   ["training_adaptation.js", "training_adaptation", "training-adaptation.html", "Training and Adaptation", "physical_education"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
