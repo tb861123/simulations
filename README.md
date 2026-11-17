@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Eighty-five simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): seventy-eight rebuilt showpieces, which replaced the earlier versions in
+Eighty-eight simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): eighty-one rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -31,7 +31,7 @@ Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, S
 Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
 and Competition, Arousal and Performance, Stellar Life Cycle, Inheritance, Simple Harmonic
 Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, Reactivity of
-Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, Sport Biomechanics, Fitness Testing, Skill Acquisition, Atomic Spectra, Nuclear Fission, Particle Physics, Acids, Salts and Tests, Chromatography, and Moles and Reacting Masses are likewise kept in each folder's `original/`, with their worksheets,
+Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, Sport Biomechanics, Fitness Testing, Skill Acquisition, Atomic Spectra, Nuclear Fission, Particle Physics, Acids, Salts and Tests, Chromatography, Moles and Reacting Masses, Immunity, Plant Transport, and Biotechnology are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Typing slider values
@@ -139,9 +139,9 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`biology/dna_cell_division/`](biology/dna_cell_division/) | DNA and cell division ★: the double helix, protein synthesis from a real gene, mutations, mitosis, root tip squash, meiosis | Open `dna-cell-division.html` |
 | [`biology/ecosystems/`](biology/ecosystems/) | Ecosystems ★: food webs and energy pyramids, the nitrogen cycle, quadrats and transects, succession, eutrophication | Open `ecosystems.html` |
 | [`biology/homeostasis/`](biology/homeostasis/) | Homeostasis ★: blood glucose and diabetes, thermoregulation, the kidney and ADH, negative and positive feedback | Open `homeostasis.html` |
-| [`biology/immunity/`](biology/immunity/) | Immunity and vaccination: barriers, phagocytes, lymphocytes, antibodies, memory cells, vaccines, herd immunity, blood smears, antibiotic discs | Open `immunity.html` |
-| [`biology/plant_transport/`](biology/plant_transport/) | Plant transport and responses: xylem, phloem, transpiration and the potometer, translocation, tropisms, auxin and other plant hormones | Open `plant-transport.html` |
-| [`biology/biotechnology/`](biology/biotechnology/) | Biotechnology and genetic engineering: food production, selective breeding, fermenters, GM insulin and crops, cloning, PCR and gel electrophoresis | Open `biotechnology.html` |
+| [`biology/immunity/`](biology/immunity/) | Immunity ★: primary and secondary responses, memory cells, vaccination, passive immunity, antibiotics and viruses | Open `immunity.html` |
+| [`biology/plant_transport/`](biology/plant_transport/) | Plant transport ★: xylem and phloem, transpiration and the potometer, cohesion–tension, phototropism and geotropism | Open `plant-transport.html` |
+| [`biology/biotechnology/`](biology/biotechnology/) | Biotechnology ★: glasshouse limiting factors and profit, fertiliser and leaching, fermenters, genetic engineering, selective breeding | Open `biotechnology.html` |
 
 ### Medical and anatomical (`medical/` folder)
 
