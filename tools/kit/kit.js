@@ -238,6 +238,63 @@ const K = (() => {
   }
 
   // ---- The page frame ----
+
+  let K_last = null;
+  /* ---- Worksheets ----
+     worksheetDoc(o, picks, opt) returns a printable HTML page: one A4 sheet per investigation card (o.missions) and per batch
+     experiment (o.batch), then teacher notes. picks = [{ kind: "m" | "b", item }]. opt = { file, teacher, results: { [batch title]: summary } } */
+  const wsCSS = `body{font:14px/1.45 "Segoe UI",system-ui,sans-serif;color:#111;margin:0;background:#eee}.sheet{background:#fff;width:186mm;min-height:270mm;margin:12px auto;padding:12mm;box-sizing:border-box;page-break-after:always}
+  .top{display:flex;justify-content:space-between;color:#555;font-size:12px;border-bottom:1px solid #999;padding-bottom:4px}h1{font-size:20px;margin:10px 0 4px}h2{font-size:15px;margin:16px 0 6px;color:#14467a}.tag{font-size:11px;border:1px solid #14467a;border-radius:9px;padding:0 6px;color:#14467a;vertical-align:middle}
+  .q{background:#eef4fb;border-left:4px solid #14467a;padding:8px 10px}.lines div{border-bottom:1px solid #aaa;height:26px}.box{border:1px solid #aaa;height:110px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:4px 6px;height:24px;text-align:center;font-size:13px}th{background:#f2f2f2}
+  ol{margin:4px 0 4px 20px;padding:0}.bar{position:sticky;top:0;background:#14467a;color:#fff;padding:8px 16px;display:flex;gap:12px;align-items:center}.bar button{font:inherit;padding:4px 12px;cursor:pointer}.note{background:#fafafa;border:1px solid #ccc;padding:8px 10px;margin:8px 0}
+  .grid{height:200px;border:1px solid #888;background-image:linear-gradient(#ddd 1px,transparent 1px),linear-gradient(90deg,#ddd 1px,transparent 1px);background-size:20px 20px;position:relative}
+  @media print{body{background:#fff}.bar{display:none}.sheet{margin:0;width:auto;min-height:0}}`;
+  const wsLines = n => `<div class="lines">${"<div></div>".repeat(n)}</div>`;
+  function worksheetDoc(o, picks, opt = {}) {
+    const file = opt.file || (location.pathname.split("/").pop() || "the simulation"), nM = (o.missions || []).length, nB = (o.batch || []).length;
+    const tagA = x => x.lvl === "adv" ? ' <span class="tag">A level</span>' : "", head = (k, n, of) => `<div class="top"><span>${o.title} · ${k} ${n} of ${of}</span><span>Name ____________________ &nbsp; Date __________</span></div>`;
+    const sheets = picks.map(({ kind, item: x }) => {
+      if (kind === "m") {
+        const n = o.missions.indexOf(x) + 1;
+        return `<div class="sheet">${head("Investigation", n, nM)}<h1>${x.title}${tagA(x)}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b>${x.lvl === "adv" ? " and choose <b>Advanced (A level)</b> in the Controls tab" : ""}.</li><li>Open the <b>Investigate</b> tab and press <b>Set it up ▸</b> on “${x.title}”. It sets everything up for you.</li><li>You can still change the controls afterwards to test your ideas.</li></ol>
+<h2>2 · The question</h2><div class="q">${x.q}</div>
+<h2>3 · Predict</h2><p>Before you watch, write what you think will happen, and why.</p>${wsLines(3)}
+<h2>4 · Observe and record</h2><p>Watch the simulation and try the controls. Record what you changed, what you saw and any readings (from the Readings panel or the graphs).</p>
+<table><tr><th style="width:30%">What I changed</th><th>What I saw or measured</th><th style="width:22%">Reading</th></tr>${"<tr><td></td><td></td><td></td></tr>".repeat(5)}</table>
+<h2>5 · Answer the question</h2>${wsLines(4)}
+<h2>6 · Explain</h2><p>Use the science to explain your answer. Open <b>The model</b> tab: which rule or assumption in the model causes what you saw? Would the real world behave the same way?</p>${wsLines(4)}</div>`;
+      }
+      const n = o.batch.indexOf(x) + 1, reps = x.reps || (x.xs ? 6 : 200);
+      const rec = x.xs ? `<table><tr><th>${x.xLabel}</th><th>mean</th><th>SD</th><th>SE</th>${x.theory ? "<th>theory</th>" : ""}<th>difference from theory, in SEs</th></tr>${x.xs.map(v => `<tr><td>${v}</td><td></td><td></td><td></td>${x.theory ? "<td></td>" : ""}<td></td></tr>`).join("")}</table>`
+        : `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${x.theory != null ? "<th>theory</th>" : ""}</tr><tr><td></td><td></td><td></td><td></td><td></td><td></td>${x.theory != null ? "<td></td>" : ""}</tr></table><p>Sketch the histogram:</p><div class="grid"></div>`;
+      return `<div class="sheet">${head("Batch experiment", n, nB)}<h1>${x.title}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b> and press <b>📊 Batch run</b>.</li><li>Click the experiment “${x.title}”. It sets everything up for you.</li><li>Press <b>▶ Run</b> and wait for it to finish (${x.xs ? `${x.xs.length} settings × ${reps} runs` : `${reps} runs`}).</li></ol>
+<div class="q"><b>${x.question}</b>${x.how ? `<br><small>${x.how}</small>` : ""}</div>
+<h2>2 · Predict before you run it</h2><p>${x.xs ? `How do you think <b>${x.yLabel}</b> will change as <b>${x.xLabel}</b> goes from ${x.xs[0]} to ${x.xs[x.xs.length - 1]}? Sketch your prediction, then give your reason.` : `What average do you expect for <b>${x.yLabel}</b>? Will every run give the same answer? Give your reason.`}</p>${x.xs ? `<div class="grid" style="height:150px"></div>` : ""}${wsLines(2)}
+<h2>3 · Record the results</h2><p>Copy the numbers from the table under the graph${x.theory != null ? " (theory: " + (x.theoryLabel || "the theory line") + ")" : ""}.</p>${rec}
+<h2>4 · Think about it</h2><ol><li>Does the simulation agree with the theory${x.theory == null ? " (or with your prediction)" : ""}? Use the difference in standard errors (or how close the points are to the line) to say how well.${wsLines(2)}</li>
+<li>Why don't all the runs give the same answer? What would happen to the standard error with four times as many runs?${wsLines(2)}</li>
+<li>Open <b>The model</b> tab. Name one simplification that could make the model differ from real life.${wsLines(2)}</li></ol></div>`;
+    });
+    let notes = "";
+    if (opt.teacher !== false) {
+      notes = `<div class="sheet"><div class="top"><span>${o.title} · Teacher notes</span><span>${file}</span></div><h1>Teacher notes</h1>` + picks.map(({ kind, item: x }) => {
+        if (kind === "m") return `<h2>Investigation ${o.missions.indexOf(x) + 1}: ${x.title}${tagA(x)}</h2><div class="note"><b>What to look for:</b> ${x.hint || "–"}</div>`;
+        const r = opt.results && opt.results[x.title], th = x.theory == null ? "" : x.xs ? x.xs.map(v => `${v}: ${sig(x.theory(v))}`).join(" · ") : sig(+x.theory);
+        return `<h2>Batch experiment ${o.batch.indexOf(x) + 1}: ${x.title}</h2><div class="note">${x.note || ""}${th ? `<br><b>Theory (${x.theoryLabel || "theory"}):</b> ${th}` : ""}${r ? `<br><b>Result from a test run:</b> ${r}` : ""}</div>`;
+      }).join("") + `</div>`;
+    }
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${o.title} – worksheets</title><style>${wsCSS}</style></head><body><div class="bar"><b>${o.title} – worksheets</b><span>${picks.length} sheet${picks.length > 1 ? "s" : ""}${opt.teacher !== false ? ", then teacher notes" : ""}. Print, or save as PDF.</span><button onclick="print()">🖨 Print</button></div>${sheets.join("")}${notes}</body></html>`;
+  }
+  // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
+  function batchSummary(e, seed0 = 12345) {
+    const rows = []; let i = 0;
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
+    return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
+  }
+  function openDoc(html, name) { const w = window.open("", "_blank"); if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(name, html); }
   function app(o) {
     document.title = o.title + " · Science Simulations";
     const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
@@ -248,7 +305,10 @@ const K = (() => {
     const act = top.querySelector(".k-actions");
     const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
     left.append(stage, dock); main.append(left, side); document.body.append(top, main);
-    const ui = { stage, dock, side, playing: true, speed: 1, canvas: fn => canvas(stage, fn) };
+    const ui = { stage, dock, side, playing: true, speed: 1, canvas: fn => canvas(stage, fn), config: o };
+    const wsName = o.title.replace(/\W+/g, "-").toLowerCase() + "-worksheet.html";
+    ui.worksheet = (picks, teacher) => openDoc(worksheetDoc(o, picks, { teacher }), wsName);
+    ui.allPicks = () => (o.missions || []).map(item => ({ kind: "m", item })).concat((o.batch || []).map(item => ({ kind: "b", item })));
     // header buttons
     const bPlay = btn(act, "⏸ Pause", () => ui.setPlaying(!ui.playing)); bPlay.title = "Space bar";
     ui.setPlaying = p => { ui.playing = p; bPlay.innerHTML = p ? "⏸ Pause" : "▶ Play"; bPlay.classList.toggle("primary", !p); };
@@ -273,9 +333,11 @@ const K = (() => {
       banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
       banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
     };
+    if ((o.missions || []).length || (o.batch || []).length) { const wr = $("div", "k-wsrow", "<span>Worksheets:</span>"); panes.missions.append(wr); btn(wr, "📄 Every investigation", () => ui.worksheet(ui.allPicks(), true), "small").title = "One printable sheet per investigation and batch experiment, then teacher notes"; btn(wr, "📄 Without teacher notes", () => ui.worksheet(ui.allPicks(), false), "small"); }
     const mcards = (o.missions || []).map(m => {
       const c = $("div", "k-mcard", `<h4><em></em>${m.title}${m.lvl === "adv" ? ' <span class="k-tag adv">A level</span>' : ""}</h4><p>${m.q}</p>`);
       btn(c, "Set it up ▸", () => { c.classList.add("done"); c.querySelector("em").textContent = "✓"; m.setup && m.setup(); ui.mission(m); ui.setPlaying(true); show("controls"); }, "small primary");
+      btn(c, "📄 Worksheet", () => ui.worksheet([{ kind: "m", item: m }], true), "small").title = "A printable worksheet for this investigation";
       panes.missions.append(c); return [m, c];
     });
     /* ---- Level (Standard / Advanced) and the Revise tab ----
@@ -316,6 +378,7 @@ const K = (() => {
       const bRun = btn(bar, "▶ Run", () => runExp(), "primary"), prog = $("div", "k-prog", "<i></i>"), status = $("span", "", ""); status.style.cssText = "color:var(--muted);font-size:12.5px;min-width:110px";
       const bCsv = btn(bar, "⬇ CSV", () => bstate.rows.length && download(o.title.replace(/\W+/g, "-").toLowerCase() + "-batch.csv", bstate.csv()));
       bar.insertBefore(prog, bCsv); bar.insertBefore(status, bCsv);
+      btn(bar, "📄 Worksheet", () => ui.worksheet([{ kind: "b", item: bstate.exp }], true)).title = "A printable worksheet for this experiment";
       bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
       const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
       function pick(e) { bstate.token++; bstate.exp = e; bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
@@ -352,7 +415,8 @@ const K = (() => {
       pick(o.batch[0]);
     }
     ui.openBatch = openBatch;
+    K_last = ui;
     return ui;
   }
-  return { $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app };
+  return { $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app, worksheetDoc, batchSummary, get ui() { return K_last; } };
 })();

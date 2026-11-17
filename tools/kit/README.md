@@ -42,7 +42,7 @@ photosynthesis_respiration, externalities, flooding_hydrographs, queues,
 energy_changes, gas_exchange, tectonic_hazards, car_crash, firms_competition,
 arousal_performance, stellar_life_cycle, inheritance, simple_harmonic_motion,
 membranes, antibiotic_resistance, exoplanet_hunting, reactivity_metals,
-youngs_modulus, nuclear_fusion, states_of_matter, circular_motion, crystallisation, atomic_structure, periodic_groups, dna_cell_division, ecosystems, homeostasis, aerofoil_flow, ice_albedo, carbon_cycle, dark_matter, expanding_universe, planet_formation, taxes_price_controls, labour_market, circular_flow.
+youngs_modulus, nuclear_fusion, states_of_matter, circular_motion, crystallisation, atomic_structure, periodic_groups, dna_cell_division, ecosystems, homeostasis, aerofoil_flow, ice_albedo, carbon_cycle, dark_matter, expanding_universe, planet_formation, taxes_price_controls, labour_market, circular_flow, sport_biomechanics.
 
 ## Levels and the Revise tab
 
@@ -51,3 +51,18 @@ Advanced switch (`ui.level`, `ui.onLevel`); investigations with `lvl: "adv"`
 are hidden at Standard. Pass `revise: { ideas: [{ lvl, tag, text }],
 questions: [{ lvl, q, marks, ans }] }` for a Revise tab; `q` and `ans` may be
 functions so that questions can use the numbers on screen.
+
+## Worksheets
+
+Every investigation (`missions`) and every batch experiment (`batch`) gets a
+printable A4 worksheet automatically: set-up steps, the question, a
+prediction, a table to record results, and questions to think about. Inside a
+page, each investigation card and each batch experiment has a **📄 Worksheet**
+button, and the Investigate tab prints all of them (with or without teacher
+notes). Teacher notes use each investigation's `hint`, each experiment's
+`note` and its `theory`. Nothing extra is needed in a simulation's source.
+
+`node worksheets.js` (after `node build.js`) writes `worksheets.html` beside
+every kit page, adding the result of a test run of each batch experiment
+(fixed seeds) to the teacher notes. Pass folder names to do only some:
+`node worksheets.js waves enzymes`. It needs Playwright.
