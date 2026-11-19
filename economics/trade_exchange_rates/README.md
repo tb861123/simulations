@@ -1,50 +1,28 @@
 # Trade and Exchange Rates
 
-Why countries trade and who gains, what tariffs, quotas and customs unions do, and how the pound's exchange rate is set and what it changes. Two countries specialise by comparative advantage; a UK steel market of individual traders faces foreign sellers at the world price; a market of traders buys and sells pounds for dollars; real exchange-rate data from 2000 to 2025.
+A single, self-contained HTML file: comparative advantage and gains from trade, tariffs and quotas, the market for pounds, and the real pound since 2000. It needs no install and no
+internet: **open `trade-exchange-rates.html` in Chrome or Edge**. Printable worksheets (one per
+investigation and per batch experiment, with teacher notes) are in
+`worksheets.html`.
 
-**How to run:** open `trade-exchange-rates.html` in Chrome or Edge. Nothing to install, and no internet needed.
+★ Enhanced: built from `tools/kit/src/trade_exchange_rates.js` by `node build.js` (run inside
+`tools/kit/`). Do not edit `trade-exchange-rates.html` by hand. The earlier version and its
+worksheets are kept in [`original/`](original/).
 
-## Levels
+- **Standard (GCSE):** Edexcel International GCSE Economics (4EC1): specialisation, comparative advantage, opportunity cost, terms of trade; tariffs and quotas; exchange rates, SPICED / WPIDEC; the current account.
+- **Advanced (A level):** Edexcel A level Economics A (9EC0) Theme 4: welfare effects of protection, quota rent, customs unions (trade creation and diversion), increasing opportunity cost, fixed and floating rates and reserves, Marshall–Lerner and the J-curve.
 
-- **Standard (GCSE)**: Edexcel International GCSE Economics (4EC1), the global economy: specialisation; absolute and comparative advantage; opportunity cost; gains from trade and the terms of trade; free trade and protectionism (tariffs, quotas) and the arguments for and against; exchange rates set by demand for and supply of a currency; appreciation and depreciation and their effects on exports, imports and inflation (SPICED / WPIDEC); the current account.
-- **Advanced (A level)**: Edexcel A level Economics A (9EC0), Theme 4: the welfare effects of tariffs and quotas (consumer and producer surplus, revenue, quota rent, deadweight loss); the terms of trade index (9EC0 4.1.4a; A level only); trading blocs and customs unions, trade creation and trade diversion; increasing opportunity cost (workers with different skills); fixed and floating exchange rates, central bank intervention and reserves; the Marshall–Lerner condition and the J-curve.
+## What it shows
 
-## Views
+Four views. **Comparative advantage:** the UK (200 workers) and country B, workers moving to the better-paid job, ships carrying exports, the terms of trade settling between the two opportunity costs; PPF with production and consumption. **Tariffs and quotas:** UK steel demand and supply with the world price, tariff revenue or quota rent, deadweight loss, customs union at A level; daily markets of 40 buyers and 40 firms. **Exchange rates:** demand for and supply of pounds moved by interest rates, inflation, growth and speculation; SPICED effects; a fixed rate defended with reserves; the J-curve. **The real pound:** Bank of England annual averages 2000–2025 with the big moves, and the UK's main export markets.
 
-1. **Comparative advantage.** The UK and country B, each with workers who make machinery or clothing. Workers move to the industry that pays more; once trade opens each country specialises, ships carry the exports, and the terms of trade settle between the two opportunity costs. PPFs with production (white), consumption (gold, outside the PPF with trade) and the trading line; the terms of trade over time against theory.
-2. **Tariffs and quotas.** 40 UK buyers, 40 UK steel firms and up to 40 foreign sellers at the world price trade in a double auction. Policies: no trade, free trade, tariff, quota and (A level) a customs union with a partner. The diagram shades tariff revenue (or quota rent), the two deadweight-loss triangles and (A level) the producer-surplus gain and trade-diversion cost; bars show who gains and who loses.
-3. **Exchange rates.** 40 buyers and 40 sellers of pounds. Sliders for UK interest rates, inflation and growth compared with abroad, speculation buttons, and (A level) a fixed rate defended with reserves and the PEDs for exports and imports. Below: the rate each day and the SPICED / WPIDEC effects (US price of a £20,000 UK car, UK price of a $100 import, volumes, inflation, current account); right: (A level) the J-curve.
-4. **The real pound.** Annual average dollars and euros per pound, 2000–2025, with big moves (2007 peak, 2008 crisis, 2016 referendum, Covid-19, 2022 mini-budget), the year-on-year change, and the UK's main trading partners.
+## Batch run
 
-## Controls
-
-Left: level, 12 presets, then the controls for the view (output per worker in each country, size of country B, trade on/off, A level skill differences; trade policy, world price, tariff, quota, partner price; interest, inflation and growth differences, speculation, A level regime, peg and PEDs; a year slider). Centre: view tabs, Play/Pause, Reset, speeds ½× to 20×, Batch run. Right: what's happening, readings, a chart, UK facts with sources, key ideas, exam practice (7 Standard and 5 Advanced questions with mark schemes; "On screen" questions use the live numbers) and "How the model works".
-
-No quality setting: the views are a few hundred shapes and lines, cheap to draw on any laptop.
-
-## The model
-
-- Comparative advantage: constant output per worker (straight-line PPFs unless skills differ); everyone spends half their income on each good; prices adjust towards where demand equals supply and workers switch to the better-paid job. Theory: full specialisation gives terms of trade = clothing made by the clothing country ÷ machines made by the other, limited to the range between the two opportunity costs. Gains = rise in √(machines × clothing) consumed.
-- Steel: straight-line UK D and S (no-trade price £700); horizontal world supply at the world price (+ tariff). Imports = Qd − Qs; revenue = tariff × imports; deadweight loss = two triangles; quota rent = (P − Pw) × quota.
-- Pounds: each point of interest-rate difference shifts D£ and S£ up by 3 cents, each point of extra inflation down by 2 cents, faster growth shifts S£ right; speculation shifts both. Exports and imports £200bn a quarter; elasticities rise from 0.1 to their long-run values over about a year (J-curve); inflation rises about 0.2 points per 1% fall in the pound. Fixed rate: the Bank buys pounds left unsold at the peg from $60bn of reserves.
-
-All model numbers are illustrative. Assumptions and what the model leaves out are listed in the simulation.
-
-## Real data and sources
-
-- Exchange rates: Bank of England Database, annual average spot exchange rates (US dollar into sterling; euro into sterling), rounded to 2 decimal places; 2025 provisional. Dates and approximate intraday levels of big moves: Nov 2007 about $2.11; Jan 2009 about $1.37; 24 June 2016 about $1.49 to $1.32; March 2020 about $1.15; 26 September 2022 a record low near $1.04.
-- Trading partners, goods exports, 2024 (ONS, "UK trade: country by country"): United States 16.9%, Germany 8.3%, Netherlands 7.7%; France, China and Ireland about 5% each (approximate). EU about 41% of UK goods exports and 46% of imports (HMRC, 2024).
-- ERM: UK left on 16 September 1992; Treasury estimate of the cost about £3.3bn (Treasury papers released under FOI, 2005). UK Global Tariff from January 2021; UK–US deal: from 30 June 2025, a quota of 100,000 UK cars a year at a 10% US tariff, 27.5% above the quota.
-
-## Batch experiments
-
-| Experiment | Result (theory) |
+| Experiment | Result when tested (theory) |
 |---|---|
-| Where do the terms of trade settle? (sweep country B's workers 20–400) | 2.005 at 20 workers (theory 2, the UK's opportunity cost), 2.67 at 89 (2.67), 3.90 at 130 (3.90), 5.68 at 189 (5.67), 6.00 at 400 (6, B's opportunity cost). |
-| Who gains most from trade? (same sweep) | UK gain about 0% while B is small (theory 0; B gains 73%), 39.6% at 130 (39.6), 73.1% at 400 (73.2). |
-| Higher tariff, fewer imports? (tariff £0–£300) | 13.6 kt a day at no tariff (14.3), 7.6 at £90 (7.9), 2.9 at £180 (1.4), about 0 above £210 (prohibitive). SD about 3: each market's own random UK traders. |
-| Does the market find the exchange rate? (repeat, 200 markets, UK rates +2 points) | Mean $1.359 per £, SD 0.026 (theory $1.360; 0.3 standard errors). |
-| Interest rates and the pound (−3 to +4 points) | $1.211 to $1.418 (theory $1.21 to $1.42); best-fit gradient 2.9 cents per point (theory 3). |
-| Marshall–Lerner (A level; PED for exports 0.1–2, imports 0.3, pound falls about 6%) | Long-run current account −£7.4bn a quarter at 0.1, −£0.4bn at 0.67, +£2.0bn at 0.86, +£17.1bn at 2 (theory −7.3, −0.4, +2.0, +16.7): it improves only when the PEDs add to more than 1. First quarter −£9.8bn whatever the PEDs (the J-curve). |
-
-Results can be downloaded as CSV. Re-run `tools/worksheets` if the batch experiments change.
+| Where do the terms of trade settle? | 2.00 for a small B, 2.67 at 89 workers, 3.90 at 130, 5.67 at 189, 6.00 for a large B (theory identical) |
+| Who gains most from trade? | UK 0% while B is small, 39.6% at 130, 73.2% at 250+ (theory identical) |
+| Higher tariff, fewer imports? | 24.3 kt a day at no tariff to 0 at £300 (theory 24 → 0), SD about 1 |
+| Does the market find the exchange rate? | mean $1.360, SD 0.007 (theory $1.36) |
+| Interest rates and the pound | gradient 3.0 cents per point, r = 0.999 (theory 3) |
+| Marshall–Lerner (A level) | −£7.5bn at PEDx 0.1 to +£15.2bn at 2 (theory −7.5 → +15.3); improves once PEDx + PEDm > 1 |

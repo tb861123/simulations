@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Ninety-seven simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): ninety rebuilt showpieces, which replaced the earlier versions in
+One hundred simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): ninety-three rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -31,7 +31,7 @@ Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, S
 Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
 and Competition, Arousal and Performance, Stellar Life Cycle, Inheritance, Simple Harmonic
 Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, Reactivity of
-Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, Sport Biomechanics, Fitness Testing, Skill Acquisition, Atomic Spectra, Nuclear Fission, Particle Physics, Acids, Salts and Tests, Chromatography, Moles and Reacting Masses, Immunity, Plant Transport, Biotechnology, Inside a Sound, Strings, Air Columns, Build a Timbre, Pitch and Intervals, Rhythm and Metre, Sea Level Rise, Weather Chaos, and Rivers and Landforms are likewise kept in each folder's `original/`, with their worksheets,
+Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, Sport Biomechanics, Fitness Testing, Skill Acquisition, Atomic Spectra, Nuclear Fission, Particle Physics, Acids, Salts and Tests, Chromatography, Moles and Reacting Masses, Immunity, Plant Transport, Biotechnology, Inside a Sound, Strings, Air Columns, Build a Timbre, Pitch and Intervals, Rhythm and Metre, Sea Level Rise, Weather Chaos, Rivers and Landforms, Trade and Exchange Rates, Inequality, and Electrochemical Cells are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Typing slider values
@@ -119,7 +119,7 @@ and press **Print** (or save as PDF).
 | [`chemistry/chromatography/`](chemistry/chromatography/) | Chromatography ★: paper chromatography and Rf, purity and identification, method mistakes, TLC and gas chromatography | Open `chromatography.html` |
 | [`chemistry/crystallisation/`](chemistry/crystallisation/) | Crystallisation ★: crystals growing in cooling magma (granite, basalt, obsidian) and in salt solutions; solubility curves, seeds, JMAK theory | Open `crystallisation.html` |
 | [`chemistry/moles_reacting_masses/`](chemistry/moles_reacting_masses/) | Moles and reacting masses ★: the mole, limiting reactants, empirical formula and water of crystallisation practicals, gas volumes, atom economy | Open `moles-reacting-masses.html` |
-| [`chemistry/electrochemical_cells/`](chemistry/electrochemical_cells/) | Electrochemical cells: displacement, simple cells, half-cells and E°, feasibility, fuel and lithium-ion cells, redox titrations | Open `electrochemical-cells.html` |
+| [`chemistry/electrochemical_cells/`](chemistry/electrochemical_cells/) | Electrochemical cells ★: displacement and reactivity, simple cells, half-cells and E°, CP10, fuel and storage cells, redox titrations | Open `electrochemical-cells.html` |
 
 ## Biology and medicine
 
@@ -215,8 +215,8 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 | [`economics/circular_flow/`](economics/circular_flow/) | Circular flow ★: five sectors, injections and withdrawals, the multiplier round by round, the accelerator, AD/AS and output gaps | Open `circular-flow.html` |
 | [`economics/running_the_economy/`](economics/running_the_economy/) | Running the Economy ★: five targets, Bank Rate, fiscal and supply-side policy, shocks, the real UK 1997–2025, money creation | Open `running-the-economy.html` |
 | [`economics/externalities/`](economics/externalities/) | Market Failure and Externalities ★: externalities with the welfare-loss triangle, taxes, subsidies, limits, information, cap and trade, public goods, lemons | Open `externalities.html` |
-| [`economics/trade_exchange_rates/`](economics/trade_exchange_rates/) | Trade and exchange rates: comparative advantage, terms of trade, tariffs, quotas, floating and fixed rates, J-curve | Open `trade-exchange-rates.html` |
-| [`economics/inequality/`](economics/inequality/) | Inequality and redistribution: Lorenz curve and Gini, income vs wealth, poverty, UK taxes and benefits, Kuznets and Laffer curves (also listed under Statistics) | Open `inequality.html` |
+| [`economics/trade_exchange_rates/`](economics/trade_exchange_rates/) | Trade and Exchange Rates ★: comparative advantage and terms of trade, tariffs, quotas and customs unions, the market for pounds, Marshall–Lerner and the J-curve, real GBP 2000–2025 | Open `trade-exchange-rates.html` |
+| [`economics/inequality/`](economics/inequality/) | Inequality ★: Lorenz and Gini, income against wealth, UK taxes and benefits, poverty, inheritance, the trading game, Kuznets and Laffer curves | Open `inequality.html` |
 
 ## Physical Education
 
