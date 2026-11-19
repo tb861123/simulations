@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-One hundred simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): ninety-three rebuilt showpieces, which replaced the earlier versions in
+One hundred and three simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): ninety-six rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -31,7 +31,7 @@ Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, S
 Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
 and Competition, Arousal and Performance, Stellar Life Cycle, Inheritance, Simple Harmonic
 Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, Reactivity of
-Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, Sport Biomechanics, Fitness Testing, Skill Acquisition, Atomic Spectra, Nuclear Fission, Particle Physics, Acids, Salts and Tests, Chromatography, Moles and Reacting Masses, Immunity, Plant Transport, Biotechnology, Inside a Sound, Strings, Air Columns, Build a Timbre, Pitch and Intervals, Rhythm and Metre, Sea Level Rise, Weather Chaos, Rivers and Landforms, Trade and Exchange Rates, Inequality, and Electrochemical Cells are likewise kept in each folder's `original/`, with their worksheets,
+Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, Sport Biomechanics, Fitness Testing, Skill Acquisition, Atomic Spectra, Nuclear Fission, Particle Physics, Acids, Salts and Tests, Chromatography, Moles and Reacting Masses, Immunity, Plant Transport, Biotechnology, Inside a Sound, Strings, Air Columns, Build a Timbre, Pitch and Intervals, Rhythm and Metre, Sea Level Rise, Weather Chaos, Rivers and Landforms, Trade and Exchange Rates, Inequality, Electrochemical Cells, Capacitors, Magnetism and Induction, and Heating and Insulation are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Typing slider values
@@ -85,15 +85,15 @@ and press **Print** (or save as PDF).
 | [`physics/optics_refraction/`](physics/optics_refraction/) | Light: Refraction, Lenses and Fibres ★: a ray-traced optical bench with blocks, prisms, real lenses, a fibre and a raindrop | Open `optics-refraction.html` |
 | [`physics/fields_orbits/`](physics/fields_orbits/) | Fields and Orbits ★: electric and gravitational fields you can sculpt and tilt, launched ions and satellites, Kepler's laws, escape speed (also listed under Astrophysics) | Open `fields-orbits.html` |
 | [`physics/circuits/`](physics/circuits/) | Electric Circuits ★: series and parallel with flowing charge, sensors, I–V curves, internal resistance | Open `circuits.html` |
-| [`physics/capacitors/`](physics/capacitors/) | Capacitors: charge and discharge, time constant, energy | Open `capacitors.html` |
-| [`physics/magnetism_induction/`](physics/magnetism_induction/) | Magnetism and induction: motor effect, Faraday's law, transformers, DC motor | Open `magnetism-induction.html` |
+| [`physics/capacitors/`](physics/capacitors/) | Capacitors ★: charging and discharging, τ = RC, ln V against t, energy ½CV² and the half lost in R, series and parallel | Open `capacitors.html` |
+| [`physics/magnetism_induction/`](physics/magnetism_induction/) | Magnetism and induction ★: F = BIL sin θ, orbits r = mv/qB, Faraday and Lenz with a moving magnet, transformers, the d.c. motor and commutator | Open `magnetism-induction.html` |
 | [`physics/photoelectric_effect/`](physics/photoelectric_effect/) | The Photoelectric Effect ★: photons, work function, stopping potential, Millikan's h, the gold-leaf electroscope | Open `photoelectric-effect.html` |
 | [`physics/atomic_spectra/`](physics/atomic_spectra/) | Atomic spectra ★: energy levels, emission and absorption lines, ΔE = hc/λ, diffraction grating, lasers and population inversion | Open `atomic-spectra.html` |
 | [`physics/radioactive_decay/`](physics/radioactive_decay/) | Radioactive Decay ★: random decay and half-life of real isotopes; α, β and γ through paper, aluminium and lead | Open `radioactive-decay.html` |
 | [`physics/nuclear_fission/`](physics/nuclear_fission/) | Nuclear fission ★: chain reactions, k and critical mass, control rods, mass defect and binding energy per nucleon | Open `nuclear-fission.html` |
 | [`physics/particle_physics/`](physics/particle_physics/) | Particle physics ★: the atom and isotopes, quarks and hadrons, conservation of Q, B, L and S, bubble chamber, Feynman diagrams | Open `particle-physics.html` |
 | [`physics/nuclear_fusion/`](physics/nuclear_fusion/) | Nuclear fusion ★: the Coulomb barrier, quantum tunnelling, the Gamow peak, and the temperature and pressure needed in stars and reactors | Open `nuclear-fusion.html` |
-| [`physics/heating_insulation/`](physics/heating_insulation/) | Heating and insulating a house: conduction, convection, radiation, insulation costs and payback, cooling-can and Leslie cube practicals, cooling curves | Open `heating-insulation.html` |
+| [`physics/heating_insulation/`](physics/heating_insulation/) | Heating and insulation ★: cooling cans and insulators, Leslie cube and coin drop, a house's heat loss, insulation savings and payback | Open `heating-insulation.html` |
 | [`physics/density_pressure/`](physics/density_pressure/) | Density and pressure: density practicals, p = F/A, liquid pressure, floating, gas pressure, terminal velocity | Open `density-pressure.html` |
 | [`physics/energy_resources/`](physics/energy_resources/) | Energy resources and electricity: power stations, running the GB grid, transformers and transmission losses, wind turbine practical | Open `energy-resources.html` |
 | [`physics/quantum_wave_lab/`](physics/quantum_wave_lab/) | Quantum Wave Lab ★: the 2-D Schrödinger equation live. Tunnelling, double slit one particle at a time, uncertainty, measurement (A level and beyond) | Open `quantum-wave-lab.html` |
