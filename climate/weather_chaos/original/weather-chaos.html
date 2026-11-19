@@ -1,0 +1,1166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weather Chaos and the Butterfly Effect</title>
+<style>
+:root{--bg:#0b1019;--panel:#111826;--panel2:#171f31;--line:#26324a;--txt:#e3e9f4;--mut:#8b9bb5;--a:#4dabf7;--b:#ffa94d;--ok:#51cf66;--bad:#ff6b6b;color-scheme:dark;
+  /* names used by the shared view bar and panel splitters (same in every simulation) */
+  --accent:#f1af28;--muted:var(--mut);--panel-2:var(--panel2);--text:var(--txt)}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--txt);font:13px/1.45 system-ui,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:12px;padding:6px 14px;background:#0e1522;border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
+/* keep the header on one line at 1280 px wide, with the view bar: the title gives way first */
+header{gap:8px;flex-wrap:nowrap;min-width:0}header h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}header>button,header .seg,header .seg button{white-space:nowrap;flex:none}header>button,header .seg button{padding:4px 8px}
+h1{font-size:16px;margin:0}h2{font-size:15px;margin:0}h3{font-size:12.5px;margin:10px 0 4px;color:#cfe3ff}
+.sub{color:var(--mut);font-size:12px}@media(max-width:1500px){.sub{display:none}}.grow{flex:1}
+button,select,input{font:inherit;color:inherit}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:4px 10px;cursor:pointer}
+button:hover:not(:disabled){border-color:#3b82c4}button:disabled{opacity:.45;cursor:default}
+button.primary{background:#2f6fae;border-color:var(--a);color:#fff}
+.seg{display:inline-flex}.seg button{border-radius:0;margin-left:-1px}.seg button:first-child{border-radius:5px 0 0 5px;margin:0}.seg button:last-child{border-radius:0 5px 5px 0}.seg button.on{background:#2f6fae;border-color:var(--a);color:#fff}
+select,input[type=text],input[type=number]{background:#0b1019;border:1px solid var(--line);border-radius:4px;padding:3px 6px}
+input[type=range]{accent-color:var(--a);width:100%}
+#main{flex:1;min-height:0;display:grid;grid-template-columns:var(--lw,270px) 10px minmax(0,1fr) 10px var(--rw,220px);grid-template-rows:minmax(0,1fr);gap:0}
+.side{background:var(--panel);padding:8px 12px 16px;overflow-y:auto;min-width:0;min-height:0}
+#centre{display:flex;flex-direction:column;min-width:0;min-height:0}
+/* one tab at a time: the body carries tab63 or tab96 */
+body.tab63 .t96,body.tab96 .t63{display:none!important}
+.ro{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid var(--line);color:var(--mut)}.ro b{color:var(--txt);font-variant-numeric:tabular-nums;text-align:right}
+/* Resizable, hideable side panels */
+.splitter{position:relative;cursor:col-resize;touch-action:none}
+.splitter::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--line);border-radius:2px}
+.splitter:hover::before,.splitter.drag::before{background:var(--accent)}
+.splitter button{position:absolute;left:50%;top:10px;transform:translateX(-50%);width:18px;height:34px;padding:0;border-radius:9px;font-size:13px;line-height:1;z-index:2}
+.side{position:relative}.side .reopen{display:none}
+.side.collapsed{padding:0!important;overflow:hidden!important}
+.side.collapsed>:not(.reopen){display:none!important}
+.side.collapsed>.reopen{display:flex;align-items:center;justify-content:center;width:100%;height:100%;writing-mode:vertical-rl;border:0;border-radius:0;background:none;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.1em;padding:0}
+.side.collapsed>.reopen:hover{color:var(--txt);background:var(--panel2)}
+.ctl{margin:7px 0}.ctl label{display:flex;justify-content:space-between;color:#c3cfe0;font-size:12px}.ctl b{color:var(--txt);font-weight:600}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.hint{color:var(--mut);font-size:12px;margin:4px 0}
+.stage{display:grid;gap:6px;padding:6px;min-height:0;min-width:0;flex:1}
+#s63{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
+#s96{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr) minmax(0,1.1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;position:relative;min-height:0;min-width:0;display:flex;flex-direction:column}
+.card h4{margin:0;padding:5px 9px 0;font-size:12px;font-weight:600;color:#cfe3ff}
+.card p{margin:0;padding:0 9px 4px;font-size:11.5px;color:var(--mut)}
+.card .cv{flex:1;min-height:0;position:relative}.card canvas{position:absolute;inset:0;width:100%;height:100%}
+.bar{grid-column:1/-1;display:flex;gap:6px 18px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.bar span{color:var(--mut)}.bar b{color:var(--txt);font-variant-numeric:tabular-nums}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.overlay{position:fixed;inset:0;background:#000b;z-index:50;display:none;align-items:center;justify-content:center}.overlay.open{display:flex}
+.dlg{background:var(--panel);border:1px solid #3b82c4;border-radius:10px;width:min(980px,96vw);max-height:94vh;overflow-y:auto;padding:12px 18px}
+.dlg ul{padding-left:18px;margin:4px 0}.dlg li{margin:2px 0}
+.exps{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:8px 0}
+.exp{text-align:left;display:flex;flex-direction:column;gap:2px;padding:7px 10px}.exp b{font-weight:600}.exp span{color:var(--mut);font-size:12px}.exp.on{border-color:var(--a);background:#13314f}
+.bset{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.bset label{display:flex;gap:5px;align-items:center}
+table{border-collapse:collapse;width:100%;font-size:12px}th,td{border-bottom:1px solid var(--line);padding:2px 6px;text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-weight:500}
+.btable{max-height:190px;overflow:auto}.bnote{margin-top:4px;color:#c3cfe0;font-size:12.5px;background:var(--panel2);border-left:3px solid var(--a);border-radius:5px;padding:6px 9px}.bnote:empty{display:none}
+/* Batch run: two columns, set-up on the left (experiments and the settings table), results on the right with Run at the top */
+#batch .dlg{width:min(1500px,97vw);height:94vh;max-height:none;overflow:hidden;display:grid;grid-template-columns:minmax(360px,42%) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:8px 14px;padding:10px 14px}
+#batch .bhead{grid-column:1/-1;display:flex;align-items:center;gap:12px}#batch .bhead h2{white-space:nowrap}#batch .bhead .hint{flex:1;margin:0;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+#bsetup{overflow-y:auto;display:flex;flex-direction:column;gap:7px;padding-right:4px;min-height:0}
+#bresults{display:flex;flex-direction:column;gap:7px;min-height:0;overflow-y:auto}
+#bsetup .exps{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:5px;margin:0}#bsetup .exp{padding:5px 8px}#bsetup .exp b{font-size:12.5px}#bsetup .exp span{font-size:11px}
+.brow{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:12.5px}.brow label{display:inline-flex;gap:5px;align-items:center}
+.bplotbox{position:relative;height:clamp(200px,38vh,420px)}.bplotbox canvas{position:absolute;inset:0;width:100%;height:100%}
+#bresults .btable{max-height:none}
+/* Batch settings table: every starting setting, with a tick box to choose the one that is varied */
+#bSetBox{border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--panel2)}
+#bSetBox>summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--a)}
+#bSetBox .bhint{font-size:11.5px;color:var(--mut);margin:3px 0 5px}
+#bOpts{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;margin-bottom:5px}#bOpts label{display:inline-flex;gap:5px;align-items:center}
+#bTbl{display:grid;grid-template-columns:1fr;gap:3px 14px}
+.bt{display:flex;align-items:center;gap:6px;font-size:12.5px;padding:2px 4px;border-radius:6px;flex-wrap:wrap}
+.bt.on{background:rgba(77,171,247,.13);outline:1px solid var(--a)}
+.bt label{flex:1;min-width:150px;display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.bt input[type=number]{width:96px}
+.bt .bsw{display:none;gap:5px;align-items:center;flex-wrap:wrap}.bt.on .bsw{display:inline-flex}.bt.on .bval{display:none}
+.bt .bcount{color:var(--mut);font-size:11.5px}.status{font-size:12px;color:#c3cfe0;margin:4px 0}
+code{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#cfe3ff}
+</style>
+</head>
+<body class="tab63">
+<header>
+  <h1>Weather Chaos and the Butterfly Effect</h1>
+  <span class="sub">Tiny differences at the start grow until the forecast is useless</span>
+  <span class="grow"></span>
+  <div class="seg" id="tabs"><button id="tab63" class="on">Lorenz 63: convection</button><button id="tab96">Lorenz 96: weather map</button></div>
+  <button id="btnBatch">📊 Batch run</button>
+  <button id="btnAbout">How the model works</button>
+</header>
+
+<main id="main">
+  <!-- =============================== LEFT: CONTROLS (one block per tab) =============================== -->
+  <section class="side" id="left">
+    <button class="reopen" title="Show this panel">Controls ›</button>
+    <div class="t63">
+      <h3>Two forecasts that start almost the same</h3>
+      <p class="hint">Blue is the "true" atmosphere. Orange starts a tiny distance away: the size of one butterfly flap. Press ▶ and watch.</p>
+      <div class="row">
+        <button id="a_play" class="primary">▶ Play</button><button id="a_restart">↺ Restart</button><button id="a_new" title="Choose a different starting weather">New start</button>
+      </div>
+      <div class="ctl"><label>Mode</label>
+        <div class="seg" id="a_mode"><button data-v="twin" class="on">Twin forecasts</button><button data-v="ens">Ensemble</button></div></div>
+      <div class="ctl"><label>Starting difference δ <b id="a_dv"></b></label><input type="range" id="a_delta" min="-12" max="-1" step="0.1" value="-6"></div>
+      <div class="ctl" id="a_nwrap" style="display:none"><label>Ensemble members <b id="a_nv"></b></label><input type="range" id="a_n" min="5" max="300" step="5" value="100"></div>
+      <div class="ctl"><label>Heating ρ <b id="a_rv"></b></label><input type="range" id="a_rho" min="0" max="50" step="0.5" value="28"></div>
+      <div class="ctl"><label>"Forecast has failed" when apart by <b id="a_tv"></b></label><input type="range" id="a_thr" min="0.5" max="10" step="0.5" value="1"></div>
+      <div class="ctl"><label>Speed <b id="a_sv"></b></label><input type="range" id="a_speed" min="-2" max="3" step="1" value="0"></div>
+      <div class="ctl"><label>View of the attractor</label>
+        <select id="a_view"><option value="xz">x against z (butterfly)</option><option value="xy">x against y</option><option value="yz">y against z</option></select></div>
+      <h3>How much does better data help?</h3>
+      <p class="hint">Runs the forecast for many starting differences and plots how long each stays useful.</p>
+      <button id="a_hor">Measure forecast horizon</button>
+      <p class="hint" id="a_horTxt"></p>
+    </div>
+    <div class="t96">
+      <h3>A ring of weather stations</h3>
+      <p class="hint">40 stations round a line of latitude. Winds carry weather round the ring, friction damps it and a forcing F (heating) drives it. Perturb one station slightly and watch the error spread.</p>
+      <div class="row"><button id="b_play" class="primary">▶ Play</button><button id="b_restart">↺ Restart</button><button id="b_new">New start</button></div>
+      <div class="ctl"><label>Mode</label>
+        <div class="seg" id="b_mode"><button data-v="twin" class="on">Twin forecasts</button><button data-v="ens">Ensemble</button></div></div>
+      <div class="ctl"><label>Forcing F <b id="b_fv"></b></label><input type="range" id="b_F" min="0" max="14" step="0.5" value="8"></div>
+      <div class="ctl"><label>Stations <b id="b_kv"></b></label><select id="b_K" style="width:100%"><option>20</option><option>30</option><option selected>40</option><option>60</option></select></div>
+      <div class="ctl"><label>Size of the butterfly flap δ <b id="b_dv"></b></label><input type="range" id="b_delta" min="-6" max="0" step="0.1" value="-3"></div>
+      <div class="ctl"><label>Where it flaps <b id="b_pv"></b></label><input type="range" id="b_pos" min="0" max="39" step="1" value="10"></div>
+      <div class="ctl"><label>Perturb</label>
+        <select id="b_where" style="width:100%"><option value="one">one station only (a butterfly)</option><option value="all">every station by a tiny random amount</option></select></div>
+      <div class="ctl" id="b_nwrap" style="display:none"><label>Ensemble members <b id="b_nv"></b></label><input type="range" id="b_n" min="5" max="50" step="5" value="20"></div>
+      <div class="ctl"><label>"Forecast has failed" when RMS error reaches <b id="b_tv"></b></label><input type="range" id="b_thr" min="0.2" max="4" step="0.1" value="1"></div>
+      <div class="ctl"><label>Station to watch <b id="b_wv"></b></label><input type="range" id="b_watch" min="0" max="39" step="1" value="30"></div>
+      <div class="ctl"><label>Speed <b id="b_sv"></b></label><input type="range" id="b_speed" min="-2" max="3" step="1" value="0"></div>
+      <p class="hint">Time scale (Lorenz &amp; Emanuel 1998): 1 time unit ≈ 5 days.</p>
+    </div>
+    <p class="hint" id="noQuality"><b>Why there is no quality setting:</b> the pictures are cheap to draw (a few lines, at most 300 dots and two grids of 4,800 coloured cells), so every laptop can draw them at full detail. The time goes on the model, and speed is set with the Speed slider.</p>
+  </section>
+
+  <div class="splitter" id="splitL" title="Drag to resize · double-click to reset"><button title="Hide/show the left panel">‹</button></div>
+
+  <!-- =============================== CENTRE: THE GRAPHS =============================== -->
+  <section id="centre">
+    <section class="stage t63" id="s63">
+      <div class="card"><h4>The attractor: the state of the atmosphere over time</h4><p><span class="sw" style="background:var(--a)"></span>true <span class="sw" style="background:var(--b);margin-left:10px"></span>perturbed / ensemble</p><div class="cv"><canvas id="c63attr"></canvas></div></div>
+      <div class="card"><h4>One variable, x (convective overturning), against time</h4><p>The lines lie on top of each other, then split apart.</p><div class="cv"><canvas id="c63time"></canvas></div></div>
+      <div class="card"><h4 id="c63sepT">How far apart? (log scale)</h4><p id="c63sepP">Each gridline is ×10. A straight rising line means exponential growth.</p><div class="cv"><canvas id="c63sep"></canvas></div></div>
+      <div class="card"><h4>Forecast horizon against starting difference</h4><p>Press "Measure forecast horizon" on the left.</p><div class="cv"><canvas id="c63hor"></canvas></div></div>
+    </section>
+    <section class="stage t96" id="s96">
+      <div class="card" style="grid-row:span 2"><h4>Weather map round the ring</h4><p>Outer: true. Middle: <span id="q_mid">perturbed</span>. Inner: difference. ★ = the butterfly.</p><div class="cv"><canvas id="c96ring"></canvas></div></div>
+      <div class="card"><h4>True weather: station against time (Hovmöller)</h4><p>Red high, blue low. Time runs down. Patterns drift round the ring.</p><div class="cv"><canvas id="c96hovA"></canvas></div></div>
+      <div class="card"><h4>Error: how the difference spreads</h4><p>Log colour of |perturbed − true|. Starts as one dot (▲), then fills the ring.</p><div class="cv"><canvas id="c96hovD"></canvas></div></div>
+      <div class="card"><h4 id="c96errT">RMS error against time (log scale)</h4><p id="c96errP">Dashed line: the error two unrelated states would have.</p><div class="cv"><canvas id="c96err"></canvas></div></div>
+      <div class="card"><h4>One station over time</h4><p id="c96spP">True (white) and perturbed (orange).</p><div class="cv"><canvas id="c96spag"></canvas></div></div>
+    </section>
+  </section>
+
+  <div class="splitter" id="splitR" title="Drag to resize · double-click to reset"><button title="Hide/show the right panel">›</button></div>
+
+  <!-- =============================== RIGHT: READOUTS =============================== -->
+  <section class="side" id="right">
+    <button class="reopen" title="Show this panel">‹ Readouts</button>
+    <div class="t63">
+      <h3>Readouts</h3>
+      <div class="ro">time <b id="r_t">0</b></div>
+      <div class="ro" id="r_sepWrap">apart by <b id="r_sep">–</b></div>
+      <div class="ro">forecasts failed at <b id="r_fail">not yet</b></div>
+      <p class="hint" id="r_days"></p>
+      <h3>What to look for</h3>
+      <p class="hint">On the log graph a difference that grows exponentially is a straight rising line. It stops rising (green line) once the two forecasts are as far apart as two unrelated states of the weather.</p>
+    </div>
+    <div class="t96">
+      <h3>Readouts</h3>
+      <div class="ro">day <b id="q_t">0</b></div>
+      <div class="ro">RMS difference <b id="q_rms">–</b></div>
+      <div class="ro">forecast failed after <b id="q_fail">not yet</b></div>
+      <div class="ro">error doubling time <b id="q_dbl">–</b></div>
+      <div class="ro">saturation (unrelated states) <b id="q_sat">–</b></div>
+      <h3>What to look for</h3>
+      <p class="hint">The error starts at one station, is carried round the ring by the winds and grows until it is as big as the weather itself. The real atmosphere doubles its errors in about 2 days.</p>
+    </div>
+  </section>
+</main>
+
+<!-- =============================== BATCH RUN =============================== -->
+<div id="batch" class="overlay" role="dialog" aria-label="Batch run"><div class="dlg" id="bbox">
+  <div class="bhead"><h2>📊 Batch run</h2><span class="hint">Runs the model many times without drawing: repeat with new random starting weather, or sweep one setting. Fixed seeds make every result reproducible. Mean, SD and standard error are compared with theory where there is some.</span><button id="bClose" aria-label="Close batch run">✕</button></div>
+  <div id="bsetup">
+    <div class="exps" id="exps"></div>
+    <div class="brow">
+      <label>Mode <select id="bMode"><option value="repeat">Repeat (new random starting weather each run)</option><option value="sweep">Sweep (vary the ticked setting in steps)</option></select></label>
+      <label>Record <select id="bOut"></select></label>
+      <span id="bRepeatOpts"><label>Runs <select id="bRuns"><option>10</option><option selected>20</option><option>50</option><option>100</option></select></label></span>
+      <label>Seed <input type="text" id="bSeed" value="2024" size="6"></label>
+    </div>
+    <details id="bSetBox" open>
+      <summary>Starting settings: tick the one to vary</summary>
+      <div class="bhint">Every starting setting the chosen model uses is listed. Tick one to sweep it from → to in steps (+ adds the step each time, × multiplies by it); every other setting stays at the value shown. What you see is what runs.</div>
+      <div id="bOpts"></div>
+      <div id="bTbl"></div>
+      <div class="brow" style="margin-top:5px"><span id="bSweepOpts"><label>Runs at each step <input type="number" id="bReps" min="1" max="200" value="20" style="width:60px"></label></span>
+        <button id="bLeft" title="Fill the table from the settings on the left panel">↺ Use my left-panel settings</button></div>
+    </details>
+  </div>
+  <div id="bresults">
+    <div class="brow">
+      <button id="bRun" class="primary">▶ Run batch</button><button id="bStop" disabled>■ Stop</button><button id="bCsv" disabled>⬇ Download CSV</button>
+      <span id="bStatus" class="status">Ready</span>
+    </div>
+    <div id="bres" style="display:none"><div class="bplotbox"><canvas id="bplot"></canvas></div>
+      <ul id="bsum"></ul><div class="btable"><table id="btab"></table></div></div>
+    <div id="bNote" class="bnote"></div>
+  </div>
+</div></div>
+
+<!-- =============================== ABOUT =============================== -->
+<div id="about" class="overlay" role="dialog" aria-label="How the model works"><div class="dlg">
+  <div class="row"><h2>How the model works</h2><span class="grow"></span><button id="aClose">✕</button></div>
+  <h3>Why weather is hard to predict</h3>
+  <p>The equations of the atmosphere are deterministic: the same start always gives the same future. But in a <b>chaotic</b> system two starts that differ by a tiny amount drift apart exponentially, roughly doubling their difference every fixed time (the <i>error doubling time</i>). We can never measure the atmosphere perfectly, so after some days the forecast is no better than guessing. Edward Lorenz found this in 1961 when a rounded number (0.506 instead of 0.506127) changed a whole simulated winter. It is often called the <b>butterfly effect</b>.</p>
+  <h3>Lorenz 63: convection in three numbers</h3>
+  <p><code>dx/dt = σ(y − x)</code>, <code>dy/dt = x(ρ − z) − y</code>, <code>dz/dt = xy − βz</code> with σ = 10, β = 8/3. x is the strength of the overturning of a heated layer of air, y the temperature difference between rising and sinking air, z how far the temperature profile departs from a straight line, and ρ the heating. Below ρ ≈ 24.7 the motion settles down; above it, it is chaotic and never repeats. The largest Lyapunov exponent at ρ = 28 is λ ≈ 0.906 per time unit, so a small difference grows like e<sup>λt</sup>.</p>
+  <h3>Lorenz 96: a ring of weather stations</h3>
+  <p><code>dX<sub>k</sub>/dt = (X<sub>k+1</sub> − X<sub>k−2</sub>) X<sub>k−1</sub> − X<sub>k</sub> + F</code>, for stations k = 1…K arranged in a ring. The first term is <i>advection</i> (winds moving weather round), −X<sub>k</sub> is friction, F is heating. It has no real geography but looks like waves drifting round a latitude circle. With F = 8 and 40 stations it is chaotic with λ ≈ 1.7 per time unit; one time unit is about 5 days, which gives an error doubling time of about 2 days, close to the real atmosphere.</p>
+  <h3>Ensembles</h3>
+  <p>Forecasters run many forecasts from slightly different starts. If they stay together the forecast is confident; if they spread out it is not. The <b>ensemble mean</b> is a better forecast than a single run once the members have spread, because averaging cancels unpredictable details.</p>
+  <h3>Assumptions and simplifications</h3>
+  <ul>
+    <li>Both models are toys. They are not weather forecast models and use no real units or geography. The days shown for Lorenz 96 come from the 5-days-per-unit scaling above and for Lorenz 63 are only an illustration.</li>
+    <li>They are integrated with a fixed-step fourth-order Runge–Kutta method (step 0.01). Even the step size changes a long chaotic run in detail, which is itself the point.</li>
+    <li>"Forecast failed" means the two runs differ by more than the threshold you choose. There is nothing special about the number.</li>
+    <li>The Lyapunov exponent is an <i>average</i> growth rate. Over short times the growth fluctuates, so the measured horizons scatter around the theory line.</li>
+    <li>Once the difference is as big as the attractor it cannot grow further (saturation): the runs are then as unrelated as any two random states.</li>
+    <li>Real weather also has a gentler limit than this: the real atmosphere has many scales of motion, so the achievable forecast length is roughly two weeks however good the data.</li>
+  </ul>
+</div></div>
+
+<script>
+"use strict";
+/* ======================================================================================
+   Weather Chaos and the Butterfly Effect
+   Two classic toy models of the atmosphere, both by Edward Lorenz:
+     Lorenz 63  - three variables describing a heated layer of air (convection)
+     Lorenz 96  - a ring of K "weather stations" with advection, friction and forcing
+   Everything is plain JavaScript (no libraries). Each model is stepped with the
+   fourth-order Runge-Kutta method (RK4).
+   ====================================================================================== */
+const $ = id => document.getElementById(id);
+const DPR = Math.min(2, window.devicePixelRatio || 1);
+
+/* ---------------- numerics: a generic RK4 stepper for any state vector ---------------- */
+// f(s, out) writes ds/dt into out. The returned function advances s IN PLACE by dt.
+function makeRK4(n, f) {
+  const k1 = new Float64Array(n), k2 = new Float64Array(n), k3 = new Float64Array(n), k4 = new Float64Array(n), t = new Float64Array(n);
+  return function (s, dt) {
+    f(s, k1);
+    for (let i = 0; i < n; i++) t[i] = s[i] + 0.5 * dt * k1[i];
+    f(t, k2);
+    for (let i = 0; i < n; i++) t[i] = s[i] + 0.5 * dt * k2[i];
+    f(t, k3);
+    for (let i = 0; i < n; i++) t[i] = s[i] + dt * k3[i];
+    f(t, k4);
+    for (let i = 0; i < n; i++) s[i] += dt / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
+  };
+}
+const DT = 0.01;                                   // time step used everywhere
+
+// small seeded random numbers so batch experiments are reproducible
+function mulberry32(a) { return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function gauss(rng) { return Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng()); }
+
+/* ---------------- Lorenz 63 ---------------- */
+const P63 = { sigma: 10, beta: 8 / 3, rho: 28 };
+const LAMBDA63 = 0.9056;                           // largest Lyapunov exponent for sigma=10, beta=8/3, rho=28
+const step63 = makeRK4(3, (s, o) => { o[0] = P63.sigma * (s[1] - s[0]); o[1] = s[0] * (P63.rho - s[2]) - s[1]; o[2] = s[0] * s[1] - P63.beta * s[2]; });
+// A point on the attractor: start anywhere, run 20 time units so the transient has died away.
+function spun63(seed) { const rng = mulberry32(seed), s = Float64Array.of(1 + rng(), 1 + rng(), 20 + rng()); for (let i = 0; i < 2000; i++) step63(s, DT); return s; }
+function dist(a, b) { let q = 0; for (let i = 0; i < a.length; i++) q += (a[i] - b[i]) ** 2; return Math.sqrt(q); }
+// Time until two runs that start `delta` apart (random direction) are further apart than thr.
+function horizon63(start, delta, dir, thr, tmax) {
+  const A = Float64Array.from(start), B = Float64Array.from(start); let n = Math.hypot(dir[0], dir[1], dir[2]);
+  for (let i = 0; i < 3; i++) B[i] += delta * dir[i] / n;
+  let prev = delta, t = 0;
+  while (t < tmax) { step63(A, DT); step63(B, DT); t += DT; const d = dist(A, B); if (d > thr) return t - DT * (d - thr) / (d - prev); prev = d; }
+  return tmax;
+}
+
+/* ---------------- Lorenz 96 ---------------- */
+const P96 = { K: 40, F: 8 };
+const DAYS_PER_UNIT = 5;                           // Lorenz & Emanuel (1998)
+const LAMBDA96_REF = 1.67;                         // literature value for K=40, F=8
+let step96 = null, step96K = 0;
+// ds_k/dt = (s_{k+1} - s_{k-2}) s_{k-1} - s_k + F   (indices wrap round the ring)
+function get96(K) {
+  if (step96K !== K) { step96K = K; step96 = makeRK4(K, (s, o) => { const F = P96.F; for (let k = 0; k < K; k++) o[k] = (s[(k + 1) % K] - s[(k + K - 2) % K]) * s[(k + K - 1) % K] - s[k] + F; }); }
+  return step96;
+}
+function rms(a, b) { let q = 0; for (let i = 0; i < a.length; i++) q += (a[i] - b[i]) ** 2; return Math.sqrt(q / a.length); }
+// Spin up from a slightly disturbed rest state, then measure the "climate": mean and SD of X.
+function spun96(K, F, seed) {
+  P96.K = K; P96.F = F; const st = get96(K), rng = mulberry32(seed), s = new Float64Array(K);
+  for (let k = 0; k < K; k++) s[k] = F + 0.5 * gauss(rng);
+  for (let i = 0; i < 1500; i++) st(s, DT);        // 15 time units
+  return s;
+}
+function climate96(K, F) {                          // mean and SD of X over a long run, for the colour scale and the saturation level
+  const s = spun96(K, F, 7), st = get96(K); let sum = 0, sum2 = 0, n = 0;
+  for (let i = 0; i < 4000; i++) { st(s, DT); if (i % 10 === 0) for (let k = 0; k < K; k++) { sum += s[k]; sum2 += s[k] * s[k]; n++; } }
+  const m = sum / n; return { mean: m, sd: Math.sqrt(Math.max(1e-12, sum2 / n - m * m)) };
+}
+// Leading Lyapunov exponent by the Benettin method: follow a reference run and a nearby run,
+// every tau measure the separation, record ln(growth), then shrink the separation back to d0.
+function lyap96(K, F, seed, T) {
+  const s = spun96(K, F, seed), st = get96(K), rng = mulberry32(seed + 99), d0 = 1e-6, p = new Float64Array(K);
+  let nn = 0; for (let k = 0; k < K; k++) { p[k] = gauss(rng); nn += p[k] * p[k]; }
+  const q = new Float64Array(K); for (let k = 0; k < K; k++) q[k] = s[k] + d0 * p[k] / Math.sqrt(nn);
+  let sum = 0; const tau = 20;                      // renormalise every 20 steps = 0.2 time units
+  for (let n = 0; n < Math.round(T / DT / tau); n++) {
+    for (let i = 0; i < tau; i++) { st(s, DT); st(q, DT); }
+    const d = dist(s, q); sum += Math.log(d / d0);
+    for (let k = 0; k < K; k++) q[k] = s[k] + (q[k] - s[k]) * d0 / d;
+  }
+  return sum / (Math.round(T / DT / tau) * tau * DT);
+}
+
+/* ---------------- colour helpers ---------------- */
+function lerp3(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+function ramp(stops, t) { t = Math.max(0, Math.min(1, t)); const f = t * (stops.length - 1), i = Math.min(stops.length - 2, Math.floor(f)); const c = lerp3(stops[i], stops[i + 1], f - i); return `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`; }
+const DIV = [[33, 102, 172], [146, 197, 222], [247, 247, 247], [244, 165, 130], [178, 24, 43]];     // blue - white - red
+const SEQ = [[13, 8, 135], [126, 3, 168], [204, 71, 120], [248, 149, 64], [240, 249, 33]];            // dark purple - yellow
+
+/* ---------------- canvas helpers ---------------- */
+const canvases = {};
+function fitCanvas(c) { const r = c.parentElement.getBoundingClientRect(); const w = Math.max(40, Math.round(r.width * DPR)), h = Math.max(40, Math.round(r.height * DPR)); if (c.width !== w || c.height !== h) { c.width = w; c.height = h; return true; } return false; }
+function ctxOf(id) { const c = $(id); fitCanvas(c); const x = c.getContext('2d'); x.setTransform(DPR, 0, 0, DPR, 0, 0); return { c, x, w: c.width / DPR, h: c.height / DPR }; }
+// true when a canvas is too small to draw on (its panel is collapsed, squeezed or hidden): drawing code then skips it
+const tooSmall = (w, h, mw = 60, mh = 50) => !(w >= mw && h >= mh);
+function niceTicks(lo, hi, n = 5) { const span = hi - lo; if (!(span > 0)) return [lo]; const raw = span / n, mag = 10 ** Math.floor(Math.log10(raw)), f = raw / mag, st = (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * mag, o = []; for (let v = Math.ceil(lo / st - 1e-9) * st; v <= hi + st * 1e-9; v += st) o.push(Math.abs(v) < st * 1e-9 ? 0 : v); return o; }
+/* Line chart. series: [{x[],y[],colour,dash,width,err[]}]; opts: xLabel,yLabel,logy,logx,xmin,xmax,ymin,ymax,vlines:[{x,colour,label}],hlines */
+function lineChart(ctxo, series, o) {
+  const { x, w, h } = ctxo; x.clearRect(0, 0, w, h);
+  if (tooSmall(w, h, 100, 70)) return;            // squeezed too small to draw a readable chart
+  const L = 46, R = 10, T = 8, B = 30, pw = w - L - R, ph = h - T - B;
+  const tx = v => o.logx ? Math.log10(v) : v, ty = v => o.logy ? Math.log10(v) : v;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const s of series) for (let i = 0; i < s.x.length; i++) { const yy = s.y[i]; if (!Number.isFinite(yy) || (o.logy && yy <= 0) || (o.logx && s.x[i] <= 0)) continue; x0 = Math.min(x0, tx(s.x[i])); x1 = Math.max(x1, tx(s.x[i])); y0 = Math.min(y0, ty(yy)); y1 = Math.max(y1, ty(yy)); }
+  if (o.xmin !== undefined) x0 = tx(o.xmin); if (o.xmax !== undefined) x1 = tx(o.xmax); if (o.ymin !== undefined) y0 = ty(o.ymin); if (o.ymax !== undefined) y1 = ty(o.ymax);
+  if (!Number.isFinite(x0)) { x.fillStyle = '#6b7a93'; x.font = '12px system-ui'; x.fillText('no data yet', L + 10, T + 20); return; }
+  if (x1 <= x0) x1 = x0 + 1; if (y1 <= y0) { y1 = y0 + 1; y0 -= 1; }
+  const px = v => L + (tx(v) - x0) / (x1 - x0) * pw, py = v => T + ph - (ty(v) - y0) / (y1 - y0) * ph;
+  x.font = '11px system-ui'; x.strokeStyle = '#26324a'; x.fillStyle = '#8b9bb5'; x.lineWidth = 1;
+  x.textAlign = 'right'; x.textBaseline = 'middle';
+  const yt = o.logy ? Array.from({ length: Math.max(0, Math.floor(y1) - Math.ceil(y0) + 1) }, (_, i) => Math.ceil(y0) + i) : niceTicks(y0, y1, 4);
+  for (const t of yt) { const yy = T + ph - (t - y0) / (y1 - y0) * ph; x.beginPath(); x.moveTo(L, yy); x.lineTo(L + pw, yy); x.stroke(); x.fillText(o.logy ? '1e' + t : String(+t.toPrecision(3)), L - 4, yy); }
+  x.textAlign = 'center'; x.textBaseline = 'top';
+  const xt = o.logx ? Array.from({ length: Math.floor(x1) - Math.ceil(x0) + 1 }, (_, i) => Math.ceil(x0) + i) : niceTicks(x0, x1, 6);
+  for (const t of xt) { const xx = L + (t - x0) / (x1 - x0) * pw; x.fillText(o.logx ? '1e' + t : String(+t.toPrecision(3)), xx, T + ph + 3); }
+  x.fillText(o.xLabel || '', L + pw / 2, T + ph + 16);
+  x.save(); x.translate(11, T + ph / 2); x.rotate(-Math.PI / 2); x.textBaseline = 'top'; x.fillText(o.yLabel || '', 0, -4); x.restore();
+  x.save(); x.beginPath(); x.rect(L, T, pw, ph); x.clip();
+  for (const hl of o.hlines || []) { x.strokeStyle = hl.colour; x.setLineDash([5, 4]); x.beginPath(); x.moveTo(L, py(hl.y)); x.lineTo(L + pw, py(hl.y)); x.stroke(); x.setLineDash([]); }
+  for (const vl of o.vlines || []) { const xx = px(vl.x); x.strokeStyle = vl.colour; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(xx, T); x.lineTo(xx, T + ph); x.stroke(); x.setLineDash([]); }
+  for (const s of series) {
+    x.strokeStyle = s.colour; x.fillStyle = s.colour; x.lineWidth = s.width || 1.6; x.setLineDash(s.dash || []); x.beginPath(); let pen = false;
+    for (let i = 0; i < s.x.length; i++) { const yy = s.y[i]; if (!Number.isFinite(yy) || (o.logy && yy <= 0) || (o.logx && s.x[i] <= 0)) { pen = false; continue; } if (pen) x.lineTo(px(s.x[i]), py(yy)); else { x.moveTo(px(s.x[i]), py(yy)); pen = true; } }
+    if (!s.dots) x.stroke();
+    x.setLineDash([]);
+    if (s.dots || s.err) for (let i = 0; i < s.x.length; i++) { const yy = s.y[i]; if (!Number.isFinite(yy) || (o.logy && yy <= 0)) continue; if (s.err && Number.isFinite(s.err[i])) { x.beginPath(); x.moveTo(px(s.x[i]), py(Math.max(1e-300, yy - s.err[i]))); x.lineTo(px(s.x[i]), py(yy + s.err[i])); x.stroke(); } x.beginPath(); x.arc(px(s.x[i]), py(yy), 2.6, 0, 6.3); x.fill(); }
+  }
+  x.restore();
+  x.setLineDash([]);
+}
+
+/* ======================================================================================
+   LORENZ 63 TAB
+   ====================================================================================== */
+let curTab = 63;                                   // which tab is showing: 63 or 96
+const A = { mode: 'twin', playing: false, t: 0, delta: 1e-6, thr: 1, speed: 1, seed: 1, view: 'xz', N: 100,
+  a: null, b: null, ens: null, hist: { t: [], xa: [], xb: [], sep: [], spread: [], ex: [] }, fail: null, ranges: { x: [-25, 25], y: [-30, 30], z: [0, 55] }, hor: null };
+function a_init() {
+  const base = spun63(A.seed * 1000 + 3), rng = mulberry32(A.seed * 7 + 1);
+  A.a = Float64Array.from(base); A.b = Float64Array.from(base); A.b[0] += A.delta;
+  A.ens = []; for (let i = 0; i < A.N; i++) { const m = Float64Array.from(base); for (let k = 0; k < 3; k++) m[k] += A.delta * gauss(rng); A.ens.push(m); }
+  A.t = 0; A.fail = null; A.hist = { t: [], xa: [], xb: [], sep: [], spread: [], ex: [], exAll: [] }; A.pts = []; A.pa = A.pb = null; a_record();
+  const c = $('c63attr'); fitCanvas(c); c.getContext('2d').clearRect(0, 0, c.width, c.height);
+  a_drawStatic();
+}
+function a_spread() { // RMS distance of the members from their own mean: the "ensemble spread"
+  const m = [0, 0, 0]; for (const e of A.ens) for (let k = 0; k < 3; k++) m[k] += e[k] / A.ens.length;
+  let q = 0; for (const e of A.ens) for (let k = 0; k < 3; k++) q += (e[k] - m[k]) ** 2; return Math.sqrt(q / A.ens.length);
+}
+function a_record() {
+  const h = A.hist; h.t.push(A.t); h.xa.push(A.a[0]); h.xb.push(A.mode === 'twin' ? A.b[0] : A.ens[0][0]);
+  h.sep.push(dist(A.a, A.b)); h.spread.push(a_spread());
+  if (A.mode === 'ens') h.ex.push(A.ens.map(e => e[0]));
+  const s = A.mode === 'twin' ? h.sep[h.sep.length - 1] : h.spread[h.spread.length - 1];
+  if (A.fail === null && s > A.thr) A.fail = A.t;
+}
+function a_advance(n) {
+  for (let i = 0; i < n; i++) {
+    step63(A.a, DT); if (A.mode === 'twin') step63(A.b, DT); else for (const e of A.ens) step63(e, DT);
+    A.t += DT;
+    if (A.mode === 'twin') A.pts.push(Float64Array.from(A.a), Float64Array.from(A.b)); else if (i % 5 === 4) A.pts.push(Float64Array.from(A.a));
+    if (i % 5 === 4) { a_record(); }
+  }
+}
+function proj(s) { const v = A.view; const [i, j] = v === 'xz' ? [0, 2] : v === 'xy' ? [0, 1] : [1, 2]; return [s[i], s[j], v === 'xz' ? 'x' : v === 'xy' ? 'x' : 'y', v === 'xz' ? 'z' : v === 'xy' ? 'y' : 'z']; }
+function a_drawStatic() {
+  const { c, x, w, h } = ctxOf('c63attr'); const v = A.view, xr = A.ranges[v[0]], yr = A.ranges[v[1]];
+  x.clearRect(0, 0, w, h); x.fillStyle = '#6b7a93'; x.font = '11px system-ui'; x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+  x.fillText(`${v[0]} →   ${v[1]} ↑`, 8, h - 6);
+}
+function a_drawAttractor() {
+  const { c, x, w, h } = ctxOf('c63attr'), v = A.view, xr = A.ranges[v[0]], yr = A.ranges[v[1]];
+  if (tooSmall(w, h)) { A.pts = []; A.pa = A.pb = null; return; }   // panel squeezed: forget the unseen path rather than store it
+  const X = s => 8 + (s[v === 'yz' ? 1 : 0] - xr[0]) / (xr[1] - xr[0]) * (w - 16);
+  const Y = s => h - 16 - (s[v === 'xz' ? 2 : v === 'xy' ? 1 : 2] - yr[0]) / (yr[1] - yr[0]) * (h - 26);
+  x.fillStyle = 'rgba(17,24,38,0.05)'; x.fillRect(0, 0, w, h);                // old drawing fades slowly away: a comet tail
+  if (A.mode === 'twin') {
+    // draw every sub-step since the last frame as a short line, so the path is smooth however fast we run
+    let pa = A.pa, pb = A.pb;
+    for (let i = 0; i + 1 < A.pts.length; i += 2) {
+      const sa = A.pts[i], sb = A.pts[i + 1];
+      if (pa) { x.lineWidth = 1.4; x.strokeStyle = '#4dabf7'; x.beginPath(); x.moveTo(X(pa), Y(pa)); x.lineTo(X(sa), Y(sa)); x.stroke(); x.strokeStyle = '#ffa94d'; x.beginPath(); x.moveTo(X(pb), Y(pb)); x.lineTo(X(sb), Y(sb)); x.stroke(); }
+      pa = sa; pb = sb;
+    }
+    A.pa = Float64Array.from(A.a); A.pb = Float64Array.from(A.b); A.pts = [];
+    for (const [s, col] of [[A.a, '#4dabf7'], [A.b, '#ffa94d']]) { x.fillStyle = col; x.beginPath(); x.arc(X(s), Y(s), 3.4, 0, 6.3); x.fill(); }
+  } else {
+    A.pts = []; x.fillStyle = 'rgba(255,169,77,0.75)'; for (const e of A.ens) x.fillRect(X(e) - 1, Y(e) - 1, 2.4, 2.4);
+    x.fillStyle = '#4dabf7'; x.beginPath(); x.arc(X(A.a), Y(A.a), 3.6, 0, 6.3); x.fill();
+  }
+  x.fillStyle = '#6b7a93'; x.font = '11px system-ui'; x.textAlign = 'left'; x.fillText(`${v[0]} →   ${v[1]} ↑`, 8, h - 4);
+}
+function a_drawCharts() {
+  const h = A.hist, win = 30, tmax = Math.max(win, A.t), tmin = tmax - win;
+  // x(t)
+  const ser = [];
+  if (A.mode === 'twin') { ser.push({ x: h.t, y: h.xa, colour: '#4dabf7', width: 2 }, { x: h.t, y: h.xb, colour: '#ffa94d', width: 1.6 }); }
+  else { const n = Math.min(A.ens.length, 40); for (let m = 0; m < n; m++) ser.push({ x: h.t, y: h.ex.map(r => r[m]), colour: 'rgba(255,169,77,0.35)', width: 1 }); ser.push({ x: h.t, y: h.xa, colour: '#4dabf7', width: 2 }); }
+  lineChart(ctxOf('c63time'), ser, { xLabel: 'time', yLabel: 'x', xmin: tmin, xmax: tmax, ymin: -22, ymax: 22, vlines: A.fail !== null ? [{ x: A.fail, colour: '#ff6b6b' }] : [] });
+  // separation / spread, log scale, with the theoretical slope
+  const yv = A.mode === 'twin' ? h.sep : h.spread, t0 = A.mode === 'twin' ? A.delta : A.delta * Math.sqrt(3) * 0.8;
+  const tt = [0, Math.max(A.t, 1)], th = [t0, t0 * Math.exp(LAMBDA63 * tt[1])];
+  const sat = 20;
+  const series = [{ x: h.t, y: yv, colour: A.mode === 'twin' ? '#ffd43b' : '#ffa94d', width: 2 }];
+  if (Math.abs(P63.rho - 28) < 0.01) series.push({ x: tt, y: th, colour: '#adb5bd', dash: [5, 4], width: 1.2 });
+  lineChart(ctxOf('c63sep'), series, { xLabel: 'time', yLabel: A.mode === 'twin' ? 'distance apart' : 'ensemble spread', logy: true, xmin: 0, xmax: Math.max(A.t, 10), ymin: Math.min(1e-12, A.delta / 10), ymax: 100, hlines: [{ y: A.thr, colour: '#ff6b6b' }, { y: sat, colour: '#51cf66' }] });
+  $('c63sepP').textContent = (Math.abs(P63.rho - 28) < 0.01 ? 'Dashed grey: growth at the Lyapunov rate e^(0.906 t). ' : '') + 'Red: your "failed" threshold. Green: size of the attractor (growth stops).';
+  $('c63sepT').textContent = A.mode === 'twin' ? 'How far apart are the two forecasts? (log scale)' : 'How spread out is the ensemble? (log scale)';
+  // read-outs
+  $('r_t').textContent = A.t.toFixed(1);
+  $('r_sep').textContent = (A.mode === 'twin' ? dist(A.a, A.b) : a_spread()).toExponential(2);
+  $('r_sepWrap').firstChild.textContent = A.mode === 'twin' ? 'apart by ' : 'spread ';
+  $('r_fail').textContent = A.fail === null ? 'not yet' : `t = ${A.fail.toFixed(2)} (${(A.fail * LAMBDA63).toFixed(1)} Lyapunov times)`;
+  // weather translation, only an illustration: scale time so one error-doubling time is 2 days, as in the real atmosphere
+  const dbl = Math.LN2 / LAMBDA63;
+  $('r_days').textContent = A.fail === null ? '' : `If one error-doubling time (${dbl.toFixed(2)} units) were the real atmosphere's ≈ 2 days, this forecast lasts ≈ ${(A.fail / dbl * 2).toFixed(0)} days.`;
+}
+function a_drawHorizon() {
+  if (!A.hor) { lineChart(ctxOf('c63hor'), [], {}); return; }
+  const H = A.hor;
+  lineChart(ctxOf('c63hor'), [{ x: H.d, y: H.mean, colour: '#4dabf7', dots: true, err: H.se, width: 1.5 }, { x: H.d, y: H.theory, colour: '#ffd43b', dash: [5, 4] }], { xLabel: 'starting difference δ (log scale)', yLabel: 'forecast lasts (time)', logx: true, ymin: 0 });
+}
+function a_loop(ts) {
+  if (curTab !== 63) return;
+  if (A.playing) { const n = Math.round(5 * A.speed); a_advance(n); a_drawAttractor(); a_drawCharts(); }
+}
+function a_setupUI() {
+  const upd = () => {
+    A.delta = 10 ** +$('a_delta').value; $('a_dv').textContent = A.delta.toExponential(1);
+    A.N = +$('a_n').value; $('a_nv').textContent = A.N;
+    P63.rho = +$('a_rho').value; $('a_rv').textContent = P63.rho + (P63.rho < 24.7 ? ' (settles down)' : '');
+    A.thr = +$('a_thr').value; $('a_tv').textContent = A.thr;
+    A.speed = 2 ** +$('a_speed').value; $('a_sv').textContent = A.speed + '×';
+    A.view = $('a_view').value;
+  };
+  ['a_delta', 'a_n', 'a_rho', 'a_view'].forEach(id => $(id).addEventListener('input', () => { upd(); a_init(); a_drawCharts(); }));
+  ['a_thr', 'a_speed'].forEach(id => $(id).addEventListener('input', () => { upd(); a_drawCharts(); }));
+  $('a_play').onclick = () => { A.playing = !A.playing; $('a_play').textContent = A.playing ? '⏸ Pause' : '▶ Play'; };
+  $('a_restart').onclick = () => { a_init(); a_drawCharts(); };
+  $('a_new').onclick = () => { A.seed++; a_init(); a_drawCharts(); };
+  $('a_mode').onclick = e => { const b = e.target.closest('button'); if (!b) return; A.mode = b.dataset.v; [...$('a_mode').children].forEach(x => x.classList.toggle('on', x === b)); $('a_nwrap').style.display = A.mode === 'ens' ? '' : 'none'; a_init(); a_drawCharts(); };
+  $('a_hor').onclick = async () => {
+    $('a_horTxt').textContent = 'Running 9 × 20 forecasts…'; await tick();
+    const ds = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10], thr = A.thr, saved = P63.rho; P63.rho = 28;
+    const res = await expHorizonSweep63({ runs: 20, seed: 5, ds, thr }, () => false, () => { }); P63.rho = saved;
+    A.hor = { d: ds, mean: res.mean, se: res.se, theory: ds.map(d => Math.log(thr / d) / LAMBDA63) };
+    const per = (A.hor.mean[ds.length - 1] - A.hor.mean[0]) / 8;
+    $('a_horTxt').textContent = `Each 10× better measurement adds only ≈ ${per.toFixed(1)} time units (theory ln10/λ = ${(Math.LN10 / LAMBDA63).toFixed(2)}). A million times better data buys about ${(6 * per).toFixed(0)} time units.`;
+    a_drawHorizon();
+  };
+  upd();
+}
+
+/* ======================================================================================
+   LORENZ 96 TAB
+   ====================================================================================== */
+const B = { mode: 'twin', playing: false, t: 0, K: 40, F: 8, delta: 1e-3, pos: 10, where: 'one', N: 20, thr: 1, watch: 30, speed: 1, seed: 1,
+  a: null, b: null, ens: [], clim: null, rowsA: [], rowsD: [], hist: null, fail: null, dbl: null, rowT: 0 };
+const HROWS = 120, ROWDT = 0.1;                    // Hovmöller: 120 rows of 0.1 time units = 12 units = 60 days
+function b_perturb(base, rng, delta, where, pos, K) {
+  const s = Float64Array.from(base);
+  if (where === 'one') s[pos % K] += delta; else for (let k = 0; k < K; k++) s[k] += delta * gauss(rng);
+  return s;
+}
+function b_init() {
+  const K = B.K; P96.K = K; P96.F = B.F; get96(K);
+  B.clim = climate96(K, B.F);
+  const base = spun96(K, B.F, B.seed * 11 + 5), rng = mulberry32(B.seed * 13 + 2);
+  B.a = Float64Array.from(base); B.b = b_perturb(base, rng, B.delta, B.where, B.pos, K);
+  B.ens = []; for (let i = 0; i < B.N; i++) B.ens.push(b_perturb(base, rng, B.delta, B.where === 'one' ? 'all' : B.where, B.pos, K));
+  B.t = 0; B.fail = null; B.dbl = null; B.rowT = 0; B.rowsA = []; B.rowsD = [];
+  B.hist = { t: [], rms: [], spread: [], meanErr: [], watchA: [], watchB: [], watchE: [] };
+  b_record(); b_row();
+}
+function b_other() { return B.mode === 'twin' ? B.b : b_ensMean(); }
+function b_ensMean() { const m = new Float64Array(B.K); for (const e of B.ens) for (let k = 0; k < B.K; k++) m[k] += e[k] / B.ens.length; return m; }
+function b_spread() { const m = b_ensMean(); let q = 0; for (const e of B.ens) for (let k = 0; k < B.K; k++) q += (e[k] - m[k]) ** 2; return Math.sqrt(q / (B.ens.length * B.K)); }
+function b_record() {
+  const h = B.hist, o = b_other(), r = rms(B.a, o);
+  h.t.push(B.t); h.rms.push(r); h.watchA.push(B.a[B.watch % B.K]);
+  if (B.mode === 'twin') h.watchB.push(B.b[B.watch % B.K]); else { h.spread.push(b_spread()); h.watchE.push(B.ens.map(e => e[B.watch % B.K])); }
+  if (B.fail === null && r > B.thr) B.fail = B.t;
+  // error doubling time from the growth of ln(RMS) while the error is still small compared with saturation
+  const sat = Math.SQRT2 * B.clim.sd;
+  const idx = []; for (let i = 0; i < h.t.length; i++) if (h.rms[i] > 3 * h.rms[0] && h.rms[i] < 0.2 * sat) idx.push(i);
+  if (idx.length >= 6) { let sx = 0, sy = 0, sxx = 0, sxy = 0; for (const i of idx) { const y = Math.log(h.rms[i]); sx += h.t[i]; sy += y; sxx += h.t[i] ** 2; sxy += h.t[i] * y; } const n = idx.length, g = (n * sxy - sx * sy) / (n * sxx - sx * sx); B.dbl = g > 0 ? Math.LN2 / g : null; }
+}
+function b_row() {
+  const o = b_other();
+  B.rowsA.push(Float32Array.from(B.a)); B.rowsD.push(Float32Array.from(B.a, (v, k) => Math.abs(v - o[k]))); if (B.rowsA.length > HROWS) { B.rowsA.shift(); B.rowsD.shift(); }
+}
+function b_advance(n) {
+  const st = get96(B.K); P96.F = B.F;
+  for (let i = 0; i < n; i++) {
+    st(B.a, DT); if (B.mode === 'twin') st(B.b, DT); else for (const e of B.ens) st(e, DT);
+    B.t += DT; if (i % 10 === 9) b_record();
+    if (B.t - B.rowT >= ROWDT - 1e-9) { B.rowT += ROWDT; b_row(); }
+  }
+}
+function b_drawRing() {
+  const { x, w, h } = ctxOf('c96ring'); x.clearRect(0, 0, w, h);
+  const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 10, K = B.K, m = B.clim.mean, sd = B.clim.sd;
+  if (R < 12) return;                               // too small to draw the ring
+  const o = b_other();
+  const rings = [{ r0: 0.72, r1: 1.0, s: B.a, kind: 'val' }, { r0: 0.46, r1: 0.70, s: o, kind: 'val' }, { r0: 0.18, r1: 0.44, s: B.a, kind: 'diff' }];
+  for (const rg of rings) for (let k = 0; k < K; k++) {
+    const a0 = 2 * Math.PI * (k - 0.5) / K - Math.PI / 2, a1 = 2 * Math.PI * (k + 0.5) / K - Math.PI / 2;
+    x.fillStyle = rg.kind === 'val' ? ramp(DIV, (rg.s[k] - m) / (5 * sd) + 0.5) : ramp(SEQ, (Math.log10(Math.abs(B.a[k] - o[k]) + 1e-12) + 6) / 7);
+    x.beginPath(); x.arc(cx, cy, rg.r1 * R, a0, a1); x.arc(cx, cy, rg.r0 * R, a1, a0, true); x.closePath(); x.fill();
+  }
+  if (B.where === 'one') { const a = 2 * Math.PI * B.pos / K - Math.PI / 2; x.fillStyle = '#ffd43b'; x.font = '16px system-ui'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('★', cx + 1.07 * R * Math.cos(a) * 0.95, cy + 1.07 * R * Math.sin(a) * 0.95); }
+  const aw = 2 * Math.PI * (B.watch % K) / K - Math.PI / 2; x.strokeStyle = '#fff'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(cx + 0.7 * R * Math.cos(aw), cy + 0.7 * R * Math.sin(aw)); x.lineTo(cx + 1.0 * R * Math.cos(aw), cy + 1.0 * R * Math.sin(aw)); x.stroke();
+  x.fillStyle = '#e3e9f4'; x.font = '13px system-ui'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(`day ${(B.t * DAYS_PER_UNIT).toFixed(1)}`, cx, cy);
+}
+function b_drawHov(id, rows, kind) {
+  const { x, w, h } = ctxOf(id); x.clearRect(0, 0, w, h);
+  if (tooSmall(w, h, 40, 40)) return;
+  const K = B.K, cw = w / K, ch = (h - 14) / HROWS, m = B.clim.mean, sd = B.clim.sd, y0 = 0;     // time runs DOWN from the top; it scrolls once full
+  for (let r = 0; r < rows.length; r++) for (let k = 0; k < K; k++) {
+    const v = rows[r][k]; x.fillStyle = kind === 'val' ? ramp(DIV, (v - m) / (5 * sd) + 0.5) : ramp(SEQ, (Math.log10(v + 1e-12) + 6) / 7);
+    x.fillRect(k * cw, y0 + r * ch, cw + 0.6, ch + 0.6);
+  }
+  x.fillStyle = '#8b9bb5'; x.font = '11px system-ui'; x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.fillText('station →', 4, h - 3); x.textAlign = 'right'; x.fillText(`time ↓ (${HROWS * ROWDT * DAYS_PER_UNIT} days shown)`, w - 4, h - 3);
+  if (B.where === 'one') { x.fillStyle = '#ffd43b'; x.beginPath(); x.moveTo((B.pos + 0.5) * cw - 5, h - 14); x.lineTo((B.pos + 0.5) * cw + 5, h - 14); x.lineTo((B.pos + 0.5) * cw, h - 22); x.fill(); }   // ▲ marks the butterfly's station
+}
+function b_drawCharts() {
+  const hh = B.hist, td = hh.t.map(t => t * DAYS_PER_UNIT), sat = Math.SQRT2 * B.clim.sd;
+  const ser = [{ x: td, y: hh.rms, colour: '#ffd43b', width: 2 }];
+  if (B.mode === 'ens') { ser[0].colour = '#ff8787'; ser.push({ x: td, y: hh.spread, colour: '#ffa94d', width: 2 }); }
+  $('c96errT').textContent = B.mode === 'twin' ? 'RMS error against time (log scale)' : 'Ensemble-mean error and spread (log scale)';
+  $('c96errP').textContent = B.mode === 'twin' ? 'Red dashed: your "failed" level. Green dashed: error of two unrelated states.' : 'Red: error of the ensemble mean. Orange: spread of the members.';
+  lineChart(ctxOf('c96err'), ser, { xLabel: 'days', yLabel: 'RMS', logy: true, xmin: 0, xmax: Math.max(B.t * DAYS_PER_UNIT, 30), ymin: Math.min(hh.rms[0] || 1e-3, 1e-3) / 3, ymax: sat * 2, hlines: [{ y: B.thr, colour: '#ff6b6b' }, { y: sat, colour: '#51cf66' }] });
+  const sp = [];
+  if (B.mode === 'twin') sp.push({ x: td, y: hh.watchA, colour: '#e3e9f4', width: 2.2 }, { x: td, y: hh.watchB, colour: '#ffa94d', width: 1.6 });
+  else { for (let mI = 0; mI < Math.min(B.N, 30); mI++) sp.push({ x: td, y: hh.watchE.map(r => r[mI]), colour: 'rgba(255,169,77,0.4)', width: 1 }); sp.push({ x: td, y: hh.watchA, colour: '#e3e9f4', width: 2.2 }); }
+  $('c96spP').textContent = `Station ${B.watch}. ` + (B.mode === 'twin' ? 'True (white) and perturbed (orange).' : 'True (white) and ensemble members (orange): a "spaghetti plot".');
+  lineChart(ctxOf('c96spag'), sp, { xLabel: 'days', yLabel: `X at station ${B.watch}`, xmin: Math.max(0, B.t * DAYS_PER_UNIT - 60), xmax: Math.max(B.t * DAYS_PER_UNIT, 60), vlines: B.fail !== null ? [{ x: B.fail * DAYS_PER_UNIT, colour: '#ff6b6b' }] : [] });
+  const r = hh.rms[hh.rms.length - 1];
+  $('q_t').textContent = (B.t * DAYS_PER_UNIT).toFixed(1); $('q_rms').textContent = r.toExponential(2);
+  $('q_fail').textContent = B.fail === null ? 'not yet' : `${(B.fail * DAYS_PER_UNIT).toFixed(1)} days`;
+  $('q_dbl').textContent = B.dbl === null ? '–' : `${(B.dbl * DAYS_PER_UNIT).toFixed(1)} days`;
+  $('q_sat').textContent = sat.toFixed(2);
+}
+function b_drawAll() { b_drawRing(); b_drawHov('c96hovA', B.rowsA, 'val'); b_drawHov('c96hovD', B.rowsD, 'diff'); b_drawCharts(); }
+function b_loop() { if (curTab !== 96) return; if (B.playing) { b_advance(Math.round(10 * B.speed)); b_drawAll(); } }
+function b_setupUI() {
+  const upd = () => {
+    B.F = +$('b_F').value; $('b_fv').textContent = B.F + (B.F < 5 ? ' (too weak for chaos)' : '');
+    B.K = +$('b_K').value; $('b_kv').textContent = B.K; $('b_pos').max = $('b_watch').max = B.K - 1;
+    B.delta = 10 ** +$('b_delta').value; $('b_dv').textContent = B.delta.toExponential(1);
+    B.pos = Math.min(B.K - 1, +$('b_pos').value); $('b_pv').textContent = 'station ' + B.pos;
+    B.where = $('b_where').value; B.N = +$('b_n').value; $('b_nv').textContent = B.N;
+    B.thr = +$('b_thr').value; $('b_tv').textContent = B.thr;
+    B.watch = Math.min(B.K - 1, +$('b_watch').value); $('b_wv').textContent = B.watch;
+    B.speed = 2 ** +$('b_speed').value; $('b_sv').textContent = B.speed + '×';
+    $('q_mid').textContent = B.mode === 'twin' ? 'perturbed' : 'ensemble mean';
+  };
+  ['b_F', 'b_K', 'b_delta', 'b_pos', 'b_where', 'b_n', 'b_watch'].forEach(id => $(id).addEventListener('input', () => { upd(); b_init(); b_drawAll(); }));
+  ['b_thr', 'b_speed'].forEach(id => $(id).addEventListener('input', () => { upd(); b_drawAll(); }));
+  $('b_play').onclick = () => { B.playing = !B.playing; $('b_play').textContent = B.playing ? '⏸ Pause' : '▶ Play'; };
+  $('b_restart').onclick = () => { b_init(); b_drawAll(); };
+  $('b_new').onclick = () => { B.seed++; b_init(); b_drawAll(); };
+  $('b_mode').onclick = e => { const b = e.target.closest('button'); if (!b) return; B.mode = b.dataset.v; [...$('b_mode').children].forEach(x => x.classList.toggle('on', x === b)); $('b_nwrap').style.display = B.mode === 'ens' ? '' : 'none'; upd(); b_init(); b_drawAll(); };
+  upd();
+}
+
+/* ======================================================================================
+   BATCH RUN: many headless runs, summarised as mean, SD and standard error
+   ====================================================================================== */
+const tick = () => new Promise(r => setTimeout(r, 0));
+const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
+const sdev = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / (a.length - 1)); };
+const sem = a => sdev(a) / Math.sqrt(Math.max(1, a.length));
+
+// E1 / E2: forecast horizon of Lorenz 63 for a given starting difference, over random starting weather
+async function expHorizonSweep63(o, stop, progress) {
+  const out = { mean: [], se: [], sd: [], n: [], all: [] }; const THR = o.thr ?? 1; const saved = P63.rho; P63.rho = 28;
+  const base = spun63(11);
+  for (let i = 0; i < o.ds.length && !stop(); i++) {
+    const rng = mulberry32(o.seed * 101 + 7), h = [];                       // same starting weather for every δ: a fair comparison
+    for (let r = 0; r < o.runs; r++) {
+      const s = Float64Array.from(base), nAdv = Math.floor(rng() * 3000); for (let q = 0; q < nAdv; q++) step63(s, DT);
+      h.push(horizon63(s, o.ds[i], [gauss(rng), gauss(rng), gauss(rng)], THR, 80));
+    }
+    out.mean.push(mean(h)); out.se.push(sem(h)); out.sd.push(sdev(h)); out.n.push(h.length); out.all.push(h); progress(i + 1, o.ds.length); await tick();
+  }
+  P63.rho = saved; return out;
+}
+/* ---------------------------------------------------------------------------------------
+   The batch settings table. Every starting setting of each model is listed, with the
+   outcomes ("Record") it matters for. Tick one to sweep it; the others keep their value.
+   --------------------------------------------------------------------------------------- */
+const BOUTS = {
+  h63:    { label: 'Lorenz 63: how long the forecast lasts', unit: 'time units', y: 'forecast lasts (time units)',
+            theory: 'A difference δ grows like δ·e^(λt), so the forecast fails when it reaches the threshold: t = ln(threshold/δ)/λ, with λ = 0.906 (only known for σ = 10, β = 8/3, ρ = 28).' },
+  lyap96: { label: 'Lorenz 96: growth rate of errors λ', unit: 'per time unit', y: 'growth rate of errors λ (per time unit)',
+            theory: 'λ is measured by following two nearby runs and rescaling their separation (Benettin method). The literature value for 40 stations and F = 8 is about 1.67 per time unit; there is no simple formula for other settings.' },
+  bfly96: { label: 'Lorenz 96: how long the forecast lasts', unit: 'days', y: 'forecast lasts (days)',
+            theory: 'With growth rate λ = 1.67 per time unit (40 stations, F = 8) and a starting RMS error δ/√K for one station (δ for every station), the forecast fails after t = ln(threshold·√K/δ)/λ time units; 1 time unit = 5 days.' },
+  ens96:  { label: 'Lorenz 96: ensemble-mean error ÷ single-member error', unit: '', y: 'RMS error: ensemble mean ÷ single member',
+            theory: 'If the truth and the members are equally likely possibilities, the ensemble mean has mean-square error σ²(1 + 1/N) and a single member 2σ², so the ratio of RMS errors is √((1 + 1/N)/2). The ratio pools the squared errors of all runs; its standard error comes from resampling the runs (bootstrap).' },
+};
+const L96 = ['lyap96', 'bfly96', 'ens96'];
+const BVARS = {
+  rho63:   { label: 'heating ρ', unit: '', min: 0, max: 100, def: 28, outs: ['h63'] },
+  sigma63: { label: 'σ (Prandtl number)', unit: '', min: 0.1, max: 50, def: 10, outs: ['h63'] },
+  beta63:  { label: 'β (shape of the convection cell)', unit: '', min: 0.05, max: 10, def: 8 / 3, outs: ['h63'] },
+  delta63: { label: 'starting difference δ', unit: '', min: 1e-14, max: 1, def: 1e-6, outs: ['h63'] },
+  thr63:   { label: '"forecast failed" when apart by', unit: '', min: 1e-3, max: 40, def: 1, outs: ['h63'] },
+  tmax63:  { label: 'give up after', unit: 'time units', min: 1, max: 1000, def: 80, outs: ['h63'] },
+  F:       { label: 'forcing F', unit: '', min: -5, max: 40, def: 8, outs: L96 },
+  K:       { label: 'stations K', unit: '', min: 4, max: 200, int: true, def: 40, outs: L96 },
+  T96:     { label: 'measuring time', unit: 'time units', min: 1, max: 1000, def: 30, outs: ['lyap96'] },
+  delta96: { label: 'size of the butterfly flap δ', unit: '', min: 1e-12, max: 5, def: 1e-3, outs: ['bfly96'] },
+  thr96:   { label: '"forecast failed" when RMS error reaches', unit: '', min: 1e-3, max: 20, def: 1, outs: ['bfly96'] },
+  tmax96:  { label: 'give up after', unit: 'time units', min: 1, max: 1000, def: 60, outs: ['bfly96'] },
+  N:       { label: 'ensemble members N', unit: '', min: 1, max: 500, int: true, def: 8, outs: ['ens96'] },
+  sigma0:  { label: 'starting uncertainty σ₀', unit: '', min: 1e-8, max: 5, def: 0.02, outs: ['ens96'] },
+  lead:    { label: 'forecast lead time', unit: 'days', min: 0.5, max: 500, def: 10, outs: ['ens96'] },
+};
+const BOPTS = [{ k: 'where', label: 'Perturb', outs: ['bfly96'], def: 'one', choices: [['one', 'one random station (a butterfly)'], ['all', 'every station by a tiny random amount']] }];
+const BDEF = Object.fromEntries([...Object.entries(BVARS).map(([k, V]) => [k, V.def]), ...BOPTS.map(O => [O.k, O.def])]);
+
+const EXPS = [
+  { id: 'horizon63', mode: 'repeat', out: 'h63', runs: 20, set: {}, q: 'How long does a Lorenz-63 forecast last?', sub: 'Repeat: random starting weather, starting difference 10⁻⁶; time until the two forecasts are 1 apart.',
+    note: 'Theory: a difference δ grows like δ·e^(λt), so the forecast fails when δ·e^(λt) reaches the threshold: t = ln(threshold/δ)/λ, with λ = 0.906. The measured times scatter because the real growth rate varies from place to place on the attractor (some starting points are more predictable than others). In the test run the measured mean was about 1.5 time units (≈10%) BELOW this theory, many standard errors away, so the simple formula is not the whole story: a likely cause is that an error in a random direction grows faster than e^(λt) for a short time before it lines up with the fastest-growing direction (transient growth). That explanation was not separately tested. The standard error shrinks as 1/√runs. Mean and SD describe the scatter between starting points; the standard error tells you how well the mean is known.' },
+  { id: 'sweep63', mode: 'sweep', out: 'h63', v: 'delta63', xs: [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10], reps: 20, logx: true, set: {}, q: 'Do 1000× better measurements give 1000× longer forecasts?', sub: 'Sweep δ from 10⁻² down to 10⁻¹⁰ in Lorenz 63; failure threshold 1.',
+    note: 'No. The forecast time rises only by about ln(10)/λ ≈ 2.5 time units for every factor of 10 improvement, because errors grow exponentially. The measured slope matches this; the measured times all sit a roughly constant 1 to 2 time units below the theory line (see the previous experiment). Making the initial data a billion times better buys only about 20 extra time units (roughly 8 error-doubling times). This is why weather forecasts have a limit of about two weeks, however good the instruments.' },
+  { id: 'lyap96', mode: 'sweep', out: 'lyap96', v: 'F', xs: [2, 3, 4, 5, 6, 8, 10, 12, 14], reps: 20, set: {}, q: 'How chaotic is Lorenz 96 as the heating F increases?', sub: 'Sweep F (40 stations): measured growth rate of tiny errors (Lyapunov exponent).',
+    note: 'For small F the weather settles to a steady state and tiny errors die away (negative growth rate). The growth rate crosses zero near F ≈ 3 to 4 and then rises steadily with F (clearly chaotic from F ≈ 5). At F = 8 the literature value for 40 stations is about 1.67 per time unit, an error doubling time of about 2.1 days at 5 days per unit, which is close to what is observed in the real atmosphere. The exponent is measured by following two nearby runs and rescaling their separation (Benettin method).' },
+  { id: 'butterfly96', mode: 'repeat', out: 'bfly96', runs: 20, set: {}, q: 'How long does a one-station butterfly take to ruin a Lorenz-96 forecast?', sub: 'Repeat: random starting weather and random station, δ = 0.001 at ONE station; days until the RMS error reaches 1.',
+    note: 'Theory with the growth rate 1.67/unit and the starting RMS δ/√K gives t = ln(threshold·√K/δ)/λ. The measured value can differ a little because a perturbation at one station first has to spread out before it grows at the full rate. The SD shows that some days are more predictable than others.' },
+  { id: 'ensemble96', mode: 'sweep', out: 'ens96', v: 'N', xs: [2, 4, 8, 16, 32, 64], reps: 20, logx: true, set: {}, q: 'How much does averaging an ensemble improve a forecast?', sub: 'Sweep N: error of the ensemble mean divided by the error of a single member, at day 10.',
+    note: 'If the truth and the members are equally likely possibilities, the ensemble mean has mean-square error σ²(1 + 1/N), while a single member has 2σ². The ratio of RMS errors is therefore √((1 + 1/N)/2): 0.79 for N = 4 and tending to 0.71 for many members. Compare like with like: the ratio uses the AVERAGE squared errors over all runs (averaging the ratio run by run is biased low), and its standard error comes from resampling the runs (bootstrap). Averaging removes unpredictable details, which is why forecasters run ensembles.' },
+];
+
+/* ---------------------------------------------------------------------------------------
+   One SET of runs with the settings p: n runs with seeded random starting weather.
+   In a sweep every step uses the same seed, so only the swept setting changes.
+   Returns the value from each run, a row per run, the summary (mean, SD, SE) and the theory.
+   --------------------------------------------------------------------------------------- */
+const isStd63 = p => p.rho63 === 28 && p.sigma63 === 10 && Math.abs(p.beta63 - 8 / 3) < 1e-9;   // where λ = 0.906 is known
+const isStd96 = p => p.F === 8 && p.K === 40;                                                     // where λ ≈ 1.67 is known
+let lastTick = 0;
+async function breathe() { if (performance.now() - lastTick > 40) { await tick(); lastTick = performance.now(); } }   // let the page redraw now and then
+async function runSet(out, p, n, seed, sweep, stop, onRun) {
+  const vals = [], rows = []; let theory = NaN, censored = 0, agg = null;
+  if (out === 'h63') {
+    const saved = { ...P63 }; Object.assign(P63, { rho: p.rho63, sigma: p.sigma63, beta: p.beta63 });
+    try {
+      const std = isStd63(p), base = spun63(11), rng = mulberry32(sweep ? seed * 101 + 7 : seed);
+      theory = std ? Math.log(p.thr63 / p.delta63) / LAMBDA63 : NaN;
+      for (let r = 0; r < n && !stop(); r++) {
+        // a random point on the attractor: run on from the common start for a random time
+        const s = Float64Array.from(base), nAdv = Math.floor(rng() * 3000); for (let q = 0; q < nAdv; q++) step63(s, DT);
+        const t = horizon63(s, p.delta63, [gauss(rng), gauss(rng), gauss(rng)], p.thr63, p.tmax63);
+        if (t >= p.tmax63) censored++;
+        vals.push(t); rows.push([r + 1, +(nAdv * DT).toFixed(2), t, std ? t * LAMBDA63 : NaN]); onRun(r + 1); await breathe();
+      }
+    } finally { Object.assign(P63, saved); }
+  } else if (out === 'lyap96') {
+    theory = isStd96(p) ? LAMBDA96_REF : NaN;
+    for (let r = 0; r < n && !stop(); r++) {
+      const v = lyap96(p.K, p.F, seed + r * 17, p.T96); vals.push(v);
+      rows.push([r + 1, seed + r * 17, v, v > 0 ? Math.LN2 / v * DAYS_PER_UNIT : NaN]); onRun(r + 1); await breathe();
+    }
+  } else if (out === 'bfly96') {
+    const K = p.K, one = p.where !== 'all', s0 = spun96(K, p.F, 3), st = get96(K), rng = mulberry32(seed);
+    theory = isStd96(p) ? Math.log(p.thr96 * (one ? Math.sqrt(K) : 1) / p.delta96) / LAMBDA96_REF * DAYS_PER_UNIT : NaN;
+    for (let r = 0; r < n && !stop(); r++) {
+      const s = Float64Array.from(s0), nAdv = Math.floor(rng() * 5000); for (let q = 0; q < nAdv; q++) st(s, DT);
+      const q2 = Float64Array.from(s); let station = 'all';
+      if (one) { station = Math.floor(rng() * K); q2[station] += p.delta96; } else for (let k = 0; k < K; k++) q2[k] += p.delta96 * gauss(rng);
+      let t = 0, prev = rms(s, q2), res = p.tmax96;
+      while (t < p.tmax96) { st(s, DT); st(q2, DT); t += DT; const d = rms(s, q2); if (d > p.thr96) { res = t - DT * (d - p.thr96) / (d - prev); break; } prev = d; }
+      if (res >= p.tmax96) censored++;
+      vals.push(res * DAYS_PER_UNIT); rows.push([r + 1, station, +(nAdv * DT * DAYS_PER_UNIT).toFixed(1), res * DAYS_PER_UNIT, res]); onRun(r + 1); await breathe();
+    }
+  } else if (out === 'ens96') {
+    const K = p.K, N = p.N, T = p.lead / DAYS_PER_UNIT, s0 = spun96(K, p.F, 3), st = get96(K), rng = mulberry32(seed * 31 + 5), msMean = [], msOne = [];
+    theory = Math.sqrt((1 + 1 / N) / 2);
+    for (let r = 0; r < n && !stop(); r++) {
+      const s = Float64Array.from(s0), nAdv = Math.floor(rng() * 5000); for (let q = 0; q < nAdv; q++) st(s, DT);
+      const mk = () => { const m = Float64Array.from(s); for (let k = 0; k < K; k++) m[k] += p.sigma0 * gauss(rng); return m; };   // truth and members are equally likely draws from the analysis uncertainty
+      const truth = mk(), mem = Array.from({ length: N }, mk);
+      for (let q = 0; q < Math.round(T / DT); q++) { st(truth, DT); for (const m of mem) st(m, DT); }
+      const mu = new Float64Array(K); for (const m of mem) for (let k = 0; k < K; k++) mu[k] += m[k] / N;
+      let single = 0; for (const m of mem) single += rms(m, truth) ** 2; single /= N;
+      msMean.push(rms(mu, truth) ** 2); msOne.push(single);
+      const ratio = Math.sqrt(msMean[r] / single); vals.push(ratio);
+      rows.push([r + 1, Math.sqrt(msMean[r]), Math.sqrt(single), ratio]); onRun(r + 1); await breathe();
+    }
+    // theory is a ratio of AVERAGE squared errors, so compare like with like: sqrt(sum of mean-sq errors / sum of single-member mean-sq errors)
+    const pooled = idx => Math.sqrt(idx.reduce((a, j) => a + msMean[j], 0) / idx.reduce((a, j) => a + msOne[j], 0));
+    const m = msMean.length, all = Array.from({ length: m }, (_, j) => j), brng = mulberry32(seed + 77), boot = [];
+    if (m) for (let b = 0; b < 300; b++) boot.push(pooled(all.map(() => Math.floor(brng() * m))));   // bootstrap: resample the runs to get the standard error
+    agg = { mean: m ? pooled(all) : NaN, sd: sdev(vals), se: m > 1 ? sdev(boot) : 0, n: m };
+  }
+  if (!agg) agg = { mean: vals.length ? mean(vals) : NaN, sd: sdev(vals), se: sem(vals), n: vals.length };
+  return { vals, rows, agg, theory, censored };
+}
+
+/* ---------------- the batch panel: experiments, settings table, run, results ---------------- */
+let expI = 0, batchRes = null, stopFlag = false, batchBusy = false;
+const TBL = { vals: {}, opts: {}, vary: null, from: 0, to: 1, kind: '+', step: 1, exact: null };
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const nice = v => (v === 0 || !Number.isFinite(v)) ? v : +(+v).toPrecision(4);
+const disp = v => (typeof v === 'number' && Number.isFinite(v) && v !== 0) ? +v.toPrecision(10) : v;
+const fmtN = v => typeof v === 'number' ? (Number.isFinite(v) ? (Math.abs(v) < 1e-3 && v !== 0 || Math.abs(v) >= 1e5 ? v.toExponential(3) : String(+v.toPrecision(5))) : '') : v;
+const visible = k => (BVARS[k] || BOPTS.find(O => O.k === k)).outs.includes($('bOut').value);
+const varName = k => BVARS[k].label + (BVARS[k].unit ? ` (${BVARS[k].unit})` : '');
+function buildExps() {
+  if (!$('exps').children.length) {
+    EXPS.forEach((e, i) => { const b = document.createElement('button'); b.className = 'exp'; b.innerHTML = '<b></b><span></span>'; b.firstChild.textContent = e.q; b.lastChild.textContent = e.sub; b.onclick = () => { if (!batchBusy) load(i); }; $('exps').appendChild(b); });
+    $('bOut').innerHTML = Object.entries(BOUTS).map(([k, O]) => `<option value="${k}">${O.label}${O.unit ? ` (${O.unit})` : ''}</option>`).join('');
+  }
+  markExp();
+}
+function markExp() { [...$('exps').children].forEach((b, i) => b.classList.toggle('on', i === expI)); setNote(); }
+function setNote() {
+  const E = expI >= 0 ? EXPS[expI] : null, O = BOUTS[$('bOut').value];
+  $('bNote').textContent = E ? (batchRes && batchRes.exp === expI ? E.note : 'Press ▶ Run batch. ' + E.note) : 'Your own experiment. ' + (O ? O.theory : '');
+}
+function edited() { expI = -1; markExp(); }
+// the values the varied setting takes: from, from+step, … (or from, from×step, …) up to "to"; at most 60
+function sweepValues() {
+  const V = BVARS[TBL.vary]; if (!V) return [];
+  if (TBL.exact) return TBL.exact.slice();                          // an experiment's own values, until the range is edited
+  const out = [], up = TBL.to >= TBL.from;
+  if (TBL.kind === '×') {
+    let f = Math.abs(TBL.step); if (!(f > 1) || TBL.from <= 0 || TBL.to <= 0) return [TBL.from];
+    if (!up) f = 1 / f;
+    for (let v = TBL.from, i = 0; i < 60 && (up ? v <= TBL.to * 1.01 : v >= TBL.to * 0.99); i++, v *= f) out.push(nice(v));
+  } else {
+    let d = Math.abs(TBL.step); if (!(d > 0)) return [TBL.from];
+    if (!up) d = -d;
+    for (let i = 0; i < 60; i++) { const v = TBL.from + i * d; if (up ? v > TBL.to + 1e-3 * Math.abs(d) : v < TBL.to - 1e-3 * Math.abs(d)) break; out.push(nice(v)); }
+  }
+  const vals = out.map(v => clamp(V.int ? Math.round(v) : v, V.min, V.max));
+  return vals.filter((v, i) => Number.isFinite(v) && (i === 0 || v !== vals[i - 1]));
+}
+// Fill the table from a full set of settings (an experiment's, or the left panel's)
+function fillTable(p, E) {
+  TBL.vals = {}; TBL.opts = {}; TBL.exact = null;
+  for (const k of Object.keys(BVARS)) TBL.vals[k] = p[k];
+  for (const O of BOPTS) TBL.opts[O.k] = p[O.k];
+  if (E && E.v) {
+    TBL.vary = E.v; TBL.exact = E.xs.slice(); TBL.from = E.xs[0]; TBL.to = E.xs[E.xs.length - 1];
+    if (E.logx) { TBL.kind = '×'; const r = Math.pow(TBL.to / TBL.from, 1 / (E.xs.length - 1)); TBL.step = nice(r >= 1 ? r : 1 / r); }
+    else { TBL.kind = '+'; TBL.step = nice(Math.abs(TBL.to - TBL.from) / (E.xs.length - 1)); }
+  } else TBL.vary = null;
+  renderTable();
+}
+function renderTable() {
+  $('bOpts').innerHTML = BOPTS.filter(O => visible(O.k)).map(O =>
+    `<label>${O.label} <select data-o="${O.k}">${O.choices.map(([v, t]) => `<option value="${v}" ${String(TBL.opts[O.k]) === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`).join('');
+  $('bTbl').innerHTML = Object.entries(BVARS).filter(([k]) => visible(k)).map(([k, V]) => {
+    const on = TBL.vary === k;
+    return `<div class="bt${on ? ' on' : ''}" data-k="${k}"><label ${on ? 'data-ws-change' : ''}><input type="checkbox" data-vary="${k}" ${on ? 'checked' : ''}> ${varName(k)}</label>` +
+      `<input type="number" class="bval" data-v="${k}" step="any" min="${V.min}" max="${V.max}" value="${disp(TBL.vals[k])}">` +
+      `<span class="bsw">from <input type="number" data-ws="from" data-r="from" step="any" value="${on ? TBL.from : ''}"> to <input type="number" data-ws="to" data-r="to" step="any" value="${on ? TBL.to : ''}">
+        step <select data-ws="step type" data-r="kind"><option value="+" ${TBL.kind === '+' ? 'selected' : ''}>+</option><option value="×" ${TBL.kind === '×' ? 'selected' : ''}>×</option></select>
+        <input type="number" data-ws="step" data-r="step" step="any" value="${on ? TBL.step : ''}"> <span class="bcount bsteps"></span></span></div>`;
+  }).join('');
+  updateCount();
+}
+function updateCount() {
+  const span = TBL.vary && $('bTbl').querySelector(`.bt[data-k="${TBL.vary}"] .bsteps`);
+  if (span) { const xs = sweepValues(); span.textContent = `→ ${xs.length} steps: ${xs.slice(0, 4).map(fmtN).join(', ')}${xs.length > 4 ? ' … ' + fmtN(xs[xs.length - 1]) : ''}`; }
+}
+function startVary(k) {                 // a sensible first range when a setting is ticked
+  const V = BVARS[k], cur = TBL.vals[k];
+  TBL.vary = k; TBL.exact = null;
+  if (cur > 0 && cur < 1e-2) { TBL.kind = '×'; TBL.from = nice(Math.max(V.min, cur / 100)); TBL.to = nice(Math.min(V.max, cur * 100)); TBL.step = 10; return; }   // tiny numbers: step in powers of ten
+  TBL.kind = '+';
+  if (cur > 0) { TBL.from = nice(Math.max(V.min, cur / 2)); TBL.to = nice(Math.min(V.max, cur * 2)); }
+  else { TBL.from = V.min; TBL.to = nice(Math.min(V.max, V.min + 10)); }
+  TBL.step = nice((TBL.to - TBL.from) / 4); if (V.int) TBL.step = Math.max(1, Math.round(TBL.step));
+}
+function sync() {
+  if ($('bMode').value === 'sweep' && !TBL.vary) { const k = Object.keys(BVARS).find(visible); if (k) { startVary(k); renderTable(); } }
+  if ($('bMode').value === 'repeat' && TBL.vary) { TBL.vary = null; renderTable(); }
+  const sw = $('bMode').value === 'sweep'; $('bRepeatOpts').style.display = sw ? 'none' : ''; $('bSweepOpts').style.display = sw ? '' : 'none';
+}
+function load(i) {
+  const E = EXPS[i]; expI = i; batchRes = null;
+  $('bMode').value = E.mode; $('bOut').value = E.out;
+  if (E.runs) $('bRuns').value = E.runs;
+  if (E.reps) $('bReps').value = E.reps;
+  fillTable({ ...BDEF, ...E.set }, E.mode === 'sweep' ? E : null);
+  markExp(); sync(); showRes();
+  $('bStatus').textContent = 'Experiment set up: press ▶ Run batch';
+}
+// the settings for a run: the defaults, then every value in the table (clamped to sensible limits)
+function baseSettings() {
+  const b = { ...BDEF };
+  for (const [k, v] of Object.entries(TBL.vals)) { const V = BVARS[k]; if (V && Number.isFinite(v)) b[k] = clamp(V.int ? Math.round(v) : v, V.min, V.max); }
+  for (const [k, v] of Object.entries(TBL.opts)) if (v !== undefined) b[k] = v;
+  return b;
+}
+function leftSettings() {   // the settings on the left panel (both tabs), for "Use my left-panel settings"
+  return { ...BDEF, rho63: P63.rho, delta63: A.delta, thr63: A.thr, F: B.F, K: B.K, delta96: B.delta, thr96: B.thr, N: B.mode === 'ens' ? B.N : BDEF.N, where: B.where };
+}
+function setupBatchUI() {
+  buildExps();
+  $('bMode').addEventListener('input', () => { edited(); sync(); });
+  $('bOut').addEventListener('input', () => { edited(); if (TBL.vary && !visible(TBL.vary)) TBL.vary = null; renderTable(); sync(); setNote(); });
+  $('bRuns').addEventListener('input', edited); $('bReps').addEventListener('input', edited); $('bSeed').addEventListener('input', edited);
+  $('bSetBox').addEventListener('input', e => {
+    const t = e.target;
+    if (t.dataset.vary) {              // the tick boxes act like radio buttons: one varied setting at most
+      if (t.checked) { startVary(t.dataset.vary); $('bMode').value = 'sweep'; } else { TBL.vary = null; $('bMode').value = 'repeat'; }
+      renderTable(); sync(); edited(); return;
+    }
+    if (t.dataset.v) TBL.vals[t.dataset.v] = +t.value;
+    if (t.dataset.o) TBL.opts[t.dataset.o] = t.value;
+    if (t.dataset.r) { TBL.exact = null; TBL[t.dataset.r] = t.dataset.r === 'kind' ? t.value : +t.value; }
+    updateCount(); edited();
+  });
+  $('bLeft').addEventListener('click', () => { if (batchBusy) return; expI = -1; $('bOut').value = curTab === 63 ? 'h63' : 'bfly96'; fillTable(leftSettings(), null); $('bMode').value = 'repeat'; sync(); markExp(); $('bStatus').textContent = 'Table filled from the left panel'; });
+  load(0);
+}
+async function runBatch() {
+  if (batchBusy) return;
+  const out = $('bOut').value, b = baseSettings(), sweep = $('bMode').value === 'sweep' && !!TBL.vary, seed = Number($('bSeed').value) || 1;
+  const xs = sweep ? sweepValues() : [], runs = +$('bRuns').value, reps = clamp(Math.round(+$('bReps').value) || 1, 1, 200);
+  if (sweep && !xs.length) { $('bStatus').textContent = 'Check the from / to / step values'; return; }
+  batchBusy = true; stopFlag = false; $('bRun').disabled = true; $('bStop').disabled = false; $('bCsv').disabled = true;
+  [...$('exps').children].forEach(x => x.disabled = true);
+  const t0 = performance.now(), stop = () => stopFlag, status = txt => { $('bStatus').textContent = `Running… ${txt} (${((performance.now() - t0) / 1000).toFixed(1)} s)`; };
+  const O = BOUTS[out], R = { out, sweep, v: TBL.vary, base: b, seed, runs, reps, exp: expI, logx: sweep && TBL.kind === '×', header: [], rows: [], plot: { x: [], mean: [], se: [], theory: [] }, summary: [] };
+  try {
+    if (!sweep) {
+      const S = await runSet(out, b, runs, seed, false, stop, r => status(`run ${r} of ${runs}`));
+      R.header = { h63: ['run', 'start (after t)', 'forecast lasts (time)', 'in Lyapunov times'], lyap96: ['run', 'seed', 'λ (per time unit)', 'doubling time (days)'],
+        bfly96: ['run', 'station', 'start (after days)', 'forecast lasts (days)', 'time units'], ens96: ['run', 'RMS error of ensemble mean', 'RMS error of one member', 'ratio'] }[out];
+      R.rows = S.rows; R.plot.x = S.vals.map((_, i) => i + 1); R.plot.mean = S.vals.slice(); R.plot.se = S.vals.map(() => 0); R.plot.theory = S.vals.map(() => S.theory);
+      const a = S.agg, u = O.unit && O.unit !== 'per time unit' ? ' ' + O.unit : '';
+      R.summary.push(out === 'ens96' ? `pooled ratio = ${a.mean.toFixed(3)}, standard error (bootstrap) = ${a.se.toFixed(3)}; SD of the per-run ratios = ${a.sd.toFixed(3)} (${a.n} runs)`
+        : `mean = ${fmtN(a.mean)}${u}, SD = ${fmtN(a.sd)}, standard error = ${fmtN(a.se)} (${a.n} runs)`);
+      if (Number.isFinite(S.theory)) R.summary.push(`theory = ${fmtN(S.theory)}${u}  (difference ${fmtN(a.mean - S.theory)} = ${a.se > 0 ? ((a.mean - S.theory) / a.se).toFixed(1) : '–'} standard errors)`);
+      else R.summary.push('no theory value for these settings: ' + (out === 'h63' ? 'λ = 0.906 is only known for σ = 10, β = 8/3, ρ = 28.' : 'the growth rate 1.67 is only known for 40 stations and F = 8.'));
+      if (S.censored) R.summary.push(`${S.censored} run(s) never failed before the give-up time and are recorded as that time, so the mean is a lower limit.`);
+    } else {
+      const lab = varName(TBL.vary); let censored = 0;
+      R.header = { h63: [lab, 'mean time', 'SD', 'SE', 'n', 'theory'], lyap96: [lab, 'mean λ', 'SD', 'SE', 'n', 'doubling time (days)', 'literature (F=8)'],
+        bfly96: [lab, 'mean days', 'SD', 'SE', 'n', 'theory (days)'], ens96: [lab, 'ratio (pooled)', 'SD of per-run ratios', 'SE (bootstrap)', 'n', 'theory √((1+1/N)/2)'] }[out];
+      for (let i = 0; i < xs.length && !stopFlag; i++) {
+        const x = xs[i], S = await runSet(out, { ...b, [TBL.vary]: x }, reps, seed, true, stop, r => status(`step ${i + 1} of ${xs.length}, run ${r} of ${reps}`));
+        if (stopFlag && S.agg.n < reps) break;
+        const a = S.agg; censored += S.censored;
+        R.rows.push(out === 'lyap96' ? [x, a.mean, a.sd, a.se, a.n, a.mean > 0 ? Math.LN2 / a.mean * DAYS_PER_UNIT : NaN, S.theory] : [x, a.mean, a.sd, a.se, a.n, S.theory]);
+        R.plot.x.push(x); R.plot.mean.push(a.mean); R.plot.se.push(a.se); R.plot.theory.push(S.theory);
+      }
+      const px = R.plot.x, pm = R.plot.mean, n = px.length;
+      if (out === 'h63' && TBL.vary === 'delta63' && n > 2) {
+        const lx = px.map(d => -Math.log10(d)), mx = mean(lx), my = mean(pm);
+        const sl = lx.reduce((s, x, i) => s + (x - mx) * (pm[i] - my), 0) / lx.reduce((s, x) => s + (x - mx) ** 2, 0);
+        R.summary.push(`gain per factor of 10 in accuracy = ${sl.toFixed(2)} time units  (theory ln10/λ = ${(Math.LN10 / LAMBDA63).toFixed(2)})`, `improving δ from ${fmtN(px[0])} to ${fmtN(px[n - 1])} buys ${(pm[n - 1] - pm[0]).toFixed(1)} time units`);
+      } else if (out === 'lyap96') {
+        const i8 = R.rows.findIndex(r => r[0] === 8 && isStd96({ ...b, [TBL.vary]: r[0] }));
+        if (i8 >= 0) R.summary.push(`F = 8: λ = ${pm[i8].toFixed(2)} ± ${R.plot.se[i8].toFixed(2)} (SE) against literature ≈ ${LAMBDA96_REF}; doubling time ${(Math.LN2 / pm[i8] * DAYS_PER_UNIT).toFixed(1)} days`);
+        const zero = R.rows.find(r => r[1] < 0.02); if (zero) R.summary.push(`${lab} = ${fmtN(zero[0])}: λ ≈ ${zero[1].toFixed(2)}: no chaos, errors do not grow`);
+      } else if (out === 'ens96' && n) {
+        R.summary.push(`${lab} = ${fmtN(px[n - 1])}: ratio ${pm[n - 1].toFixed(3)} ± ${R.plot.se[n - 1].toFixed(3)} (SE), theory ${fmtN(R.plot.theory[n - 1])}` + (TBL.vary === 'N' ? '; with many members the mean is about 0.71 (1/√2) times as wrong as one forecast' : ''));
+      }
+      if (!R.summary.length && n) R.summary.push(`${lab} = ${fmtN(px[0])}: mean ${fmtN(pm[0])} ± ${fmtN(R.plot.se[0])} (SE);  ${lab} = ${fmtN(px[n - 1])}: mean ${fmtN(pm[n - 1])} ± ${fmtN(R.plot.se[n - 1])} (SE)`);
+      if (!R.plot.theory.some(Number.isFinite)) R.summary.push('no theory line for these settings (see the note below).');
+      if (censored) R.summary.push(`${censored} run(s) never failed before the give-up time and are recorded as that time.`);
+    }
+    batchRes = R;
+    $('bStatus').textContent = `${stopFlag ? 'Stopped' : 'Done'} in ${((performance.now() - t0) / 1000).toFixed(1)} s · ${R.rows.length} rows`;
+    showRes(); setNote(); $('bCsv').disabled = !R.rows.length;
+  } catch (err) { $('bStatus').textContent = 'Error: ' + err.message; }
+  batchBusy = false; $('bRun').disabled = false; $('bStop').disabled = true; [...$('exps').children].forEach(x => x.disabled = false);
+}
+function showRes() {
+  const R = batchRes; $('bres').style.display = R ? '' : 'none'; if (!R) return;
+  const c = ctxOf('bplot'), O = BOUTS[R.out];
+  const ser = [{ x: R.plot.x, y: R.plot.mean, colour: '#4dabf7', dots: true, err: R.sweep ? R.plot.se : null, width: 1.4 }];
+  if (R.plot.theory.some(Number.isFinite)) ser.push({ x: R.plot.x, y: R.plot.theory, colour: '#ffd43b', dash: [5, 4], width: 1.5, dots: R.out === 'lyap96' });
+  lineChart(c, ser, { xLabel: R.sweep ? varName(R.v) : 'run', yLabel: O.y.slice(0, 44), logx: R.logx, ymin: R.out === 'lyap96' ? Math.min(0, ...R.plot.mean.filter(Number.isFinite)) : undefined });
+  $('bsum').innerHTML = ''; for (const s of R.summary) { const li = document.createElement('li'); li.textContent = s; $('bsum').appendChild(li); }
+  $('btab').innerHTML = '<tr>' + R.header.map(h => `<th>${h}</th>`).join('') + '</tr>' + R.rows.map(r => '<tr>' + r.map(v => `<td>${fmtN(v)}</td>`).join('') + '</tr>').join('');
+}
+function downloadCSV() {
+  const R = batchRes; if (!R) return;
+  const E = R.exp >= 0 ? EXPS[R.exp] : null;
+  const set = Object.keys(BVARS).filter(k => BVARS[k].outs.includes(R.out)).map(k => `${varName(k)} = ${disp(R.base[k])}`).concat(BOPTS.filter(O => O.outs.includes(R.out)).map(O => `${O.label} = ${R.base[O.k]}`));
+  const lines = [`# ${E ? E.q : 'Your own batch experiment'}`, `# record: ${BOUTS[R.out].label}; ${R.sweep ? `sweep ${varName(R.v)}, ${R.reps} runs at each step` : `repeat, ${R.runs} runs`}; seed = ${R.seed}; RK4 step ${DT}; 1 Lorenz-96 time unit = ${DAYS_PER_UNIT} days`,
+    `# settings: ${set.join('; ')}`, ...R.summary.map(s => '# ' + s), R.header.join(',')];
+  for (const r of R.rows) lines.push(r.map(v => typeof v === 'number' && !Number.isFinite(v) ? '' : v).join(','));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([lines.join('\n') + '\n'], { type: 'text/csv' })); a.download = `batch-${E ? E.id : 'custom'}.csv`; document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 500);
+}
+
+/* ======================================================================================
+   Start-up
+   ====================================================================================== */
+function redrawAll() {
+  if (curTab === 63) { a_drawStatic(); a_drawAttractor(); a_drawCharts(); a_drawHorizon(); } else if (B.clim) b_drawAll();
+  if ($('batch').classList.contains('open')) showRes();
+}
+function showTab(which) {
+  curTab = which; document.body.classList.toggle('tab63', which === 63); document.body.classList.toggle('tab96', which === 96);
+  $('tab63').classList.toggle('on', which === 63); $('tab96').classList.toggle('on', which === 96);
+  requestAnimationFrame(redrawAll);
+}
+$('tab63').onclick = () => showTab(63); $('tab96').onclick = () => showTab(96);
+$('btnBatch').onclick = () => { A.playing = B.playing = false; $('a_play').textContent = $('b_play').textContent = '▶ Play'; $('batch').classList.add('open'); buildExps(); showRes(); };
+$('bClose').onclick = () => $('batch').classList.remove('open');
+$('btnAbout').onclick = () => $('about').classList.add('open'); $('aClose').onclick = () => $('about').classList.remove('open');
+$('bRun').onclick = runBatch; $('bStop').onclick = () => { stopFlag = true; }; $('bCsv').onclick = downloadCSV;
+// redraw when the window or the side panels change size (several changes in one frame are drawn once)
+let redrawQueued = false;
+const queueRedraw = () => { if (!redrawQueued) { redrawQueued = true; requestAnimationFrame(() => { redrawQueued = false; redrawAll(); }); } };
+window.addEventListener('resize', queueRedraw); window.addEventListener('panelsChanged', queueRedraw);
+
+/* Resizable, hideable side panels: drag the ⋮ bars, click ‹ › to hide; remembered in this browser */
+(function () {
+  const main = $('main'), left = $('left'), right = $('right');
+  const KEY = 'weather-chaos-layout', STRIP = 30, MIN = 170, DEF = { lw: 270, rw: 220, lc: false, rc: false };
+  let st = { ...DEF };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+  const maxW = () => Math.max(MIN, main.clientWidth * 0.42);
+  function apply() {
+    st.lw = Math.min(maxW(), Math.max(MIN, st.lw)); st.rw = Math.min(maxW(), Math.max(MIN, st.rw));
+    main.style.setProperty('--lw', (st.lc ? STRIP : st.lw) + 'px'); main.style.setProperty('--rw', (st.rc ? STRIP : st.rw) + 'px');
+    left.classList.toggle('collapsed', st.lc); right.classList.toggle('collapsed', st.rc);
+    document.querySelector('#splitL button').textContent = st.lc ? '›' : '‹';
+    document.querySelector('#splitR button').textContent = st.rc ? '‹' : '›';
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+    window.dispatchEvent(new Event('panelsChanged'));
+  }
+  function drag(sp, side) {
+    sp.addEventListener('pointerdown', e => {
+      if (e.target.tagName === 'BUTTON') return;
+      sp.setPointerCapture(e.pointerId); sp.classList.add('drag');
+      const box = main.getBoundingClientRect();
+      const move = ev => { const w = side === 'l' ? ev.clientX - box.left : box.right - ev.clientX; if (w < 110) st[side + 'c'] = true; else { st[side + 'c'] = false; st[side + 'w'] = w; } apply(); };
+      const up = () => { sp.classList.remove('drag'); sp.removeEventListener('pointermove', move); sp.removeEventListener('pointerup', up); };
+      sp.addEventListener('pointermove', move); sp.addEventListener('pointerup', up);
+    });
+    sp.addEventListener('dblclick', () => { st = { ...DEF }; apply(); });
+    sp.querySelector('button').addEventListener('click', () => { st[side + 'c'] = !st[side + 'c']; apply(); });
+  }
+  drag($('splitL'), 'l'); drag($('splitR'), 'r');
+  left.querySelector('.reopen').addEventListener('click', () => { st.lc = false; apply(); });
+  right.querySelector('.reopen').addEventListener('click', () => { st.rc = false; apply(); });
+  window.addEventListener('resize', apply);
+  apply();
+})();
+
+a_setupUI(); b_setupUI(); setupBatchUI(); a_init(); a_drawCharts(); a_drawHorizon();
+setTimeout(() => { b_init(); }, 0);
+(function frame(ts) { a_loop(ts); b_loop(); requestAnimationFrame(frame); })();
+// handle for tests / curious users
+window.__wc = { A, B, step63, spun63, horizon63, lyap96, spun96, runSet, EXPS, BVARS, P63, LAMBDA63, climate96 };
+</script>
+<!-- VIEW BAR (start): hide/show the side panels and full-screen the simulation. Same block in every simulation. -->
+<style>
+  #viewBar { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-shrink: 0; align-self: center; }
+  #viewBar button { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  #viewBar button.on { border-color: var(--accent); }
+  #viewBar .vbKey { opacity: .55; font-size: 11px; margin-left: 4px; }
+  /* bigger, clearer drag handles between the panels */
+  .splitter::before { width: 4px !important; margin-left: -2px !important; }
+  .splitter::after { content: "⋮"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--muted); font-size: 16px; pointer-events: none; }
+  .splitter button { width: 22px !important; height: 52px !important; font-size: 15px !important; font-weight: 700; background: var(--accent) !important; color: #14133b !important; border: none !important; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  /* full screen: the centre panel fills the screen */
+  #centre:fullscreen { background: var(--bg); padding: 10px; width: 100vw; height: 100vh; box-sizing: border-box; }
+  #centre .vbExit { display: none; }
+  #centre:fullscreen .vbExit { display: block; position: absolute; top: 10px; right: 12px; z-index: 50; }
+  #centre:fullscreen { position: relative; }
+  #vbTip { position: fixed; top: 52px; right: 14px; z-index: 60; max-width: 330px; background: var(--panel-2, #1b2017); border: 1px solid var(--accent);
+           border-radius: 10px; padding: 9px 12px; font-size: 13px; line-height: 1.45; box-shadow: 0 4px 16px rgba(0,0,0,.5); cursor: pointer; }
+</style>
+<script>
+(function () {
+  // Buttons in the header: hide/show the left (controls) and right (readouts) panels, and full screen.
+  // They click the existing ‹ › buttons on the drag handles, so each simulation's own layout code stays in charge.
+  const header = document.querySelector("header"), centre = document.getElementById("centre");
+  const sL = document.getElementById("splitL"), sR = document.getElementById("splitR");
+  const left = sL && sL.previousElementSibling, right = sR && sR.nextElementSibling;   // the panels either side of the drag handles
+  const bL = sL && sL.querySelector("button"), bR = sR && sR.querySelector("button");
+  if (!header || !centre || !left || !right || !bL || !bR) return;
+  const bar = document.createElement("div"); bar.id = "viewBar";
+  bar.innerHTML = '<button id="vbL" title="Hide or show the controls panel (key: [ )"></button>' +
+                  '<button id="vbR" title="Hide or show the readouts panel (key: ] )"></button>' +
+                  '<button id="vbF" title="Show only the simulation, full screen (key: F; Esc to leave)">⛶ Full screen</button>';
+  header.appendChild(bar);
+  const exit = document.createElement("button"); exit.className = "vbExit"; exit.textContent = "✕ Exit full screen (Esc)";
+  centre.appendChild(exit);
+  const vbL = bar.querySelector("#vbL"), vbR = bar.querySelector("#vbR"), vbF = bar.querySelector("#vbF");
+  function label() {
+    const lc = left.classList.contains("collapsed"), rc = right.classList.contains("collapsed");
+    vbL.textContent = lc ? "◧ Show controls" : "◧ Hide controls"; vbL.classList.toggle("on", !lc);
+    vbR.textContent = rc ? "Show readouts ◨" : "Hide readouts ◨"; vbR.classList.toggle("on", !rc);
+  }
+  new MutationObserver(label).observe(left, { attributes: true, attributeFilter: ["class"] });
+  new MutationObserver(label).observe(right, { attributes: true, attributeFilter: ["class"] });
+  label();
+  const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else if (centre.requestFullscreen) centre.requestFullscreen().catch(() => {}); };
+  vbL.onclick = () => bL.click(); vbR.onclick = () => bR.click(); vbF.onclick = full; exit.onclick = full;
+  document.addEventListener("fullscreenchange", () => {
+    vbF.textContent = document.fullscreenElement ? "✕ Exit full screen" : "⛶ Full screen";
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 60);    // canvases re-measure themselves
+  });
+  // The batch-run window lives outside the full-screen area, so leave full screen when it is opened
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("button");
+    if (document.fullscreenElement && b && /Batch run/.test(b.textContent)) document.exitFullscreen();
+  }, true);
+  document.addEventListener("keydown", e => {
+    const t = e.target.tagName; if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA" || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "f" || e.key === "F") { full(); e.preventDefault(); }
+    else if (e.key === "[") bL.click(); else if (e.key === "]") bR.click();
+  });
+  // A one-time tip so people notice the panels can be hidden or resized
+  let seen = false; try { seen = localStorage.getItem("sims-viewbar-tip") === "1"; } catch (e) {}
+  if (!seen) {
+    const tip = document.createElement("div"); tip.id = "vbTip";
+    tip.innerHTML = "<b>Make the simulation bigger:</b> hide the side panels with the buttons above (or the yellow ‹ › tabs), drag the ⋮ bars to resize them, or press <b>⛶ Full screen</b>. Click to close.";
+    document.body.appendChild(tip);
+    const close = () => { tip.remove(); try { localStorage.setItem("sims-viewbar-tip", "1"); } catch (e) {} };
+    tip.onclick = close; setTimeout(close, 12000);
+  }
+})();
+</script>
+<!-- VIEW BAR (end) -->
+
+<script id="typeinJs">/* ==== Type a value into any slider ====
+   Click the value shown beside a slider (or Tab to it and press Enter), type a number, press Enter
+   (Escape cancels). Units are optional: "2.2", "2.2 mF" and "2200 μF" all work if the slider shows farads.
+   How: the page decides how a slider position is shown (log scales, unit prefixes, £ and so on), so this
+   tries slider positions, reads what the page displays for each, and homes in on the one that matches
+   (a bisection search). Values beyond the slider's range go to the nearest end. */
+(function () {
+  "use strict";
+  if (window.__typeinDone) return; window.__typeinDone = true;
+  const PRE = { p: 1e-12, n: 1e-9, "μ": 1e-6, "µ": 1e-6, u: 1e-6, m: 1e-3, k: 1e3, M: 1e6, G: 1e9 };
+  const SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+  // read a displayed value such as "2.2 mF", "4.7 × 10⁵ Pa", "£30,000", "−12 °C" as a plain number
+  function parseVal(text) {
+    const t = String(text).replace(/[−–]/g, "-").replace(/[   ]/g, " ");
+    const m = t.match(/-?(?:\d{1,3}(?:[, ]\d{3})+|\d+)(?:\.\d+)?|-?\.\d+/);
+    if (!m) return null;
+    let v = parseFloat(m[0].replace(/[, ]/g, "")), rest = t.slice(m.index + m[0].length);
+    const pw = m[0] === "10" && rest.match(/^(?:\^\s*(-?\d+(?:\.\d+)?)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))/);         // a bare power of ten: 10⁻⁹ or 10^6.5
+    if (pw) { v = Math.pow(10, pw[1] != null ? +pw[1] : (pw[2][0] === "⁻" ? -1 : 1) * +[...pw[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join("")); rest = rest.slice(pw[0].length); }
+    const ex = rest.match(/^\s*(?:[×x*]\s*10\s*(?:\^\s*(-?\d+)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))|[eE]([-+]?\d+))/);
+    if (ex) { const p = ex[1] != null ? +ex[1] : ex[3] != null ? +ex[3] : (ex[2][0] === "⁻" ? -1 : 1) * +[...ex[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join(""); v *= Math.pow(10, p); rest = rest.slice(ex[0].length); }
+    const wd = rest.match(/^\s*(thousand|million|billion|trillion)\b/i);    // "1 million K"
+    if (wd) { v *= { thousand: 1e3, million: 1e6, billion: 1e9, trillion: 1e12 }[wd[1].toLowerCase()]; rest = rest.slice(wd[0].length); }
+    const pm = !wd && rest.match(/^\s*([pnμµumkMG])(?=[A-Za-zΩ°])/);                 // a unit prefix such as m in mF or k in kΩ
+    if (pm) v *= PRE[pm[1]];
+    return isFinite(v) ? { v, unit: rest } : null;
+  }
+  // what the user typed, read in the same units as the current display when they gave no unit
+  // what was typed, in the units on display unless a unit was typed too ("2.2", "2.2 mF" and "1e-6" all work)
+  function typedVal(raw, shown) {
+    const q = parseVal(raw); if (!q) return null;
+    if (/[A-Za-zμµΩ°%£$€]/.test(q.unit)) return q;
+    const s = parseVal(shown); return parseVal(raw + (s ? " " + s.unit.trim() : ""));
+  }
+  // find the slider position whose display g(pos) is closest to target; g may be async
+  async function invert(r, g, target) {
+    const lo = +r.min || 0, hi = r.max === "" ? 100 : +r.max, st = r.step === "any" || !+r.step ? (hi - lo) / 10000 : +r.step;
+    const n = Math.max(1, Math.round((hi - lo) / st)), pos = i => +(lo + i * st).toFixed(10);
+    let e0 = 0, e1 = n, a = await g(pos(0)), b = await g(pos(n));              // ends may show words ("off"): step in to the first numbers
+    while (a == null && e0 < Math.min(n, 60)) a = await g(pos(++e0));
+    while (b == null && e1 > e0 && n - e1 < 60) b = await g(pos(--e1));
+    if (a == null || b == null || a === b) return null;
+    const up = b > a;
+    if (up ? target < a : target > a) return pos(e0 > 0 ? 0 : e0);
+    if (up ? target > b : target < b) return pos(e1 < n ? n : e1);
+    let i0 = e0, i1 = e1, v0 = a, v1 = b;
+    while (i1 - i0 > 1) { const im = (i0 + i1) >> 1, vm = await g(pos(im)); if (vm == null) break; if ((vm < target) === up) { i0 = im; v0 = vm; } else { i1 = im; v1 = vm; } }
+    return Math.abs(v0 - target) <= Math.abs(v1 - target) ? pos(i0) : pos(i1);
+  }
+  const textOf = el => { const c = el.cloneNode(true); c.querySelectorAll("sup").forEach(x => x.replaceWith("^" + x.textContent)); return c.textContent; };
+  const frame = () => new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+  function display(r) {
+    const ctl = r.closest(".ctl"), prev = r.previousElementSibling;
+    return (r.id && document.getElementById("o_" + r.id)) || (ctl && ctl.querySelectorAll('input[type="range"]').length === 1 && ctl.querySelector("label output, label b, label span.val, output")) ||
+      (prev && prev.tagName === "LABEL" && prev.querySelector("output, b, span.val"));
+  }
+  function attach(r) {
+    const out = display(r); if (!out || out.dataset.typein) return;
+    out.dataset.typein = "1"; out.classList.add("typein"); out.tabIndex = 0; out.title = "Click to type a value";
+    const fire = (type) => r.dispatchEvent(new Event(type, { bubbles: true }));
+    async function commit(raw) {
+      const shown = textOf(out), start = r.value, t = typedVal(raw, shown);
+      if (!t) return;
+      let probe = async p => { r.value = p; fire("input"); const q = parseVal(textOf(out)); return q ? q.v : null; };
+      let p = await invert(r, probe, t.v);
+      if (p == null) { probe = async p2 => { r.value = p2; fire("input"); fire("change"); await frame(); const q = parseVal(textOf(out)); return q ? q.v : null; }; p = await invert(r, probe, t.v); }
+      r.value = p == null ? start : p; fire("input"); fire("change");
+    }
+    function edit() {
+      if (out.querySelector("input")) return;
+      const shown = textOf(out), box = document.createElement("input"), q = parseVal(shown);
+      box.type = "text"; box.className = "typeinBox"; box.value = q ? shown.trim() : ""; box.setAttribute("aria-label", "Type a value");
+      out.style.display = "none"; out.after(box); box.focus(); box.select();
+      let done = false;
+      const finish = ok => { if (done) return; done = true; const v = box.value; box.remove(); out.style.display = ""; if (ok && v.trim() && v.trim() !== shown.trim()) commit(v); };
+      box.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); });
+      box.addEventListener("blur", () => finish(true));
+      box.addEventListener("click", e => { e.stopPropagation(); e.preventDefault(); });
+    }
+    out.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); edit(); });
+    out.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); edit(); } });
+  }
+  const css = document.createElement("style");
+  css.textContent = ".typein{cursor:text;border-bottom:1px dashed currentColor;padding:0 1px}.typein:hover,.typein:focus{outline:1px solid var(--accent,#6fb1ff);outline-offset:1px;border-radius:3px}.typeinBox{width:9em;font:inherit;font-size:12.5px;padding:1px 4px;margin-left:4px;border-radius:4px;border:1px solid var(--accent,#6fb1ff);background:var(--panel-2,#1b2438);color:var(--text,#eef2f8)}";
+  document.head.append(css);
+  const scan = () => document.querySelectorAll('input[type="range"]').forEach(attach);
+  window.addEventListener("load", () => setTimeout(scan, 400));
+  new MutationObserver(() => { clearTimeout(scan.t); scan.t = setTimeout(scan, 300); }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script>
+</body>
+</html>
