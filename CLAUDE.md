@@ -19,6 +19,7 @@ holds one folder per simulation:
 | `statistics/` | `central_limit_theorem`, `queues` |
 | `economics/` | `supply_demand`, `taxes_price_controls`, `firms_competition`, `labour_market`, `circular_flow`, `running_the_economy`, `externalities`, `trade_exchange_rates`, `inequality` |
 | `physical_education/` | `energy_systems`, `training_adaptation`, `sport_biomechanics`, `fitness_testing`, `skill_acquisition`, `arousal_performance`, `luck_and_skill` |
+| `music/` | `inside_sound`, `strings`, `air_columns`, `build_timbre`, `pitch_intervals`, `rhythm_metre` |
 
 Every simulation is one self-contained HTML file: open it in Chrome
 or Edge.
@@ -29,7 +30,7 @@ own folder inside the right subject folder and gets a row in the root
 `README.md`, a line in the `SIMS` list in the front page `index.html`, and a
 thumbnail `thumbs/<folder>.jpg` (a 640×360 screenshot).
 
-Eighty-eight simulations are "★ Enhanced" (listed in `ENHANCED` in the front page
+Ninety-four simulations are "★ Enhanced" (listed in `ENHANCED` in the front page
 `index.html`, which marks them with a gold edge and star tag): `waves`,
 `dynamic_equilibrium`, `natural_selection`, `nerve_impulse`,
 `earthquake_buildings`, `forest_fire`, `three_body_chaos`,
@@ -46,7 +47,7 @@ Eighty-eight simulations are "★ Enhanced" (listed in `ENHANCED` in the front p
 `energy_changes`, `gas_exchange`, `tectonic_hazards`, `car_crash`,
 `firms_competition`, `arousal_performance`, `stellar_life_cycle`, `inheritance`,
 `simple_harmonic_motion`, `membranes`, `antibiotic_resistance`, `exoplanet_hunting`,
-`reactivity_metals`, `youngs_modulus`, `nuclear_fusion`, `states_of_matter`, `circular_motion`, `crystallisation`, `atomic_structure`, `periodic_groups`, `dna_cell_division`, `ecosystems`, `homeostasis`, `aerofoil_flow`, `ice_albedo`, `carbon_cycle`, `dark_matter`, `expanding_universe`, `planet_formation`, `taxes_price_controls`, `labour_market`, `circular_flow`, `sport_biomechanics`, `fitness_testing`, `skill_acquisition`, `atomic_spectra`, `nuclear_fission`, `particle_physics`, `acids_salts_tests`, `chromatography`, `moles_reacting_masses`, `immunity`, `plant_transport`, `biotechnology`. They are the one
+`reactivity_metals`, `youngs_modulus`, `nuclear_fusion`, `states_of_matter`, `circular_motion`, `crystallisation`, `atomic_structure`, `periodic_groups`, `dna_cell_division`, `ecosystems`, `homeostasis`, `aerofoil_flow`, `ice_albedo`, `carbon_cycle`, `dark_matter`, `expanding_universe`, `planet_formation`, `taxes_price_controls`, `labour_market`, `circular_flow`, `sport_biomechanics`, `fitness_testing`, `skill_acquisition`, `atomic_spectra`, `nuclear_fission`, `particle_physics`, `acids_salts_tests`, `chromatography`, `moles_reacting_masses`, `immunity`, `plant_transport`, `biotechnology`, `inside_sound`, `strings`, `air_columns`, `build_timbre`, `pitch_intervals`, `rhythm_metre`. They are the one
 place with a shared toolkit: edit `tools/kit/kit.*` or
 `tools/kit/src/<name>.js`, then run `node build.js` from inside `tools/kit/`
 to regenerate the single-file pages in their subject folders. Never edit
@@ -91,7 +92,7 @@ End every change with an explicit line saying which applies:
 ## Audience and style
 
 These are teaching simulations for school students (GCSE / iGCSE / WJEC, and
-A level for economics, PE, physical geography, biology, physics and chemistry, with a Standard / Advanced level switch).
+A level for economics, PE, music, physical geography, biology, physics and chemistry, with a Standard / Advanced level switch).
 Comment code so a student can follow the science. List a model's
 assumptions and simplifications inside the simulation itself.
 
