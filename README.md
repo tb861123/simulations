@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-Ninety-four simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): eighty-seven rebuilt showpieces, which replaced the earlier versions in
+Ninety-seven simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): ninety rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -31,7 +31,7 @@ Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, S
 Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
 and Competition, Arousal and Performance, Stellar Life Cycle, Inheritance, Simple Harmonic
 Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, Reactivity of
-Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, Sport Biomechanics, Fitness Testing, Skill Acquisition, Atomic Spectra, Nuclear Fission, Particle Physics, Acids, Salts and Tests, Chromatography, Moles and Reacting Masses, Immunity, Plant Transport, Biotechnology, Inside a Sound, Strings, Air Columns, Build a Timbre, Pitch and Intervals, and Rhythm and Metre are likewise kept in each folder's `original/`, with their worksheets,
+Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, Sport Biomechanics, Fitness Testing, Skill Acquisition, Atomic Spectra, Nuclear Fission, Particle Physics, Acids, Salts and Tests, Chromatography, Moles and Reacting Masses, Immunity, Plant Transport, Biotechnology, Inside a Sound, Strings, Air Columns, Build a Timbre, Pitch and Intervals, Rhythm and Metre, Sea Level Rise, Weather Chaos, and Rivers and Landforms are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Typing slider values
@@ -170,11 +170,11 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`climate/greenhouse_effect/`](climate/greenhouse_effect/) | The Greenhouse Effect ★: sunlight and infrared packets, the energy balance, feedbacks, volcanoes, Venus and Mars, 1850 to 2100 | Open `greenhouse-effect.html` |
 | [`climate/ice_albedo/`](climate/ice_albedo/) | Ice–albedo ★: the ice–albedo feedback, snowball Earth, tipping points and hysteresis (energy balance model) | Open `ice-albedo.html` |
 | [`climate/carbon_cycle/`](climate/carbon_cycle/) | Carbon cycle ★: stores and flows from 1750 to 2300, the ocean and land sinks, acidification, emission scenarios | Open `carbon-cycle.html` |
-| [`climate/sea_level_rise/`](climate/sea_level_rise/) | Sea level rise: where the water comes from, flooding and storm surges | Open `sea-level-rise.html` |
+| [`climate/sea_level_rise/`](climate/sea_level_rise/) | Sea Level Rise ★: thermal expansion and land ice, five pathways to 2300, storm surges and return periods, sea walls, committed rise | Open `sea-level-rise.html` |
 | [`climate/forest_fire/`](climate/forest_fire/) | Wildfire ★: fire spread with wind, slope, drought and embers; percolation tipping point; firebreak challenge | Open `forest-fire.html` |
-| [`climate/weather_chaos/`](climate/weather_chaos/) | The butterfly effect: Lorenz 63 and Lorenz 96 models, twin forecasts, ensembles, and why forecast skill is limited | Open `weather-chaos.html` |
+| [`climate/weather_chaos/`](climate/weather_chaos/) | Weather Chaos ★: the butterfly effect, Lorenz 63 and 96, forecast horizon, Lyapunov exponents, ensembles | Open `weather-chaos.html` |
 | [`climate/flooding_hydrographs/`](climate/flooding_hydrographs/) | Flooding and Storm Hydrographs ★: drainage basin and hillslope flows, storm hydrographs, lag time, urbanisation, flood management, case studies, flood frequency | Open `flooding-hydrographs.html` |
-| [`climate/river_landforms/`](climate/river_landforms/) | Rivers and landforms: Bradshaw model, Hjulström curve, meanders and oxbow lakes, waterfalls, river fieldwork | Open `river-landforms.html` |
+| [`climate/river_landforms/`](climate/river_landforms/) | Rivers and Landforms ★: Bradshaw model, fieldwork and Spearman's rank, Hjulström curve, meanders and oxbow lakes, waterfalls and gorges, the Tees | Open `river-landforms.html` |
 | [`climate/coasts/`](climate/coasts/) | Coasts: waves, erosion, longshore drift, spits, cliff retreat, Holderness management, sea-level change | Open `coasts.html` |
 | [`climate/glaciers/`](climate/glaciers/) | Glaciers: mass balance and ELA, ice flow, corries, U-shaped valleys, moraines, freeze-thaw | Open `glaciers.html` |
 | [`climate/tropical_storms/`](climate/tropical_storms/) | Tropical Storms ★: grow, steer and land a hurricane; surge and impacts, a whole season, a warmer world | Open `tropical-storms.html` |

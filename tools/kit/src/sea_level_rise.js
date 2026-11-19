@@ -46,7 +46,7 @@ function makeCoast(place, seed) { const r = K.rng(seed), G = 80, H = 50, z = [],
 const P = { scen: "mid", year: 2024, place: "estuary", wall: 0, storm: 0, speed: 2, ice: false };
 let proj = null, coast = null, run = true, iceT = 0;
 const ui = K.app({
-  title: "Sea Level Rise", subject: "Climate and geography",
+  title: "Sea Level Rise", subject: "Climate",
   blurb: "Why the sea is rising, how fast, and what it means for a low-lying coast in storms, from 1900 to 2300",
   reset: () => set({}),
   levels: { std: "Standard (GCSE)", adv: "Advanced (A level)", specs: { std: "GCSE geography and science: causes of sea level rise (thermal expansion, melting land ice), the effects on coasts (flooding, storm surges, erosion, migration), responses (sea walls, managed retreat), evidence from tide gauges and satellites.", adv: "A level geography (coastal systems and the carbon/water cycles): eustatic sea level change, thermal expansion and ice-sheet contributions, committed rise, storm-surge return periods and risk, adaptation and mitigation; IPCC projections and their uncertainty." } },
