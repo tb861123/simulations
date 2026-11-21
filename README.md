@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and nine simulations are built with the shared toolkit (the
+All one hundred and ten simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
@@ -265,7 +265,29 @@ The audit of the earlier music pack is kept in [`music/original_audit/`](music/o
 | [`music/pitch_intervals/`](music/pitch_intervals/) | Pitch and Intervals ★: keyboard and stave, interval names and spelling, equal temperament against just intonation, beats, consonance and roughness | Open `pitch-intervals.html` |
 | [`music/rhythm_metre/`](music/rhythm_metre/) | Rhythm and Metre ★: step sequencer, BPM, simple, compound and irregular metres, backbeat, syncopation score, swing, polyrhythm, human timing | Open `rhythm-metre.html` |
 
-## History
+## History (OCR H505)
+
+A newer subject. History is a weaker fit for simulation than the sciences, so
+only models that genuinely teach are built: each one shows how far an outcome
+depended on its causes and on people's choices, and is honest about the rough
+figures behind it. Standard level is GCSE History; Advanced follows OCR A level
+History A (H505), with spec tags for the relevant units.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`history/population_and_famine/`](history/population_and_famine/) | Population and Famine ★: Malthus's positive and preventive checks, the Black Death and wages, Ireland 1781–1901 against the census, the blight, relief, exports, emigration and the post-Famine decline | Open `population-and-famine.html` |
+
+## Photography (AQA 7206)
+
+Standard level follows AQA GCSE Art and Design: Photography (8206); Advanced
+follows AQA A level Art and Design: Photography (7206), whose subject content
+asks for viewpoint, composition, aperture, depth of field, shutter speed and
+movement, lenses, lighting, film and digital processes.
+
+| Folder | What it is | How to run |
+|---|---|---|
+
+## Where the old repositories went
 
 `engineering/fluid_dynamics/` (now retired), `chemistry/chem_sims/` (now retired) and `physics/physics_sims/` (now retired)
 were moved here from their own repositories (`tb861123/Fluid_dynamics`,
