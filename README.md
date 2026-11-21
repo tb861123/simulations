@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and eleven simulations are built with the shared toolkit (the
+All one hundred and twelve simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
@@ -277,6 +277,7 @@ History A (H505), with spec tags for the relevant units.
 |---|---|---|
 | [`history/population_and_famine/`](history/population_and_famine/) | Population and Famine ★: Malthus's positive and preventive checks, the Black Death and wages, Ireland 1781–1901 against the census, the blight, relief, exports, emigration and the post-Famine decline | Open `population-and-famine.html` |
 | [`history/arms_race_and_alliances/`](history/arms_race_and_alliances/) | Arms Races and Alliances ★: Richardson's equations for the Anglo-German naval race and the nuclear arms race (fear against fatigue, arms control), and the July Crisis as a chain of chances: blank cheque, alliances, the Schlieffen Plan, mediation | Open `arms-race-and-alliances.html` |
+| [`history/revolutions_and_unrest/`](history/revolutions_and_unrest/) | Revolutions and Unrest ★: Granovetter's crowd thresholds (one person can stop a riot), Epstein's rebellion model (grievance = hardship × (1 − legitimacy), arrest risk, prison), Russia 1905 and 1917 as events, hidden grievance, sudden against gradual loss of legitimacy | Open `revolutions-and-unrest.html` |
 
 ## Photography (AQA 7206)
 
