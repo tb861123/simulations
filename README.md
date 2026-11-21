@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and sixteen simulations are built with the shared toolkit (the
+All one hundred and seventeen simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
@@ -292,6 +292,7 @@ movement, lenses, lighting, film and digital processes.
 | [`photography/exposure_triangle/`](photography/exposure_triangle/) | The Exposure Triangle ★: f-stops, shutter and ISO with a live histogram and meter, M/A/S/P modes, Sunny 16, depth of field and the circle of confusion, motion blur, camera shake, photon noise; film's characteristic curve, development time, temperature and pushing | Open `exposure-triangle.html` |
 | [`photography/lens_optics/`](photography/lens_optics/) | Lenses and Perspective ★: focal length and field of view, crop factors (APS-C, Micro Four Thirds, phone), perspective depends on viewpoint ('compression'), lens extension, magnification and macro, depth of field at equal framing | Open `lens-optics.html` |
 | [`photography/light_and_colour/`](photography/light_and_colour/) | Light and Colour ★: black-body colour temperature, white balance and casts, grey-world auto white balance, additive RGB and subtractive CMY mixing, inverse square law, key and fill lights, lighting ratios, hard and soft shadows | Open `light-and-colour.html` |
+| [`photography/composition_and_sampling/`](photography/composition_and_sampling/) | Pixels, Compression and Composition ★: resolution and print size at 72–300 dpi, sampling, the Nyquist limit and moiré, anti-aliasing filters, bit depth, banding and dither, JPEG (DCT, quantisation, blocks, PSNR, generation loss), cropping with thirds, golden section and aspect ratios | Open `composition-and-sampling.html` |
 
 ## Where the old repositories went
 
