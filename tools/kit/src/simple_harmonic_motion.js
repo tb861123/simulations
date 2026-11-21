@@ -44,6 +44,7 @@ let S = [0, 0, 0], log = [], speed = 1, dp = null, dpLog = [], bart = null, trai
 const opts = () => ({ sys: P.sys, g: GRAV[P.planet][1], L: P.L, k: P.k, m: P.m, b: P.damp, F: P.mode === "res" ? P.F : 0, wd: P.wd, small: P.small });
 const ui = K.app({
   title: "Simple Harmonic Motion", subject: "Physics",
+  sound: "Sound: a light gate at the centre beeps each time the bob passes it going the same way, so you hear one beep per period",
   blurb: "Pendulums and springs, damping and resonance, and the chaotic double pendulum",
   reset: () => set({ mode: P.mode }),
   levels: { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "Not in Pearson Edexcel International GCSE Physics (4PH1): a gentle introduction using 4PH1 ideas: period and frequency f = 1/T, kinetic energy ½mv² and GPE mgh, Hooke's law, weight = mg, and timing many swings to reduce random error.", adv: "WJEC Eduqas A level Physics Component 1 Topic 6 Vibrations: SHM (a = −ω²x), x, v and a against time, T = 2π√(m/k) and 2π√(l/g), energy in SHM, damped and forced oscillations, resonance and Barton's pendulums; the specified practical timing a pendulum or a mass–spring system. Chaos is beyond the spec." } },
@@ -197,7 +198,8 @@ let frame = 0;
 ui.run(dt => {
   if (!(dt > 0) || dragging) return; const s = dt * speed;
   if (P.mode === "shm" || P.mode === "res") {
-    const o = opts(), n = 20; for (let k = 0; k < n; k++) { const px = S[0]; S = rk4(o, S, s / n); if (px < 0 && S[0] >= 0) ups.push(S[2]); }
+    const o = opts(), n = 20; let gate = false; for (let k = 0; k < n; k++) { const px = S[0]; S = rk4(o, S, s / n); if (px < 0 && S[0] >= 0) { ups.push(S[2]); gate = true; } }
+    if (gate) K.sound.tone(1320, { dur: 0.07, vol: 0.18, type: "square" });   // the light-gate beep (only heard with 🔊 Sound on)
     const v = P.sys === "pend" ? S[1] * P.L : S[1], ke = 0.5 * P.m * v * v, pe = P.sys === "pend" ? P.m * o.g * P.L * (1 - Math.cos(S[0])) : 0.5 * P.k * S[0] ** 2;
     log.push([S[2], S[0], S[1], accel(Object.assign({}, o, { F: 0 }), S[0], S[1], S[2]), ke + pe, ke, pe]); while (log.length && log[0][0] < S[2] - 12) log.shift();
     if (P.sys === "pend" && geo) { trail.push([geo.cx + geo.Lpx * Math.sin(S[0]), geo.top + geo.Lpx * Math.cos(S[0])]); if (trail.length > 60) trail.shift(); }

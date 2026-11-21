@@ -69,7 +69,7 @@ class Gas {
       this.vx[i] = s * r.gauss(); this.vy[i] = s * r.gauss(); this.vz[i] = s * r.gauss(); v[i] = dir * s * Math.sqrt(-2 * Math.log(1 - r()));
       this.Q += 0.5 * m * (this.vx[i] ** 2 + this.vy[i] ** 2 + this.vz[i] ** 2 - e0);
     } else v[i] = -vn;                                   // an insulating wall: a perfect bounce, no energy exchanged
-    this.imp += m * (Math.abs(vn) + Math.abs(v[i]));     // the kick given to the wall = the molecule's change of momentum
+    this.imp += m * (Math.abs(vn) + Math.abs(v[i])); this.hits = (this.hits || 0) + 1;     // the kick given to the wall = the molecule's change of momentum
     if (this.sparks && ax < 2 && this.sparks.length < 260) this.sparks.push([this.x[i], this.y[i], 1, ax]);
   }
   step(dt) {
@@ -162,6 +162,7 @@ function addBig(on) { gas.big = on ? { x: gas.L / 2, y: BH / 2, z: BD / 2, vx: 0
 
 const ui = K.app({
   title: "Gas in a Box", subject: "Physics",
+  sound: "Sound: each tick stands for a fixed number of molecules hitting the walls, so a higher pressure (more, faster hits) sounds busier",
   blurb: "Every molecule followed: pressure, temperature and the gas laws from collisions alone",
   reset: () => { set({ n: 600, gas: "Ar", gasB: "", Tw: 300, conduct: true, free: false, L: 40, g: 0, big: false, track: false, graph: "pV", colour: "speed" }); gas.L = 40; refill(); },
   missions: [
@@ -400,9 +401,13 @@ const engIdeal = () => { const r = eng.kind === "otto" ? 3 : 36 / 14, a = eng.Th
 
 // ---------------- The loop ----------------
 let frame = 0;
+let tickAcc = 0; const HITS_PER_TICK = 20;
 ui.run(dt => {
   let left = rate * Math.max(dt, 1 / 120), guard = 0; const h = safeDt(gas);
   while (left > 1e-6 && guard++ < (eng.on ? 45 : 14)) { const d = Math.min(h, left); gas.step(d); if (eng.on) engineStep(); left -= d; }
+  // sound: one tick per HITS_PER_TICK wall hits, played at random moments through this frame (at most 30 a frame)
+  if (K.sound.on && gas.hits) { tickAcc += gas.hits / HITS_PER_TICK; let k = 0; while (tickAcc >= 1 && k++ < 30) { tickAcc--; K.sound.click({ vol: 0.25, at: Math.random() * Math.max(dt, 1 / 60) }); } }
+  gas.hits = 0;
   if (track && gas.n) { path1.push([gas.x[0], gas.y[0]]); if (path1.length > 900) path1.shift(); }
   if (gas.big) { bigTrail.push([gas.big.x, gas.big.y]); if (bigTrail.length > 1500) bigTrail.shift(); }
   if (gas.free || Math.abs(gas.target - gas.L) > 0.01) ctl.L.set(Math.round(gas.L * 2) / 2);

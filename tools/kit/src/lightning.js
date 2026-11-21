@@ -86,7 +86,7 @@ class Storm {
 const NX = 188, NY = 96;
 let rand = K.rng(11), storm = new Storm(NX, NY);
 let speed = 6, show = "field", tool = "rod", auto = true, startMode = "random", startX = NX / 2, rain = true;
-let phase = "leader", phaseT = 0, flash = 0, strokePath = [], log = [], objects = [];
+let listenKm = 2, phase = "leader", phaseT = 0, flash = 0, strokePath = [], log = [], objects = [];
 const KIND = { rod: "lightning rod", tower: "tower", tree: "tree", house: "house", person: "person" };
 const PRESETS = {
   field: [],
@@ -101,6 +101,7 @@ function begin() { phase = "leader"; phaseT = 0; strokePath = []; storm.start(st
 
 const ui = K.app({
   title: "Lightning", subject: "Physics",
+  sound: "Sound: thunder from each strike, arriving about 3 seconds per kilometre after the flash (sound travels at 343 m/s; light is almost instant)",
   blurb: "A branching bolt grown from three rules: voltage, field, and chance",
   reset: () => { load("field"); ctl.eta.set(2, true); },
   missions: [
@@ -145,6 +146,17 @@ ctl.speed = K.slider(g, { label: "Leader speed", min: 1, max: 30, step: 1, value
 ctl.startMode = K.seg(g, { label: "Leader sets off from", value: "random", options: [["random", "Anywhere"], ["fixed", "One point"]], on: v => { startMode = v; if (v === "fixed") ui.tip("Click in the cloud to choose where the leader starts", 5000); begin(); }, tip: "With 'One point', click the cloud to move it." });
 ctl.auto = K.toggle(g, { label: "Keep striking", value: true, on: v => auto = v });
 let r1 = K.row(g); K.btn(r1, "⚡ Strike now", () => { begin(); ui.setPlaying(true); }, "primary"); K.btn(r1, "Clear tally", () => { log = []; tally(); });
+g = ui.group("Thunder (🔊 Sound on)");
+ctl.dist = K.slider(g, { label: "You are watching from", min: 0.3, max: 10, step: 0.1, value: 2, unit: "km", on: v => listenKm = v });
+// The flash reaches you almost at once; the sound of the thunder travels at 343 m/s, so it arrives d ÷ 343 seconds later.
+// Far-off thunder is quieter and deeper: the air absorbs high frequencies more than low ones.
+function thunder() {
+  const delay = listenKm * 1000 / 343, near = 1 / (1 + listenKm);
+  if (K.sound.on) ui.tip(`Flash! Thunder in ${delay.toFixed(1)} s (${listenKm} km × about 3 s per km)`, Math.min(9000, delay * 1000 + 1500));
+  if (listenKm < 1.5) K.sound.noise({ at: delay, dur: 0.25, vol: 0.5 * near, filter: "highpass", freq: 900 });
+  K.sound.noise({ at: delay, dur: 2.5 + listenKm * 0.4, vol: 0.9 * near + 0.08, filter: "lowpass", freq: 900 / (1 + listenKm * 0.5), sweep: 70, attack: 0.05 });
+  K.sound.noise({ at: delay + 0.4 + Math.random() * 0.6, dur: 2, vol: 0.5 * near + 0.05, filter: "lowpass", freq: 300, sweep: 60, attack: 0.2 });
+}
 g = ui.group("What to show");
 ctl.show = K.seg(g, { value: "field", options: [["none", "Storm only"], ["volt", "Voltage lines"], ["field", "Field strength"]], on: v => show = v });
 K.toggle(g, { label: "Rain", value: true, on: v => rain = v });
@@ -238,7 +250,7 @@ ui.run(dt => {
       const s = storm.grow(rand, 5);
       if (s) { // contact: trace the winning route back up to the cloud
         strokePath = []; for (let c = s.cell; c >= 0; c = storm.parent[c]) strokePath.push(c);
-        phase = "stroke"; phaseT = 0; flash = 1; log.push({ x: s.x, tag: s.tag }); tally(); read.set("last", nameOf(s.tag));
+        phase = "stroke"; phaseT = 0; flash = 1; thunder(); log.push({ x: s.x, tag: s.tag }); tally(); read.set("last", nameOf(s.tag));
       }
     }
   } else if (phase === "stroke") { if (phaseT > 0.12) { flash = Math.max(flash, 0.8); } if (phaseT > 0.3) { phase = "glow"; phaseT = 0; } }

@@ -295,6 +295,51 @@ const K = (() => {
     return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
   }
   function openDoc(html, name) { const w = window.open("", "_blank"); if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(name, html); }
+  // ---- Sound (Web Audio). Pages that ask for it (app option `sound`) get a 🔇/🔊 button in the header.
+  //      It is OFF until someone presses it, so a room full of laptops stays quiet; nothing plays while it is off.
+  //      tone(f, {dur, vol, type, at, glide}) plays a note; noise({dur, vol, filter, freq, at}) a hiss, thump or rumble;
+  //      click() a Geiger-style tick; hum() a continuous tone you retune every frame (it fades out if not updated). ----
+  const sound = (() => {
+    let ctx = null, master = null, on = false, buf = null; const live = new Set(), hums = [], fns = [];
+    const ready = () => on && ctx && ctx.state === "running";
+    async function enable(v) {
+      on = !!v;
+      if (on) { try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (!master) { master = ctx.createGain(); master.gain.value = 0.7; master.connect(ctx.destination); } await ctx.resume(); } catch (e) { on = false; } }
+      else stop();
+      fns.forEach(f => f(on));
+    }
+    const track = n => { live.add(n); n.onended = () => live.delete(n); };
+    function tone(f, o = {}) {
+      if (!ready() || !(f > 15) || f > ctx.sampleRate / 2) return;
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.3, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.008, dur / 2);
+      const osc = ctx.createOscillator(), g = ctx.createGain(); osc.type = o.type || "sine"; osc.frequency.setValueAtTime(f, t); if (o.glide) osc.frequency.exponentialRampToValueAtTime(Math.max(16, o.glide), t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      osc.connect(g); g.connect(master); osc.start(t); osc.stop(t + dur + 0.02); track(osc);
+    }
+    function noise(o = {}) {
+      if (!ready()) return;
+      if (!buf) { buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.2, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.004, dur / 2);
+      const src = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain(); src.buffer = buf; src.loop = true;
+      fl.type = o.filter || "lowpass"; fl.frequency.value = o.freq || 1000; if (o.sweep) fl.frequency.exponentialRampToValueAtTime(o.sweep, t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      src.connect(fl); fl.connect(g); g.connect(master); src.start(t, Math.random()); src.stop(t + dur + 0.02); track(src);
+    }
+    const click = (o = {}) => noise({ dur: 0.012, vol: o.vol == null ? 0.5 : o.vol, filter: "highpass", freq: 1800, at: o.at });
+    function hum(type = "sine") {
+      let osc = null, g = null, last = 0;
+      const h = {
+        set(f, vol = 0.15) { if (!ready()) { h.kill(); return; } if (!osc) { osc = ctx.createOscillator(); g = ctx.createGain(); osc.type = type; g.gain.value = 0; osc.connect(g); g.connect(master); osc.start(); } const t = ctx.currentTime; osc.frequency.setTargetAtTime(Math.max(16, f), t, 0.02); g.gain.setTargetAtTime(vol, t, 0.04); last = performance.now(); },
+        kill() { if (osc) { try { g.gain.setTargetAtTime(0, ctx.currentTime, 0.03); osc.stop(ctx.currentTime + 0.25); } catch (e) { } osc = null; } },
+        stale() { return osc && performance.now() - last > 250; }
+      };
+      hums.push(h); return h;
+    }
+    function stop() { for (const n of live) { try { n.stop(); } catch (e) { } } live.clear(); hums.forEach(h => h.kill()); }
+    setInterval(() => hums.forEach(h => { if (h.stale()) h.kill(); }), 200);    // a hum nobody is updating (paused, other view) fades away
+    document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); });
+    return { enable, ready, tone, noise, click, hum, stop, get on() { return on; }, onChange: f => fns.push(f) };
+  })();
   function app(o) {
     document.title = o.title + " · Science Simulations";
     const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
@@ -315,6 +360,7 @@ const K = (() => {
     if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
     if (o.reset) btn(act, "↺ Reset", () => o.reset());
     if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
+    if (o.sound) { const bS = btn(act, "🔇 Sound", () => sound.enable(!sound.on)); bS.title = typeof o.sound === "string" ? o.sound : "Turn sound on or off (off to start with)"; sound.onChange(v => { bS.innerHTML = v ? "🔊 Sound" : "🔇 Sound"; bS.classList.toggle("primary", v); }); }
     btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
     btn(act, "⛶", () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).title = "Full screen";
     addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
@@ -418,5 +464,5 @@ const K = (() => {
     K_last = ui;
     return ui;
   }
-  return { $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app, worksheetDoc, batchSummary, get ui() { return K_last; } };
+  return { sound, $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app, worksheetDoc, batchSummary, get ui() { return K_last; } };
 })();
