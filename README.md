@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and sixteen simulations are built with the shared toolkit (the
+All one hundred and seventeen simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
@@ -221,6 +221,7 @@ Standard level follows Pearson Edexcel AS Mathematics (8MA0); Advanced follows A
 | [`mathematics/calculus_explorer/`](mathematics/calculus_explorer/) | Calculus Explorer: differentiation from first principles (chord to tangent), the gradient function, stationary points with f'' and points of inflection, concave/convex, areas by rectangles and the trapezium rule against the exact integral (A level Mathematics) | Open `calculus-explorer.html` |
 | [`mathematics/numerical_methods/`](mathematics/numerical_methods/) | Numerical Methods: change of sign and bisection (and how asymptotes and repeated roots fool it), iteration x = g(x) with staircase and cobweb diagrams, convergence and divergence, Newton–Raphson and its failures, error charts showing linear and quadratic convergence (A level Mathematics) | Open `numerical-methods.html` |
 | [`mathematics/vectors_kinematics/`](mathematics/vectors_kinematics/) | Kinematics and Vectors: s–t and v–t graphs with tangent gradients and signed areas, SUVAT, variable acceleration (s = pt³ + qt² + rt), distance vs displacement; draggable 2D vectors (a ± b, λa, unit vectors, direction); projectiles as r and v vectors with range against angle (A level Mathematics) | Open `vectors-kinematics.html` |
+| [`mathematics/mechanics_forces/`](mathematics/mechanics_forces/) | Forces and Newton's Laws: F = ma with force diagrams drawn to scale; connected particles over a smooth pulley and an Atwood machine; friction F ≤ μR and limiting equilibrium on a rough slope with a push; moments, reactions and tipping on a beam (A level Mathematics) | Open `mechanics-forces.html` |
 
 ## Statistics
 

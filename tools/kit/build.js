@@ -118,6 +118,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["calculus_explorer.js", "calculus_explorer", "calculus-explorer.html", "Calculus Explorer", "mathematics"],
   ["numerical_methods.js", "numerical_methods", "numerical-methods.html", "Numerical Methods", "mathematics"],
   ["vectors_kinematics.js", "vectors_kinematics", "vectors-kinematics.html", "Kinematics and Vectors", "mathematics"],
+  ["mechanics_forces.js", "mechanics_forces", "mechanics-forces.html", "Forces and Newton's Laws", "mathematics"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
