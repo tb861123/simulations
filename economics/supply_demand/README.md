@@ -2,6 +2,8 @@
 
 Supply and demand built from people who haggle. Nobody sets the price, yet it finds the equilibrium. Then add a tax, a price cap or a price floor and see who gains and loses.
 
+Standard / Advanced switch: **Standard (iGCSE)** Pearson Edexcel 4EC1 1.2 (demand, supply, equilibrium, PED and revenue, taxes and price controls); **Advanced (A level)** 9EC0 1.2 adds PED, YED, XED and PES, total revenue and the price mechanism, with a Revise tab.
+
 ## How to run
 
 Open `supply-demand.html` in Chrome or Edge. Nothing to install; works offline.

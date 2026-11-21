@@ -14,9 +14,9 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and thirty-five simulations are built with the shared toolkit (the
+All one hundred and thirty-eight simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and twenty-nine newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and thirty-two newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
 mathematics, statistics and chemistry simulations, and the History and Photography ones). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -251,7 +251,7 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 
 | Folder | What it is | How to run |
 |---|---|---|
-| [`economics/supply_demand/`](economics/supply_demand/) | The Trading Pit ★: supply and demand from haggling buyers and sellers; tax, price cap and floor | Open `supply-demand.html` |
+| [`economics/supply_demand/`](economics/supply_demand/) | The Trading Pit ★: supply and demand from haggling buyers and sellers; tax, price cap and floor; PED, YED and XED with total revenue at A level | Open `supply-demand.html` |
 | [`economics/taxes_price_controls/`](economics/taxes_price_controls/) | Taxes and price controls ★: tax incidence and elasticity, subsidies, maximum and minimum prices, black markets, deadweight loss, UK examples | Open `taxes-price-controls.html` |
 | [`economics/firms_competition/`](economics/firms_competition/) | Firms and Competition ★: cost and revenue curves, MC = MR, entry and exit across market structures, the prisoner's dilemma | Open `firms-competition.html` |
 | [`economics/labour_market/`](economics/labour_market/) | Labour market ★: wages from MRP and reservation wages, minimum wage, monopsony with MCL, two markets and mobility | Open `labour-market.html` |
@@ -260,6 +260,9 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 | [`economics/externalities/`](economics/externalities/) | Market Failure and Externalities ★: externalities with the welfare-loss triangle, taxes, subsidies, limits, information, cap and trade, public goods, lemons | Open `externalities.html` |
 | [`economics/trade_exchange_rates/`](economics/trade_exchange_rates/) | Trade and Exchange Rates ★: comparative advantage and terms of trade, tariffs, quotas and customs unions, the market for pounds, Marshall–Lerner and the J-curve, real GBP 2000–2025 | Open `trade-exchange-rates.html` |
 | [`economics/inequality/`](economics/inequality/) | Inequality ★: Lorenz and Gini, income against wealth, UK taxes and benefits, poverty, inheritance, the trading game, Kuznets and Laffer curves | Open `inequality.html` |
+| [`economics/behavioural_economics/`](economics/behavioural_economics/) | Behavioural economics: bounded rationality and defaults (auto-enrolment), anchoring, present bias, herding and information cascades, fairness in the ultimatum game, nudges and the boomerang effect | Open `behavioural-economics.html` |
+| [`economics/development_economics/`](economics/development_economics/) | Development economics: a developing country over 50 years with Harrod–Domar saving, the Lewis model, primary product dependency and Prebisch–Singer, the foreign currency gap, aid, education and the HDI | Open `development-economics.html` |
+| [`economics/financial_markets/`](economics/financial_markets/) | Banks, bonds and financial markets: bond prices and yields, bank runs with reserves, capital, deposit insurance and the lender of last resort, moral hazard from bailouts, speculative bubbles | Open `financial-markets.html` |
 
 ## Physical Education
 
