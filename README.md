@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and fourteen simulations are built with the shared toolkit (the
+All one hundred and fifteen simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
@@ -290,6 +290,7 @@ movement, lenses, lighting, film and digital processes.
 | Folder | What it is | How to run |
 |---|---|---|
 | [`photography/exposure_triangle/`](photography/exposure_triangle/) | The Exposure Triangle ★: f-stops, shutter and ISO with a live histogram and meter, M/A/S/P modes, Sunny 16, depth of field and the circle of confusion, motion blur, camera shake, photon noise; film's characteristic curve, development time, temperature and pushing | Open `exposure-triangle.html` |
+| [`photography/lens_optics/`](photography/lens_optics/) | Lenses and Perspective ★: focal length and field of view, crop factors (APS-C, Micro Four Thirds, phone), perspective depends on viewpoint ('compression'), lens extension, magnification and macro, depth of field at equal framing | Open `lens-optics.html` |
 
 ## Where the old repositories went
 

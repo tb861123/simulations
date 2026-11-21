@@ -21,7 +21,7 @@ holds one folder per simulation:
 | `physical_education/` | `energy_systems`, `training_adaptation`, `sport_biomechanics`, `fitness_testing`, `skill_acquisition`, `arousal_performance`, `luck_and_skill` |
 | `music/` | `inside_sound`, `strings`, `air_columns`, `build_timbre`, `pitch_intervals`, `rhythm_metre` |
 | `history/` | `population_and_famine`, `arms_race_and_alliances`, `revolutions_and_unrest`, `great_depression` |
-| `photography/` | `exposure_triangle` |
+| `photography/` | `exposure_triangle`, `lens_optics` |
 
 Every simulation is one self-contained HTML file: open it in Chrome
 or Edge.
@@ -32,7 +32,7 @@ own folder inside the right subject folder and gets a row in the root
 `README.md`, a line in the `SIMS` list in the front page `index.html`, and a
 thumbnail `thumbs/<folder>.jpg` (a 640×360 screenshot).
 
-All one hundred and fourteen simulations are kit-built (formerly tagged "★ Enhanced"; the front page
+All one hundred and fifteen simulations are kit-built (formerly tagged "★ Enhanced"; the front page
 no longer shows the tag, but `ENHANCED` in `index.html` still holds each one's "Try:" line). A new
 simulation gets an `ENHANCED` entry too: `waves`,
 `dynamic_equilibrium`, `natural_selection`, `nerve_impulse`,
@@ -50,7 +50,7 @@ simulation gets an `ENHANCED` entry too: `waves`,
 `energy_changes`, `gas_exchange`, `tectonic_hazards`, `car_crash`,
 `firms_competition`, `arousal_performance`, `stellar_life_cycle`, `inheritance`,
 `simple_harmonic_motion`, `membranes`, `antibiotic_resistance`, `exoplanet_hunting`,
-`reactivity_metals`, `youngs_modulus`, `nuclear_fusion`, `states_of_matter`, `circular_motion`, `crystallisation`, `atomic_structure`, `periodic_groups`, `dna_cell_division`, `ecosystems`, `homeostasis`, `aerofoil_flow`, `ice_albedo`, `carbon_cycle`, `dark_matter`, `expanding_universe`, `planet_formation`, `taxes_price_controls`, `labour_market`, `circular_flow`, `sport_biomechanics`, `fitness_testing`, `skill_acquisition`, `atomic_spectra`, `nuclear_fission`, `particle_physics`, `acids_salts_tests`, `chromatography`, `moles_reacting_masses`, `immunity`, `plant_transport`, `biotechnology`, `inside_sound`, `strings`, `air_columns`, `build_timbre`, `pitch_intervals`, `rhythm_metre`, `sea_level_rise`, `weather_chaos`, `river_landforms`, `trade_exchange_rates`, `inequality`, `electrochemical_cells`, `capacitors`, `magnetism_induction`, `heating_insulation`, `coasts`, `glaciers`, `slopes_landslides`, `density_pressure`, `energy_resources`, `fieldwork_sampling`, `population_and_famine`, `arms_race_and_alliances`, `revolutions_and_unrest`, `great_depression`, `exposure_triangle`. They are the one
+`reactivity_metals`, `youngs_modulus`, `nuclear_fusion`, `states_of_matter`, `circular_motion`, `crystallisation`, `atomic_structure`, `periodic_groups`, `dna_cell_division`, `ecosystems`, `homeostasis`, `aerofoil_flow`, `ice_albedo`, `carbon_cycle`, `dark_matter`, `expanding_universe`, `planet_formation`, `taxes_price_controls`, `labour_market`, `circular_flow`, `sport_biomechanics`, `fitness_testing`, `skill_acquisition`, `atomic_spectra`, `nuclear_fission`, `particle_physics`, `acids_salts_tests`, `chromatography`, `moles_reacting_masses`, `immunity`, `plant_transport`, `biotechnology`, `inside_sound`, `strings`, `air_columns`, `build_timbre`, `pitch_intervals`, `rhythm_metre`, `sea_level_rise`, `weather_chaos`, `river_landforms`, `trade_exchange_rates`, `inequality`, `electrochemical_cells`, `capacitors`, `magnetism_induction`, `heating_insulation`, `coasts`, `glaciers`, `slopes_landslides`, `density_pressure`, `energy_resources`, `fieldwork_sampling`, `population_and_famine`, `arms_race_and_alliances`, `revolutions_and_unrest`, `great_depression`, `exposure_triangle`, `lens_optics`. They are the one
 place with a shared toolkit: edit `tools/kit/kit.*` or
 `tools/kit/src/<name>.js`, then run `node build.js` from inside `tools/kit/`
 to regenerate the single-file pages in their subject folders. Never edit
