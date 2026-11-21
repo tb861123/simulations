@@ -111,6 +111,10 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["energy_resources.js", "energy_resources", "energy-resources.html", "Energy Resources and Electricity", "physics"],
   ["fieldwork_sampling.js", "fieldwork_sampling", "fieldwork-sampling.html", "Fieldwork: Sampling and Statistics", "climate"],
   ["training_adaptation.js", "training_adaptation", "training-adaptation.html", "Training and Adaptation", "physical_education"],
+  ["rate_equations.js", "rate_equations", "rate-equations.html", "Rate Equations and Kinetics", "chemistry"],
+  ["spectroscopy.js", "spectroscopy", "spectroscopy.html", "Spectroscopy and Structure", "chemistry"],
+  ["transition_metals.js", "transition_metals", "transition-metals.html", "Transition Metals and Colour", "chemistry"],
+  ["organic_mechanisms.js", "organic_mechanisms", "organic-mechanisms.html", "Organic Mechanisms and Synthesis", "chemistry"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
