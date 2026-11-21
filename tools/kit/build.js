@@ -114,6 +114,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["cash_flow_forecast.js", "cash_flow_forecast", "cash-flow-forecast.html", "Cash-Flow Forecast", "business"],
   ["investment_appraisal.js", "investment_appraisal", "investment-appraisal.html", "Investment Appraisal and Decision Trees", "business"],
   ["inventory_and_supply_chain.js", "inventory_and_supply_chain", "inventory-and-supply-chain.html", "Stock Control and the Supply Chain", "business"],
+  ["electoral_systems.js", "electoral_systems", "electoral-systems.html", "Electoral Systems", "politics"],
   ["training_adaptation.js", "training_adaptation", "training-adaptation.html", "Training and Adaptation", "physical_education"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
