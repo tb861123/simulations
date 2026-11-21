@@ -128,6 +128,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["differential_equations.js", "differential_equations", "differential-equations.html", "Differential Equations", "mathematics"],
   ["series_convergence.js", "series_convergence", "series-convergence.html", "Series and Convergence", "mathematics"],
   ["polar_curves.js", "polar_curves", "polar-curves.html", "Polar Curves", "mathematics"],
+  ["vectors_3d.js", "vectors_3d", "vectors-3d.html", "Lines and Planes in 3D", "mathematics"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
