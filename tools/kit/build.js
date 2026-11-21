@@ -114,6 +114,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["population_and_famine.js", "population_and_famine", "population-and-famine.html", "Population and Famine", "history"],
   ["arms_race_and_alliances.js", "arms_race_and_alliances", "arms-race-and-alliances.html", "Arms Races and Alliances", "history"],
   ["revolutions_and_unrest.js", "revolutions_and_unrest", "revolutions-and-unrest.html", "Revolutions and Unrest", "history"],
+  ["great_depression.js", "great_depression", "great-depression.html", "The Great Depression", "history"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
