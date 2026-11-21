@@ -257,6 +257,7 @@ the course.
 | Folder | What it is | How to run |
 |---|---|---|
 | [`politics/electoral_systems/`](politics/electoral_systems/) | Electoral systems ★: FPTP, SV, AV, STV, AMS and list PR on the same ranked ballots, safe and marginal seats, wasted votes, the cube law, thresholds, Gallagher index | Open `electoral-systems.html` |
+| [`politics/voting_paradoxes/`](politics/voting_paradoxes/) | Voting paradoxes ★: median voter theorem, abstention, third parties, tactical voting, primaries and polarisation; Condorcet cycles, agenda setting, plurality v AV v Borda, Arrow's theorem | Open `voting-paradoxes.html` |
 
 ## Physical Education
 
