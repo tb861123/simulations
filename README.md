@@ -12,10 +12,10 @@ Most simulations are a single HTML file: open it in Chrome or Edge, with no
 install and no internet needed. Run any other commands from inside the
 project's own folder.
 
-## ★ Enhanced simulations
+## How the simulations are built
 
-One hundred and nine simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): one hundred and two rebuilt showpieces, which replaced the earlier versions in
+All one hundred and nine simulations are built with the shared toolkit (the
+front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -73,7 +73,7 @@ Every simulation has a `worksheets.html` beside it: printable A4 sheets
 (set-up, prediction, results to fill in, questions), then teacher notes. Open it
 and press **Print** (or save as PDF).
 
-- **★ Enhanced simulations:** one sheet for every ready-made investigation (the
+- **Kit simulations:** one sheet for every ready-made investigation (the
   cards in the **Investigate** tab) and one for every batch experiment. The
   teacher notes give what to look for, the theory and the result of a test run
   of each batch experiment. The same sheets can be printed from inside the

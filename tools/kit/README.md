@@ -1,6 +1,6 @@
 # The simulation kit
 
-A small shared toolkit behind the ★ enhanced simulations (page frame, sliders,
+A small shared toolkit behind the simulations (page frame, sliders,
 charts, Investigate cards, Batch run window). So that every simulation stays a
 single self-contained HTML file, the kit is copied into each page by a build
 step:

@@ -30,8 +30,9 @@ own folder inside the right subject folder and gets a row in the root
 `README.md`, a line in the `SIMS` list in the front page `index.html`, and a
 thumbnail `thumbs/<folder>.jpg` (a 640×360 screenshot).
 
-One hundred and nine simulations are "★ Enhanced" (listed in `ENHANCED` in the front page
-`index.html`, which marks them with a gold edge and star tag): `waves`,
+All one hundred and nine simulations are kit-built (formerly tagged "★ Enhanced"; the front page
+no longer shows the tag, but `ENHANCED` in `index.html` still holds each one's "Try:" line). A new
+simulation gets an `ENHANCED` entry too: `waves`,
 `dynamic_equilibrium`, `natural_selection`, `nerve_impulse`,
 `earthquake_buildings`, `forest_fire`, `three_body_chaos`,
 `central_limit_theorem`, `supply_demand`, `luck_and_skill`,
