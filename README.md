@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and twenty-five simulations are built with the shared toolkit (the
+All one hundred and twenty-six simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and twenty-one newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
@@ -231,6 +231,7 @@ Mathematics simulations: Standard level follows Pearson Edexcel AS Mathematics (
 | [`mathematics/matrix_transformations/`](mathematics/matrix_transformations/) | Matrix Transformations (Further Maths): 2 × 2 transformations animated on a grid with the images of i and j, determinant as area and orientation, singular matrices, inverses, invariant lines and lines of invariant points, composition NM, and 3 × 3 transformations of a cube with the volume scale factor | Open `matrix-transformations.html` |
 | [`mathematics/differential_equations/`](mathematics/differential_equations/) | Differential Equations (Further Maths): slope fields for six first-order equations with clickable solution curves (separable and integrating-factor solutions) and Euler's method with its error; second-order damped and driven oscillations from the auxiliary equation (light, critical, heavy damping), phase plane and resonance | Open `differential-equations.html` |
 | [`mathematics/series_convergence/`](mathematics/series_convergence/) | Series and Convergence (Further Maths): binomial expansions with rational powers, the geometric series and Maclaurin series for eˣ, sin x, cos x and ln(1 + x) term by term with intervals of convergence and errors; partial sums of Σr, Σr², Σr³ (standard results), Σ(½)ʳ, Σ1/r, Σ1/r² and the alternating harmonic series | Open `series-convergence.html` |
+| [`mathematics/polar_curves/`](mathematics/polar_curves/) | Polar Curves (Further Maths): r = f(θ) traced by a rotating arm (cardioid, limaçon, rose, spiral, circle, lemniscate), r ≥ 0 convention, area as thin sectors approaching ½∫r² dθ, and tangents parallel and perpendicular to the initial line | Open `polar-curves.html` |
 
 ## Statistics
 
