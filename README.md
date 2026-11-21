@@ -235,6 +235,25 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 | [`economics/trade_exchange_rates/`](economics/trade_exchange_rates/) | Trade and Exchange Rates ★: comparative advantage and terms of trade, tariffs, quotas and customs unions, the market for pounds, Marshall–Lerner and the J-curve, real GBP 2000–2025 | Open `trade-exchange-rates.html` |
 | [`economics/inequality/`](economics/inequality/) | Inequality ★: Lorenz and Gini, income against wealth, UK taxes and benefits, poverty, inheritance, the trading game, Kuznets and Laffer curves | Open `inequality.html` |
 
+## Business
+
+Standard level follows GCSE Business (Pearson Edexcel 1BS0); Advanced follows
+Pearson Edexcel A level Business (9BS0). Economics topics (markets, firms,
+the macroeconomy) are in the Economics section.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`business/breakeven_and_margins/`](business/breakeven_and_margins/) | Break-even and margins ★: fixed and variable costs, contribution, break-even chart, margin of safety, target profit, PED and the profit-maximising price, stepped fixed costs | Open `breakeven-and-margins.html` |
+
+## Politics
+
+Advanced follows Pearson Edexcel A level Politics (9PL0): UK politics, UK
+government and the USA; Standard covers the core ideas for students starting
+the course.
+
+| Folder | What it is | How to run |
+|---|---|---|
+
 ## Physical Education
 
 Standard level follows OCR GCSE (9–1) Physical Education (J587); Advanced follows OCR A level Physical Education (H555).
@@ -264,6 +283,25 @@ The audit of the earlier music pack is kept in [`music/original_audit/`](music/o
 | [`music/build_timbre/`](music/build_timbre/) | Build a Timbre ★: Fourier synthesis, instrument presets, ADSR envelope, spectral centroid, the missing fundamental, autocorrelation pitch | Open `build-timbre.html` |
 | [`music/pitch_intervals/`](music/pitch_intervals/) | Pitch and Intervals ★: keyboard and stave, interval names and spelling, equal temperament against just intonation, beats, consonance and roughness | Open `pitch-intervals.html` |
 | [`music/rhythm_metre/`](music/rhythm_metre/) | Rhythm and Metre ★: step sequencer, BPM, simple, compound and irregular metres, backbeat, syncopation score, swing, polyrhythm, human timing | Open `rhythm-metre.html` |
+
+## Design and Technology
+
+Standard level follows AQA GCSE Design and Technology (8552); Advanced follows
+AQA A level Design and Technology: Product Design (7552). Engineering
+structures and earthquakes are in the Engineering section.
+
+| Folder | What it is | How to run |
+|---|---|---|
+
+## Religion, Philosophy and Ethics
+
+Standard level follows GCSE Religious Studies; Advanced follows OCR A level
+Religious Studies (H573): Philosophy of religion, Religion and ethics, and
+Developments in Christian thought. These pages model arguments and theories
+so that students can test them; they take no side.
+
+| Folder | What it is | How to run |
+|---|---|---|
 
 ## History
 
