@@ -16,8 +16,9 @@ project's own folder.
 
 All one hundred and seventeen simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
-Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
+their folders, seven newer ones (Quantum Wave Lab, Special Relativity, Wind
+Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns), and eight for the newer
+subjects History and Photography. They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
