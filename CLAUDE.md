@@ -10,7 +10,7 @@ holds one folder per simulation:
 | Subject folder | Simulations |
 |---|---|
 | `physics/` | `gas_in_a_box`, `simple_harmonic_motion`, `nuclear_fusion`, `states_of_matter`, `youngs_modulus`, `projectile_motion`, `circular_motion`, `waves`, `optics_refraction`, `fields_orbits`, `photoelectric_effect`, `atomic_spectra`, `radioactive_decay`, `nuclear_fission`, `particle_physics`, `circuits`, `capacitors`, `magnetism_induction`, `heating_insulation`, `density_pressure`, `energy_resources`, `quantum_wave_lab`, `special_relativity`, `wind_tunnel`, `lightning`, `chladni_plates` |
-| `chemistry/` | `collision_theory`, `dynamic_equilibrium`, `crystallisation`, `atomic_structure`, `bonding`, `organic_chemistry`, `periodic_groups`, `reactivity_metals`, `electrolysis`, `energy_changes`, `acids_salts_tests`, `chromatography`, `moles_reacting_masses`, `electrochemical_cells` |
+| `chemistry/` | `collision_theory`, `dynamic_equilibrium`, `crystallisation`, `atomic_structure`, `bonding`, `organic_chemistry`, `periodic_groups`, `reactivity_metals`, `electrolysis`, `energy_changes`, `acids_salts_tests`, `chromatography`, `moles_reacting_masses`, `electrochemical_cells`, `rate_equations`, `spectroscopy`, `transition_metals`, `organic_mechanisms` |
 | `biology/` | `natural_selection`, `murmuration`, `turing_patterns`, `epidemics`, `predator_prey`, `membranes`, `enzymes`, `photosynthesis_respiration`, `inheritance`, `dna_cell_division`, `ecosystems`, `homeostasis`, `immunity`, `plant_transport`, `biotechnology` |
 | `engineering/` | `earthquake_buildings`, `traffic_flow`, `car_crash`, `aerofoil_flow` |
 | `medical/` (shown under "Biology and medicine" on the front page) | `heart_circulation`, `nerve_impulse`, `antibiotic_resistance`, `gas_exchange` |
@@ -30,7 +30,7 @@ own folder inside the right subject folder and gets a row in the root
 `README.md`, a line in the `SIMS` list in the front page `index.html`, and a
 thumbnail `thumbs/<folder>.jpg` (a 640×360 screenshot).
 
-All one hundred and nine simulations are kit-built (formerly tagged "★ Enhanced"; the front page
+All one hundred and thirteen simulations are kit-built (formerly tagged "★ Enhanced"; the front page
 no longer shows the tag, but `ENHANCED` in `index.html` still holds each one's "Try:" line). A new
 simulation gets an `ENHANCED` entry too: `waves`,
 `dynamic_equilibrium`, `natural_selection`, `nerve_impulse`,
@@ -48,7 +48,7 @@ simulation gets an `ENHANCED` entry too: `waves`,
 `energy_changes`, `gas_exchange`, `tectonic_hazards`, `car_crash`,
 `firms_competition`, `arousal_performance`, `stellar_life_cycle`, `inheritance`,
 `simple_harmonic_motion`, `membranes`, `antibiotic_resistance`, `exoplanet_hunting`,
-`reactivity_metals`, `youngs_modulus`, `nuclear_fusion`, `states_of_matter`, `circular_motion`, `crystallisation`, `atomic_structure`, `periodic_groups`, `dna_cell_division`, `ecosystems`, `homeostasis`, `aerofoil_flow`, `ice_albedo`, `carbon_cycle`, `dark_matter`, `expanding_universe`, `planet_formation`, `taxes_price_controls`, `labour_market`, `circular_flow`, `sport_biomechanics`, `fitness_testing`, `skill_acquisition`, `atomic_spectra`, `nuclear_fission`, `particle_physics`, `acids_salts_tests`, `chromatography`, `moles_reacting_masses`, `immunity`, `plant_transport`, `biotechnology`, `inside_sound`, `strings`, `air_columns`, `build_timbre`, `pitch_intervals`, `rhythm_metre`, `sea_level_rise`, `weather_chaos`, `river_landforms`, `trade_exchange_rates`, `inequality`, `electrochemical_cells`, `capacitors`, `magnetism_induction`, `heating_insulation`, `coasts`, `glaciers`, `slopes_landslides`, `density_pressure`, `energy_resources`, `fieldwork_sampling`. They are the one
+`reactivity_metals`, `youngs_modulus`, `nuclear_fusion`, `states_of_matter`, `circular_motion`, `crystallisation`, `atomic_structure`, `periodic_groups`, `dna_cell_division`, `ecosystems`, `homeostasis`, `aerofoil_flow`, `ice_albedo`, `carbon_cycle`, `dark_matter`, `expanding_universe`, `planet_formation`, `taxes_price_controls`, `labour_market`, `circular_flow`, `sport_biomechanics`, `fitness_testing`, `skill_acquisition`, `atomic_spectra`, `nuclear_fission`, `particle_physics`, `acids_salts_tests`, `chromatography`, `moles_reacting_masses`, `immunity`, `plant_transport`, `biotechnology`, `inside_sound`, `strings`, `air_columns`, `build_timbre`, `pitch_intervals`, `rhythm_metre`, `sea_level_rise`, `weather_chaos`, `river_landforms`, `trade_exchange_rates`, `inequality`, `electrochemical_cells`, `capacitors`, `magnetism_induction`, `heating_insulation`, `coasts`, `glaciers`, `slopes_landslides`, `density_pressure`, `energy_resources`, `fieldwork_sampling`, `rate_equations`, `spectroscopy`, `transition_metals`, `organic_mechanisms`. They are the one
 place with a shared toolkit: edit `tools/kit/kit.*` or
 `tools/kit/src/<name>.js`, then run `node build.js` from inside `tools/kit/`
 to regenerate the single-file pages in their subject folders. Never edit

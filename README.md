@@ -14,10 +14,10 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and nine simulations are built with the shared toolkit (the
+All one hundred and thirteen simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
-Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
+their folders, and eleven newer ones (Quantum Wave Lab, Special Relativity, Wind
+Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, Rate Equations, Spectroscopy, Transition Metals, Organic Mechanisms). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
@@ -124,19 +124,23 @@ and press **Print** (or save as PDF).
 | Folder | What it is | How to run |
 |---|---|---|
 | [`chemistry/collision_theory/`](chemistry/collision_theory/) | Collision Theory and Rates ★: reacting molecules, activation energy, catalysts, surface area, runaway reactions, the Arrhenius plot | Open `collision-theory.html` |
-| [`chemistry/dynamic_equilibrium/`](chemistry/dynamic_equilibrium/) | Dynamic Equilibrium ★: A + B ⇌ AB with real particle collisions; Le Chatelier, K and Q, energy profile | Open `dynamic-equilibrium.html` |
+| [`chemistry/dynamic_equilibrium/`](chemistry/dynamic_equilibrium/) | Dynamic Equilibrium ★: A + B ⇌ AB with real particle collisions; Le Chatelier, K and Q, energy profile; Kc and Kp with units at A level | Open `dynamic-equilibrium.html` |
 | [`chemistry/atomic_structure/`](chemistry/atomic_structure/) | Atomic structure ★: build atoms and ions, isotopes, weighing atoms for Ar; s, p, d and ionisation energies at A level | Open `atomic-structure.html` |
 | [`chemistry/bonding/`](chemistry/bonding/) | Bonding and Structure ★: ionic, covalent and metallic bonds forming; heat, conduct and hammer the structure | Open `bonding.html` |
 | [`chemistry/organic_chemistry/`](chemistry/organic_chemistry/) | Crude Oil, Cracking and Polymers ★: molecules in a fractionating column, cracking and the bromine test, combustion, addition polymers, free-radical substitution | Open `organic-chemistry.html` |
 | [`chemistry/periodic_groups/`](chemistry/periodic_groups/) | Groups 1 and 7 ★: alkali metals with water, halogen states and displacement, trends down the groups | Open `periodic-groups.html` |
 | [`chemistry/reactivity_metals/`](chemistry/reactivity_metals/) | Reactivity ★: metals with water and acid, displacement with temperature rises, extraction (blast furnace, electrolysis), redox | Open `reactivity-metals.html` |
 | [`chemistry/electrolysis/`](chemistry/electrolysis/) | Electrolysis ★: ions drifting to the electrodes, products at each, half-equations, Faraday's law | Open `electrolysis.html` |
-| [`chemistry/energy_changes/`](chemistry/energy_changes/) | Energy Changes ★: bonds breaking and forming on a profile, cup calorimetry with extrapolation, burning alcohols, ΔG at A level | Open `energy-changes.html` |
+| [`chemistry/energy_changes/`](chemistry/energy_changes/) | Energy Changes ★: bonds breaking and forming on a profile, cup calorimetry with extrapolation, burning alcohols, ΔG, Hess and Born–Haber cycles at A level | Open `energy-changes.html` |
 | [`chemistry/acids_salts_tests/`](chemistry/acids_salts_tests/) | Acids, salts and tests ★: pH and indicators, titration and pH curves, solubility and precipitation, ion and gas tests with unknowns, buffers | Open `acids-salts-tests.html` |
 | [`chemistry/chromatography/`](chemistry/chromatography/) | Chromatography ★: paper chromatography and Rf, purity and identification, method mistakes, TLC and gas chromatography | Open `chromatography.html` |
 | [`chemistry/crystallisation/`](chemistry/crystallisation/) | Crystallisation ★: crystals growing in cooling magma (granite, basalt, obsidian) and in salt solutions; solubility curves, seeds, JMAK theory | Open `crystallisation.html` |
 | [`chemistry/moles_reacting_masses/`](chemistry/moles_reacting_masses/) | Moles and reacting masses ★: the mole, limiting reactants, empirical formula and water of crystallisation practicals, gas volumes, atom economy | Open `moles-reacting-masses.html` |
 | [`chemistry/electrochemical_cells/`](chemistry/electrochemical_cells/) | Electrochemical cells ★: displacement and reactivity, simple cells, half-cells and E°, CP10, fuel and storage cells, redox titrations | Open `electrochemical-cells.html` |
+| [`chemistry/rate_equations/`](chemistry/rate_equations/) | Rate equations and kinetics: continuous monitoring with tangents and half-lives, zero, first and second order, initial rates with an iodine clock, mechanisms and the rate-determining step, the Arrhenius plot (CP13, CP14) | Open `rate-equations.html` |
+| [`chemistry/spectroscopy/`](chemistry/spectroscopy/) | Spectroscopy and structure: mass spectra (M+1, Cl and Br), infrared, ¹³C and ¹H NMR (n + 1, integration, D₂O) for 17 molecules; mystery molecules to identify | Open `spectroscopy.html` |
+| [`chemistry/transition_metals/`](chemistry/transition_metals/) | Transition metals and colour: NaOH and NH₃ tests, ligand exchange, vanadium with zinc, colour from d-orbital splitting (calculated from absorption spectra), colorimetry, catalysis and autocatalysis | Open `transition-metals.html` |
+| [`chemistry/organic_mechanisms/`](chemistry/organic_mechanisms/) | Organic mechanisms and synthesis: a reaction map with route finding and yields, curly-arrow mechanisms step by step, functional-group tests, substitution against elimination, oxidation and esterification | Open `organic-mechanisms.html` |
 
 ## Biology and medicine
 

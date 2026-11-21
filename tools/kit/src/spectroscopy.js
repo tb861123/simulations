@@ -127,18 +127,20 @@ function features(m, i, used, scans, r) {
   return f;
 }
 const truth = (m, used) => { const f = {}; if (used >= 1) f.M = m.ms[0][0]; if (used >= 2) f.ir = m.ir.filter(b => b[4] && b[4] !== "CH").map(b => b[4]).sort().filter((v, k, a) => a.indexOf(v) === k).join(","); if (used >= 3) f.c = new Set(m.c13.map(c => c[0])).size; if (used >= 4) f.h = m.h1.map(h => h[1] + ":" + h[2]).sort().join(","); return f; };
-function identify(used, scans, r) { const i = r.int(MOLS.length), m = MOLS[i], f = features(m, i, used, scans, r); let cands = MOLS.filter(c => { const t = truth(c, used); return Object.keys(f).every(k => t[k] === f[k]); }); if (!cands.length) cands = MOLS; return r.pick(cands) === m ? 100 : 0; }
+function identify(used, scans, r) { const i = r.int(MOLS.length), m = MOLS[i], f = features(m, i, used, scans, r); const sc = MOLS.map(c => { const t = truth(c, used); return Object.keys(f).filter(k => t[k] === f[k]).length; }), best = Math.max(...sc), cands = MOLS.filter((c, k) => sc[k] === best); return r.pick(cands) === m ? 100 : 0; }
 // signal-to-noise of the tallest ¹H line, measured by a student from a noisy spectrum
 function snr(scans, r) { const m = MOLS[0], pts = h1Curve(m, 400, scans, false, r), base = pts.filter(p => -p[0] > 9 && -p[0] < 12).map(p => p[1]), peak = Math.max(...pts.filter(p => Math.abs(-p[0] - 1.2) < 0.05).map(p => p[1])); return peak / K.sd(base); }
+// the noise-free S/N for one scan (the noise SD for one scan is 0.03)
+let s1 = null; const S1 = () => s1 || (s1 = Math.max(...h1Curve(MOLS[0], 400, 1e12, false, K.rng(1)).filter(p => Math.abs(-p[0] - 1.2) < 0.05).map(p => p[1])) / 0.03);
 // integration ratio CH₃ : CH₂ for ethanol from a noisy spectrum (sum of the curve over each group)
-function intRatio(scans, r) { const pts = h1Curve(MOLS[0], 400, scans, false, r), area = (a, b) => pts.filter(p => -p[0] > a && -p[0] < b).reduce((s, p) => s + p[1], 0); return area(1.1, 1.3) / area(3.6, 3.8); }
-// depth of the dip between the CH₃ triplet (0.9) and CH₂ sextet (1.6) of propan-1-ol: 1 = fully resolved, 0 = merged
-function dip(MHz, r, noisy = true) { const m = MOLS[1], L = h1Lines(m, MHz, false).filter(l => l.d < 2), lw = 1.2 / MHz * 4;      // a poorly shimmed magnet: lines 4 × wider
-  const y = d => L.reduce((s, l) => s + l.a * lor(d, l.d, lw), 0) + (noisy ? 0.02 * r.gauss() : 0); const top = Math.min(Math.max(...[0.9].map(y)), ...[1.6].map(y)); let lo = Infinity; for (let d = 0.9 + 3 * J / MHz; d <= 1.6 - 5 * J / MHz / 2; d += 0.001) lo = Math.min(lo, y(d)); return isFinite(lo) ? Math.max(0, 1 - lo / top) : 0; }
+function intRatio(scans, r) { const pts = h1Curve(MOLS[0], 400, scans, false, r), area = (a, b) => { const q = pts.filter(p => -p[0] > a && -p[0] < b); let s = 0; for (let k = 1; k < q.length; k++) s += (q[k][0] - q[k - 1][0]) * (q[k][1] + q[k - 1][1]) / 2; return s; }; return area(1.0, 1.4) / area(3.5, 3.9); }   // trapezium rule
+// depth of the dip between the CH₃ singlet (2.1) and CH₂ quartet (2.4) of butanone: 1 = back to the baseline, 0 = merged
+function dip(MHz, r, noisy = true) { const m = MOLS[5], a = 2.1, b = 2.4, L = h1Lines(m, MHz, false).filter(l => l.env === 0 || l.env === 2), lw = 1.2 / MHz * 4;      // a poorly shimmed magnet: lines 4 × wider
+  const y = d => L.reduce((s, l) => s + l.a * lor(d, l.d, lw), 0) + (noisy ? 0.01 * r.gauss() : 0), top = Math.min(y(a), y(b + 0.5 * J / MHz)); let lo = Infinity; for (let d = a; d <= b - 1.5 * J / MHz; d += 0.0005) lo = Math.min(lo, y(d)); return Math.min(1, Math.max(0, 1 - lo / top)); }
 
 // ---------------- The page ----------------
 const DEF = { mol: 0, MHz: 400, scans: 16, labels: true, d2o: false, mystery: false, formula: true, zoom: 1 };
-const P = Object.assign({}, DEF); let seed = 1, myst = 0, guess = null, score = [0, 0];
+const P = Object.assign({}, DEF); let cv = null, dirty = true; const redraw = () => { dirty = true; }; let seed = 1, myst = 0, guess = null, score = [0, 0];
 const ui = K.app({
   title: "Spectroscopy and Structure", subject: "Chemistry",
   blurb: "Mass spectra, infrared, ¹³C and ¹H NMR for real organic molecules: assign the peaks, then work out a mystery molecule from its spectra",
@@ -160,9 +162,9 @@ const ui = K.app({
   batch: [
     { title: "M+1 and the number of carbons", question: "Does the height of the M+1 peak (as a % of M) rise by 1.1 for each carbon?", how: "Alkanes C₂ to C₁₀; 4000 ions in the molecular ion peak, counted with √N error.", xLabel: "number of carbon atoms", yLabel: "M+1 height (% of M)", xs: [2, 3, 4, 5, 6, 8, 10], reps: 10, yMin: 0, fit: true, theory: n => 1.1 * n, theoryLabel: "1.1 × n", run: (n, r) => { const NM = 4000, n1 = NM * 0.011 * n; return 100 * (n1 + Math.sqrt(n1) * r.gauss()) / (NM + Math.sqrt(NM) * r.gauss()); }, note: "A straight line through the origin, gradient 1.1: the number of carbons = (M+1 height ÷ M height) × 100 ÷ 1.1." },
     { title: "Chlorine: how close to 3 : 1?", question: "What M : M+2 ratio does a quick scan of 2-chloropropane give?", how: "About 600 ions in the M⁺ pair.", yLabel: "M ÷ (M+2)", reps: 400, bins: 24, theory: 75.8 / 24.2, theoryLabel: "³⁵Cl ÷ ³⁷Cl", run: (x, r) => { const n = 600, a = n * 0.758 + Math.sqrt(n * 0.758) * r.gauss(), b = n * 0.242 + Math.sqrt(n * 0.242) * r.gauss(); return a / b; }, note: "Centred on 3.1 with a spread from counting. Bromine would give about 1.0." },
-    { lvl: "adv", title: "Scans and signal-to-noise", question: "How does the signal-to-noise ratio of a ¹H spectrum grow with the number of scans?", how: "Ethanol at 400 MHz; S/N = tallest CH₃ line ÷ SD of the empty baseline from 9 to 12 ppm.", xLabel: "number of scans", yLabel: "signal-to-noise", xs: [1, 4, 16, 64, 256], reps: 6, yMin: 0, theory: n => snr(1, K.rng(1)) * 0 + 0, run: (n, r) => snr(n, r), note: "Four times the scans doubles S/N: noise averages away as √n. 256 scans take 256 times as long for only 16 times the S/N." },
+    { lvl: "adv", title: "Scans and signal-to-noise", question: "How does the signal-to-noise ratio of a ¹H spectrum grow with the number of scans?", how: "Ethanol at 400 MHz; S/N = tallest CH₃ line ÷ SD of the empty baseline from 9 to 12 ppm.", xLabel: "number of scans", yLabel: "signal-to-noise", xs: [1, 4, 16, 64, 256], reps: 6, yMin: 0, theory: n => S1() * Math.sqrt(n), theoryLabel: "∝ √scans", run: (n, r) => snr(n, r), note: "Four times the scans doubles S/N: noise averages away as √n. 256 scans take 256 times as long for only 16 times the S/N." },
     { lvl: "adv", title: "How accurate is the 3 : 2 integration?", question: "Measure the CH₃ : CH₂ area ratio of ethanol at different numbers of scans.", how: "400 MHz; areas summed over each multiplet from a noisy spectrum.", xLabel: "number of scans", yLabel: "CH₃ ÷ CH₂ area", xs: [1, 4, 16, 64], reps: 12, theory: () => 1.5, theoryLabel: "3 ÷ 2", run: (n, r) => intRatio(n, r), note: "With few scans the ratio scatters; with more, it settles on 1.5 = 3 H ÷ 2 H. Always round integrations to the nearest simple whole-number ratio." },
-    { lvl: "adv", title: "Higher field, better resolved?", question: "How well are the CH₃ triplet and CH₂ sextet of propan-1-ol separated on different spectrometers?", how: "A rather poorly shimmed magnet (lines 5 Hz wide); dip depth between the two signals: 1 = back to baseline, 0 = merged.", xLabel: "spectrometer frequency (MHz)", yLabel: "dip between signals", xs: [60, 100, 200, 300, 400, 600], reps: 6, yMin: 0, yMax: 1.1, theory: f => dip(f, null, false), theoryLabel: "noise-free", run: (f, r) => dip(f, r), note: "J stays 7 Hz but the gap between signals (0.7 ppm) is 42 Hz at 60 MHz and 420 Hz at 600 MHz: higher fields pull signals apart." },
+    { lvl: "adv", title: "Higher field, better resolved?", question: "How well are the CH₃ singlet (δ 2.1) and CH₂ quartet (δ 2.4) of butanone separated on different spectrometers?", how: "A rather poorly shimmed magnet (lines 5 Hz wide); dip depth between the two signals: 1 = back to baseline, 0 = merged.", xLabel: "spectrometer frequency (MHz)", yLabel: "dip between signals", xs: [60, 100, 200, 300, 400, 600], reps: 6, yMin: 0, yMax: 1.1, theory: f => dip(f, null, false), theoryLabel: "noise-free", run: (f, r) => dip(f, r), note: "J stays 7 Hz but the gap between the signals (0.3 ppm) is 18 Hz at 60 MHz and 180 Hz at 600 MHz: higher fields pull signals apart, so the quartet stops running into the singlet." },
     { lvl: "adv", title: "How much evidence do you need?", question: "A mystery molecule from the 17 here. How often does a careful student identify it using only the mass spectrum, then adding IR, ¹³C and ¹H NMR?", how: "1 = mass spectrum only, 2 = + IR, 3 = + ¹³C NMR, 4 = + ¹H NMR. 16 scans. If several molecules fit the evidence, the student guesses between them.", xLabel: "techniques used", yLabel: "% identified correctly", xs: [1, 2, 3, 4], reps: 60, yMin: 0, yMax: 105, run: (u, r) => identify(u, 16, r), note: "Mr alone cannot tell isomers apart (propanal and propanone, the two esters, the propanols). Each technique removes more candidates; with ¹H NMR almost every structure is fixed." }
   ],
   revise: {
@@ -217,12 +219,12 @@ const left = K.$("div"); left.style.cssText = "position:absolute;left:0;top:0;bo
 const grid = K.$("div"); grid.style.cssText = "position:absolute;left:31%;right:0;top:0;bottom:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:1px;background:#24324f"; ui.stage.append(grid);
 const cell = () => { const d = K.$("div"); d.style.cssText = "background:#0b1020;position:relative;min-height:0"; grid.append(d); return d; };
 const chMS = K.chart(cell(), {}), chIR = K.chart(cell(), {}), chC = K.chart(cell(), {}), chH = K.chart(cell(), {});
-const cv = K.canvas(left, () => drawLeft());
+cv = K.canvas(left, () => drawLeft());
 const chZ = K.chart(ui.dock, {}), chI = K.chart(ui.dock, {});
 const TX = (c, s, x, y, col = "#aab6cc", al = "left", f = "12px") => { c.fillStyle = col; c.font = f + " Segoe UI,sans-serif"; c.textAlign = al; c.fillText(s, x, y); };
 function WRAP(c, s, x, y, maxW, lh = 15, col = "#8fa0bf", f = "11.5px") { c.font = f + " Segoe UI,sans-serif"; let line = ""; for (const wd of s.split(" ")) { if (c.measureText(line + wd).width > maxW && line) { TX(c, line, x, y, col, "left", f); y += lh; line = ""; } line += wd + " "; } TX(c, line, x, y, col, "left", f); return y + lh; }
 function drawLeft() {
-  const c = cv.ctx, w = cv.w, h = cv.h, i = cur(), m = MOLS[i], adv = ui.level === "adv", hide = P.mystery && guess === null; c.fillStyle = "#0b1020"; c.fillRect(0, 0, w, h);
+  if (!cv) return; const c = cv.ctx, w = cv.w, h = cv.h, i = cur(), m = MOLS[i], adv = ui.level === "adv", hide = P.mystery && guess === null; c.fillStyle = "#0b1020"; c.fillRect(0, 0, w, h);
   let y = 26; TX(c, hide ? "🕵 Mystery molecule" : m.name, 14, y, "#eef2f8", "left", "600 16px"); y += 22;
   if (!hide || P.formula) TX(c, m.f + (hide ? "" : `   Mr = ${m.ms[0][0]}`), 14, y, "#cfd8ea", "left", "13px"); y += 30;
   if (!hide) { let x = 14; c.font = "600 17px Segoe UI,sans-serif"; for (const [txt, env] of m.s) { const wd = c.measureText(txt).width; if (x + wd > w - 10) { x = 14; y += 26; } TX(c, txt, x, y, env == null ? "#8fa0bf" : ENVC[env], "left", "600 17px"); x += wd + 1; } y += 30;
@@ -235,7 +237,6 @@ function drawLeft() {
   if (!adv) WRAP(c, "NMR is A level (Topic 19): switch to Advanced to see the environments.", 14, h - 40, w - 28, 15, "#8fa0bf", "11px");
 }
 // ---------------- Spectra (redrawn only when something changes) ----------------
-let dirty = true; const redraw = () => { dirty = true; };
 function drawAll() {
   const i = cur(), m = MOLS[i], r = K.rng(seed * 977 + i), adv = ui.level === "adv", lab = P.labels && !(P.mystery && guess === null);
   // mass spectrum
@@ -257,7 +258,7 @@ function drawAll() {
   chH.draw(adv ? [{ pts: hc, color: "#c4a1ff", width: 1.2, label: "" }, { pts: integ.map(p => [p[0], p[1] * sc]), color: "rgba(255,209,102,.7)", width: 1.2, label: "integration" }] : [], { xMin: -12.5, xMax: 0.5, yMin: -0.05 * top, yMax: top * 1.12, vlines: adv && lab ? env.map((hh, k) => ({ x: -hh[0], color: ENVC[hh[3]] + "44", label: `${hh[1]}H ${hh[5] ? "s (br)" : ["m", "s", "d", "t", "q", "5", "6", "7"][hh[2]]}`, row: k % 2 })).concat([{ x: 0, color: "rgba(255,255,255,.2)", label: "TMS", row: 1 }]) : [] });
   // dock: one ¹H signal zoomed (in Hz from its centre) and the molecular-ion region of the mass spectrum
   const zi = Math.min(P.zoom, env.length) - 1, zh = env[zi]; if (adv && zh) { const L = h1Lines(m, P.MHz, P.d2o).filter(l => l.env === zh[3]), pts = []; for (let x = -40; x <= 40; x += 0.1) { let y = 0; for (const l of L) y += l.a * lor(zh[0] + x / P.MHz, l.d, (l.broad ? 6 : 1.2) / P.MHz); pts.push([x, y]); }
-    chZ.opts.title = `Zoom: signal ${zi + 1} at δ ${zh[0]} (${zh[4]})`; chZ.opts.xLabel = "Hz from the centre (lines are J = 7 Hz apart)"; chZ.draw([{ pts, color: ENVC[zh[3]], label: zh[5] ? "broad singlet" : SPLIT[zh[2]] }], { xMin: -40, xMax: 40, yMin: 0 }); }
+    chZ.opts.title = `Zoom: signal ${zi + 1} at δ ${zh[0]}${P.mystery && guess === null ? "" : ` (${zh[4]})`}`; chZ.opts.xLabel = "Hz from the centre (lines are J = 7 Hz apart)"; chZ.draw([{ pts, color: ENVC[zh[3]], label: zh[5] ? "broad singlet" : SPLIT[zh[2]] }], { xMin: -40, xMax: 40, yMin: 0 }); }
   else { chZ.opts.title = "Zoom on a ¹H signal (A level)"; chZ.draw([], {}); }
   const M = m.ms[0][0], near = ms.filter(p => p[0] >= M - 2 && p[0] <= M + 3), mtop = Math.max(...near.map(p => p[1]), 1);
   chI.opts.title = "Around the molecular ion"; chI.opts.xLabel = "m/z"; chI.opts.yLabel = "% of M⁺"; chI.opts.xFmt = v => Math.abs(v - Math.round(v)) < 0.01 ? String(Math.round(v)) : "";

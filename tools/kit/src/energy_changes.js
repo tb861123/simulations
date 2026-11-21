@@ -90,14 +90,40 @@ const DG = {
 };
 const dG = (k, T) => DG[k].dH - T * DG[k].dS / 1000;
 
+// ---- Born–Haber cycles (A level): data-book values in kJ/mol. The lattice energy is found by Hess's law:
+//      ΔfH = atomise metal + ionise + atomise non-metal + electron affinities + lattice energy ----
+const BH = {
+  NaCl: { m: "Na", x: "Cl", f: -411, atM: 107, ie: [496], atX: 122, ea: [-349], nx: 1, theory: -766, st: ["Na(s) + ½Cl₂(g)", "NaCl(s)"] },
+  KCl: { m: "K", x: "Cl", f: -437, atM: 89, ie: [419], atX: 122, ea: [-349], nx: 1, theory: -701, st: ["K(s) + ½Cl₂(g)", "KCl(s)"] },
+  LiF: { m: "Li", x: "F", f: -616, atM: 159, ie: [520], atX: 79, ea: [-328], nx: 1, theory: -1033, st: ["Li(s) + ½F₂(g)", "LiF(s)"] },
+  MgO: { m: "Mg", x: "O", f: -602, atM: 148, ie: [738, 1451], atX: 249, ea: [-141, 798], nx: 1, theory: -3795, st: ["Mg(s) + ½O₂(g)", "MgO(s)"] },
+  CaO: { m: "Ca", x: "O", f: -635, atM: 178, ie: [590, 1145], atX: 249, ea: [-141, 798], nx: 1, theory: -3414, st: ["Ca(s) + ½O₂(g)", "CaO(s)"] },
+  MgCl2: { m: "Mg", x: "Cl", f: -641, atM: 148, ie: [738, 1451], atX: 122, ea: [-349], nx: 2, theory: -2326, st: ["Mg(s) + Cl₂(g)", "MgCl₂(s)"] },
+  AgCl: { m: "Ag", x: "Cl", f: -127, atM: 285, ie: [731], atX: 122, ea: [-349], nx: 1, theory: -833, st: ["Ag(s) + ½Cl₂(g)", "AgCl(s)"] }
+};
+// the steps of the cycle, each [label, ΔH]; the last is the lattice energy that closes the cycle
+function bhSteps(k) { const B = BH[k], n = B.nx, s = [[`atomise ${B.m}: ${B.m}(s) → ${B.m}(g)`, B.atM]];
+  B.ie.forEach((v, i) => s.push([`${["1st", "2nd"][i]} ionisation energy of ${B.m}`, v]));
+  s.push([`atomise ${B.x}: ${n > 1 ? n + " × " : ""}½${B.x}₂(g) → ${B.x}(g)`, n * B.atX]);
+  B.ea.forEach((v, i) => s.push([`${["1st", "2nd"][i]} electron affinity of ${B.x}${n > 1 ? " (× " + n + ")" : ""}`, n * v]));
+  const sum = s.reduce((a, q) => a + q[1], 0); s.push(["lattice energy (forming the solid from gaseous ions)", B.f - sum]); return s; }
+const latticeE = k => bhSteps(k).slice(-1)[0][1];
+// Kapustinskii's estimate for 1:1 crystals (r = sum of ionic radii in pm), and real Born–Haber lattice energies of the alkali halides
+const kapustinskii = r => -1.2025e5 * 2 / r * (1 - 34.5 / r);
+const HALIDES = { 209: ["LiF", -1037], 235: ["NaF", -918], 257: ["LiCl", -853], 271: ["KF", -821], 283: ["NaCl", -787], 298: ["NaBr", -747], 319: ["KCl", -715], 334: ["KBr", -682], 358: ["KI", -649] };
+// ---- Hess's law from enthalpies of combustion: ΔfH(compound) = Σ ΔcH(elements) − ΔcH(compound) ----
+const HESS = { ch4: { n: "methane", f: "CH₄", C: 1, H: 4, O: 0, dc: -890, book: -75 }, c2h6: { n: "ethane", f: "C₂H₆", C: 2, H: 6, O: 0, dc: -1560, book: -84 }, c3h8: { n: "propane", f: "C₃H₈", C: 3, H: 8, O: 0, dc: -2219, book: -104 }, eth: { n: "ethanol", f: "C₂H₅OH", C: 2, H: 6, O: 1, dc: -1367, book: -277 }, glu: { n: "glucose", f: "C₆H₁₂O₆", C: 6, H: 12, O: 6, dc: -2803, book: -1273 } };
+const hessF = k => { const H = HESS[k]; return H.C * -394 + H.H / 2 * -286 - H.dc; };
+
 // ---------------- The page ----------------
-const P = { mode: "profile", rx: "ch4", cat: false, cup: "neut", conc: 1, cont: "lid", stir: true, alc: 2, screen: true, height: 2, dg: "caco3", T: 298 };
+const P = { mode: "profile", rx: "ch4", cat: false, cup: "neut", conc: 1, cont: "lid", stir: true, alc: 2, screen: true, height: 2, dg: "caco3", T: 298, bh: "NaCl", cyc: "bh", hess: "eth" };
+let bhT = 0;
 let rnd = K.rng(Date.now() % 99991 + 29), speed = 1, prog = 0, auto = true, cup = null, cupT = 0, fuel = null, fuelT = 0, fuelLog = [], fuelRuns = [], cupRuns = [];
 const ui = K.app({
   title: "Energy Changes", subject: "Chemistry",
   blurb: "Bonds breaking and forming, exothermic and endothermic, measured in a cup and a flame",
   reset: () => set({ mode: P.mode }),
-  levels: { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "Pearson Edexcel International GCSE Chemistry (4CH1) 3(a) Energetics: exothermic and endothermic reactions, reaction profiles and activation energy, calorimetry (Q = mcΔT, ΔH in kJ/mol), bond energies; practical: temperature changes in a polystyrene cup.", adv: "Pearson Edexcel A level Chemistry (9CH0) Topic 8 Energetics I (standard enthalpy changes, calorimetry and its errors, mean bond enthalpies) and Topic 13 Energetics II (entropy, ΔG = ΔH − TΔS, feasibility)." } },
+  levels: { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "Pearson Edexcel International GCSE Chemistry (4CH1) 3(a) Energetics: exothermic and endothermic reactions, reaction profiles and activation energy, calorimetry (Q = mcΔT, ΔH in kJ/mol), bond energies; practical: temperature changes in a polystyrene cup.", adv: "Pearson Edexcel A level Chemistry (9CH0) Topic 8 Energetics I (standard enthalpy changes, calorimetry and its errors, mean bond enthalpies) and Topic 13 Energetics II (lattice energy and Born–Haber cycles, polarisation and covalent character, entropy, ΔG = ΔH − TΔS, feasibility); Hess cycles (Topic 8)." } },
   missions: [
     { title: "Breaking and making", q: "Watch methane burn. Which part of the journey takes energy in, and which gives it out? Use the bond tally to work out ΔH.", hint: "Breaking bonds always takes energy in (uphill); making bonds always gives energy out (downhill). Burning methane breaks 4 C–H and 2 O=O (2648 kJ) and makes 2 C=O and 4 O–H (3466 kJ). More is given out than taken in: ΔH = 2648 − 3466 = −818 kJ/mol, exothermic. The data-book value is −802: bond energies are averages from many molecules.", setup() { set({ mode: "profile", rx: "ch4" }); } },
     { title: "Endothermic: lightning", q: "Try N₂ + O₂ → 2NO, which happens in lightning and hot car engines. Is it exothermic or endothermic? Why does it need such a high temperature?", hint: "The N≡N triple bond is very strong (945 kJ/mol), so breaking the reactants' bonds takes more energy than making NO gives back: ΔH = +181 kJ/mol, endothermic. The activation energy is also huge, so it only happens at thousands of degrees.", setup() { set({ mode: "profile", rx: "no" }); } },
@@ -107,6 +133,10 @@ const ui = K.app({
     { title: "Glass beaker, no stirring", q: "Repeat the neutralisation in a glass beaker without stirring. How far off is your ΔH now? Why?", hint: "Glass conducts heat away much faster than polystyrene and has a bigger heat capacity itself, and without stirring the thermometer reads late, by which time heat has been lost. ΔT is too small, so ΔH comes out much too small. Polystyrene is a good insulator with a tiny heat capacity: that is why the practical uses it.", setup() { set({ mode: "cup", cup: "neut", cont: "glass", stir: false }); } },
     { title: "Extrapolate!", q: "Zinc powder reacts with copper(II) sulfate quite slowly. Compare ΔH from the highest reading with ΔH from extrapolating the cooling line back to the moment of mixing.", hint: "While the reaction is still going, heat is already leaking away, so the highest reading is lower than the true rise. Extending the straight cooling line back to the time of mixing estimates the rise there would have been with no heat loss. The extrapolated ΔH is closer to the data-book value (−217 kJ/mol).", setup() { set({ mode: "cup", cup: "zinc" }); } },
     { title: "Burning alcohols", q: "Heat 100 g of water by 20 °C with each alcohol in turn. Which releases most energy per mole? Why is the measured value so much smaller than the data book?", hint: "Each extra CH₂ adds about 650 kJ/mol to ΔHc in the data book, a steady pattern. The measured values are less than half: heat warms the air, the can and the clamp, combustion is incomplete (soot), and some alcohol evaporates. A draught screen and a short gap between flame and can help.", setup() { set({ mode: "fuel", alc: 1 }); } },
+    { lvl: "adv", title: "Build a Born–Haber cycle", q: "Cycles: sodium chloride. Watch the cycle build step by step. Which steps take energy in? Use Hess's law to find the lattice energy.", hint: "Atomising Na (+107), ionising Na (+496) and atomising ½Cl₂ (+122) take energy in; the electron affinity of Cl (−349) gives some out. Lattice energy = ΔfH − (sum of the others) = −411 − 376 = −787 kJ/mol.", setup() { set({ mode: "bh", bh: "NaCl", cyc: "bh" }); } },
+    { lvl: "adv", title: "Why is MgO so strong?", q: "Compare the lattice energies of NaCl and MgO. Why is MgO's nearly five times as exothermic? Why does it pay to make Mg²⁺ and O²⁻ despite the huge 2nd ionisation energy and 2nd electron affinity?", hint: "Ions with double charges attract four times as strongly, and Mg²⁺ and O²⁻ are smaller, so the lattice energy (−3845) more than pays for IE₂ (+1451) and EA₂ (+798). That is why MgO melts at 2852 °C.", setup() { set({ mode: "bh", bh: "MgO", cyc: "bh" }); } },
+    { lvl: "adv", title: "Covalent character", q: "Compare the Born–Haber lattice energy with the theoretical (purely ionic) value for NaCl, MgCl₂ and AgCl. Which differ most, and why?", hint: "NaCl agrees within 3%: almost purely ionic. AgCl (10%) and MgCl₂ (8%) are more exothermic than the ionic model predicts: the small or highly charged cation polarises the anion's electron cloud, adding covalent character.", setup() { set({ mode: "bh", bh: "AgCl", cyc: "bh" }); } },
+    { lvl: "adv", title: "Hess's law from combustion", q: "Cycles: Hess. Find the enthalpy of formation of ethanol from enthalpies of combustion. Why can it not be measured directly?", hint: "ΔfH = 2(−394) + 3(−286) − (−1367) = −279 kJ/mol (data book −277). Carbon, hydrogen and oxygen do not react cleanly to give only ethanol, so we go round the cycle via CO₂ and H₂O.", setup() { set({ mode: "bh", cyc: "hess", hess: "eth" }); } },
     { lvl: "adv", title: "When is it feasible?", q: "Calcium carbonate decomposes only when strongly heated. Find the temperature at which ΔG becomes zero. Why does temperature matter for this reaction but hardly at all for burning magnesium?", hint: "ΔG = ΔH − TΔS. For CaCO₃, ΔH = +178 kJ/mol and ΔS = +161 J/K/mol: ΔG < 0 when T > 178 000 ÷ 161 = 1106 K (833 °C). For burning magnesium ΔH is so large and negative that ΔG stays negative until very high temperatures, even though ΔS is negative. Feasible does not mean fast: kinetics still needs the activation energy.", setup() { set({ mode: "dg", dg: "caco3", T: 298 }); } }
   ],
   batch: [
@@ -115,10 +145,14 @@ const ui = K.app({
     { title: "Does the temperature rise double with concentration?", question: "If both solutions are twice as concentrated, does ΔT double?", how: "Neutralisation in a cup with a lid; concentration of both solutions 0.25 to 2 mol/dm³. Theory: ΔT = n × 57 100 ÷ (50 × 4.18) with no heat lost.", xLabel: "concentration (mol/dm³)", yLabel: "temperature rise (°C)", xs: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2], reps: 4, yMin: 0, fit: true, theory: c => 0.025 * c * 57100 / (50 * 4.18), theoryLabel: "no heat lost", run: (x, r) => cupRun({ rx: "neut", conc: x, cont: "lid", stir: true }, r).dTmax, note: "A straight line through the origin: twice the moles in the same volume of water gives twice the heat and twice the rise. It sits slightly below the no-loss line." },
     { title: "Highest reading or extrapolation?", question: "For the slow zinc + copper(II) sulfate reaction, which gives a better ΔH?", how: "1 = from the highest reading, 2 = from extrapolating the cooling line back to the time of mixing. Polystyrene cup with lid, stirred, 6 runs each.", xLabel: "method (1 highest, 2 extrapolated)", yLabel: "ΔH measured (kJ/mol)", xs: [1, 2], reps: 6, theory: () => -217, theoryLabel: "data book", run: (x, r) => { const q = cupRun({ rx: "zinc", conc: 1, cont: "lid", stir: true }, r); return x === 1 ? q.dHmax : q.dHext; }, note: "Extrapolating corrects for the heat lost while the reaction was still going, so it lands much nearer the data book." },
     { title: "Energy from the alcohols", question: "How does the measured enthalpy of combustion change along the alcohol series?", how: "Methanol (1 carbon) to pentan-1-ol (5); heat 100 g of water by 20 °C in a copper can 2 cm above the flame, with a draught screen. Theory: data-book ΔHc.", xLabel: "carbon atoms in the alcohol", yLabel: "ΔHc (kJ/mol)", xs: [1, 2, 3, 4, 5], reps: 4, fit: true, theory: n => -726 - 651 * (n - 1), theoryLabel: "data book", run: (x, r) => fuelRun({ n: x, screen: true, height: 2 }, r).dHc, note: "Both lines are straight, because each alcohol has one more CH₂ than the last, but the measured values are less than half of the data book: most of the heat never reaches the water." },
+    { lvl: "adv", title: "Lattice energy and the size of the ions", question: "How does the Born–Haber lattice energy of the alkali halides depend on the distance between the ions?", how: "Nine alkali halides (LiF to KI); x = sum of the ionic radii; each Born–Haber value carries the uncertainty of its data (±1%).", xLabel: "r(+) + r(−) (pm)", yLabel: "lattice energy (kJ/mol)", xs: Object.keys(HALIDES).map(Number), reps: 4, theory: r => kapustinskii(r), theoryLabel: "Kapustinskii (ionic model)", run: (r, rr) => HALIDES[r][1] * (1 + 0.01 * rr.gauss()), note: "Smaller ions sit closer together and attract more strongly: the lattice energy is more exothermic. The simple ionic model follows the trend but is a little less exothermic than the real values." },
     { title: "Distance between flame and can", question: "How much of the heat reaches the water as the can is raised?", how: "Ethanol, draught screen; the can 1 to 10 cm above the wick. Efficiency = energy into the water ÷ energy the alcohol burned should release.", xLabel: "height of the can above the flame (cm)", yLabel: "efficiency (%)", xs: [1, 2, 4, 6, 8, 10], reps: 4, yMin: 0, run: (x, r) => { const q = fuelRun({ n: 2, screen: true, height: x }, r); return 100 * q.dHc / ALC[2].dHc; }, note: "The further the flame from the can, the more heat escapes into the air around it." }
   ],
   revise: {
     ideas: [
+      { lvl: "adv", tag: "9CH0 8", text: "Hess's law: the enthalpy change of a reaction is independent of the route. ΔfH from combustion data: ΔfH = Σ ΔcH(elements) − ΔcH(compound)." },
+      { lvl: "adv", tag: "9CH0 13", text: "Lattice energy: the enthalpy change when 1 mol of an ionic solid forms from its gaseous ions (always exothermic). It is more exothermic for smaller ions and higher charges." },
+      { lvl: "adv", tag: "9CH0 13", text: "Born–Haber cycle: ΔfH = ΔatH(metal) + IE(s) + ΔatH(non-metal) + EA(s) + lattice energy. A Born–Haber value more exothermic than the ionic-model value shows covalent character (polarisation of the anion)." },
       { lvl: "std", tag: "4CH1 3.1", text: "Exothermic reactions give out heat to the surroundings (ΔH negative); endothermic reactions take heat in (ΔH positive)." },
       { lvl: "std", tag: "4CH1 3.2", text: "Calorimetry: heat energy change Q = m c ΔT, with m the mass of the solution (1 cm³ ≈ 1 g) and c = 4.18 J/g/°C. Molar enthalpy change ΔH = −Q ÷ moles." },
       { lvl: "std", tag: "4CH1 3.4", text: "Practical: measure temperature changes in a polystyrene cup (dissolving, displacement, neutralisation); combustion of alcohols with a spirit burner and a can of water." },
@@ -147,14 +181,14 @@ const ui = K.app({
 <h3>Simplifications</h3>
 <ul><li>Molecules are drawn flat; bond energies are averages (the data-book ΔH is shown beside the bond-energy result).</li>
 <li>The density and specific heat capacity of every solution are taken as those of water.</li>
-<li>The earlier version also had Hess cycles and Born–Haber cycles (A level); they are not in this version.</li></ul>
+</ul><h3>Cycles (A level)</h3><ul><li>Born–Haber steps use data-book values (kJ/mol); the lattice energy is whatever closes the cycle. The theoretical (ionic model) lattice energies are data-book values too.</li><li>Kapustinskii's estimate U = 1.2025 × 10⁵ × 2 ÷ r × (1 − 34.5/r) kJ/mol (r = sum of ionic radii in pm) is shown against Born–Haber values for the alkali halides.</li><li>Hess cycles use ΔcH(C) = −394 and ΔcH(H₂) = −286 kJ/mol.</li></ul>
 <p>The earlier version of this simulation, with its worksheets, is kept in <a href="original/energy-changes.html">original/energy-changes.html</a>.</p>`
 });
 
 // ---------------- Controls ----------------
 const ctl = {}, grp = {};
 let g = ui.group("Set-up");
-ctl.mode = K.seg(g, { value: "profile", options: [["profile", "⛰ Profiles and bonds"], ["cup", "🥤 Cup"], ["fuel", "🔥 Fuels"], ["dg", "ΔG (A level)"]], on: v => set({ mode: v }) });
+ctl.mode = K.seg(g, { value: "profile", options: [["profile", "⛰ Profiles and bonds"], ["cup", "🥤 Cup"], ["fuel", "🔥 Fuels"], ["dg", "ΔG (A level)"], ["bh", "🔄 Cycles (A level)"]], on: v => set({ mode: v }) });
 grp.profile = g = ui.group("Reaction");
 ctl.rx = K.seg(g, { value: "ch4", options: Object.entries(RX).map(([k, x]) => [k, x.name]), on: v => { P.rx = v; prog = 0; } });
 ctl.cat = K.toggle(g, { label: "Add a catalyst", value: false, on: v => P.cat = v });
@@ -174,6 +208,11 @@ let rf = K.row(g); K.btn(rf, "↺ Light it again", () => newFuel(), "primary"); 
 grp.dg = g = ui.group("Feasibility (A level)");
 ctl.dg = K.seg(g, { value: "caco3", options: Object.entries(DG).map(([k, x]) => [k, x.name]), on: v => P.dg = v });
 ctl.T = K.slider(g, { label: "Temperature", min: 100, max: 2500, step: 10, value: 298, fmt: v => `${v} K (${v - 273} °C)`, on: v => P.T = v });
+grp.bh = g = ui.group("Cycles (A level)");
+ctl.cyc = K.seg(g, { value: "bh", options: [["bh", "Born–Haber"], ["hess", "Hess from combustion"]], on: v => { P.cyc = v; bhT = 0; } });
+ctl.bh = K.seg(g, { label: "Ionic compound", value: "NaCl", options: Object.keys(BH).map(k => [k, k.replace("2", "₂")]), on: v => { P.bh = v; bhT = 0; } });
+ctl.hess = K.seg(g, { label: "Compound to form", value: "eth", options: Object.entries(HESS).map(([k, x]) => [k, x.n]), on: v => { P.hess = v; bhT = 0; } });
+K.btn(K.row(g), "↺ Build it again", () => bhT = 0, "primary");
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 6, step: 0.25, value: 1, fmt: v => "× " + v, on: v => speed = v });
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
@@ -181,12 +220,12 @@ const relabel = l => l.forEach((t, i) => read.el.children[i].firstElementChild.t
 function newCup() { cup = cupRun({ rx: P.cup, conc: P.conc, cont: P.cont, stir: P.stir }, rnd); cupT = 0; }
 function newFuel() { fuel = fuelRun({ n: P.alc, screen: P.screen, height: P.height }, rnd); fuelT = 0; fuelLog = []; }
 function set(o) {
-  Object.assign(P, { rx: "ch4", cat: false, cup: "neut", conc: 1, cont: "lid", stir: true, alc: 2, screen: true, height: 2, dg: "caco3", T: 298 }, o);
-  for (const k of ["mode", "rx", "cup", "cont", "alc", "dg"]) ctl[k].set(P[k]); for (const k of ["conc", "height", "T"]) ctl[k].set(P[k]); ctl.cat.set(P.cat); ctl.stir.set(P.stir); ctl.screen.set(P.screen);
+  Object.assign(P, { rx: "ch4", cat: false, cup: "neut", conc: 1, cont: "lid", stir: true, alc: 2, screen: true, height: 2, dg: "caco3", T: 298, bh: "NaCl", cyc: "bh", hess: "eth" }, o); bhT = 0;
+  for (const k of ["mode", "rx", "cup", "cont", "alc", "dg", "cyc", "bh", "hess"]) ctl[k].set(P[k]); for (const k of ["conc", "height", "T"]) ctl[k].set(P[k]); ctl.cat.set(P.cat); ctl.stir.set(P.stir); ctl.screen.set(P.screen);
   for (const k in grp) grp[k].style.display = k === P.mode ? "" : "none"; prog = 0; auto = true; ctl.auto.set(true); newCup(); newFuel(); speed = o.speed || 1; ctl.speed.set(speed);
-  chA.opts.title = { profile: "Bond tally", cup: "Temperature against time", fuel: "Water temperature and mass of alcohol", dg: "ΔG against temperature" }[P.mode];
-  chB.opts.title = { profile: "Bond energies: bonds broken and made", cup: "Your ΔH against the data book", fuel: "Your ΔHc against the data book", dg: "ΔH and −TΔS at this temperature" }[P.mode];
-  relabel({ profile: ["bonds broken (in)", "bonds made (out)", "ΔH from bond energies", "data book"], cup: ["temperature change", "Q = m c ΔT", "ΔH (highest reading)", "ΔH (extrapolated)"], fuel: ["water temperature", "alcohol burned", "energy per gram", "ΔHc measured"], dg: ["ΔH", "TΔS", "ΔG", "feasible above"] }[P.mode]);
+  chA.opts.title = { profile: "Bond tally", cup: "Temperature against time", fuel: "Water temperature and mass of alcohol", dg: "ΔG against temperature", bh: "The steps of the cycle" }[P.mode];
+  chB.opts.title = { profile: "Bond energies: bonds broken and made", cup: "Your ΔH against the data book", fuel: "Your ΔHc against the data book", dg: "ΔH and −TΔS at this temperature", bh: "Born–Haber against the ionic model" }[P.mode];
+  relabel({ profile: ["bonds broken (in)", "bonds made (out)", "ΔH from bond energies", "data book"], cup: ["temperature change", "Q = m c ΔT", "ΔH (highest reading)", "ΔH (extrapolated)"], fuel: ["water temperature", "alcohol burned", "energy per gram", "ΔHc measured"], dg: ["ΔH", "TΔS", "ΔG", "feasible above"], bh: ["ΔfH", "sum of the other steps", "lattice energy (Hess)", "ionic model"] }[P.mode]);
 }
 
 // ---------------- Drawing ----------------
@@ -290,7 +329,29 @@ function drawDG(c, w, h) {
   const Tf = D.dH / (D.dS / 1000); T(c, Tf > 0 ? (D.dH > 0 ? `feasible above ${Tf.toFixed(0)} K` : `feasible below ${Tf.toFixed(0)} K`) : (D.dH < 0 ? "feasible at all temperatures" : "never feasible"), x0 + 3 * (bw + 30) + 10, mid + 14, "#aab6cc", "left", "13px");
   T(c, `K = e^(−ΔG/RT) = ${K.sig(Math.exp(-g0 * 1000 / (8.314 * P.T)), 3)}`, x0 + 3 * (bw + 30) + 10, mid + 38, "#aab6cc", "left", "13px");
 }
-function draw() { const c = cv.ctx, w = cv.w, h = cv.h; c.fillStyle = "#070b14"; c.fillRect(0, 0, w, h); ({ profile: drawProfile, cup: drawCup, fuel: drawFuel, dg: drawDG })[P.mode](c, w, h); }
+// an energy-level diagram: each step is an arrow up (endothermic, red) or down (exothermic, blue) from the last level
+function drawBH(c, w, h) {
+  if (P.cyc === "hess") { const H = HESS[P.hess], f = hessF(P.hess), nO2 = H.C + H.H / 4 - H.O / 2, el = `${H.C}C(s) + ${H.H / 2}H₂(g)${H.O ? ` + ${H.O === 1 ? "½" : H.O / 2}O₂(g)` : ""}`, show = Math.min(3, Math.floor(bhT)) ;
+    T(c, `Hess's law: the enthalpy of formation of ${H.n}`, 40, 40, "#eef2f8", "left", "600 15px");
+    const A = [w * 0.2, 140], B = [w * 0.68, 140], C2 = [w * 0.44, h - 90];
+    T(c, el, A[0], A[1], "#eef2f8", "center", "600 14px"); T(c, H.f + (H.O ? "(l)" : "(g)"), B[0], B[1], "#eef2f8", "center", "600 14px"); T(c, `${H.C}CO₂(g) + ${H.H / 2}H₂O(l)`, C2[0], C2[1], "#eef2f8", "center", "600 14px"); T(c, `+ ${K.sig(nO2, 3)} O₂`, C2[0], C2[1] + 18, "#8fa0bf", "center", "11.5px");
+    const arr = (p, q, col, lab, on) => { if (!on) return; c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 2.5; const x1 = p[0], y1 = p[1] + 12, x2 = q[0], y2 = q[1] - 22; c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); const a = Math.atan2(y2 - y1, x2 - x1); c.beginPath(); c.moveTo(x2, y2); c.lineTo(x2 - 11 * Math.cos(a - .4), y2 - 11 * Math.sin(a - .4)); c.lineTo(x2 - 11 * Math.cos(a + .4), y2 - 11 * Math.sin(a + .4)); c.fill(); c.lineWidth = 1; T(c, lab, (x1 + x2) / 2 + (x2 < x1 ? 14 : -14), (y1 + y2) / 2, col, x2 < x1 ? "left" : "right", "600 12.5px"); };
+    arr(A, C2, "#6fb1ff", `ΔcH(elements) = ${H.C}(−394) + ${H.H / 2}(−286) = ${H.C * -394 + H.H / 2 * -286}`, show >= 1); arr(B, C2, "#6fb1ff", `ΔcH(${H.n}) = ${H.dc}`, show >= 2);
+    if (show >= 3) { c.strokeStyle = "#ffd166"; c.fillStyle = "#ffd166"; c.lineWidth = 2.5; c.beginPath(); c.moveTo(A[0] + 110, A[1] - 5); c.lineTo(B[0] - 50, B[1] - 5); c.stroke(); c.beginPath(); c.moveTo(B[0] - 50, B[1] - 5); c.lineTo(B[0] - 61, B[1] - 10); c.lineTo(B[0] - 61, B[1]); c.fill(); c.lineWidth = 1; T(c, `ΔfH = ?`, (A[0] + B[0]) / 2 + 30, A[1] - 16, "#ffd166", "center", "600 13px"); }
+    if (show >= 3) { T(c, `ΔfH = ΔcH(elements) − ΔcH(${H.n})`, 40, h - 40, "#ffd166", "left", "600 13px"); T(c, `= ${H.C * -394 + H.H / 2 * -286} − (${H.dc}) = ${f} kJ/mol   (data book ${H.book})`, 40, h - 20, "#ffd166", "left", "13px"); }
+    return; }
+  const st = bhSteps(P.bh), B = BH[P.bh], n = Math.min(st.length + 1, Math.floor(bhT)); let lv = [0]; st.forEach(q => lv.push(lv[lv.length - 1] + q[1]));
+  const hi = Math.max(...lv), lo = Math.min(...lv, B.f), top = 50, bot = h - 40, Y = e => top + (hi - e) / (hi - lo) * (bot - top), x0 = 60, dx = Math.min(70, (w * 0.6) / (st.length + 1));
+  T(c, `Born–Haber cycle for ${B.st[1]}`, 20, 26, "#eef2f8", "left", "600 15px");
+  const lvl = (e, x, lab, col = "#cfd8ea") => { c.strokeStyle = col; c.lineWidth = 2; c.beginPath(); c.moveTo(x - 30, Y(e)); c.lineTo(x + 30, Y(e)); c.stroke(); c.lineWidth = 1; T(c, lab, x + 36, Y(e) + 4, "#aab6cc", "left", "11.5px"); };
+  lvl(0, x0, B.st[0]); for (let i = 0; i < Math.min(n, st.length); i++) { const x = x0 + (i + 1) * dx, e0 = lv[i], e1 = lv[i + 1], up = e1 > e0, col = up ? "#ff8a70" : "#6fb1ff", last = i === st.length - 1;
+    c.strokeStyle = col; c.fillStyle = col; c.lineWidth = last ? 3 : 2; c.beginPath(); c.moveTo(x, Y(e0)); c.lineTo(x, Y(e1)); c.stroke(); c.beginPath(); c.moveTo(x, Y(e1)); c.lineTo(x - 6, Y(e1) + (up ? 10 : -10)); c.lineTo(x + 6, Y(e1) + (up ? 10 : -10)); c.fill(); c.lineWidth = 1;
+    c.strokeStyle = "rgba(255,255,255,.25)"; c.beginPath(); c.moveTo(x - dx, Y(e0)); c.lineTo(x, Y(e0)); c.stroke(); T(c, (st[i][1] > 0 ? "+" : "") + st[i][1].toFixed(0), x + 5, (Y(e0) + Y(e1)) / 2, col, "left", last ? "600 13px" : "600 11.5px"); }
+  if (n >= st.length) { const xf = x0 + (st.length + 1) * dx; c.strokeStyle = "#ffd166"; c.fillStyle = "#ffd166"; c.lineWidth = 2; c.beginPath(); c.moveTo(x0 + 20, Y(0)); c.lineTo(xf, Y(0)); c.lineTo(xf, Y(B.f)); c.stroke(); c.beginPath(); c.moveTo(xf, Y(B.f)); c.lineTo(xf - 6, Y(B.f) - 10); c.lineTo(xf + 6, Y(B.f) - 10); c.fill(); c.lineWidth = 1; T(c, `ΔfH = ${B.f}`, xf + 8, (Y(0) + Y(B.f)) / 2, "#ffd166", "left", "600 12px"); T(c, B.st[1], xf - 40, Y(B.f) + 18, "#eef2f8", "left", "600 12px"); }
+  let y = 70; const tx = w * 0.66; st.forEach((q, i) => { if (i < n) { y = (() => { T(c, `${q[0]}`, tx, y, i === st.length - 1 ? "#ffd166" : "#cfd8ea", "left", "11.5px"); T(c, `${q[1] > 0 ? "+" : ""}${q[1].toFixed(0)} kJ/mol`, tx, y + 14, q[1] > 0 ? "#ff8a70" : "#6fb1ff", "left", "600 11.5px"); return y + 34; })(); } });
+  if (n >= st.length) { T(c, `Lattice energy = ΔfH − (sum of the other steps)`, tx, y + 6, "#eef2f8", "left", "600 12px"); T(c, `= ${B.f} − (${(B.f - latticeE(P.bh)).toFixed(0)}) = ${latticeE(P.bh).toFixed(0)} kJ/mol`, tx, y + 22, "#ffd166", "left", "600 12px"); T(c, `ionic model: ${B.theory} kJ/mol (${(100 * (latticeE(P.bh) / B.theory - 1)).toFixed(0)}% different)`, tx, y + 40, "#aab6cc", "left", "11.5px"); }
+}
+function draw() { const c = cv.ctx, w = cv.w, h = cv.h; c.fillStyle = "#070b14"; c.fillRect(0, 0, w, h); ({ profile: drawProfile, cup: drawCup, fuel: drawFuel, dg: drawDG, bh: drawBH })[P.mode](c, w, h); }
 let dragging = false;
 K.pointer(cv.el, { down(p) { if (P.mode === "profile" && geoP && p.x > geoP.x0 && p.x < geoP.x1 + 20) { dragging = true; auto = false; ctl.auto.set(false); prog = K.clamp((p.x - geoP.x0) / (geoP.x1 - geoP.x0), 0, 1); } }, drag(p) { if (dragging) prog = K.clamp((p.x - geoP.x0) / (geoP.x1 - geoP.x0), 0, 1); }, up() { dragging = false; } });
 
@@ -301,6 +362,7 @@ ui.run(dt => {
   if (P.mode === "profile" && auto) { prog += dt * speed * 0.18; if (prog > 1.25) prog = 0; }
   if (P.mode === "cup") cupT = Math.min(cup.trace.length * 0.05, cupT + dt * speed * 1.2);
   if (P.mode === "fuel") fuelT = Math.min(1, fuelT + dt * speed / 12);
+  if (P.mode === "bh") bhT = Math.min(20, bhT + dt * speed * 0.8);
 }, () => {
   draw(); if (frame++ % 5) return; const pr = Math.min(1, prog);
   if (P.mode === "profile") {
@@ -330,6 +392,15 @@ ui.run(dt => {
     chB.draw([{ pts: ALC.slice(1).map((a, i) => [i + 1, a.dHc]), color: "#7d8aa5", dash: [5, 4], label: "data book" }, { pts: fuelRuns, type: "dots", color: "#ffd166", r: 5, label: "your results" }], { xMin: 0.5, xMax: 5.5 });
     read.set("a", (20 + 20 * frac).toFixed(1) + " °C"); read.set("b", (f.mass * frac).toFixed(2) + " g"); read.set("c", frac >= 1 ? f.perG.toFixed(1) + " kJ/g" : "…"); read.set("d", frac >= 1 ? f.dHc.toFixed(0) + " kJ/mol" : "…");
     ui.hud(`${A.name}: data book ${A.dHc} kJ/mol<br>${P.screen ? "draught screen up" : "<b>no draught screen</b>"}`);
+  } else if (P.mode === "bh") {
+    chA.opts.xFmt = null; chB.opts.xFmt = null;
+    if (P.cyc === "bh") { const st = bhSteps(P.bh); chA.opts.title = "The steps of the cycle"; chB.opts.title = "Born–Haber against the ionic model"; chA.opts.xLabel = "step"; chA.opts.yLabel = "ΔH (kJ/mol)"; chA.opts.xFmt = whole(v => String(v)); chA.draw([{ pts: st.map((q, i) => [i + 1, q[1]]).filter(p => p[1] > 0), type: "bars", w: 0.6, color: "#ff8a70", label: "endothermic" }, { pts: st.map((q, i) => [i + 1, q[1]]).filter(p => p[1] <= 0), type: "bars", w: 0.6, color: "#6fb1ff", label: "exothermic" }], { xMin: 0.4, xMax: st.length + 0.6 });
+      const ks = Object.keys(BH); chB.opts.xLabel = "compound"; chB.opts.yLabel = "lattice energy (kJ/mol)"; chB.opts.xFmt = whole(v => (ks[v - 1] || "").replace("2", "₂")); chB.draw([{ pts: ks.map((k, i) => [i + 1, BH[k].theory]), type: "dots", r: 5, color: "#8fa0bf", label: "ionic model" }, { pts: ks.map((k, i) => [i + 1, latticeE(k)]), type: "dots", r: 5, color: "#ffd166", label: "Born–Haber" }], { xMin: 0.5, xMax: ks.length + 0.5 });
+      relabel(["ΔfH", "sum of the other steps", "lattice energy (Hess)", "ionic model"]); const B = BH[P.bh]; read.set("a", B.f + " kJ/mol"); read.set("b", (B.f - latticeE(P.bh)).toFixed(0) + " kJ/mol"); read.set("c", latticeE(P.bh).toFixed(0) + " kJ/mol"); read.set("d", B.theory + " kJ/mol");
+      ui.hud("ΔfH = atomisation + ionisation + atomisation + electron affinity + <b>lattice energy</b>"); }
+    else { const ks = Object.keys(HESS); chA.opts.title = "ΔfH from Hess cycles"; chA.opts.xLabel = "compound"; chA.opts.yLabel = "ΔfH (kJ/mol)"; chA.opts.xFmt = whole(v => (HESS[ks[v - 1]] || { n: "" }).n); chA.draw([{ pts: ks.map((k, i) => [i + 1, hessF(k)]), type: "bars", w: 0.5, color: "#ffd166", label: "from the Hess cycle" }, { pts: ks.map((k, i) => [i + 1, HESS[k].book]), type: "dots", r: 5, color: "#7fe3a0", label: "data book" }], { xMin: 0.4, xMax: ks.length + 0.6 });
+      chB.opts.title = "Combustion enthalpies used"; chB.opts.xLabel = ""; chB.opts.yLabel = "ΔcH (kJ/mol)"; chB.opts.xFmt = whole(v => ["", "C", "H₂", HESS[P.hess].f][v] || ""); chB.draw([{ pts: [[1, -394], [2, -286], [3, HESS[P.hess].dc]], type: "bars", w: 0.5, color: "#6fb1ff", label: "" }], { xMin: 0.4, xMax: 3.6 });
+      relabel(["Σ ΔcH(elements)", "ΔcH(compound)", "ΔfH (Hess)", "data book"]); const H = HESS[P.hess]; read.set("a", (H.C * -394 + H.H / 2 * -286) + " kJ/mol"); read.set("b", H.dc + " kJ/mol"); read.set("c", hessF(P.hess) + " kJ/mol"); read.set("d", H.book + " kJ/mol"); ui.hud("The enthalpy change is the same by either route"); }
   } else {
     const D = DG[P.dg], pts = []; for (let T2 = 100; T2 <= 2500; T2 += 20) pts.push([T2, dG(P.dg, T2)]);
     chA.opts.xFmt = null; chB.opts.xFmt = null; chA.opts.xLabel = "temperature (K)"; chA.opts.yLabel = "ΔG (kJ/mol)"; chB.opts.xLabel = "temperature (K)"; chB.opts.yLabel = "kJ/mol";
@@ -338,7 +409,8 @@ ui.run(dt => {
     const Tf = D.dH / (D.dS / 1000); read.set("a", (D.dH > 0 ? "+" : "") + D.dH + " kJ/mol"); read.set("b", (P.T * D.dS / 1000).toFixed(1) + " kJ/mol"); read.set("c", dG(P.dg, P.T).toFixed(1) + " kJ/mol"); read.set("d", Tf > 0 ? Tf.toFixed(0) + " K" : "—");
     ui.hud(`ΔG = ΔH − TΔS = <b>${dG(P.dg, P.T).toFixed(1)}</b> kJ/mol`);
   }
-  ctl.mode.el.querySelectorAll("button")[3].style.display = ui.level === "adv" ? "" : "none"; if (ui.level !== "adv" && P.mode === "dg") set({ mode: "profile" });
+  ctl.mode.el.querySelectorAll("button")[3].style.display = ui.level === "adv" ? "" : "none"; ctl.mode.el.querySelectorAll("button")[4].style.display = ui.level === "adv" ? "" : "none"; if (ui.level !== "adv" && (P.mode === "dg" || P.mode === "bh")) set({ mode: "profile" });
+  ctl.bh.el.style.display = P.cyc === "bh" ? "" : "none"; ctl.hess.el.style.display = P.cyc === "hess" ? "" : "none";
 });
 set({});
 ui.tip("Watch the bonds break and form as the ball rolls over the hump · drag the ball yourself, or switch set-ups at the top of the controls", 8000);
