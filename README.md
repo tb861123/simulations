@@ -300,6 +300,7 @@ structures and earthquakes are in the Engineering section.
 |---|---|---|
 | [`design_technology/materials_properties/`](design_technology/materials_properties/) | Materials ★: tensile tests of 17 materials, stress, strain, Young's modulus, yield, UTS, ductility, toughness, work hardening and annealing, design briefs, factor of safety, selection charts | Open `materials-properties.html` |
 | [`design_technology/manufacturing_processes/`](design_technology/manufacturing_processes/) | Manufacturing ★: 3D printing, laser cutting, CNC, vacuum forming, injection moulding, tooling and cost per unit, scales of production, break-even quantity, tolerances, rejects, control charts, Cpk | Open `manufacturing-processes.html` |
+| [`design_technology/ergonomics_anthropometrics/`](design_technology/ergonomics_anthropometrics/) | Ergonomics ★: anthropometric data, percentiles, normal distribution, clearance, reach and adjustability, mixed populations, children, small surveys against published data | Open `ergonomics-anthropometrics.html` |
 
 ## Religion, Philosophy and Ethics
 
