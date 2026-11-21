@@ -118,6 +118,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["voting_paradoxes.js", "voting_paradoxes", "voting-paradoxes.html", "Voting Paradoxes and the Median Voter", "politics"],
   ["gerrymandering.js", "gerrymandering", "gerrymandering.html", "Gerrymandering and District Maps", "politics"],
   ["materials_properties.js", "materials_properties", "materials-properties.html", "Materials: Properties and Selection", "design_technology"],
+  ["manufacturing_processes.js", "manufacturing_processes", "manufacturing-processes.html", "Manufacturing Processes and Quality", "design_technology"],
   ["training_adaptation.js", "training_adaptation", "training-adaptation.html", "Training and Adaptation", "physical_education"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
