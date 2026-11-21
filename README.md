@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and forty-one simulations are built with the shared toolkit (the
+All one hundred and forty-two simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and thirty-seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
@@ -332,6 +332,7 @@ Standard level follows Cambridge International AS Level Computer Science (9618, 
 | Folder | What it is | How to run |
 |---|---|---|
 | [`computing/sorting_algorithms/`](computing/sorting_algorithms/) | Sorting Algorithms: bubble and insertion sort with highlighted pseudocode (9618 style), merge sort and quick sort, comparison and move counters, random/nearly sorted/reversed data, a race, and Big O curves (Cambridge 9618) | Open `sorting-algorithms.html` |
+| [`computing/searching_and_hashing/`](computing/searching_and_hashing/) | Searching and Hashing: linear and binary search animated with comparison counts and O(n) against O(log n); hash tables (A Level) with key MOD size, collisions, linear probing and chaining, probes against load factor, and the birthday problem (Cambridge 9618) | Open `searching-and-hashing.html` |
 
 ## Where the old repositories went
 
