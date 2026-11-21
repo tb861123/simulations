@@ -44,6 +44,19 @@ arousal_performance, stellar_life_cycle, inheritance, simple_harmonic_motion,
 membranes, antibiotic_resistance, exoplanet_hunting, reactivity_metals,
 youngs_modulus, nuclear_fusion, states_of_matter, circular_motion, crystallisation, atomic_structure, periodic_groups, dna_cell_division, ecosystems, homeostasis, aerofoil_flow, ice_albedo, carbon_cycle, dark_matter, expanding_universe, planet_formation, taxes_price_controls, labour_market, circular_flow, sport_biomechanics, fitness_testing, skill_acquisition, atomic_spectra, nuclear_fission, particle_physics, acids_salts_tests, chromatography, moles_reacting_masses, immunity, plant_transport, biotechnology, inside_sound, strings, air_columns, build_timbre, pitch_intervals, rhythm_metre, sea_level_rise, weather_chaos, river_landforms, trade_exchange_rates, inequality, electrochemical_cells, capacitors, magnetism_induction, heating_insulation.
 
+## Sound
+
+Pass `sound: "what you will hear"` to `K.app` to add a 🔇/🔊 button to the
+header. Sound starts off on every page load. Then call the shared helper anywhere:
+`K.sound.tone(freq, { dur, vol, type, at, glide })`, `K.sound.noise({ dur,
+vol, filter, freq, sweep, at })`, `K.sound.click()`, or `const h =
+K.sound.hum(); h.set(freq, vol)` every frame for a continuous tone (it fades
+by itself if not updated). All of these do nothing while sound is off, so
+batch runs and worksheet generation stay silent. `K.sound.on` says whether
+it is on. Used by Gas in a Box, Simple Harmonic Motion, Lightning and Nerve
+Impulse; the music pages, Heart and Circulation, Radioactive Decay and
+Chladni Plates have their own Play buttons or sound switches.
+
 ## Levels and the Revise tab
 
 Pass `levels: { std, adv, specs: { std, adv } }` to `K.app` for a Standard /

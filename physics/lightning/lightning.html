@@ -420,6 +420,51 @@ const K = (() => {
     return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
   }
   function openDoc(html, name) { const w = window.open("", "_blank"); if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(name, html); }
+  // ---- Sound (Web Audio). Pages that ask for it (app option `sound`) get a 🔇/🔊 button in the header.
+  //      It is OFF until someone presses it, so a room full of laptops stays quiet; nothing plays while it is off.
+  //      tone(f, {dur, vol, type, at, glide}) plays a note; noise({dur, vol, filter, freq, at}) a hiss, thump or rumble;
+  //      click() a Geiger-style tick; hum() a continuous tone you retune every frame (it fades out if not updated). ----
+  const sound = (() => {
+    let ctx = null, master = null, on = false, buf = null; const live = new Set(), hums = [], fns = [];
+    const ready = () => on && ctx && ctx.state === "running";
+    async function enable(v) {
+      on = !!v;
+      if (on) { try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (!master) { master = ctx.createGain(); master.gain.value = 0.7; master.connect(ctx.destination); } await ctx.resume(); } catch (e) { on = false; } }
+      else stop();
+      fns.forEach(f => f(on));
+    }
+    const track = n => { live.add(n); n.onended = () => live.delete(n); };
+    function tone(f, o = {}) {
+      if (!ready() || !(f > 15) || f > ctx.sampleRate / 2) return;
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.3, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.008, dur / 2);
+      const osc = ctx.createOscillator(), g = ctx.createGain(); osc.type = o.type || "sine"; osc.frequency.setValueAtTime(f, t); if (o.glide) osc.frequency.exponentialRampToValueAtTime(Math.max(16, o.glide), t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      osc.connect(g); g.connect(master); osc.start(t); osc.stop(t + dur + 0.02); track(osc);
+    }
+    function noise(o = {}) {
+      if (!ready()) return;
+      if (!buf) { buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.2, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.004, dur / 2);
+      const src = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain(); src.buffer = buf; src.loop = true;
+      fl.type = o.filter || "lowpass"; fl.frequency.value = o.freq || 1000; if (o.sweep) fl.frequency.exponentialRampToValueAtTime(o.sweep, t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      src.connect(fl); fl.connect(g); g.connect(master); src.start(t, Math.random()); src.stop(t + dur + 0.02); track(src);
+    }
+    const click = (o = {}) => noise({ dur: 0.012, vol: o.vol == null ? 0.5 : o.vol, filter: "highpass", freq: 1800, at: o.at });
+    function hum(type = "sine") {
+      let osc = null, g = null, last = 0;
+      const h = {
+        set(f, vol = 0.15) { if (!ready()) { h.kill(); return; } if (!osc) { osc = ctx.createOscillator(); g = ctx.createGain(); osc.type = type; g.gain.value = 0; osc.connect(g); g.connect(master); osc.start(); } const t = ctx.currentTime; osc.frequency.setTargetAtTime(Math.max(16, f), t, 0.02); g.gain.setTargetAtTime(vol, t, 0.04); last = performance.now(); },
+        kill() { if (osc) { try { g.gain.setTargetAtTime(0, ctx.currentTime, 0.03); osc.stop(ctx.currentTime + 0.25); } catch (e) { } osc = null; } },
+        stale() { return osc && performance.now() - last > 250; }
+      };
+      hums.push(h); return h;
+    }
+    function stop() { for (const n of live) { try { n.stop(); } catch (e) { } } live.clear(); hums.forEach(h => h.kill()); }
+    setInterval(() => hums.forEach(h => { if (h.stale()) h.kill(); }), 200);    // a hum nobody is updating (paused, other view) fades away
+    document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); });
+    return { enable, ready, tone, noise, click, hum, stop, get on() { return on; }, onChange: f => fns.push(f) };
+  })();
   function app(o) {
     document.title = o.title + " · Science Simulations";
     const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
@@ -440,6 +485,7 @@ const K = (() => {
     if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
     if (o.reset) btn(act, "↺ Reset", () => o.reset());
     if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
+    if (o.sound) { const bS = btn(act, "🔇 Sound", () => sound.enable(!sound.on)); bS.title = typeof o.sound === "string" ? o.sound : "Turn sound on or off (off to start with)"; sound.onChange(v => { bS.innerHTML = v ? "🔊 Sound" : "🔇 Sound"; bS.classList.toggle("primary", v); }); }
     btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
     btn(act, "⛶", () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).title = "Full screen";
     addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
@@ -543,7 +589,7 @@ const K = (() => {
     K_last = ui;
     return ui;
   }
-  return { $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app, worksheetDoc, batchSummary, get ui() { return K_last; } };
+  return { sound, $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app, worksheetDoc, batchSummary, get ui() { return K_last; } };
 })();
 </script>
 <script>
@@ -635,7 +681,7 @@ class Storm {
 const NX = 188, NY = 96;
 let rand = K.rng(11), storm = new Storm(NX, NY);
 let speed = 6, show = "field", tool = "rod", auto = true, startMode = "random", startX = NX / 2, rain = true;
-let phase = "leader", phaseT = 0, flash = 0, strokePath = [], log = [], objects = [];
+let listenKm = 2, phase = "leader", phaseT = 0, flash = 0, strokePath = [], log = [], objects = [];
 const KIND = { rod: "lightning rod", tower: "tower", tree: "tree", house: "house", person: "person" };
 const PRESETS = {
   field: [],
@@ -650,6 +696,7 @@ function begin() { phase = "leader"; phaseT = 0; strokePath = []; storm.start(st
 
 const ui = K.app({
   title: "Lightning", subject: "Physics",
+  sound: "Sound: thunder from each strike, arriving about 3 seconds per kilometre after the flash (sound travels at 343 m/s; light is almost instant)",
   blurb: "A branching bolt grown from three rules: voltage, field, and chance",
   reset: () => { load("field"); ctl.eta.set(2, true); },
   missions: [
@@ -694,6 +741,17 @@ ctl.speed = K.slider(g, { label: "Leader speed", min: 1, max: 30, step: 1, value
 ctl.startMode = K.seg(g, { label: "Leader sets off from", value: "random", options: [["random", "Anywhere"], ["fixed", "One point"]], on: v => { startMode = v; if (v === "fixed") ui.tip("Click in the cloud to choose where the leader starts", 5000); begin(); }, tip: "With 'One point', click the cloud to move it." });
 ctl.auto = K.toggle(g, { label: "Keep striking", value: true, on: v => auto = v });
 let r1 = K.row(g); K.btn(r1, "⚡ Strike now", () => { begin(); ui.setPlaying(true); }, "primary"); K.btn(r1, "Clear tally", () => { log = []; tally(); });
+g = ui.group("Thunder (🔊 Sound on)");
+ctl.dist = K.slider(g, { label: "You are watching from", min: 0.3, max: 10, step: 0.1, value: 2, unit: "km", on: v => listenKm = v });
+// The flash reaches you almost at once; the sound of the thunder travels at 343 m/s, so it arrives d ÷ 343 seconds later.
+// Far-off thunder is quieter and deeper: the air absorbs high frequencies more than low ones.
+function thunder() {
+  const delay = listenKm * 1000 / 343, near = 1 / (1 + listenKm);
+  if (K.sound.on) ui.tip(`Flash! Thunder in ${delay.toFixed(1)} s (${listenKm} km × about 3 s per km)`, Math.min(9000, delay * 1000 + 1500));
+  if (listenKm < 1.5) K.sound.noise({ at: delay, dur: 0.25, vol: 0.5 * near, filter: "highpass", freq: 900 });
+  K.sound.noise({ at: delay, dur: 2.5 + listenKm * 0.4, vol: 0.9 * near + 0.08, filter: "lowpass", freq: 900 / (1 + listenKm * 0.5), sweep: 70, attack: 0.05 });
+  K.sound.noise({ at: delay + 0.4 + Math.random() * 0.6, dur: 2, vol: 0.5 * near + 0.05, filter: "lowpass", freq: 300, sweep: 60, attack: 0.2 });
+}
 g = ui.group("What to show");
 ctl.show = K.seg(g, { value: "field", options: [["none", "Storm only"], ["volt", "Voltage lines"], ["field", "Field strength"]], on: v => show = v });
 K.toggle(g, { label: "Rain", value: true, on: v => rain = v });
@@ -787,7 +845,7 @@ ui.run(dt => {
       const s = storm.grow(rand, 5);
       if (s) { // contact: trace the winning route back up to the cloud
         strokePath = []; for (let c = s.cell; c >= 0; c = storm.parent[c]) strokePath.push(c);
-        phase = "stroke"; phaseT = 0; flash = 1; log.push({ x: s.x, tag: s.tag }); tally(); read.set("last", nameOf(s.tag));
+        phase = "stroke"; phaseT = 0; flash = 1; thunder(); log.push({ x: s.x, tag: s.tag }); tally(); read.set("last", nameOf(s.tag));
       }
     }
   } else if (phase === "stroke") { if (phaseT > 0.12) { flash = Math.max(flash, 0.8); } if (phaseT > 0.3) { phase = "glow"; phaseT = 0; } }

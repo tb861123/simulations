@@ -50,6 +50,23 @@ mean, spread and standard error. Results can be downloaded as CSV. Each
 simulation has ready-made batch experiments that pose a question, such as
 "Does pV = NkT hold?", and a note on why the results scatter around the theory.
 
+## Sound
+
+Simulations where hearing helps can play sound (Web Audio, nothing to
+install). Sound is always **off when a page opens**, so a room of laptops
+stays quiet: press the play or sound button to hear it. Use headphones in class.
+
+- **Music** (all six): every note, chord, timbre and rhythm plays with ▶ Play.
+- **Gas in a Box**: ticks for molecules hitting the walls (busier = higher pressure).
+- **Simple Harmonic Motion**: a light-gate beep once per period.
+- **Lightning**: thunder arriving about 3 s per km after the flash.
+- **Nerve Impulse**: an audio monitor that pops as each impulse passes electrode B.
+- **Heart and Circulation** (heart sounds), **Radioactive Decay** (Geiger
+  clicks) and **Chladni Plates** (the plate's note) have their own sound switch.
+
+Kit pages turn this on with the `sound` option (a 🔇/🔊 button in the header)
+and the shared `K.sound` helper: see `tools/kit/README.md`.
+
 ## Worksheets
 
 Every simulation has a `worksheets.html` beside it: printable A4 sheets

@@ -83,7 +83,7 @@ function measure(o, amp = 400, dur = 0.5, second) {
 // ---------------------------------------------------------------- page
 let ax = new Axon(), slow = 0.06, ea = 45, eb = 125, stimX = 2, rec, cross, ions = [], burst = [], lastTermV = VREST; const S = {};
 const ui = K.app({
-  title: "Nerve Impulse", subject: "Medicine", blurb: "The Hodgkin–Huxley equations, live: fire an axon, block it, myelinate it, damage it.",
+  title: "Nerve Impulse", subject: "Medicine", sound: "Sound: an audio monitor on electrode B pops each time an impulse passes it, as in a physiology lab", blurb: "The Hodgkin–Huxley equations, live: fire an axon, block it, myelinate it, damage it.",
   reset: () => { fresh(); },
   missions: [
     { title: "All or nothing", q: "Lower the <b>stimulus strength</b> and press Stimulate each time. Find the threshold. Then go well above it: does a bigger stimulus give a bigger impulse?", hint: "Below threshold nothing travels: the little bump dies away. Above it, the spike is the same height (about +40 mV) however hard you push. Strength of a sensation is coded by how <i>often</i> a nerve fires, never by spike size.", setup: () => { fresh(); S.amp.set(80, true); fire(); } },
@@ -209,7 +209,7 @@ ui.run(() => {
   acc += slow; while (acc >= 0.01) {
     acc -= 0.01; const a0 = ax.V[ea], b0 = ax.V[eb]; ax.step(0.01);
     if (a0 < -20 && ax.V[ea] >= -20) { cross.ta = ax.t; if (cross.tb != null && cross.ta > cross.tb) cross.v = Math.abs(eb - ea) * DX / (cross.ta - cross.tb) * 10; }
-    if (b0 < -20 && ax.V[eb] >= -20) { cross.tb = ax.t; if (cross.ta != null && cross.tb > cross.ta) cross.v = Math.abs(eb - ea) * DX / (cross.tb - cross.ta) * 10; }
+    if (b0 < -20 && ax.V[eb] >= -20) { K.sound.noise({ dur: 0.035, vol: 0.45, filter: "bandpass", freq: 700 }); cross.tb = ax.t; if (cross.ta != null && cross.tb > cross.ta) cross.v = Math.abs(eb - ea) * DX / (cross.tb - cross.ta) * 10; }
     if (ax.V[eb] > cross.pk) cross.pk = ax.V[eb];
     if (Math.round(ax.t * 100) % 5 === 0) { const t = ax.t; rec.a.push([t, ax.V[ea]]); rec.b.push([t, ax.V[eb]]); rec.m.push([t, ax.m[ea]]); rec.h.push([t, ax.h[ea]]); rec.n.push([t, ax.n[ea]]); for (const k in rec) if (rec[k].length > 640) rec[k].shift(); }
   }
