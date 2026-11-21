@@ -6,7 +6,7 @@
 // Needs Playwright (the same Chromium the tests use).
 const fs = require("fs"), path = require("path"), { chromium } = require("playwright");
 const src = fs.readFileSync(path.join(__dirname, "build.js"), "utf8");
-const SIMS = [...src.matchAll(/\["([a-z_]+)\.js", "([a-z_]+)", "([a-z-]+\.html)", "[^"]*", "([a-z_]+)"\]/g)].map(m => ({ folder: m[2], file: m[3], subject: m[4] }));
+const SIMS = [...src.matchAll(/\["([a-z_0-9]+)\.js", "([a-z_0-9]+)", "([a-z0-9-]+\.html)", "[^"]*", "([a-z_]+)"\]/g)].map(m => ({ folder: m[2], file: m[3], subject: m[4] }));
 const want = process.argv.slice(2), list = want.length ? SIMS.filter(s => want.includes(s.folder)) : SIMS;
 (async () => {
   const b = await chromium.launch(); let next = 0;
