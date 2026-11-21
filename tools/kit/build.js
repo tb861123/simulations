@@ -107,6 +107,9 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["coasts.js", "coasts", "coasts.html", "Coasts", "climate"],
   ["glaciers.js", "glaciers", "glaciers.html", "Glaciers", "climate"],
   ["slopes_landslides.js", "slopes_landslides", "slopes-landslides.html", "Weathering, Slopes and Landslides", "climate"],
+  ["density_pressure.js", "density_pressure", "density-pressure.html", "Density and Pressure", "physics"],
+  ["energy_resources.js", "energy_resources", "energy-resources.html", "Energy Resources and Electricity", "physics"],
+  ["fieldwork_sampling.js", "fieldwork_sampling", "fieldwork-sampling.html", "Fieldwork: Sampling and Statistics", "climate"],
   ["training_adaptation.js", "training_adaptation", "training-adaptation.html", "Training and Adaptation", "physical_education"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");

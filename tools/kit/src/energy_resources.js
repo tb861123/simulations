@@ -1,0 +1,359 @@
+/* =====================================================================
+   ENERGY RESOURCES AND ELECTRICITY
+   Most power stations turn a turbine that turns a generator: fuel (coal,
+   gas, biomass) or uranium heats water to steam; wind, water and waves
+   push the turbine directly; solar cells skip the turbine altogether.
+   EFFICIENCY = useful energy out ÷ energy in; each stage wastes some,
+   mostly as heat, and a Sankey diagram shows where it goes.
+   Wind and solar are renewable and low-carbon but vary with the weather;
+   gas, coal and biomass can be turned up when needed but emit CO₂;
+   nuclear is low-carbon and steady. The National Grid must match supply
+   to demand every second.
+   Electricity is sent at high voltage: for the same power P = IV, a
+   higher voltage means a smaller current, and the power wasted heating
+   the cables is I²R, so 10 × the voltage gives 1/100 of the loss.
+   A wind turbine's power ∝ v³: the air's mass per second (ρAv) times
+   its kinetic energy per kg (½v²): P = ½ρAv³.
+   ===================================================================== */
+const RHO_AIR = 1.225, clamp = K.clamp;
+// ---------------- a. Power stations: a chain of stages, each with an efficiency ----------------
+// cf: capacity factor (average output ÷ maximum); co2: life-cycle g CO₂e per kWh (IPCC AR5 medians); cost: rough £/MWh (2024); land: m² per GWh a year
+const RES = {
+  coal: { n: "Coal", col: "#6b5d52", cf: 0.40, co2: 820, cost: 140, land: 15, start: "chemical energy in coal", how: "Coal burns to boil water; high-pressure steam turns a turbine, which turns a generator. Cooling towers get rid of the waste heat.", rel: "Reliable while fuel is delivered, but slow to start (hours).", stages: [["boiler", 0.88, "hot flue gases"], ["steam turbine", 0.43, "warm cooling water"], ["generator", 0.98, "heating"]] },
+  gas: { n: "Gas (CCGT)", col: "#8fa3c8", cf: 0.40, co2: 490, cost: 115, land: 1, start: "chemical energy in natural gas", how: "Combined cycle: a gas turbine (like a jet engine) turns a generator; its hot exhaust boils water for a steam turbine and a second generator.", rel: "Reliable and flexible: starts in under an hour and follows the demand.", stages: [["gas turbine + boiler", 0.93, "flue gases"], ["turbines", 0.58, "warm cooling water"], ["generators", 0.98, "heating"]] },
+  nuc: { n: "Nuclear", col: "#a86dab", cf: 0.65, co2: 12, cost: 128, land: 0.3, start: "nuclear energy in uranium", how: "Uranium-235 nuclei split (fission) in the reactor, releasing energy that boils water to make steam for a turbine and generator.", rel: "Very steady output but hard to change; long shutdowns for refuelling and repairs.", stages: [["reactor", 0.98, "heat lost"], ["steam turbine", 0.37, "warm water to the sea"], ["generator", 0.98, "heating"]] },
+  windOn: { n: "Onshore wind", col: "#76b82a", cf: 0.26, co2: 11, cost: 70, land: 100, start: "kinetic energy of the wind", how: "The wind turns the blades; a gearbox (or a direct-drive generator) turns the generator. No fuel.", rel: "Varies with the weather, from nothing on a calm day to full power in a breeze.", stages: [["blades", 0.45, "wind energy left behind the blades"], ["gearbox and generator", 0.93, "heating and sound"]] },
+  windOff: { n: "Offshore wind", col: "#2f8f3a", cf: 0.39, co2: 12, cost: 81, land: 150, start: "kinetic energy of the wind", how: "Wind turbines at sea, where the wind is stronger and steadier; cables bring the power ashore.", rel: "Windier and steadier than on land, but still varies.", stages: [["blades", 0.47, "wind energy left behind the blades"], ["generator and cables", 0.93, "heating"]] },
+  solar: { n: "Solar cells", col: "#f1af28", cf: 0.105, co2: 48, cost: 69, land: 19, start: "light energy from the Sun", how: "Solar cells turn light straight into electricity (no turbine); an inverter changes the d.c. to a.c.", rel: "Only in daylight; much less in winter and when cloudy.", stages: [["solar cells", 0.20, "reflected light and heating"], ["inverter", 0.97, "heating"]] },
+  hydro: { n: "Hydroelectric", col: "#00aec3", cf: 0.35, co2: 24, cost: 120, land: 300, start: "gravitational potential energy of water behind a dam", how: "Water from behind a dam flows down pipes and turns turbines and generators.", rel: "Switched on in seconds while there is water; few sites left in the UK.", stages: [["pipes and turbine", 0.92, "friction"], ["generator", 0.98, "heating"]] },
+  tidal: { n: "Tidal", col: "#a4cbe6", cf: 0.30, co2: 17, cost: 237, land: 40, start: "kinetic energy of tidal water", how: "Tidal streams turn underwater turbines, or a barrage lets the tide out through turbines.", rel: "Predictable years ahead, but only while the tide flows (four peaks a day).", stages: [["turbine", 0.40, "energy left in the water"], ["generator", 0.95, "heating"]] },
+  wave: { n: "Wave", col: "#5e7ce2", cf: 0.25, co2: 17, cost: 300, land: 30, start: "energy of waves", how: "Floating machines move with the waves and drive a generator.", rel: "Varies with the weather; still prototypes, damaged by storms.", stages: [["wave machine", 0.30, "energy left in the waves"], ["generator", 0.90, "heating"]] },
+  geo: { n: "Geothermal", col: "#de252a", cf: 0.85, co2: 38, cost: 140, land: 3, start: "thermal energy in hot rocks", how: "Water pumped down to hot rocks comes back hot and drives a turbine and generator.", rel: "Steady day and night; few good UK sites (one small plant in Cornwall).", stages: [["hot water to turbine", 0.14, "warm water"], ["generator", 0.96, "heating"]] },
+  bio: { n: "Biomass", col: "#53892e", cf: 0.60, co2: 230, cost: 110, land: 500, start: "chemical energy in wood pellets or crops", how: "Wood pellets, crops or waste burn (like coal) to make steam; new plants are grown to replace them.", rel: "Reliable and controllable while fuel is supplied.", stages: [["boiler", 0.88, "flue gases"], ["steam turbine", 0.44, "warm cooling water"], ["generator", 0.98, "heating"]] }
+};
+const RKEYS = Object.keys(RES);
+const effOf = k => RES[k].stages.reduce((a, s) => a * s[1], 1);   // overall efficiency = product of the stages
+
+// ---------------- b. Run Britain: match supply to demand hour by hour (merit order) ----------------
+const SEASONS = { win: { n: "winter", doy: 15, windM: 0.40, windS: 0.22, dLo: 24, dHi: 42 }, spr: { n: "spring", doy: 105, windM: 0.30, windS: 0.19, dLo: 19, dHi: 33 }, sum: { n: "summer", doy: 196, windM: 0.22, windS: 0.15, dLo: 16, dHi: 29 } };
+const DSHAPE = [0.18, 0.1, 0.05, 0.02, 0.0, 0.03, 0.2, 0.48, 0.68, 0.74, 0.74, 0.72, 0.7, 0.68, 0.66, 0.66, 0.76, 0.95, 1.0, 0.92, 0.8, 0.66, 0.5, 0.32];   // GB demand through a day
+const CO2F = { coal: 0.937, gas: 0.394, bio: 0.120, imp: 0.15 };   // tonnes CO₂ per MWh at the power station
+const GSRC = [["nuc", "Nuclear", "#a86dab"], ["hydro", "Hydro", "#00aec3"], ["wind", "Wind", "#76b82a"], ["solar", "Solar", "#f1af28"], ["batt", "Batteries", "#e83181"], ["pump", "Pumped storage", "#5e7ce2"], ["bio", "Biomass", "#53892e"], ["imp", "Imports", "#a4cbe6"], ["gas", "Gas", "#8fa3c8"], ["coal", "Coal", "#6b5d52"]];
+function solarCF(doy, h, c) {   // solar output (fraction of capacity) from the Sun's height at 52.5° N and the cloudiness c
+  const lat = 52.5 * Math.PI / 180, dec = 23.44 * Math.PI / 180 * Math.sin(2 * Math.PI * (doy - 81) / 365), ha = (h + 0.5 - 12.5) * 15 * Math.PI / 180;
+  const se = Math.sin(lat) * Math.sin(dec) + Math.cos(lat) * Math.cos(dec) * Math.cos(ha);
+  return se <= 0 ? 0 : 0.78 * Math.pow(se, 1.15) * (0.18 + 0.82 * c);
+}
+function weather(p, seed, nH) {   // wind capacity factor wanders with about 30 hours' memory; one cloudiness per day
+  const S = SEASONS[p.season], r = K.rng(seed), phi = Math.exp(-1 / 30); let z = r.gauss(); const wind = [], sol = [], cloud = [];
+  for (let d = 0; d < Math.ceil(nH / 24); d++) cloud.push(clamp(0.55 + 0.35 * r.gauss(), 0, 1));
+  for (let h = 0; h < nH; h++) { z = phi * z + Math.sqrt(1 - phi * phi) * r.gauss(); const zz = p.calm ? Math.min(z, 0) - 1.6 : z; wind.push(clamp(S.windM + S.windS * zz, 0.02, 0.92)); sol.push(solarCF(S.doy + Math.floor(h / 24), h % 24, clamp(cloud[Math.floor(h / 24)] + 0.08 * r.gauss(), 0, 1))); }
+  return { wind, sol };
+}
+function weatherAvg(p, nH) { const S = SEASONS[p.season], wind = [], sol = []; for (let h = 0; h < nH; h++) { wind.push(p.calm ? clamp(S.windM - 1.6 * S.windS, 0.02, 0.92) : S.windM); sol.push(solarCF(S.doy + Math.floor(h / 24), h % 24, 0.55)); } return { wind, sol }; }
+const demandAt = (p, h, r) => { const S = SEASONS[p.season], wk = Math.floor(h / 24) % 7 >= 5 ? 0.9 : 1; return (S.dLo + (S.dHi - S.dLo) * DSHAPE[h % 24]) * wk * (p.dscale / 100) * (1 + (r ? 0.015 * r.gauss() : 0)); };
+function gridRun(p, W, seed) {   // capacities in GW, storage in GWh, 1-hour steps
+  const nH = W.wind.length, r = seed ? K.rng(seed + 17) : null, rtB = 0.88, rtP = 0.75, battP = p.batt / 1.5, pumpP = p.pump / 9;
+  let sB = 0.5 * p.batt, sP = 0.5 * p.pump; const T = { dem: 0, unserved: 0, unservedH: 0, curt: 0, exp: 0, co2: 0 }, E = {}, rec = []; for (const [k] of GSRC) E[k] = 0;
+  for (let h = 0; h < nH; h++) {
+    const D = demandAt(p, h, r), g = {}; for (const [k] of GSRC) g[k] = 0;
+    g.nuc = 0.9 * p.nuc; g.hydro = 0.35 * p.hydro; g.wind = W.wind[h] * p.wind; g.solar = W.sol[h] * p.solar;
+    let net = D - g.nuc - g.hydro - g.wind - g.solar, exp = 0, curt = 0, uns = 0;
+    const icAvail = p.ic * (0.25 + 0.35 * Math.min(1, W.wind[h] / 0.4));          // neighbours are often calm when we are
+    if (net < 0) {   // too much: charge storage, export, then switch wind and solar off (curtail)
+      let s = -net; const cb = Math.min(s, battP, (p.batt - sB) / Math.sqrt(rtB)); sB += cb * Math.sqrt(rtB); s -= cb;
+      const cp = Math.min(s, pumpP, (p.pump - sP) / Math.sqrt(rtP)); sP += cp * Math.sqrt(rtP); s -= cp;
+      exp = Math.min(s, p.ic); s -= exp; curt = s; const cutW = Math.min(g.wind, curt); g.wind -= cutW; g.solar -= Math.min(g.solar, curt - cutW); g.batt = -cb; g.pump = -cp;
+    } else {         // not enough: stored energy, biomass, imports, gas, coal; anything left is a blackout
+      let s = net; const db = Math.min(s, battP, sB * Math.sqrt(rtB)); sB -= db / Math.sqrt(rtB); s -= db; g.batt = db;
+      const dp = Math.min(s, pumpP, sP * Math.sqrt(rtP)); sP -= dp / Math.sqrt(rtP); s -= dp; g.pump = dp;
+      g.bio = Math.min(s, 0.7 * p.bio); s -= g.bio;
+      g.imp = Math.min(s, icAvail); s -= g.imp; g.gas = Math.min(s, 0.95 * p.gas); s -= g.gas; g.coal = Math.min(s, 0.95 * p.coal); s -= g.coal; uns = Math.max(0, s);
+    }
+    T.dem += D; T.unserved += uns; if (uns > 0.01) T.unservedH++; T.curt += curt; T.exp += exp; for (const [k] of GSRC) E[k] += Math.max(0, g[k]);
+    T.co2 += 1000 * (CO2F.gas * g.gas + CO2F.coal * g.coal + CO2F.bio * g.bio + CO2F.imp * g.imp);
+    rec.push({ h, D, g, sB, sP, uns, curt, exp, cf: W.wind[h] });
+  }
+  const used = T.dem - T.unserved, gen = E.nuc + E.hydro + E.wind + E.solar + E.bio + E.gas + E.coal + E.imp;
+  T.lowC = 100 * (E.nuc + E.hydro + E.wind + E.solar + E.bio) / Math.max(1e-9, gen); T.intensity = T.co2 / Math.max(1e-9, used); T.E = E; T.nH = nH;
+  return { rec, T };
+}
+const britain = (p, seed) => gridRun(p, weather(p, seed, p.hours), seed).T.intensity;   // g CO₂ per kWh for one run of weather
+const britainAvg = (p, r, n, key) => { const b = Math.floor(r() * 1e6) * n; let s = 0; for (let k = 1; k <= n; k++) s += gridRun(p, weather(p, b + k, p.hours), b + k).T[key]; return s / n; };   // averaged over n weeks
+
+// ---------------- c. The National Grid: P = IV and I²R ----------------
+const GRIDV = [25, 66, 132, 275, 400];   // kV
+function lineLoss(P, V, L, r = 0.03) { const I = P * 1e6 / (V * 1e3), R = r * L, loss = Math.min(P, I * I * R / 1e6); return { I, R, loss, pct: 100 * loss / P, del: P - loss, melt: I * I * R / 1e6 > 0.3 * P }; }
+// the classroom model power line: 12 V supply, 6 Ω lamp, line resistance rLine; optional 1 : n and n : 1 transformers (90% each)
+function modelLine(rLine, tx, n = 20, eff = 0.9) {
+  if (!tx) { const I = 12 / (6 + rLine); return { Pl: I * I * 6, Pline: I * I * rLine, Iline: I }; }
+  const Il0 = 12 / (6 + rLine / (n * n)), Il = Il0 / n; return { Pl: Il0 * Il0 * 6 * eff * eff, Pline: Il * Il * rLine, Iline: Il };
+}
+
+// ---------------- d. Wind turbines: P = Cp ½ρAv³ ----------------
+const TURB = { cutIn: 3, cutOut: 25, cp: 0.45 };
+const ratedOf = r => Math.round(0.42 * Math.PI * r * r * 0.5 * RHO_AIR * 11.5 ** 3 / 1e5) / 10;   // MW, rated near 11.5 m/s
+const windPower = (v, r, rho = RHO_AIR) => 0.5 * rho * Math.PI * r * r * v ** 3 / 1e6;           // MW in the wind
+const turbP = (v, r, rated, rho = RHO_AIR) => v < TURB.cutIn || v > TURB.cutOut ? 0 : Math.min(rated, TURB.cp * windPower(v, r, rho));
+const weib = (v, vm) => { const c = vm / 0.8862; return (2 / c) * (v / c) * Math.exp(-((v / c) ** 2)); };   // Weibull k = 2 (Rayleigh) wind speeds
+function cfTheory(vm, r, rated) { let s = 0; for (let v = 0.05; v < 30; v += 0.1) s += turbP(v, r, rated) * weib(v, vm) * 0.1; return s / rated; }
+function cfYear(vm, r, rated, rng) {   // a year of hourly winds with persistence: the capacity factor actually achieved
+  const c = vm / 0.8862, phi = Math.exp(-1 / 20); let a = rng.gauss(), b = rng.gauss(), E = 0;
+  for (let h = 0; h < 8760; h++) { a = phi * a + Math.sqrt(1 - phi * phi) * rng.gauss(); b = phi * b + Math.sqrt(1 - phi * phi) * rng.gauss(); E += turbP(c * Math.sqrt((a * a + b * b) / 2), r, rated); }
+  return E / (8760 * rated);
+}
+// the model-turbine practical: blades 15 cm, Cp 0.20, 60% electrical, 10 Ω load; anemometer ±3%, output ±6%, meters 0.01 V and 1 mA
+const MODEL = { r: 0.15, cp: 0.20, eff: 0.60, R: 10 };
+const modelPtrue = v => v < 1.2 ? 0 : MODEL.cp * MODEL.eff * windPower(v, MODEL.r) * 1e6;   // W
+function modelRead(vSet, r) { const v = vSet * (1 + 0.03 * r.gauss()), P = modelPtrue(v) * (1 + 0.06 * r.gauss()), V = Math.round(Math.sqrt(Math.max(0, P) * MODEL.R) * 100) / 100, I = Math.round(V / MODEL.R * 1000) / 1000; return { v: Math.round(vSet * (1 + 0.02 * r.gauss()) * 10) / 10, V, I, P: V * I }; }
+
+// ---------------- e. GB generation since 2000 (% of UK generation; DESNZ DUKES, rounded) ----------------
+const MIX = [[2000, 32, 39, 23, 0.3, 0, 1.4, 1.5, 3, 377], [2005, 34, 38, 20, 0.7, 0, 1.3, 2.5, 3, 398], [2010, 28, 46, 16, 2.7, 0, 0.9, 3.4, 3, 382], [2012, 39, 28, 19, 5.5, 0.4, 1.4, 4.3, 2.4, 364], [2014, 30, 30, 19, 9.4, 1.2, 1.7, 6.8, 2, 338], [2015, 22, 30, 21, 12, 2.2, 1.9, 9.1, 1.8, 339], [2016, 9, 42, 21, 11, 3.1, 1.6, 9.6, 2.7, 339], [2017, 7, 40, 21, 15, 3.4, 1.8, 10.4, 1.4, 336], [2018, 5, 39, 19, 17, 3.9, 1.7, 11.5, 2.9, 333], [2019, 2, 40, 17, 20, 4.0, 1.8, 11.9, 3.3, 325], [2020, 2, 36, 16, 24, 4.2, 2.2, 13.0, 2.6, 312], [2021, 2, 40, 15, 21, 4.1, 1.8, 13.0, 3.1, 309], [2022, 2, 38, 15, 25, 4.4, 1.7, 11.5, 2.4, 325], [2023, 1, 35, 14, 29, 4.9, 1.8, 12.3, 2, 293], [2024, 0.6, 30, 14, 30, 5.2, 1.9, 13.5, 4.8, 285]];
+const MIXK = [["Coal", "#6b5d52"], ["Gas", "#8fa3c8"], ["Nuclear", "#a86dab"], ["Wind", "#76b82a"], ["Solar", "#f1af28"], ["Hydro", "#00aec3"], ["Bioenergy", "#53892e"], ["Other", "#abb5b5"]];
+const mixRow = y => MIX.reduce((a, r) => Math.abs(r[0] - y) < Math.abs(a[0] - y) ? r : a, MIX[0]);
+
+// ---------------- The page ----------------
+const MIX24 = { nuc: 6, wind: 30, solar: 18, hydro: 2, gas: 35, bio: 4, coal: 0, ic: 10, pump: 26, batt: 8 };
+const DEF = Object.assign({ view: "stations", speed: 1, res: "gas", season: "win", hours: 168, calm: false, dscale: 100, seed: 1, P: 1000, kV: 400, L: 100, rLine: 20, tx: false, v: 9, br: 60, vm: 7.5, fan: 5, year: 2024, pct: true }, MIX24);
+const P = Object.assign({}, DEF);
+let run = null, hour = 0, acc = 0, reads = [], rnd = K.rng(Date.now() % 9973 + 11), rot = 0, tStage = 0;
+const pBrit = o => ({ season: o.season, hours: o.hours, calm: o.calm, dscale: o.dscale, nuc: o.nuc, wind: o.wind, solar: o.solar, hydro: o.hydro, gas: o.gas, bio: o.bio, coal: o.coal, ic: o.ic, pump: o.pump, batt: o.batt });
+const ui = K.app({
+  title: "Energy Resources and Electricity", subject: "Physics",
+  blurb: "How each resource makes electricity, running Britain's grid hour by hour, why we transmit at high voltage, wind power ∝ v³, and Britain's electricity since 2000",
+  reset: () => set({}),
+  levels: { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "Pearson Edexcel International GCSE Physics (4PH1) Section 4: energy resources and electricity generation, efficiency and Sankey diagrams, power; Section 2: P = IV; Section 6: transformers and transmission at high voltage. Wind power ∝ v³ is beyond the spec.", adv: "WJEC Eduqas core ideas only: power and efficiency, deriving ½ρAv³ from kinetic energy, P = IV = I²R, log–log graphs and the uncertainty of a gradient. Capacity factor, storage and the Betz limit belong to option D (Energy and the environment) and are beyond the spec." } },
+  missions: [
+    { title: "How a power station works", q: "Follow the energy through a gas power station. Where is most of it wasted? What is its efficiency?", hint: "About half is lost as heat in the cooling water from the steam turbine. Efficiency = 0.93 × 0.58 × 0.98 ≈ 53%: multiply the stages.", setup() { set({ view: "stations", res: "gas" }); } },
+    { title: "Compare the resources", q: "Compare wind, nuclear and gas: CO₂, reliability (capacity factor) and cost. Which would you build, and why?", hint: "Wind is cheap and low-carbon but variable (26–39% capacity factor); nuclear is low-carbon and steady but expensive; gas is flexible but emits about 40 times more CO₂ than wind per kWh.", setup() { set({ view: "stations", res: "windOff" }); } },
+    { title: "Run Britain: a winter week", q: "Play a winter week with today's mix. When does gas run? What is the average CO₂ per kWh?", hint: "Gas fills the gap when the wind drops and in the evening peak. About 150 g/kWh in a typical winter week, but it changes a lot with the weather.", setup() { set({ view: "britain", season: "win" }); } },
+    { title: "A calm, cold week", q: "Make it a calm winter week. What keeps the lights on? What happens with no gas?", hint: "With little wind, gas, imports and storage do the work. Switch off gas and blackouts appear: storage of a few hours cannot cover days of calm.", setup() { set({ view: "britain", season: "win", calm: true }); } },
+    { title: "Why high voltage?", q: "Send 1000 MW at 25 kV, then at 400 kV. How much is lost in the cables each time?", hint: "I = P/V: 40 000 A at 25 kV, 2500 A at 400 kV. Loss = I²R, so 16 times the voltage gives 1/256 of the loss.", setup() { set({ view: "grid", kV: 25 }); } },
+    { title: "Classroom model power line", q: "Light the 12 V lamp through long resistance wires. Why is it dim? What do the transformers do?", hint: "Without transformers the lamp's current also flows through the wires, wasting I²R. Stepping up 1 : 20 cuts the line current 20 times and the loss 400 times.", setup() { set({ view: "grid", tx: false, rLine: 20 }); } },
+    { title: "Wind turbine: P ∝ v³", q: "Double the wind speed from 5 to 10 m/s. How many times more power?", hint: "2³ = 8 times. P = ½ρAv³: twice the speed brings twice the mass of air per second, each kg with four times the kinetic energy.", setup() { set({ view: "turbine", v: 5 }); } },
+    { title: "Britain's electricity since 2000", q: "Move from 2000 to 2024. What replaced coal?", hint: "Gas first (the 1990s 'dash for gas'), then wind and biomass after 2012. Coal fell from about a third to zero: the last coal plant closed in September 2024.", setup() { set({ view: "data", year: 2000 }); } },
+    { lvl: "adv", title: "I²R losses with numbers", q: "1000 MW over 100 km of cable (3 Ω) at 400 kV: calculate the current, the power lost and the percentage.", hint: "I = 10⁹/(4 × 10⁵) = 2500 A; P = I²R = 2500² × 3 = 18.75 MW, about 1.9%.", setup() { set({ view: "grid", kV: 400, L: 100 }); } },
+    { lvl: "adv", title: "Model turbine: log P against log v", q: "Take readings at five fan settings. Plot log P against log v. Is the gradient 3?", hint: "A gradient of about 3 (± its standard error) supports P ∝ v³. Each reading scatters because a 3% error in v becomes about 9% in P.", setup() { set({ view: "turbine", fan: 2 }); } }
+  ],
+  batch: [
+    { title: "Why transmit at high voltage?", question: "What fraction of the power is lost in 100 km of cable at different voltages?", how: "1000 MW, 0.03 Ω per km; the cable resistance varies ±3% with temperature.", xLabel: "log₁₀(voltage / kV)", yLabel: "log₁₀(% lost)", xs: GRIDV.slice(1).map(v => +Math.log10(v).toFixed(3)), reps: 3, fit: true, theory: x => Math.log10(lineLoss(1000, 10 ** x, 100).pct), theoryLabel: "∝ 1/V²", run: (x, r) => Math.log10(lineLoss(1000, 10 ** x, 100, 0.03 * (1 + 0.03 * r.gauss())).pct), note: "Gradient −2: the loss ∝ 1/V². Doubling the voltage quarters the loss." },
+    { title: "Longer lines lose more", question: "How does the loss depend on the length of the line?", how: "1000 MW at 400 kV; resistance ±3%.", xLabel: "length (km)", yLabel: "% lost", xs: [50, 100, 200, 300, 400], reps: 3, fit: true, yMin: 0, theory: L => lineLoss(1000, 400, L).pct, theoryLabel: "∝ length", run: (L, r) => lineLoss(1000, 400, L, 0.03 * (1 + 0.03 * r.gauss())).pct, note: "A straight line through the origin: R ∝ length, so the loss ∝ length." },
+    { title: "Model turbine: is P ∝ v³?", question: "Take readings at fan speeds from 2 to 8 m/s. What is the gradient of log P against log v?", how: "Anemometer ±3%, output ±6%, meters to 0.01 V and 1 mA.", xLabel: "log₁₀(wind speed / m s⁻¹)", yLabel: "log₁₀(power / W)", xs: [2, 3, 4, 5, 6, 7, 8].map(v => +Math.log10(v).toFixed(3)), reps: 3, fit: true, theory: x => Math.log10(modelPtrue(10 ** x)), theoryLabel: "P ∝ v³", run: (x, r) => { const q = modelRead(10 ** x, r); return Math.log10(Math.max(1e-6, q.P)); }, note: "A gradient close to 3: the power in the wind is ½ρAv³." },
+    { title: "How precise is one turbine reading?", question: "How much do readings of the model turbine's power scatter at 5 m/s?", how: "500 readings at the same fan setting.", yLabel: "power (W)", reps: 500, bins: 24, theory: modelPtrue(5), theoryLabel: "true", run: (x, r) => modelRead(5, r).P, note: "SD about 11%: the 3% wobble in the wind speed is cubed (about 9%) and the output adds 6%." },
+    { title: "A real turbine's year", question: "What capacity factor does a 60 m turbine get in a year at a site averaging 7.5 m/s?", how: "Hourly winds with about 20 hours' memory (Weibull k = 2); 30 different years.", yLabel: "capacity factor", reps: 30, bins: 12, theory: cfTheory(7.5, 60, ratedOf(60)), theoryLabel: "average over the wind speeds", run: (x, r) => cfYear(7.5, 60, ratedOf(60), r), note: "About 0.38, varying by a few % from year to year: windy and calm years." },
+    { title: "Windier sites", question: "How does the capacity factor depend on the site's mean wind speed?", how: "60 m blades; one year each; 3 years per site.", xLabel: "mean wind speed (m/s)", yLabel: "capacity factor", xs: [4, 5, 6, 7, 8, 9, 10], reps: 3, yMin: 0, theory: vm => cfTheory(vm, 60, ratedOf(60)), theoryLabel: "Weibull average", run: (vm, r) => cfYear(vm, 60, ratedOf(60), r), note: "Rises steeply (v³), then levels off as the turbine spends more time at its rated (maximum) power." },
+    { title: "A winter week: how much does the weather matter?", question: "With today's mix, what is the average CO₂ per kWh over a winter week?", how: "200 different weeks of weather; demand ±1.5%.", yLabel: "g CO₂ per kWh", reps: 200, bins: 20, theory: gridRun(pBrit(DEF), weatherAvg(pBrit(DEF), 168), 0).T.intensity, theoryLabel: "steady, average weather", run: (x, r) => britain(pBrit(DEF), Math.floor(r() * 1e9)), note: "A wide spread (windy weeks are clean, calm weeks dirty), and the mean is above the steady-weather value: the system is non-linear (surplus wind in gales is wasted, but shortfalls in calms are filled with gas)." },
+    { title: "More wind: diminishing returns", question: "How does the winter-week CO₂ per kWh fall as more wind capacity is built?", how: "Today's mix with different wind capacity; each result is the average of 4 winter weeks of weather.", xLabel: "wind capacity (GW)", yLabel: "g CO₂ per kWh", xs: [0, 15, 30, 45, 60, 80, 100], reps: 5, yMin: 0, theory: null, run: (wd, r) => britainAvg(Object.assign(pBrit(DEF), { wind: wd }), r, 4, "intensity"), note: "Each extra GW saves less: in gales the extra power is curtailed, and calm spells still need gas." },
+    { title: "No gas: how much storage? (beyond the spec)", question: "With no gas or coal, how much demand goes unmet in a winter week as battery storage grows?", how: "Today's mix minus gas and coal, 60 GW of wind; each result is the average of 8 winter weeks.", xLabel: "battery storage (GWh)", yLabel: "unserved energy per week (GWh)", xs: [0, 25, 50, 100, 200, 400], reps: 5, yMin: 0, theory: null, run: (b, r) => britainAvg(Object.assign(pBrit(DEF), { gas: 0, coal: 0, wind: 60, batt: b }), r, 8, "unserved"), note: "It falls only slowly: batteries cover hours, but calm spells last days." }
+  ],
+  revise: {
+    ideas: [
+      { lvl: "std", tag: "4", text: "Fossil fuels, biomass and nuclear heat water to steam that turns a turbine and generator; wind, hydro, tidal and wave turn the turbine directly; solar cells make electricity directly. Efficiency = useful energy out ÷ total energy in." },
+      { lvl: "std", tag: "4", text: "Renewable: wind, solar, hydro, tidal, wave, geothermal, biomass. Reliable and controllable: gas, coal, biomass, hydro. Low-carbon: nuclear and most renewables." },
+      { lvl: "std", tag: "6", text: "Step-up transformers raise the voltage for transmission: P = IV, so the current falls and the heating loss I²R falls. Vp/Vs = Np/Ns; step-down transformers make it safe for homes." },
+      { lvl: "std", tag: "beyond", text: "A wind turbine's power P = ½ρAv³ × Cp: double the wind speed, eight times the power." },
+      { lvl: "adv", tag: "core", text: "P = IV = I²R = V²/R. Derive ½ρAv³: mass per second ρAv, kinetic energy per second ½(ρAv)v². On log–log axes a power law gives a straight line whose gradient is the power." },
+      { lvl: "adv", tag: "option D", text: "Capacity factor = average output ÷ maximum output; storage (pumped hydro, batteries) shifts energy in time with round-trip losses; Betz limit 59%." }
+    ],
+    questions: [
+      { lvl: "std", marks: 2, q: () => `A ${RES[P.res].n} power station has an overall efficiency of ${(effOf(P.res) * 100).toFixed(0)}%. How much electrical energy does it produce from 500 MJ of ${RES[P.res].start}?`, ans: () => `<ul><li>useful = efficiency × input</li><li>= ${effOf(P.res).toFixed(2)} × 500 = ${(effOf(P.res) * 500).toFixed(0)} MJ</li></ul>` },
+      { lvl: "std", marks: 4, q: "Explain why the National Grid transmits electricity at a very high voltage.", ans: "<ul><li>for the same power, P = IV, a higher voltage means a smaller current</li><li>the heating of the cables depends on I²R</li><li>so much less energy is wasted as heat</li><li>step-up transformers raise the voltage; step-down transformers lower it for homes</li></ul>" },
+      { lvl: "std", marks: 3, q: () => `A transformer steps ${P.kV} kV down to 230 V. It has 40 000 turns on its primary. How many turns are on the secondary?`, ans: () => `<ul><li>Vp/Vs = Np/Ns</li><li>Ns = Np × Vs/Vp = 40 000 × 230/${P.kV * 1000}</li><li>= ${(40000 * 230 / (P.kV * 1000)).toFixed(0)} turns</li></ul>` },
+      { lvl: "adv", marks: 3, q: () => `${P.P} MW is sent at ${P.kV} kV through cables of ${(0.03 * P.L).toFixed(1)} Ω. Calculate the power lost.`, ans: () => { const l = lineLoss(P.P, P.kV, P.L); return `<ul><li>I = P/V = ${l.I.toFixed(0)} A</li><li>P = I²R = ${l.I.toFixed(0)}² × ${l.R.toFixed(1)}</li><li>= ${l.loss.toFixed(2)} MW (${l.pct.toFixed(2)}%)</li></ul>`; } },
+      { lvl: "adv", marks: 3, q: "Show that the power in the wind passing through a turbine of area A is ½ρAv³.", ans: "<ul><li>volume of air per second = Av, mass per second = ρAv</li><li>kinetic energy per second = ½ × (ρAv) × v²</li><li>= ½ρAv³</li></ul>" }
+    ]
+  },
+  notes: `<h3>The models</h3>
+<ul><li>Power stations: a chain of stage efficiencies (coal 0.88 × 0.43 × 0.98 ≈ 37%; CCGT ≈ 53%; nuclear ≈ 36%; wind ≈ 42% of the wind's kinetic energy; solar cells about 20%).</li>
+<li>Run Britain: 1-hour steps; merit order nuclear (90% available), wind, solar, hydro (35%) → batteries (1.5 h, 88% round trip) and pumped storage (9 h, 75%) → biomass (70% available) → imports (25–60% of capacity, less when it is calm) → gas → coal → blackout; surplus charges storage, then exports, then wind is switched off. Wind: a random walk with about 30 hours' memory (winter mean 40%, spring 30%, summer 22%); solar from the Sun's height at 52.5° N and a cloudiness each day; demand a GB daily shape (weekends −10%). CO₂: gas 394, coal 937, biomass 120, imports 150 g/kWh.</li>
+<li>Grid: I = P/V, loss I²R with 0.03 Ω per km (illustrative); ideal transformers. Classroom line: 12 V, 6 Ω lamp, 1 : 20 transformers 90% efficient each.</li>
+<li>Turbine: P = Cp ½ρAv³, Cp 0.45, cut-in 3 m/s, rated near 11.5 m/s, cut-out 25 m/s; Weibull (k = 2) winds. Model turbine: blades 15 cm, Cp 0.20 × 60%, 10 Ω; anemometer ±3%, output ±6%.</li></ul>
+<h3>Left out</h3><ul><li>Frequency and inertia, three-phase power, reactive power, the cost of building the grid, real interconnector flows. All values approximate.</li></ul>
+<h3>Data</h3><ul><li>GB generation mix: DESNZ Digest of UK Energy Statistics (rounded). Life-cycle CO₂: IPCC AR5 WG3 Annex III medians. Costs: rough, for ranking only (CfD strike prices, DESNZ Generation Costs 2023). Capacity factors: DUKES load factors, rounded. 2024 capacities approximate (DUKES, NESO).</li></ul>
+<p>The earlier version of this simulation and its worksheets are kept in <a href="original/energy-resources.html">original/energy-resources.html</a>.</p>`
+});
+
+// ---------------- Controls ----------------
+const ctl = {}, grp = {};
+let gg = ui.group("View");
+ctl.view = K.seg(gg, { value: "stations", options: [["stations", "🏭 power stations"], ["britain", "🇬🇧 run Britain"], ["grid", "🔌 the National Grid"], ["turbine", "🌬️ wind turbine"], ["data", "📈 GB since 2000"]], on: v => { P.view = v; showGroups(); } });
+ctl.speed = K.slider(gg, { label: "Speed", min: 0.25, max: 8, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+grp.stations = gg = ui.group("Resource");
+ctl.res = K.seg(gg, { value: "gas", options: RKEYS.map(k => [k, RES[k].n]), on: v => { P.res = v; tStage = 0; } });
+grp.britain = gg = ui.group("Run Britain");
+ctl.season = K.seg(gg, { value: "win", options: [["win", "winter"], ["spr", "spring"], ["sum", "summer"]], on: v => { P.season = v; newRun(); } });
+ctl.hours = K.seg(gg, { value: 168, options: [[24, "a day"], [168, "a week"]], on: v => { P.hours = +v; newRun(); } });
+ctl.calm = K.toggle(gg, { label: "A calm, cold spell (high pressure)", value: false, on: v => { P.calm = v; newRun(); } });
+ctl.dscale = K.slider(gg, { label: "Demand (heat pumps, electric cars → more)", min: 70, max: 170, step: 5, value: 100, unit: "%", on: v => { P.dscale = v; newRun(); } });
+const CAPS = [["nuc", "Nuclear", 0, 20, "GW"], ["wind", "Wind", 0, 100, "GW"], ["solar", "Solar", 0, 60, "GW"], ["hydro", "Hydro", 0, 5, "GW"], ["bio", "Biomass", 0, 10, "GW"], ["gas", "Gas", 0, 50, "GW"], ["coal", "Coal", 0, 30, "GW"], ["ic", "Interconnectors", 0, 25, "GW"], ["pump", "Pumped storage", 0, 100, "GWh"], ["batt", "Batteries", 0, 400, "GWh"]];
+for (const [k, n, lo, hi, u] of CAPS) ctl[k] = K.slider(gg, { label: n, min: lo, max: hi, step: hi > 50 ? 1 : 0.5, value: P[k], unit: u, on: v => { P[k] = v; newRun(); } });
+let rr = K.row(gg); K.btn(rr, "🎲 New weather", () => { P.seed = Math.floor(rnd() * 1e9); newRun(); }); K.btn(rr, "2024 mix", () => { Object.assign(P, MIX24); for (const k in MIX24) ctl[k].set(P[k]); newRun(); });
+grp.grid = gg = ui.group("Transmission");
+ctl.P = K.slider(gg, { label: "Power sent", min: 100, max: 3000, step: 50, value: 1000, unit: "MW", on: v => P.P = v });
+ctl.kV = K.seg(gg, { value: 400, options: GRIDV.map(v => [v, v + " kV"]), on: v => P.kV = +v });
+ctl.L = K.slider(gg, { label: "Length of the line", min: 10, max: 500, step: 10, value: 100, unit: "km", on: v => P.L = v });
+ctl.rLine = K.slider(gg, { label: "Classroom line: resistance of the wires", min: 0, max: 40, step: 1, value: 20, unit: "Ω", on: v => P.rLine = v });
+ctl.tx = K.toggle(gg, { label: "Classroom line: 1 : 20 and 20 : 1 transformers", value: false, on: v => P.tx = v });
+grp.turbine = gg = ui.group("Wind turbine");
+ctl.v = K.slider(gg, { label: "Wind speed now", min: 0, max: 30, step: 0.5, value: 9, unit: "m/s", on: v => P.v = v });
+ctl.br = K.slider(gg, { label: "Blade length", min: 10, max: 120, step: 1, value: 60, unit: "m", on: v => P.br = v });
+ctl.vm = K.slider(gg, { label: "Site's mean wind speed", min: 3, max: 11, step: 0.1, value: 7.5, unit: "m/s", on: v => P.vm = v });
+ctl.fan = K.slider(gg, { label: "Model turbine: fan setting", min: 1, max: 9, step: 0.5, value: 5, unit: "m/s", on: v => P.fan = v });
+rr = K.row(gg); K.btn(rr, "📏 Take a reading (model)", () => reads.push(modelRead(P.fan, rnd)), "primary"); K.btn(rr, "Clear", () => { reads = []; });
+grp.data = gg = ui.group("GB electricity");
+ctl.year = K.slider(gg, { label: "Year", min: 2000, max: 2024, step: 1, value: 2024, fmt: v => mixRow(v)[0] + (mixRow(v)[0] !== v ? " (nearest)" : ""), on: v => P.year = v });
+ctl.pct = K.toggle(gg, { label: "Show as % (off: TWh)", value: true, on: v => P.pct = v });
+const read = K.readout(ui.group("Readings"), [["a", ""], ["b", ""], ["c", ""], ["d", ""], ["e", ""]]);
+const relabel = names => names.forEach((n, i) => read.el.children[i].firstElementChild.textContent = n);
+function showGroups() { for (const k in grp) grp[k].style.display = k === P.view ? "" : "none"; }
+function newRun() { const p = pBrit(P); run = gridRun(p, weather(p, P.seed, p.hours), P.seed); hour = 0; acc = 0; }
+function set(o) {
+  Object.assign(P, DEF, o);
+  for (const k of ["speed", "dscale", "P", "L", "rLine", "v", "br", "vm", "fan", "year", ...CAPS.map(c => c[0])]) ctl[k].set(P[k]);
+  for (const k of ["res", "season", "hours", "calm", "kV", "tx", "pct", "view"]) ctl[k].set(P[k]);
+  reads = []; tStage = 0; newRun(); showGroups();
+}
+
+// ---------------- Simulation ----------------
+function tick(dt) {
+  const s = dt * P.speed; tStage += s; rot += s * P.v * 0.4;
+  if (P.view === "britain" && hour < run.rec.length - 1) { acc += s * (P.hours === 24 ? 2 : 8); while (acc >= 1 && hour < run.rec.length - 1) { acc--; hour++; } }
+}
+
+// ---------------- Drawing ----------------
+const cv = ui.canvas(() => { });
+const chA = K.chart(ui.dock, {}), chB = K.chart(ui.dock, {});
+const TX = (c, s, x, y, col = "#aab6cc", al = "left", f = "12px") => { c.fillStyle = col; c.font = f + " Segoe UI,sans-serif"; c.textAlign = al; c.fillText(s, x, y); };
+function drawStations(c, w, h) {
+  const R = RES[P.res], st = R.stages, n = st.length, x0 = 30, bw = (w - 60) / (n + 1), y0 = 110, bh = 54;
+  TX(c, `${R.n}: overall efficiency ${(effOf(P.res) * 100).toFixed(0)}%`, 14, 28, "#eef2f8", "left", "600 16px");
+  TX(c, R.how, 14, 52, "#cfd8ea", "left", "12.5px"); TX(c, R.rel, 14, 72, "#ffd166", "left", "12.5px");
+  // the chain of stages, and a Sankey below it: the band narrows at each stage as energy is wasted
+  let e = 100; const sy = 210, sc = 1.6;
+  for (let i = 0; i <= n; i++) {
+    const x = x0 + i * bw, lit = Math.floor(tStage * 1.2) % (n + 2) >= i;
+    c.fillStyle = i === 0 ? R.col : lit ? "#2a3a58" : "#1a2234"; c.fillRect(x, y0, bw - 30, bh); TX(c, i === 0 ? "energy in" : st[i - 1][0], x + (bw - 30) / 2, y0 + 22, "#eef2f8", "center", "600 12px"); TX(c, i === 0 ? "100 units" : `${(st[i - 1][1] * 100).toFixed(0)}% efficient`, x + (bw - 30) / 2, y0 + 40, "#cfd8ea", "center", "11px");
+    if (i < n) { c.fillStyle = "#ffd166"; c.beginPath(); c.moveTo(x + bw - 26, y0 + bh / 2 - 8); c.lineTo(x + bw - 10, y0 + bh / 2); c.lineTo(x + bw - 26, y0 + bh / 2 + 8); c.fill(); }
+    const keep = i > 0 ? e * st[i - 1][1] : e, lost = e - keep;
+    c.fillStyle = "#ffd166"; c.globalAlpha = 0.8; c.fillRect(x, sy, bw, keep * sc); c.globalAlpha = 1;
+    if (lost > 0.05) { c.fillStyle = "#ff8a70"; c.globalAlpha = 0.75; c.fillRect(x + bw * 0.55, sy + keep * sc, bw * 0.2, lost * sc); c.beginPath(); c.moveTo(x + bw * 0.55, sy + keep * sc + lost * sc); c.lineTo(x + bw * 0.75, sy + keep * sc + lost * sc); c.lineTo(x + bw * 0.75, h - 30); c.lineTo(x + bw * 0.55, h - 30); c.fill(); c.globalAlpha = 1; TX(c, `${lost.toFixed(0)} wasted: ${st[i - 1][2]}`, Math.min(x + bw * 0.78, w - 8), h - 40, "#ff8a70", x + bw * 0.78 + 150 > w ? "right" : "left", "11px"); }
+    e = keep;
+  }
+  TX(c, `electricity: ${e.toFixed(0)} units`, x0 + n * bw + 8, sy + e * sc / 2 + 5, "#0b1020", "left", "600 13px");
+  TX(c, "Sankey diagram (to scale): the width of each band is the energy", 14, sy - 10, "#8fa0bf", "left", "11.5px");
+}
+function drawBritain(c, w, h) {
+  const q = run.rec[hour], D = q.D, day = Math.floor(hour / 24), hh = hour % 24;
+  TX(c, `${SEASONS[P.season].n} · day ${day + 1}, ${String(hh).padStart(2, "0")}:00 · demand ${D.toFixed(1)} GW${P.calm ? " · calm spell" : ""}`, 14, 28, "#eef2f8", "left", "600 15px");
+  // supply stack for this hour against the demand line
+  const x0 = 40, x1 = w * 0.55, y1 = h - 50, y0 = 70, maxG = 60, Y = v => y1 - (y1 - y0) * v / maxG; let cum = 0;
+  for (const [k, n, col] of GSRC) { const v = Math.max(0, q.g[k]); if (v <= 0.01) continue; c.fillStyle = col; c.fillRect(x0 + 40, Y(cum + v), x1 - x0 - 80, Y(cum) - Y(cum + v)); if (v > 1.5) TX(c, `${n} ${v.toFixed(1)}`, (x0 + x1) / 2, (Y(cum) + Y(cum + v)) / 2 + 4, "#0b1020", "center", "600 11.5px"); cum += v; }
+  c.strokeStyle = "#fff"; c.lineWidth = 2; c.setLineDash([6, 4]); c.beginPath(); c.moveTo(x0 + 20, Y(D)); c.lineTo(x1 - 20, Y(D)); c.stroke(); c.setLineDash([]); c.lineWidth = 1; TX(c, "demand", x1 - 16, Y(D) + 4, "#fff", "left", "11px");
+  if (q.uns > 0.01) { c.fillStyle = "rgba(255,80,80,.35)"; c.fillRect(x0 + 40, Y(D), x1 - x0 - 80, Y(cum) - Y(D)); TX(c, `BLACKOUT: ${q.uns.toFixed(1)} GW short`, (x0 + x1) / 2, Y(D) - 8, "#ff6b6b", "center", "600 14px"); }
+  if (q.curt > 0.05) TX(c, `${q.curt.toFixed(1)} GW of wind switched off (curtailed)`, (x0 + x1) / 2, y0 - 6, "#ffd166", "center", "12px");
+  for (let k = 0; k <= maxG; k += 10) TX(c, k + " GW", x0 + 34, Y(k) + 4, "#8fa0bf", "right", "10.5px");
+  // storage gauges and the week's score
+  const gx = w * 0.6, gw = 40, gh = 160, gy = 90;
+  [["batteries", q.sB, P.batt, "#e83181"], ["pumped storage", q.sP, P.pump, "#5e7ce2"]].forEach(([n, s, cap, col], i) => { const x = gx + i * 90; c.strokeStyle = "#cfd8ea"; c.strokeRect(x, gy, gw, gh); const f = cap ? s / cap : 0; c.fillStyle = col; c.fillRect(x + 1, gy + gh * (1 - f), gw - 2, gh * f); TX(c, n, x + gw / 2, gy + gh + 16, "#cfd8ea", "center", "11px"); TX(c, `${s.toFixed(0)} / ${cap} GWh`, x + gw / 2, gy + gh + 30, "#8fa0bf", "center", "10.5px"); });
+  const rs = run.rec.slice(0, hour + 1), co2 = rs.reduce((a, r) => a + 1000 * (CO2F.gas * r.g.gas + CO2F.coal * r.g.coal + CO2F.bio * r.g.bio + CO2F.imp * r.g.imp), 0), used = rs.reduce((a, r) => a + r.D - r.uns, 0), bo = rs.filter(r => r.uns > 0.01).length;
+  const sx = w * 0.6, sy = gy + gh + 70;
+  TX(c, `so far: ${(co2 / Math.max(1e-9, used)).toFixed(0)} g CO₂ per kWh`, sx, sy, "#ffd166", "left", "600 14px");
+  TX(c, `wind now ${(q.cf * 100).toFixed(0)}% of capacity · blackout hours ${bo}`, sx, sy + 22, bo ? "#ff6b6b" : "#cfd8ea", "left", "12.5px");
+  TX(c, hour >= run.rec.length - 1 ? `finished: ${run.T.intensity.toFixed(0)} g/kWh, ${run.T.lowC.toFixed(0)}% low-carbon` : "playing…", sx, sy + 44, "#7ee787", "left", "12.5px");
+}
+function drawGrid(c, w, h) {
+  const l = lineLoss(P.P, P.kV, P.L), y = 120;
+  TX(c, `${P.P} MW sent ${P.L} km at ${P.kV} kV: current ${l.I.toFixed(0)} A, loss ${l.loss.toFixed(l.loss < 10 ? 2 : 0)} MW (${l.pct.toFixed(l.pct < 10 ? 2 : 0)}%)`, 14, 28, "#eef2f8", "left", "600 15px");
+  TX(c, l.melt ? "far too much current: the cables would overheat and sag" : "P = IV: higher voltage → smaller current → less I²R heating", 14, 50, l.melt ? "#ff6b6b" : "#cfd8ea", "left", "12.5px");
+  // station → step-up → pylons → step-down → homes; band width ∝ power
+  const sc = 60 / P.P, wIn = P.P * sc, wOut = l.del * sc, xs = [20, 170, w * 0.72, w - 120];
+  c.fillStyle = "#ffd166"; c.globalAlpha = 0.85; c.beginPath(); c.moveTo(xs[0] + 96, y); c.lineTo(xs[3], y); c.lineTo(xs[3], y + wOut); c.lineTo(xs[2], y + wOut); c.lineTo(xs[1] + 40, y + wIn); c.lineTo(xs[0] + 96, y + wIn); c.fill(); c.globalAlpha = 1;
+  if (l.loss > 0.5) { c.fillStyle = "#ff8a70"; c.globalAlpha = 0.6; c.fillRect((xs[1] + xs[2]) / 2 - 10, y + wOut, 20, Math.max(2, wIn - wOut) + 30); c.globalAlpha = 1; TX(c, `${l.loss.toFixed(1)} MW heats the cables`, (xs[1] + xs[2]) / 2 + 16, y + wIn + 24, "#ff8a70", "left", "12px"); }
+  [["power station", xs[0], "#8fa3c8"], ["step-up", xs[1], "#c58aff"], ["step-down", xs[2], "#c58aff"], ["homes 230 V", xs[3], "#7ee787"]].forEach(([n, x, col]) => { c.fillStyle = col; c.fillRect(x, y - 30, 96, 26); TX(c, n, x + 48, y - 12, "#0b1020", "center", "600 11px"); });
+  for (let k = 1; k < 5; k++) { const x = xs[1] + 60 + (xs[2] - xs[1] - 80) * k / 5; c.strokeStyle = "#8fa0bf"; c.beginPath(); c.moveTo(x, y - 40); c.lineTo(x - 10, y + 70); c.moveTo(x, y - 40); c.lineTo(x + 10, y + 70); c.stroke(); }
+  // the classroom model power line
+  const m = modelLine(P.rLine, P.tx), by = h - 150, lamp = Math.min(1, m.Pl / 24);
+  TX(c, `Classroom model: 12 V supply → ${P.rLine} Ω of wire${P.tx ? " with 1 : 20 transformers" : ""} → 12 V 24 W lamp`, 14, by - 20, "#eef2f8", "left", "600 13px");
+  c.strokeStyle = "#cfd8ea"; c.strokeRect(40, by, w - 80, 70); c.fillStyle = "#2a3448"; c.fillRect(30, by + 20, 30, 30); TX(c, "12 V", 45, by + 40, "#fff", "center", "11px");
+  const lx = w - 60, ly = by + 35; c.fillStyle = `rgba(255,220,120,${(0.15 + 0.85 * lamp).toFixed(2)})`; c.beginPath(); c.arc(lx, ly, 14 + 20 * lamp, 0, 6.3); c.fill(); c.fillStyle = "#fff"; c.beginPath(); c.arc(lx, ly, 8, 0, 6.3); c.fill();
+  if (P.tx) [w * 0.2, w * 0.75].forEach(x => { c.fillStyle = "#c58aff"; c.fillRect(x, by - 6, 22, 82); });
+  TX(c, `lamp ${m.Pl.toFixed(1)} W · wires waste ${m.Pline.toFixed(2)} W · line current ${m.Iline.toFixed(3)} A`, w / 2, by + 95, "#ffd166", "center", "600 12.5px");
+}
+function drawTurbine(c, w, h) {
+  const rated = ratedOf(P.br), Pw = windPower(P.v, P.br), Pe = turbP(P.v, P.br, rated), cx = w * 0.3, cy = h * 0.42, R = Math.min(170, P.br * 1.6);
+  c.fillStyle = "#cfd8ea"; c.fillRect(cx - 4, cy, 8, h - cy - 20); c.fillStyle = "#eef2f8"; c.beginPath(); c.arc(cx, cy, 8, 0, 6.3); c.fill();
+  const spin = P.v >= TURB.cutIn && P.v <= TURB.cutOut ? rot : 0; for (let k = 0; k < 3; k++) { const a = spin + k * 2 * Math.PI / 3; c.strokeStyle = "#eef2f8"; c.lineWidth = 6; c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R); c.stroke(); } c.lineWidth = 1;
+  for (let i = 0; i < 12; i++) { const yy = 60 + i * 30, x = (tStage * P.v * 25 + i * 70) % (w * 0.6); c.strokeStyle = "rgba(160,200,255,.35)"; c.beginPath(); c.moveTo(x, yy); c.lineTo(x + 10 + P.v * 3, yy); c.stroke(); }
+  TX(c, `wind ${P.v} m/s · blades ${P.br} m (rated ${rated} MW)`, 14, 28, "#eef2f8", "left", "600 15px");
+  TX(c, `power in the wind ½ρAv³ = ${Pw.toFixed(2)} MW → electrical ${Pe.toFixed(2)} MW${P.v < TURB.cutIn ? " (below cut-in: blades still)" : P.v > TURB.cutOut ? " (above cut-out: shut down in a storm)" : Pe >= rated ? " (at rated power: blades pitched)" : ""}`, 14, 50, "#ffd166", "left", "600 13px");
+  // model turbine results table
+  const tx = w * 0.62; TX(c, "Model turbine (blades 15 cm)", tx, 90, "#eef2f8", "left", "600 13px");
+  TX(c, "v (m/s)    V (V)     I (A)      P (W)", tx, 112, "#8fa0bf", "left", "11.5px");
+  reads.slice(-14).forEach((q, i) => TX(c, `${q.v.toFixed(1).padStart(4)}       ${q.V.toFixed(2).padStart(5)}     ${q.I.toFixed(3)}     ${q.P.toFixed(3)}`, tx, 132 + i * 18, "#cfd8ea", "left", "11.5px monospace,"));
+  if (!reads.length) TX(c, "press 📏 Take a reading", tx, 132, "#ffd166", "left", "12px");
+}
+function drawData(c, w, h) {
+  const row = mixRow(P.year), cx = w * 0.3, cy = h * 0.52, R = Math.min(170, h * 0.36); let a0 = -Math.PI / 2;
+  TX(c, `Britain's electricity in ${row[0]}: ${row[9]} TWh`, 14, 28, "#eef2f8", "left", "600 16px");
+  MIXK.forEach(([n, col], i) => { const f = row[i + 1] / 100, a1 = a0 + f * 2 * Math.PI; c.fillStyle = col; c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, R, a0, a1); c.closePath(); c.fill(); a0 = a1; });
+  c.fillStyle = "#0b1020"; c.beginPath(); c.arc(cx, cy, R * 0.55, 0, 6.3); c.fill(); TX(c, String(row[0]), cx, cy + 8, "#eef2f8", "center", "600 22px");
+  MIXK.forEach(([n, col], i) => { const y = 80 + i * 30, x = w * 0.62; c.fillStyle = col; c.fillRect(x, y - 12, 18, 18); TX(c, `${n}: ${row[i + 1]}%${P.pct ? "" : ` (${(row[i + 1] / 100 * row[9]).toFixed(0)} TWh)`}`, x + 26, y + 2, "#eef2f8", "left", "13px"); });
+  const lowC = row[3] + row[4] + row[5] + row[6] + row[7]; TX(c, `low-carbon (nuclear + renewables): ${lowC.toFixed(0)}%`, w * 0.62, 80 + 8 * 30 + 10, "#7ee787", "left", "600 13px");
+}
+function draw() { const c = cv.ctx, w = cv.w, h = cv.h; c.fillStyle = "#0b1020"; c.fillRect(0, 0, w, h); ({ stations: drawStations, britain: drawBritain, grid: drawGrid, turbine: drawTurbine, data: drawData })[P.view](c, w, h); }
+
+// ---------------- Charts and readings ----------------
+function bars(ch, title, yl, key, fmt) { ch.opts.title = title; ch.opts.xLabel = "resource (hover: names in the key)"; ch.opts.yLabel = yl; ch.draw(RKEYS.map((k, i) => ({ pts: [[i, key(RES[k])]], type: "bars", w: 0.7, color: k === P.res ? "#fff" : RES[k].col, label: undefined })), { xMin: -0.6, xMax: RKEYS.length - 0.4, yMin: 0, xFmt: v => Number.isInteger(v) && RES[RKEYS[v]] ? RES[RKEYS[v]].n.split(" ")[0].slice(0, 6) : "" }); }
+function charts() {
+  const adv = ui.level === "adv";
+  if (P.view === "stations") {
+    const R = RES[P.res];
+    bars(chA, "Life-cycle CO₂ (g per kWh)", "g/kWh", x => x.co2); bars(chB, "Capacity factor (reliability)", "%", x => x.cf * 100);
+    relabel(["overall efficiency", "life-cycle CO₂", "capacity factor", "rough cost", "land"]);
+    read.set("a", (effOf(P.res) * 100).toFixed(0) + "%"); read.set("b", R.co2 + " g/kWh"); read.set("c", (R.cf * 100).toFixed(0) + "%"); read.set("d", "£" + R.cost + " per MWh"); read.set("e", R.land + " m² per GWh a year");
+  } else if (P.view === "britain") {
+    const rs = run.rec.slice(0, hour + 1), layers = []; let cum = rs.map(() => 0);
+    for (const [k, n, col] of GSRC) { cum = cum.map((v, i) => v + Math.max(0, rs[i].g[k])); layers.push({ pts: cum.map((v, i) => [i, v]), type: "area", fillAlpha: 1, color: col, label: ["nuc", "wind", "solar", "gas", "imp"].includes(k) ? n : undefined }); }
+    chA.opts.title = "Supply (stacked) and demand"; chA.opts.xLabel = "hour"; chA.opts.yLabel = "GW";
+    chA.draw([...layers.reverse(), { pts: rs.map((r, i) => [i, r.D]), color: "#fff", label: "demand" }], { xMin: 0, xMax: P.hours, yMin: 0 });
+    let co = 0, us = 0; const ci = rs.map((r, i) => { co += 1000 * (CO2F.gas * r.g.gas + CO2F.coal * r.g.coal + CO2F.bio * r.g.bio + CO2F.imp * r.g.imp); us += r.D - r.uns; return [i, 1000 * (CO2F.gas * r.g.gas + CO2F.coal * r.g.coal + CO2F.bio * r.g.bio + CO2F.imp * r.g.imp) / Math.max(1e-9, r.D - r.uns)]; });
+    chB.opts.title = adv ? "Storage (GWh)" : "CO₂ per kWh each hour"; chB.opts.xLabel = "hour"; chB.opts.yLabel = adv ? "GWh" : "g/kWh";
+    if (adv) chB.draw([{ pts: rs.map((r, i) => [i, r.sB]), color: "#e83181", label: "batteries" }, { pts: rs.map((r, i) => [i, r.sP]), color: "#5e7ce2", label: "pumped" }], { xMin: 0, xMax: P.hours, yMin: 0 });
+    else chB.draw([{ pts: ci, color: "#ffd166", label: "g/kWh" }], { xMin: 0, xMax: P.hours, yMin: 0 });
+    relabel(["CO₂ so far", "low-carbon share (whole run)", "blackout hours (whole run)", "wind curtailed (whole run)", "exports (whole run)"]);
+    read.set("a", (co / Math.max(1e-9, us)).toFixed(0) + " g/kWh"); read.set("b", run.T.lowC.toFixed(0) + "%"); read.set("c", String(run.T.unservedH)); read.set("d", run.T.curt.toFixed(0) + " GWh"); read.set("e", run.T.exp.toFixed(0) + " GWh");
+  } else if (P.view === "grid") {
+    const pts = []; for (let lv = Math.log10(20); lv <= Math.log10(800); lv += 0.02) pts.push([lv, Math.log10(Math.max(1e-6, 100 * lineLoss(P.P, 10 ** lv, P.L).I ** 2 * lineLoss(P.P, 10 ** lv, P.L).R / 1e6 / P.P))]);
+    chA.opts.title = "% lost against voltage (log–log)"; chA.opts.xLabel = "log₁₀(voltage / kV)"; chA.opts.yLabel = "log₁₀(% lost)";
+    chA.draw([{ pts, color: "#ffd166", label: "gradient −2" }, { pts: GRIDV.map(v => [Math.log10(v), Math.log10(Math.max(1e-6, 100 * lineLoss(P.P, v, P.L).I ** 2 * lineLoss(P.P, v, P.L).R / 1e6 / P.P))]), type: "dots", r: 4, color: "#c58aff", label: "UK voltages" }, { pts: [[Math.log10(P.kV), Math.log10(Math.max(1e-6, lineLoss(P.P, P.kV, P.L).pct))]], type: "dots", r: 7, color: "#fff", label: "now" }], {});
+    const a = [], b = []; for (let rl = 0; rl <= 40; rl += 1) { a.push([rl, modelLine(rl, false).Pl]); b.push([rl, modelLine(rl, true).Pl]); }
+    chB.opts.title = "Classroom line: lamp power"; chB.opts.xLabel = "resistance of the wires (Ω)"; chB.opts.yLabel = "W"; chB.draw([{ pts: a, color: "#ff8a70", label: "no transformers" }, { pts: b, color: "#7ee787", label: "with transformers" }, { pts: [[P.rLine, modelLine(P.rLine, P.tx).Pl]], type: "dots", r: 6, color: "#fff", label: "now" }], { xMin: 0, xMax: 40, yMin: 0 });
+    const l = lineLoss(P.P, P.kV, P.L); relabel(["current in the line", "resistance of the line", "power lost (I²R)", "% lost", "step-up turns ratio (25 kV →)"]);
+    read.set("a", l.I.toFixed(0) + " A"); read.set("b", l.R.toFixed(1) + " Ω"); read.set("c", l.loss.toFixed(2) + " MW"); read.set("d", l.pct.toFixed(2) + "%"); read.set("e", "1 : " + (P.kV / 25).toFixed(P.kV % 25 ? 2 : 0));
+  } else if (P.view === "turbine") {
+    const rated = ratedOf(P.br), pc = [], dist = []; for (let v = 0; v <= 30; v += 0.25) { pc.push([v, turbP(v, P.br, rated)]); dist.push([v, weib(v, P.vm) * rated * 6]); }
+    chA.opts.title = "Power curve and the site's winds"; chA.opts.xLabel = "wind speed (m/s)"; chA.opts.yLabel = "MW";
+    chA.draw([{ pts: dist, type: "area", color: "#5ad1ff", alpha: 0.3, label: "how often (scaled)" }, { pts: pc, color: "#ffd166", label: "power curve" }, { pts: [[P.v, turbP(P.v, P.br, rated)]], type: "dots", r: 6, color: "#fff", label: "now" }], { xMin: 0, xMax: 30, yMin: 0 });
+    let fitTxt = "–";
+    if (adv) {
+      const lp = reads.filter(q => q.P > 0 && q.v > 0).map(q => [Math.log10(q.v), Math.log10(q.P)]);
+      chB.opts.title = "Model turbine: log P against log v"; chB.opts.xLabel = "log₁₀(v / m s⁻¹)"; chB.opts.yLabel = "log₁₀(P / W)";
+      const series = [{ pts: lp.length ? lp : [[0.5, -2]], type: "dots", r: 5, color: "#ffd166", label: "readings" }];
+      if (lp.length >= 3) { const f = K.linfit(lp), xs = lp.map(p => p[0]), mx = K.mean(xs), sxx = xs.reduce((s, x) => s + (x - mx) ** 2, 0), res = lp.reduce((s, [x, y]) => s + (y - f.c - f.m * x) ** 2, 0), se = Math.sqrt(res / (lp.length - 2) / (sxx || 1)); fitTxt = `${f.m.toFixed(2)} ± ${se.toFixed(2)}`; series.push({ pts: [[Math.min(...xs), f.c + f.m * Math.min(...xs)], [Math.max(...xs), f.c + f.m * Math.max(...xs)]], color: "#7ee787", label: "best fit" }); }
+      chB.draw(series, {});
+    } else { const pts = []; for (let v = 0; v <= 9; v += 0.1) pts.push([v, modelPtrue(v)]); chB.opts.title = "Model turbine: power against wind speed"; chB.opts.xLabel = "v (m/s)"; chB.opts.yLabel = "W"; chB.draw([{ pts, color: "#5ad1ff", dash: [4, 3], label: "P ∝ v³" }, { pts: reads.length ? reads.map(q => [q.v, q.P]) : [[0, 0]], type: "dots", r: 5, color: "#ffd166", label: "readings" }], { xMin: 0, xMax: 9, yMin: 0 }); }
+    relabel(["power in the wind", "electrical power", "capacity factor at this site", "energy in a year", adv ? "gradient of log P–log v" : "model readings"]);
+    const cf = cfTheory(P.vm, P.br, rated); read.set("a", windPower(P.v, P.br).toFixed(2) + " MW"); read.set("b", turbP(P.v, P.br, rated).toFixed(2) + " MW"); read.set("c", (cf * 100).toFixed(0) + "%"); read.set("d", (cf * rated * 8.76).toFixed(1) + " GWh"); read.set("e", adv ? fitTxt : String(reads.length));
+  } else {
+    const layers = []; let cum = MIX.map(() => 0);
+    MIXK.forEach(([n, col], i) => { cum = cum.map((v, j) => v + (P.pct ? MIX[j][i + 1] : MIX[j][i + 1] / 100 * MIX[j][9])); layers.push({ pts: cum.map((v, j) => [MIX[j][0], v]), type: "area", fillAlpha: 1, color: col, label: n }); });
+    chA.opts.title = P.pct ? "Share of generation (%)" : "Generation (TWh)"; chA.opts.xLabel = "year"; chA.opts.yLabel = P.pct ? "%" : "TWh"; chA.draw(layers.reverse(), { xMin: 2000, xMax: 2024, yMin: 0, vlines: [{ x: mixRow(P.year)[0], color: "#fff", label: String(mixRow(P.year)[0]) }] });
+    chB.opts.title = "Coal, gas and wind (%)"; chB.opts.xLabel = "year"; chB.opts.yLabel = "%"; chB.draw([0, 1, 3].map(i => ({ pts: MIX.map(r => [r[0], r[i + 1]]), color: MIXK[i][1], label: MIXK[i][0] })), { xMin: 2000, xMax: 2024, yMin: 0 });
+    const row = mixRow(P.year); relabel(["year", "coal", "gas", "wind + solar", "total"]);
+    read.set("a", String(row[0])); read.set("b", row[1] + "%"); read.set("c", row[2] + "%"); read.set("d", (row[4] + row[5]).toFixed(1) + "%"); read.set("e", row[9] + " TWh");
+  }
+}
+let frame = 0;
+ui.run(dt => { if (dt > 0) tick(dt); }, () => { draw(); if (frame++ % 6 === 0) charts(); });
+set({});
+ui.tip("Five views at the top of the controls.", 6000);

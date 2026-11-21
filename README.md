@@ -12,10 +12,10 @@ Most simulations are a single HTML file: open it in Chrome or Edge, with no
 install and no internet needed. Run any other commands from inside the
 project's own folder.
 
-## ★ Enhanced simulations
+## How the simulations are built
 
-One hundred and six simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): ninety-nine rebuilt showpieces, which replaced the earlier versions in
+All one hundred and nine simulations are built with the shared toolkit (the
+front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -73,7 +73,7 @@ Every simulation has a `worksheets.html` beside it: printable A4 sheets
 (set-up, prediction, results to fill in, questions), then teacher notes. Open it
 and press **Print** (or save as PDF).
 
-- **★ Enhanced simulations:** one sheet for every ready-made investigation (the
+- **Kit simulations:** one sheet for every ready-made investigation (the
   cards in the **Investigate** tab) and one for every batch experiment. The
   teacher notes give what to look for, the theory and the result of a test run
   of each batch experiment. The same sheets can be printed from inside the
@@ -111,8 +111,8 @@ and press **Print** (or save as PDF).
 | [`physics/particle_physics/`](physics/particle_physics/) | Particle physics ★: the atom and isotopes, quarks and hadrons, conservation of Q, B, L and S, bubble chamber, Feynman diagrams | Open `particle-physics.html` |
 | [`physics/nuclear_fusion/`](physics/nuclear_fusion/) | Nuclear fusion ★: the Coulomb barrier, quantum tunnelling, the Gamow peak, and the temperature and pressure needed in stars and reactors | Open `nuclear-fusion.html` |
 | [`physics/heating_insulation/`](physics/heating_insulation/) | Heating and insulation ★: cooling cans and insulators, Leslie cube and coin drop, a house's heat loss, insulation savings and payback | Open `heating-insulation.html` |
-| [`physics/density_pressure/`](physics/density_pressure/) | Density and pressure: density practicals, p = F/A, liquid pressure, floating, gas pressure, terminal velocity | Open `density-pressure.html` |
-| [`physics/energy_resources/`](physics/energy_resources/) | Energy resources and electricity: power stations, running the GB grid, transformers and transmission losses, wind turbine practical | Open `energy-resources.html` |
+| [`physics/density_pressure/`](physics/density_pressure/) | Density and pressure ★: density practicals with errors and uncertainty, eureka can bias, p = F/A, hρg, floating and Archimedes, terminal velocity and Stokes' law | Open `density-pressure.html` |
+| [`physics/energy_resources/`](physics/energy_resources/) | Energy resources ★: power stations and Sankey diagrams, Run Britain hour by hour, I²R losses and transformers, wind power ∝ v³ and the model turbine, GB generation 2000–2024 | Open `energy-resources.html` |
 | [`physics/quantum_wave_lab/`](physics/quantum_wave_lab/) | Quantum Wave Lab ★: the 2-D Schrödinger equation live. Tunnelling, double slit one particle at a time, uncertainty, measurement (A level and beyond) | Open `quantum-wave-lab.html` |
 | [`physics/special_relativity/`](physics/special_relativity/) | Special relativity ★: light clocks, simultaneity, train and tunnel, twin paradox, muons, from any frame, with a spacetime diagram | Open `special-relativity.html` |
 | [`physics/wind_tunnel/`](physics/wind_tunnel/) | Wind tunnel ★: viscous flow by the lattice Boltzmann method, with vortex streets, lift and drag (complements Aerofoil Flow) | Open `wind-tunnel.html` |
@@ -197,7 +197,7 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`climate/tropical_storms/`](climate/tropical_storms/) | Tropical Storms ★: grow, steer and land a hurricane; surge and impacts, a whole season, a warmer world | Open `tropical-storms.html` |
 | [`climate/tectonic_hazards/`](climate/tectonic_hazards/) | Tectonic Hazards ★: plate boundaries and the Benioff zone, P and S waves and triangulation, a tsunami crossing the ocean, disaster risk | Open `tectonic-hazards.html` |
 | [`climate/slopes_landslides/`](climate/slopes_landslides/) | Weathering, slopes and landslides ★: freeze–thaw and chemical weathering against climate, the factor of safety and pore water pressure, roots, undercut cliffs, soil creep, landslides and rainfall thresholds | Open `slopes-landslides.html` |
-| [`climate/fieldwork_sampling/`](climate/fieldwork_sampling/) | Fieldwork: sampling methods, bias, descriptive statistics, Spearman's rank, chi-squared, Mann–Whitney U, power | Open `fieldwork-sampling.html` |
+| [`climate/fieldwork_sampling/`](climate/fieldwork_sampling/) | Fieldwork ★: sampling methods and bias, mean, median and IQR, scatter graphs and box plots, Spearman's rank, chi-squared, Student's t-test, power and false alarms | Open `fieldwork-sampling.html` |
 
 ## Astrophysics
 
