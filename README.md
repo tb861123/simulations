@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and eighteen simulations are built with the shared toolkit (the
+All one hundred and nineteen simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
@@ -223,6 +223,7 @@ Mathematics simulations: Standard level follows Pearson Edexcel AS Mathematics (
 | [`mathematics/vectors_kinematics/`](mathematics/vectors_kinematics/) | Kinematics and Vectors: s–t and v–t graphs with tangent gradients and signed areas, SUVAT, variable acceleration (s = pt³ + qt² + rt), distance vs displacement; draggable 2D vectors (a ± b, λa, unit vectors, direction); projectiles as r and v vectors with range against angle (A level Mathematics) | Open `vectors-kinematics.html` |
 | [`mathematics/mechanics_forces/`](mathematics/mechanics_forces/) | Forces and Newton's Laws: F = ma with force diagrams drawn to scale; connected particles over a smooth pulley and an Atwood machine; friction F ≤ μR and limiting equilibrium on a rough slope with a push; moments, reactions and tipping on a beam (A level Mathematics) | Open `mechanics-forces.html` |
 | [`mathematics/complex_numbers/`](mathematics/complex_numbers/) | Complex Numbers (Further Maths): Argand diagram with draggable z and w; add, subtract, multiply (rotate and stretch), divide, conjugate; loci and regions |z − a| = r, |z − a| = |z − b|, arg(z − a) = θ; de Moivre powers and nth roots of unity and of any complex number | Open `complex-numbers.html` |
+| [`mathematics/matrix_transformations/`](mathematics/matrix_transformations/) | Matrix Transformations (Further Maths): 2 × 2 transformations animated on a grid with the images of i and j, determinant as area and orientation, singular matrices, inverses, invariant lines and lines of invariant points, composition NM, and 3 × 3 transformations of a cube with the volume scale factor | Open `matrix-transformations.html` |
 
 ## Statistics
 
