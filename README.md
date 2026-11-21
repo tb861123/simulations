@@ -311,6 +311,7 @@ so that students can test them; they take no side.
 
 | Folder | What it is | How to run |
 |---|---|---|
+| [`religious_studies/ethical_dilemmas/`](religious_studies/ethical_dilemmas/) | Ethical theories ★: natural law and double effect, Kant, act and rule utilitarianism, hedonic calculus, situation ethics; trolley cases, lying, euthanasia, whistleblowing; a society of promises | Open `ethical-dilemmas.html` |
 
 ## History
 
