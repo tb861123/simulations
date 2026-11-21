@@ -14,9 +14,9 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and nine simulations are built with the shared toolkit (the
+All one hundred and twenty-two simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, thirteen written for the new A level subjects (Business, Politics, Design and Technology, Religion, Philosophy and Ethics), and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
