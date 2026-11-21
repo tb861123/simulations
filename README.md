@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and thirteen simulations are built with the shared toolkit (the
+All one hundred and fourteen simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
@@ -211,6 +211,14 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`astrophysics/gravitational_lensing/`](astrophysics/gravitational_lensing/) | Black Holes and Gravitational Lensing ★: a ray-traced black hole with accretion disc, Einstein rings and arcs, microlensing planets, Eddington 1919 | Open `gravitational-lensing.html` |
 | [`astrophysics/dark_matter/`](astrophysics/dark_matter/) | Dark matter ★: rotation curves of five galaxies, Doppler slit spectra, halo fitting with χ², MOND | Open `dark-matter.html` |
 | [`astrophysics/three_body_chaos/`](astrophysics/three_body_chaos/) | Three-Body Chaos ★: N-body gravity with a "twin universe" to watch prediction fail (the earlier outcome-map lab is in `original_lab/`) | Open `three-body-chaos.html` |
+
+## Mathematics
+
+Standard level follows Pearson Edexcel AS Mathematics (8MA0); Advanced follows A level Mathematics (9MA0). The statistics simulations for these courses are in the Statistics section below.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`mathematics/calculus_explorer/`](mathematics/calculus_explorer/) | Calculus Explorer: differentiation from first principles (chord to tangent), the gradient function, stationary points with f'' and points of inflection, concave/convex, areas by rectangles and the trapezium rule against the exact integral (A level Mathematics) | Open `calculus-explorer.html` |
 
 ## Statistics
 
