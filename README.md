@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and twelve simulations are built with the shared toolkit (the
+All one hundred and thirteen simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
@@ -221,6 +221,7 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`statistics/hypothesis_testing/`](statistics/hypothesis_testing/) | Hypothesis Testing: binomial tests (one- and two-tailed, critical regions, actual significance level, p-values) and the normal test for a mean; Type I/II errors and power from hundreds of simulated tests (A level Mathematics) | Open `hypothesis-testing.html` |
 | [`statistics/distributions/`](statistics/distributions/) | Probability Distributions: a Galton board builds B(n, p) ball by ball (nCr routes, P(X ≤ b), mean and variance); normal areas, inverse normal and points of inflection; normal approximation with continuity correction; Poisson as an extension (A level Mathematics) | Open `distributions.html` |
 | [`statistics/regression_correlation/`](statistics/regression_correlation/) | Regression and Correlation: draggable scatter diagram with the least-squares line, residuals and squared residuals, PMCC, outliers and leverage, interpolation vs extrapolation, correlation vs causation, critical values of r, and log graphs for y = axⁿ (Kepler's planets) and y = kbˣ (A level Mathematics) | Open `regression-correlation.html` |
+| [`statistics/sampling_data/`](statistics/sampling_data/) | Sampling and Data: an illustrative large data set of daily weather (8 stations, 1987 and 2015); census and five sampling methods, cleaning tr and n/a, box plots with outliers, histograms with frequency density, cumulative frequency, mean, σ, quartiles and IQR (A level Mathematics) | Open `sampling-data.html` |
 
 ## Economics
 

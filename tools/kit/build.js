@@ -114,6 +114,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["hypothesis_testing.js", "hypothesis_testing", "hypothesis-testing.html", "Hypothesis Testing", "statistics"],
   ["distributions.js", "distributions", "distributions.html", "Probability Distributions", "statistics"],
   ["regression_correlation.js", "regression_correlation", "regression-correlation.html", "Regression and Correlation", "statistics"],
+  ["sampling_data.js", "sampling_data", "sampling-data.html", "Sampling and Data", "statistics"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
