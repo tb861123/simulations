@@ -244,6 +244,7 @@ the macroeconomy) are in the Economics section.
 | Folder | What it is | How to run |
 |---|---|---|
 | [`business/breakeven_and_margins/`](business/breakeven_and_margins/) | Break-even and margins ★: fixed and variable costs, contribution, break-even chart, margin of safety, target profit, PED and the profit-maximising price, stepped fixed costs | Open `breakeven-and-margins.html` |
+| [`business/cash_flow_forecast/`](business/cash_flow_forecast/) | Cash-flow forecast ★: inflows, outflows, net cash flow, opening and closing balances, overdraft limit, credit terms, seasonality, loans, factoring and bad debts, profit against cash | Open `cash-flow-forecast.html` |
 
 ## Politics
 

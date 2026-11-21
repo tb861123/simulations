@@ -1,0 +1,808 @@
+<!doctype html>
+<!-- Cash-Flow Forecast: one self-contained file, works offline. Built from tools/kit (kit.css, kit.js, src/cash_flow_forecast.js); edit those and run "node build.js". -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cash-Flow Forecast</title>
+<style>
+/* ===== Enhanced (kit-built) simulations: shared look and feel (inlined into every page by build.js) ===== */
+:root{
+  --bg:#0a0f1c; --panel:#111a2c; --panel2:#17223a; --line:#24324f; --text:#e9eef8; --muted:#8fa0bf; --grid:#1f2c47;
+  --accent:#5ad1ff; --accent-ink:#04121c; --good:#6ee7a0; --warn:#ffb454; --bad:#ff6b81;
+  --s0:#5ad1ff; --s1:#ffb454; --s2:#7ee787; --s3:#ff7b9c; --s4:#c4a1ff; --s5:#ffe66d;
+  --shadow:0 10px 30px rgba(0,0,0,.45); --r:12px;
+}
+:root[data-theme=light]{
+  --bg:#eef2f8; --panel:#ffffff; --panel2:#f3f6fb; --line:#d5dceb; --text:#172033; --muted:#5d6b85; --grid:#e3e8f2;
+  --accent:#0b7fc2; --accent-ink:#ffffff; --good:#12924c; --warn:#b86a00; --bad:#d1344d;
+  --s0:#0b7fc2; --s1:#d97a00; --s2:#1b9e4b; --s3:#d6336c; --s4:#7048c8; --s5:#a08800;
+  --shadow:0 8px 24px rgba(30,50,90,.15);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+.k-top{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;min-height:52px}
+.k-home{color:var(--muted);text-decoration:none;font-size:13px;white-space:nowrap}.k-home:hover{color:var(--accent)}
+.k-title{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
+.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+.k-chip{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 9px;white-space:nowrap;align-self:center}
+.k-blurb{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-actions{display:flex;gap:6px;flex:none}
+.k-btn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:.12s;user-select:none}
+.k-btn:hover{border-color:var(--accent);color:var(--accent)}
+.k-btn:active{transform:translateY(1px)}
+.k-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.k-btn.primary:hover{filter:brightness(1.1);color:var(--accent-ink)}
+.k-btn.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel2))}
+.k-btn.small{padding:3px 9px;font-size:12.5px}
+.k-btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.k-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
+.k-left{display:flex;flex-direction:column;min-width:0;min-height:0}
+.k-stage{flex:1;position:relative;min-height:0;background:#060a14;overflow:hidden}
+.k-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.k-dock{flex:none;height:190px;display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.k-dock:empty{display:none}
+.k-dock>*{flex:1;min-width:0;background:var(--panel)}
+.k-chart{position:relative;height:100%;min-height:80px}
+.k-chart canvas{position:absolute;inset:0;width:100%;height:100%}
+.k-side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.k-tabs{display:flex;border-bottom:1px solid var(--line);flex:none}
+.k-tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:10px 4px;cursor:pointer;color:var(--muted);font-weight:600}
+.k-tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.k-pane{flex:1;overflow-y:auto;padding:12px 14px 20px;display:none;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.k-pane.on{display:block}
+.k-group{margin-bottom:14px}
+.k-group>h3{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);margin:0 0 8px;font-weight:700}
+.k-ctl{margin-bottom:10px}
+.k-ctl label{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:2px}
+.k-ctl label b{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.k-ctl label b.k-typein{cursor:text;border-bottom:1px dashed currentColor;padding:0 1px}
+.k-ctl label b.k-typein:hover,.k-ctl label b.k-typein:focus{outline:1px solid var(--accent);outline-offset:1px;border-radius:3px}
+.k-typebox{width:9em;font:inherit;font-size:12.5px;padding:1px 4px;border-radius:4px;border:1px solid var(--accent);background:var(--panel-2,#1b2438);color:var(--text)}
+.k-ctl small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3;margin-top:1px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:none;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-moz-range-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);margin-top:-6.5px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+.k-seg{display:flex;flex-wrap:wrap;gap:4px}
+.k-seg .k-btn{flex:1 1 auto;padding:5px 8px;font-size:13px;text-align:center}
+.k-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.k-row .k-btn{flex:1 1 auto;text-align:center}
+.k-toggle{display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:9px;font-size:13px;user-select:none}
+.k-toggle i{flex:none;width:34px;height:19px;border-radius:99px;background:var(--line);position:relative;transition:.15s}
+.k-toggle i::after{content:"";position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;background:var(--muted);transition:.15s}
+.k-toggle.on i{background:var(--accent)}.k-toggle.on i::after{left:17px;background:var(--accent-ink)}
+.k-read{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.k-read div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 9px}
+.k-read span{display:block;font-size:11px;color:var(--muted)}
+.k-read b{font-size:16px;font-variant-numeric:tabular-nums;font-weight:650}
+.k-mcard{border:1px solid var(--line);background:var(--panel2);border-radius:var(--r);padding:11px 12px;margin-bottom:10px}
+.k-mcard h4{margin:0 0 4px;font-size:14.5px;display:flex;gap:8px;align-items:center}
+.k-mcard h4 em{font-style:normal;flex:none;width:22px;height:22px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:12px}
+.k-mcard.done h4 em{background:var(--good);color:#04130a}
+.k-mcard p{margin:0 0 8px;color:var(--muted);font-size:13px}
+.k-banner{position:absolute;left:12px;top:12px;max-width:min(520px,70%);background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--accent);border-radius:var(--r);padding:10px 34px 10px 13px;box-shadow:var(--shadow);z-index:5;backdrop-filter:blur(6px);font-size:13.5px}
+.k-banner b{color:var(--accent)}
+.k-banner .x{position:absolute;right:8px;top:6px;cursor:pointer;color:var(--muted);background:none;border:0;font-size:16px}
+.k-banner details{margin-top:6px;color:var(--muted)}.k-banner summary{cursor:pointer;color:var(--warn)}
+.k-tip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(8,14,26,.82);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:99px;padding:6px 16px;font-size:13px;pointer-events:none;z-index:4;transition:opacity .6s;white-space:nowrap}
+.k-hud{position:absolute;right:12px;top:12px;background:rgba(8,14,26,.72);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:10px;padding:7px 11px;font-size:12.5px;z-index:3;pointer-events:none;font-variant-numeric:tabular-nums;line-height:1.5;text-align:right}
+.k-notes h3{font-size:14px;margin:14px 0 4px;color:var(--accent)}.k-notes h3:first-child{margin-top:0}
+.k-notes p,.k-notes li{font-size:13px;color:var(--text)}.k-notes ul{padding-left:18px;margin:4px 0}
+.k-notes code{background:var(--panel2);padding:1px 5px;border-radius:5px;font-size:12.5px}
+.k-overlay{position:fixed;inset:0;background:rgba(3,6,12,.7);display:none;z-index:50;backdrop-filter:blur(3px)}
+.k-overlay.on{display:grid;place-items:center}
+.k-modal{width:min(1180px,95vw);height:min(700px,92vh);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:grid;grid-template-columns:290px 1fr;overflow:hidden}
+.k-blist{border-right:1px solid var(--line);overflow-y:auto;padding:14px}
+.k-blist h2{font-size:16px;margin:0 0 4px}.k-blist>p{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+.k-bitem{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;cursor:pointer}
+.k-bitem.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.k-bitem b{display:block;font-size:13.5px}.k-bitem span{color:var(--muted);font-size:12.5px}
+.k-bmain{display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 16px}
+.k-bhead{display:flex;gap:10px;align-items:flex-start}
+.k-bhead h3{margin:0;font-size:17px;flex:1}.k-bhead p{margin:3px 0 0;color:var(--muted);font-size:13px;font-weight:400}
+.k-bbar{display:flex;gap:10px;align-items:center;margin:10px 0 8px}
+.k-prog{flex:1;height:6px;background:var(--line);border-radius:9px;overflow:hidden}.k-prog i{display:block;height:100%;width:0;background:var(--accent)}
+.k-bchart{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.k-bfoot{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;height:150px;margin-top:10px}
+.k-btable{overflow:auto;border:1px solid var(--line);border-radius:10px;font-size:12.5px}
+.k-btable table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.k-btable th,.k-btable td{padding:3px 8px;text-align:right;border-bottom:1px solid var(--line)}
+.k-btable th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600}
+.k-bnote{overflow:auto;font-size:13px;color:var(--muted);background:var(--panel2);border-radius:10px;padding:9px 12px}
+.k-bnote b{color:var(--text)}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+.k-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.02em;padding:1px 7px;border-radius:99px;vertical-align:1px;white-space:nowrap;background:#35505a;color:#c9ecdf}
+.k-tag.adv{background:#4b3a78;color:#e3d6ff}.k-tag.beyond{background:#39465c;color:#cfdaf0}
+.k-idea{font-size:13px;margin:0 0 8px;line-height:1.4}.k-spec{font-size:12px;color:var(--muted);margin:0 0 10px}
+.k-pane>h3{font-size:14px;margin:14px 0 8px;color:var(--accent)}
+.k-q h4{font-size:12px}.k-q .k-marks{margin-left:auto;color:var(--muted);font-weight:400}.k-q p{color:var(--text);font-size:13.5px}
+.k-q details{font-size:13px;color:var(--muted)}.k-q summary{cursor:pointer;color:var(--warn)}.k-q details ul{padding-left:18px;margin:4px 0}
+.k-level{padding-bottom:4px}
+.k-tabs button{font-size:13px;padding-left:2px;padding-right:2px}
+.k-wsrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px;font-size:12.5px;color:var(--muted)}
+.k-mcard .btn+.btn,.k-mcard button+button{margin-left:6px}
+</style></head><body>
+<script>
+"use strict";
+/* =====================================================================
+   K: the small shared toolkit behind the ★ enhanced simulations.
+   It builds the page frame (header, stage, chart dock, side panel),
+   the sliders and buttons, the live charts, the Investigations cards
+   and the Batch run window. Each simulation's own code (below this
+   script in the page) holds the science.
+   ===================================================================== */
+const K = (() => {
+  const $ = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const col = i => cssVar("--s" + (i % 6));
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // ---- Repeatable random numbers: the same seed always gives the same run ----
+  function rng(seed) {
+    let a = (seed >>> 0) || 1;
+    const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    r.gauss = () => { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307179586 * r()); };
+    r.int = n => Math.floor(r() * n);
+    r.pick = arr => arr[Math.floor(r() * arr.length)];
+    return r;
+  }
+  // ---- Simple statistics ----
+  const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+  const sd = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); };
+  const se = a => sd(a) / Math.sqrt(a.length || 1);
+  function linfit(pts) { // least-squares straight line through [x,y] points
+    const n = pts.length, mx = mean(pts.map(p => p[0])), my = mean(pts.map(p => p[1]));
+    let sxy = 0, sxx = 0, syy = 0; for (const [x, y] of pts) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; syy += (y - my) ** 2; }
+    const m = sxy / (sxx || 1); return { m, c: my - m * mx, r: sxy / Math.sqrt((sxx * syy) || 1), n };
+  }
+  function download(name, text) { const a = $("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  const sig = (v, n = 3) => { if (v == null || !isFinite(v)) return "–"; if (v === 0) return "0"; const a = Math.abs(v); if (a >= 1e5 || a < 1e-3) return v.toExponential(n - 1); return String(+v.toPrecision(n)); };
+
+  // ---- Controls ----
+  /* Typing a value into a slider: read a displayed value ("2.2 mF", "4.7 × 10⁵ Pa", "£30,000", "−12 °C") as a number,
+     then search the slider's positions for the one whose display matches (copes with log scales and unit prefixes). */
+  const PRE = { p: 1e-12, n: 1e-9, "μ": 1e-6, "µ": 1e-6, u: 1e-6, m: 1e-3, k: 1e3, M: 1e6, G: 1e9 }, SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+  function parseVal(text) {
+    const t = String(text).replace(/[−–]/g, "-").replace(/[   ]/g, " ");
+    const m = t.match(/-?(?:\d{1,3}(?:[, ]\d{3})+|\d+)(?:\.\d+)?|-?\.\d+/);
+    if (!m) return null;
+    let v = parseFloat(m[0].replace(/[, ]/g, "")), rest = t.slice(m.index + m[0].length);
+    const pw = m[0] === "10" && rest.match(/^(?:\^\s*(-?\d+(?:\.\d+)?)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))/);         // a bare power of ten: 10⁻⁹ or 10^6.5
+    if (pw) { v = Math.pow(10, pw[1] != null ? +pw[1] : (pw[2][0] === "⁻" ? -1 : 1) * +[...pw[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join("")); rest = rest.slice(pw[0].length); }
+    const ex = rest.match(/^\s*(?:[×x*]\s*10\s*(?:\^\s*(-?\d+)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))|[eE]([-+]?\d+))/);
+    if (ex) { const p = ex[1] != null ? +ex[1] : ex[3] != null ? +ex[3] : (ex[2][0] === "⁻" ? -1 : 1) * +[...ex[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join(""); v *= Math.pow(10, p); rest = rest.slice(ex[0].length); }
+    const wd = rest.match(/^\s*(thousand|million|billion|trillion)\b/i);    // "1 million K"
+    if (wd) { v *= { thousand: 1e3, million: 1e6, billion: 1e9, trillion: 1e12 }[wd[1].toLowerCase()]; rest = rest.slice(wd[0].length); }
+    const pm = !wd && rest.match(/^\s*([pnμµumkMG])(?=[A-Za-zΩ°])/);
+    if (pm) v *= PRE[pm[1]];
+    return isFinite(v) ? { v, unit: rest } : null;
+  }
+  // what was typed, in the units on display unless a unit was typed too ("2.2", "2.2 mF" and "1e-6" all work)
+  function typedVal(raw, shown) {
+    const q = parseVal(raw); if (!q) return null;
+    if (/[A-Za-zμµΩ°%£$€]/.test(q.unit)) return q;
+    const s = parseVal(shown); return parseVal(raw + (s ? " " + s.unit.trim() : ""));
+  }
+  function invertSlider(lo, hi, st, g, target) {
+    const n = Math.max(1, Math.round((hi - lo) / st)), pos = i => +(lo + i * st).toFixed(10);
+    let e0 = 0, e1 = n;                                                       // ends may show words ("off"): step in to the first numbers
+    while (e0 < n && g(pos(e0)) == null && e0 < 60) e0++;
+    while (e1 > e0 && g(pos(e1)) == null && n - e1 < 60) e1--;
+    const a = g(pos(e0)), b = g(pos(e1));
+    if (a == null || b == null || a === b) return null;
+    const up = b > a;
+    if (up ? target < a : target > a) return pos(e0 > 0 ? 0 : e0);
+    if (up ? target > b : target < b) return pos(e1 < n ? n : e1);
+    let i0 = e0, i1 = e1, v0 = a, v1 = b;
+    while (i1 - i0 > 1) { const im = (i0 + i1) >> 1, vm = g(pos(im)); if (vm == null) break; if ((vm < target) === up) { i0 = im; v0 = vm; } else { i1 = im; v1 = vm; } }
+    return Math.abs(v0 - target) <= Math.abs(v1 - target) ? pos(i0) : pos(i1);
+  }
+  // try every position (cheap here: only the format function runs) and take the closest display; ties go to the one nearest the current setting
+  function nearestSlider(lo, hi, st, g, target, cur) {
+    const n = Math.max(1, Math.round((hi - lo) / st)); if (n > 20000) return invertSlider(lo, hi, st, g, target);
+    let best = null, be = Infinity, bd = Infinity;
+    for (let i = 0; i <= n; i++) { const p = +(lo + i * st).toFixed(10), v = g(p); if (v == null) continue; const e = Math.abs(v - target), d = Math.abs(p - cur); if (e < be - 1e-12 * Math.abs(target) || (Math.abs(e - be) <= 1e-12 * Math.abs(target) && d < bd)) { best = p; be = e; bd = d; } }
+    return best;
+  }
+  const scratch = document.createElement("div");
+  const textOf = html => { scratch.innerHTML = html; scratch.querySelectorAll("sup").forEach(x => x.replaceWith("^" + x.textContent)); return scratch.textContent; };
+  function slider(parent, o) {
+    const w = $("div", "k-ctl"), lab = $("label"), name = $("span", "", o.label), val = $("b", "k-typein"), inp = $("input");
+    inp.type = "range"; inp.min = o.min; inp.max = o.max; inp.step = o.step || 1; inp.value = o.value;
+    const fmt = o.fmt || (v => sig(v, 4) + (o.unit ? " " + o.unit : ""));
+    const show = () => val.innerHTML = fmt(+inp.value);
+    lab.append(name, val); w.append(lab, inp); if (o.tip) w.append($("small", "", o.tip)); parent.append(w); show();
+    inp.addEventListener("input", () => { show(); o.on && o.on(+inp.value); });
+    // click the value (or Tab to it and press Enter) to type one
+    const g = p => { let q = null; try { q = parseVal(textOf(fmt(p))); } catch (e) { } return q ? q.v : null; };
+    let numeric = true; try { const ends = [+o.min, (+o.min + +o.max) / 2, +o.max].map(g).filter(v => v != null); numeric = new Set(ends).size > 1; } catch (e) { }
+    if (!numeric) val.classList.remove("k-typein"); else { val.tabIndex = 0; val.title = "Click to type a value"; }
+    function edit() {
+      if (w.querySelector(".k-typebox")) return;
+      const shown = textOf(val.innerHTML), box = $("input", "k-typebox"); box.type = "text"; box.value = shown.trim(); box.setAttribute("aria-label", "Type a value for " + o.label);
+      val.style.display = "none"; val.after(box); box.focus(); box.select(); let done = false;
+      const finish = ok => {
+        if (done) return; done = true; const raw = box.value.trim(); box.remove(); val.style.display = "";
+        if (!ok || !raw || raw === shown.trim()) return; const t = typedVal(raw, shown); if (!t) return;
+        const p = nearestSlider(+o.min, +o.max, +(o.step || 1), g, t.v, +inp.value); if (p == null) return;
+        inp.value = p; show(); o.on && o.on(+inp.value);
+      };
+      box.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); });
+      box.addEventListener("blur", () => finish(true)); box.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); });
+    }
+    if (numeric) val.addEventListener("click", e => { e.preventDefault(); edit(); });
+    if (numeric) val.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); edit(); } });
+    return { el: w, get value() { return +inp.value; }, set(v, fire) { inp.value = v; show(); if (fire) o.on && o.on(+inp.value); } };
+  }
+  function seg(parent, o) {
+    const w = $("div", "k-ctl"); if (o.label) w.append($("label", "", `<span>${o.label}</span>`));
+    const row = $("div", "k-seg"); w.append(row); if (o.tip) w.append($("small", "", o.tip)); parent.append(w);
+    let value = o.value; const btns = [];
+    const paint = () => btns.forEach(([v, b]) => b.classList.toggle("on", v === value));
+    for (const [v, label, title] of o.options) { const b = $("button", "k-btn", label); if (title) b.title = title; b.onclick = () => { value = v; paint(); o.on && o.on(v); }; row.append(b); btns.push([v, b]); }
+    paint();
+    return { el: w, get value() { return value; }, set(v, fire) { value = v; paint(); if (fire) o.on && o.on(v); } };
+  }
+  function toggle(parent, o) {
+    const w = $("div", "k-toggle" + (o.value ? " on" : ""), `<i></i><span>${o.label}</span>`); parent.append(w); let value = !!o.value;
+    w.onclick = () => { value = !value; w.classList.toggle("on", value); o.on && o.on(value); };
+    return { el: w, get value() { return value; }, set(v, fire) { value = !!v; w.classList.toggle("on", value); if (fire) o.on && o.on(value); } };
+  }
+  function btn(parent, label, on, cls) { const b = $("button", "k-btn " + (cls || ""), label); b.onclick = on; parent.append(b); return b; }
+  function row(parent) { const r = $("div", "k-row"); parent.append(r); return r; }
+  function readout(parent, items) { // small tiles of live numbers
+    const g = $("div", "k-read"), map = {}; parent.append(g);
+    for (const [id, label] of items) { const d = $("div", "", `<span>${label}</span><b>–</b>`); g.append(d); map[id] = d.lastChild; }
+    return { el: g, set(id, v) { if (map[id].textContent !== String(v)) map[id].innerHTML = v; } };
+  }
+  function note(parent, html) { const s = $("small", "", html); s.style.cssText = "display:block;color:var(--muted);margin:-2px 0 10px;font-size:12px;line-height:1.35"; parent.append(s); return s; }
+
+  // ---- A canvas that stays sharp on high-DPI screens and follows its container's size ----
+  function canvas(parent, onresize) {
+    const cv = $("canvas"); parent.append(cv); const c = { el: cv, ctx: cv.getContext("2d"), w: 1, h: 1, dpr: 1 };
+    const fit = () => {
+      const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
+      c.dpr = Math.min(window.devicePixelRatio || 1, 2); c.w = w; c.h = h; cv.width = Math.round(w * c.dpr); cv.height = Math.round(h * c.dpr);
+      c.ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0); onresize && onresize(c);
+    };
+    new ResizeObserver(fit).observe(parent); fit(); return c;
+  }
+  // Pointer handling in the element's own pixel coordinates
+  function pointer(el, h) {
+    const pos = e => { const r = el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, e }; };
+    let down = false;
+    el.addEventListener("pointerdown", e => { down = true; el.setPointerCapture(e.pointerId); h.down && h.down(pos(e)); });
+    el.addEventListener("pointermove", e => { const p = pos(e); if (down) h.drag && h.drag(p); else h.hover && h.hover(p); });
+    const up = e => { if (down) { down = false; h.up && h.up(pos(e)); } };
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+    el.addEventListener("pointerleave", e => h.leave && h.leave(pos(e)));
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+
+  // ---- Charts ----
+  const charts = new Set();
+  function niceTicks(a, b, n) {
+    const span = (b - a) || 1, raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    const step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p, t = [];
+    for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + step * 1e-6; v += step) t.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    return { t, step };
+  }
+  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(0); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
+  /* chart(parent,{title,xLabel,yLabel,xMin,xMax,yMin,yMax,yZero})  then  .draw(series, extra)
+     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r, alpha, fillAlpha (area fill, default .22; 1 for solid stacked areas)}]
+     extra:  {xMin..yMax overrides, vlines:[{x,color,label,dash}], hlines:[{y,...}], bands:[{x0,x1,color}]} */
+  function chart(parent, o = {}) {
+    const wrap = $("div", "k-chart"), cv = $("canvas"); wrap.append(cv); parent.append(wrap);
+    const ctx = cv.getContext("2d"); let last = [[], {}];
+    const api = { el: wrap, opts: o, draw(series, extra) { last = [series || [], extra || {}]; render(); }, redraw: () => render(), map: null };
+    function render() {
+      const W = wrap.clientWidth, H = wrap.clientHeight; if (W < 40 || H < 40) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      const [series, ex] = last, q = Object.assign({}, o, ex);
+      const text = cssVar("--text"), muted = cssVar("--muted"), grid = cssVar("--grid");
+      // work out the axis ranges from the data unless they are fixed
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const s of series) for (const p of s.pts) { if (!isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
+      for (const l of q.hlines || []) { if (l.y < y0) y0 = l.y; if (l.y > y1) y1 = l.y; }
+      if (!isFinite(x0)) { x0 = 0; x1 = 1; } if (!isFinite(y0)) { y0 = 0; y1 = 1; }
+      if (q.yZero || series.some(s => s.type === "bars")) { y0 = Math.min(0, y0); y1 = Math.max(0, y1); }
+      const py = (y1 - y0) * 0.08 || Math.abs(y1) * 0.1 || 1; if (q.yMin == null && y0 !== 0) y0 -= py; if (q.yMax == null) y1 += py;
+      if (x1 === x0) { x0 -= 0.5; x1 += 0.5; }
+      if (q.xMin != null) x0 = q.xMin; if (q.xMax != null) x1 = q.xMax; if (q.yMin != null) y0 = q.yMin; if (q.yMax != null) y1 = q.yMax;
+      const L = 54, R = 12, T = 24, B = q.xLabel ? 34 : 22, pw = W - L - R, ph = H - T - B;
+      const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + ph - (y - y0) / (y1 - y0) * ph;
+      api.map = { X, Y, x0, x1, y0, y1, L, T, pw, ph };
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; ctx.lineWidth = 1;
+      for (const b of q.bands || []) { ctx.fillStyle = b.color; ctx.fillRect(X(Math.max(x0, b.x0)), T, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)), ph); }
+      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70))), yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.beginPath();
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      for (const v of xt.t) { const x = Math.round(X(v)) + .5; ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.fillText(q.xFmt ? q.xFmt(v) : tickFmt(v, xt.step), x, T + ph + 4); }
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      for (const v of yt.t) { const y = Math.round(Y(v)) + .5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.fillText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step), L - 5, y); }
+      ctx.stroke(); ctx.strokeStyle = muted; ctx.strokeRect(L + .5, T + .5, pw, ph);
+      if (q.xLabel) { ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(q.xLabel, L + pw / 2, H - 3); }
+      if (q.yLabel) { ctx.save(); ctx.translate(11, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(q.yLabel, 0, 0); ctx.restore(); }
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+      series.forEach((s, i) => {
+        const c = s.color || col(i); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = s.width || 1.8; ctx.setLineDash(s.dash || []); ctx.globalAlpha = s.alpha == null ? 1 : s.alpha;
+        const P = s.pts;
+        if (s.type === "bars") { const w = Math.max(1, Math.abs(X(s.w || 1) - X(0)) - 1); for (const p of P) { const yy = Y(p[1]); ctx.fillRect(X(p[0]) - w / 2, Math.min(yy, Y(0)), w, Math.abs(Y(0) - yy)); } }
+        else if (s.type === "dots" || s.type === "err") {
+          const r = s.r || 3;
+          for (const p of P) { const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+        } else {
+          ctx.beginPath(); let pen = false;
+          for (const p of P) { if (!isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
+          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= s.fillAlpha == null ? .22 : s.fillAlpha; ctx.fill(); } else ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+      });
+      for (const l of q.vlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(l.x), T); ctx.lineTo(X(l.x), T + ph); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = X(l.x) > L + pw * .7 ? "right" : "left"; ctx.textBaseline = "top"; ctx.fillText(l.label, X(l.x) + (ctx.textAlign === "right" ? -5 : 5), T + 4 + (l.row || 0) * 13); } }
+      for (const l of q.hlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Y(l.y)); ctx.lineTo(L + pw, Y(l.y)); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(l.label, L + pw - 5, Y(l.y) - 2); } }
+      ctx.restore();
+      // title on the left, legend on the right
+      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
+      for (let i = series.length - 1; i >= 0; i--) { const s = series[i]; if (!s.label) continue; const w = ctx.measureText(s.label).width; lx -= w; ctx.fillStyle = muted; ctx.fillText(s.label, lx, 12); lx -= 12; ctx.fillStyle = s.color || col(i); ctx.fillRect(lx, 8, 8, 8); lx -= 10; }
+      if (q.title) { // the title gives way (with an ellipsis) if the legend needs the room
+        ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.fillStyle = text; let t = q.title; const room = lx - L - 8;
+        if (ctx.measureText(t).width > room) { while (t.length > 3 && ctx.measureText(t + "…").width > room) t = t.slice(0, -1); t = t.length > 3 ? t + "…" : ""; }
+        ctx.fillText(t, L, 12);
+      }
+    }
+    new ResizeObserver(render).observe(wrap); charts.add(api); return api;
+  }
+  function histogram(vals, bins, lo, hi) { // returns bar points [centre, count] and the bin width
+    if (lo == null) lo = Math.min(...vals); if (hi == null) hi = Math.max(...vals); if (hi === lo) { hi += .5; lo -= .5; }
+    const w = (hi - lo) / bins, c = new Array(bins).fill(0);
+    for (const v of vals) { const i = Math.floor((v - lo) / w); if (i >= 0 && i <= bins) c[Math.min(i, bins - 1)]++; }
+    return { pts: c.map((n, i) => [lo + (i + .5) * w, n]), w };
+  }
+
+  // ---- The page frame ----
+
+  let K_last = null;
+  /* ---- Worksheets ----
+     worksheetDoc(o, picks, opt) returns a printable HTML page: one A4 sheet per investigation card (o.missions) and per batch
+     experiment (o.batch), then teacher notes. picks = [{ kind: "m" | "b", item }]. opt = { file, teacher, results: { [batch title]: summary } } */
+  const wsCSS = `body{font:14px/1.45 "Segoe UI",system-ui,sans-serif;color:#111;margin:0;background:#eee}.sheet{background:#fff;width:186mm;min-height:270mm;margin:12px auto;padding:12mm;box-sizing:border-box;page-break-after:always}
+  .top{display:flex;justify-content:space-between;color:#555;font-size:12px;border-bottom:1px solid #999;padding-bottom:4px}h1{font-size:20px;margin:10px 0 4px}h2{font-size:15px;margin:16px 0 6px;color:#14467a}.tag{font-size:11px;border:1px solid #14467a;border-radius:9px;padding:0 6px;color:#14467a;vertical-align:middle}
+  .q{background:#eef4fb;border-left:4px solid #14467a;padding:8px 10px}.lines div{border-bottom:1px solid #aaa;height:26px}.box{border:1px solid #aaa;height:110px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:4px 6px;height:24px;text-align:center;font-size:13px}th{background:#f2f2f2}
+  ol{margin:4px 0 4px 20px;padding:0}.bar{position:sticky;top:0;background:#14467a;color:#fff;padding:8px 16px;display:flex;gap:12px;align-items:center}.bar button{font:inherit;padding:4px 12px;cursor:pointer}.note{background:#fafafa;border:1px solid #ccc;padding:8px 10px;margin:8px 0}
+  .grid{height:200px;border:1px solid #888;background-image:linear-gradient(#ddd 1px,transparent 1px),linear-gradient(90deg,#ddd 1px,transparent 1px);background-size:20px 20px;position:relative}
+  @media print{body{background:#fff}.bar{display:none}.sheet{margin:0;width:auto;min-height:0}}`;
+  const wsLines = n => `<div class="lines">${"<div></div>".repeat(n)}</div>`;
+  function worksheetDoc(o, picks, opt = {}) {
+    const file = opt.file || (location.pathname.split("/").pop() || "the simulation"), nM = (o.missions || []).length, nB = (o.batch || []).length;
+    const tagA = x => x.lvl === "adv" ? ' <span class="tag">A level</span>' : "", head = (k, n, of) => `<div class="top"><span>${o.title} · ${k} ${n} of ${of}</span><span>Name ____________________ &nbsp; Date __________</span></div>`;
+    const sheets = picks.map(({ kind, item: x }) => {
+      if (kind === "m") {
+        const n = o.missions.indexOf(x) + 1;
+        return `<div class="sheet">${head("Investigation", n, nM)}<h1>${x.title}${tagA(x)}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b>${x.lvl === "adv" ? " and choose <b>Advanced (A level)</b> in the Controls tab" : ""}.</li><li>Open the <b>Investigate</b> tab and press <b>Set it up ▸</b> on “${x.title}”. It sets everything up for you.</li><li>You can still change the controls afterwards to test your ideas.</li></ol>
+<h2>2 · The question</h2><div class="q">${x.q}</div>
+<h2>3 · Predict</h2><p>Before you watch, write what you think will happen, and why.</p>${wsLines(3)}
+<h2>4 · Observe and record</h2><p>Watch the simulation and try the controls. Record what you changed, what you saw and any readings (from the Readings panel or the graphs).</p>
+<table><tr><th style="width:30%">What I changed</th><th>What I saw or measured</th><th style="width:22%">Reading</th></tr>${"<tr><td></td><td></td><td></td></tr>".repeat(5)}</table>
+<h2>5 · Answer the question</h2>${wsLines(4)}
+<h2>6 · Explain</h2><p>Use the science to explain your answer. Open <b>The model</b> tab: which rule or assumption in the model causes what you saw? Would the real world behave the same way?</p>${wsLines(4)}</div>`;
+      }
+      const n = o.batch.indexOf(x) + 1, reps = x.reps || (x.xs ? 6 : 200);
+      const rec = x.xs ? `<table><tr><th>${x.xLabel}</th><th>mean</th><th>SD</th><th>SE</th>${x.theory ? "<th>theory</th>" : ""}<th>difference from theory, in SEs</th></tr>${x.xs.map(v => `<tr><td>${v}</td><td></td><td></td><td></td>${x.theory ? "<td></td>" : ""}<td></td></tr>`).join("")}</table>`
+        : `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${x.theory != null ? "<th>theory</th>" : ""}</tr><tr><td></td><td></td><td></td><td></td><td></td><td></td>${x.theory != null ? "<td></td>" : ""}</tr></table><p>Sketch the histogram:</p><div class="grid"></div>`;
+      return `<div class="sheet">${head("Batch experiment", n, nB)}<h1>${x.title}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b> and press <b>📊 Batch run</b>.</li><li>Click the experiment “${x.title}”. It sets everything up for you.</li><li>Press <b>▶ Run</b> and wait for it to finish (${x.xs ? `${x.xs.length} settings × ${reps} runs` : `${reps} runs`}).</li></ol>
+<div class="q"><b>${x.question}</b>${x.how ? `<br><small>${x.how}</small>` : ""}</div>
+<h2>2 · Predict before you run it</h2><p>${x.xs ? `How do you think <b>${x.yLabel}</b> will change as <b>${x.xLabel}</b> goes from ${x.xs[0]} to ${x.xs[x.xs.length - 1]}? Sketch your prediction, then give your reason.` : `What average do you expect for <b>${x.yLabel}</b>? Will every run give the same answer? Give your reason.`}</p>${x.xs ? `<div class="grid" style="height:150px"></div>` : ""}${wsLines(2)}
+<h2>3 · Record the results</h2><p>Copy the numbers from the table under the graph${x.theory != null ? " (theory: " + (x.theoryLabel || "the theory line") + ")" : ""}.</p>${rec}
+<h2>4 · Think about it</h2><ol><li>Does the simulation agree with the theory${x.theory == null ? " (or with your prediction)" : ""}? Use the difference in standard errors (or how close the points are to the line) to say how well.${wsLines(2)}</li>
+<li>Why don't all the runs give the same answer? What would happen to the standard error with four times as many runs?${wsLines(2)}</li>
+<li>Open <b>The model</b> tab. Name one simplification that could make the model differ from real life.${wsLines(2)}</li></ol></div>`;
+    });
+    let notes = "";
+    if (opt.teacher !== false) {
+      notes = `<div class="sheet"><div class="top"><span>${o.title} · Teacher notes</span><span>${file}</span></div><h1>Teacher notes</h1>` + picks.map(({ kind, item: x }) => {
+        if (kind === "m") return `<h2>Investigation ${o.missions.indexOf(x) + 1}: ${x.title}${tagA(x)}</h2><div class="note"><b>What to look for:</b> ${x.hint || "–"}</div>`;
+        const r = opt.results && opt.results[x.title], th = x.theory == null ? "" : x.xs ? x.xs.map(v => `${v}: ${sig(x.theory(v))}`).join(" · ") : sig(+x.theory);
+        return `<h2>Batch experiment ${o.batch.indexOf(x) + 1}: ${x.title}</h2><div class="note">${x.note || ""}${th ? `<br><b>Theory (${x.theoryLabel || "theory"}):</b> ${th}` : ""}${r ? `<br><b>Result from a test run:</b> ${r}` : ""}</div>`;
+      }).join("") + `</div>`;
+    }
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${o.title} – worksheets</title><style>${wsCSS}</style></head><body><div class="bar"><b>${o.title} – worksheets</b><span>${picks.length} sheet${picks.length > 1 ? "s" : ""}${opt.teacher !== false ? ", then teacher notes" : ""}. Print, or save as PDF.</span><button onclick="print()">🖨 Print</button></div>${sheets.join("")}${notes}</body></html>`;
+  }
+  // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
+  function batchSummary(e, seed0 = 12345) {
+    const rows = []; let i = 0;
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
+    return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
+  }
+  function openDoc(html, name) { const w = window.open("", "_blank"); if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(name, html); }
+  // ---- Sound (Web Audio). Pages that ask for it (app option `sound`) get a 🔇/🔊 button in the header.
+  //      It is OFF until someone presses it, so a room full of laptops stays quiet; nothing plays while it is off.
+  //      tone(f, {dur, vol, type, at, glide}) plays a note; noise({dur, vol, filter, freq, at}) a hiss, thump or rumble;
+  //      click() a Geiger-style tick; hum() a continuous tone you retune every frame (it fades out if not updated). ----
+  const sound = (() => {
+    let ctx = null, master = null, on = false, buf = null; const live = new Set(), hums = [], fns = [];
+    const ready = () => on && ctx && ctx.state === "running";
+    async function enable(v) {
+      on = !!v;
+      if (on) { try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (!master) { master = ctx.createGain(); master.gain.value = 0.7; master.connect(ctx.destination); } await ctx.resume(); } catch (e) { on = false; } }
+      else stop();
+      fns.forEach(f => f(on));
+    }
+    const track = n => { live.add(n); n.onended = () => live.delete(n); };
+    function tone(f, o = {}) {
+      if (!ready() || !(f > 15) || f > ctx.sampleRate / 2) return;
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.3, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.008, dur / 2);
+      const osc = ctx.createOscillator(), g = ctx.createGain(); osc.type = o.type || "sine"; osc.frequency.setValueAtTime(f, t); if (o.glide) osc.frequency.exponentialRampToValueAtTime(Math.max(16, o.glide), t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      osc.connect(g); g.connect(master); osc.start(t); osc.stop(t + dur + 0.02); track(osc);
+    }
+    function noise(o = {}) {
+      if (!ready()) return;
+      if (!buf) { buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.2, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.004, dur / 2);
+      const src = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain(); src.buffer = buf; src.loop = true;
+      fl.type = o.filter || "lowpass"; fl.frequency.value = o.freq || 1000; if (o.sweep) fl.frequency.exponentialRampToValueAtTime(o.sweep, t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      src.connect(fl); fl.connect(g); g.connect(master); src.start(t, Math.random()); src.stop(t + dur + 0.02); track(src);
+    }
+    const click = (o = {}) => noise({ dur: 0.012, vol: o.vol == null ? 0.5 : o.vol, filter: "highpass", freq: 1800, at: o.at });
+    function hum(type = "sine") {
+      let osc = null, g = null, last = 0;
+      const h = {
+        set(f, vol = 0.15) { if (!ready()) { h.kill(); return; } if (!osc) { osc = ctx.createOscillator(); g = ctx.createGain(); osc.type = type; g.gain.value = 0; osc.connect(g); g.connect(master); osc.start(); } const t = ctx.currentTime; osc.frequency.setTargetAtTime(Math.max(16, f), t, 0.02); g.gain.setTargetAtTime(vol, t, 0.04); last = performance.now(); },
+        kill() { if (osc) { try { g.gain.setTargetAtTime(0, ctx.currentTime, 0.03); osc.stop(ctx.currentTime + 0.25); } catch (e) { } osc = null; } },
+        stale() { return osc && performance.now() - last > 250; }
+      };
+      hums.push(h); return h;
+    }
+    function stop() { for (const n of live) { try { n.stop(); } catch (e) { } } live.clear(); hums.forEach(h => h.kill()); }
+    setInterval(() => hums.forEach(h => { if (h.stale()) h.kill(); }), 200);    // a hum nobody is updating (paused, other view) fades away
+    document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); });
+    return { enable, ready, tone, noise, click, hum, stop, get on() { return on; }, onChange: f => fns.push(f) };
+  })();
+  function app(o) {
+    document.title = o.title + " · Science Simulations";
+    const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
+    if (saved) document.documentElement.dataset.theme = saved;
+    const top = $("header", "k-top"), main = $("main", "k-main");
+    top.innerHTML = `<a class="k-home" href="${o.home || "../../index.html"}" title="Back to the list of simulations">◂ All simulations</a>
+      <div class="k-title"><span class="k-chip">${o.subject}</span><h1>${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
+    const act = top.querySelector(".k-actions");
+    const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
+    left.append(stage, dock); main.append(left, side); document.body.append(top, main);
+    const ui = { stage, dock, side, playing: true, speed: 1, canvas: fn => canvas(stage, fn), config: o };
+    const wsName = o.title.replace(/\W+/g, "-").toLowerCase() + "-worksheet.html";
+    ui.worksheet = (picks, teacher) => openDoc(worksheetDoc(o, picks, { teacher }), wsName);
+    ui.allPicks = () => (o.missions || []).map(item => ({ kind: "m", item })).concat((o.batch || []).map(item => ({ kind: "b", item })));
+    // header buttons
+    const bPlay = btn(act, "⏸ Pause", () => ui.setPlaying(!ui.playing)); bPlay.title = "Space bar";
+    ui.setPlaying = p => { ui.playing = p; bPlay.innerHTML = p ? "⏸ Pause" : "▶ Play"; bPlay.classList.toggle("primary", !p); };
+    if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
+    if (o.reset) btn(act, "↺ Reset", () => o.reset());
+    if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
+    if (o.sound) { const bS = btn(act, "🔇 Sound", () => sound.enable(!sound.on)); bS.title = typeof o.sound === "string" ? o.sound : "Turn sound on or off (off to start with)"; sound.onChange(v => { bS.innerHTML = v ? "🔊 Sound" : "🔇 Sound"; bS.classList.toggle("primary", v); }); }
+    btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
+    btn(act, "⛶", () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).title = "Full screen";
+    addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
+    // side panel tabs
+    const tabs = $("nav", "k-tabs"), panes = {}; side.append(tabs);
+    const names = [["controls", "Controls"], ["missions", "Investigate"]].concat(o.revise ? [["revise", "Revise"]] : [], [["notes", "The model"]]);
+    const show = id => { if (id === "revise" && ui.renderRevise) ui.renderRevise(); for (const [k] of names) { panes[k].classList.toggle("on", k === id); panes[k]._tab.classList.toggle("on", k === id); } };
+    for (const [k, label] of names) { const b = $("button", "", label); b.onclick = () => show(k); tabs.append(b); panes[k] = $("div", "k-pane" + (k === "notes" ? " k-notes" : "")); panes[k]._tab = b; side.append(panes[k]); }
+    show("controls"); ui.controls = panes.controls; ui.showTab = show;
+    ui.group = title => { const g = $("div", "k-group", title ? `<h3>${title}</h3>` : ""); panes.controls.append(g); return g; };
+    panes.notes.innerHTML = o.notes || "";
+    // investigations: each card sets the simulation up and pins its question over the stage
+    let banner = null;
+    ui.mission = m => {
+      if (banner) banner.remove(); banner = null; if (!m) return;
+      banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
+      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
+    };
+    if ((o.missions || []).length || (o.batch || []).length) { const wr = $("div", "k-wsrow", "<span>Worksheets:</span>"); panes.missions.append(wr); btn(wr, "📄 Every investigation", () => ui.worksheet(ui.allPicks(), true), "small").title = "One printable sheet per investigation and batch experiment, then teacher notes"; btn(wr, "📄 Without teacher notes", () => ui.worksheet(ui.allPicks(), false), "small"); }
+    const mcards = (o.missions || []).map(m => {
+      const c = $("div", "k-mcard", `<h4><em></em>${m.title}${m.lvl === "adv" ? ' <span class="k-tag adv">A level</span>' : ""}</h4><p>${m.q}</p>`);
+      btn(c, "Set it up ▸", () => { c.classList.add("done"); c.querySelector("em").textContent = "✓"; m.setup && m.setup(); ui.mission(m); ui.setPlaying(true); show("controls"); }, "small primary");
+      btn(c, "📄 Worksheet", () => ui.worksheet([{ kind: "m", item: m }], true), "small").title = "A printable worksheet for this investigation";
+      panes.missions.append(c); return [m, c];
+    });
+    /* ---- Level (Standard / Advanced) and the Revise tab ----
+       o.levels = { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "...", adv: "..." } }
+       o.revise = { ideas: [{ lvl: "std"|"adv"|"beyond", tag, text }], questions: [{ lvl, q, marks, ans }] }   (q and ans may be functions, so they can use the numbers on screen)
+       Advanced shows everything; Standard hides anything marked "adv". */
+    ui.level = "std"; try { const l = localStorage.getItem("k-level"); if (l === "adv" || l === "std") ui.level = l; } catch (e) { }
+    if (!o.levels) ui.level = "adv";
+    const val = v => typeof v === "function" ? v() : v;
+    function renderLevel() {
+      let k = 0; for (const [m, c] of mcards) { const on = m.lvl !== "adv" || ui.level === "adv"; c.style.display = on ? "" : "none"; if (on) { k++; if (!c.classList.contains("done")) c.querySelector("em").textContent = k; } }
+      if (!o.revise) return; const P = panes.revise, see = x => x.lvl !== "adv" || ui.level === "adv", tagName = { std: "std", adv: "adv", beyond: "beyond" };
+      P.innerHTML = (o.levels ? `<p class="k-spec">${o.levels.specs[ui.level]}</p>` : "") + `<h3>Key ideas</h3>` + o.revise.ideas.filter(see).map(x => `<div class="k-idea"><span class="k-tag ${tagName[x.lvl]}">${x.tag}</span> ${val(x.text)}</div>`).join("") +
+        `<h3>Exam practice</h3>` + o.revise.questions.filter(see).map((x, i) => `<div class="k-mcard k-q"><h4><em>${i + 1}</em><span class="k-tag ${tagName[x.lvl]}">${x.lvl === "adv" ? "A level" : "GCSE"}</span><span class="k-marks">[${x.marks} mark${x.marks > 1 ? "s" : ""}]</span></h4><p>${val(x.q)}</p><details><summary>Mark scheme</summary>${val(x.ans)}</details></div>`).join("");
+      if (o.revise.questions.some(x => typeof x.q === "function")) btn(P, "↻ Use the numbers on screen now", renderLevel, "small");
+    }
+    if (o.levels) { const lg = $("div", "k-group k-level"); panes.controls.append(lg); const sg = seg(lg, { value: ui.level, options: [["std", o.levels.std], ["adv", o.levels.adv]], on: v => { ui.level = v; try { localStorage.setItem("k-level", v); } catch (e) { } hint.textContent = o.levels.specs[v]; renderLevel(); ui.onLevel && ui.onLevel(v); } }); const hint = $("small", "", o.levels.specs[ui.level]); hint.style.cssText = "display:block;color:var(--muted);font-size:11.5px;margin-top:-4px"; lg.append(hint); ui.setLevel = v => sg.set(v, true); }
+    try { renderLevel(); } catch (e) { setTimeout(renderLevel, 0); }   // questions may use values the simulation has not set up yet
+    ui.renderRevise = renderLevel;
+    // floating hint and heads-up text over the stage
+    let tipEl = null, tipT = 0;
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; } hudEl.style.display = html ? "" : "none"; };
+    // animation loop: step(dt) only while playing, draw() every frame
+    ui.run = (step, draw) => { let t0 = performance.now(); const f = t => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (ui.playing && !ov.classList.contains("on")) step(dt); draw(dt); requestAnimationFrame(f); }; requestAnimationFrame(f); };
+
+    // ---- Batch run window ----
+    const ov = $("div", "k-overlay"); document.body.append(ov);
+    let bstate = null;
+    function openBatch() {
+      ov.classList.add("on"); if (bstate) return;
+      const modal = $("div", "k-modal"), list = $("div", "k-blist", `<h2>📊 Batch run</h2><p>Runs the model many times without drawing it, then compares the results with theory. Pick a question:</p>`), mainB = $("div", "k-bmain");
+      modal.append(list, mainB); ov.append(modal); ov.addEventListener("pointerdown", e => { if (e.target === ov) ov.classList.remove("on"); });
+      mainB.innerHTML = `<div class="k-bhead"><h3></h3></div><div class="k-bbar"></div><div class="k-bchart"></div><div class="k-bfoot"><div class="k-btable"></div><div class="k-bnote"></div></div>`;
+      const head = mainB.querySelector("h3"), bar = mainB.querySelector(".k-bbar"), tbl = mainB.querySelector(".k-btable"), noteEl = mainB.querySelector(".k-bnote");
+      btn(mainB.querySelector(".k-bhead"), "✕ Close", () => ov.classList.remove("on"));
+      const ch = chart(mainB.querySelector(".k-bchart"), {});
+      const bRun = btn(bar, "▶ Run", () => runExp(), "primary"), prog = $("div", "k-prog", "<i></i>"), status = $("span", "", ""); status.style.cssText = "color:var(--muted);font-size:12.5px;min-width:110px";
+      const bCsv = btn(bar, "⬇ CSV", () => bstate.rows.length && download(o.title.replace(/\W+/g, "-").toLowerCase() + "-batch.csv", bstate.csv()));
+      bar.insertBefore(prog, bCsv); bar.insertBefore(status, bCsv);
+      btn(bar, "📄 Worksheet", () => ui.worksheet([{ kind: "b", item: bstate.exp }], true)).title = "A printable worksheet for this experiment";
+      bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
+      const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
+      function pick(e) { bstate.token++; bstate.exp = e; bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
+      function paint() {
+        const e = bstate.exp, rows = bstate.rows, series = [], extra = { title: "", xLabel: e.xs ? e.xLabel : e.yLabel, yLabel: e.xs ? e.yLabel : "number of runs" };
+        if (e.xs) {
+          const groups = e.xs.map(x => rows.filter(r => r[0] === x).map(r => r[3])), done = e.xs.map((x, i) => [x, groups[i]]).filter(g => g[1].length);
+          if (e.theory) { const a = Math.min(...e.xs), b = Math.max(...e.xs), tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, e.theory(x)]); } series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
+          series.push({ pts: rows.map(r => [r[0], r[3]]), type: "dots", color: cssVar("--s0"), alpha: .3, r: 2.5, label: "single runs" });
+          series.push({ pts: done.map(([x, g]) => [x, mean(g), se(g)]), type: "err", color: cssVar("--s0"), r: 4.5, label: "mean ± SE" });
+          let fitTxt = "";
+          if (e.fit && done.length > 2) { const f = linfit(done.map(([x, g]) => [x, mean(g)])), a = Math.min(...e.xs), b = Math.max(...e.xs); series.push({ pts: [[a, f.m * a + f.c], [b, f.m * b + f.c]], color: cssVar("--s2"), label: "best-fit line" }); fitTxt = `<tr><td colspan="6" style="text-align:left">Best-fit line: gradient <b>${sig(f.m)}</b>, intercept ${sig(f.c)}, r = ${f.r.toFixed(3)}</td></tr>`; }
+          extra.xMin = Math.min(...e.xs) - (Math.max(...e.xs) - Math.min(...e.xs)) * .05; extra.xMax = Math.max(...e.xs) + (Math.max(...e.xs) - Math.min(...e.xs)) * .05; if (e.yMin != null) extra.yMin = e.yMin; if (e.yMax != null) extra.yMax = e.yMax;
+          tbl.innerHTML = `<table><tr><th>${e.xLabel}</th><th>runs</th><th>mean</th><th>SD</th><th>SE</th>${e.theory ? "<th>theory</th>" : ""}</tr>` + done.map(([x, g]) => `<tr><td>${sig(x, 4)}</td><td>${g.length}</td><td>${sig(mean(g))}</td><td>${sig(sd(g))}</td><td>${sig(se(g))}</td>${e.theory ? `<td>${sig(e.theory(x))}</td>` : ""}</tr>`).join("") + fitTxt + "</table>";
+        } else {
+          const v = rows.map(r => r[3]);
+          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); }
+          tbl.innerHTML = v.length ? `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${e.theory != null ? "<th>theory</th>" : ""}</tr><tr><td>${v.length}</td><td>${sig(mean(v))}</td><td>${sig(sd(v))}</td><td>${sig(se(v))}</td><td>${sig(Math.min(...v))}</td><td>${sig(Math.max(...v))}</td>${e.theory != null ? `<td>${sig(+e.theory)}</td>` : ""}</tr></table>` : "";
+        }
+        ch.opts.xFmt = null; ch.draw(series, extra);
+      }
+      function runExp() {
+        const e = bstate.exp, token = ++bstate.token; bstate.rows = []; const tasks = [];
+        if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) tasks.push([x, r]); } else for (let r = 0; r < (e.reps || 200); r++) tasks.push([0, r]);
+        let i = 0; const seed0 = (Date.now() % 100000) * 7 + 1; bRun.textContent = "■ Stop"; bRun.onclick = () => { bstate.token++; fin(); };
+        const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
+        (function slice() {
+          if (token !== bstate.token) return; const t = performance.now();
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
+          if (i < tasks.length) setTimeout(slice, 0); else fin();
+        })();
+      }
+      pick(o.batch[0]);
+    }
+    ui.openBatch = openBatch;
+    K_last = ui;
+    return ui;
+  }
+  return { sound, $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app, worksheetDoc, batchSummary, get ui() { return K_last; } };
+})();
+</script>
+<script>
+/* =====================================================================
+   CASH-FLOW FORECAST
+   PROFIT and CASH are different things. A sale on credit counts towards
+   profit the day it is made, but the cash only arrives when the customer
+   pays (30, 60 or 90 days later). Materials bought on credit are paid for
+   later too. A business can be profitable and still run out of cash.
+   A cash-flow forecast predicts, month by month:
+        net cash flow     = cash inflows − cash outflows
+        opening balance   = last month's closing balance
+        closing balance   = opening balance + net cash flow
+   If the closing balance goes below zero the business is using its
+   OVERDRAFT; if it goes past the overdraft limit it cannot pay its bills.
+   Ways to improve cash flow: give customers less credit, get more credit
+   from suppliers, cut or delay spending, factor the debts (A level), or
+   raise finance (a loan or new capital).
+   The "actual" months differ from the forecast because real sales are
+   uncertain and some customers pay late.
+   ===================================================================== */
+const gbp = v => (v < 0 ? "−£" : "£") + Math.abs(Math.round(v)).toLocaleString("en-GB");
+const gbpk = v => (v < 0 ? "−" : "") + (Math.abs(v) >= 9950 ? Math.round(Math.abs(v) / 1000) + "k" : (Math.abs(v) / 1000).toFixed(1) + "k");
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// ---------------- The businesses (illustrative monthly figures) ----------------
+// shape: each month's sales as a multiple of the average month (seasonality)
+const BIZ = {
+  garden: { name: "Garden furniture", base: 20000, shape: [0.4, 0.5, 0.9, 1.4, 1.7, 1.6, 1.3, 1.0, 0.7, 0.5, 0.4, 0.6], mat: 0.45, lead: 1, wages: 6500, rent: 2000, credit: 0.6, custDays: 60, supDays: 30, open: 8000, od: 20000, capex: 12000 },
+  gym: { name: "Gym", base: 15000, shape: [1.3, 1.15, 1.05, 1, 0.95, 0.9, 0.85, 0.85, 1.05, 1, 0.95, 0.8], mat: 0.05, lead: 0, wages: 7000, rent: 4500, credit: 0, custDays: 30, supDays: 30, open: 5000, od: 5000, capex: 6000 },
+  toys: { name: "Toy shop", base: 18000, shape: [0.6, 0.6, 0.7, 0.7, 0.7, 0.7, 0.7, 0.8, 0.9, 1.1, 1.8, 2.8], mat: 0.55, lead: 2, wages: 5000, rent: 3000, credit: 0.1, custDays: 30, supDays: 60, open: 10000, od: 20000, capex: 0 }
+};
+
+/* One year of cash flow. o = settings; r = random numbers for an "actual" year (null gives the forecast).
+   Returns month-by-month rows plus the year's profit. */
+function year(o, r) {
+  const b = BIZ[o.biz], M = 12, z = new Array(M + 4).fill(0).map(() => r ? r.gauss() : 0);
+  const salesF = m => b.base * (1 + o.season * (b.shape[(m + 12) % 12] - 1)) * (1 + o.growth * m / 12);     // forecast sales in month m (m may be past December)
+  const sales = m => Math.max(0, salesF(m) * (1 + o.cv * z[m]));                                       // actual sales (equal to the forecast when r is null)
+  const lag = d => Math.round(d / 30);                                                                       // 30 days = one month later
+  const row = () => new Array(M).fill(0);
+  const R = { cashSales: row(), debtors: row(), loan: row(), inT: row(), mats: row(), wages: row(), rent: row(), other: row(), outT: row(), net: row(), open: row(), close: row(), sales: row() };
+  let late = row();
+  for (let m = 0; m < M; m++) {
+    const s = sales(m); R.sales[m] = s;
+    R.cashSales[m] += (1 - o.credit) * s;
+    if (o.factor) R.debtors[m] += o.credit * s * (1 - o.fee);                       // factoring: the factor pays now, minus its fee
+    else {
+      const bad = r ? o.bad : 0, lateFrac = r ? o.late : 0, due = m + lag(o.custDays);
+      const paid = o.credit * s * (1 - bad);
+      if (due < M) R.debtors[due] += paid * (1 - lateFrac);
+      if (due + 1 < M) late[due + 1] += paid * lateFrac;
+    }
+  }
+  // debtors from last year's sales still being paid in January/February (credit sales made before the year began)
+  if (!o.factor) for (let m = -lag(o.custDays); m < 0; m++) { const due = m + lag(o.custDays); if (due >= 0 && due < M) R.debtors[due] += o.credit * salesF(m); }
+  for (let m = 0; m < M; m++) R.debtors[m] += late[m];
+  // materials for the sales of month m are bought `lead` months before and paid `supDays` after that
+  for (let m = -6; m < M + 6; m++) { const buy = m - b.lead, pay = buy + lag(o.supDays); if (pay >= 0 && pay < M) R.mats[pay] += b.mat * salesF(m); }   // bought to match the FORECAST
+  let bal = o.open, interest = 0;
+  for (let m = 0; m < M; m++) {
+    R.wages[m] = o.wages; R.rent[m] = b.rent;
+    R.other[m] = (m === 0 ? o.capex : 0) + (o.loan ? o.loan / 24 * (m >= 1 ? 1 : 0) * 1.05 : 0);  // equipment in January; loan repaid over two years with 5% interest
+    R.loan[m] = m === 0 ? o.loan : 0;
+    const int = bal < 0 ? -bal * o.odRate / 12 : 0; interest += int; R.other[m] += int;      // overdraft interest on last month's negative balance
+    R.inT[m] = R.cashSales[m] + R.debtors[m] + R.loan[m]; R.outT[m] = R.mats[m] + R.wages[m] + R.rent[m] + R.other[m];
+    R.net[m] = R.inT[m] - R.outT[m]; R.open[m] = bal; bal += R.net[m]; R.close[m] = bal;
+  }
+  // profit counts sales when made and the materials they used, whenever the cash moves
+  const salesY = R.sales.reduce((a, v) => a + v, 0), matsY = R.sales.reduce((a, v, m) => a + b.mat * (r ? v : salesF(m)), 0);
+  R.profit = salesY - matsY - 12 * (o.wages + b.rent) - o.capex / 5 - interest - (o.factor ? o.credit * salesY * o.fee : 0) - (o.loan ? o.loan * 0.05 / 2 : 0) - (r ? o.bad * o.credit * salesY : 0);
+  R.low = Math.min(...R.close); R.lowM = R.close.indexOf(R.low); R.breach = R.close.filter(v => v < -o.od).length;
+  // cumulative profit month by month (for the profit-against-cash chart)
+  let cp = 0; R.cumProfit = R.sales.map(v => (cp += v * (1 - b.mat) - o.wages - b.rent - o.capex / 60, cp));
+  return R;
+}
+
+// ---------------- The page ----------------
+const DEF = { biz: "garden", season: 1, growth: 0, cv: 0.15, late: 0.1, bad: 0, factor: false, fee: 0.04, odRate: 0.12, loan: 0, speed: 1 };
+const P = {};
+let rnd = K.rng(Date.now() % 9973 + 3), F = null, A = null, mNow = 0, mt = 0, yearNo = 1, history = [];
+const ui = K.app({
+  title: "Cash-Flow Forecast", subject: "Business",
+  blurb: "Month-by-month inflows and outflows, opening and closing balances, overdrafts, credit terms and seasonal sales: profit is not cash",
+  reset: () => set({}),
+  levels: { std: "Standard (GCSE)", adv: "Advanced (A level)", specs: { std: "GCSE Business (Pearson Edexcel 1BS0) 1.3.3 Cash and cash flow: the importance of cash, the difference between cash and profit, cash-flow forecasts (inflows, outflows, net cash flow, opening and closing balances), interpreting a forecast. 1.3.4 Sources of finance (overdraft, loan).", adv: "Pearson Edexcel A level Business (9BS0) 2.1.4 Planning (cash-flow forecasts); 2.1.2 External finance (overdraft, loans, debt factoring); 2.3.2 Liquidity: ways to improve cash flow, working capital; 2.3.3 Business failure (cash-flow problems)." } },
+  missions: [
+    { title: "Read the forecast", q: "Look down a column of the table. Check that net cash flow = inflows − outflows and closing = opening + net cash flow.", hint: "Each month's closing balance becomes the next month's opening balance. Negative numbers are shown with a minus sign: the business is overdrawn.", setup() { set({}); ui.setPlaying(false); } },
+    { title: "When is cash tightest?", q: "The garden-furniture maker sells most in May. Why is its cash lowest in April, not in winter?", hint: "It buys materials a month before it sells, and its customers pay 60 days after buying. Cash goes out for the spring rush long before it comes back in: the classic seasonal squeeze.", setup() { set({}); } },
+    { title: "Give less credit", q: "Cut the credit customers get from 60 days to 30. What happens to the lowest balance?", hint: "Cash from credit sales arrives a month sooner, so the overdraft needed falls sharply. But customers may go to a rival who offers longer credit.", setup() { set({ custDays: 30 }); } },
+    { title: "Profitable but broke", q: "Toy shop with a big Christmas: is it profitable for the year? Does it stay inside its overdraft?", hint: "Profit for the year can be healthy while cash runs out in autumn: stock is bought 2 months ahead and paid for before the Christmas sales arrive. Many firms fail like this.", setup() { set({ biz: "toys", od: 5000 }); } },
+    { title: "Forecast against actual", q: "Let the year run with uncertain sales and some late payers. How far does the actual closing balance drift from the forecast?", hint: "Small monthly differences add up: closing balances carry every earlier error forward. That is why forecasts are updated (variance analysis).", setup() { set({ cv: 0.25, late: 0.2 }); } },
+    { title: "Take out a loan", q: "Instead of a bigger overdraft, take a £15,000 loan in January. Does it help? What does it cost?", hint: "A lump of cash at the start keeps the balance positive, but repayments (with interest) are a new outflow every month for two years.", setup() { set({ loan: 15000 }); } },
+    { lvl: "adv", title: "Debt factoring", q: "Switch on factoring at a 4% fee. Compare the lowest balance and the year's profit with and without it.", hint: "The factor pays for credit sales straight away, so the cash squeeze disappears, but 4% of credit sales is lost as a fee: better liquidity, lower profit.", setup() { set({ factor: true }); } },
+    { lvl: "adv", title: "Bad debts", q: "Set bad debts to 5%. Which suffers more, profit or cash?", hint: "Both: a customer who never pays is a lost sale (written off, lowering profit) and lost cash. For a firm already near its overdraft limit, it can be the last straw.", setup() { set({ bad: 0.05 }); } }
+  ],
+  batch: [
+    { title: "Lowest balance in an uncertain year", question: "Sales vary ±15% a month and 10% of customers pay a month late. How low does the garden firm's balance go?", how: "Garden furniture with the default settings; one year per run.", yLabel: "lowest closing balance (£)", reps: 300, bins: 24, theory: year(Object.assign({}, DEF, BIZ.garden, { biz: "garden" }), null).low, theoryLabel: "forecast", run: (x, r) => year(Object.assign({}, DEF, BIZ.garden, { biz: "garden" }), r).low, note: "Most actual years land near the forecast, but late payers pull the low point down (a systematic shift), and a bad spring takes it much lower. A sensible overdraft limit allows for the worst likely year, not the forecast." },
+    { title: "Credit terms for customers", question: "How does the lowest balance depend on how long customers are given to pay?", how: "Garden furniture; forecast (no uncertainty) and actual years (±15% sales, 10% late).", xLabel: "customer credit (days)", yLabel: "lowest closing balance (£)", xs: [0, 30, 60, 90], reps: 20, theory: d => year(Object.assign({}, DEF, BIZ.garden, { biz: "garden", custDays: d }), null).low, theoryLabel: "forecast", run: (d, r) => year(Object.assign({}, DEF, BIZ.garden, { biz: "garden", custDays: d }), r).low, note: "Each extra month of credit holds back a whole month of credit sales. The cash isn't lost, just late, but the business needs a bigger overdraft to wait for it." },
+    { title: "Credit from suppliers", question: "How does the lowest balance depend on how long suppliers let the business take to pay?", how: "Toy shop (materials are 55% of sales, bought 2 months ahead); forecast and actual years.", xLabel: "supplier credit (days)", yLabel: "lowest closing balance (£)", xs: [0, 30, 60, 90], reps: 20, theory: d => year(Object.assign({}, DEF, BIZ.toys, { biz: "toys", supDays: d }), null).low, theoryLabel: "forecast", run: (d, r) => year(Object.assign({}, DEF, BIZ.toys, { biz: "toys", supDays: d }), r).low, note: "Trade credit is a free source of short-term finance: paying suppliers later keeps cash in the business for longer. But look at 90 days: last Christmas's stock is still being paid for in January, when sales are low. Timing matters, not just length." },
+    { title: "Seasonality and the overdraft", question: "How does the lowest balance depend on how seasonal sales are?", how: "Garden furniture; seasonal swing from 0 (flat sales) to 1.5× the usual pattern. Same total sales in a year.", xLabel: "seasonal swing", yLabel: "lowest closing balance (£)", xs: [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5], reps: 20, theory: k => year(Object.assign({}, DEF, BIZ.garden, { biz: "garden", season: k }), null).low, theoryLabel: "forecast", run: (k, r) => year(Object.assign({}, DEF, BIZ.garden, { biz: "garden", season: k }), r).low, note: "Same annual sales, very different cash needs: the more seasonal the business, the deeper the trough before the busy season pays out." },
+    { title: "Factoring: cash against profit (A level)", question: "How does a factoring fee change the year's profit?", how: "Garden furniture with factoring on; uncertain sales.", xLabel: "factoring fee (%)", yLabel: "profit for the year (£)", xs: [0, 2, 4, 6, 8, 10], reps: 20, theory: f => year(Object.assign({}, DEF, BIZ.garden, { biz: "garden", factor: true, fee: f / 100 }), null).profit, theoryLabel: "forecast", run: (f, r) => year(Object.assign({}, DEF, BIZ.garden, { biz: "garden", factor: true, fee: f / 100 }), r).profit, note: "Profit falls by the fee × credit sales (60% of £240k a year): about £1,440 per percentage point. Factoring buys liquidity with profit." }
+  ],
+  revise: {
+    ideas: [
+      { lvl: "std", tag: "1BS0 1.3.3", text: "Cash is the money a business can spend now; profit is revenue minus costs over a period. A sale on credit adds to profit now but to cash only when the customer pays." },
+      { lvl: "std", tag: "1BS0 1.3.3", text: "Net cash flow = total inflows − total outflows. Closing balance = opening balance + net cash flow; it becomes next month's opening balance." },
+      { lvl: "std", tag: "1BS0 1.3.3", text: "A forecast warns of cash shortages early so the business can arrange an overdraft, delay spending or chase debtors. It is only an estimate: sales and payment dates are uncertain." },
+      { lvl: "std", tag: "1BS0 1.3.4", text: "An overdraft is flexible short-term finance for temporary shortages; interest is charged only on what is used. A loan suits a one-off need and is repaid with interest over years." },
+      { lvl: "adv", tag: "9BS0 2.3.2", text: "Improve cash flow by: shorter credit for customers, longer credit from suppliers, cutting stock, delaying spending, sale and leaseback, factoring. Each has a cost (lost customers, supplier goodwill, fees)." },
+      { lvl: "adv", tag: "9BS0 2.1.2", text: "Debt factoring: a factor pays most of the value of invoices immediately and collects the debts, for a fee. It improves liquidity but reduces profit." },
+      { lvl: "adv", tag: "9BS0 2.3.3", text: "Insolvency comes from running out of cash, not from losses alone. Overtrading (growing faster than working capital allows) is a common cause." }
+    ],
+    questions: [
+      { lvl: "std", marks: 2, q: () => `In ${MON[F.lowM]} the forecast opening balance is ${gbp(F.open[F.lowM])} and net cash flow is ${gbp(F.net[F.lowM])}. Calculate the closing balance.`, ans: () => `<ul><li>${gbp(F.open[F.lowM])} + (${gbp(F.net[F.lowM])})</li><li>= ${gbp(F.close[F.lowM])}</li></ul>` },
+      { lvl: "std", marks: 3, q: "Explain why a business can make a profit but still have cash-flow problems.", ans: "<ul><li>Sales on credit count towards profit before the cash is received (1).</li><li>Stock/materials and equipment are paid for before the goods are sold (1).</li><li>So outflows can come before inflows and the bank balance can fall below zero even though revenue exceeds costs over the year (1).</li></ul>" },
+      { lvl: "std", marks: 4, q: "The garden-furniture firm will be overdrawn in spring. Explain two ways it could improve its cash flow.", ans: "<ul><li>Ask customers to pay within 30 days (1): cash arrives sooner, reducing the overdraft needed (1).</li><li>Negotiate longer credit from suppliers (1): materials paid for after the spring sales come in (1). Also: delay buying equipment, lease instead of buy, arrange an overdraft.</li></ul>" },
+      { lvl: "adv", marks: 8, q: "Assess whether debt factoring is the best way for the garden-furniture firm to solve its seasonal cash-flow problem.", ans: "<ul><li>Knowledge: factoring advances the value of invoices for a fee; alternatives overdraft, loan, credit terms.</li><li>Application: 60% of sales on 60-day credit; trough in spring; fee of a few % of credit sales.</li><li>Analysis: removes the timing gap entirely, so no overdraft interest; but fee cuts profit every month, not just in spring; customers may dislike dealing with a factor.</li><li>Evaluation: a seasonal, temporary shortage might be cheaper to cover with an overdraft; factoring better if growth makes the gap permanent. Justified judgement.</li></ul>" }
+    ]
+  },
+  notes: `<h3>The model</h3>
+<ul><li>Forecast sales each month = average month × (1 + seasonal swing × (pattern − 1)) × growth. Actual sales = forecast × (1 + uncertainty × a random normal number).</li>
+<li>Cash sales arrive in the month of sale. Credit sales arrive after the customer credit period (30 days = one month later); a fraction arrive a month late, and bad debts never arrive. With factoring, credit sales arrive at once, minus the fee.</li>
+<li>Materials are bought a set number of months before the sales they are for (lead time) and paid for after the supplier credit period. Wages and rent are paid each month; equipment is bought in January. A loan arrives in January and is repaid with 5% interest over 24 months. Overdraft interest is charged on a negative balance.</li>
+<li>Profit for the year = sales − materials used − wages − rent − depreciation (equipment over 5 years) − interest and fees − bad debts.</li></ul>
+<h3>Assumptions and simplifications</h3>
+<ul><li>Credit periods are rounded to whole months; every customer on credit takes the same time to pay (except the late fraction).</li><li>Credit sales from last year are paid in January and February as forecast; debts still owed at the end of the year are not shown.</li><li>No VAT, corporation tax, drawings or dividends; wages and rent never change.</li><li>Figures are illustrative.</li></ul>`
+});
+
+// ---------------- Controls ----------------
+const ctl = {};
+let g = ui.group("The business");
+ctl.biz = K.seg(g, { value: "garden", options: Object.entries(BIZ).map(([k, b]) => [k, b.name]), on: v => set({ biz: v }) });
+ctl.open = K.slider(g, { label: "Opening bank balance (1 January)", min: -10000, max: 40000, step: 500, value: 8000, fmt: gbp, on: v => upd({ open: v }) });
+ctl.od = K.slider(g, { label: "Overdraft limit", min: 0, max: 50000, step: 1000, value: 15000, fmt: gbp, on: v => upd({ od: v }) });
+ctl.wages = K.slider(g, { label: "Wages per month", min: 0, max: 15000, step: 250, value: 6500, fmt: gbp, on: v => upd({ wages: v }) });
+ctl.capex = K.slider(g, { label: "Equipment bought in January", min: 0, max: 40000, step: 1000, value: 12000, fmt: gbp, on: v => upd({ capex: v }) });
+ctl.loan = K.slider(g, { label: "Bank loan in January (repaid over 2 years)", min: 0, max: 40000, step: 1000, value: 0, fmt: v => v ? gbp(v) : "none", on: v => upd({ loan: v }) });
+g = ui.group("Sales and credit");
+ctl.season = K.slider(g, { label: "Seasonal swing", min: 0, max: 1.5, step: 0.05, value: 1, fmt: v => v ? v.toFixed(2) + "× the usual pattern" : "flat all year", on: v => upd({ season: v }) });
+ctl.growth = K.slider(g, { label: "Sales growth over the year", min: -0.3, max: 0.6, step: 0.05, value: 0, fmt: v => (v > 0 ? "+" : "") + Math.round(v * 100) + "%", on: v => upd({ growth: v }) });
+ctl.credit = K.slider(g, { label: "Sales made on credit", min: 0, max: 1, step: 0.05, value: 0.6, fmt: v => Math.round(v * 100) + "%", on: v => upd({ credit: v }) });
+ctl.custDays = K.seg(g, { label: "Credit given to customers", value: 60, options: [[0, "0 days"], [30, "30"], [60, "60"], [90, "90"]], on: v => upd({ custDays: +v }) });
+ctl.supDays = K.seg(g, { label: "Credit from suppliers", value: 30, options: [[0, "0 days"], [30, "30"], [60, "60"], [90, "90"]], on: v => upd({ supDays: +v }) });
+g = ui.group("Reality: the actual year");
+ctl.cv = K.slider(g, { label: "Uncertainty in monthly sales (SD)", min: 0, max: 0.5, step: 0.01, value: 0.15, fmt: v => "±" + Math.round(v * 100) + "%", on: v => upd({ cv: v }, true) });
+ctl.late = K.slider(g, { label: "Credit customers who pay a month late", min: 0, max: 0.6, step: 0.05, value: 0.1, fmt: v => Math.round(v * 100) + "%", on: v => upd({ late: v }, true) });
+ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+let rr = K.row(g); K.btn(rr, "⏭ Run a new year", () => newYear(), "primary");
+g = ui.group("A level");
+ctl.factor = K.toggle(g, { label: "Debt factoring (paid at once, minus a fee)", value: false, on: v => upd({ factor: v }) });
+ctl.fee = K.slider(g, { label: "Factoring fee", min: 0, max: 0.1, step: 0.005, value: 0.04, fmt: v => (v * 100).toFixed(1) + "% of credit sales", on: v => upd({ fee: v }) });
+ctl.bad = K.slider(g, { label: "Bad debts (never paid)", min: 0, max: 0.15, step: 0.01, value: 0, fmt: v => Math.round(v * 100) + "%", on: v => upd({ bad: v }, true) });
+ctl.odRate = K.slider(g, { label: "Overdraft interest rate (a year)", min: 0, max: 0.25, step: 0.01, value: 0.12, fmt: v => Math.round(v * 100) + "%", on: v => upd({ odRate: v }) });
+const read = K.readout(ui.group("The year"), [["low", "lowest forecast balance"], ["od", "months past the overdraft limit"], ["profit", "forecast profit for the year"], ["endc", "forecast cash on 31 December"], ["alow", "actual lowest so far"], ["years", "years run / past the limit"]]);
+function set(o) {
+  const b = BIZ[o.biz || DEF.biz]; Object.assign(P, DEF, { credit: b.credit, custDays: b.custDays, supDays: b.supDays, open: b.open, od: b.od, wages: b.wages, capex: b.capex }, o);
+  for (const k of ["biz", "open", "od", "wages", "capex", "loan", "season", "growth", "credit", "custDays", "supDays", "cv", "late", "speed", "factor", "fee", "bad", "odRate"]) ctl[k].set(P[k]);
+  history = []; yearNo = 0; recalc(); newYear();
+}
+function upd(o, actualOnly) { Object.assign(P, o); recalc(); if (!actualOnly) { history = []; } newYear(); }
+function recalc() { F = year(P, null); }
+function newYear() { A = year(P, rnd); mNow = 0; mt = 0; yearNo++; }
+// ---------------- Simulation: the months of the actual year are revealed one at a time ----------------
+let wait = 0;
+function tick(dt) {
+  if (mNow >= 12) { wait += dt * P.speed; if (wait > 2) newYear(); return; }   // pause on the finished year, then start another
+  mt += dt * P.speed / 1.6; if (mt >= 1) { mt = 0; mNow++; if (mNow >= 12) { wait = 0; history.push([yearNo, A.low, A.breach > 0]); if (history.length > 40) history.shift(); } }
+}
+
+// ---------------- Drawing: the forecast table and the balance bars ----------------
+const cv = ui.canvas(() => { });
+const chA = K.chart(ui.dock, {}), chB = K.chart(ui.dock, {});
+const TX = (c, s, x, y, col = "#aab6cc", al = "left", f = "12px") => { c.fillStyle = col; c.font = f + " Segoe UI,sans-serif"; c.textAlign = al; c.fillText(s, x, y); };
+function draw() {
+  const c = cv.ctx, w = cv.w, h = cv.h; c.fillStyle = "#0b1020"; c.fillRect(0, 0, w, h);
+  if (!F) return;
+  const lw = 168, x0 = 16, cw = (w - lw - x0 - 16) / 12, rows = [["Cash sales", "cashSales", 1], ["Credit sales paid", "debtors", 1], ["Loans / capital", "loan", 1], ["Total inflows", "inT", 2], ["Materials", "mats", -1], ["Wages", "wages", -1], ["Rent", "rent", -1], ["Equipment, loan, interest", "other", -1], ["Total outflows", "outT", -2], ["Net cash flow", "net", 3], ["Opening balance", "open", 3], ["Closing balance", "close", 4]];
+  const T = 70, rh = Math.min(19, (h * 0.55 - T) / 13);
+  TX(c, `${BIZ[P.biz].name}: cash-flow forecast for the year (£)`, x0, 24, "#eef2f8", "left", "600 14px");
+  TX(c, "red = overdrawn · the actual year runs below, month by month", x0, 42, "#8fa0bf", "left", "11.5px");
+  MON.forEach((mn, i) => { const x = x0 + lw + i * cw; if (i === Math.min(mNow, 11) && mNow < 12) { c.fillStyle = "rgba(90,209,255,0.10)"; c.fillRect(x, T - 15, cw, rh * 13 + 4); } TX(c, mn, x + cw - 6, T, "#cfd8ea", "right", "600 12px"); });
+  rows.forEach(([lab, k, kind], j) => {
+    const y = T + (j + 1) * rh; if (kind === 2 || kind === -2 || kind === 4) { c.fillStyle = "#151d33"; c.fillRect(x0, y - rh + 4, w - 2 * x0, rh); }
+    TX(c, lab, x0 + 4, y, kind === 4 ? "#eef2f8" : "#aab6cc", "left", (Math.abs(kind) >= 2 ? "600 " : "") + "11.5px");
+    for (let m = 0; m < 12; m++) { const v = F[k][m], col = (k === "close" || k === "open" || k === "net") && v < 0 ? (k !== "net" && v < -P.od ? "#ff5c5c" : "#ff8a70") : kind < 0 ? "#cfa58f" : "#cfd8ea"; TX(c, Math.abs(v) < 0.5 ? "–" : gbpk(kind < 0 ? -v : v), x0 + lw + (m + 1) * cw - 6, y, col, "right", (kind === 4 ? "600 " : "") + "11.5px"); }
+  });
+  // balance bars: forecast (outline) and actual (filled) against the overdraft limit
+  const bT = T + 14 * rh + 16, bB = h - 30, vals = F.close.concat(A ? A.close.slice(0, mNow) : [], [0, -P.od]), vmax = Math.max(...vals, 1000) * 1.1, vmin = Math.min(...vals) * 1.1 - 500;
+  const Y = v => bT + (vmax - v) / (vmax - vmin) * (bB - bT);
+  TX(c, "Closing balance: forecast (outline) and actual (solid)", x0, bT - 4, "#eef2f8", "left", "600 12.5px");
+  c.strokeStyle = "#6c7894"; c.lineWidth = 1; c.beginPath(); c.moveTo(x0 + lw, Y(0)); c.lineTo(w - 16, Y(0)); c.stroke(); TX(c, "£0", x0 + lw - 6, Y(0) + 4, "#8fa0bf", "right", "11px");
+  c.strokeStyle = "#ff5c5c"; c.setLineDash([6, 4]); c.beginPath(); c.moveTo(x0 + lw, Y(-P.od)); c.lineTo(w - 16, Y(-P.od)); c.stroke(); c.setLineDash([]); TX(c, `overdraft limit ${gbp(-P.od)}`, x0 + lw - 6, Y(-P.od) + 4, "#ff5c5c", "right", "11px");
+  for (let m = 0; m < 12; m++) {
+    const x = x0 + lw + m * cw + cw * 0.18, bw = cw * 0.64, f = F.close[m];
+    if (A && m < mNow) { const a = A.close[m]; c.fillStyle = a < -P.od ? "#ff5c5c" : a < 0 ? "#ff9a5a" : "#7ee787"; c.fillRect(x + 3, Math.min(Y(a), Y(0)), bw - 6, Math.abs(Y(a) - Y(0))); TX(c, gbpk(a), x + bw / 2, a >= 0 ? Y(a) - 4 : Y(a) + 13, "#eef2f8", "center", "10.5px"); }
+    c.strokeStyle = "#cfd8ea"; c.lineWidth = 1.2; c.strokeRect(x, Math.min(Y(f), Y(0)), bw, Math.abs(Y(f) - Y(0)));
+  }
+  if (A && mNow >= 12) TX(c, A.breach ? `This year went past the overdraft limit in ${A.breach} month${A.breach > 1 ? "s" : ""}!` : "This year stayed inside the overdraft limit.", w - 16, bT - 4, A.breach ? "#ff5c5c" : "#7ee787", "right", "600 12.5px");
+}
+
+// ---------------- Charts and readings ----------------
+function charts() {
+  chA.opts.title = "Profit is not cash (forecast)"; chA.opts.xLabel = "month"; chA.opts.yLabel = "£";
+  chA.draw([{ pts: F.cumProfit.map((v, m) => [m + 1, v]), color: "#c9a0ff", label: "profit so far" }, { pts: F.close.map((v, m) => [m + 1, v]), color: "#5ad1ff", label: "bank balance" }].concat(A && mNow ? [{ pts: A.close.slice(0, mNow).map((v, m) => [m + 1, v]), type: "dots", r: 4, color: "#7ee787", label: "actual" }] : []), { xMin: 0.5, xMax: 12.5, hlines: [{ y: 0, color: "#6c7894" }, { y: -P.od, color: "#ff5c5c", label: "overdraft limit" }], xFmt: v => MON[Math.round(v) - 1] || "" });
+  chB.opts.title = "Lowest balance in each year run"; chB.opts.xLabel = "year"; chB.opts.yLabel = "lowest balance (£)";
+  chB.draw([{ pts: history.filter(x => !x[2]).map(x => [x[0], x[1]]), type: "bars", w: 0.8, color: "#7ee787", label: "inside limit" }, { pts: history.filter(x => x[2]).map(x => [x[0], x[1]]), type: "bars", w: 0.8, color: "#ff5c5c", label: "past the limit" }], { xMin: Math.max(0, yearNo - 40) + 0.4, xMax: Math.max(10, yearNo) + 0.6, hlines: [{ y: F.low, color: "#cfd8ea", label: "forecast lowest" }, { y: -P.od, color: "#ff5c5c" }] });
+  read.set("low", `${gbp(F.low)} (${MON[F.lowM]})`); read.set("od", F.breach ? `<span style="color:#ff5c5c">${F.breach}</span>` : "0"); read.set("profit", gbp(F.profit)); read.set("endc", gbp(F.close[11]));
+  read.set("alow", A && mNow ? gbp(Math.min(...A.close.slice(0, mNow))) : "–"); read.set("years", `${history.length} / ${history.filter(x => x[2]).length}`);
+}
+let frame = 0;
+ui.run(dt => tick(dt), () => { draw(); if (frame++ % 6 === 0) charts(); });
+set({});
+ui.tip("The table is the forecast. Below it, the actual year happens one month at a time.", 7000);
+</script>
+</body></html>
