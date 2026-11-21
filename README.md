@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and forty simulations are built with the shared toolkit (the
+All one hundred and forty-one simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and thirty-seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
@@ -324,6 +324,14 @@ movement, lenses, lighting, film and digital processes.
 | [`photography/lens_optics/`](photography/lens_optics/) | Lenses and Perspective ★: focal length and field of view, crop factors (APS-C, Micro Four Thirds, phone), perspective depends on viewpoint ('compression'), lens extension, magnification and macro, depth of field at equal framing | Open `lens-optics.html` |
 | [`photography/light_and_colour/`](photography/light_and_colour/) | Light and Colour ★: black-body colour temperature, white balance and casts, grey-world auto white balance, additive RGB and subtractive CMY mixing, inverse square law, key and fill lights, lighting ratios, hard and soft shadows | Open `light-and-colour.html` |
 | [`photography/composition_and_sampling/`](photography/composition_and_sampling/) | Pixels, Compression and Composition ★: resolution and print size at 72–300 dpi, sampling, the Nyquist limit and moiré, anti-aliasing filters, bit depth, banding and dither, JPEG (DCT, quantisation, blocks, PSNR, generation loss), cropping with thirds, golden section and aspect ratios | Open `composition-and-sampling.html` |
+
+## Computer Science (Cambridge 9618)
+
+Standard level follows Cambridge International AS Level Computer Science (9618, Papers 1–2); Advanced follows the A Level (Papers 3–4).
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`computing/sorting_algorithms/`](computing/sorting_algorithms/) | Sorting Algorithms: bubble and insertion sort with highlighted pseudocode (9618 style), merge sort and quick sort, comparison and move counters, random/nearly sorted/reversed data, a race, and Big O curves (Cambridge 9618) | Open `sorting-algorithms.html` |
 
 ## Where the old repositories went
 
