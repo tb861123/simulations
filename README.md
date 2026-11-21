@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and ten simulations are built with the shared toolkit (the
+All one hundred and eleven simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
@@ -219,6 +219,7 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`statistics/central_limit_theorem/`](statistics/central_limit_theorem/) | Central Limit Theorem ★: draw any population, watch sample means form a bell curve; live confidence intervals | Open `central-limit-theorem.html` |
 | [`statistics/queues/`](statistics/queues/) | Supermarket Queues ★: random arrivals, utilisation and Erlang C, one snake or many queues, variability, Little's law | Open `queues.html` |
 | [`statistics/hypothesis_testing/`](statistics/hypothesis_testing/) | Hypothesis Testing: binomial tests (one- and two-tailed, critical regions, actual significance level, p-values) and the normal test for a mean; Type I/II errors and power from hundreds of simulated tests (A level Mathematics) | Open `hypothesis-testing.html` |
+| [`statistics/distributions/`](statistics/distributions/) | Probability Distributions: a Galton board builds B(n, p) ball by ball (nCr routes, P(X ≤ b), mean and variance); normal areas, inverse normal and points of inflection; normal approximation with continuity correction; Poisson as an extension (A level Mathematics) | Open `distributions.html` |
 
 ## Economics
 
