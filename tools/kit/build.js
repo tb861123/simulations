@@ -125,6 +125,9 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["spectroscopy.js", "spectroscopy", "spectroscopy.html", "Spectroscopy and Structure", "chemistry"],
   ["transition_metals.js", "transition_metals", "transition-metals.html", "Transition Metals and Colour", "chemistry"],
   ["organic_mechanisms.js", "organic_mechanisms", "organic-mechanisms.html", "Organic Mechanisms and Synthesis", "chemistry"],
+  ["behavioural_economics.js", "behavioural_economics", "behavioural-economics.html", "Behavioural Economics", "economics"],
+  ["development_economics.js", "development_economics", "development-economics.html", "Development Economics", "economics"],
+  ["financial_markets.js", "financial_markets", "financial-markets.html", "Banks, Bonds and Financial Markets", "economics"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
