@@ -1,0 +1,872 @@
+<!doctype html>
+<!-- Spectroscopy and Structure: one self-contained file, works offline. Built from tools/kit (kit.css, kit.js, src/spectroscopy.js); edit those and run "node build.js". -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Spectroscopy and Structure</title>
+<style>
+/* ===== Enhanced (kit-built) simulations: shared look and feel (inlined into every page by build.js) ===== */
+:root{
+  --bg:#0a0f1c; --panel:#111a2c; --panel2:#17223a; --line:#24324f; --text:#e9eef8; --muted:#8fa0bf; --grid:#1f2c47;
+  --accent:#5ad1ff; --accent-ink:#04121c; --good:#6ee7a0; --warn:#ffb454; --bad:#ff6b81;
+  --s0:#5ad1ff; --s1:#ffb454; --s2:#7ee787; --s3:#ff7b9c; --s4:#c4a1ff; --s5:#ffe66d;
+  --shadow:0 10px 30px rgba(0,0,0,.45); --r:12px;
+}
+:root[data-theme=light]{
+  --bg:#eef2f8; --panel:#ffffff; --panel2:#f3f6fb; --line:#d5dceb; --text:#172033; --muted:#5d6b85; --grid:#e3e8f2;
+  --accent:#0b7fc2; --accent-ink:#ffffff; --good:#12924c; --warn:#b86a00; --bad:#d1344d;
+  --s0:#0b7fc2; --s1:#d97a00; --s2:#1b9e4b; --s3:#d6336c; --s4:#7048c8; --s5:#a08800;
+  --shadow:0 8px 24px rgba(30,50,90,.15);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+.k-top{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;min-height:52px}
+.k-home{color:var(--muted);text-decoration:none;font-size:13px;white-space:nowrap}.k-home:hover{color:var(--accent)}
+.k-title{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
+.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+.k-chip{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 9px;white-space:nowrap;align-self:center}
+.k-blurb{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-actions{display:flex;gap:6px;flex:none}
+.k-btn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:.12s;user-select:none}
+.k-btn:hover{border-color:var(--accent);color:var(--accent)}
+.k-btn:active{transform:translateY(1px)}
+.k-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.k-btn.primary:hover{filter:brightness(1.1);color:var(--accent-ink)}
+.k-btn.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel2))}
+.k-btn.small{padding:3px 9px;font-size:12.5px}
+.k-btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.k-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
+.k-left{display:flex;flex-direction:column;min-width:0;min-height:0}
+.k-stage{flex:1;position:relative;min-height:0;background:#060a14;overflow:hidden}
+.k-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.k-dock{flex:none;height:190px;display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.k-dock:empty{display:none}
+.k-dock>*{flex:1;min-width:0;background:var(--panel)}
+.k-chart{position:relative;height:100%;min-height:80px}
+.k-chart canvas{position:absolute;inset:0;width:100%;height:100%}
+.k-side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.k-tabs{display:flex;border-bottom:1px solid var(--line);flex:none}
+.k-tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:10px 4px;cursor:pointer;color:var(--muted);font-weight:600}
+.k-tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.k-pane{flex:1;overflow-y:auto;padding:12px 14px 20px;display:none;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.k-pane.on{display:block}
+.k-group{margin-bottom:14px}
+.k-group>h3{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);margin:0 0 8px;font-weight:700}
+.k-ctl{margin-bottom:10px}
+.k-ctl label{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:2px}
+.k-ctl label b{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.k-ctl label b.k-typein{cursor:text;border-bottom:1px dashed currentColor;padding:0 1px}
+.k-ctl label b.k-typein:hover,.k-ctl label b.k-typein:focus{outline:1px solid var(--accent);outline-offset:1px;border-radius:3px}
+.k-typebox{width:9em;font:inherit;font-size:12.5px;padding:1px 4px;border-radius:4px;border:1px solid var(--accent);background:var(--panel-2,#1b2438);color:var(--text)}
+.k-ctl small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3;margin-top:1px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:none;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-moz-range-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);margin-top:-6.5px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+.k-seg{display:flex;flex-wrap:wrap;gap:4px}
+.k-seg .k-btn{flex:1 1 auto;padding:5px 8px;font-size:13px;text-align:center}
+.k-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.k-row .k-btn{flex:1 1 auto;text-align:center}
+.k-toggle{display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:9px;font-size:13px;user-select:none}
+.k-toggle i{flex:none;width:34px;height:19px;border-radius:99px;background:var(--line);position:relative;transition:.15s}
+.k-toggle i::after{content:"";position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;background:var(--muted);transition:.15s}
+.k-toggle.on i{background:var(--accent)}.k-toggle.on i::after{left:17px;background:var(--accent-ink)}
+.k-read{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.k-read div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 9px}
+.k-read span{display:block;font-size:11px;color:var(--muted)}
+.k-read b{font-size:16px;font-variant-numeric:tabular-nums;font-weight:650}
+.k-mcard{border:1px solid var(--line);background:var(--panel2);border-radius:var(--r);padding:11px 12px;margin-bottom:10px}
+.k-mcard h4{margin:0 0 4px;font-size:14.5px;display:flex;gap:8px;align-items:center}
+.k-mcard h4 em{font-style:normal;flex:none;width:22px;height:22px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:12px}
+.k-mcard.done h4 em{background:var(--good);color:#04130a}
+.k-mcard p{margin:0 0 8px;color:var(--muted);font-size:13px}
+.k-banner{position:absolute;left:12px;top:12px;max-width:min(520px,70%);background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--accent);border-radius:var(--r);padding:10px 34px 10px 13px;box-shadow:var(--shadow);z-index:5;backdrop-filter:blur(6px);font-size:13.5px}
+.k-banner b{color:var(--accent)}
+.k-banner .x{position:absolute;right:8px;top:6px;cursor:pointer;color:var(--muted);background:none;border:0;font-size:16px}
+.k-banner details{margin-top:6px;color:var(--muted)}.k-banner summary{cursor:pointer;color:var(--warn)}
+.k-tip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(8,14,26,.82);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:99px;padding:6px 16px;font-size:13px;pointer-events:none;z-index:4;transition:opacity .6s;white-space:nowrap}
+.k-hud{position:absolute;right:12px;top:12px;background:rgba(8,14,26,.72);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:10px;padding:7px 11px;font-size:12.5px;z-index:3;pointer-events:none;font-variant-numeric:tabular-nums;line-height:1.5;text-align:right}
+.k-notes h3{font-size:14px;margin:14px 0 4px;color:var(--accent)}.k-notes h3:first-child{margin-top:0}
+.k-notes p,.k-notes li{font-size:13px;color:var(--text)}.k-notes ul{padding-left:18px;margin:4px 0}
+.k-notes code{background:var(--panel2);padding:1px 5px;border-radius:5px;font-size:12.5px}
+.k-overlay{position:fixed;inset:0;background:rgba(3,6,12,.7);display:none;z-index:50;backdrop-filter:blur(3px)}
+.k-overlay.on{display:grid;place-items:center}
+.k-modal{width:min(1180px,95vw);height:min(700px,92vh);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:grid;grid-template-columns:290px 1fr;overflow:hidden}
+.k-blist{border-right:1px solid var(--line);overflow-y:auto;padding:14px}
+.k-blist h2{font-size:16px;margin:0 0 4px}.k-blist>p{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+.k-bitem{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;cursor:pointer}
+.k-bitem.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.k-bitem b{display:block;font-size:13.5px}.k-bitem span{color:var(--muted);font-size:12.5px}
+.k-bmain{display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 16px}
+.k-bhead{display:flex;gap:10px;align-items:flex-start}
+.k-bhead h3{margin:0;font-size:17px;flex:1}.k-bhead p{margin:3px 0 0;color:var(--muted);font-size:13px;font-weight:400}
+.k-bbar{display:flex;gap:10px;align-items:center;margin:10px 0 8px}
+.k-prog{flex:1;height:6px;background:var(--line);border-radius:9px;overflow:hidden}.k-prog i{display:block;height:100%;width:0;background:var(--accent)}
+.k-bchart{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.k-bfoot{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;height:150px;margin-top:10px}
+.k-btable{overflow:auto;border:1px solid var(--line);border-radius:10px;font-size:12.5px}
+.k-btable table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.k-btable th,.k-btable td{padding:3px 8px;text-align:right;border-bottom:1px solid var(--line)}
+.k-btable th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600}
+.k-bnote{overflow:auto;font-size:13px;color:var(--muted);background:var(--panel2);border-radius:10px;padding:9px 12px}
+.k-bnote b{color:var(--text)}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+.k-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.02em;padding:1px 7px;border-radius:99px;vertical-align:1px;white-space:nowrap;background:#35505a;color:#c9ecdf}
+.k-tag.adv{background:#4b3a78;color:#e3d6ff}.k-tag.beyond{background:#39465c;color:#cfdaf0}
+.k-idea{font-size:13px;margin:0 0 8px;line-height:1.4}.k-spec{font-size:12px;color:var(--muted);margin:0 0 10px}
+.k-pane>h3{font-size:14px;margin:14px 0 8px;color:var(--accent)}
+.k-q h4{font-size:12px}.k-q .k-marks{margin-left:auto;color:var(--muted);font-weight:400}.k-q p{color:var(--text);font-size:13.5px}
+.k-q details{font-size:13px;color:var(--muted)}.k-q summary{cursor:pointer;color:var(--warn)}.k-q details ul{padding-left:18px;margin:4px 0}
+.k-level{padding-bottom:4px}
+.k-tabs button{font-size:13px;padding-left:2px;padding-right:2px}
+.k-wsrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px;font-size:12.5px;color:var(--muted)}
+.k-mcard .btn+.btn,.k-mcard button+button{margin-left:6px}
+</style></head><body>
+<script>
+"use strict";
+/* =====================================================================
+   K: the small shared toolkit behind the ★ enhanced simulations.
+   It builds the page frame (header, stage, chart dock, side panel),
+   the sliders and buttons, the live charts, the Investigations cards
+   and the Batch run window. Each simulation's own code (below this
+   script in the page) holds the science.
+   ===================================================================== */
+const K = (() => {
+  const $ = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const col = i => cssVar("--s" + (i % 6));
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // ---- Repeatable random numbers: the same seed always gives the same run ----
+  function rng(seed) {
+    let a = (seed >>> 0) || 1;
+    const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    r.gauss = () => { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307179586 * r()); };
+    r.int = n => Math.floor(r() * n);
+    r.pick = arr => arr[Math.floor(r() * arr.length)];
+    return r;
+  }
+  // ---- Simple statistics ----
+  const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+  const sd = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); };
+  const se = a => sd(a) / Math.sqrt(a.length || 1);
+  function linfit(pts) { // least-squares straight line through [x,y] points
+    const n = pts.length, mx = mean(pts.map(p => p[0])), my = mean(pts.map(p => p[1]));
+    let sxy = 0, sxx = 0, syy = 0; for (const [x, y] of pts) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; syy += (y - my) ** 2; }
+    const m = sxy / (sxx || 1); return { m, c: my - m * mx, r: sxy / Math.sqrt((sxx * syy) || 1), n };
+  }
+  function download(name, text) { const a = $("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  const sig = (v, n = 3) => { if (v == null || !isFinite(v)) return "–"; if (v === 0) return "0"; const a = Math.abs(v); if (a >= 1e5 || a < 1e-3) return v.toExponential(n - 1); return String(+v.toPrecision(n)); };
+
+  // ---- Controls ----
+  /* Typing a value into a slider: read a displayed value ("2.2 mF", "4.7 × 10⁵ Pa", "£30,000", "−12 °C") as a number,
+     then search the slider's positions for the one whose display matches (copes with log scales and unit prefixes). */
+  const PRE = { p: 1e-12, n: 1e-9, "μ": 1e-6, "µ": 1e-6, u: 1e-6, m: 1e-3, k: 1e3, M: 1e6, G: 1e9 }, SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+  function parseVal(text) {
+    const t = String(text).replace(/[−–]/g, "-").replace(/[   ]/g, " ");
+    const m = t.match(/-?(?:\d{1,3}(?:[, ]\d{3})+|\d+)(?:\.\d+)?|-?\.\d+/);
+    if (!m) return null;
+    let v = parseFloat(m[0].replace(/[, ]/g, "")), rest = t.slice(m.index + m[0].length);
+    const pw = m[0] === "10" && rest.match(/^(?:\^\s*(-?\d+(?:\.\d+)?)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))/);         // a bare power of ten: 10⁻⁹ or 10^6.5
+    if (pw) { v = Math.pow(10, pw[1] != null ? +pw[1] : (pw[2][0] === "⁻" ? -1 : 1) * +[...pw[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join("")); rest = rest.slice(pw[0].length); }
+    const ex = rest.match(/^\s*(?:[×x*]\s*10\s*(?:\^\s*(-?\d+)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))|[eE]([-+]?\d+))/);
+    if (ex) { const p = ex[1] != null ? +ex[1] : ex[3] != null ? +ex[3] : (ex[2][0] === "⁻" ? -1 : 1) * +[...ex[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join(""); v *= Math.pow(10, p); rest = rest.slice(ex[0].length); }
+    const wd = rest.match(/^\s*(thousand|million|billion|trillion)\b/i);    // "1 million K"
+    if (wd) { v *= { thousand: 1e3, million: 1e6, billion: 1e9, trillion: 1e12 }[wd[1].toLowerCase()]; rest = rest.slice(wd[0].length); }
+    const pm = !wd && rest.match(/^\s*([pnμµumkMG])(?=[A-Za-zΩ°])/);
+    if (pm) v *= PRE[pm[1]];
+    return isFinite(v) ? { v, unit: rest } : null;
+  }
+  // what was typed, in the units on display unless a unit was typed too ("2.2", "2.2 mF" and "1e-6" all work)
+  function typedVal(raw, shown) {
+    const q = parseVal(raw); if (!q) return null;
+    if (/[A-Za-zμµΩ°%£$€]/.test(q.unit)) return q;
+    const s = parseVal(shown); return parseVal(raw + (s ? " " + s.unit.trim() : ""));
+  }
+  function invertSlider(lo, hi, st, g, target) {
+    const n = Math.max(1, Math.round((hi - lo) / st)), pos = i => +(lo + i * st).toFixed(10);
+    let e0 = 0, e1 = n;                                                       // ends may show words ("off"): step in to the first numbers
+    while (e0 < n && g(pos(e0)) == null && e0 < 60) e0++;
+    while (e1 > e0 && g(pos(e1)) == null && n - e1 < 60) e1--;
+    const a = g(pos(e0)), b = g(pos(e1));
+    if (a == null || b == null || a === b) return null;
+    const up = b > a;
+    if (up ? target < a : target > a) return pos(e0 > 0 ? 0 : e0);
+    if (up ? target > b : target < b) return pos(e1 < n ? n : e1);
+    let i0 = e0, i1 = e1, v0 = a, v1 = b;
+    while (i1 - i0 > 1) { const im = (i0 + i1) >> 1, vm = g(pos(im)); if (vm == null) break; if ((vm < target) === up) { i0 = im; v0 = vm; } else { i1 = im; v1 = vm; } }
+    return Math.abs(v0 - target) <= Math.abs(v1 - target) ? pos(i0) : pos(i1);
+  }
+  // try every position (cheap here: only the format function runs) and take the closest display; ties go to the one nearest the current setting
+  function nearestSlider(lo, hi, st, g, target, cur) {
+    const n = Math.max(1, Math.round((hi - lo) / st)); if (n > 20000) return invertSlider(lo, hi, st, g, target);
+    let best = null, be = Infinity, bd = Infinity;
+    for (let i = 0; i <= n; i++) { const p = +(lo + i * st).toFixed(10), v = g(p); if (v == null) continue; const e = Math.abs(v - target), d = Math.abs(p - cur); if (e < be - 1e-12 * Math.abs(target) || (Math.abs(e - be) <= 1e-12 * Math.abs(target) && d < bd)) { best = p; be = e; bd = d; } }
+    return best;
+  }
+  const scratch = document.createElement("div");
+  const textOf = html => { scratch.innerHTML = html; scratch.querySelectorAll("sup").forEach(x => x.replaceWith("^" + x.textContent)); return scratch.textContent; };
+  function slider(parent, o) {
+    const w = $("div", "k-ctl"), lab = $("label"), name = $("span", "", o.label), val = $("b", "k-typein"), inp = $("input");
+    inp.type = "range"; inp.min = o.min; inp.max = o.max; inp.step = o.step || 1; inp.value = o.value;
+    const fmt = o.fmt || (v => sig(v, 4) + (o.unit ? " " + o.unit : ""));
+    const show = () => val.innerHTML = fmt(+inp.value);
+    lab.append(name, val); w.append(lab, inp); if (o.tip) w.append($("small", "", o.tip)); parent.append(w); show();
+    inp.addEventListener("input", () => { show(); o.on && o.on(+inp.value); });
+    // click the value (or Tab to it and press Enter) to type one
+    const g = p => { let q = null; try { q = parseVal(textOf(fmt(p))); } catch (e) { } return q ? q.v : null; };
+    let numeric = true; try { const ends = [+o.min, (+o.min + +o.max) / 2, +o.max].map(g).filter(v => v != null); numeric = new Set(ends).size > 1; } catch (e) { }
+    if (!numeric) val.classList.remove("k-typein"); else { val.tabIndex = 0; val.title = "Click to type a value"; }
+    function edit() {
+      if (w.querySelector(".k-typebox")) return;
+      const shown = textOf(val.innerHTML), box = $("input", "k-typebox"); box.type = "text"; box.value = shown.trim(); box.setAttribute("aria-label", "Type a value for " + o.label);
+      val.style.display = "none"; val.after(box); box.focus(); box.select(); let done = false;
+      const finish = ok => {
+        if (done) return; done = true; const raw = box.value.trim(); box.remove(); val.style.display = "";
+        if (!ok || !raw || raw === shown.trim()) return; const t = typedVal(raw, shown); if (!t) return;
+        const p = nearestSlider(+o.min, +o.max, +(o.step || 1), g, t.v, +inp.value); if (p == null) return;
+        inp.value = p; show(); o.on && o.on(+inp.value);
+      };
+      box.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); });
+      box.addEventListener("blur", () => finish(true)); box.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); });
+    }
+    if (numeric) val.addEventListener("click", e => { e.preventDefault(); edit(); });
+    if (numeric) val.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); edit(); } });
+    return { el: w, get value() { return +inp.value; }, set(v, fire) { inp.value = v; show(); if (fire) o.on && o.on(+inp.value); } };
+  }
+  function seg(parent, o) {
+    const w = $("div", "k-ctl"); if (o.label) w.append($("label", "", `<span>${o.label}</span>`));
+    const row = $("div", "k-seg"); w.append(row); if (o.tip) w.append($("small", "", o.tip)); parent.append(w);
+    let value = o.value; const btns = [];
+    const paint = () => btns.forEach(([v, b]) => b.classList.toggle("on", v === value));
+    for (const [v, label, title] of o.options) { const b = $("button", "k-btn", label); if (title) b.title = title; b.onclick = () => { value = v; paint(); o.on && o.on(v); }; row.append(b); btns.push([v, b]); }
+    paint();
+    return { el: w, get value() { return value; }, set(v, fire) { value = v; paint(); if (fire) o.on && o.on(v); } };
+  }
+  function toggle(parent, o) {
+    const w = $("div", "k-toggle" + (o.value ? " on" : ""), `<i></i><span>${o.label}</span>`); parent.append(w); let value = !!o.value;
+    w.onclick = () => { value = !value; w.classList.toggle("on", value); o.on && o.on(value); };
+    return { el: w, get value() { return value; }, set(v, fire) { value = !!v; w.classList.toggle("on", value); if (fire) o.on && o.on(value); } };
+  }
+  function btn(parent, label, on, cls) { const b = $("button", "k-btn " + (cls || ""), label); b.onclick = on; parent.append(b); return b; }
+  function row(parent) { const r = $("div", "k-row"); parent.append(r); return r; }
+  function readout(parent, items) { // small tiles of live numbers
+    const g = $("div", "k-read"), map = {}; parent.append(g);
+    for (const [id, label] of items) { const d = $("div", "", `<span>${label}</span><b>–</b>`); g.append(d); map[id] = d.lastChild; }
+    return { el: g, set(id, v) { if (map[id].textContent !== String(v)) map[id].innerHTML = v; } };
+  }
+  function note(parent, html) { const s = $("small", "", html); s.style.cssText = "display:block;color:var(--muted);margin:-2px 0 10px;font-size:12px;line-height:1.35"; parent.append(s); return s; }
+
+  // ---- A canvas that stays sharp on high-DPI screens and follows its container's size ----
+  function canvas(parent, onresize) {
+    const cv = $("canvas"); parent.append(cv); const c = { el: cv, ctx: cv.getContext("2d"), w: 1, h: 1, dpr: 1 };
+    const fit = () => {
+      const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
+      c.dpr = Math.min(window.devicePixelRatio || 1, 2); c.w = w; c.h = h; cv.width = Math.round(w * c.dpr); cv.height = Math.round(h * c.dpr);
+      c.ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0); onresize && onresize(c);
+    };
+    new ResizeObserver(fit).observe(parent); fit(); return c;
+  }
+  // Pointer handling in the element's own pixel coordinates
+  function pointer(el, h) {
+    const pos = e => { const r = el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, e }; };
+    let down = false;
+    el.addEventListener("pointerdown", e => { down = true; el.setPointerCapture(e.pointerId); h.down && h.down(pos(e)); });
+    el.addEventListener("pointermove", e => { const p = pos(e); if (down) h.drag && h.drag(p); else h.hover && h.hover(p); });
+    const up = e => { if (down) { down = false; h.up && h.up(pos(e)); } };
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+    el.addEventListener("pointerleave", e => h.leave && h.leave(pos(e)));
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+
+  // ---- Charts ----
+  const charts = new Set();
+  function niceTicks(a, b, n) {
+    const span = (b - a) || 1, raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    const step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p, t = [];
+    for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + step * 1e-6; v += step) t.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    return { t, step };
+  }
+  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(0); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
+  /* chart(parent,{title,xLabel,yLabel,xMin,xMax,yMin,yMax,yZero})  then  .draw(series, extra)
+     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r, alpha, fillAlpha (area fill, default .22; 1 for solid stacked areas)}]
+     extra:  {xMin..yMax overrides, vlines:[{x,color,label,dash}], hlines:[{y,...}], bands:[{x0,x1,color}]} */
+  function chart(parent, o = {}) {
+    const wrap = $("div", "k-chart"), cv = $("canvas"); wrap.append(cv); parent.append(wrap);
+    const ctx = cv.getContext("2d"); let last = [[], {}];
+    const api = { el: wrap, opts: o, draw(series, extra) { last = [series || [], extra || {}]; render(); }, redraw: () => render(), map: null };
+    function render() {
+      const W = wrap.clientWidth, H = wrap.clientHeight; if (W < 40 || H < 40) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      const [series, ex] = last, q = Object.assign({}, o, ex);
+      const text = cssVar("--text"), muted = cssVar("--muted"), grid = cssVar("--grid");
+      // work out the axis ranges from the data unless they are fixed
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const s of series) for (const p of s.pts) { if (!isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
+      for (const l of q.hlines || []) { if (l.y < y0) y0 = l.y; if (l.y > y1) y1 = l.y; }
+      if (!isFinite(x0)) { x0 = 0; x1 = 1; } if (!isFinite(y0)) { y0 = 0; y1 = 1; }
+      if (q.yZero || series.some(s => s.type === "bars")) { y0 = Math.min(0, y0); y1 = Math.max(0, y1); }
+      const py = (y1 - y0) * 0.08 || Math.abs(y1) * 0.1 || 1; if (q.yMin == null && y0 !== 0) y0 -= py; if (q.yMax == null) y1 += py;
+      if (x1 === x0) { x0 -= 0.5; x1 += 0.5; }
+      if (q.xMin != null) x0 = q.xMin; if (q.xMax != null) x1 = q.xMax; if (q.yMin != null) y0 = q.yMin; if (q.yMax != null) y1 = q.yMax;
+      const L = 54, R = 12, T = 24, B = q.xLabel ? 34 : 22, pw = W - L - R, ph = H - T - B;
+      const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + ph - (y - y0) / (y1 - y0) * ph;
+      api.map = { X, Y, x0, x1, y0, y1, L, T, pw, ph };
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; ctx.lineWidth = 1;
+      for (const b of q.bands || []) { ctx.fillStyle = b.color; ctx.fillRect(X(Math.max(x0, b.x0)), T, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)), ph); }
+      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70))), yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.beginPath();
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      for (const v of xt.t) { const x = Math.round(X(v)) + .5; ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.fillText(q.xFmt ? q.xFmt(v) : tickFmt(v, xt.step), x, T + ph + 4); }
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      for (const v of yt.t) { const y = Math.round(Y(v)) + .5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.fillText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step), L - 5, y); }
+      ctx.stroke(); ctx.strokeStyle = muted; ctx.strokeRect(L + .5, T + .5, pw, ph);
+      if (q.xLabel) { ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(q.xLabel, L + pw / 2, H - 3); }
+      if (q.yLabel) { ctx.save(); ctx.translate(11, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(q.yLabel, 0, 0); ctx.restore(); }
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+      series.forEach((s, i) => {
+        const c = s.color || col(i); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = s.width || 1.8; ctx.setLineDash(s.dash || []); ctx.globalAlpha = s.alpha == null ? 1 : s.alpha;
+        const P = s.pts;
+        if (s.type === "bars") { const w = Math.max(1, Math.abs(X(s.w || 1) - X(0)) - 1); for (const p of P) { const yy = Y(p[1]); ctx.fillRect(X(p[0]) - w / 2, Math.min(yy, Y(0)), w, Math.abs(Y(0) - yy)); } }
+        else if (s.type === "dots" || s.type === "err") {
+          const r = s.r || 3;
+          for (const p of P) { const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+        } else {
+          ctx.beginPath(); let pen = false;
+          for (const p of P) { if (!isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
+          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= s.fillAlpha == null ? .22 : s.fillAlpha; ctx.fill(); } else ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+      });
+      for (const l of q.vlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(l.x), T); ctx.lineTo(X(l.x), T + ph); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = X(l.x) > L + pw * .7 ? "right" : "left"; ctx.textBaseline = "top"; ctx.fillText(l.label, X(l.x) + (ctx.textAlign === "right" ? -5 : 5), T + 4 + (l.row || 0) * 13); } }
+      for (const l of q.hlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Y(l.y)); ctx.lineTo(L + pw, Y(l.y)); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(l.label, L + pw - 5, Y(l.y) - 2); } }
+      ctx.restore();
+      // title on the left, legend on the right
+      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
+      for (let i = series.length - 1; i >= 0; i--) { const s = series[i]; if (!s.label) continue; const w = ctx.measureText(s.label).width; lx -= w; ctx.fillStyle = muted; ctx.fillText(s.label, lx, 12); lx -= 12; ctx.fillStyle = s.color || col(i); ctx.fillRect(lx, 8, 8, 8); lx -= 10; }
+      if (q.title) { // the title gives way (with an ellipsis) if the legend needs the room
+        ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.fillStyle = text; let t = q.title; const room = lx - L - 8;
+        if (ctx.measureText(t).width > room) { while (t.length > 3 && ctx.measureText(t + "…").width > room) t = t.slice(0, -1); t = t.length > 3 ? t + "…" : ""; }
+        ctx.fillText(t, L, 12);
+      }
+    }
+    new ResizeObserver(render).observe(wrap); charts.add(api); return api;
+  }
+  function histogram(vals, bins, lo, hi) { // returns bar points [centre, count] and the bin width
+    if (lo == null) lo = Math.min(...vals); if (hi == null) hi = Math.max(...vals); if (hi === lo) { hi += .5; lo -= .5; }
+    const w = (hi - lo) / bins, c = new Array(bins).fill(0);
+    for (const v of vals) { const i = Math.floor((v - lo) / w); if (i >= 0 && i <= bins) c[Math.min(i, bins - 1)]++; }
+    return { pts: c.map((n, i) => [lo + (i + .5) * w, n]), w };
+  }
+
+  // ---- The page frame ----
+
+  let K_last = null;
+  /* ---- Worksheets ----
+     worksheetDoc(o, picks, opt) returns a printable HTML page: one A4 sheet per investigation card (o.missions) and per batch
+     experiment (o.batch), then teacher notes. picks = [{ kind: "m" | "b", item }]. opt = { file, teacher, results: { [batch title]: summary } } */
+  const wsCSS = `body{font:14px/1.45 "Segoe UI",system-ui,sans-serif;color:#111;margin:0;background:#eee}.sheet{background:#fff;width:186mm;min-height:270mm;margin:12px auto;padding:12mm;box-sizing:border-box;page-break-after:always}
+  .top{display:flex;justify-content:space-between;color:#555;font-size:12px;border-bottom:1px solid #999;padding-bottom:4px}h1{font-size:20px;margin:10px 0 4px}h2{font-size:15px;margin:16px 0 6px;color:#14467a}.tag{font-size:11px;border:1px solid #14467a;border-radius:9px;padding:0 6px;color:#14467a;vertical-align:middle}
+  .q{background:#eef4fb;border-left:4px solid #14467a;padding:8px 10px}.lines div{border-bottom:1px solid #aaa;height:26px}.box{border:1px solid #aaa;height:110px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:4px 6px;height:24px;text-align:center;font-size:13px}th{background:#f2f2f2}
+  ol{margin:4px 0 4px 20px;padding:0}.bar{position:sticky;top:0;background:#14467a;color:#fff;padding:8px 16px;display:flex;gap:12px;align-items:center}.bar button{font:inherit;padding:4px 12px;cursor:pointer}.note{background:#fafafa;border:1px solid #ccc;padding:8px 10px;margin:8px 0}
+  .grid{height:200px;border:1px solid #888;background-image:linear-gradient(#ddd 1px,transparent 1px),linear-gradient(90deg,#ddd 1px,transparent 1px);background-size:20px 20px;position:relative}
+  @media print{body{background:#fff}.bar{display:none}.sheet{margin:0;width:auto;min-height:0}}`;
+  const wsLines = n => `<div class="lines">${"<div></div>".repeat(n)}</div>`;
+  function worksheetDoc(o, picks, opt = {}) {
+    const file = opt.file || (location.pathname.split("/").pop() || "the simulation"), nM = (o.missions || []).length, nB = (o.batch || []).length;
+    const tagA = x => x.lvl === "adv" ? ' <span class="tag">A level</span>' : "", head = (k, n, of) => `<div class="top"><span>${o.title} · ${k} ${n} of ${of}</span><span>Name ____________________ &nbsp; Date __________</span></div>`;
+    const sheets = picks.map(({ kind, item: x }) => {
+      if (kind === "m") {
+        const n = o.missions.indexOf(x) + 1;
+        return `<div class="sheet">${head("Investigation", n, nM)}<h1>${x.title}${tagA(x)}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b>${x.lvl === "adv" ? " and choose <b>Advanced (A level)</b> in the Controls tab" : ""}.</li><li>Open the <b>Investigate</b> tab and press <b>Set it up ▸</b> on “${x.title}”. It sets everything up for you.</li><li>You can still change the controls afterwards to test your ideas.</li></ol>
+<h2>2 · The question</h2><div class="q">${x.q}</div>
+<h2>3 · Predict</h2><p>Before you watch, write what you think will happen, and why.</p>${wsLines(3)}
+<h2>4 · Observe and record</h2><p>Watch the simulation and try the controls. Record what you changed, what you saw and any readings (from the Readings panel or the graphs).</p>
+<table><tr><th style="width:30%">What I changed</th><th>What I saw or measured</th><th style="width:22%">Reading</th></tr>${"<tr><td></td><td></td><td></td></tr>".repeat(5)}</table>
+<h2>5 · Answer the question</h2>${wsLines(4)}
+<h2>6 · Explain</h2><p>Use the science to explain your answer. Open <b>The model</b> tab: which rule or assumption in the model causes what you saw? Would the real world behave the same way?</p>${wsLines(4)}</div>`;
+      }
+      const n = o.batch.indexOf(x) + 1, reps = x.reps || (x.xs ? 6 : 200);
+      const rec = x.xs ? `<table><tr><th>${x.xLabel}</th><th>mean</th><th>SD</th><th>SE</th>${x.theory ? "<th>theory</th>" : ""}<th>difference from theory, in SEs</th></tr>${x.xs.map(v => `<tr><td>${v}</td><td></td><td></td><td></td>${x.theory ? "<td></td>" : ""}<td></td></tr>`).join("")}</table>`
+        : `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${x.theory != null ? "<th>theory</th>" : ""}</tr><tr><td></td><td></td><td></td><td></td><td></td><td></td>${x.theory != null ? "<td></td>" : ""}</tr></table><p>Sketch the histogram:</p><div class="grid"></div>`;
+      return `<div class="sheet">${head("Batch experiment", n, nB)}<h1>${x.title}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b> and press <b>📊 Batch run</b>.</li><li>Click the experiment “${x.title}”. It sets everything up for you.</li><li>Press <b>▶ Run</b> and wait for it to finish (${x.xs ? `${x.xs.length} settings × ${reps} runs` : `${reps} runs`}).</li></ol>
+<div class="q"><b>${x.question}</b>${x.how ? `<br><small>${x.how}</small>` : ""}</div>
+<h2>2 · Predict before you run it</h2><p>${x.xs ? `How do you think <b>${x.yLabel}</b> will change as <b>${x.xLabel}</b> goes from ${x.xs[0]} to ${x.xs[x.xs.length - 1]}? Sketch your prediction, then give your reason.` : `What average do you expect for <b>${x.yLabel}</b>? Will every run give the same answer? Give your reason.`}</p>${x.xs ? `<div class="grid" style="height:150px"></div>` : ""}${wsLines(2)}
+<h2>3 · Record the results</h2><p>Copy the numbers from the table under the graph${x.theory != null ? " (theory: " + (x.theoryLabel || "the theory line") + ")" : ""}.</p>${rec}
+<h2>4 · Think about it</h2><ol><li>Does the simulation agree with the theory${x.theory == null ? " (or with your prediction)" : ""}? Use the difference in standard errors (or how close the points are to the line) to say how well.${wsLines(2)}</li>
+<li>Why don't all the runs give the same answer? What would happen to the standard error with four times as many runs?${wsLines(2)}</li>
+<li>Open <b>The model</b> tab. Name one simplification that could make the model differ from real life.${wsLines(2)}</li></ol></div>`;
+    });
+    let notes = "";
+    if (opt.teacher !== false) {
+      notes = `<div class="sheet"><div class="top"><span>${o.title} · Teacher notes</span><span>${file}</span></div><h1>Teacher notes</h1>` + picks.map(({ kind, item: x }) => {
+        if (kind === "m") return `<h2>Investigation ${o.missions.indexOf(x) + 1}: ${x.title}${tagA(x)}</h2><div class="note"><b>What to look for:</b> ${x.hint || "–"}</div>`;
+        const r = opt.results && opt.results[x.title], th = x.theory == null ? "" : x.xs ? x.xs.map(v => `${v}: ${sig(x.theory(v))}`).join(" · ") : sig(+x.theory);
+        return `<h2>Batch experiment ${o.batch.indexOf(x) + 1}: ${x.title}</h2><div class="note">${x.note || ""}${th ? `<br><b>Theory (${x.theoryLabel || "theory"}):</b> ${th}` : ""}${r ? `<br><b>Result from a test run:</b> ${r}` : ""}</div>`;
+      }).join("") + `</div>`;
+    }
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${o.title} – worksheets</title><style>${wsCSS}</style></head><body><div class="bar"><b>${o.title} – worksheets</b><span>${picks.length} sheet${picks.length > 1 ? "s" : ""}${opt.teacher !== false ? ", then teacher notes" : ""}. Print, or save as PDF.</span><button onclick="print()">🖨 Print</button></div>${sheets.join("")}${notes}</body></html>`;
+  }
+  // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
+  function batchSummary(e, seed0 = 12345) {
+    const rows = []; let i = 0;
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
+    return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
+  }
+  function openDoc(html, name) { const w = window.open("", "_blank"); if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(name, html); }
+  // ---- Sound (Web Audio). Pages that ask for it (app option `sound`) get a 🔇/🔊 button in the header.
+  //      It is OFF until someone presses it, so a room full of laptops stays quiet; nothing plays while it is off.
+  //      tone(f, {dur, vol, type, at, glide}) plays a note; noise({dur, vol, filter, freq, at}) a hiss, thump or rumble;
+  //      click() a Geiger-style tick; hum() a continuous tone you retune every frame (it fades out if not updated). ----
+  const sound = (() => {
+    let ctx = null, master = null, on = false, buf = null; const live = new Set(), hums = [], fns = [];
+    const ready = () => on && ctx && ctx.state === "running";
+    async function enable(v) {
+      on = !!v;
+      if (on) { try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (!master) { master = ctx.createGain(); master.gain.value = 0.7; master.connect(ctx.destination); } await ctx.resume(); } catch (e) { on = false; } }
+      else stop();
+      fns.forEach(f => f(on));
+    }
+    const track = n => { live.add(n); n.onended = () => live.delete(n); };
+    function tone(f, o = {}) {
+      if (!ready() || !(f > 15) || f > ctx.sampleRate / 2) return;
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.3, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.008, dur / 2);
+      const osc = ctx.createOscillator(), g = ctx.createGain(); osc.type = o.type || "sine"; osc.frequency.setValueAtTime(f, t); if (o.glide) osc.frequency.exponentialRampToValueAtTime(Math.max(16, o.glide), t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      osc.connect(g); g.connect(master); osc.start(t); osc.stop(t + dur + 0.02); track(osc);
+    }
+    function noise(o = {}) {
+      if (!ready()) return;
+      if (!buf) { buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.2, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.004, dur / 2);
+      const src = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain(); src.buffer = buf; src.loop = true;
+      fl.type = o.filter || "lowpass"; fl.frequency.value = o.freq || 1000; if (o.sweep) fl.frequency.exponentialRampToValueAtTime(o.sweep, t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      src.connect(fl); fl.connect(g); g.connect(master); src.start(t, Math.random()); src.stop(t + dur + 0.02); track(src);
+    }
+    const click = (o = {}) => noise({ dur: 0.012, vol: o.vol == null ? 0.5 : o.vol, filter: "highpass", freq: 1800, at: o.at });
+    function hum(type = "sine") {
+      let osc = null, g = null, last = 0;
+      const h = {
+        set(f, vol = 0.15) { if (!ready()) { h.kill(); return; } if (!osc) { osc = ctx.createOscillator(); g = ctx.createGain(); osc.type = type; g.gain.value = 0; osc.connect(g); g.connect(master); osc.start(); } const t = ctx.currentTime; osc.frequency.setTargetAtTime(Math.max(16, f), t, 0.02); g.gain.setTargetAtTime(vol, t, 0.04); last = performance.now(); },
+        kill() { if (osc) { try { g.gain.setTargetAtTime(0, ctx.currentTime, 0.03); osc.stop(ctx.currentTime + 0.25); } catch (e) { } osc = null; } },
+        stale() { return osc && performance.now() - last > 250; }
+      };
+      hums.push(h); return h;
+    }
+    function stop() { for (const n of live) { try { n.stop(); } catch (e) { } } live.clear(); hums.forEach(h => h.kill()); }
+    setInterval(() => hums.forEach(h => { if (h.stale()) h.kill(); }), 200);    // a hum nobody is updating (paused, other view) fades away
+    document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); });
+    return { enable, ready, tone, noise, click, hum, stop, get on() { return on; }, onChange: f => fns.push(f) };
+  })();
+  function app(o) {
+    document.title = o.title + " · Science Simulations";
+    const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
+    if (saved) document.documentElement.dataset.theme = saved;
+    const top = $("header", "k-top"), main = $("main", "k-main");
+    top.innerHTML = `<a class="k-home" href="${o.home || "../../index.html"}" title="Back to the list of simulations">◂ All simulations</a>
+      <div class="k-title"><span class="k-chip">${o.subject}</span><h1>${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
+    const act = top.querySelector(".k-actions");
+    const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
+    left.append(stage, dock); main.append(left, side); document.body.append(top, main);
+    const ui = { stage, dock, side, playing: true, speed: 1, canvas: fn => canvas(stage, fn), config: o };
+    const wsName = o.title.replace(/\W+/g, "-").toLowerCase() + "-worksheet.html";
+    ui.worksheet = (picks, teacher) => openDoc(worksheetDoc(o, picks, { teacher }), wsName);
+    ui.allPicks = () => (o.missions || []).map(item => ({ kind: "m", item })).concat((o.batch || []).map(item => ({ kind: "b", item })));
+    // header buttons
+    const bPlay = btn(act, "⏸ Pause", () => ui.setPlaying(!ui.playing)); bPlay.title = "Space bar";
+    ui.setPlaying = p => { ui.playing = p; bPlay.innerHTML = p ? "⏸ Pause" : "▶ Play"; bPlay.classList.toggle("primary", !p); };
+    if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
+    if (o.reset) btn(act, "↺ Reset", () => o.reset());
+    if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
+    if (o.sound) { const bS = btn(act, "🔇 Sound", () => sound.enable(!sound.on)); bS.title = typeof o.sound === "string" ? o.sound : "Turn sound on or off (off to start with)"; sound.onChange(v => { bS.innerHTML = v ? "🔊 Sound" : "🔇 Sound"; bS.classList.toggle("primary", v); }); }
+    btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
+    btn(act, "⛶", () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).title = "Full screen";
+    addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
+    // side panel tabs
+    const tabs = $("nav", "k-tabs"), panes = {}; side.append(tabs);
+    const names = [["controls", "Controls"], ["missions", "Investigate"]].concat(o.revise ? [["revise", "Revise"]] : [], [["notes", "The model"]]);
+    const show = id => { if (id === "revise" && ui.renderRevise) ui.renderRevise(); for (const [k] of names) { panes[k].classList.toggle("on", k === id); panes[k]._tab.classList.toggle("on", k === id); } };
+    for (const [k, label] of names) { const b = $("button", "", label); b.onclick = () => show(k); tabs.append(b); panes[k] = $("div", "k-pane" + (k === "notes" ? " k-notes" : "")); panes[k]._tab = b; side.append(panes[k]); }
+    show("controls"); ui.controls = panes.controls; ui.showTab = show;
+    ui.group = title => { const g = $("div", "k-group", title ? `<h3>${title}</h3>` : ""); panes.controls.append(g); return g; };
+    panes.notes.innerHTML = o.notes || "";
+    // investigations: each card sets the simulation up and pins its question over the stage
+    let banner = null;
+    ui.mission = m => {
+      if (banner) banner.remove(); banner = null; if (!m) return;
+      banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
+      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
+    };
+    if ((o.missions || []).length || (o.batch || []).length) { const wr = $("div", "k-wsrow", "<span>Worksheets:</span>"); panes.missions.append(wr); btn(wr, "📄 Every investigation", () => ui.worksheet(ui.allPicks(), true), "small").title = "One printable sheet per investigation and batch experiment, then teacher notes"; btn(wr, "📄 Without teacher notes", () => ui.worksheet(ui.allPicks(), false), "small"); }
+    const mcards = (o.missions || []).map(m => {
+      const c = $("div", "k-mcard", `<h4><em></em>${m.title}${m.lvl === "adv" ? ' <span class="k-tag adv">A level</span>' : ""}</h4><p>${m.q}</p>`);
+      btn(c, "Set it up ▸", () => { c.classList.add("done"); c.querySelector("em").textContent = "✓"; m.setup && m.setup(); ui.mission(m); ui.setPlaying(true); show("controls"); }, "small primary");
+      btn(c, "📄 Worksheet", () => ui.worksheet([{ kind: "m", item: m }], true), "small").title = "A printable worksheet for this investigation";
+      panes.missions.append(c); return [m, c];
+    });
+    /* ---- Level (Standard / Advanced) and the Revise tab ----
+       o.levels = { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "...", adv: "..." } }
+       o.revise = { ideas: [{ lvl: "std"|"adv"|"beyond", tag, text }], questions: [{ lvl, q, marks, ans }] }   (q and ans may be functions, so they can use the numbers on screen)
+       Advanced shows everything; Standard hides anything marked "adv". */
+    ui.level = "std"; try { const l = localStorage.getItem("k-level"); if (l === "adv" || l === "std") ui.level = l; } catch (e) { }
+    if (!o.levels) ui.level = "adv";
+    const val = v => typeof v === "function" ? v() : v;
+    function renderLevel() {
+      let k = 0; for (const [m, c] of mcards) { const on = m.lvl !== "adv" || ui.level === "adv"; c.style.display = on ? "" : "none"; if (on) { k++; if (!c.classList.contains("done")) c.querySelector("em").textContent = k; } }
+      if (!o.revise) return; const P = panes.revise, see = x => x.lvl !== "adv" || ui.level === "adv", tagName = { std: "std", adv: "adv", beyond: "beyond" };
+      P.innerHTML = (o.levels ? `<p class="k-spec">${o.levels.specs[ui.level]}</p>` : "") + `<h3>Key ideas</h3>` + o.revise.ideas.filter(see).map(x => `<div class="k-idea"><span class="k-tag ${tagName[x.lvl]}">${x.tag}</span> ${val(x.text)}</div>`).join("") +
+        `<h3>Exam practice</h3>` + o.revise.questions.filter(see).map((x, i) => `<div class="k-mcard k-q"><h4><em>${i + 1}</em><span class="k-tag ${tagName[x.lvl]}">${x.lvl === "adv" ? "A level" : "GCSE"}</span><span class="k-marks">[${x.marks} mark${x.marks > 1 ? "s" : ""}]</span></h4><p>${val(x.q)}</p><details><summary>Mark scheme</summary>${val(x.ans)}</details></div>`).join("");
+      if (o.revise.questions.some(x => typeof x.q === "function")) btn(P, "↻ Use the numbers on screen now", renderLevel, "small");
+    }
+    if (o.levels) { const lg = $("div", "k-group k-level"); panes.controls.append(lg); const sg = seg(lg, { value: ui.level, options: [["std", o.levels.std], ["adv", o.levels.adv]], on: v => { ui.level = v; try { localStorage.setItem("k-level", v); } catch (e) { } hint.textContent = o.levels.specs[v]; renderLevel(); ui.onLevel && ui.onLevel(v); } }); const hint = $("small", "", o.levels.specs[ui.level]); hint.style.cssText = "display:block;color:var(--muted);font-size:11.5px;margin-top:-4px"; lg.append(hint); ui.setLevel = v => sg.set(v, true); }
+    try { renderLevel(); } catch (e) { setTimeout(renderLevel, 0); }   // questions may use values the simulation has not set up yet
+    ui.renderRevise = renderLevel;
+    // floating hint and heads-up text over the stage
+    let tipEl = null, tipT = 0;
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; } hudEl.style.display = html ? "" : "none"; };
+    // animation loop: step(dt) only while playing, draw() every frame
+    ui.run = (step, draw) => { let t0 = performance.now(); const f = t => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (ui.playing && !ov.classList.contains("on")) step(dt); draw(dt); requestAnimationFrame(f); }; requestAnimationFrame(f); };
+
+    // ---- Batch run window ----
+    const ov = $("div", "k-overlay"); document.body.append(ov);
+    let bstate = null;
+    function openBatch() {
+      ov.classList.add("on"); if (bstate) return;
+      const modal = $("div", "k-modal"), list = $("div", "k-blist", `<h2>📊 Batch run</h2><p>Runs the model many times without drawing it, then compares the results with theory. Pick a question:</p>`), mainB = $("div", "k-bmain");
+      modal.append(list, mainB); ov.append(modal); ov.addEventListener("pointerdown", e => { if (e.target === ov) ov.classList.remove("on"); });
+      mainB.innerHTML = `<div class="k-bhead"><h3></h3></div><div class="k-bbar"></div><div class="k-bchart"></div><div class="k-bfoot"><div class="k-btable"></div><div class="k-bnote"></div></div>`;
+      const head = mainB.querySelector("h3"), bar = mainB.querySelector(".k-bbar"), tbl = mainB.querySelector(".k-btable"), noteEl = mainB.querySelector(".k-bnote");
+      btn(mainB.querySelector(".k-bhead"), "✕ Close", () => ov.classList.remove("on"));
+      const ch = chart(mainB.querySelector(".k-bchart"), {});
+      const bRun = btn(bar, "▶ Run", () => runExp(), "primary"), prog = $("div", "k-prog", "<i></i>"), status = $("span", "", ""); status.style.cssText = "color:var(--muted);font-size:12.5px;min-width:110px";
+      const bCsv = btn(bar, "⬇ CSV", () => bstate.rows.length && download(o.title.replace(/\W+/g, "-").toLowerCase() + "-batch.csv", bstate.csv()));
+      bar.insertBefore(prog, bCsv); bar.insertBefore(status, bCsv);
+      btn(bar, "📄 Worksheet", () => ui.worksheet([{ kind: "b", item: bstate.exp }], true)).title = "A printable worksheet for this experiment";
+      bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
+      const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
+      function pick(e) { bstate.token++; bstate.exp = e; bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
+      function paint() {
+        const e = bstate.exp, rows = bstate.rows, series = [], extra = { title: "", xLabel: e.xs ? e.xLabel : e.yLabel, yLabel: e.xs ? e.yLabel : "number of runs" };
+        if (e.xs) {
+          const groups = e.xs.map(x => rows.filter(r => r[0] === x).map(r => r[3])), done = e.xs.map((x, i) => [x, groups[i]]).filter(g => g[1].length);
+          if (e.theory) { const a = Math.min(...e.xs), b = Math.max(...e.xs), tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, e.theory(x)]); } series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
+          series.push({ pts: rows.map(r => [r[0], r[3]]), type: "dots", color: cssVar("--s0"), alpha: .3, r: 2.5, label: "single runs" });
+          series.push({ pts: done.map(([x, g]) => [x, mean(g), se(g)]), type: "err", color: cssVar("--s0"), r: 4.5, label: "mean ± SE" });
+          let fitTxt = "";
+          if (e.fit && done.length > 2) { const f = linfit(done.map(([x, g]) => [x, mean(g)])), a = Math.min(...e.xs), b = Math.max(...e.xs); series.push({ pts: [[a, f.m * a + f.c], [b, f.m * b + f.c]], color: cssVar("--s2"), label: "best-fit line" }); fitTxt = `<tr><td colspan="6" style="text-align:left">Best-fit line: gradient <b>${sig(f.m)}</b>, intercept ${sig(f.c)}, r = ${f.r.toFixed(3)}</td></tr>`; }
+          extra.xMin = Math.min(...e.xs) - (Math.max(...e.xs) - Math.min(...e.xs)) * .05; extra.xMax = Math.max(...e.xs) + (Math.max(...e.xs) - Math.min(...e.xs)) * .05; if (e.yMin != null) extra.yMin = e.yMin; if (e.yMax != null) extra.yMax = e.yMax;
+          tbl.innerHTML = `<table><tr><th>${e.xLabel}</th><th>runs</th><th>mean</th><th>SD</th><th>SE</th>${e.theory ? "<th>theory</th>" : ""}</tr>` + done.map(([x, g]) => `<tr><td>${sig(x, 4)}</td><td>${g.length}</td><td>${sig(mean(g))}</td><td>${sig(sd(g))}</td><td>${sig(se(g))}</td>${e.theory ? `<td>${sig(e.theory(x))}</td>` : ""}</tr>`).join("") + fitTxt + "</table>";
+        } else {
+          const v = rows.map(r => r[3]);
+          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); }
+          tbl.innerHTML = v.length ? `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${e.theory != null ? "<th>theory</th>" : ""}</tr><tr><td>${v.length}</td><td>${sig(mean(v))}</td><td>${sig(sd(v))}</td><td>${sig(se(v))}</td><td>${sig(Math.min(...v))}</td><td>${sig(Math.max(...v))}</td>${e.theory != null ? `<td>${sig(+e.theory)}</td>` : ""}</tr></table>` : "";
+        }
+        ch.opts.xFmt = null; ch.draw(series, extra);
+      }
+      function runExp() {
+        const e = bstate.exp, token = ++bstate.token; bstate.rows = []; const tasks = [];
+        if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) tasks.push([x, r]); } else for (let r = 0; r < (e.reps || 200); r++) tasks.push([0, r]);
+        let i = 0; const seed0 = (Date.now() % 100000) * 7 + 1; bRun.textContent = "■ Stop"; bRun.onclick = () => { bstate.token++; fin(); };
+        const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
+        (function slice() {
+          if (token !== bstate.token) return; const t = performance.now();
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
+          if (i < tasks.length) setTimeout(slice, 0); else fin();
+        })();
+      }
+      pick(o.batch[0]);
+    }
+    ui.openBatch = openBatch;
+    K_last = ui;
+    return ui;
+  }
+  return { sound, $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app, worksheetDoc, batchSummary, get ui() { return K_last; } };
+})();
+</script>
+<script>
+/* =====================================================================
+   SPECTROSCOPY AND STRUCTURE
+   Four ways of looking at a molecule, each answering a different question:
+     MASS SPECTRUM   the molecular ion M⁺ gives the relative molecular mass;
+                     fragments (CH₃CO⁺ at 43, CH₂OH⁺ at 31 …) give pieces.
+                     ¹³C (1.1% of carbon) makes an M+1 peak ≈ 1.1% × (number of C);
+                     chlorine (³⁵Cl : ³⁷Cl ≈ 3 : 1) and bromine (⁷⁹Br : ⁸¹Br ≈ 1 : 1)
+                     make M and M+2 pairs.
+     INFRARED        bonds absorb at their own wavenumbers: O–H 3200–3550 (broad),
+                     acid O–H 2500–3300 (very broad), C=O 1680–1750, C≡N about 2250.
+     ¹³C NMR         one peak per carbon ENVIRONMENT; the chemical shift δ (ppm)
+                     says what the carbon is joined to (C=O about 170–210).
+     ¹H NMR          one signal per proton environment; area ∝ number of H;
+                     split by n neighbouring H into n + 1 lines (the n + 1 rule),
+                     spacing J (≈ 7 Hz) the same on every machine.
+   The spectra here are built from tabulated data for each molecule; the
+   machine adds noise that shrinks as √(number of scans).
+   ===================================================================== */
+const ENVC = ["#5ad1ff", "#ffb454", "#7ee787", "#ff7b9c", "#c4a1ff", "#ffe66d"];
+const J = 7;                                                              // coupling constant (Hz) between neighbouring protons
+/* The molecules. s: structure as [text, environment] pieces; ms: [m/z, % of the tallest, ion, contains halogen?];
+   ir: [wavenumber, depth %, width, bond, key]; c13: [δ, environment, label]; h1: [δ, number of H, lines (0 = multiplet), environment, label, exchanges with D₂O?] */
+const MOLS = [
+  { name: "ethanol", f: "C₂H₆O", nC: 2, s: [["CH₃", 0], ["–"], ["CH₂", 1], ["–"], ["OH", 2]],
+    ms: [[46, 22, "CH₃CH₂OH⁺ (M⁺)"], [45, 45, "CH₃CHOH⁺"], [31, 100, "CH₂OH⁺"], [29, 25, "C₂H₅⁺"], [27, 22, "C₂H₃⁺"], [15, 8, "CH₃⁺"]],
+    ir: [[3350, 70, 260, "O–H (alcohol)", "OH"], [2970, 55, 60, "C–H", "CH"], [1050, 65, 40, "C–O", ""]], c13: [[58, 1, "CH₂–O"], [18, 0, "CH₃"]],
+    h1: [[1.2, 3, 3, 0, "CH₃"], [3.7, 2, 4, 1, "CH₂"], [2.6, 1, 1, 2, "OH", true]] },
+  { name: "propan-1-ol", f: "C₃H₈O", nC: 3, s: [["CH₃", 0], ["–"], ["CH₂", 1], ["–"], ["CH₂", 2], ["–"], ["OH", 3]],
+    ms: [[60, 10, "C₃H₇OH⁺ (M⁺)"], [42, 15, "C₃H₆⁺"], [31, 100, "CH₂OH⁺"], [29, 18, "C₂H₅⁺"], [27, 20, "C₂H₃⁺"]],
+    ir: [[3340, 70, 260, "O–H (alcohol)", "OH"], [2960, 60, 60, "C–H", "CH"], [1060, 60, 40, "C–O", ""]], c13: [[64, 2, "CH₂–O"], [26, 1, "CH₂"], [10, 0, "CH₃"]],
+    h1: [[0.9, 3, 3, 0, "CH₃"], [1.6, 2, 6, 1, "CH₂"], [3.6, 2, 3, 2, "CH₂–O"], [2.3, 1, 1, 3, "OH", true]] },
+  { name: "propan-2-ol", f: "C₃H₈O", nC: 3, s: [["(CH₃)₂", 0], ["–"], ["CH", 1], ["–"], ["OH", 2]],
+    ms: [[60, 3, "M⁺"], [45, 100, "CH₃CHOH⁺"], [43, 15, "C₃H₇⁺"], [27, 12, "C₂H₃⁺"]],
+    ir: [[3350, 70, 260, "O–H (alcohol)", "OH"], [2970, 60, 60, "C–H", "CH"], [1130, 55, 40, "C–O", ""]], c13: [[64, 1, "CH–O"], [25, 0, "2 × CH₃"]],
+    h1: [[1.2, 6, 2, 0, "2 × CH₃"], [4.0, 1, 7, 1, "CH"], [2.2, 1, 1, 2, "OH", true]] },
+  { name: "propanal", f: "C₃H₆O", nC: 3, s: [["CH₃", 0], ["–"], ["CH₂", 1], ["–"], ["CHO", 2]],
+    ms: [[58, 70, "M⁺"], [57, 40, "C₂H₅CO⁺"], [29, 100, "CHO⁺ / C₂H₅⁺"], [28, 60, "CO⁺"], [27, 35, "C₂H₃⁺"]],
+    ir: [[2980, 45, 60, "C–H", "CH"], [2720, 25, 30, "C–H (aldehyde)", ""], [1730, 85, 35, "C=O (aldehyde)", "CO"]], c13: [[203, 2, "CHO"], [37, 1, "CH₂"], [6, 0, "CH₃"]],
+    h1: [[1.1, 3, 3, 0, "CH₃"], [2.5, 2, 5, 1, "CH₂"], [9.8, 1, 3, 2, "CHO"]] },
+  { name: "propanone", f: "C₃H₆O", nC: 3, s: [["CH₃", 0], ["–"], ["CO", 1], ["–"], ["CH₃", 0]],
+    ms: [[58, 30, "M⁺"], [43, 100, "CH₃CO⁺"], [15, 20, "CH₃⁺"]],
+    ir: [[3000, 35, 50, "C–H", "CH"], [1715, 90, 35, "C=O (ketone)", "CO"], [1220, 55, 30, "C–C(=O)–C", ""]], c13: [[207, 1, "C=O"], [31, 0, "2 × CH₃"]],
+    h1: [[2.2, 6, 1, 0, "2 × CH₃"]] },
+  { name: "butanone", f: "C₄H₈O", nC: 4, s: [["CH₃", 0], ["–"], ["CO", 1], ["–"], ["CH₂", 2], ["–"], ["CH₃", 3]],
+    ms: [[72, 25, "M⁺"], [57, 8, "C₂H₅CO⁺"], [43, 100, "CH₃CO⁺"], [29, 18, "C₂H₅⁺"]],
+    ir: [[2980, 45, 60, "C–H", "CH"], [1715, 90, 35, "C=O (ketone)", "CO"]], c13: [[209, 1, "C=O"], [37, 2, "CH₂"], [29, 0, "CH₃–CO"], [8, 3, "CH₃"]],
+    h1: [[2.1, 3, 1, 0, "CH₃–CO"], [2.4, 2, 4, 2, "CH₂"], [1.0, 3, 3, 3, "CH₃"]] },
+  { name: "ethanoic acid", f: "C₂H₄O₂", nC: 2, s: [["CH₃", 0], ["–"], ["CO", 1], ["–"], ["OH", 2]],
+    ms: [[60, 70, "M⁺"], [45, 90, "COOH⁺"], [43, 100, "CH₃CO⁺"], [15, 20, "CH₃⁺"]],
+    ir: [[2950, 65, 700, "O–H (acid)", "OHa"], [1710, 90, 35, "C=O (acid)", "CO"], [1290, 50, 40, "C–O", ""]], c13: [[178, 1, "COOH"], [21, 0, "CH₃"]],
+    h1: [[2.1, 3, 1, 0, "CH₃"], [11.5, 1, 1, 2, "COOH", true]] },
+  { name: "propanoic acid", f: "C₃H₆O₂", nC: 3, s: [["CH₃", 0], ["–"], ["CH₂", 1], ["–"], ["CO", 2], ["–"], ["OH", 3]],
+    ms: [[74, 80, "M⁺"], [57, 30, "C₂H₅CO⁺"], [45, 60, "COOH⁺"], [29, 100, "C₂H₅⁺"], [28, 70, "C₂H₄⁺"]],
+    ir: [[2960, 65, 700, "O–H (acid)", "OHa"], [1712, 90, 35, "C=O (acid)", "CO"], [1240, 50, 40, "C–O", ""]], c13: [[181, 2, "COOH"], [28, 1, "CH₂"], [9, 0, "CH₃"]],
+    h1: [[1.2, 3, 3, 0, "CH₃"], [2.4, 2, 4, 1, "CH₂"], [11.7, 1, 1, 3, "COOH", true]] },
+  { name: "ethyl ethanoate", f: "C₄H₈O₂", nC: 4, s: [["CH₃", 0], ["–"], ["CO", 1], ["–O–"], ["CH₂", 2], ["–"], ["CH₃", 3]],
+    ms: [[88, 10, "M⁺"], [70, 12, "C₄H₆O⁺"], [61, 15, "CH₃COOH₂⁺"], [45, 15, "C₂H₅O⁺"], [43, 100, "CH₃CO⁺"], [29, 20, "C₂H₅⁺"]],
+    ir: [[2980, 40, 60, "C–H", "CH"], [1742, 90, 35, "C=O (ester)", "CO"], [1240, 75, 40, "C–O (ester)", ""]], c13: [[171, 1, "C=O"], [60, 2, "CH₂–O"], [21, 0, "CH₃–CO"], [14, 3, "CH₃"]],
+    h1: [[2.0, 3, 1, 0, "CH₃–CO"], [4.1, 2, 4, 2, "O–CH₂"], [1.3, 3, 3, 3, "CH₃"]] },
+  { name: "methyl propanoate", f: "C₄H₈O₂", nC: 4, s: [["CH₃", 0], ["–"], ["CH₂", 1], ["–"], ["CO", 2], ["–O–"], ["CH₃", 3]],
+    ms: [[88, 20, "M⁺"], [59, 30, "COOCH₃⁺"], [57, 100, "C₂H₅CO⁺"], [29, 60, "C₂H₅⁺"]],
+    ir: [[2980, 40, 60, "C–H", "CH"], [1740, 90, 35, "C=O (ester)", "CO"], [1200, 75, 40, "C–O (ester)", ""]], c13: [[175, 2, "C=O"], [51, 3, "O–CH₃"], [27, 1, "CH₂"], [9, 0, "CH₃"]],
+    h1: [[1.1, 3, 3, 0, "CH₃"], [2.3, 2, 4, 1, "CH₂"], [3.7, 3, 1, 3, "O–CH₃"]] },
+  { name: "1-bromopropane", f: "C₃H₇Br", nC: 3, hal: "Br", s: [["CH₃", 0], ["–"], ["CH₂", 1], ["–"], ["CH₂", 2], ["–Br"]],
+    ms: [[122, 25, "C₃H₇⁷⁹Br⁺ (M⁺)", true], [43, 100, "C₃H₇⁺"], [41, 35, "C₃H₅⁺"], [27, 30, "C₂H₃⁺"]],
+    ir: [[2965, 55, 60, "C–H", "CH"], [1250, 35, 30, "C–H bend", ""], [560, 55, 30, "C–Br", ""]], c13: [[36, 2, "CH₂–Br"], [26, 1, "CH₂"], [13, 0, "CH₃"]],
+    h1: [[1.0, 3, 3, 0, "CH₃"], [1.9, 2, 6, 1, "CH₂"], [3.4, 2, 3, 2, "CH₂–Br"]] },
+  { name: "2-chloropropane", f: "C₃H₇Cl", nC: 3, hal: "Cl", s: [["(CH₃)₂", 0], ["–"], ["CH", 1], ["–Cl"]],
+    ms: [[78, 20, "C₃H₇³⁵Cl⁺ (M⁺)", true], [63, 15, "C₂H₄³⁵Cl⁺", true], [43, 100, "C₃H₇⁺"], [27, 25, "C₂H₃⁺"]],
+    ir: [[2975, 55, 60, "C–H", "CH"], [1385, 35, 30, "C–H bend", ""], [740, 55, 30, "C–Cl", ""]], c13: [[54, 1, "CH–Cl"], [27, 0, "2 × CH₃"]],
+    h1: [[1.5, 6, 2, 0, "2 × CH₃"], [4.2, 1, 7, 1, "CH–Cl"]] },
+  { name: "propanenitrile", f: "C₃H₅N", nC: 3, s: [["CH₃", 0], ["–"], ["CH₂", 1], ["–"], ["C≡N", 2]],
+    ms: [[55, 40, "M⁺"], [54, 100, "C₂H₄CN⁺"], [28, 60, "C₂H₄⁺"]],
+    ir: [[2990, 40, 60, "C–H", "CH"], [2250, 70, 25, "C≡N", "CN"]], c13: [[120, 2, "C≡N"], [11, 1, "CH₂"], [10, 0, "CH₃"]],
+    h1: [[1.3, 3, 3, 0, "CH₃"], [2.4, 2, 4, 1, "CH₂"]] },
+  { name: "propylamine", f: "C₃H₉N", nC: 3, s: [["CH₃", 0], ["–"], ["CH₂", 1], ["–"], ["CH₂", 2], ["–"], ["NH₂", 3]],
+    ms: [[59, 10, "M⁺"], [30, 100, "CH₂NH₂⁺"], [28, 15, "C₂H₄⁺"], [27, 10, "C₂H₃⁺"]],
+    ir: [[3370, 45, 50, "N–H", "NH"], [3290, 40, 50, "N–H", "NH"], [2960, 60, 60, "C–H", "CH"], [1600, 40, 40, "N–H bend", ""]], c13: [[44, 2, "CH₂–N"], [27, 1, "CH₂"], [11, 0, "CH₃"]],
+    h1: [[0.9, 3, 3, 0, "CH₃"], [1.5, 2, 6, 1, "CH₂"], [2.7, 2, 3, 2, "CH₂–N"], [1.1, 2, 1, 3, "NH₂", true]] },
+  { name: "hexane", f: "C₆H₁₄", nC: 6, s: [["CH₃", 0], ["–"], ["CH₂", 1], ["–"], ["CH₂", 2], ["–"], ["CH₂", 2], ["–"], ["CH₂", 1], ["–"], ["CH₃", 0]],
+    ms: [[86, 15, "M⁺"], [71, 5, "C₅H₁₁⁺"], [57, 100, "C₄H₉⁺"], [43, 80, "C₃H₇⁺"], [29, 40, "C₂H₅⁺"]],
+    ir: [[2960, 75, 70, "C–H", "CH"], [1465, 40, 30, "C–H bend", ""], [1380, 30, 25, "C–H bend", ""]], c13: [[32, 2, "CH₂ (middle)"], [23, 1, "CH₂"], [14, 0, "CH₃"]],
+    h1: [[0.9, 6, 3, 0, "2 × CH₃"], [1.3, 8, 0, 1, "4 × CH₂"]] },
+  { name: "but-1-ene", f: "C₄H₈", nC: 4, s: [["CH₂", 0], ["="], ["CH", 1], ["–"], ["CH₂", 2], ["–"], ["CH₃", 3]],
+    ms: [[56, 40, "M⁺"], [41, 100, "C₃H₅⁺"], [39, 30, "C₃H₃⁺"], [27, 30, "C₂H₃⁺"]],
+    ir: [[3080, 35, 30, "=C–H", ""], [2970, 55, 60, "C–H", "CH"], [1645, 45, 25, "C=C", "CC"], [910, 60, 25, "=C–H bend", ""]], c13: [[140, 1, "=CH"], [113, 0, "=CH₂"], [27, 2, "CH₂"], [13, 3, "CH₃"]],
+    h1: [[5.0, 2, 0, 0, "=CH₂"], [5.8, 1, 0, 1, "=CH"], [2.0, 2, 5, 2, "CH₂"], [1.0, 3, 3, 3, "CH₃"]] },
+  { name: "methylbenzene", f: "C₇H₈", nC: 7, s: [["C₆H₅", 0], ["–"], ["CH₃", 1]],
+    ms: [[92, 60, "M⁺"], [91, 100, "C₇H₇⁺"], [65, 12, "C₅H₅⁺"]],
+    ir: [[3030, 30, 40, "C–H (arene)", ""], [2920, 30, 40, "C–H", "CH"], [1605, 35, 20, "C=C (arene)", "AR"], [1495, 40, 20, "C=C (arene)", "AR"], [730, 70, 25, "C–H bend", ""]], c13: [[138, 0, "C (ring, joined to CH₃)"], [129, 0, "CH (ring)"], [128, 0, "CH (ring)"], [125, 0, "CH (ring)"], [21, 1, "CH₃"]],
+    h1: [[7.2, 5, 0, 0, "C₆H₅"], [2.3, 3, 1, 1, "CH₃"]] }
+];
+const MI = n => MOLS.findIndex(m => m.name === n);
+const SPLIT = ["multiplet", "singlet", "doublet", "triplet", "quartet", "quintet", "sextet", "septet"];
+// Pascal's triangle gives the relative heights of the n + 1 lines
+const pascal = n => { let row = [1]; for (let i = 0; i < n; i++) row = row.map((v, j) => v + (row[j - 1] || 0)).concat(1); return row; };
+// a Lorentzian line shape (the natural shape of a spectral line); w = full width at half height
+const lor = (x, x0, w) => 1 / (1 + (2 * (x - x0) / w) ** 2);
+// the mass spectrum with isotope peaks: M+1 from carbon-13 (1.1% per C), M+2 from ³⁷Cl or ⁸¹Br
+function msPeaks(m) {
+  const out = []; for (const [mz, I, ion, hal] of m.ms) { out.push([mz, I, ion]);
+    if (I === Math.max(...m.ms.filter(p => p[0] === m.ms[0][0]).map(p => p[1])) && mz === m.ms[0][0]) out.push([mz + 1, I * 0.011 * m.nC, "M+1 (one ¹³C)"]);
+    if (hal) out.push([mz + 2, I * (m.hal === "Cl" ? 24.2 / 75.8 : 49.3 / 50.7), m.hal === "Cl" ? "³⁷Cl version" : "⁸¹Br version"]); }
+  const top = Math.max(...out.map(p => p[1])); return out.map(p => [p[0], 100 * p[1] / top, p[2]]);
+}
+// counting ions: each peak's height has a random error from counting (√N); total ions grow with scans
+function msMeasured(m, scans, r) { const N = 400 * scans; return msPeaks(m).map(([mz, I, ion]) => { const n = N * I / 100, c = Math.max(0, n + Math.sqrt(n + 1) * r.gauss()); return [mz, 100 * c / N, ion]; }); }
+// a fingerprint of small peaks below 1500 cm⁻¹, different for every molecule
+function fingerprint(i) { const r = K.rng(100 + i * 31), out = []; for (let k = 0; k < 7; k++) out.push([600 + 900 * r(), 10 + 25 * r(), 12 + 20 * r(), "", ""]); return out; }
+function irCurve(m, i, scans, r) { const bands = m.ir.concat(fingerprint(i)), pts = []; const nz = 2.5 / Math.sqrt(scans); for (let v = 4000; v >= 500; v -= 4) { let a = 0; for (const [v0, d, wd] of bands) a += d * lor(v, v0, wd) / 100; pts.push([-v, Math.max(0, Math.min(100, 100 * Math.exp(-a * 1.4) + nz * r.gauss()))]); } return pts; }
+function c13Curve(m, MHz, scans, r) { const pts = [], nz = 6 / Math.sqrt(scans), w = 1.2 / (MHz / 4); for (let d = 220; d >= -5; d -= 0.25) pts.push([-d, nz * r.gauss()]); const xs = new Set(); for (const [d0] of m.c13) for (let k = -6; k <= 6; k++) xs.add(+(d0 + k * w * 0.5).toFixed(4)); for (const d of xs) pts.push([-d, nz * r.gauss()]); pts.sort((a, b) => a[0] - b[0]);
+  for (const p of pts) for (const [d0, env] of m.c13) p[1] += (env === 0 && m.c13.length > 4 ? 70 : 100) * lor(-p[0], d0, w); return pts; }
+// the ¹H lines: each environment split into n + 1 lines J Hz apart (a broad hump for a "multiplet")
+function h1Lines(m, MHz, d2o) { const L = []; for (const [d0, nH, lines, env, lab, ex] of m.h1) { if (d2o && ex) continue; if (!lines) { for (let k = -3; k <= 3; k++) L.push({ d: d0 + k * 0.035, a: nH * Math.exp(-k * k / 4) / 3.4, env }); continue; } const p = pascal(lines - 1), s = p.reduce((a, b) => a + b, 0); p.forEach((v, k) => L.push({ d: d0 + (k - (lines - 1) / 2) * J / MHz, a: nH * v / s, env, broad: ex })); } return L; }
+function h1Curve(m, MHz, scans, d2o, r) { const L = h1Lines(m, MHz, d2o), wHz = 1.2, xs = new Set(); for (let d = 12.5; d >= -0.5; d -= 0.01) xs.add(+d.toFixed(3));
+  for (const l of L) { const w = (l.broad ? 6 : wHz) / MHz; for (let k = -8; k <= 8; k++) xs.add(+(l.d + k * w * 0.4).toFixed(5)); } for (let k = -8; k <= 8; k++) xs.add(+(k * wHz / MHz * 0.4).toFixed(5));
+  const nz = 0.03 / Math.sqrt(scans), arr = [...xs].sort((a, b) => b - a).map(d => { let y = 0; for (const l of L) y += l.a * lor(d, l.d, (l.broad ? 6 : wHz) / MHz) * MHz / 400; y += 0.6 * lor(d, 0, wHz / MHz) * MHz / 400; return [-d, y + nz * r.gauss()]; }); return arr; }
+// the integration trace: running total of area from left to right, scaled so the smallest group of H = 1 step
+function integration(m, d2o) { const env = m.h1.filter(h => !(d2o && h[5])); return env; }
+/* ---- An automatic "student" who identifies a molecule from noisy evidence (for the batch run) ---- */
+function features(m, i, used, scans, r) {
+  const f = {};
+  if (used >= 1) { const pk = msMeasured(m, scans, r).filter(p => p[1] > 3 * 100 / Math.sqrt(400 * scans) + 0.5), hi = Math.max(...pk.filter(p => !/M\+1|³⁷Cl|⁸¹Br/.test(p[2])).map(p => p[0])); f.M = hi; }
+  if (used >= 2) f.ir = m.ir.filter(b => b[4] && b[4] !== "CH" && b[1] * (1 + 0.1 * r.gauss()) > 25).map(b => b[4]).sort().filter((v, k, a) => a.indexOf(v) === k).join(",");
+  if (used >= 3) { const seen = new Set(m.c13.map(c => c[0])); let n = seen.size; for (const a of m.c13) for (const b of m.c13) if (a !== b && Math.abs(a[0] - b[0]) < 1.5 && r() < 0.5) { n--; break; } f.c = Math.max(1, n); }
+  if (used >= 4) f.h = m.h1.map(h => h[1] + ":" + h[2]).sort().join(",");
+  return f;
+}
+const truth = (m, used) => { const f = {}; if (used >= 1) f.M = m.ms[0][0]; if (used >= 2) f.ir = m.ir.filter(b => b[4] && b[4] !== "CH").map(b => b[4]).sort().filter((v, k, a) => a.indexOf(v) === k).join(","); if (used >= 3) f.c = new Set(m.c13.map(c => c[0])).size; if (used >= 4) f.h = m.h1.map(h => h[1] + ":" + h[2]).sort().join(","); return f; };
+function identify(used, scans, r) { const i = r.int(MOLS.length), m = MOLS[i], f = features(m, i, used, scans, r); const sc = MOLS.map(c => { const t = truth(c, used); return Object.keys(f).filter(k => t[k] === f[k]).length; }), best = Math.max(...sc), cands = MOLS.filter((c, k) => sc[k] === best); return r.pick(cands) === m ? 100 : 0; }
+// signal-to-noise of the tallest ¹H line, measured by a student from a noisy spectrum
+function snr(scans, r) { const m = MOLS[0], pts = h1Curve(m, 400, scans, false, r), base = pts.filter(p => -p[0] > 9 && -p[0] < 12).map(p => p[1]), peak = Math.max(...pts.filter(p => Math.abs(-p[0] - 1.2) < 0.05).map(p => p[1])); return peak / K.sd(base); }
+// the noise-free S/N for one scan (the noise SD for one scan is 0.03)
+let s1 = null; const S1 = () => s1 || (s1 = Math.max(...h1Curve(MOLS[0], 400, 1e12, false, K.rng(1)).filter(p => Math.abs(-p[0] - 1.2) < 0.05).map(p => p[1])) / 0.03);
+// integration ratio CH₃ : CH₂ for ethanol from a noisy spectrum (sum of the curve over each group)
+function intRatio(scans, r) { const pts = h1Curve(MOLS[0], 400, scans, false, r), area = (a, b) => { const q = pts.filter(p => -p[0] > a && -p[0] < b); let s = 0; for (let k = 1; k < q.length; k++) s += (q[k][0] - q[k - 1][0]) * (q[k][1] + q[k - 1][1]) / 2; return s; }; return area(1.0, 1.4) / area(3.5, 3.9); }   // trapezium rule
+// depth of the dip between the CH₃ singlet (2.1) and CH₂ quartet (2.4) of butanone: 1 = back to the baseline, 0 = merged
+function dip(MHz, r, noisy = true) { const m = MOLS[5], a = 2.1, b = 2.4, L = h1Lines(m, MHz, false).filter(l => l.env === 0 || l.env === 2), lw = 1.2 / MHz * 4;      // a poorly shimmed magnet: lines 4 × wider
+  const y = d => L.reduce((s, l) => s + l.a * lor(d, l.d, lw), 0) + (noisy ? 0.01 * r.gauss() : 0), top = Math.min(y(a), y(b + 0.5 * J / MHz)); let lo = Infinity; for (let d = a; d <= b - 1.5 * J / MHz; d += 0.0005) lo = Math.min(lo, y(d)); return Math.min(1, Math.max(0, 1 - lo / top)); }
+
+// ---------------- The page ----------------
+const DEF = { mol: 0, MHz: 400, scans: 16, labels: true, d2o: false, mystery: false, formula: true, zoom: 1 };
+const P = Object.assign({}, DEF); let cv = null, dirty = true; const redraw = () => { dirty = true; }; let seed = 1, myst = 0, guess = null, score = [0, 0];
+const ui = K.app({
+  title: "Spectroscopy and Structure", subject: "Chemistry",
+  blurb: "Mass spectra, infrared, ¹³C and ¹H NMR for real organic molecules: assign the peaks, then work out a mystery molecule from its spectra",
+  reset: () => set({}),
+  levels: { std: "Standard (AS)", adv: "Advanced (A level)", specs: { std: "Pearson Edexcel A level Chemistry (9CH0) Topic 7 Modern analytical techniques I: mass spectrometry (the molecular ion, fragmentation, M+1 and isotope peaks) and infrared spectroscopy (absorptions of O–H, C=O, C–H, N–H, C≡N; using the data booklet). (Not in iGCSE.)", adv: "Pearson Edexcel A level Chemistry (9CH0) Topic 19 Modern analytical techniques II: ¹³C NMR (number of carbon environments, chemical shift) and ¹H NMR (environments, relative peak areas, the n + 1 splitting rule, TMS, D₂O to find O–H and N–H), combined with mass spectra and IR to deduce structures." } },
+  missions: [
+    { title: "The molecular ion", q: "Ethanol. Which peak in the mass spectrum gives the relative molecular mass? What is the tallest peak (the base peak)?", hint: "The molecular ion M⁺ is the peak at the highest m/z (46), ignoring the tiny M+1 peak. The base peak at 31 is CH₂OH⁺: the C–C bond breaks easily next to the O.", setup() { set({ mol: 0 }); } },
+    { title: "Fragments tell you pieces", q: "Compare propanal and propanone (both C₃H₆O, Mr 58). Which fragment tells them apart?", hint: "Propanone gives a huge peak at 43 (CH₃CO⁺); propanal gives 29 (CHO⁺ and C₂H₅⁺). A ketone breaks either side of the C=O.", setup() { set({ mol: 4 }); } },
+    { title: "Chlorine and bromine", q: "Look at 2-chloropropane and then 1-bromopropane. Why are there two molecular ion peaks two apart? What are their heights?", hint: "Chlorine is 75.8% ³⁵Cl and 24.2% ³⁷Cl, so M : M+2 ≈ 3 : 1. Bromine is about half ⁷⁹Br and half ⁸¹Br, so M : M+2 ≈ 1 : 1. Every fragment that still has the halogen shows the same pair.", setup() { set({ mol: 11 }); } },
+    { title: "Alcohol, acid or neither?", q: "Compare the IR spectra of ethanol, ethanoic acid and propanone. Which absorptions identify each?", hint: "Ethanol: a broad O–H at 3200–3550 and no C=O. Ethanoic acid: a very broad O–H from 2500 to 3300 and a C=O at 1710. Propanone: a strong C=O at 1715 and no O–H.", setup() { set({ mol: 6 }); } },
+    { title: "Is the oxidation finished?", q: "Ethanol is oxidised to ethanoic acid. How would IR show that the product contains no ethanol left, and that it is an acid?", hint: "The alcohol's O–H (3200–3550, sharp-ish) is replaced by the much broader acid O–H (2500–3300) and a strong C=O near 1710 appears.", setup() { set({ mol: 0 }); } },
+    { lvl: "adv", title: "Counting environments", q: "¹³C NMR of propan-1-ol, then propan-2-ol. How many peaks does each give, and why?", hint: "Propan-1-ol has three different carbons (three peaks). Propan-2-ol has two: the two CH₃ groups are identical by symmetry. The CH–O and CH₂–O carbons are near 64 ppm because O pulls electrons away from them.", setup() { set({ mol: 1 }); } },
+    { lvl: "adv", title: "The n + 1 rule", q: "¹H NMR of ethanol. Explain the triplet, quartet and singlet, and the 3 : 2 : 1 heights of the integration.", hint: "CH₃ has 2 neighbouring H (on CH₂) → 3 lines; CH₂ has 3 neighbours → 4 lines. O–H exchanges quickly so it is not split and does not split: a singlet. Areas are in the ratio of the numbers of H: 3 : 2 : 1.", setup() { set({ mol: 0 }); } },
+    { lvl: "adv", title: "Shake with D₂O", q: "Ethanol, then propanoic acid: turn on D₂O. Which peak disappears and why?", hint: "O–H (and N–H) protons swap with deuterium, which does not show in ¹H NMR. The peak that vanishes is the O–H. Useful for spotting alcohols, acids and amines.", setup() { set({ mol: 0, d2o: true }); } },
+    { lvl: "adv", title: "Higher field", q: "Propan-1-ol at 60 MHz, then 400 MHz. Zoom on the CH₃ triplet. What changes, and what stays the same?", hint: "The splitting J stays 7 Hz, but the gap between signals in Hz is δ × MHz, so at higher field the multiplets spread apart and stop overlapping. In ppm, the lines of a multiplet crowd together at high field.", setup() { set({ mol: 1, MHz: 60 }); } },
+    { lvl: "adv", title: "Isomeric esters", q: "Ethyl ethanoate and methyl propanoate are both C₄H₈O₂. Use the ¹H NMR to tell them apart.", hint: "Ethyl ethanoate: a singlet at 2.0 (CH₃ next to C=O) and the quartet at 4.1 (CH₂ next to O). Methyl propanoate: a singlet at 3.7 (CH₃ on O) and the quartet at 2.3 (CH₂ next to C=O). The shift tells you what each group is joined to.", setup() { set({ mol: 8 }); } },
+    { lvl: "adv", title: "Mystery molecules", q: "Turn on Mystery molecule. Use all four spectra to work it out, then choose your answer and check. How many can you get in a row?", hint: "Start with M⁺ (Mr, and Cl/Br pairs), then IR (which functional groups), then ¹³C (how many carbon environments), then ¹H (groups and neighbours).", setup() { set({ mystery: true }); } }
+  ],
+  batch: [
+    { title: "M+1 and the number of carbons", question: "Does the height of the M+1 peak (as a % of M) rise by 1.1 for each carbon?", how: "Alkanes C₂ to C₁₀; 4000 ions in the molecular ion peak, counted with √N error.", xLabel: "number of carbon atoms", yLabel: "M+1 height (% of M)", xs: [2, 3, 4, 5, 6, 8, 10], reps: 10, yMin: 0, fit: true, theory: n => 1.1 * n, theoryLabel: "1.1 × n", run: (n, r) => { const NM = 4000, n1 = NM * 0.011 * n; return 100 * (n1 + Math.sqrt(n1) * r.gauss()) / (NM + Math.sqrt(NM) * r.gauss()); }, note: "A straight line through the origin, gradient 1.1: the number of carbons = (M+1 height ÷ M height) × 100 ÷ 1.1." },
+    { title: "Chlorine: how close to 3 : 1?", question: "What M : M+2 ratio does a quick scan of 2-chloropropane give?", how: "About 600 ions in the M⁺ pair.", yLabel: "M ÷ (M+2)", reps: 400, bins: 24, theory: 75.8 / 24.2, theoryLabel: "³⁵Cl ÷ ³⁷Cl", run: (x, r) => { const n = 600, a = n * 0.758 + Math.sqrt(n * 0.758) * r.gauss(), b = n * 0.242 + Math.sqrt(n * 0.242) * r.gauss(); return a / b; }, note: "Centred on 3.1 with a spread from counting. Bromine would give about 1.0." },
+    { lvl: "adv", title: "Scans and signal-to-noise", question: "How does the signal-to-noise ratio of a ¹H spectrum grow with the number of scans?", how: "Ethanol at 400 MHz; S/N = tallest CH₃ line ÷ SD of the empty baseline from 9 to 12 ppm.", xLabel: "number of scans", yLabel: "signal-to-noise", xs: [1, 4, 16, 64, 256], reps: 6, yMin: 0, theory: n => S1() * Math.sqrt(n), theoryLabel: "∝ √scans", run: (n, r) => snr(n, r), note: "Four times the scans doubles S/N: noise averages away as √n. 256 scans take 256 times as long for only 16 times the S/N." },
+    { lvl: "adv", title: "How accurate is the 3 : 2 integration?", question: "Measure the CH₃ : CH₂ area ratio of ethanol at different numbers of scans.", how: "400 MHz; areas summed over each multiplet from a noisy spectrum.", xLabel: "number of scans", yLabel: "CH₃ ÷ CH₂ area", xs: [1, 4, 16, 64], reps: 12, theory: () => 1.5, theoryLabel: "3 ÷ 2", run: (n, r) => intRatio(n, r), note: "With few scans the ratio scatters; with more, it settles on 1.5 = 3 H ÷ 2 H. Always round integrations to the nearest simple whole-number ratio." },
+    { lvl: "adv", title: "Higher field, better resolved?", question: "How well are the CH₃ singlet (δ 2.1) and CH₂ quartet (δ 2.4) of butanone separated on different spectrometers?", how: "A rather poorly shimmed magnet (lines 5 Hz wide); dip depth between the two signals: 1 = back to baseline, 0 = merged.", xLabel: "spectrometer frequency (MHz)", yLabel: "dip between signals", xs: [60, 100, 200, 300, 400, 600], reps: 6, yMin: 0, yMax: 1.1, theory: f => dip(f, null, false), theoryLabel: "noise-free", run: (f, r) => dip(f, r), note: "J stays 7 Hz but the gap between the signals (0.3 ppm) is 18 Hz at 60 MHz and 180 Hz at 600 MHz: higher fields pull signals apart, so the quartet stops running into the singlet." },
+    { lvl: "adv", title: "How much evidence do you need?", question: "A mystery molecule from the 17 here. How often does a careful student identify it using only the mass spectrum, then adding IR, ¹³C and ¹H NMR?", how: "1 = mass spectrum only, 2 = + IR, 3 = + ¹³C NMR, 4 = + ¹H NMR. 16 scans. If several molecules fit the evidence, the student guesses between them.", xLabel: "techniques used", yLabel: "% identified correctly", xs: [1, 2, 3, 4], reps: 60, yMin: 0, yMax: 105, run: (u, r) => identify(u, 16, r), note: "Mr alone cannot tell isomers apart (propanal and propanone, the two esters, the propanols). Each technique removes more candidates; with ¹H NMR almost every structure is fixed." }
+  ],
+  revise: {
+    ideas: [
+      { lvl: "std", tag: "9CH0 7", text: "Mass spectrum: the molecular ion M⁺ (highest m/z, ignoring isotope peaks) gives Mr. The tallest peak is the base peak. Fragments are positive ions formed when M⁺ breaks; only ions are detected." },
+      { lvl: "std", tag: "9CH0 7", text: "Common fragments: 15 CH₃⁺, 29 C₂H₅⁺ or CHO⁺, 31 CH₂OH⁺, 43 CH₃CO⁺ or C₃H₇⁺, 45 COOH⁺. Chlorine gives M : M+2 ≈ 3 : 1; bromine 1 : 1." },
+      { lvl: "std", tag: "9CH0 7", text: "Infrared: bonds absorb IR at characteristic wavenumbers. O–H alcohol 3200–3550 (broad); O–H acid 2500–3300 (very broad); C=O 1680–1750; N–H 3300–3500; C≡N 2200–2260. Below 1500 cm⁻¹ is the fingerprint region." },
+      { lvl: "adv", tag: "9CH0 19", text: "¹³C NMR: one peak for each carbon environment; δ shows the surroundings (C=O 160–220, C–O 50–90, C–C 5–55). Equivalent carbons (by symmetry) give one peak." },
+      { lvl: "adv", tag: "9CH0 19", text: "¹H NMR: number of signals = number of proton environments; relative areas (integration) = ratio of numbers of H; n neighbouring H on adjacent carbons split a signal into n + 1 lines. TMS is the reference at δ = 0." },
+      { lvl: "adv", tag: "9CH0 19", text: "O–H and N–H protons usually give broad singlets, do not split their neighbours, and disappear when D₂O is added. Solvents are deuterated (CDCl₃) so they give no ¹H signal." }
+    ],
+    questions: [
+      { lvl: "std", marks: 2, q: "A compound C₃H₆O shows a strong IR absorption at 1715 cm⁻¹ and none at 3200–3550 cm⁻¹. Its base peak is at m/z = 43. Identify it.", ans: "<ul><li>C=O present, no O–H: a carbonyl compound</li><li>43 = CH₃CO⁺, so propanone, CH₃COCH₃</li></ul>" },
+      { lvl: "std", marks: 2, q: "Explain why a chloroalkane shows two molecular ion peaks two mass units apart, in the ratio 3 : 1.", ans: "<ul><li>chlorine has two isotopes, ³⁵Cl and ³⁷Cl</li><li>in the natural abundance ratio about 3 : 1</li></ul>" },
+      { lvl: "adv", marks: 3, q: () => { const m = MOLS[P.mol]; return `Predict the ¹H NMR spectrum of ${m.name}: the number of signals, their relative areas and their splitting.`; }, ans: () => { const m = MOLS[P.mol]; return "<ul>" + m.h1.map(h => `<li>δ ≈ ${h[0]}: ${h[4]}, ${h[1]} H, ${h[5] ? "broad singlet (exchanges)" : SPLIT[h[2]]}</li>`).join("") + "</ul>"; } },
+      { lvl: "adv", marks: 2, q: "Why does propan-2-ol give only two peaks in its ¹³C NMR spectrum?", ans: "<ul><li>the two CH₃ carbons are in identical environments (symmetry)</li><li>so there are only two carbon environments: CH₃ and CH–OH</li></ul>" },
+      { lvl: "adv", marks: 2, q: "A ¹H NMR signal is a quartet. What does this tell you about the neighbouring carbon atoms?", ans: "<ul><li>3 H on adjacent carbon(s) (n + 1 = 4)</li><li>usually a CH₃ group next door</li></ul>" }
+    ]
+  },
+  notes: `<h3>The model</h3>
+<ul><li>Each spectrum is built from tabulated data for the molecule (positions and relative sizes of peaks from standard reference spectra, rounded).</li>
+<li>Mass spectrum: peaks as % of the base peak. The M+1 peak is 1.1% × (number of C) of M⁺. Chlorine adds M+2 at 24.2/75.8 of M; bromine at 49.3/50.7. Heights carry counting error (√N, with 400 ions × scans in the base peak).</li>
+<li>Infrared: each absorption is a Lorentzian band of the given depth and width; transmittance = 100 e^(−total absorbance). Small fingerprint bands below 1500 cm⁻¹ are made up (different for each molecule) to look like a real fingerprint region.</li>
+<li>¹³C NMR: proton-decoupled, so one line per environment; heights are equal except quaternary-like ring carbons, which are smaller.</li>
+<li>¹H NMR: each signal is split by the n + 1 rule into lines J = 7 Hz apart, with heights from Pascal's triangle. Gaps in ppm are J ÷ (spectrometer MHz). O–H and N–H are broad singlets that do not couple and vanish with D₂O. Where neighbours on two sides differ (alkene CH, aromatic rings, the middle CH₂ groups of hexane) a real spectrum is complex: shown as a multiplet.</li>
+<li>Noise falls as 1/√(scans).</li></ul>
+<h3>Simplifications</h3>
+<ul><li>All coupling constants are 7 Hz; real ones range from 0 to 18 Hz.</li><li>The n + 1 rule assumes all neighbouring H couple equally (true for these simple chains).</li><li>Chemical shifts are typical values; they depend slightly on the solvent and concentration (especially O–H).</li><li>Mass spectra show only the main fragments.</li></ul>`
+});
+
+// ---------------- Controls ----------------
+const ctl = {}; let g = ui.group("Molecule");
+const sel = K.$("select"); sel.style.cssText = "width:100%;padding:5px;margin:2px 0 8px;background:#16203a;color:inherit;border:1px solid #3a4a6b;border-radius:6px"; sel.innerHTML = MOLS.map((m, i) => `<option value="${i}">${m.name} (${m.f})</option>`).join(""); sel.onchange = () => { P.mol = +sel.value; redraw(); }; g.append(sel);
+ctl.mystery = K.toggle(g, { label: "🕵 Mystery molecule", value: false, on: v => { P.mystery = v; if (v) newMystery(); redraw(); } });
+ctl.formula = K.toggle(g, { label: "Give the molecular formula", value: true, on: v => { P.formula = v; redraw(); } });
+const ans = K.$("select"); ans.style.cssText = sel.style.cssText; ans.innerHTML = `<option value="-1">Your answer…</option>` + MOLS.map((m, i) => `<option value="${i}">${m.name}</option>`).join(""); g.append(ans);
+let rr = K.row(g); K.btn(rr, "✔ Check", () => { if (+ans.value < 0) return; guess = +ans.value; score[1]++; if (guess === myst) score[0]++; redraw(); }, "primary"); K.btn(rr, "🎲 Next mystery", () => { newMystery(); redraw(); });
+g = ui.group("Spectrometers");
+ctl.MHz = K.slider(g, { label: "NMR frequency", min: 60, max: 600, step: 20, value: 400, unit: "MHz", on: v => { P.MHz = v; redraw(); } });
+ctl.scans = K.slider(g, { label: "Number of scans", min: 0, max: 8, step: 1, value: 4, fmt: v => String(2 ** v), on: v => { P.scans = 2 ** v; redraw(); } });
+ctl.d2o = K.toggle(g, { label: "Shake with D₂O (¹H NMR)", value: false, on: v => { P.d2o = v; redraw(); } });
+ctl.labels = K.toggle(g, { label: "Show what each peak is", value: true, on: v => { P.labels = v; redraw(); } });
+ctl.zoom = K.slider(g, { label: "Zoom on ¹H signal number", min: 1, max: 5, step: 1, value: 1, on: v => { P.zoom = v; redraw(); } });
+K.btn(K.row(g), "↻ Run the spectrometers again", () => { seed++; redraw(); });
+const read = K.readout(ui.group("Readings"), [["M", "M⁺ (m/z)"], ["base", "base peak"], ["c", "¹³C peaks"], ["h", "¹H signals"], ["sn", "signal-to-noise"], ["sc", "mystery score"]]);
+function newMystery() { const r = K.rng(Date.now() % 100000); let k; do { k = r.int(MOLS.length); } while (k === myst && MOLS.length > 1); myst = k; guess = null; ans.value = "-1"; }
+function set(o) { Object.assign(P, DEF, o); sel.value = P.mol; ctl.mystery.set(P.mystery); ctl.formula.set(P.formula); ctl.MHz.set(P.MHz); ctl.scans.set(Math.log2(P.scans)); ctl.d2o.set(P.d2o); ctl.labels.set(P.labels); ctl.zoom.set(P.zoom); if (P.mystery) newMystery(); redraw(); }
+const cur = () => P.mystery ? myst : P.mol;
+
+// ---------------- Layout: a strip on the left, four spectra in a grid ----------------
+const left = K.$("div"); left.style.cssText = "position:absolute;left:0;top:0;bottom:0;width:31%;"; ui.stage.append(left);
+const grid = K.$("div"); grid.style.cssText = "position:absolute;left:31%;right:0;top:0;bottom:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:1px;background:#24324f"; ui.stage.append(grid);
+const cell = () => { const d = K.$("div"); d.style.cssText = "background:#0b1020;position:relative;min-height:0"; grid.append(d); return d; };
+const chMS = K.chart(cell(), {}), chIR = K.chart(cell(), {}), chC = K.chart(cell(), {}), chH = K.chart(cell(), {});
+cv = K.canvas(left, () => drawLeft());
+const chZ = K.chart(ui.dock, {}), chI = K.chart(ui.dock, {});
+const TX = (c, s, x, y, col = "#aab6cc", al = "left", f = "12px") => { c.fillStyle = col; c.font = f + " Segoe UI,sans-serif"; c.textAlign = al; c.fillText(s, x, y); };
+function WRAP(c, s, x, y, maxW, lh = 15, col = "#8fa0bf", f = "11.5px") { c.font = f + " Segoe UI,sans-serif"; let line = ""; for (const wd of s.split(" ")) { if (c.measureText(line + wd).width > maxW && line) { TX(c, line, x, y, col, "left", f); y += lh; line = ""; } line += wd + " "; } TX(c, line, x, y, col, "left", f); return y + lh; }
+function drawLeft() {
+  if (!cv) return; const c = cv.ctx, w = cv.w, h = cv.h, i = cur(), m = MOLS[i], adv = ui.level === "adv", hide = P.mystery && guess === null; c.fillStyle = "#0b1020"; c.fillRect(0, 0, w, h);
+  let y = 26; TX(c, hide ? "🕵 Mystery molecule" : m.name, 14, y, "#eef2f8", "left", "600 16px"); y += 22;
+  if (!hide || P.formula) TX(c, m.f + (hide ? "" : `   Mr = ${m.ms[0][0]}`), 14, y, "#cfd8ea", "left", "13px"); y += 30;
+  if (!hide) { let x = 14; c.font = "600 17px Segoe UI,sans-serif"; for (const [txt, env] of m.s) { const wd = c.measureText(txt).width; if (x + wd > w - 10) { x = 14; y += 26; } TX(c, txt, x, y, env == null ? "#8fa0bf" : ENVC[env], "left", "600 17px"); x += wd + 1; } y += 30;
+    if (adv) { TX(c, "¹H environments", 14, y, "#8fa0bf", "left", "600 11.5px"); y += 16; m.h1.forEach(hh => { const gone = P.d2o && hh[5]; TX(c, `δ ${hh[0].toFixed(1)}  ${hh[4]}: ${hh[1]}H, ${hh[5] ? "broad singlet" : SPLIT[hh[2]]}${gone ? " (gone with D₂O)" : ""}`, 22, y, gone ? "#56607a" : ENVC[hh[3]], "left", "11.5px"); y += 16; });
+      y += 6; TX(c, "¹³C environments", 14, y, "#8fa0bf", "left", "600 11.5px"); y += 16; m.c13.forEach(cc => { TX(c, `δ ${cc[0]}  ${cc[2]}`, 22, y, ENVC[cc[1]], "left", "11.5px"); y += 16; }); }
+    else { TX(c, "Infrared absorptions", 14, y, "#8fa0bf", "left", "600 11.5px"); y += 16; m.ir.forEach(b => { TX(c, `${b[0]} cm⁻¹  ${b[3]}`, 22, y, "#cfd8ea", "left", "11.5px"); y += 16; }); }
+  } else { y = WRAP(c, "Work it out from the four spectra. Mass spectrum: Mr, and Cl or Br pairs. IR: which groups. ¹³C: how many carbon environments. ¹H: groups, neighbours and numbers of H.", 14, y, w - 28, 16, "#cfd8ea", "12px"); }
+  if (P.mystery && guess !== null) { y += 10; const ok = guess === myst; TX(c, ok ? `✔ Yes: ${m.name}` : `✘ Not ${MOLS[guess].name}: it is ${m.name}`, 14, y, ok ? "#7ee787" : "#ff6b81", "left", "600 13px"); }
+  if (P.mystery) TX(c, `Score: ${score[0]} / ${score[1]}`, 14, h - 14, "#ffd166", "left", "600 12.5px");
+  if (!adv) WRAP(c, "NMR is A level (Topic 19): switch to Advanced to see the environments.", 14, h - 40, w - 28, 15, "#8fa0bf", "11px");
+}
+// ---------------- Spectra (redrawn only when something changes) ----------------
+function drawAll() {
+  const i = cur(), m = MOLS[i], r = K.rng(seed * 977 + i), adv = ui.level === "adv", lab = P.labels && !(P.mystery && guess === null);
+  // mass spectrum
+  const ms = msMeasured(m, P.scans, r), mmax = Math.max(...ms.map(p => p[0])) + 6;
+  chMS.opts.title = "Mass spectrum"; chMS.opts.xLabel = "m/z"; chMS.opts.yLabel = "relative abundance (%)";
+  chMS.draw([{ pts: ms.map(p => [p[0], p[1]]), type: "bars", w: 0.7, color: "#5ad1ff", label: "" }], { xMin: 10, xMax: Math.max(65, mmax), yMin: 0, yMax: 108, vlines: lab ? ms.filter(p => p[1] > 12).map((p, k) => ({ x: p[0], color: "rgba(255,255,255,.0)", label: `${p[0]}`, row: k % 2 })) : [] });
+  // infrared (wavenumber runs right to left, as on real spectra)
+  chIR.opts.title = "Infrared spectrum"; chIR.opts.xLabel = "wavenumber (cm⁻¹)"; chIR.opts.yLabel = "transmittance (%)"; chIR.opts.xFmt = v => String(Math.round(-v));
+  chIR.draw([{ pts: irCurve(m, i, P.scans, r), color: "#ffb454", width: 1.4, label: "" }], { xMin: -4000, xMax: -500, yMin: 0, yMax: 105, bands: [{ x0: -1500, x1: -500, color: "rgba(255,255,255,.04)" }], vlines: lab ? m.ir.filter(b => b[1] >= 40).map((b, k) => ({ x: -b[0], color: "rgba(255,180,84,.35)", label: b[3].split(" (")[0], row: k % 2 })) : [] });
+  // ¹³C NMR
+  chC.opts.title = adv ? "¹³C NMR spectrum" : "¹³C NMR (A level)"; chC.opts.xLabel = "chemical shift δ (ppm)"; chC.opts.yLabel = ""; chC.opts.xFmt = v => String(Math.round(-v));
+  chC.draw(adv ? [{ pts: c13Curve(m, P.MHz, P.scans, r), color: "#7ee787", width: 1.3, label: "" }] : [], { xMin: -220, xMax: 5, yMin: -10, yMax: 115, vlines: adv && lab ? m.c13.map((cc, k) => ({ x: -cc[0], color: ENVC[cc[1]] + "55", label: String(cc[0]), row: k % 2 })) : [] });
+  // ¹H NMR with integration trace
+  const hc = adv ? h1Curve(m, P.MHz, P.scans, P.d2o, r) : [], top = Math.max(1e-6, ...hc.map(p => p[1]));
+  const env = m.h1.filter(hh => !(P.d2o && hh[5])), minH = Math.min(...env.map(hh => hh[1]));
+  let acc = 0; const integ = []; if (adv) { const sorted = env.slice().sort((a, b) => b[0] - a[0]); integ.push([-12.5, 0]); for (const hh of sorted) { const w2 = hh[2] ? (hh[2] * J / P.MHz) / 2 + 0.03 : 0.15; integ.push([-(hh[0] + w2), acc]); acc += hh[1] / minH; integ.push([-(hh[0] - w2), acc]); } integ.push([0.5, acc]); }
+  const sc = top / Math.max(1, acc) * 0.9;
+  chH.opts.title = adv ? `¹H NMR spectrum (${P.MHz} MHz)` : "¹H NMR (A level)"; chH.opts.xLabel = "chemical shift δ (ppm)"; chH.opts.yLabel = ""; chH.opts.xFmt = v => (-v).toFixed(0);
+  chH.draw(adv ? [{ pts: hc, color: "#c4a1ff", width: 1.2, label: "" }, { pts: integ.map(p => [p[0], p[1] * sc]), color: "rgba(255,209,102,.7)", width: 1.2, label: "integration" }] : [], { xMin: -12.5, xMax: 0.5, yMin: -0.05 * top, yMax: top * 1.12, vlines: adv && lab ? env.map((hh, k) => ({ x: -hh[0], color: ENVC[hh[3]] + "44", label: `${hh[1]}H ${hh[5] ? "s (br)" : ["m", "s", "d", "t", "q", "5", "6", "7"][hh[2]]}`, row: k % 2 })).concat([{ x: 0, color: "rgba(255,255,255,.2)", label: "TMS", row: 1 }]) : [] });
+  // dock: one ¹H signal zoomed (in Hz from its centre) and the molecular-ion region of the mass spectrum
+  const zi = Math.min(P.zoom, env.length) - 1, zh = env[zi]; if (adv && zh) { const L = h1Lines(m, P.MHz, P.d2o).filter(l => l.env === zh[3]), pts = []; for (let x = -40; x <= 40; x += 0.1) { let y = 0; for (const l of L) y += l.a * lor(zh[0] + x / P.MHz, l.d, (l.broad ? 6 : 1.2) / P.MHz); pts.push([x, y]); }
+    chZ.opts.title = `Zoom: signal ${zi + 1} at δ ${zh[0]}${P.mystery && guess === null ? "" : ` (${zh[4]})`}`; chZ.opts.xLabel = "Hz from the centre (lines are J = 7 Hz apart)"; chZ.draw([{ pts, color: ENVC[zh[3]], label: zh[5] ? "broad singlet" : SPLIT[zh[2]] }], { xMin: -40, xMax: 40, yMin: 0 }); }
+  else { chZ.opts.title = "Zoom on a ¹H signal (A level)"; chZ.draw([], {}); }
+  const M = m.ms[0][0], near = ms.filter(p => p[0] >= M - 2 && p[0] <= M + 3), mtop = Math.max(...near.map(p => p[1]), 1);
+  chI.opts.title = "Around the molecular ion"; chI.opts.xLabel = "m/z"; chI.opts.yLabel = "% of M⁺"; chI.opts.xFmt = v => Math.abs(v - Math.round(v)) < 0.01 ? String(Math.round(v)) : "";
+  chI.draw([{ pts: near.map(p => [p[0], 100 * p[1] / (ms.find(q => q[0] === M) || [0, mtop])[1]]), type: "bars", w: 0.5, color: "#5ad1ff", label: "" }], { xMin: M - 2.5, xMax: M + 3.5, yMin: 0, vlines: [{ x: M + 1, color: "rgba(255,209,102,.3)", label: `M+1 ≈ 1.1 × ${m.nC} = ${(1.1 * m.nC).toFixed(1)}%` }] });
+  // readings
+  const base = ms.reduce((a, b) => b[1] > a[1] ? b : a); read.set("M", P.mystery && guess === null ? String(M) + (m.hal ? ` and ${M + 2}` : "") : `${M}${m.hal ? ` and ${M + 2} (${m.hal})` : ""}`); read.set("base", `${base[0]}${lab ? " " + base[2] : ""}`);
+  read.set("c", adv ? String(new Set(m.c13.map(cc => cc[0])).size) : "A level"); read.set("h", adv ? `${env.length} (${env.map(hh => hh[1] / minH).map(v => +v.toFixed(1)).join(" : ")})` : "A level");
+  read.set("sn", adv ? snr(P.scans, K.rng(seed)).toFixed(0) : "–"); read.set("sc", `${score[0]} / ${score[1]}`);
+  drawLeft(); ui.hud(""); dirty = false;
+}
+ui.onLevel = () => redraw(); ui.onTheme = () => redraw();
+ui.run(() => { }, () => { if (dirty) drawAll(); });
+set({});
+ui.tip("Four spectra of the same molecule. Choose a molecule, or switch on Mystery molecule and work it out.", 7000);
+</script>
+</body></html>

@@ -10,18 +10,21 @@ holds one folder per simulation:
 | Subject folder | Simulations |
 |---|---|
 | `physics/` | `gas_in_a_box`, `simple_harmonic_motion`, `nuclear_fusion`, `states_of_matter`, `youngs_modulus`, `projectile_motion`, `circular_motion`, `waves`, `optics_refraction`, `fields_orbits`, `photoelectric_effect`, `atomic_spectra`, `radioactive_decay`, `nuclear_fission`, `particle_physics`, `circuits`, `capacitors`, `magnetism_induction`, `heating_insulation`, `density_pressure`, `energy_resources`, `quantum_wave_lab`, `special_relativity`, `wind_tunnel`, `lightning`, `chladni_plates` |
-| `chemistry/` | `collision_theory`, `dynamic_equilibrium`, `crystallisation`, `atomic_structure`, `bonding`, `organic_chemistry`, `periodic_groups`, `reactivity_metals`, `electrolysis`, `energy_changes`, `acids_salts_tests`, `chromatography`, `moles_reacting_masses`, `electrochemical_cells` |
+| `chemistry/` | `collision_theory`, `dynamic_equilibrium`, `crystallisation`, `atomic_structure`, `bonding`, `organic_chemistry`, `periodic_groups`, `reactivity_metals`, `electrolysis`, `energy_changes`, `acids_salts_tests`, `chromatography`, `moles_reacting_masses`, `electrochemical_cells`, `rate_equations`, `spectroscopy`, `transition_metals`, `organic_mechanisms` |
 | `biology/` | `natural_selection`, `murmuration`, `turing_patterns`, `epidemics`, `predator_prey`, `membranes`, `enzymes`, `photosynthesis_respiration`, `inheritance`, `dna_cell_division`, `ecosystems`, `homeostasis`, `immunity`, `plant_transport`, `biotechnology` |
 | `engineering/` | `earthquake_buildings`, `traffic_flow`, `car_crash`, `aerofoil_flow` |
 | `medical/` (shown under "Biology and medicine" on the front page) | `heart_circulation`, `nerve_impulse`, `antibiotic_resistance`, `gas_exchange` |
 | `climate/` | `greenhouse_effect`, `ice_albedo`, `carbon_cycle`, `sea_level_rise`, `forest_fire`, `weather_chaos`, `flooding_hydrographs`, `river_landforms`, `coasts`, `glaciers`, `tropical_storms`, `tectonic_hazards`, `slopes_landslides`, `fieldwork_sampling` |
 | `astrophysics/` | `planet_formation`, `stellar_life_cycle`, `exoplanet_hunting`, `galaxy_collisions`, `expanding_universe`, `gravitational_lensing`, `dark_matter`, `three_body_chaos` |
-| `statistics/` | `central_limit_theorem`, `queues` |
-| `economics/` | `supply_demand`, `taxes_price_controls`, `firms_competition`, `labour_market`, `circular_flow`, `running_the_economy`, `externalities`, `trade_exchange_rates`, `inequality` |
+| `mathematics/` | `calculus_explorer`, `numerical_methods`, `vectors_kinematics`, `mechanics_forces`, `complex_numbers`, `matrix_transformations`, `differential_equations`, `series_convergence`, `polar_curves`, `vectors_3d`, `markov_chains`, `hyperbolic_functions` |
+| `statistics/` | `central_limit_theorem`, `queues`, `hypothesis_testing`, `distributions`, `regression_correlation`, `sampling_data` |
+| `economics/` | `supply_demand`, `taxes_price_controls`, `firms_competition`, `labour_market`, `circular_flow`, `running_the_economy`, `externalities`, `trade_exchange_rates`, `inequality`, `behavioural_economics`, `development_economics`, `financial_markets` |
 | `business/` | `breakeven_and_margins`, `cash_flow_forecast`, `investment_appraisal`, `inventory_and_supply_chain` |
 | `politics/` | `electoral_systems`, `voting_paradoxes`, `gerrymandering` |
 | `physical_education/` | `energy_systems`, `training_adaptation`, `sport_biomechanics`, `fitness_testing`, `skill_acquisition`, `arousal_performance`, `luck_and_skill` |
 | `music/` | `inside_sound`, `strings`, `air_columns`, `build_timbre`, `pitch_intervals`, `rhythm_metre` |
+| `history/` | `population_and_famine`, `arms_race_and_alliances`, `revolutions_and_unrest`, `great_depression` |
+| `photography/` | `exposure_triangle`, `lens_optics`, `light_and_colour`, `composition_and_sampling` |
 | `design_technology/` (shown as "Design and Technology") | `materials_properties`, `manufacturing_processes`, `ergonomics_anthropometrics` |
 | `religious_studies/` (shown as "Religion, Philosophy and Ethics") | `ethical_dilemmas`, `argument_validity`, `problem_of_evil` |
 
@@ -34,7 +37,7 @@ own folder inside the right subject folder and gets a row in the root
 `README.md`, a line in the `SIMS` list in the front page `index.html`, and a
 thumbnail `thumbs/<folder>.jpg` (a 640×360 screenshot).
 
-All one hundred and twenty-two simulations are kit-built (formerly tagged "★ Enhanced"; the front page
+All one hundred and fifty-three simulations are kit-built (formerly tagged "★ Enhanced"; the front page
 no longer shows the tag, but `ENHANCED` in `index.html` still holds each one's "Try:" line). A new
 simulation gets an `ENHANCED` entry too: `waves`,
 `dynamic_equilibrium`, `natural_selection`, `nerve_impulse`,
@@ -52,7 +55,7 @@ simulation gets an `ENHANCED` entry too: `waves`,
 `energy_changes`, `gas_exchange`, `tectonic_hazards`, `car_crash`,
 `firms_competition`, `arousal_performance`, `stellar_life_cycle`, `inheritance`,
 `simple_harmonic_motion`, `membranes`, `antibiotic_resistance`, `exoplanet_hunting`,
-`reactivity_metals`, `youngs_modulus`, `nuclear_fusion`, `states_of_matter`, `circular_motion`, `crystallisation`, `atomic_structure`, `periodic_groups`, `dna_cell_division`, `ecosystems`, `homeostasis`, `aerofoil_flow`, `ice_albedo`, `carbon_cycle`, `dark_matter`, `expanding_universe`, `planet_formation`, `taxes_price_controls`, `labour_market`, `circular_flow`, `sport_biomechanics`, `fitness_testing`, `skill_acquisition`, `atomic_spectra`, `nuclear_fission`, `particle_physics`, `acids_salts_tests`, `chromatography`, `moles_reacting_masses`, `immunity`, `plant_transport`, `biotechnology`, `inside_sound`, `strings`, `air_columns`, `build_timbre`, `pitch_intervals`, `rhythm_metre`, `sea_level_rise`, `weather_chaos`, `river_landforms`, `trade_exchange_rates`, `inequality`, `electrochemical_cells`, `capacitors`, `magnetism_induction`, `heating_insulation`, `coasts`, `glaciers`, `slopes_landslides`, `density_pressure`, `energy_resources`, `fieldwork_sampling`, `breakeven_and_margins`, `cash_flow_forecast`, `investment_appraisal`, `inventory_and_supply_chain`, `electoral_systems`, `voting_paradoxes`, `gerrymandering`, `materials_properties`, `manufacturing_processes`, `ergonomics_anthropometrics`, `ethical_dilemmas`, `argument_validity`, `problem_of_evil`. They are the one
+`reactivity_metals`, `youngs_modulus`, `nuclear_fusion`, `states_of_matter`, `circular_motion`, `crystallisation`, `atomic_structure`, `periodic_groups`, `dna_cell_division`, `ecosystems`, `homeostasis`, `aerofoil_flow`, `ice_albedo`, `carbon_cycle`, `dark_matter`, `expanding_universe`, `planet_formation`, `taxes_price_controls`, `labour_market`, `circular_flow`, `sport_biomechanics`, `fitness_testing`, `skill_acquisition`, `atomic_spectra`, `nuclear_fission`, `particle_physics`, `acids_salts_tests`, `chromatography`, `moles_reacting_masses`, `immunity`, `plant_transport`, `biotechnology`, `inside_sound`, `strings`, `air_columns`, `build_timbre`, `pitch_intervals`, `rhythm_metre`, `sea_level_rise`, `weather_chaos`, `river_landforms`, `trade_exchange_rates`, `inequality`, `electrochemical_cells`, `capacitors`, `magnetism_induction`, `heating_insulation`, `coasts`, `glaciers`, `slopes_landslides`, `density_pressure`, `energy_resources`, `fieldwork_sampling`, `hypothesis_testing`, `distributions`, `regression_correlation`, `sampling_data`, `calculus_explorer`, `numerical_methods`, `vectors_kinematics`, `mechanics_forces`, `complex_numbers`, `matrix_transformations`, `rate_equations`, `spectroscopy`, `transition_metals`, `organic_mechanisms`, `differential_equations`, `series_convergence`, `polar_curves`, `vectors_3d`, `population_and_famine`, `arms_race_and_alliances`, `revolutions_and_unrest`, `great_depression`, `exposure_triangle`, `lens_optics`, `light_and_colour`, `composition_and_sampling`, `markov_chains`, `behavioural_economics`, `development_economics`, `financial_markets`, `hyperbolic_functions`, `breakeven_and_margins`, `cash_flow_forecast`, `investment_appraisal`, `inventory_and_supply_chain`, `electoral_systems`, `voting_paradoxes`, `gerrymandering`, `materials_properties`, `manufacturing_processes`, `ergonomics_anthropometrics`, `ethical_dilemmas`, `argument_validity`, `problem_of_evil`. They are the one
 place with a shared toolkit: edit `tools/kit/kit.*` or
 `tools/kit/src/<name>.js`, then run `node build.js` from inside `tools/kit/`
 to regenerate the single-file pages in their subject folders. Never edit
@@ -97,7 +100,7 @@ End every change with an explicit line saying which applies:
 ## Audience and style
 
 These are teaching simulations for school students (GCSE / iGCSE / WJEC, and
-A level for economics, business, politics, design and technology, religious studies, PE, music, physical geography, biology, physics and chemistry, with a Standard / Advanced level switch).
+A level for economics, business, politics, design and technology, religious studies, PE, music, physical geography, biology, physics, chemistry, history and photography, with a Standard / Advanced level switch).
 Comment code so a student can follow the science. List a model's
 assumptions and simplifications inside the simulation itself.
 
