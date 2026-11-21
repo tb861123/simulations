@@ -140,6 +140,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["lens_optics.js", "lens_optics", "lens-optics.html", "Lenses and Perspective", "photography"],
   ["light_and_colour.js", "light_and_colour", "light-and-colour.html", "Light and Colour", "photography"],
   ["composition_and_sampling.js", "composition_and_sampling", "composition-and-sampling.html", "Pixels, Compression and Composition", "photography"],
+  ["markov_chains.js", "markov_chains", "markov-chains.html", "Markov Chains", "mathematics"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
