@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and twenty-seven simulations are built with the shared toolkit (the
+All one hundred and twenty-eight simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and twenty-one newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
@@ -233,6 +233,7 @@ Mathematics simulations: Standard level follows Pearson Edexcel AS Mathematics (
 | [`mathematics/series_convergence/`](mathematics/series_convergence/) | Series and Convergence (Further Maths): binomial expansions with rational powers, the geometric series and Maclaurin series for eˣ, sin x, cos x and ln(1 + x) term by term with intervals of convergence and errors; partial sums of Σr, Σr², Σr³ (standard results), Σ(½)ʳ, Σ1/r, Σ1/r² and the alternating harmonic series | Open `series-convergence.html` |
 | [`mathematics/polar_curves/`](mathematics/polar_curves/) | Polar Curves (Further Maths): r = f(θ) traced by a rotating arm (cardioid, limaçon, rose, spiral, circle, lemniscate), r ≥ 0 convention, area as thin sectors approaching ½∫r² dθ, and tangents parallel and perpendicular to the initial line | Open `polar-curves.html` |
 | [`mathematics/vectors_3d/`](mathematics/vectors_3d/) | Lines and Planes in 3D (Further Maths): a turnable 3D view of two lines (intersecting, parallel or skew, angle from the scalar product, common perpendicular and shortest distance), a line meeting a plane with the angle and a point's perpendicular distance, and two planes meeting in a line | Open `vectors-3d.html` |
+| [`mathematics/markov_chains/`](mathematics/markov_chains/) | Markov Chains (Further Maths): transition matrices with tokens moving between states (weather, brand switching, four places), πₙ = π₀Tⁿ against the simulation, steady states and mean return times, and absorbing chains (gambler's ruin) | Open `markov-chains.html` |
 
 ## Statistics
 
