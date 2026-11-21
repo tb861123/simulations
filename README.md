@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and fourteen simulations are built with the shared toolkit (the
+All one hundred and fifteen simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
@@ -219,6 +219,7 @@ Standard level follows Pearson Edexcel AS Mathematics (8MA0); Advanced follows A
 | Folder | What it is | How to run |
 |---|---|---|
 | [`mathematics/calculus_explorer/`](mathematics/calculus_explorer/) | Calculus Explorer: differentiation from first principles (chord to tangent), the gradient function, stationary points with f'' and points of inflection, concave/convex, areas by rectangles and the trapezium rule against the exact integral (A level Mathematics) | Open `calculus-explorer.html` |
+| [`mathematics/numerical_methods/`](mathematics/numerical_methods/) | Numerical Methods: change of sign and bisection (and how asymptotes and repeated roots fool it), iteration x = g(x) with staircase and cobweb diagrams, convergence and divergence, Newton–Raphson and its failures, error charts showing linear and quadratic convergence (A level Mathematics) | Open `numerical-methods.html` |
 
 ## Statistics
 
