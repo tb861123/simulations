@@ -298,6 +298,7 @@ structures and earthquakes are in the Engineering section.
 
 | Folder | What it is | How to run |
 |---|---|---|
+| [`design_technology/materials_properties/`](design_technology/materials_properties/) | Materials ★: tensile tests of 17 materials, stress, strain, Young's modulus, yield, UTS, ductility, toughness, work hardening and annealing, design briefs, factor of safety, selection charts | Open `materials-properties.html` |
 
 ## Religion, Philosophy and Ethics
 
