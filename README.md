@@ -14,11 +14,11 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and twenty-three simulations are built with the shared toolkit (the
+All one hundred and thirty-five simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and twenty-one newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and twenty-nine newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
-mathematics, statistics and chemistry simulations). They share a small
+mathematics, statistics and chemistry simulations, and the History and Photography ones). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
@@ -229,6 +229,10 @@ Mathematics simulations: Standard level follows Pearson Edexcel AS Mathematics (
 | [`mathematics/mechanics_forces/`](mathematics/mechanics_forces/) | Forces and Newton's Laws: F = ma with force diagrams drawn to scale; connected particles over a smooth pulley and an Atwood machine; friction F ≤ μR and limiting equilibrium on a rough slope with a push; moments, reactions and tipping on a beam (A level Mathematics) | Open `mechanics-forces.html` |
 | [`mathematics/complex_numbers/`](mathematics/complex_numbers/) | Complex Numbers (Further Maths): Argand diagram with draggable z and w; add, subtract, multiply (rotate and stretch), divide, conjugate; loci and regions |z − a| = r, |z − a| = |z − b|, arg(z − a) = θ; de Moivre powers and nth roots of unity and of any complex number | Open `complex-numbers.html` |
 | [`mathematics/matrix_transformations/`](mathematics/matrix_transformations/) | Matrix Transformations (Further Maths): 2 × 2 transformations animated on a grid with the images of i and j, determinant as area and orientation, singular matrices, inverses, invariant lines and lines of invariant points, composition NM, and 3 × 3 transformations of a cube with the volume scale factor | Open `matrix-transformations.html` |
+| [`mathematics/differential_equations/`](mathematics/differential_equations/) | Differential Equations (Further Maths): slope fields for six first-order equations with clickable solution curves (separable and integrating-factor solutions) and Euler's method with its error; second-order damped and driven oscillations from the auxiliary equation (light, critical, heavy damping), phase plane and resonance | Open `differential-equations.html` |
+| [`mathematics/series_convergence/`](mathematics/series_convergence/) | Series and Convergence (Further Maths): binomial expansions with rational powers, the geometric series and Maclaurin series for eˣ, sin x, cos x and ln(1 + x) term by term with intervals of convergence and errors; partial sums of Σr, Σr², Σr³ (standard results), Σ(½)ʳ, Σ1/r, Σ1/r² and the alternating harmonic series | Open `series-convergence.html` |
+| [`mathematics/polar_curves/`](mathematics/polar_curves/) | Polar Curves (Further Maths): r = f(θ) traced by a rotating arm (cardioid, limaçon, rose, spiral, circle, lemniscate), r ≥ 0 convention, area as thin sectors approaching ½∫r² dθ, and tangents parallel and perpendicular to the initial line | Open `polar-curves.html` |
+| [`mathematics/vectors_3d/`](mathematics/vectors_3d/) | Lines and Planes in 3D (Further Maths): a turnable 3D view of two lines (intersecting, parallel or skew, angle from the scalar product, common perpendicular and shortest distance), a line meeting a plane with the angle and a point's perpendicular distance, and two planes meeting in a line | Open `vectors-3d.html` |
 
 ## Statistics
 
@@ -287,7 +291,36 @@ The audit of the earlier music pack is kept in [`music/original_audit/`](music/o
 | [`music/pitch_intervals/`](music/pitch_intervals/) | Pitch and Intervals ★: keyboard and stave, interval names and spelling, equal temperament against just intonation, beats, consonance and roughness | Open `pitch-intervals.html` |
 | [`music/rhythm_metre/`](music/rhythm_metre/) | Rhythm and Metre ★: step sequencer, BPM, simple, compound and irregular metres, backbeat, syncopation score, swing, polyrhythm, human timing | Open `rhythm-metre.html` |
 
-## History
+## History (OCR H505)
+
+A newer subject. History is a weaker fit for simulation than the sciences, so
+only models that genuinely teach are built: each one shows how far an outcome
+depended on its causes and on people's choices, and is honest about the rough
+figures behind it. Standard level is GCSE History; Advanced follows OCR A level
+History A (H505), with spec tags for the relevant units.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`history/population_and_famine/`](history/population_and_famine/) | Population and Famine ★: Malthus's positive and preventive checks, the Black Death and wages, Ireland 1781–1901 against the census, the blight, relief, exports, emigration and the post-Famine decline | Open `population-and-famine.html` |
+| [`history/arms_race_and_alliances/`](history/arms_race_and_alliances/) | Arms Races and Alliances ★: Richardson's equations for the Anglo-German naval race and the nuclear arms race (fear against fatigue, arms control), and the July Crisis as a chain of chances: blank cheque, alliances, the Schlieffen Plan, mediation | Open `arms-race-and-alliances.html` |
+| [`history/revolutions_and_unrest/`](history/revolutions_and_unrest/) | Revolutions and Unrest ★: Granovetter's crowd thresholds (one person can stop a riot), Epstein's rebellion model (grievance = hardship × (1 − legitimacy), arrest risk, prison), Russia 1905 and 1917 as events, hidden grievance, sudden against gradual loss of legitimacy | Open `revolutions-and-unrest.html` |
+| [`history/great_depression/`](history/great_depression/) | The Great Depression ★: the Wall Street Crash, bank runs and the money multiplier, the gold standard, austerity against deficit spending, the 1937 recession; USA and Germany against real GDP and unemployment, with the Nazi vote | Open `great-depression.html` |
+
+## Photography (AQA 7206)
+
+Standard level follows AQA GCSE Art and Design: Photography (8206); Advanced
+follows AQA A level Art and Design: Photography (7206), whose subject content
+asks for viewpoint, composition, aperture, depth of field, shutter speed and
+movement, lenses, lighting, film and digital processes.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`photography/exposure_triangle/`](photography/exposure_triangle/) | The Exposure Triangle ★: f-stops, shutter and ISO with a live histogram and meter, M/A/S/P modes, Sunny 16, depth of field and the circle of confusion, motion blur, camera shake, photon noise; film's characteristic curve, development time, temperature and pushing | Open `exposure-triangle.html` |
+| [`photography/lens_optics/`](photography/lens_optics/) | Lenses and Perspective ★: focal length and field of view, crop factors (APS-C, Micro Four Thirds, phone), perspective depends on viewpoint ('compression'), lens extension, magnification and macro, depth of field at equal framing | Open `lens-optics.html` |
+| [`photography/light_and_colour/`](photography/light_and_colour/) | Light and Colour ★: black-body colour temperature, white balance and casts, grey-world auto white balance, additive RGB and subtractive CMY mixing, inverse square law, key and fill lights, lighting ratios, hard and soft shadows | Open `light-and-colour.html` |
+| [`photography/composition_and_sampling/`](photography/composition_and_sampling/) | Pixels, Compression and Composition ★: resolution and print size at 72–300 dpi, sampling, the Nyquist limit and moiré, anti-aliasing filters, bit depth, banding and dither, JPEG (DCT, quantisation, blocks, PSNR, generation loss), cropping with thirds, golden section and aspect ratios | Open `composition-and-sampling.html` |
+
+## Where the old repositories went
 
 `engineering/fluid_dynamics/` (now retired), `chemistry/chem_sims/` (now retired) and `physics/physics_sims/` (now retired)
 were moved here from their own repositories (`tb861123/Fluid_dynamics`,
