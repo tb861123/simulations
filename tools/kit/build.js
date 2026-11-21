@@ -126,6 +126,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["transition_metals.js", "transition_metals", "transition-metals.html", "Transition Metals and Colour", "chemistry"],
   ["organic_mechanisms.js", "organic_mechanisms", "organic-mechanisms.html", "Organic Mechanisms and Synthesis", "chemistry"],
   ["differential_equations.js", "differential_equations", "differential-equations.html", "Differential Equations", "mathematics"],
+  ["series_convergence.js", "series_convergence", "series-convergence.html", "Series and Convergence", "mathematics"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
