@@ -55,7 +55,7 @@ by itself if not updated). All of these do nothing while sound is off, so
 batch runs and worksheet generation stay silent. `K.sound.on` says whether
 it is on. Used by Gas in a Box, Simple Harmonic Motion, Lightning and Nerve
 Impulse; the music pages, Heart and Circulation, Radioactive Decay and
-Chladni Plates have their own Play buttons or sound switches.
+Chladni Plates have their own Play buttons or sound switches, coasts, glaciers, slopes_landslides.
 
 ## Levels and the Revise tab
 

@@ -14,8 +14,8 @@ project's own folder.
 
 ## ★ Enhanced simulations
 
-One hundred and three simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): ninety-six rebuilt showpieces, which replaced the earlier versions in
+One hundred and six simulations are marked ★ Enhanced on the front page (gold edge and a
+star tag): ninety-nine rebuilt showpieces, which replaced the earlier versions in
 their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -31,7 +31,7 @@ Respiration, Market Failure and Externalities, Flooding and Storm Hydrographs, S
 Queues, Energy Changes, Lungs and Gas Exchange, Tectonic Hazards, Car Crash Safety, Firms
 and Competition, Arousal and Performance, Stellar Life Cycle, Inheritance, Simple Harmonic
 Motion, Membranes and Movement, Antibiotic Resistance, Exoplanet Hunting, Reactivity of
-Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, Sport Biomechanics, Fitness Testing, Skill Acquisition, Atomic Spectra, Nuclear Fission, Particle Physics, Acids, Salts and Tests, Chromatography, Moles and Reacting Masses, Immunity, Plant Transport, Biotechnology, Inside a Sound, Strings, Air Columns, Build a Timbre, Pitch and Intervals, Rhythm and Metre, Sea Level Rise, Weather Chaos, Rivers and Landforms, Trade and Exchange Rates, Inequality, Electrochemical Cells, Capacitors, Magnetism and Induction, and Heating and Insulation are likewise kept in each folder's `original/`, with their worksheets,
+Metals, Young's Modulus (now Materials Science), Nuclear Fusion, States of Matter, Circular Motion, Crystallisation, Atomic Structure, Groups 1 and 7, DNA and Cell Division, Ecosystems, Homeostasis, Aerofoil Flow, Ice–Albedo Tipping Points, Carbon Cycle, Dark Matter, Expanding Universe, Planet Formation, Taxes and Price Controls, Labour Market, Circular Flow, Sport Biomechanics, Fitness Testing, Skill Acquisition, Atomic Spectra, Nuclear Fission, Particle Physics, Acids, Salts and Tests, Chromatography, Moles and Reacting Masses, Immunity, Plant Transport, Biotechnology, Inside a Sound, Strings, Air Columns, Build a Timbre, Pitch and Intervals, Rhythm and Metre, Sea Level Rise, Weather Chaos, Rivers and Landforms, Trade and Exchange Rates, Inequality, Electrochemical Cells, Capacitors, Magnetism and Induction, Heating and Insulation, Coasts, Glaciers, and Weathering, Slopes and Landslides are likewise kept in each folder's `original/`, with their worksheets,
 and are linked from "The model" tab of the new versions.
 
 ## Typing slider values
@@ -192,11 +192,11 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`climate/weather_chaos/`](climate/weather_chaos/) | Weather Chaos ★: the butterfly effect, Lorenz 63 and 96, forecast horizon, Lyapunov exponents, ensembles | Open `weather-chaos.html` |
 | [`climate/flooding_hydrographs/`](climate/flooding_hydrographs/) | Flooding and Storm Hydrographs ★: drainage basin and hillslope flows, storm hydrographs, lag time, urbanisation, flood management, case studies, flood frequency | Open `flooding-hydrographs.html` |
 | [`climate/river_landforms/`](climate/river_landforms/) | Rivers and Landforms ★: Bradshaw model, fieldwork and Spearman's rank, Hjulström curve, meanders and oxbow lakes, waterfalls and gorges, the Tees | Open `river-landforms.html` |
-| [`climate/coasts/`](climate/coasts/) | Coasts: waves, erosion, longshore drift, spits, cliff retreat, Holderness management, sea-level change | Open `coasts.html` |
-| [`climate/glaciers/`](climate/glaciers/) | Glaciers: mass balance and ELA, ice flow, corries, U-shaped valleys, moraines, freeze-thaw | Open `glaciers.html` |
+| [`climate/coasts/`](climate/coasts/) | Coasts ★: wave height and fetch, constructive and destructive waves, headlands and bays, cave to stump, longshore drift and spits, Holderness and terminal groyne syndrome, the Bruun rule | Open `coasts.html` |
+| [`climate/glaciers/`](climate/glaciers/) | Glaciers ★: mass balance and the ELA, advance and retreat with moraines, warm-based sliding, corrie aspect, V- to U-shaped valleys, freeze–thaw | Open `glaciers.html` |
 | [`climate/tropical_storms/`](climate/tropical_storms/) | Tropical Storms ★: grow, steer and land a hurricane; surge and impacts, a whole season, a warmer world | Open `tropical-storms.html` |
 | [`climate/tectonic_hazards/`](climate/tectonic_hazards/) | Tectonic Hazards ★: plate boundaries and the Benioff zone, P and S waves and triangulation, a tsunami crossing the ocean, disaster risk | Open `tectonic-hazards.html` |
-| [`climate/slopes_landslides/`](climate/slopes_landslides/) | Weathering, slopes and landslides: weathering rates, factor of safety, mass movement, rainfall-triggered landslides | Open `slopes-landslides.html` |
+| [`climate/slopes_landslides/`](climate/slopes_landslides/) | Weathering, slopes and landslides ★: freeze–thaw and chemical weathering against climate, the factor of safety and pore water pressure, roots, undercut cliffs, soil creep, landslides and rainfall thresholds | Open `slopes-landslides.html` |
 | [`climate/fieldwork_sampling/`](climate/fieldwork_sampling/) | Fieldwork: sampling methods, bias, descriptive statistics, Spearman's rank, chi-squared, Mann–Whitney U, power | Open `fieldwork-sampling.html` |
 
 ## Astrophysics
