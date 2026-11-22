@@ -933,7 +933,7 @@ const ui = K.app({
       note: "With no suppression, frequent small fires keep the forest patchy and near the critical density, so the final fire is limited. With total suppression the forest grows dense and connected, and the one fire that escapes takes nearly everything." },
   ],
   notes: `<h3>The rules</h3><ul><li>A burning cell tests each of its 8 neighbours once per step. Base chance of lighting a neighbour = <code>0.07 + 0.42 × dryness²</code>.</li><li>Wind multiplies that chance up for downwind neighbours and down for upwind ones. Slope does the same for uphill and downhill.</li><li>A cell burns for 5 steps and then becomes ash.</li><li>In wind, burning cells occasionally throw an ember up to 30 or so cells ahead.</li><li><b>Pure percolation</b> mode strips this back: fire always spreads to the 4 touching trees and nothing else matters. It is the mathematician's version, with an exact tipping point at 59.3% density.</li></ul>
-  <h3>Assumptions and simplifications</h3><ul><li>Every tree is the same: no difference between grass, shrub and timber, no moisture differences between sunny and shady slopes.</li><li>Wind is the same everywhere and is not changed by the hills or by the fire (large fires make their own wind).</li><li>The fire does not dry out fuel ahead of it, apart from the slope effect.</li><li>One cell is roughly 10 m and one step roughly 1 minute: treat spread rates as comparisons, not forecasts.</li><li>Firebreaks and water drops are perfect: fire can only cross them by embers.</li></ul>
+  <h3>Assumptions and simplifications</h3><ul><li>Every tree is the same: no difference between grass, shrub and timber, no moisture differences between sunny and shady slopes.</li><li>Wind is the same everywhere and is not changed by the hills or by the fire (large fires make their own wind).</li><li>The fire does not dry out fuel ahead of it, apart from the slope effect.</li><li>One cell is roughly 10 m and one step roughly 1 minute: treat spread rates as comparisons, not forecasts.</li><li>Firebreaks and water drops are perfect: fire can only cross them by embers.</li><li>The forest is a 200 × 112 grid of cells, and the fire is worked out on the ordinary processor (CPU), exactly as before, so the readouts, charts and Batch run are unchanged. The graphics card (WebGL) only draws it: flickering flames, a glow round every burning cell, embers and smoke. The glow and smoke are decoration, not part of the model. Without WebGL the forest is drawn in 2D as before.</li></ul>
   <h3>Words to use</h3><p>fuel load · fire front · spotting · firebreak · threshold / tipping point · controlled burn · positive feedback</p>`,
 });
 let g = ui.group("Your tools");
@@ -963,6 +963,40 @@ function village() {
 }
 // ---- Drawing: the map is painted into a small image (one pixel per cell) and scaled up ----
 const img = document.createElement("canvas"); img.width = GW; img.height = GH; const ictx = img.getContext("2d"), idata = ictx.createImageData(GW, GH), px = idata.data;
+/* ---- The graphics card (WebGL) draws the fire ----
+   The spread of the fire is still worked out on the CPU (Land.step), exactly as before, and each cell's colour is
+   chosen as before. The graphics card then draws the map, makes burning cells flicker, puts a glow round EVERY
+   burning cell (the 2D drawing could only afford a few hundred), and draws flying embers and smoke as soft
+   glowing particles. Without WebGL: the old 2D drawing. */
+const gv = K.gl.create(ui.stage, { dprMax: 2, antialias: false, fallback: "No WebGL here: drawing the forest without the graphics card.", onLost: () => { wgl.on = false; } });
+const wgl = { on: false, n: 0 };
+const MAP_FS = `precision mediump float;
+uniform sampler2D uT; uniform vec2 uN; uniform float uTime; varying vec2 vUv;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+void main() {
+  vec2 p = vec2(vUv.x, 1.0 - vUv.y) * uN; vec4 c = texture2D(uT, p / uN);      // colour of the cell (blended smoothly with its neighbours)
+  float fire = 1.0 - c.a, cell = hash(floor(p));                               // alpha < 1 marks a burning cell
+  float flick = 0.75 + 0.35 * sin(uTime * (9.0 + 6.0 * cell) + cell * 40.0) * sin(uTime * 4.3 + p.x * 0.7 + p.y * 0.9);
+  gl_FragColor = vec4(mix(c.rgb, min(c.rgb * flick + vec3(0.25, 0.08, 0.0) * fire, 1.0), fire), 1.0);
+}`;
+// soft round sprites: glow round burning cells, embers in flight, smoke (positions in CSS pixels)
+const SPRITE_VS = `attribute vec2 aPos; attribute vec4 aCol; attribute float aSize; uniform vec2 uView; uniform float uDpr; varying vec4 vCol;
+void main() { gl_Position = vec4(aPos.x / uView.x * 2.0 - 1.0, 1.0 - aPos.y / uView.y * 2.0, 0.0, 1.0); gl_PointSize = aSize * uDpr; vCol = aCol; }`;
+const SPRITE_FS = `precision mediump float; varying vec4 vCol; uniform float uFall;
+void main() { vec2 q = gl_PointCoord * 2.0 - 1.0; float r2 = dot(q, q); gl_FragColor = vec4(vCol.rgb, vCol.a * exp(-r2 * uFall) * step(r2, 1.0)); }`;
+if (gv.ok) {
+  try { const gl = gv.gl; wgl.map = K.gl.program(gl, K.gl.QUAD_VS, MAP_FS); wgl.spr = K.gl.program(gl, SPRITE_VS, SPRITE_FS); wgl.quad = K.gl.quad(gl); wgl.tex = K.gl.target(gl, GW, GH, { filter: "linear" }); wgl.pts = K.gl.points(gl, { aPos: 2, aCol: 4, aSize: 1 }); wgl.cap = 0; wgl.on = true; }
+  catch (e) { console.warn(e.message); K.gl.notice(ui.stage, "WebGL did not start properly: drawing the forest without it."); }
+}
+window.__glInfo = () => ({ gpu: wgl.on, grid: GW + " × " + GH, model: "CPU", webgl: gv.ok ? (gv.gl2 ? 2 : 1) : 0 });
+function sprites(list, fall, additive) {   // list of [x, y, size, r, g, b, a] in CSS pixels / 0..1
+  const n = list.length; if (!n) return; const gl = gv.gl;
+  if (wgl.cap < n) { wgl.cap = Math.max(n, 2 * wgl.cap, 256); wgl.P = new Float32Array(2 * wgl.cap); wgl.C = new Float32Array(4 * wgl.cap); wgl.S = new Float32Array(wgl.cap); }
+  for (let k = 0; k < n; k++) { const q = list[k]; wgl.P[2 * k] = q[0]; wgl.P[2 * k + 1] = q[1]; wgl.S[k] = q[2]; wgl.C[4 * k] = q[3]; wgl.C[4 * k + 1] = q[4]; wgl.C[4 * k + 2] = q[5]; wgl.C[4 * k + 3] = q[6]; }
+  wgl.pts.set("aPos", wgl.P.subarray(0, 2 * n)).set("aCol", wgl.C.subarray(0, 4 * n)).set("aSize", wgl.S.subarray(0, n));
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, additive ? gl.ONE : gl.ONE_MINUS_SRC_ALPHA);
+  wgl.spr.set({ uView: [cv.w, cv.h], uDpr: gv.dpr, uFall: fall }); wgl.pts.draw(wgl.spr, n); gl.disable(gl.BLEND);
+}
 const cv = ui.canvas(); let vr = { s: 1, ox: 0, oy: 0 }, dirty = true;
 function paint() {
   const { s, h, shade, age } = land;
@@ -978,12 +1012,35 @@ function paint() {
       default: r = 74 + v * 14 + elev; g2 = 88 + v * 12 + elev; b = 46 + elev * .5;        // open grassy ground
     }
     if (s[i] !== FIRE && s[i] !== HOUSE) { r += lightSlope; g2 += lightSlope; b += lightSlope; }
-    px[j] = r; px[j + 1] = g2; px[j + 2] = b; px[j + 3] = 255;
+    px[j] = r; px[j + 1] = g2; px[j + 2] = b; px[j + 3] = s[i] === FIRE && wgl.on ? 255 - 160 * (1 - age[i] / 6) : 255;   // for the graphics card: how strongly this cell flickers
   }
-  ictx.putImageData(idata, 0, 0);
+  if (wgl.on) wgl.tex.upload(px); else ictx.putImageData(idata, 0, 0);
+}
+function drawGL(sc, ox, oy) {
+  const gl = gv.gl, t = performance.now() / 1000, B = land.burning, glow = [];
+  K.gl.bindTarget(gl, null); gl.clearColor(0.02, 0.027, 0.047, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  K.gl.viewportRect(gv, ox, oy, GW * sc, GH * sc); wgl.map.set({ uT: wgl.tex, uN: [GW, GH], uTime: t }); wgl.quad.draw(wgl.map);
+  K.gl.bindTarget(gl, null);
+  // a flickering glow round every burning cell; new smoke rises from some of them (as in the 2D drawing)
+  const stepB = Math.max(1, Math.floor(B.length / 500));
+  for (let k = 0; k < B.length; k++) {
+    const i = B[k], x = ox + (i % GW + .5) * sc, y = oy + ((i / GW | 0) + .5) * sc, f = 0.8 + 0.2 * Math.sin(t * 11 + i * 1.7), young = 1 - land.age[i] / 6;
+    glow.push([x, y, sc * 9, 1, 0.38 + 0.25 * young, 0.08, 0.32 * f]);
+    if (k % stepB === 0 && ui.playing && Math.random() < 0.05 * stepB) smoke.push({ x, y, t: 1, r: sc * (2 + Math.random() * 3) });
+  }
+  sprites(glow, 2.4, true);
+  // embers thrown ahead of the front
+  const em = []; for (const sp of land.sparks) { const u = Math.min(1, sp.t), x = ox + (sp.x0 + (sp.x1 - sp.x0) * u + .5) * sc, y = oy + (sp.y0 + (sp.y1 - sp.y0) * u + .5) * sc - Math.sin(u * Math.PI) * 14; em.push([x, y, 16, 1, 0.6, 0.2, 0.55], [x, y, 5, 1, 0.95, 0.7, 1]); }
+  sprites(em, 3, true);
+  // smoke drifts with the wind
+  const wx = Math.cos(land.o.windDir) * land.o.wind, wy = Math.sin(land.o.windDir) * land.o.wind; if (smoke.length > 500) smoke.splice(0, smoke.length - 500);
+  smoke = smoke.filter(q => q.t > 0); const sm = [];
+  for (const q of smoke) { if (ui.playing) { q.x += wx * 2.2 + .15; q.y += wy * 2.2 - .35; q.t -= 0.012; q.r *= 1.012; } sm.push([q.x, q.y, q.r * 2.2, 0.55, 0.55, 0.6, q.t * 0.09]); }
+  sprites(sm, 2, false);
 }
 function draw() {
   paint(); const c = cv.ctx, sc = Math.min(cv.w / GW, cv.h / GH), ox = (cv.w - GW * sc) / 2, oy = (cv.h - GH * sc) / 2; vr = { s: sc, ox, oy };
+  if (wgl.on) { drawGL(sc, ox, oy); c.clearRect(0, 0, cv.w, cv.h); } else {
   c.fillStyle = "#05070c"; c.fillRect(0, 0, cv.w, cv.h); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high"; c.drawImage(img, ox, oy, GW * sc, GH * sc);
   // glow over the fire front
   c.globalCompositeOperation = "lighter"; const B = land.burning, stepB = Math.max(1, Math.floor(B.length / 500));
@@ -994,6 +1051,7 @@ function draw() {
   // smoke drifts with the wind
   const wx = Math.cos(land.o.windDir) * land.o.wind, wy = Math.sin(land.o.windDir) * land.o.wind; if (smoke.length > 500) smoke.splice(0, smoke.length - 500);
   smoke = smoke.filter(q => q.t > 0); for (const q of smoke) { if (ui.playing) { q.x += wx * 2.2 + .15; q.y += wy * 2.2 - .35; q.t -= 0.012; q.r *= 1.012; } c.fillStyle = `rgba(150,150,160,${q.t * .07})`; c.beginPath(); c.arc(q.x, q.y, q.r, 0, 6.3); c.fill(); }
+  }
   // wind compass
   const cx = ox + 54, cy = oy + 54; c.fillStyle = "rgba(8,14,26,.72)"; c.strokeStyle = "#2b3a5c"; c.beginPath(); c.arc(cx, cy, 38, 0, 6.3); c.fill(); c.stroke();
   c.fillStyle = "#8fa0bf"; c.font = "10px Segoe UI,sans-serif"; c.textAlign = "center"; c.fillText("N", cx, cy - 26); c.fillText("WIND", cx, cy + 33);
