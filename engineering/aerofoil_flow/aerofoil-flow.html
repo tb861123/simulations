@@ -959,7 +959,8 @@ const ui = K.app({
 <li>Pressure from Bernoulli: Cp = 1 − (v/V∞)². Lift from the circulation, C_L = 2Γ/(V∞c); also found by adding up the surface pressures, as a check (they agree within about 1%).</li>
 <li>NACA 4-digit aerofoils (camber m %, its position p tenths, thickness t %), turned about the quarter chord; the wind always blows from the left. Cylinder: no sharp edge, so the circulation is set by the spin ratio s = Γ/(4πV∞R).</li>
 <li>Thin-aerofoil theory C_L = 2π(α − α₀), with α₀ worked out from the camber line. The "real wing" curve is a sketch that stalls at about 15°.</li>
-<li>Checked: NACA 0012 at 5° gives C_L = 0.61 (published inviscid value about 0.6); a cylinder's lowest Cp is −3.0 (exact −3).</li></ul>
+<li>Checked: NACA 0012 at 5° gives C_L = 0.61 (published inviscid value about 0.6); a cylinder's lowest Cp is −3.0 (exact −3).</li>
+<li>The coloured flow is worked out by the graphics card (WebGL) at every screen pixel, from the same panel strengths and the same formula as the streamlines and particles (which use a 150 × 85 grid of the same velocities, as before). Without WebGL the colours come from that 150 × 85 grid, blurred up.</li></ul>
 <h3>Left out</h3>
 <ul><li>Viscosity: no boundary layer, drag, separation or stall. Two dimensions only (an infinitely long wing). No compressibility (fine below about 100 m/s).</li>
 <li>The earlier version's drawn and image shapes, slotted flap, vortex wake, pitching wing and boundary-layer model are not included here.</li></ul>
@@ -1013,17 +1014,64 @@ function sample(x, y) {
 
 // ---------------- Drawing ----------------
 let img = null;
+/* ---- The graphics card (WebGL) colours the flow ----
+   The panel method is solved on the CPU as before (the panel strengths, lift, Cp, charts and particles are unchanged).
+   Then, instead of sampling the flow on a 150 × 85 grid and blurring it up, the graphics card works out the velocity
+   EXACTLY at every screen pixel, using the same formula as vel() above: the free stream plus the effect of every
+   panel. That is up to 300 panels × a million pixels, so it is only redrawn when the flow, the view or the window
+   changes; in between, the picture stays on screen. Without WebGL: the old 2D drawing. */
+const gv = K.gl.create(ui.stage, { dprMax: 2, antialias: false, fallback: "No WebGL here: drawing the flow without the graphics card.", onResize: () => { img = null; }, onLost: () => { wgl.on = false; img = null; } });
+const wgl = { on: false }, MAXP = 300;
+const FIELD_FS = `precision highp float;
+uniform sampler2D uP; uniform float uN, uGam, uView; uniform vec4 uBox; varying vec2 vUv;   // uBox: x0, x1, y0, y1 of the picture
+const float TP = 6.283185307;
+vec3 ramp(float t) {   // blue (slow / high pressure) to red (fast / low pressure): the same stops as ramp() on the CPU
+  t = clamp(t, 0.0, 1.0);
+  if (t < 0.35) return mix(vec3(40.0, 60.0, 160.0), vec3(60.0, 170.0, 220.0), t / 0.35);
+  if (t < 0.5) return mix(vec3(60.0, 170.0, 220.0), vec3(90.0, 200.0, 120.0), (t - 0.35) / 0.15);
+  if (t < 0.7) return mix(vec3(90.0, 200.0, 120.0), vec3(240.0, 220.0, 80.0), (t - 0.5) / 0.2);
+  return mix(vec3(240.0, 220.0, 80.0), vec3(230.0, 60.0, 50.0), (t - 0.7) / 0.3);
+}
+void main() {
+  float x = mix(uBox.x, uBox.y, vUv.x), y = mix(uBox.z, uBox.w, vUv.y), u = 1.0, v = 0.0; bool inside = false;
+  for (int j = 0; j < ${MAXP}; j++) {
+    if (float(j) >= uN) break;
+    float tx = (float(j) + 0.5) / ${MAXP}.0; vec4 e = texture2D(uP, vec2(tx, 0.25)), k = texture2D(uP, vec2(tx, 0.75));   // e: panel ends x1 y1 x2 y2; k: source strength q, cos and sin of the panel angle
+    if ((e.y > y) != (e.w > y) && x < (e.z - e.x) * (y - e.y) / (e.w - e.y) + e.x) inside = !inside;          // is this pixel inside the body?
+    float r1 = max(length(vec2(x - e.x, y - e.y)), 1e-6), r2 = max(length(vec2(x - e.z, y - e.w)), 1e-6), lg = log(r2 / r1);
+    float bt = atan((y - e.w) * (x - e.x) - (x - e.z) * (y - e.y), (x - e.z) * (x - e.x) + (y - e.w) * (y - e.y));
+    float ul = (-k.x * lg + uGam * bt) / TP, vl = (k.x * bt + uGam * lg) / TP;
+    u += ul * k.y - vl * k.z; v += ul * k.z + vl * k.y;
+  }
+  float s = length(vec2(u, v)); vec3 c = inside ? vec3(30.0, 36.0, 50.0) : ramp(uView < 0.5 ? (s - 0.3) / 1.6 : 1.0 - (1.0 - s * s + 2.0) / 3.0);
+  gl_FragColor = vec4(mix(vec3(11.0, 16.0, 32.0), c, 0.85) / 255.0, 1.0);   // drawn at 85% over the background, as before
+}`;
+if (gv.ok && K.gl.floatType(gv.gl).kind === "float") {
+  try { wgl.prog = K.gl.program(gv.gl, K.gl.QUAD_VS, FIELD_FS); wgl.quad = K.gl.quad(gv.gl); wgl.tex = K.gl.target(gv.gl, MAXP, 2, { float: true }); wgl.buf = new Float32Array(4 * MAXP * 2); wgl.on = true; }
+  catch (e) { console.warn(e.message); K.gl.notice(ui.stage, "WebGL did not start properly: drawing the flow without it."); }
+} else if (gv.ok) K.gl.notice(ui.stage, "This graphics card cannot store 32-bit numbers in textures: drawing the flow without it.");
+window.__glInfo = () => ({ gpu: wgl.on, grid: wgl.on ? "every pixel" : GX + " × " + GY, model: "CPU panel solve", webgl: gv.ok ? (gv.gl2 ? 2 : 1) : 0 });
+function fieldGL(x, y, w, h) {
+  const B = wgl.buf, N = S.N, gl = gv.gl; B.fill(0);
+  for (let j = 0; j < N; j++) { const [x1, y1] = S.nodes[j], [x2, y2] = S.nodes[j + 1], o = 4 * j, o2 = 4 * (MAXP + j); B[o] = x1; B[o + 1] = y1; B[o + 2] = x2; B[o + 3] = y2; B[o2] = S.q[j]; B[o2 + 1] = Math.cos(S.th[j]); B[o2 + 2] = Math.sin(S.th[j]); }
+  wgl.tex.upload(B);
+  K.gl.bindTarget(gl, null); gl.clearColor(11 / 255, 16 / 255, 32 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT); K.gl.viewportRect(gv, x, y, w, h);
+  wgl.prog.set({ uP: wgl.tex, uN: N, uGam: S.gam, uView: P.view === "speed" ? 0 : 1, uBox: [X0, X1, Y0, Y1] }); wgl.quad.draw(wgl.prog);
+}
 const cv = ui.canvas(() => { img = null; });
 const chA = K.chart(ui.dock, {}), chB = K.chart(ui.dock, {});
 const TX = (c, s, x, y, col = "#aab6cc", al = "left", f = "12px") => { c.fillStyle = col; c.font = f + " Segoe UI,sans-serif"; c.textAlign = al; c.fillText(s, x, y); };
 function ramp(t) { t = Math.max(0, Math.min(1, t)); const st = [[0, [40, 60, 160]], [0.35, [60, 170, 220]], [0.5, [90, 200, 120]], [0.7, [240, 220, 80]], [1, [230, 60, 50]]]; for (let i = 1; i < st.length; i++) if (t <= st[i][0]) { const f = (t - st[i - 1][0]) / (st[i][0] - st[i - 1][0]); return st[i - 1][1].map((v, k) => v + (st[i][1][k] - v) * f); } return st[st.length - 1][1]; }
 function draw() {
-  const c = cv.ctx, w = cv.w, h = cv.h; c.fillStyle = "#0b1020"; c.fillRect(0, 0, w, h); if (!grid) return;
+  const c = cv.ctx, w = cv.w, h = cv.h; if (wgl.on) c.clearRect(0, 0, w, h); else { c.fillStyle = "#0b1020"; c.fillRect(0, 0, w, h); } if (!grid) return;
   const sc = Math.min(w / (X1 - X0), (h - 30) / (Y1 - Y0)), ox = (w - (X1 - X0) * sc) / 2, oy = (h - (Y1 - Y0) * sc) / 2 + 10, X = x => ox + (x - X0) * sc, Y = y => oy + (Y1 - y) * sc;
+  if (wgl.on) { if (!img) { fieldGL(X(X0), Y(Y1), (X1 - X0) * sc, (Y1 - Y0) * sc); img = true; } }   // redrawn only when something changed
+  else {
   if (!img) { img = document.createElement("canvas"); img.width = GX; img.height = GY; const ix = img.getContext("2d"), id = ix.createImageData(GX, GY);
     for (let j = 0; j < GY; j++) for (let i = 0; i < GX; i++) { const k = j * GX + i, o = ((GY - 1 - j) * GX + i) * 4; if (grid.ins[k]) { id.data[o] = 30; id.data[o + 1] = 36; id.data[o + 2] = 50; id.data[o + 3] = 255; continue; } const s = Math.hypot(grid.u[k], grid.v[k]), t = P.view === "speed" ? (s - 0.3) / 1.6 : 1 - (1 - s * s + 2) / 3; const col = ramp(t); id.data[o] = col[0]; id.data[o + 1] = col[1]; id.data[o + 2] = col[2]; id.data[o + 3] = 255; }
     ix.putImageData(id, 0, 0); }
   c.globalAlpha = 0.85; c.imageSmoothingEnabled = true; c.drawImage(img, X(X0), Y(Y1), (X1 - X0) * sc, (Y1 - Y0) * sc); c.globalAlpha = 1;
+  }
   if (P.stream) { c.strokeStyle = "rgba(255,255,255,0.55)"; c.lineWidth = 1; for (const L of lines) { c.beginPath(); L.forEach(([x, y], i) => i ? c.lineTo(X(x), Y(y)) : c.moveTo(X(x), Y(y))); c.stroke(); } }
   if (P.parts) { c.fillStyle = "rgba(255,255,255,0.9)"; for (const p of particles) c.fillRect(X(p.x) - 1, Y(p.y) - 1, 2.5, 2.5); }
   // the body
