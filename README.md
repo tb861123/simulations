@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and eighty simulations are built with the shared toolkit (the
+All one hundred and eighty-one simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and seventy-three newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
@@ -415,6 +415,7 @@ Standard level follows AQA AS Psychology (7181); Advanced follows AQA A level Ps
 | [`psychology/conditioning/`](psychology/conditioning/) | Learning: Conditioning: Pavlov's dog with a Rescorla–Wagner learning curve, extinction, spontaneous recovery and a generalisation gradient; a Skinner box rat on continuous, fixed/variable ratio and interval schedules with a cumulative record and the partial reinforcement extinction effect (AQA 7182) | Open `conditioning.html` |
 | [`psychology/research_methods/`](psychology/research_methods/) | Research Methods: Inferential Tests: simulated studies with independent groups, repeated measures or correlation designs and nominal, ordinal or interval data; the AQA decision tree; all eight tests with exact critical values and null distributions; Type I and II errors, power, one- and two-tailed tests (AQA 7182) | Open `research-methods.html` |
 | [`psychology/approaches_and_inheritance/`](psychology/approaches_and_inheritance/) | Nature and Nurture: Twin Studies: MZ and DZ twins reared together and apart and adoptees generated from the ACE model; Falconer's formula, concordance rates with a liability threshold and diathesis–stress, the equal environments assumption and selective placement (AQA 7182) | Open `approaches-and-inheritance.html` |
+| [`psychology/biopsychology/`](psychology/biopsychology/) | Biopsychology: Synapse, Stress and Rhythms: excitatory and inhibitory synapses onto an integrate-and-fire neuron (spatial and temporal summation, SSRIs, antagonists); fight or flight through the SAM pathway (adrenaline) and HPA axis (cortisol, negative feedback, beta-blockers, chronic stress); A level: the SCN body clock, Siffre's cave and jet lag on an actogram (AQA 7182; the nerve impulse itself is in medical/nerve_impulse) | Open `biopsychology.html` |
 
 ## Where the old repositories went
 
