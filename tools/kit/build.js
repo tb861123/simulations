@@ -162,6 +162,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["searching_and_hashing.js", "searching_and_hashing", "searching-and-hashing.html", "Searching and Hashing", "computing"],
   ["pathfinding.js", "pathfinding", "pathfinding.html", "Pathfinding: Dijkstra and A*", "computing"],
   ["data_structures.js", "data_structures", "data-structures.html", "Data Structures", "computing"],
+  ["logic_gates.js", "logic_gates", "logic-gates.html", "Logic Gates and Circuits", "computing"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {

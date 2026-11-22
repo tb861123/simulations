@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and sixty simulations are built with the shared toolkit (the
+All one hundred and sixty-one simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and fifty-seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
@@ -388,6 +388,7 @@ Standard level follows Cambridge International AS Level Computer Science (9618, 
 | [`computing/searching_and_hashing/`](computing/searching_and_hashing/) | Searching and Hashing: linear and binary search animated with comparison counts and O(n) against O(log n); hash tables (A Level) with key MOD size, collisions, linear probing and chaining, probes against load factor, and the birthday problem (Cambridge 9618) | Open `searching-and-hashing.html` |
 | [`computing/pathfinding/`](computing/pathfinding/) | Pathfinding: Dijkstra's algorithm and A* (Manhattan heuristic) on an editable grid with walls and mud, the priority queue and g + h = f values, greedy best-first for comparison, and Dijkstra's distance table on a small exam-style graph (Cambridge 9618 A Level AI) | Open `pathfinding.html` |
 | [`computing/data_structures/`](computing/data_structures/) | Data Structures: stack (overflow and underflow), circular queue (MOD wrap-round), linked list in an array with StartPointer and a free list, and binary search trees with traversals and search cost (Cambridge 9618) | Open `data-structures.html` |
+| [`computing/logic_gates/`](computing/logic_gates/) | Logic Gates and Circuits: gate symbols with clickable inputs and highlighted truth tables, a circuit from an expression, half and full adders, NAND-only XOR, an SR flip-flop with feedback, a 4-bit ripple-carry adder and Karnaugh maps (Cambridge 9618) | Open `logic-gates.html` |
 
 ## Where the old repositories went
 
