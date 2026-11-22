@@ -14,11 +14,11 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and fifty-seven simulations are built with the shared toolkit (the
+All one hundred and sixty simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and fifty-three newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and fifty-seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
-mathematics, statistics, chemistry and economics simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones). They share a small
+mathematics, statistics, chemistry, economics and geography simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
@@ -203,6 +203,9 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`climate/tectonic_hazards/`](climate/tectonic_hazards/) | Tectonic Hazards ★: plate boundaries and the Benioff zone, P and S waves and triangulation, a tsunami crossing the ocean, disaster risk | Open `tectonic-hazards.html` |
 | [`climate/slopes_landslides/`](climate/slopes_landslides/) | Weathering, slopes and landslides ★: freeze–thaw and chemical weathering against climate, the factor of safety and pore water pressure, roots, undercut cliffs, soil creep, landslides and rainfall thresholds | Open `slopes-landslides.html` |
 | [`climate/fieldwork_sampling/`](climate/fieldwork_sampling/) | Fieldwork ★: sampling methods and bias, mean, median and IQR, scatter graphs and box plots, Spearman's rank, chi-squared, Student's t-test, power and false alarms | Open `fieldwork-sampling.html` |
+| [`climate/globalisation_migration/`](climate/globalisation_migration/) | Globalisation and migration: trade by the gravity model, time–space compression 1960–2020, push–pull migration with diasporas and borders (Brexit, Gulf visas), remittances, a KOF-style index | Open `globalisation-migration.html` |
+| [`climate/urban_places/`](climate/urban_places/) | Changing urban places: bid-rent, Schelling segregation and the index of dissimilarity, location quotients, regeneration and gentrification, deprivation, the urban heat island | Open `urban-places.html` |
+| [`climate/water_insecurity/`](climate/water_insecurity/) | Water insecurity and drought: soil-moisture budgets, the water budget, runs of dry years and Day Zero, the Falkenmark index, dams, desalination, demand management and upstream neighbours | Open `water-insecurity.html` |
 
 ## Astrophysics
 
