@@ -147,6 +147,7 @@ ctl.non = K.slider(g, { label: "Non-competitive inhibitors", min: 0, max: 60, st
 g = ui.group("Watch");
 let r1 = K.row(g); K.btn(r1, "↺ Start again", () => restart(), "primary"); K.btn(r1, "Keep this curve", () => { if (log.length > 2) { curve.push({ pts: log.slice(), label: `${ENZ[P.enz].name}, ${P.T} °C, pH ${P.pH}` }); if (curve.length > 4) curve.shift(); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.2, max: 4, step: 0.1, value: 1, fmt: v => "× " + v.toFixed(1), on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["made", "products made"], ["rate", "rate now"], ["busy", "enzymes busy"], ["dead", "enzymes denatured"], ["left", "substrate left"], ["fit", "active-site fit at this pH"]]);
 function set(o) { Object.assign(P, { enz: "amylase", nE: 12, nS: 120, T: 37, comp: 0, non: 0, feed: false }, o); if (o.pH == null) P.pH = ENZ[P.enz].opt; for (const k of ["T", "pH", "nS", "nE", "comp", "non"]) ctl[k].set(P[k]); ctl.enz.set(P.enz); ctl.feed.set(P.feed); speed = o.speed || 1; ctl.speed.set(speed); curve = []; restart(); }
 

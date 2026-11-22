@@ -191,6 +191,7 @@ ctl.C = K.slider(g, { label: "Capacity (warnings, rescue, hospitals)", min: 0.05
 K.btn(K.row(g), "💥 Shake again", () => shake(), "primary");
 g = ui.group("Watch");
 ctl.sp = K.slider(g, { label: "Speed", min: 0.25, max: 8, step: 0.25, value: 1, fmt: v => "× " + v, on: v => sp = v });
+ui.headerSpeed(ctl.sp);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
 const relabel = l => l.forEach((t, i) => read.el.children[i].firstElementChild.textContent = t);
 function newOcean() { ocean = makeOcean({ L: P.tL, deep: P.deep, shelf: P.shelf, shelfD: P.shelfD, M: P.tM }); }

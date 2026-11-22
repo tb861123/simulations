@@ -137,6 +137,7 @@ ctl.mc = K.seg(gS, { label: "Conclusion", value: "A", options: moodOpts, on: v =
 ctl.fig = K.seg(gS, { label: "Figure (where the middle term goes)", value: 1, options: [[1, "1: M–P, S–M"], [2, "2: P–M, S–M"], [3, "3: M–P, M–S"], [4, "4: P–M, M–S"]], on: v => { P.fig = +v; P.truth = null; } });
 ctl.imp = K.toggle(gS, { label: "Assume every term refers to something (existential import, A level)", value: false, on: v => P.imp = v });
 ctl.speed = K.slider(gS, { label: "Speed of the random hunt", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed, { label: "Hunt speed" });   // playback speed lives in the header, beside Pause and Reset
 const gA = ui.group("Argument for God");
 ctl.arg = K.seg(gA, { value: "kalam", options: Object.entries(ARGS).map(([k, a]) => [k, a.name]), on: v => { P.arg = v; relabel(); } });
 const cs = [0, 1, 2, 3, 4].map(i => K.slider(gA, { label: "Premise " + (i + 1), min: 0, max: 1, step: 0.01, value: 0.9, fmt: v => Math.round(v * 100) + "% belief", on: v => P.cred[i] = v }));

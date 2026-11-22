@@ -125,6 +125,7 @@ g = ui.group("Drugs and toxins");
 S.ttx = K.slider(g, { label: "Na⁺ channels blocked (TTX, lidocaine)", min: 0, max: 100, step: 5, value: 0, unit: "%", on: v => { ax.o.ttx = v / 100; ax.build(); } });
 g = ui.group("View");
 S.slow = K.slider(g, { label: "Slow motion", min: 0.01, max: 0.2, step: 0.01, value: 0.06, fmt: v => v.toFixed(2) + " ms per frame", on: v => slow = v });
+ui.headerSpeed(S.slow);   // playback speed lives in the header, beside Pause and Reset
 g = ui.group("Measurements");
 const read = K.readout(g, [["v", "Speed A → B"], ["pk", "Peak at B"], ["va", "Voltage at A"], ["t", "Time"]]);
 

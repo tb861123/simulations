@@ -269,6 +269,7 @@ g = ui.group("What to show");
 ctl.graph = K.seg(g, { label: "Right-hand graph", value: "pV", options: [["pV", "p–V"], ["pT", "p–T"], ["VT", "V–T"], ["height", "height"], ["mix", "mixing"], ["ring", "tube"]], on: v => { graph = v; } });
 ctl.colour = K.seg(g, { label: "Colour molecules by", value: "speed", options: [["speed", "kinetic energy"], ["gas", "which gas"]], on: v => { colourBy = v; } });
 ctl.rate = K.slider(g, { label: "Slow motion", min: 1, max: 80, step: 1, value: rate, fmt: v => v + " ps each second", on: v => rate = v });
+ui.headerSpeed(ctl.rate);   // playback speed lives in the header, beside Pause and Reset
 r1 = K.row(g); K.btn(r1, "Clear the graphs and tallies", clearLog);
 const read = K.readout(g, [["T", "gas temperature"], ["p", "pressure (measured)"], ["pi", "pressure (NkT/V)"], ["V", "volume"], ["v", "typical speed"], ["ke", "mean KE per molecule"], ["mfp", "mean free path"], ["dU", "ΔU since cleared"], ["Q", "heat in, Q"], ["W", "work done on gas, W"]]);
 function set(o) {

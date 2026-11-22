@@ -112,6 +112,7 @@ const scopeGroup = g = ui.group("The electroscope");
 r1 = K.row(g); K.btn(r1, "Charge it negative", () => { charge = -1; chargeSign = -1; }); K.btn(r1, "Charge it positive", () => { charge = 1; chargeSign = 1; });
 g = ui.group("Watch");
 ctl.rate = K.slider(g, { label: "Slow motion", min: 0.2, max: 2, step: 0.1, value: 1, fmt: v => "× " + v.toFixed(1), on: v => rate = v });
+ui.headerSpeed(ctl.rate);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["E", "photon energy"], ["phi", "work function"], ["k", "fastest electron"], ["I", "current"], ["Vs", "stopping potential"], ["f", "frequency"]]);
 function showView() { cellGroup.style.display = view === "cell" ? "" : "none"; scopeGroup.style.display = view === "scope" ? "" : "none"; ctl.view.set(view); photons = []; elec = []; }
 function set(o) { view = o.view || "cell"; nm = o.nm || 300; metal = o.metal || "Zn"; inten = o.inten == null ? 1 : o.inten; V = o.V || 0; ctl.nm.set(nm); ctl.metal.set(metal); ctl.inten.set(inten); ctl.V.set(V); charge = -1; chargeSign = -1; ivlog = []; sweep = null; showView(); }

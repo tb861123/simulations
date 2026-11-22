@@ -82,6 +82,7 @@ const ctl = {}, grp = {};
 let g = ui.group("View");
 ctl.view = K.seg(g, { value: "force", options: [["force", "⚡ magnetic force"], ["ind", "🔄 induction"], ["trans", "🔌 transformer"], ["motor", "⚙ d.c. motor"]], on: v => { P.view = v; showGroups(); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.1, max: 3, step: 0.1, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 grp.force = g = ui.group("Wire in a field");
 ctl.B = K.slider(g, { label: "Field B", min: 0, max: 1, step: 0.01, value: 0.2, unit: "T", on: v => P.B = v });
 ctl.I = K.slider(g, { label: "Current I (negative = reversed)", min: -6, max: 6, step: 0.1, value: 3, unit: "A", on: v => P.I = v });

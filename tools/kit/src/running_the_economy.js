@@ -186,6 +186,7 @@ ctl.lagF = K.slider(g, { label: "Fiscal policy lag", min: 0, max: 8, step: 1, va
 ctl.kappa = K.slider(g, { label: "Slope of the Phillips curve", min: 0.05, max: 0.6, step: 0.05, value: 0.25, fmt: v => v.toFixed(2), on: v => { P.kappa = v; } });
 g = ui.group("Watch"); ecoGroups.push(g);
 ctl.speed = K.slider(g, { label: "Speed", min: 0.5, max: 8, step: 0.5, value: speed, fmt: v => v + " quarters a second", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["d", "date"], ["gr", "growth (a year)"], ["pi", "CPI inflation"], ["u", "unemployment"], ["br", "Bank Rate"], ["bud", "budget balance"], ["debt", "national debt"], ["ca", "current account"], ["y", "output gap"], ["qe", "QE"]]);
 const ukGroup = g = ui.group("The real UK");
 ctl.year = K.slider(g, { label: "Year", min: 1997, max: 2025, step: 1, value: 2008, on: v => ukYear = v });

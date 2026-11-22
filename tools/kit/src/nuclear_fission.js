@@ -101,6 +101,7 @@ ctl.rodsOn = K.toggle(g, { label: "Control rods in", value: false, on: v => { P.
 ctl.rods = K.slider(g, { label: "Fraction of neutrons absorbed", min: 0, max: 0.6, step: 0.01, value: 0, fmt: v => (v * 100).toFixed(0) + "%", on: v => { P.rods = v; } });
 ctl.n0 = K.slider(g, { label: "Starting neutrons", min: 1, max: 5, step: 1, value: 1, on: v => { P.n0 = v; restart(); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 K.btn(K.row(g), "↺ Fire again", () => restart(), "primary");
 const read = K.readout(ui.group("Readings"), [["k", "k now"], ["st", "state"], ["fm", "fuel: mass · radius · critical mass"], ["n", "fissions · escaped · absorbed"], ["E", "energy per fission (A level: from Δm)"]]);
 const kNow = () => (P.how === "k" ? P.k * (P.rodsOn ? 1 - P.rods : 1) : kOf(P.mass, P.fuel, P.rodsOn ? P.rods : 0));

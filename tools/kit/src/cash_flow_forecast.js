@@ -143,6 +143,7 @@ g = ui.group("Reality: the actual year");
 ctl.cv = K.slider(g, { label: "Uncertainty in monthly sales (SD)", min: 0, max: 0.5, step: 0.01, value: 0.15, fmt: v => "±" + Math.round(v * 100) + "%", on: v => upd({ cv: v }, true) });
 ctl.late = K.slider(g, { label: "Credit customers who pay a month late", min: 0, max: 0.6, step: 0.05, value: 0.1, fmt: v => Math.round(v * 100) + "%", on: v => upd({ late: v }, true) });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 let rr = K.row(g); K.btn(rr, "⏭ Run a new year", () => newYear(), "primary");
 g = ui.group("A level");
 ctl.factor = K.toggle(g, { label: "Debt factoring (paid at once, minus a fee)", value: false, on: v => upd({ factor: v }) });

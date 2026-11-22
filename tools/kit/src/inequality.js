@@ -126,6 +126,7 @@ const ctl = {}, grp = {};
 let g = ui.group("View");
 ctl.view = K.seg(g, { value: "pop", options: [["pop", "👥 earn, save, inherit"], ["luck", "🎲 luck: the trading game"], ["kuznets", "🏙 Kuznets curve (A level)"], ["laffer", "⚖ equity and efficiency (A level)"]], on: v => { P.view = v; showGroups(); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 8, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 grp.pop = g = ui.group("Earnings and wealth");
 const S1 = (k, label, min, max, step, fmt) => ctl[k] = K.slider(g, { label, min, max, step, value: P[k], fmt, on: v => P[k] = v });
 const pc = v => (v * 100).toFixed(0) + "%", gbp = v => "£" + Math.round(v).toLocaleString("en-GB");

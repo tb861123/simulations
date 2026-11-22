@@ -167,6 +167,7 @@ g = ui.group("What to show");
 for (const [k, label] of [["map", "Potential as colour"], ["equi", "Equipotentials"], ["lines", "Field lines"], ["flow", "Flowing field"], ["tilt", "Tilt: potential as a landscape"], ["sectors", "Equal-time sectors (Kepler's 2nd law)"]]) ctl[k] = K.toggle(g, { label, value: show[k], on: v => { show[k] = v; dirty = true; sectors = []; } });
 ctl.zoom = K.slider(g, { label: "Zoom out", min: 0.4, max: 3, step: 0.1, value: 1, fmt: v => "× " + v.toFixed(1), on: v => { view = SCENES[scene].view * v; dirty = true; resetTracers(); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.1, max: 5, step: 0.1, value: 1, fmt: v => "× " + v.toFixed(1), on: v => speedMul = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["pp", "potential at pointer"], ["pf", "field at pointer"], ["r", "tracked: distance"], ["v", "tracked: speed"], ["vc", "circular speed there"], ["ve", "escape speed there"], ["orb", "orbit"], ["apo", "nearest · furthest point"], ["T", "period"]]);
 function set(o) {
   if (o.scene) load(o.scene); ctl.zoom.set(1);

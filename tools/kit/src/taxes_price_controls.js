@@ -182,6 +182,7 @@ ctl.black = K.toggle(g, { label: "Black market (resale)", value: false, on: v =>
 ctl.buy = K.toggle(g, { label: "Government buys the surplus", value: false, on: v => { P.buy = v; apply(); } });
 g = ui.group("Run");
 ctl.speed = K.slider(g, { label: "Speed", min: 1, max: 6, step: 1, value: 2, fmt: v => v < 6 ? v + "×" : "a day per blink", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 let rr = K.row(g); K.btn(rr, "⏭ End the day", () => { while (mk.open()) mk.meet(); finishDay(); }); K.btn(rr, "↺ New traders", () => restart());
 const read = K.readout(ui.group("Readings"), [["pc", "price consumers pay"], ["pk", "price sellers keep"], ["q", "quantity sold"], ["share", "who pays the tax"], ["rev", "tax revenue / subsidy cost"], ["ctl", "shortage or surplus"], ["wel", "consumer · producer surplus · deadweight loss"]]);
 function set(o) {

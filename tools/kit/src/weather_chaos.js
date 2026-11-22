@@ -84,6 +84,7 @@ ctl.mode = K.seg(g, { value: "two", options: [["two", "two forecasts"], ["ens", 
 ctl.delta = K.slider(g, { label: "Starting difference δ (log₁₀)", min: -10, max: -1, step: 0.5, value: -4, fmt: v => "10^" + v, on: v => { P.delta = 10 ** v; restart(); } });
 ctl.thr = K.slider(g, { label: "Forecast fails when they differ by", min: 0.5, max: 20, step: 0.5, value: 5, on: v => P.thr = v });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.2, max: 5, step: 0.1, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 g = ui.group("Lorenz 63");
 ctl.rho = K.slider(g, { label: "Heating ρ", min: 10, max: 40, step: 0.5, value: 28, on: v => { P.rho = v; restart(); } });
 ctl.plane = K.seg(g, { label: "View", value: "xz", options: [["xz", "x–z"], ["xy", "x–y"], ["yz", "y–z"]], on: v => P.plane = v });

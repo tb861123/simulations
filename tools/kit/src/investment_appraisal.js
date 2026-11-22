@@ -116,6 +116,7 @@ ctl.bHi = K.slider(gT, { label: "Upgrade: high demand pays", min: 0, max: 400000
 ctl.bLo = K.slider(gT, { label: "Upgrade: low demand pays", min: 0, max: 200000, step: 5000, value: 30000, fmt: gbpk, on: v => treeSet({ bLo: v }) });
 ctl.riskR = K.slider(gT, { label: "Owner's attitude to risk (A level)", min: 0, max: 200000, step: 5000, value: 0, fmt: v => v ? `risk averse (R = ${gbpk(v)})` : "risk neutral (uses EMV)", on: v => P.riskR = v });
 g = ui.group("Play"); ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Results"), [["pb", "payback"], ["arr", "ARR"], ["npv", "NPV"], ["irr", "IRR (beyond spec)"], ["neg", "futures with NPV < 0"], ["emv", "EMV launch / upgrade"], ["best", "best choice"], ["plays", "trees played / averages"]]);
 function showGroups() { const t = P.view === "tree"; gI.style.display = gA.style.display = t ? "none" : ""; gT.style.display = t ? "" : "none"; }
 function treeSet(o) { Object.assign(P, o); tA = []; tB = []; plays = 0; }

@@ -109,6 +109,7 @@ ctl.scene = K.seg(g, { value: "first", options: Object.entries(SCENES).map(([k, 
 ctl.pathogen = K.seg(g, { label: "Pathogen", value: "bact", options: Object.entries(PATHOGENS).map(([k, v]) => [k, v.name]), on: v => { P.pathogen = v; restart(); } });
 ctl.dose = K.slider(g, { label: "Number of pathogens getting in", min: 0.001, max: 10, step: 0.001, value: 0.01, fmt: v => "× " + (v / 0.01).toPrecision(2) + " the usual", on: v => { P.dose = v; restart(); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.5, max: 10, step: 0.5, value: 2, unit: "days per second", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 K.btn(K.row(g), "↺ Start again", () => restart(), "primary");
 const read = K.readout(ui.group("Readings"), [["d", "day"], ["p", "pathogens"], ["a", "antibodies"], ["ill", "days ill so far"], ["m", "memory"]]);
 function set(o) { Object.assign(P, { scene: "first", pathogen: "bact", dose: 0.01 }, o); ctl.scene.set(P.scene); ctl.pathogen.set(P.pathogen); ctl.dose.set(P.dose); restart(); }

@@ -100,6 +100,7 @@ g = ui.group("Network");
 C.H = K.slider(g, { label: "Hidden neurons", min: 0, max: 16, step: 1, value: 0, fmt: v => v ? String(v) : "none (one neuron)", on: v => { P.H = v; restart(false); } });
 C.lr = K.slider(g, { label: "Learning rate", min: 0.01, max: 3, step: 0.01, value: 0.3, on: v => P.lr = v });
 C.speed = K.slider(g, { label: "Epochs per second", min: 0.5, max: 60, step: 0.5, value: 4, on: v => P.speed = v });
+ui.headerSpeed(C.speed);   // playback speed lives in the header, beside Pause and Reset
 let rw = K.row(g); K.btn(rw, "🎲 New data", () => restart(), "primary"); K.btn(rw, "Reset the weights", () => restart(false));
 const read = K.readout(ui.group("Training"), [["ep", "Epoch"], ["tr", "Training accuracy"], ["te", "Test accuracy"], ["w", "Weights"]]);
 function showCtl() { C.H.el.style.display = ui.level === "adv" ? "" : "none"; }

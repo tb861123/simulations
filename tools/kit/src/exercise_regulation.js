@@ -119,6 +119,7 @@ ctl.drink = K.toggle(g, { label: "Drinks during the session", value: true, on: v
 ctl.pump = K.toggle(g, { label: "Skeletal muscle pump working", value: true, on: v => { P.pump = v; rerun(); } });
 ctl.betaBlock = K.toggle(g, { label: "Beta-blocker (cuts sympathetic drive)", value: false, on: v => { P.betaBlock = v; rerun(); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 5, max: 120, step: 5, value: 30, fmt: v => v + "× real time", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 K.btn(K.row(g), "↺ Start again", () => t = 0, "primary");
 const read = K.readout(ui.group("Now"), [["ph", "phase"], ["hr", "heart rate"], ["sv", "stroke volume"], ["q", "cardiac output"], ["ve", "breathing VE = TV × f"], ["av", "a-vO₂ difference"]]);
 function sync() { ctl.session.set(P.session); for (const k of ["age", "anxiety", "temp"]) ctl[k].set(P[k]); for (const k of ["trained", "drink", "pump", "betaBlock"]) ctl[k].set(P[k]); const adv = ui.level === "adv"; ctl.betaBlock.el.style.display = adv ? "" : "none"; ctl.pump.el.style.display = adv ? "" : "none"; }

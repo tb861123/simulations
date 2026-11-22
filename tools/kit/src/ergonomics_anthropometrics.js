@@ -100,6 +100,7 @@ g = ui.group("Percentiles");
 ctl.p = K.slider(g, { label: "Show the person at percentile", min: 1, max: 99, step: 1, value: 50, fmt: v => v + (v % 10 === 1 && v !== 11 ? "st" : v % 10 === 2 && v !== 12 ? "nd" : v % 10 === 3 && v !== 13 ? "rd" : "th"), on: v => P.p = v });
 ctl.sex = K.seg(g, { value: "f", options: [["f", "woman"], ["m", "man"], ["c", "child"]], on: v => P.sex = v });
 ctl.speed = K.slider(g, { label: "Speed of the crowd", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed, { label: "Crowd speed" });   // playback speed lives in the header, beside Pause and Reset
 let rr = K.row(g); K.btn(rr, "📏 Survey 30 people", () => doSurvey(), "primary"); K.btn(rr, "New crowd", () => newCrowd());
 const read = K.readout(ui.group("Readings"), [["fit", "users accommodated (crowd)"], ["th", "accommodated (theory)"], ["p5", "5th percentile (users)"], ["p50", "50th percentile (mean)"], ["p95", "95th percentile (users)"], ["you", "the person shown"], ["sv", "survey of 30: 5th / 95th"]]);
 const design = () => { const b = BRIEFS[P.brief]; return { a: P.a, b: b.kind === "range" ? P.a + P.adj : P.a }; };

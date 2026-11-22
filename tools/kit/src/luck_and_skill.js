@@ -96,6 +96,7 @@ g = ui.group("View");
 S.show = K.toggle(g, { label: "Reveal each club's true skill", value: true, on: v => showSkill = v });
 S.auto = K.toggle(g, { label: "Keep playing seasons", value: true, on: v => auto = v });
 S.speed = K.slider(g, { label: "Speed", min: 1, max: 30, step: 1, value: 4, fmt: v => v >= 30 ? "a season per blink" : v + " rounds per second", on: v => speed = v });
+ui.headerSpeed(S.speed);   // playback speed lives in the header, beside Pause and Reset
 g = ui.group("The story so far");
 const read = K.readout(g, [["sn", "Seasons played"], ["bw", "Won by the truly best club"], ["r", "Skill ↔ points correlation"], ["b", "Points per game: before → after sacking"]]);
 

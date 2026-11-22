@@ -105,6 +105,7 @@ g = ui.group("Customers");
 ctl.PED = K.slider(g, { label: "Price elasticity of demand (size)", min: 0.2, max: 3, step: 0.1, value: 1.4, fmt: v => v.toFixed(1) + (v < 1 ? " (inelastic)" : v > 1 ? " (elastic)" : " (unit)"), on: v => { P.PED = v; } });
 ctl.cv = K.slider(g, { label: "Uncertainty in monthly sales (SD)", min: 0, max: 0.5, step: 0.01, value: 0.15, fmt: v => "±" + Math.round(v * 100) + "%", on: v => { P.cv = v; } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 g = ui.group("A level");
 ctl.target = K.slider(g, { label: "Target profit per month", min: 0, max: 10000, step: 100, value: 0, fmt: v => v ? gbp(v) : "none", on: v => P.target = v });
 ctl.second = K.toggle(g, { label: "Open a second site when full (stepped fixed cost)", value: false, on: v => P.second = v });

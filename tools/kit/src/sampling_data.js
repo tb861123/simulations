@@ -158,6 +158,7 @@ g = ui.group("Sampling");
 C.method = K.seg(g, { value: "random", options: [["census", "census"], ["random", "simple random"], ["systematic", "systematic"], ["stratified", "stratified (by month)"], ["quota", "quota"], ["opportunity", "opportunity"]], on: v => { P.method = v; if (v === "census") { P.n = N; C.n.set(N); } takeSample(); } });
 C.n = K.slider(g, { label: "Sample size n", min: 5, max: 184, step: 1, value: 30, on: v => { P.n = v; if (P.method === "census" && v < N) { P.method = "random"; C.method.set("random"); } takeSample(); } });
 C.speed = K.slider(g, { label: "Days added per second", min: 0, max: 4, step: 1, value: 2, fmt: v => ["2", "5", "15", "60", "all at once"][v], on: v => P.speed = v });
+ui.headerSpeed(C.speed);   // playback speed lives in the header, beside Pause and Reset
 let rw = K.row(g); K.btn(rw, "🎲 New sample", () => { P.seed = Math.floor(Math.random() * 1e6); takeSample(); }, "primary"); K.btn(rw, "Repeat 200 times", () => repeatSampling());
 g = ui.group("Cleaning and display");
 C.trace = K.seg(g, { label: "Rainfall 'tr' (trace) values", value: "zero", options: [["zero", "count as 0"], ["omit", "leave out"]], on: v => P.trace = v });

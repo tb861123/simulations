@@ -215,6 +215,7 @@ ctl.hess = K.seg(g, { label: "Compound to form", value: "eth", options: Object.e
 K.btn(K.row(g), "↺ Build it again", () => bhT = 0, "primary");
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 6, step: 0.25, value: 1, fmt: v => "× " + v, on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
 const relabel = l => l.forEach((t, i) => read.el.children[i].firstElementChild.textContent = t);
 function newCup() { cup = cupRun({ rx: P.cup, conc: P.conc, cont: P.cont, stir: P.stir }, rnd); cupT = 0; }

@@ -134,6 +134,7 @@ ctl.Tw = K.slider(g, { label: "Water temperature", min: 0, max: 40, step: 1, val
 K.btn(K.row(g), "▶ Drop it in again", () => mixStart(), "primary");
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.5, max: 10, step: 0.5, value: 1, fmt: v => v + "× (" + K.sig(v, 2) + " min per s)", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""], ["e", ""]]);
 const relabel = l => l.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);
 function showCtl() { for (const k of ["m", "Pw", "T0"]) ctl[k].el.style.display = P.setT ? "none" : ""; ctl.loss.el.style.display = P.setT ? "none" : ""; ctl.heat.parentNode.style.display = P.setT ? "none" : ""; ctl.T.el.style.display = P.setT ? "" : "none"; }

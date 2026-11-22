@@ -89,6 +89,7 @@ C.a = K.slider(g, { label: "a", min: 0.5, max: 3, step: 0.25, value: 2, on: v =>
 C.b = K.slider(g, { label: "b", min: 0, max: 3, step: 0.25, value: 1, on: v => P.b = v });
 C.n = K.slider(g, { label: "n", min: 1, max: 8, step: 1, value: 3, on: v => P.n = v });
 C.speed = K.slider(g, { label: "Arm speed", min: 0.2, max: 4, step: 0.2, value: 1, fmt: v => v.toFixed(1) + "×", on: v => P.speed = v });
+ui.headerSpeed(C.speed);   // playback speed lives in the header, beside Pause and Reset
 g = ui.group("Area ½∫r² dθ");
 C.showArea = K.toggle(g, { label: "Shade the area from α to β", value: true, on: v => P.showArea = v });
 C.al = K.slider(g, { label: "α", min: -180, max: 360, step: 5, value: 0, unit: "°", on: v => P.al = Math.min(v, P.be) });

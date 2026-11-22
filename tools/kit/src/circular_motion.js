@@ -132,6 +132,7 @@ ctl.cth = K.slider(g, { label: "Angle from vertical θ", min: 5, max: 80, step: 
 ctl.cm = K.slider(g, { label: "Mass", min: 0.05, max: 2, step: 0.05, value: 0.5, unit: "kg", on: v => P.cm = v });
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.1, max: 2, step: 0.05, value: 1, fmt: v => v + "×", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""], ["e", ""]]);
 const relabel = l => l.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);
 function reset1() { snapped = null; trail = []; }

@@ -120,6 +120,7 @@ K.note(g, "Or click a precinct and drag over others to put them in its district.
 g = ui.group("Test the map (A level)");
 rr = K.row(g); K.btn(rr, "🎲 Run 200 random fair maps", () => runEnsemble(), "primary");
 ctl.speed = K.slider(g, { label: "Machine speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("This map"), [["seats", "seats Blue – Red"], ["votes", "votes Blue – Red"], ["wasted", "wasted votes Blue / Red"], ["gap", "efficiency gap"], ["sizes", "district sizes"], ["contig", "every district in one piece?"], ["ens", "random maps with as many Blue seats"]]);
 function newPlan() { machine = null; plan = P.plan === "columns" ? columns() : P.plan === "blocks" ? blocks() : P.plan === "random" ? randomPlan(rnd) : stripes(); }
 function startMachine(side) { if (!plan) newPlan(); const sc = smoothSeats(B, side); plan._s = sc(plan); machine = { side, sc, step: 0, steps: 9000 }; }

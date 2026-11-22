@@ -174,6 +174,7 @@ K.note(g, "Click the picture to drop in a seed crystal.");
 g = ui.group("Run");
 K.btn(K.row(g), "↺ Start again", () => newSim(), "primary");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 8, step: 0.25, value: 1, fmt: v => v + "×", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["T", "temperature"], ["st", "status"], ["n", "crystals per cm²"], ["sz", "mean crystal size"], ["x", "crystallised"]]);
 function rateTxt(r) { if (r >= 60) return K.sig(r / 60, 2) + " °C per minute"; if (r >= 1) return K.sig(r, 2) + " °C per hour"; if (r >= 1 / 24) return K.sig(r * 24, 2) + " °C per day"; if (r >= 1 / 8766) return K.sig(r * 8766, 2) + " °C per year"; return K.sig(r * 8766e3, 2) + " °C per 1000 years"; }
 function timeTxt(s) { if (s < 120) return s.toFixed(0) + " s"; if (s < 7200) return (s / 60).toFixed(1) + " min"; if (s < 172800) return (s / 3600).toFixed(1) + " hours"; if (s < 3.156e7 * 2) return (s / 86400).toFixed(0) + " days"; return K.sig(s / 3.156e7, 3) + " years"; }

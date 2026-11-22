@@ -118,6 +118,7 @@ const ctl = {}, grp = {};
 let g = ui.group("View");
 ctl.view = K.seg(g, { value: "disp", options: [["disp", "🔩 displacement"], ["simple", "🍋 simple cells"], ["half", "⚡ half-cells and E° (A level)"], ["fuel", "🔋 fuel and storage"], ["tit", "🧪 redox titrations (A level)"]], on: v => { P.view = v; showGroups(); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 10, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 grp.disp = g = ui.group("Displacement");
 ctl.X = K.seg(g, { value: "Zn", options: METALS.map(m => [m, m]), on: v => { P.X = v; startDisp(); } });
 ctl.Y = K.seg(g, { value: "Cu", options: METALS.map(m => [m, SALT[m]]), on: v => { P.Y = v; startDisp(); } });

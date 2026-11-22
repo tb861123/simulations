@@ -181,6 +181,7 @@ ctl.scen = K.seg(g, { value: "regions", options: Object.entries(SCEN).map(([k, v
 ctl.cost = K.slider(g, { label: "Average cost of moving", min: 0, max: 8, step: 0.1, value: 3, fmt: v => "£" + v.toFixed(1) + " an hour", on: v => { P.cost = v; restart(); } });
 g = ui.group("Run");
 ctl.speed = K.slider(g, { label: "Speed", min: 1, max: 6, step: 1, value: 2, fmt: v => v < 6 ? v + "×" : "a week per blink", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 let rr = K.row(g); K.btn(rr, "⏭ End the week", () => { if (P.view === "comp") { while (mk.open()) mk.meet(); finishWeek(); } else stepOther(); }); K.btn(rr, "↺ New people", () => restart());
 const read = K.readout(ui.group("Readings"), [["w", "wage"], ["l", "employment"], ["u", "unemployment"], ["bill", "wage bill"], ["x", "theory"]]);
 function set(o) {

@@ -131,6 +131,7 @@ S.floor = K.slider(g, { label: "Minimum price (floor)", min: 0, max: 110, step: 
 g = ui.group("View");
 S.vals = K.toggle(g, { label: "Show everyone's private value or cost", value: true, on: v => showVals = v });
 S.speed = K.slider(g, { label: "Speed", min: 1, max: 6, step: 1, value: 2, fmt: v => v < 6 ? v + "×" : "a day per blink", on: v => speed = v });
+ui.headerSpeed(S.speed);   // playback speed lives in the header, beside Pause and Reset
 g = ui.group("Today against the textbook");
 const read = K.readout(g, [["p", "Average price today"], ["pt", "Textbook price"], ["q", "Trades today"], ["qt", "Textbook quantity"], ["eff", "Efficiency yesterday"], ["dwl", "Textbook deadweight loss"], ["tr", "Total revenue (textbook)"], ["ped", "PED at this price"], ["yed", "YED / XED (A level)"]]);
 

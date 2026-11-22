@@ -163,6 +163,7 @@ ctl.jockey = K.toggle(g, { label: "Customers switch to a free till", value: fals
 g = ui.group("Watch");
 K.btn(K.row(g), "↺ Start again", () => restart(), "primary");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.5, max: 30, step: 0.5, value: 1, fmt: v => v + " shop minutes a second", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["rho", "how busy (ρ)"], ["mean", "mean wait"], ["p95", "95% wait less than"], ["u5", "served within 5 min"], ["over", "overtaken by a later arrival"], ["lost", "customers lost"]]);
 function restart() { shop = new Shop(Object.assign({}, P), rnd); log = []; walkers = []; peeps = new Map(); }
 function set(o) { Object.assign(P, { lam: 1.2, svc: 2, cv: 1, c: 3, layout: "sep", jockey: false, rush: false, balk: 0 }, o); for (const k of ["lam", "svc", "cv", "c", "balk"]) ctl[k].set(P[k]); ctl.layout.set(P.layout); ctl.jockey.set(P.jockey); ctl.rush.set(P.rush); speed = o.speed || 1; ctl.speed.set(speed); restart(); }

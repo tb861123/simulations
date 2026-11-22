@@ -139,6 +139,7 @@ const ctl = {}, grp = {};
 let gg = ui.group("View");
 ctl.view = K.seg(gg, { value: "density", options: [["density", "⚖️ density practicals"], ["pressure", "📌 p = F ÷ A"], ["liquid", "🌊 liquid pressure"], ["float", "🚢 floating"], ["sphere", "⚪ falling sphere"]], on: v => { P.view = v; showGroups(); } });
 ctl.speed = K.slider(gg, { label: "Speed", min: 0.1, max: 20, step: 0.1, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 grp.density = gg = ui.group("Density practical");
 ctl.kind = K.seg(gg, { value: "block", options: [["block", "regular block"], ["irregular", "irregular object"], ["liquid", "liquid"]], on: v => { P.kind = v; showGroups(); } });
 const sub = {};

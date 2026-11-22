@@ -88,6 +88,7 @@ C.inBox.addEventListener("input", () => { const M = FSMS[P.fsm]; P.input = C.inB
 C.tm = K.seg(gt, { value: "inc", options: Object.entries(TMS).map(([k, v]) => [k, v.name]), on: v => { P.tm = v; P.tape = TMS[v].tape; C.tapeBox.value = P.tape; restart(); } });
 C.tapeBox = K.$("input"); C.tapeBox.style.cssText = C.inBox.style.cssText; K.note(gt, "Starting tape:"); gt.append(C.tapeBox); C.tapeBox.addEventListener("input", () => { P.tape = C.tapeBox.value.replace(/\s/g, ""); restart(); });
 C.speed = K.slider(ui.group("Speed"), { label: "Steps per second", min: 0.25, max: 10, step: 0.25, value: 1.5, on: v => P.speed = v });
+ui.headerSpeed(C.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Now"), [["a", ""], ["b", ""], ["c", ""]]);
 const relabel = n => n.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);
 function showCtl() { gf.style.display = P.mode === "fsm" ? "" : "none"; gt.style.display = P.mode === "tm" ? "" : "none"; C.mode.el.querySelectorAll("button")[1].style.display = ui.level === "adv" ? "" : "none"; }

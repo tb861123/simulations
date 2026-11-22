@@ -126,6 +126,7 @@ g = ui.group("Data");
 C.data = K.seg(g, { value: "random", options: [["random", "random"], ["nearly", "nearly sorted"], ["reversed", "reversed"], ["few", "few values"]], on: v => { P.data = v; restart(); } });
 C.n = K.slider(g, { label: "Number of items n", min: 5, max: 200, step: 1, value: 20, on: v => { P.n = v; restart(); } });
 C.speed = K.slider(g, { label: "Speed (steps per second)", min: 1, max: 12, step: 1, value: 6, fmt: v => String(Math.round(Math.pow(2, v - 1))), on: v => P.speed = v });
+ui.headerSpeed(C.speed);   // playback speed lives in the header, beside Pause and Reset
 let rw = K.row(g); K.btn(rw, "🎲 New data", () => restart(), "primary");
 const read = K.readout(ui.group("Counters"), [["cmp", "Comparisons"], ["mv", "Swaps / moves"], ["th", "n(n − 1)/2 and n log₂ n"], ["st", "Status"]]);
 function showCtl() { C.alg.el.querySelectorAll("button").forEach((b, i) => b.style.display = !Object.values(ALG)[i].adv || ui.level === "adv" ? "" : "none"); }

@@ -150,6 +150,7 @@ ctl.err = K.slider(g, { label: "Mistakes", min: 0, max: 0.2, step: 0.01, value: 
 K.btn(K.row(g), "↺ Play again", () => newGame(), "primary");
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 5, step: 0.25, value: 1, fmt: v => "× " + v, on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
 const relabel = l => l.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);
 function showFirm() { ctl.P.el.style.display = P.taker ? "" : "none"; ctl.A.el.style.display = P.taker ? "none" : ""; }

@@ -80,6 +80,7 @@ const CVALS = [10, 47, 100, 220, 470, 1000, 2200, 4700];   // standard capacitor
 ctl.C = K.seg(g, { value: 470, options: CVALS.map(v => [v, v >= 1000 ? v / 1000 + " mF" : v + " µF"]), on: v => P.C = +v * 1e-6 });
 let rr = K.row(g); K.btn(rr, "⇄ Flip the switch", () => flip(), "primary"); ctl.auto = K.toggle(g, { label: "Flip automatically after 5τ", value: true, on: v => P.auto = v });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 g = ui.group("A level");
 ctl.combo = K.seg(g, { value: "single", options: [["single", "one capacitor"], ["series", "3 in series"], ["parallel", "3 in parallel"]], on: v => P.combo = v });
 ctl.C1 = K.slider(g, { label: "C₁", min: 10, max: 1000, step: 10, value: 100, unit: "µF", on: v => P.C1 = v * 1e-6 });

@@ -116,6 +116,7 @@ g = ui.group("View");
 S.view = K.seg(g, { value: view, options: [["vort", "Vorticity"], ["speed", "Speed"], ["press", "Pressure"]], on: v => view = v, tip: "Vorticity shows spin: red anticlockwise, blue clockwise." });
 S.smoke = K.toggle(g, { label: "Smoke streams", value: true, on: v => { smoke = v; parts = []; } });
 S.speed = K.slider(g, { label: "Simulation speed", min: 2, max: 12, step: 1, value: 5, fmt: v => v + " steps per frame", on: v => speed = v });
+ui.headerSpeed(S.speed);   // playback speed lives in the header, beside Pause and Reset
 g = ui.group("Force balance");
 const read = K.readout(g, [["cl", "Lift coefficient"], ["cd", "Drag coefficient"], ["ld", "Lift ÷ drag"], ["re", "Reynolds number"]]);
 const rp = K.row(g); K.btn(rp, "📌 Record this point", () => { pins.push({ a: S.alpha.value, cl: avg.cl, cd: avg.cd, shape }); }, "primary"); K.btn(rp, "Clear points", () => pins = []);

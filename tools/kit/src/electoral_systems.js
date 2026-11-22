@@ -183,6 +183,7 @@ const vs = PARTIES.map((p, i) => K.slider(g, { label: `${p.name} (national first
 g = ui.group("Elections");
 ctl.swing = K.slider(g, { label: "Random swing between elections", min: 0, max: 5, step: 0.5, value: 2, fmt: v => v ? "±" + v + " points" : "none", on: v => P.swing = v });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 let rr = K.row(g); K.btn(rr, "🗳 New election now", () => newElection(), "primary");
 g = ui.group("A level");
 ctl.mag = K.slider(g, { label: "STV: seats per constituency", min: 1, max: 10, step: 1, value: 5, on: v => { P.mag = v; recount(); } });

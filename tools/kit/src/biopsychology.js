@@ -145,6 +145,7 @@ C.rI = K.slider(gs, { label: "I firing rate (inhibitory)", min: 0, max: 200, ste
 C.reuptake = K.slider(gs, { label: "Reuptake blocked (e.g. an SSRI)", min: 0, max: 1, step: 0.05, value: 0, fmt: v => Math.round(100 * v) + "%", on: v => P.reuptake = v });
 C.antag = K.slider(gs, { label: "Excitatory receptors blocked (antagonist drug)", min: 0, max: 1, step: 0.05, value: 0, fmt: v => Math.round(100 * v) + "%", on: v => P.antag = v });
 C.sspeed = K.slider(gs, { label: "Speed (milliseconds per second)", min: 2, max: 200, step: 1, value: 25, on: v => P.sspeed = v });
+ui.headerSpeed(C.sspeed);   // playback speed lives in the header, beside Pause and Reset
 const gb = ui.group("Fight or flight");
 const press = () => { B.pulse = 5; }; rw = K.row(gb);   // a threat lasts 5 minutes
  K.btn(rw, "⚡ Sudden threat", press, "primary");
@@ -154,12 +155,14 @@ C.chronic = K.toggle(gb, { label: "Chronic stress (it never goes away)", value: 
 C.fb = K.slider(gb, { label: "Cortisol negative feedback strength", min: 0, max: 3, step: 0.1, value: 1, on: v => P.fb = v });
 C.beta = K.slider(gb, { label: "Beta-blocker (blocks adrenaline at the heart)", min: 0, max: 0.9, step: 0.1, value: 0, fmt: v => Math.round(100 * v) + "%", on: v => P.beta = v });
 C.bspeed = K.slider(gb, { label: "Speed (minutes per second)", min: 0.1, max: 10, step: 0.1, value: 1.5, on: v => P.bspeed = v });
+ui.headerSpeed(C.bspeed);   // playback speed lives in the header, beside Pause and Reset
 const gc = ui.group("Body clock");
 C.tau = K.slider(gc, { label: "Free-running period τ of the SCN", min: 23.5, max: 25.5, step: 0.1, value: 24.5, unit: "h", on: v => P.tau = v });
 C.cave = K.toggle(gc, { label: "Live in a cave (no daylight, like Siffre)", value: false, on: v => P.cave = v });
 C.light = K.slider(gc, { label: "Strength of daylight as a zeitgeber", min: 0, max: 2, step: 0.1, value: 1, on: v => P.light = v });
 rw = K.row(gc); K.btn(rw, "✈ Fly 8 h east", () => { P.shift += 8; flights.push([CL.t, "+8 h"]); }); K.btn(rw, "✈ Fly 8 h west", () => { P.shift -= 8; flights.push([CL.t, "−8 h"]); });
 C.cspeed = K.slider(gc, { label: "Speed (hours per second)", min: 1, max: 60, step: 1, value: 3, on: v => P.cspeed = v });
+ui.headerSpeed(C.cspeed);   // playback speed lives in the header, beside Pause and Reset
 K.row(ui.controls); K.btn(ui.controls, "Start again", () => restart(), "danger");
 const read = K.readout(ui.group("Now"), [["a", ""], ["b", ""], ["c", ""]]);
 const relabel = n => n.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);

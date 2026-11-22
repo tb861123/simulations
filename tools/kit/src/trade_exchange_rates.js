@@ -150,6 +150,7 @@ const ctl = {}, grp = {};
 let g = ui.group("View");
 ctl.view = K.seg(g, { value: "ca", options: [["ca", "⚓ comparative advantage"], ["steel", "🏭 tariffs and quotas"], ["fx", "💷 exchange rates"], ["real", "📈 the real pound"]], on: v => { P.view = v; showGroups(); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 8, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 grp.ca = g = ui.group("Two countries");
 ctl.nB = K.slider(g, { label: "Workers in country B (UK has 200)", min: 20, max: 400, step: 1, value: 130, on: v => { P.nB = v; if (W) W.nB = v; } });
 ctl.trade = K.toggle(g, { label: "Trade is open", value: true, on: v => { P.trade = v; if (W) { W.trade = v; } } });

@@ -158,6 +158,7 @@ ctl.hard = K.slider(g, { label: "Hardship (× normal)", min: 0.5, max: 1.6, step
 ctl.cops = K.slider(g, { label: "Police (share of places)", min: 0, max: 0.12, step: 0.005, value: P.cops, fmt: v => (v * 100).toFixed(1) + "%", tip: "Changes restart the grid", on: v => { P.cops = v; newReb(); } });
 ctl.jail = K.slider(g, { label: "Longest prison term", min: 1, max: 80, step: 1, value: P.jail, fmt: v => v + " steps", on: v => { P.jail = v; reb.o.jail = v; } });
 ctl.speed = K.slider(g, { label: "Speed", min: 1, max: 20, step: 1, value: P.speed, fmt: v => v + " steps a second", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 g.append(K.$("div", "", "<b style='font-size:12px;color:var(--muted)'>RUSSIA: EVENTS</b>"));
 row = K.row(g);
 K.btn(row, "Bloody Sunday (1905)", () => { setL(P.L - 0.15); ui.tip("January 1905: troops fire on a peaceful march. Legitimacy falls."); });

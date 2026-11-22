@@ -137,6 +137,7 @@ ctl.p = K.slider(gB, { label: "Weeks averaged in each forecast", min: 1, max: 12
 ctl.noise = K.slider(gB, { label: "Variation in shoppers' demand", min: 0, max: 0.3, step: 0.01, value: 0.1, fmt: v => "±" + Math.round(v * 100) + "%", on: v => { P.noise = v; restart(); } });
 ctl.step = K.toggle(gB, { label: "Shoppers buy 20% more from week 20", value: false, on: v => { P.step = v; restart(); } });
 g = ui.group("Play"); ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["rol", "re-order level"], ["avg", "average stock held"], ["out", "days with empty shelves"], ["serv", "customers served"], ["cost", "cost per day: hold / order / lost"], ["eoq", "EOQ √(2dS/H) (beyond spec)"], ["bw", "order swing: shop → factory"]]);
 function showGroups() { const c = P.view === "chain"; gS.style.display = gC.style.display = c ? "none" : ""; gB.style.display = c ? "" : "none"; }
 function restart() { ST = newStock(P); CH = newChain(Object.assign({}, P, { L: P.Lb })); acc = 0; }

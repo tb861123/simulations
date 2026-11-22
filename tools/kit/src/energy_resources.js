@@ -178,6 +178,7 @@ const ctl = {}, grp = {};
 let gg = ui.group("View");
 ctl.view = K.seg(gg, { value: "stations", options: [["stations", "🏭 power stations"], ["britain", "🇬🇧 run Britain"], ["grid", "🔌 the National Grid"], ["turbine", "🌬️ wind turbine"], ["data", "📈 GB since 2000"]], on: v => { P.view = v; showGroups(); } });
 ctl.speed = K.slider(gg, { label: "Speed", min: 0.25, max: 8, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 grp.stations = gg = ui.group("Resource");
 ctl.res = K.seg(gg, { value: "gas", options: RKEYS.map(k => [k, RES[k].n]), on: v => { P.res = v; tStage = 0; } });
 grp.britain = gg = ui.group("Run Britain");

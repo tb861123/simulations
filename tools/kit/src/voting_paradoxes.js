@@ -150,6 +150,7 @@ ctl.profile = K.seg(gP, { value: "cycle", options: Object.entries(PROFILES).map(
 const sl = ORDERS.map((o, gI) => K.slider(gP, { label: o.map(i => CAND[i]).join(" > "), min: 0, max: 60, step: 1, value: 0, fmt: v => v + "%", on: v => S[gI] = v }));
 ctl.nRand = K.slider(gP, { label: "Random electorates of this many voters", min: 3, max: 1001, step: 2, value: 101, on: v => { P.nRand = v; rand = { n: 0, cyc: 0, hist: [] }; } });
 g = ui.group("Play"); ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["med", "median voter"], ["pos", "party positions"], ["share", "vote shares"], ["turn", "turnout"], ["win", "winner: plurality / AV / Borda"], ["cond", "Condorcet winner"], ["rc", "random elections with a cycle"]]);
 function note(parent, html) { return K.note(parent, html); }
 function showGroups() { const p = P.view === "paradox"; gM.style.display = p ? "none" : ""; gP.style.display = p ? "" : "none"; }

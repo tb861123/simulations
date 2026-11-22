@@ -151,6 +151,7 @@ S.n = K.slider(g, { label: "Glass refractive index n", min: 1.1, max: 2.5, step:
 g = ui.group("View");
 S.view = K.seg(g, { value: view, options: [["height", "Water height"], ["inten", "Intensity"]], on: v => view = v, tip: "Intensity is the time-averaged brightness: it makes interference patterns stand out." });
 S.speed = K.slider(g, { label: "Simulation speed", min: 1, max: 6, step: 1, value: 3, fmt: v => v + "×", on: v => speed = v });
+ui.headerSpeed(S.speed);   // playback speed lives in the header, beside Pause and Reset
 S.absorb = K.toggle(g, { label: "Absorbing edges (off = waves bounce back)", value: true, on: v => tank.setEdges(v) });
 const r1 = K.row(g); K.btn(r1, "Calm the water", () => tank.calm()); K.btn(r1, "Clear drawing", () => { tank.drawn.fill(0); tank.glass.fill(0); tank.rebuild(); }, "danger");
 g = ui.group("Measurements");

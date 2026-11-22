@@ -102,6 +102,7 @@ ctl.el = K.seg(g, { label: "Element", value: "H", options: Object.entries(ELEMEN
 ctl.mode = K.seg(g, { label: "Spectrum", value: "emission", options: [["emission", "emission (discharge tube)"], ["absorption", "absorption (white light through gas)"]], on: v => { P.mode = v; seen = {}; } });
 ctl.series = K.seg(g, { label: "Series (hydrogen)", value: "balmer", options: Object.entries(SERIES).map(([k, v]) => [k, v[1]]), on: v => { P.series = v; seen = {}; } });
 ctl.rate = K.slider(g, { label: "Jumps per second", min: 0.5, max: 20, step: 0.5, value: 3, on: v => P.rate = v });
+ui.headerSpeed(ctl.rate);   // playback speed lives in the header, beside Pause and Reset
 g = ui.group("Your transition (hydrogen)");
 ctl.ni = K.slider(g, { label: "From level nᵢ", min: 2, max: 8, step: 1, value: 3, on: v => { P.ni = v; if (P.nf >= v) { P.nf = v - 1; ctl.nf.set(P.nf); } } });
 ctl.nf = K.slider(g, { label: "To level n_f", min: 1, max: 7, step: 1, value: 2, on: v => { P.nf = Math.min(v, P.ni - 1); } });

@@ -114,6 +114,7 @@ K.btn(K.row(g), "Wipe the screen", () => { hits = []; });
 g = ui.group("View");
 S.view = K.seg(g, { value: view, options: [["phase", "Phase colours"], ["prob", "Probability"], ["real", "Real part"]], on: v => view = v });
 S.speed = K.slider(g, { label: "Speed", min: 2, max: 30, step: 2, value: 10, fmt: v => v + " steps per frame", on: v => speed = v });
+ui.headerSpeed(S.speed);   // playback speed lives in the header, beside Pause and Reset
 S.edges = K.toggle(g, { label: "Absorbing edges (off = a closed box)", value: true, on: v => psi.setEdges(v) });
 g = ui.group("Where is the particle?");
 const read = K.readout(g, [["pl", "Left of the dashed line"], ["pr", "Right of the dashed line"], ["out", "Left the picture"], ["n", "Dots on the screen"]]);

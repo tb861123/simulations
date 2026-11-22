@@ -97,6 +97,7 @@ C.keys = K.slider(gh, { label: "Keys to insert", min: 1, max: 30, step: 1, value
 C.method = K.seg(gh, { label: "Collisions", value: "probe", options: [["probe", "open addressing: linear probing"], ["chain", "chaining (overflow lists)"]], on: v => { P.method = v; newTable(); } });
 let rw2 = K.row(gh); K.btn(rw2, "🎲 New keys", () => newTable(), "primary"); K.btn(rw2, "Search for another key", () => { P.find = keyList[rand.int(keyList.length)]; hres = findInTable(tab, P.find, P.m, P.method); shown = 0; });
 C.speed = K.slider(ui.group("Speed"), { label: "Steps per second", min: 0.25, max: 4, step: 0.25, value: 1, on: v => P.speed = v });
+ui.headerSpeed(C.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Numbers"), [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
 const relabel = n => n.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);
 function showCtl() { gs.style.display = P.mode === "search" ? "" : "none"; gh.style.display = P.mode === "hash" ? "" : "none"; C.mode.el.querySelectorAll("button")[1].style.display = ui.level === "adv" ? "" : "none"; if (P.method === "probe") { P.keys = Math.min(P.keys, P.m); } }
