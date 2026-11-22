@@ -161,6 +161,10 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["sorting_algorithms.js", "sorting_algorithms", "sorting-algorithms.html", "Sorting Algorithms", "computing"],
   ["searching_and_hashing.js", "searching_and_hashing", "searching-and-hashing.html", "Searching and Hashing", "computing"],
   ["pathfinding.js", "pathfinding", "pathfinding.html", "Pathfinding: Dijkstra and A*", "computing"],
+  ["muscles_neuromuscular.js", "muscles_neuromuscular", "muscles-neuromuscular.html", "Muscles and the Neuromuscular System", "physical_education"],
+  ["exercise_regulation.js", "exercise_regulation", "exercise-regulation.html", "Heart, Lungs and Blood in Exercise", "physical_education"],
+  ["nutrition_ergogenic_aids.js", "nutrition_ergogenic_aids", "nutrition-ergogenic-aids.html", "Nutrition and Ergogenic Aids", "physical_education"],
+  ["sport_psychology.js", "sport_psychology", "sport-psychology.html", "Motivation, Confidence and Leadership", "physical_education"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
