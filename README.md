@@ -14,9 +14,9 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and eighty-seven simulations are built with the shared toolkit (the
+All one hundred and eighty-eight simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and seventy-eight newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and seventy-nine newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
 mathematics, statistics, chemistry, economics, geography, PE and music simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones, and the Cosmic Distance Ladder, and the explore simulations). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -222,6 +222,7 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`astrophysics/gravitational_lensing/`](astrophysics/gravitational_lensing/) | Black Holes and Gravitational Lensing ★: a ray-traced black hole with accretion disc, Einstein rings and arcs, microlensing planets, Eddington 1919 | Open `gravitational-lensing.html` |
 | [`astrophysics/dark_matter/`](astrophysics/dark_matter/) | Dark matter ★: rotation curves of five galaxies, Doppler slit spectra, halo fitting with χ², MOND | Open `dark-matter.html` |
 | [`astrophysics/cosmic_distance_ladder/`](astrophysics/cosmic_distance_ladder/) | The Cosmic Distance Ladder: six tabs, one per rung: radar echoes from Venus size the AU, stellar parallax (Bessel, Hipparcos, Gaia), Cepheids and Leavitt's law calibrated by parallax, Type Ia supernovae calibrated by Cepheids (stretch correction), Hubble's law and H₀; random and systematic errors climb the ladder (Baade 1952, the Hubble tension) | Open `cosmic-distance-ladder.html` |
+| [`astrophysics/gravity_slingshots/`](astrophysics/gravity_slingshots/) | Gravity-Assist Sandbox (explore, WebGL): a close-up flyby in the Sun's and the planet's frames with a velocity-vector diagram, then real planets: launch windows, escaping with a Jupiter flyby, diving at the Sun with Venus, a Voyager-style Grand Tour, a path predictor, Δv budget and Sandbox; batch: speed gain vs flyby distance, approach angle, side and planet mass against the slingshot formula | Open `gravity-slingshots.html` |
 | [`astrophysics/three_body_chaos/`](astrophysics/three_body_chaos/) | Three-Body Chaos ★: N-body gravity with a "twin universe" to watch prediction fail (the earlier outcome-map lab is in `original_lab/`) | Open `three-body-chaos.html` |
 
 ## Explore
@@ -231,7 +232,7 @@ science and mathematics underneath. Each has a WebGL main view (the graphics
 card draws it; a clear message appears if WebGL is switched off), Investigate
 cards written as challenges, a Batch run and worksheets, but no Standard /
 Advanced switch and no Revise tab. Explore simulations that belong to a subject
-(Slime Mould Networks, Ant Colony Foraging, Creature Evolution Arena) are listed
+(Slime Mould Networks, Ant Colony Foraging, Creature Evolution Arena, Gravity-Assist Sandbox) are listed
 under that subject.
 
 | Folder | What it is | How to run |
