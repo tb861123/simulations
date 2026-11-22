@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and sixty-eight simulations are built with the shared toolkit (the
+All one hundred and sixty-nine simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and sixty-five newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
@@ -396,6 +396,7 @@ Standard level follows Cambridge International AS Level Computer Science (9618, 
 | [`computing/cpu_fetch_execute/`](computing/cpu_fetch_execute/) | CPU: Fetch–Decode–Execute: a Von Neumann CPU stepping through register transfer notation with registers and buses lit up; an editable Cambridge 9618 assembly program (LDM, LDD, LDI, LDX, STO, ADD, CMP, JPN, AND, LSL…) with addressing modes and bit manipulation; pipelining at A Level | Open `cpu-fetch-execute.html` |
 | [`computing/binary_and_floating_point/`](computing/binary_and_floating_point/) | Binary and Floating Point: clickable bits with unsigned, two's complement, hex, BCD and ASCII views; binary addition with carries, carry and overflow flags; A Level normalised floating point (two's complement mantissa and exponent), range against precision, rounding errors and overflow/underflow (Cambridge 9618) | Open `binary-and-floating-point.html` |
 | [`computing/networking_and_encryption/`](computing/networking_and_encryption/) | Networks and Encryption: packet switching on a router network (independent routes, out-of-order arrival, loss and TCP retransmission, reassembly by sequence number) against circuit switching; Caesar and Vigenère ciphers with frequency analysis; toy RSA key pairs and a digital signature (Cambridge 9618) | Open `networking-and-encryption.html` |
+| [`computing/neural_networks_and_ml/`](computing/neural_networks_and_ml/) | Neural Networks and Machine Learning: supervised learning on 2D data (line, XOR, circle, spiral) with a single neuron or a hidden layer trained by back-propagation; decision boundary, weights diagram, loss and accuracy curves, learning rate, training against test data and overfitting (Cambridge 9618 A Level AI) | Open `neural-networks-and-ml.html` |
 
 ## Where the old repositories went
 
