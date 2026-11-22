@@ -14,9 +14,9 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and eighty-nine simulations are built with the shared toolkit (the
+All one hundred and ninety simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and eighty newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and eighty-one newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
 mathematics, statistics, chemistry, economics, geography, PE and music simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones, and the Cosmic Distance Ladder, and the explore simulations). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -239,6 +239,7 @@ under that subject.
 |---|---|---|
 | [`explore/fractal_explorer/`](explore/fractal_explorer/) | Fractal Explorer: Mandelbrot and Julia sets on the graphics card (double-single precision to about 10⁻¹²), live Julia preview, orbits, Newton fractals, famous places and a zoom tour; π from escape times at the cusp and neck, Monte Carlo area, box-counting dimension | Open `fractal-explorer.html` |
 | [`explore/strange_attractors/`](explore/strange_attractors/) | Strange Attractors: nine attractors (seven flows, two maps) integrated by RK4 on the graphics card as up to a million particles with glowing trails and an orbit camera; live parameter morphing, the butterfly effect, Lyapunov exponents (Benettin), period doubling in Rössler | Open `strange-attractors.html` |
+| [`explore/life_automata/`](explore/life_automata/) | Life and Cellular Automata: life-like rules (Life, HighLife, Seeds, Day & Night, Maze, your own B/S) on grids up to 2048 × 1152 stepped on the graphics card; pattern library from RLE, drawing, zoom, age colours; Wolfram's elementary rules scrolling; soup ash, die-out chance, Langton's λ, rule 30 as a coin | Open `life-automata.html` |
 
 ## Mathematics
 
