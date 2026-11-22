@@ -131,6 +131,7 @@ const fams = [...new Set(MAT.map(m => m.fam))];
 ctl.mat = K.seg(gT, { value: "steel", options: MAT.map(m => [m.k, m.name.replace(" (along grain)", "")]), on: v => { P.mat = v; restart(); } });
 ctl.treat = K.seg(gT, { label: "Enhancement (metals, A level)", value: "none", options: [["none", "as supplied"], ["work", "work hardened"], ["anneal", "annealed"]], on: v => { P.treat = v; restart(); } });
 ctl.speed = K.slider(gT, { label: "Test speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 let rr = K.row(gT); K.btn(rr, "↺ New sample", () => restart(), "primary"); K.btn(rr, "Test 20 samples", () => { for (let i = 0; i < 20; i++) { const m = treated(byK(P.mat), P.treat), s = sampleScale(m, rnd); results.push([P.mat, P.treat, m.uts * s]); } });
 K.btn(rr, "Clear results", () => results = []);
 const gS = ui.group("Design brief: a tie in tension");

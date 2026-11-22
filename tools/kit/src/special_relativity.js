@@ -114,6 +114,7 @@ S.b = K.slider(g, { label: "Observer's speed", min: -0.99, max: 0.999, step: 0.0
 g = ui.group("Time");
 S.T = K.slider(g, { label: "Scrub through time", min: 0, max: 1000, step: 1, value: 0, fmt: () => T.toFixed(1) + " " + SCENES[scene].ut, on: x => { T = tRange[0] + (tRange[1] - tRange[0]) * x / 1000; ui.setPlaying(false); } });
 S.rate = K.slider(g, { label: "Playback speed", min: 0.1, max: 3, step: 0.1, value: 1, fmt: x => x.toFixed(1) + "×", on: x => rate = x });
+ui.headerSpeed(S.rate);   // playback speed lives in the header, beside Pause and Reset
 g = ui.group("Measured in this frame");
 const read = K.readout(g, [["g", "γ of the train / ship"], ["t", "Time now"], ["i0", "–"], ["i1", "–"], ["i2", "–"], ["i3", "–"]]);
 const tiles = read.el.querySelectorAll("span");

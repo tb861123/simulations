@@ -108,6 +108,7 @@ const ctl = {}, grp = {};
 let g = ui.group("View");
 ctl.view = K.seg(g, { value: "glacier", options: [["glacier", "🏔 valley glacier"], ["corrie", "🧭 corrie aspect"], ["trough", "⛰ V to U"], ["freeze", "❄ freeze–thaw"]], on: v => { P.view = v; showGroups(); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 8, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 grp.glacier = g = ui.group("Climate");
 ctl.dT = K.slider(g, { label: "Warming (+) or cooling (−)", min: -2, max: 3, step: 0.1, value: 0, unit: "°C", on: v => P.dT = v });
 ctl.snow = K.slider(g, { label: "Snowfall", min: 0.5, max: 1.5, step: 0.05, value: 1, fmt: v => (v * 100).toFixed(0) + "% of today", on: v => P.snow = v });

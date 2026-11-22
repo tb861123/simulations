@@ -143,6 +143,7 @@ const ctl = {};
 let g = ui.group("The storm");
 ctl.eta = K.slider(g, { label: "η: preference for the strongest field", min: 1, max: 6, step: 0.25, value: 2, on: v => storm.eta = v, tip: "1 = bushy, 6 = almost straight" });
 ctl.speed = K.slider(g, { label: "Leader speed", min: 1, max: 30, step: 1, value: speed, unit: "cells per frame", on: v => speed = v });
+ui.headerSpeed(ctl.speed, { label: "Speed" });   // playback speed lives in the header, beside Pause and Reset
 ctl.startMode = K.seg(g, { label: "Leader sets off from", value: "random", options: [["random", "Anywhere"], ["fixed", "One point"]], on: v => { startMode = v; if (v === "fixed") ui.tip("Click in the cloud to choose where the leader starts", 5000); begin(); }, tip: "With 'One point', click the cloud to move it." });
 ctl.auto = K.toggle(g, { label: "Keep striking", value: true, on: v => auto = v });
 let r1 = K.row(g); K.btn(r1, "⚡ Strike now", () => { begin(); ui.setPlaying(true); }, "primary"); K.btn(r1, "Clear tally", () => { log = []; tally(); });

@@ -141,6 +141,7 @@ ctl.tan = K.slider(g, { label: "Tangent drawn at", min: 0, max: 600, step: 1, va
 ctl.noise = K.slider(g, { label: "Measuring noise", min: 0, max: 0.05, step: 0.005, value: 0.01, fmt: v => (v * 100).toFixed(1) + "% of [A]₀", on: v => P.noise = v });
 ctl.tErr = K.slider(g, { label: "Your stopwatch reaction time (SD)", min: 0, max: 1.5, step: 0.1, value: 0.4, unit: "s", on: v => P.tErr = v });
 ctl.speed = K.slider(g, { label: "Speed", min: 1, max: 60, step: 1, value: 4, fmt: v => v + "× real time", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 let rr = K.row(g); K.btn(rr, "↺ Start again", () => restart(), "primary"); K.btn(rr, "📝 Record this run", () => record()); K.btn(rr, "🗑 Clear table", () => { runs = []; arr = []; });
 const read = K.readout(ui.group("Readings"), [["t", "time"], ["c", "concentration"], ["r", "rate now"], ["tan", "gradient of tangent"], ["h", "half-lives"], ["k", "k at this T"]]);
 function defaults() { const d = { iod: { c0: 0.002 }, sn1: { c0: 0.05, b0: 0.1 }, sn2: { c0: 0.05, b0: 0.05 }, clock: { c0: 0.02 }, own: { c0: 0.1 } }[P.rx]; Object.assign(P, d); sync(); }

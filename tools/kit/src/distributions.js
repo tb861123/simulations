@@ -128,6 +128,7 @@ C.invMode = K.toggle(g, { label: "Inverse normal: find x from a probability (A l
 C.inv = K.slider(g, { label: "P(X < x) =", min: 0.005, max: 0.995, step: 0.005, value: 0.95, fmt: v => v.toFixed(3), on: v => P.inv = v });
 g = ui.group("Balls");
 C.speed = K.slider(g, { label: "Balls per second", min: 0, max: 7, step: 1, value: 1, fmt: v => [1, 3, 10, 30, 100, 300, 1000, 3000][v] + "", on: v => P.speed = v });
+ui.headerSpeed(C.speed);   // playback speed lives in the header, beside Pause and Reset
 let rw = K.row(g); K.btn(rw, "Drop 1", () => drop(1)); K.btn(rw, "Drop 100", () => drop(100, true)); K.btn(rw, "Drop 1000", () => drop(1000, true)); K.btn(rw, "Clear", () => clearBalls(), "danger");
 const read = K.readout(ui.group("Numbers"), [["ex", "Exact probability"], ["sim", "Balls in region"], ["ap", "Normal approximation"], ["mv", "Mean, variance (theory)"], ["smv", "Mean, variance (balls)"], ["k", "Balls"]]);
 

@@ -127,6 +127,7 @@ ctl.cost = K.slider(g, { label: "Costs (cost-push shock)", min: -20, max: 30, st
 ctl.Yf = K.slider(g, { label: "Productive potential", min: 600, max: 900, step: 5, value: 714, unit: "£bn", on: v => A.Yf = v });
 g = ui.group("Run");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 8, step: 0.25, value: 1, fmt: v => v + " rounds a second", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["Y", "national income Y"], ["eq", "equilibrium J ÷ MPW"], ["JW", "injections · withdrawals"], ["k", "multiplier 1 ÷ MPW"], ["ad", "AD = C + I + G + (X − M)"], ["gap", "output gap · price level"]]);
 function set(o) {
   Object.assign(P, BASE(), { sectors: 5, view: "flow", dJ: 10 }, o);

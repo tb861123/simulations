@@ -139,6 +139,7 @@ C.editor = K.$("textarea"); C.editor.style.cssText = "width:100%;height:190px;fo
 let rw = K.row(g); K.btn(rw, "Assemble and load my program", () => { load(C.editor.value); ui.setPlaying(false); }, "primary");
 g = ui.group("Running");
 C.speed = K.slider(g, { label: "Micro-steps per second", min: 0.5, max: 20, step: 0.5, value: 2, on: v => P.speed = v });
+ui.headerSpeed(C.speed);   // playback speed lives in the header, beside Pause and Reset
 C.bin = K.toggle(g, { label: "Show registers in binary", value: false, on: v => P.bin = v });
 rw = K.row(g); K.btn(rw, "Step ▸", () => { ui.setPlaying(false); micro(); }, "primary"); K.btn(rw, "Run to END", () => { let k = 0; while (!cpu.halt && k++ < 20000) micro(); });
 const read = K.readout(ui.group("Counters"), [["i", "Instructions executed"], ["c", "Micro-steps"], ["m", "Memory accesses"], ["o", "Output"]]);

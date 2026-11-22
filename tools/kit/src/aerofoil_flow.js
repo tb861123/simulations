@@ -138,6 +138,7 @@ ctl.view = K.seg(g, { label: "Colour map", value: "speed", options: [["speed", "
 ctl.stream = K.toggle(g, { label: "Streamlines", value: true, on: v => P.stream = v });
 ctl.parts = K.toggle(g, { label: "Smoke particles", value: true, on: v => P.parts = v });
 ctl.speed = K.slider(g, { label: "Particle speed", min: 0.25, max: 3, step: 0.25, value: 1, fmt: v => v + "×", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["cl", "lift coefficient C_L"], ["clp", "C_L from surface pressures"], ["L", "lift per metre of wing"], ["cpmin", "lowest Cp (fastest air)"], ["th", "thin-aerofoil theory"]]);
 function set(o) {
   Object.assign(P, { shape: "naca", m: 0, p: 4, t: 12, a: 5, V: 30, c: 1, N: 100, spin: 0 }, o);

@@ -184,6 +184,7 @@ const ctl = {}, grp = {};
 let gg = ui.group("View");
 ctl.view = K.seg(gg, { value: "trip", options: [["trip", "🗺 fieldtrip"], ["stats", "📊 statistics"], ["many", "🎲 many fieldtrips"]], on: v => { P.view = v; showGroups(); if (v === "many") trips = []; } });
 ctl.speed = K.slider(gg, { label: "Speed", min: 0.5, max: 20, step: 0.5, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 gg = ui.group("Your fieldwork");
 ctl.site = K.seg(gg, { value: "beach", options: Object.keys(SITES).map(k => [k, SITES[k].name.split(" (")[0].split(":")[0]]), on: v => { P.site = v; own = []; newTrip(); } });
 ctl.method = K.seg(gg, { value: "random", options: [["random", "random"], ["systematic", "systematic"], ["stratified", "stratified"], ["opportunistic", "opportunistic"], ["own", "your own (click the map)"]], on: v => { P.method = v; newTrip(); } });

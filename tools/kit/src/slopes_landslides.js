@@ -159,6 +159,7 @@ const ctl = {}, grp = {};
 let gg = ui.group("View");
 ctl.view = K.seg(gg, { value: "slope", options: [["weather", "🪨 weathering"], ["slope", "⛰ slope stability"], ["cliff", "🌊 undercut cliff"], ["creep", "🐌 soil creep"], ["years", "🌧 landslides over the years"]], on: v => { P.view = v; showGroups(); } });
 ctl.speed = K.slider(gg, { label: "Speed", min: 0.25, max: 8, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 grp.weather = gg = ui.group("Rock and climate");
 ctl.rock = K.seg(gg, { value: "granite", options: Object.keys(ROCK).map(k => [k, ROCK[k].name]), on: v => { P.rock = v; newWeather(); } });
 ctl.T = K.slider(gg, { label: "Mean temperature", min: -15, max: 30, step: 1, value: 8, unit: "°C", on: v => P.T = v });

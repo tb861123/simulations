@@ -130,6 +130,7 @@ S.ear = K.slider(g, { label: "Ea (reverse)", min: 0.5, max: 6, step: 0.1, value:
 g = ui.group("Live numbers");
 const read = K.readout(g, [["a", "[A]"], ["b", "[B]"], ["ab", "[AB]"], ["q", "Q = [AB]/[A][B]"], ["kp", "Kp = p(AB)/p(A)p(B)"], ["x", "mole fraction of AB"], ["dh", "ΔH"], ["t", "time"]]);
 S.speed = K.slider(g, { label: "Speed", min: 1, max: 8, step: 1, value: 1, fmt: v => v + "×", on: v => speed = v });
+ui.headerSpeed(S.speed);   // playback speed lives in the header, beside Pause and Reset
 
 function restart(o) {
   box = new Box(K.rng(Date.now()), Object.assign({ T: S.T.value, EaF: S.eaf.value, EaR: S.ear.value, W: BW * S.V.value / 100 }, o || {}));

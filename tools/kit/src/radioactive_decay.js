@@ -133,6 +133,7 @@ ctl.iso2 = K.seg(g, { value: "", options: [["i", "I-131"], ["co", "Co-60"], ["c"
 const isoNote = K.note(g, "");
 ctl.N0 = K.slider(g, { label: "Starting number", min: 100, max: 10000, step: 100, value: N0, on: v => { N0 = v; restart(); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 6, step: 0.25, value: 1, fmt: v => v + (v === 1 ? " half-life" : " half-lives") + " a minute", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 let r1 = K.row(g); K.btn(r1, "↺ Start again", () => restart(), "primary");
 K.note(g, "Click a nucleus to make it decay now.");
 const benchGroup = g = ui.group("The bench");

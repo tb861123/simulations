@@ -116,6 +116,7 @@ grp.ext = g = ui.group("Extraction");
 ctl.ext = K.seg(g, { value: "Fe", options: ORDER.map(k => [k, k]), on: v => P.ext = v });
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 1, max: 30, step: 1, value: 5, fmt: v => v + " s a second", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
 const relabel = l => l.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);
 function run() { t = 0; bubbles = []; for (const k of ["form"]) ctl[k].el.style.display = ""; ctl.conc.el.style.display = P.reagent === "acid" ? "" : "none"; }

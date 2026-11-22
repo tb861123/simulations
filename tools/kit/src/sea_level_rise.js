@@ -97,6 +97,7 @@ let g = ui.group("The future");
 ctl.scen = K.seg(g, { value: "mid", options: Object.entries(SCEN).map(([k, v]) => [k, v.name]), on: v => { P.scen = v; proj = project(v); } });
 ctl.year = K.slider(g, { label: "Year", min: 1900, max: 2300, step: 1, value: 2024, on: v => { P.year = v; run = false; } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.5, max: 20, step: 0.5, value: 2, unit: "years per second", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 let rr = K.row(g); K.btn(rr, "▶ Run on", () => run = true, "primary"); K.btn(rr, "⏮ 1900", () => { P.year = 1900; ctl.year.set(1900); }); K.btn(rr, "Today", () => { P.year = 2024; ctl.year.set(2024); });
 g = ui.group("The coast");
 ctl.place = K.seg(g, { value: "estuary", options: Object.entries(PLACES).map(([k, v]) => [k, v.name]), on: v => { P.place = v; coast = makeCoast(v, 7); } });

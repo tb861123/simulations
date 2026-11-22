@@ -66,6 +66,7 @@ const ui = K.app({
 let g = ui.group("Play");
 S.you = K.toggle(g, { label: "<b>You are the bird</b> (click moths to eat them)", value: false, on: v => { youBird = v; restart(); } });
 S.speed = K.slider(g, { label: "Speed", min: 1, max: 5, step: 1, value: 1, fmt: v => v < 5 ? v + "×" : "fast-forward", on: v => { speed = v; fast = v === 5; } });
+ui.headerSpeed(S.speed);   // playback speed lives in the header, beside Pause and Reset
 g = ui.group("Environment");
 S.scen = K.seg(g, { label: "Story", value: "steady", options: [["steady", "Steady"], ["sudden", "Sudden change"], ["industry", "Industrial Revolution"], ["drift", "Steady darkening"]], on: v => { scenario = v; restart(); } });
 S.env = K.slider(g, { label: "Bark colour", min: 0.05, max: 0.95, step: 0.01, value: 0.8, fmt: v => v.toFixed(2) + (v < .35 ? " sooty" : v > .65 ? " lichen" : ""), tip: "Used by the 'Steady' story. Drag it mid-run to change the environment yourself." });

@@ -173,6 +173,7 @@ ctl.fSE = K.slider(gS, { label: "Situation ethicists", min: 0, max: 1, step: 0.0
 K.note(gS, "Everyone else is a rule utilitarian or a Kantian: they always keep promises.");
 ctl.surplus = K.slider(gS, { label: "Value of cooperation (per deal)", min: 0, max: 2, step: 0.1, value: 0.5, on: v => { P.surplus = v; restartSoc(); } });
 ctl.speed = K.slider(gS, { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["agree", "theories that support acting"], ["net", "hedonic calculus net score"], ["trust", "trust in promises"], ["wel", "average welfare per pair"], ["kept", "promises kept"]]);
 function showGroups() { const s = P.view === "society"; gD.style.display = s ? "none" : ""; gS.style.display = s ? "" : "none"; }
 function restartSoc() { live = { trust: P.trust0, t: 0, W: [], T: [], kinds: null, kept: 0, made: 0 }; const r = K.rng(77); live.kinds = []; for (let i = 0; i < 200; i++) { const u = r(); live.kinds.push(u < P.fAct ? "act" : u < P.fAct + P.fSE ? "se" : "rule"); } live.last = []; }

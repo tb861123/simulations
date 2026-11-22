@@ -139,6 +139,7 @@ ctl.conc = K.slider(g, { label: "Sucrose concentration to look at", min: 0, max:
 K.btn(K.row(g), "↺ Start the 24 hours again", () => newPotato(), "primary");
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 6, step: 0.25, value: 1, fmt: v => "× " + v, on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
 const relabel = l => l.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);
 function newBox() { box = new Box({ proc: P.proc, nL: P.nL, nR: P.nR, T: P.T, pores: P.pores, thick: P.thick, resp: P.resp }, rnd); log = []; }

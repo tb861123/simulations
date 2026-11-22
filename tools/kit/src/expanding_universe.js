@@ -108,6 +108,7 @@ ctl.cal = K.slider(g, { label: "Calibration error", min: -0.9, max: 0.5, step: 0
 ctl.vpec = K.slider(g, { label: "Galaxies' own motions", min: 0, max: 1000, step: 10, value: 300, unit: "km/s", on: v => { P.vpec = v; newSurvey(); } });
 let rr = K.row(g); K.btn(rr, "🔭 Observe all now", () => measureAll(), "primary"); K.btn(rr, "↺ New survey", () => newSurvey());
 ctl.speed = K.slider(g, { label: "Observing speed", min: 0.5, max: 20, step: 0.5, value: 1, fmt: v => v * 2 + " galaxies per second", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["H", "H₀ fitted"], ["age", "Hubble time 1/H₀"], ["n", "galaxies observed"], ["last", "latest galaxy"], ["z", "spectrum: z and Δλ(Hα)"]]);
 function newSurvey() { gals = survey(Object.assign({}, P, { sig: P.candle === "cepheid" ? Math.max(P.sig, 0.1) : P.sig, dmax: P.candle === "cepheid" ? Math.min(P.dmax, 40) : P.dmax }), rnd); shown = 0; picked = null; }
 function measureAll() { shown = gals.length; }

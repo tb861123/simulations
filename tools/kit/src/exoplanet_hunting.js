@@ -134,6 +134,7 @@ let rb = K.row(g); K.btn(rb, "÷ 2", () => { P.trialP /= 2; ctl.trialP.set(P.tri
 ctl.chartB = K.seg(g, { label: "Right-hand graph", value: "fold", options: [["fold", "Folded light curve"], ["rv", "Radial velocity"], ["spec", "Search results"]], on: v => P.chartB = v });
 ctl.noise = K.slider(g, { label: "Noise", min: 0.2, max: 3, step: 0.1, value: 1, fmt: v => "× " + v.toFixed(1), on: v => { P.noise = v; rebuild(); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.5, max: 30, step: 0.5, value: 2, fmt: v => v + " days a second", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["depth", "dip depth (folded)"], ["rad", "planet radius from depth"], ["a", "orbit size (Kepler)"], ["T", "temperature"], ["K", "wobble K"], ["mass", "mass from K"]]);
 function rebuild() {
   const st = STARS[P.star]; sys = { star: st, scope: P.scope, noise: P.noise, inc: P.inc, planets: P.planets.map((p, i) => Object.assign({}, p, { t0: 0.37 * p.P + i * 0.11 })) };

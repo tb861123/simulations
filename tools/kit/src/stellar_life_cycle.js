@@ -120,6 +120,7 @@ g = ui.group("Its life");
 ctl.auto = K.toggle(g, { label: "Play through its life", value: true, on: v => P.auto = v });
 ctl.s = K.slider(g, { label: "Stage", min: 0, max: 1, step: 0.001, value: 0, fmt: v => K2[Math.min(K2.length - 1, Math.round(v * (K2.length - 1)))][0], on: v => { P.s = v * (K2.length - 1); P.auto = false; ctl.auto.set(false); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.2, max: 4, step: 0.1, value: 1, fmt: v => "× " + v.toFixed(1), on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 K.btn(K.row(g), "Keep this track (H–R)", () => { kept.push({ M: P.M, k: K2 }); if (kept.length > 4) kept.shift(); });
 const read = K.readout(g, [["age", "age"], ["L", "luminosity"], ["T", "surface temperature"], ["R", "radius"], ["lam", "peak wavelength"], ["core", "in the core"]]);
 function stateNow() {   // interpolate between keyframes (in log L and log T)

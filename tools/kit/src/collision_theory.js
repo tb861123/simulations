@@ -227,6 +227,7 @@ ctl.orient = K.toggle(g, { label: "Must collide side-on as well", value: false, 
 ctl.conduct = K.toggle(g, { label: "Flask in a water bath (off = insulated)", value: true, on: v => { fl.conduct = v; } });
 g = ui.group("Watch");
 ctl.rate = K.slider(g, { label: "Slow motion", min: 2, max: 60, step: 2, value: rate, fmt: v => v + " ps each second", on: v => rate = v });
+ui.headerSpeed(ctl.rate);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["T", "temperature"], ["left", "reactants left"], ["made", "product made"], ["coll", "reactant collisions"], ["ok", "successful"], ["th", "theory e^(−Ea/RT)"], ["rate", "rate now"], ["half", "time to half-way"], ["cat", "catalyst beads"]]);
 function set(o) {
   if (o.mode) { S.mode = o.mode; ctl.mode.set(o.mode); } if (o.T != null) { fl.T = o.T; ctl.T.set(o.T); } if (o.nA != null) { S.nA = o.nA; ctl.nA.set(o.nA); } if (o.nB != null) { S.nB = o.nB; ctl.nB.set(o.nB); }

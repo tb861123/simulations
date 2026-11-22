@@ -126,6 +126,7 @@ g = ui.group("Trend down the group");
 ctl.grp = K.seg(g, { value: 1, options: [[1, "Group 1"], [2, "Group 2"], [7, "Group 7"]], on: v => P.grp = v });
 ctl.prop = K.seg(g, { value: "r", options: [["r", "atomic radius"], ["ie", "1st ionisation energy"], ["mp", "melting point"], ["bp", "boiling point"], ["rho", "density"], ["en", "electronegativity"]], on: v => P.prop = v });
 ctl.speed = K.slider(ui.group("Watch"), { label: "Speed", min: 0.1, max: 3, step: 0.1, value: 1, fmt: v => v + "×", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
 const relabel = l => l.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);
 function drop() { const M = G1[P.metal]; run = { t: 0, life: lifetime(P.m, M, P.Tw), m: P.m, metal: P.metal, Vw: P.Vw, Tw: P.Tw, hist: [] }; bubbles = []; }

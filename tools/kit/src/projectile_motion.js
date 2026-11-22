@@ -155,6 +155,7 @@ ctl.marks = K.toggle(g, { label: "Time markers", value: true, on: v => P.marks =
 ctl.shadows = K.toggle(g, { label: "Shadows on the ground and wall", value: false, on: v => P.shadows = v });
 ctl.dropToo = K.toggle(g, { label: "Drop a second ball at launch", value: false, on: v => P.dropToo = v });
 ctl.speed = K.slider(g, { label: "Playback speed", min: 0.1, max: 4, step: 0.1, value: 1, fmt: v => "× " + v.toFixed(1), on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Results"), [["R", "range"], ["H", "greatest height"], ["T", "time of flight"], ["vl", "landing speed"], ["al", "landing angle"], ["th", "formula (no air)"]]);
 
 function setPlanet(k) { P.planet = k; P.g = GRAV[k][1]; ctl.planet.set(k); }

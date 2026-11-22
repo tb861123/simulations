@@ -147,6 +147,7 @@ grp.fb = g = ui.group("Feedback loop");
 let rf = K.row(g); K.btn(rf, "⚡ Disturb it", () => { FB.x += 3; }, "primary"); K.btn(rf, "Disturb the other way", () => { FB.x -= 3; });
 ctl.pos = K.toggle(g, { label: "Positive feedback instead (A level)", value: false, on: v => { P.pos = v; FB = { x: 0.3, t: 0, hist: [] }; } });
 ctl.speed = K.slider(ui.group("Watch"), { label: "Speed", min: 0.25, max: 8, step: 0.25, value: 1, fmt: v => v + "×", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
 const relabel = l => l.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);
 function insPlan() { return P.who === "t1" && P.treat === "insulin" ? MEALS.map(([m, gr]) => [m - 15, gr / 20]) : P.who === "t2" && P.treat === "insulin" ? MEALS.map(([m, gr]) => [m - 15, gr / 20]) : []; }

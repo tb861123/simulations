@@ -152,6 +152,7 @@ ctl.insure = K.slider(g, { label: "Stop bank runs (insurance, lender of last res
 ctl.fiscal = K.seg(g, { label: "Fiscal policy", value: 0, options: [[-1, "Cuts"], [0, "Neutral"], [1, "Deficit spending"], [1.5, "Heavy spending"]], on: v => { P.fiscal = v; toChoice(); } });
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.5, max: 8, step: 0.5, value: P.speed, fmt: v => v + " quarters a second", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 let row = K.row(g); K.btn(row, "↺ Run again", () => restart(), "primary"); K.btn(row, "⏭ Jump to 1939", () => tq = 43);
 const read = K.readout(g, [["yr", "date"], ["Y", "output (1929 = 100)"], ["U", "unemployment"], ["b", "banks failed"], ["P", "prices (1929 = 100)"], ["M", "money supply (1929 = 100)"]]);
 function histChoices() { const H = HIST[P.country]; P.gold = H.gold; P.insure = H.insure; ctl.gold.set(P.gold); ctl.insure.set(P.insure); }

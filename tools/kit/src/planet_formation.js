@@ -178,6 +178,7 @@ ctl.mCrit = K.slider(g, { label: "Critical core mass", min: 3, max: 40, step: 1,
 g = ui.group("Run");
 let rr = K.row(g); K.btn(rr, "↺ New disc", () => restart(), "primary"); K.btn(rr, "⏩ Jump to the end", () => { while (sys.t < T_END) advance(); });
 ctl.speed = K.slider(g, { label: "Speed", min: 5, max: 200, step: 5, value: 40, unit: "time steps per second", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 ctl.view = K.seg(g, { label: "View", value: "log", options: [["inner", "inner system (3 AU)"], ["whole", "whole disc"], ["log", "log distance"]], on: v => P.view = v });
 ctl.orbits = K.toggle(g, { label: "Show orbits", value: true, on: v => P.orbits = v });
 const read = K.readout(ui.group("Readings"), [["t", "time"], ["gas", "gas left"], ["n", "bodies left"], ["big", "largest body"], ["pl", "planets (cleared orbits)"], ["sel", "selected body"]]);

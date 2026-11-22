@@ -72,6 +72,7 @@ g = ui.group("Sampling");
 S.n = K.slider(g, { label: "Sample size n", min: 1, max: 100, step: 1, value: 5, on: v => { n = v; clearSamples(true); } });
 S.stat = K.seg(g, { label: "Statistic worked out from each sample", value: "mean", options: Object.entries(STATS).map(([k, v]) => [k, v.name]), on: v => { stat = v; clearSamples(true); } });
 S.mode = K.seg(g, { label: "Speed", value: "slow", options: [["slow", "Slow"], ["fast", "Fast"], ["turbo", "Turbo"]], on: v => { mode = v; anim = null; ui.setPlaying(true); } });
+ui.headerSpeed(S.mode);   // playback speed lives in the header, beside Pause and Reset
 const r1 = K.row(g); K.btn(r1, "Draw one sample", () => { ui.setPlaying(false); anim = null; takeSample(true); }); K.btn(r1, "Clear samples", () => clearSamples(), "danger");
 g = ui.group("View");
 S.curve = K.toggle(g, { label: "Show the normal curve predicted by the theorem", value: true, on: v => showCurve = v });

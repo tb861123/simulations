@@ -180,6 +180,7 @@ g = ui.group("Afterwards");
 ctl.cool = K.slider(g, { label: "Cool-down", min: 0, max: 0.6, step: 0.05, value: 0, fmt: v => v === 0 ? "sit down (passive)" : "jog at " + Math.round(v * 100) + "% of VO₂ max", on: v => cool = v });
 let r1 = K.row(g); K.btn(r1, "↺ Start again", () => restart(), "primary");
 ctl.speed = K.seg(g, { label: "Speed", value: 1, options: [[0.5, "½×"], [1, "1×"], [5, "5×"], [30, "30×"], [300, "300×"]], on: v => speedX = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["t", "time"], ["d", "distance"], ["v", "speed"], ["o2", "oxygen uptake"], ["lac", "blood lactate"], ["main", "main system now"], ["def", "oxygen deficit"], ["epoc", "EPOC so far"], ["share", "aerobic share so far"]]);
 function set(o) {
   ev = o.ev || "m400"; who = o.who || "middle"; cool = o.cool || 0; speedX = o.speed || 1;

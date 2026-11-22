@@ -127,6 +127,7 @@ ctl.sigma = K.slider(g, { label: "Commodity price volatility", min: 0, max: 0.4,
 let rr = K.row(g); K.btn(rr, "🎲 New price luck", () => { seed++; rerun(); }, "primary"); K.btn(rr, "↺ Start again", () => yr = 0);
 ctl.chart = K.seg(g, { label: "Second chart", value: "lewis", options: [["lewis", "Lewis: workers and wages"], ["comm", "Commodity price and investment"]], on: v => P.chart = v });
 ctl.speed = K.slider(g, { label: "Speed", min: 1, max: 10, step: 1, value: 3, fmt: v => v + " years a second", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Year by year"), [["y", "year"], ["pc", "income per head"], ["g", "growth (10-year average)"], ["hdi", "HDI"], ["ind", "workers in industry"], ["cs", "commodity share of GDP"]]);
 function sync() { ctl.pre.set(P.pre); for (const k of ["s", "edu", "d", "open", "aid", "eff", "sigma"]) ctl[k].set(P[k]); ctl.micro.set(P.micro); ctl.ps.set(P.ps); ctl.chart.set(P.chart); preNote.textContent = "Like " + PRE[P.pre].note + "."; }
 function set(o) { Object.assign(P, DEF, PRE[o.pre || "copper"], { pre: o.pre || "copper" }, o); sync(); rerun(); yr = 0; }

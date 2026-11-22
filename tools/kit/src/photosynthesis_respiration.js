@@ -175,6 +175,7 @@ ctl.cf = K.toggle(g, { label: "Carbon dioxide supplied", value: true, on: v => P
 K.btn(K.row(g), "↺ Back to steady state", () => { cal = { R: 0.8, G: 1, P: 1, out: 0, t: 0, log: [] }; P.J = 1; P.cf = 1; ctl.J.set(true); ctl.cf.set(true); });
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.2, max: 10, step: 0.2, value: 1, fmt: v => "× " + v.toFixed(1), on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
 const relabel = (labels) => labels.forEach((l, i) => read.el.children[i].firstElementChild.textContent = l);
 

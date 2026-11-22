@@ -121,6 +121,7 @@ ctl.severity = K.slider(gW, { label: "How severe hardships are", min: 0, max: 3,
 ctl.free = K.slider(gW, { label: "Free will", min: 0, max: 1, step: 0.05, value: 0.8, fmt: v => v ? v.toFixed(2) : "none (robots)", on: v => { P.free = v; } });
 ctl.distance = K.slider(gW, { label: "Epistemic distance (A level)", min: 0, max: 1, step: 0.05, value: 0.8, fmt: v => v < 0.2 ? "God obvious to all" : v > 0.7 ? "God hidden: faith is free" : "some", on: v => { P.distance = v; } });
 ctl.speed = K.slider(gW, { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 let rr = K.row(gW); K.btn(rr, "↺ New world", () => { WLD = newWorld(P, rnd); }, "primary");
 const gL = ui.group("The logical problem");
 ctl.theo = K.seg(gL, { value: "none", options: Object.entries(THEO).map(([k, t]) => [k, t.name]), on: v => P.theo = v });

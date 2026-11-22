@@ -160,6 +160,7 @@ ctl.cohesion = K.toggle(g, { label: "Task cohesion (shared goal)", value: false,
 ctl.practice = K.toggle(g, { label: "Practised pulling together", value: false, on: v => { P.practice = v; newTeam(); } });
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.5, max: 10, step: 0.5, value: 1, fmt: v => "× " + v, on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
 const relabel = l => l.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);
 function clearRun() { attempts = []; st = { collapsed: false }; t = 0; lastShot = -1; ctl.cog.el.style.display = P.theory === "cat" ? "" : "none"; ctl.zone.el.style.display = P.theory === "zof" ? "" : "none"; }

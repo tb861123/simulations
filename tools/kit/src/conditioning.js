@@ -110,6 +110,7 @@ C.ratio = K.slider(go, { label: "Ratio n (presses per reward)", min: 2, max: 40,
 C.interval = K.slider(go, { label: "Interval t (seconds)", min: 5, max: 120, step: 5, value: 30, unit: "s", on: v => P.interval = v });
 C.extinct = K.toggle(go, { label: "Extinction: no more food", value: false, on: v => P.extinct = v });
 C.speed = K.slider(ui.controls, { label: "Speed", min: 0.5, max: 20, step: 0.5, value: 4, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(C.speed);   // playback speed lives in the header, beside Pause and Reset
 let rw2 = K.row(ui.controls); K.btn(rw2, "Start again", () => restart(), "danger");
 const read = K.readout(ui.group("Now"), [["a", ""], ["b", ""], ["c", ""]]);
 const relabel = n => n.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);

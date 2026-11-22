@@ -93,6 +93,7 @@ S.merge = K.toggle(g, { label: "Bodies merge when they collide", value: false, o
 K.note(g, "Drag in empty space to launch a body. Pause to see and drag the velocity arrows.");
 g = ui.group("View");
 S.speed = K.slider(g, { label: "Speed", min: 0.1, max: 5, step: 0.1, value: 1, fmt: v => v.toFixed(1) + "×", on: v => speed = v });
+ui.headerSpeed(S.speed);   // playback speed lives in the header, beside Pause and Reset
 S.auto = K.toggle(g, { label: "Camera follows the action", value: true });
 const r1 = K.row(g); K.btn(r1, "Clear trails", () => { trails.forEach(t => t.length = 0); twinTrails.forEach(t => t.length = 0); });
 g = ui.group("Measurements");

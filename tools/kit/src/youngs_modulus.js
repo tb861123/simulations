@@ -469,6 +469,7 @@ let r5 = K.row(g); K.btn(r5, "▶ Stretch", () => stretch(1), "primary"); K.btn(
 ctl.cycle = K.toggle(g, { label: "Keep stretching and releasing (to 300%)", value: false, on: v => { P.cycle = v; if (v) stretch(1); } });
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 3, step: 0.25, value: 1, fmt: v => v + "×", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""], ["e", ""]]);
 const relabel = l => l.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);
 

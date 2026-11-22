@@ -188,6 +188,7 @@ ctl.cert = K.slider(g, { label: "Cars with inspection reports", min: 0, max: 1, 
 g = ui.group("Watch");
 K.btn(K.row(g), "↺ Start again", () => restart(), "primary");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => "× " + v, on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
 const relabel = l => l.forEach((t, i) => read.el.children[i].firstElementChild.textContent = t);
 function showPolicy() { for (const k of ["tax", "sub", "cap", "info"]) ctl[k].el.style.display = P.policy === k ? "" : "none"; }

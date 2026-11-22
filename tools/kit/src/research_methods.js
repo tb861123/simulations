@@ -220,6 +220,7 @@ C.n = K.slider(g, { label: "N (participants per group / pairs)", min: 5, max: 50
 C.alpha = K.seg(g, { label: "Significance level", value: 0.05, options: [[0.1, "0.10"], [0.05, "0.05"], [0.01, "0.01"]], on: v => { P.alpha = +v; fresh(); } });
 C.tails = K.seg(g, { label: "Hypothesis", value: 1, options: [[1, "directional (one-tailed)"], [2, "non-directional (two-tailed)"]], on: v => { P.tails = +v; fresh(); } });
 C.rate = K.slider(ui.controls, { label: "Studies per second when playing", min: 0.2, max: 20, step: 0.2, value: 0.6, on: v => P.rate = v });
+ui.headerSpeed(C.rate, { label: "Studies a second" });   // playback speed lives in the header, beside Pause and Reset
 let rw = K.row(ui.controls); K.btn(rw, "Run one study", () => { ui.setPlaying(false); study(); }, "primary"); K.btn(rw, "Run 50 studies", () => { for (let i = 0; i < 50; i++) study(); }); K.btn(rw, "Clear tally", () => clearTally());
 const read = K.readout(ui.group("Your studies (current settings)"), [["n", "Studies run"], ["s", "Significant"], ["e", "Error rate"]]);
 function autoTest() { if (!P.own) { P.test = treeTest(P.design, P.level); C.test.set(P.test); } showCtl(); }

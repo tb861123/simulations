@@ -128,6 +128,7 @@ ctl.load = K.slider(g, { label: "Load resistance, R", min: 0.2, max: 50, step: 0
 r1 = K.row(g); K.btn(r1, "Sweep the load", () => { sweep = 50; vtlog = []; }, "primary"); K.btn(r1, "Clear", () => vtlog = []);
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed of the dots", min: 0.2, max: 4, step: 0.1, value: 1, fmt: v => "× " + v.toFixed(1), on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["I", "current from the cell"], ["a", ""], ["b", ""], ["c", ""], ["d", ""], ["e", ""]]);
 function showMode() { const m = P.mode; ctl.mode.set(m); compGroup.style.display = m === "series" || m === "parallel" ? "" : "none"; ivGroup.style.display = m === "iv" ? "" : "none"; emfGroup.style.display = m === "emf" ? "" : "none"; if (m === "iv") { compGroup.style.display = ""; for (const k of ["E", "R1", "r"]) ctl[k].el.style.display = "none"; } else for (const k of ["E", "R1"]) ctl[k].el.style.display = ""; ctl.r.el.style.display = ui.level === "adv" && (m === "series" || m === "parallel") ? "" : "none"; dots = {}; }
 function set(o) { Object.assign(P, { mode: "series", E: 6, r: 0, R1: 20, x: "lamp", Vsup: 3, load: 10, rInt: 0.5, eInt: 1.5 }, o); Object.assign(ENV, { R2: 20, lux: 200, temp: 20 }); for (const k of ["E", "R1", "r", "Vsup", "load", "rInt", "eInt"]) ctl[k].set(P[k]); ctl.x.set(P.x); ctl.R2.set(20); ctl.lux.set(200); ctl.temp.set(20); ivlog = []; vtlog = []; sweep = null; showMode(); }

@@ -102,6 +102,7 @@ S.hills = K.slider(g, { label: "Hills", min: 0, max: 2, step: 0.1, value: 1, fmt
 S.pure = K.toggle(g, { label: "Pure percolation (ignore wind, slope and dryness)", value: false, on: () => newLand() });
 g = ui.group("View");
 S.speed = K.slider(g, { label: "Speed", min: 1, max: 8, step: 1, value: 2, fmt: v => v + "×", on: v => speed = v });
+ui.headerSpeed(S.speed);   // playback speed lives in the header, beside Pause and Reset
 g = ui.group("Damage report");
 const read = K.readout(g, [["burnt", "Trees burnt"], ["front", "Cells on fire"], ["time", "Time"], ["houses", "Houses lost"]]);
 

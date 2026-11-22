@@ -155,6 +155,7 @@ ctl.mode = K.seg(g, { value: "demo", options: [["demo", "Demonstration odds"], [
 let rr = K.row(g); K.btn(rr, "⏩ Skip to the next fusion", () => skip(), "primary"); K.btn(rr, "📌 Record this run", () => record()); K.btn(rr, "Clear", () => { records = []; });
 ctl.zoom = K.toggle(g, { label: "Zoom the energy axis on the incoming nuclei", value: false, on: v => P.zoom = v });
 ctl.speed = K.slider(g, { label: "Collisions shown", min: 0.5, max: 20, step: 0.5, value: 1, fmt: v => v + " per second", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["kt", "kT · mean KE (³⁄₂kT)"], ["ub", "barrier height"], ["ch", "chance per collision"], ["e0", "Gamow peak E₀"], ["pw", "power released"]]);
 
 function fresh() { cnt = { sent: 0, thru: 0 }; anim = null; lastSkip = ""; }

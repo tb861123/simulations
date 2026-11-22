@@ -107,6 +107,7 @@ S.zeta = K.slider(g, { label: "Damping", min: 0.5, max: 10, step: 0.5, value: 3,
 const read = K.readout(g, [["f1", "Natural frequency"], ["T", "Natural period"], ["roof", "Peak roof sway"], ["drift", "Worst storey drift"]]);
 g = ui.group("View");
 S.rate = K.slider(g, { label: "Time", min: 0.1, max: 2, step: 0.1, value: 1, fmt: v => v === 1 ? "real time" : v.toFixed(1) + "×", on: v => rate = v });
+ui.headerSpeed(S.rate, { label: "Speed" });   // playback speed lives in the header, beside Pause and Reset
 
 function preset(ns) { blds = ns.map(n => new Building({ n })); sel = 1; S.sel.set(1); resetAll(); sync(); }
 function sync() { const b = blds[sel]; S.n.set(b.o.n); S.brace.set(b.o.brace); S.iso.set(b.o.iso); S.tmd.set(b.o.tmd); S.zeta.set(b.o.zeta * 100); changed(); }

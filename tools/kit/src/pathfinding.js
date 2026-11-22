@@ -111,6 +111,7 @@ let rw = K.row(gg); K.btn(rw, "🎲 New map", () => newMap(), "primary"); K.btn(
 C.start = K.seg(gr, { label: "From", value: "A", options: Object.keys(GN).map(k => [k, k]), on: v => { P.start = v; restart(); } });
 C.goal = K.seg(gr, { label: "To", value: "G", options: Object.keys(GN).map(k => [k, k]), on: v => { P.goal = v; restart(); } });
 C.speed = K.slider(ui.group("Speed"), { label: "Steps per second", min: 1, max: 200, step: 1, value: 30, on: v => P.speed = v });
+ui.headerSpeed(C.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Numbers"), [["a", "Nodes expanded"], ["b", "In the queue"], ["c", "Path cost"], ["d", "Path length (cells)"]]);
 function showCtl() { gg.style.display = P.mode === "grid" ? "" : "none"; gr.style.display = P.mode === "graph" ? "" : "none"; }
 function set(o) { Object.assign(P, DEF, o); if (P.alg === "greedy" && ui.setLevel && ui.level !== "adv") ui.setLevel("adv"); for (const k of ["mode", "alg", "tool", "wall", "mud", "start", "goal", "speed"]) C[k].set(P[k]); showCtl(); if (P.mode === "grid") newMap(1234 + Math.round(P.wall * 100) * 7 + Math.round(P.mud * 100)); else restart(); }

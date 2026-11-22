@@ -156,9 +156,11 @@ let rw = K.row(gs); K.btn(rw, "New sample", () => newSample(), "primary");
 const gw = ui.group("Watch one infant");
 rw = K.row(gw); K.btn(rw, "A secure infant", () => pick("B")); K.btn(rw, "An avoidant infant", () => pick("A")); K.btn(rw, "A resistant infant", () => pick("C"));
 C.sspeed = K.slider(gw, { label: "Speed (minutes per second)", min: 0.2, max: 6, step: 0.1, value: 1.5, on: v => P.sspeed = v });
+ui.headerSpeed(C.sspeed);   // playback speed lives in the header, beside Pause and Reset
 const gd = ui.group("Carers (development)");
 CARERS.forEach(([nm], j) => { C["r" + j] = K.slider(gd, { label: `${nm}: responsiveness`, min: 0.05, max: 1, step: 0.05, value: DEF.resp[j], on: v => { P.resp[j] = v; newBabies(); } }); C["t" + j] = K.slider(gd, { label: `${nm}: time with the baby`, min: 0, max: 1, step: 0.05, value: DEF.time[j], on: v => { P.time[j] = v; newBabies(); } }); });
 C.dspeed = K.slider(gd, { label: "Speed (months per second)", min: 0.1, max: 3, step: 0.1, value: 0.6, on: v => P.dspeed = v });
+ui.headerSpeed(C.dspeed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Results"), [["a", ""], ["b", ""], ["c", ""]]);
 const relabel = n => n.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);
 function pick(t) { const opts = SAMPLE.map((i, k) => [i, k]).filter(([i]) => i.type === t); if (opts.length) who = opts[rand.int(opts.length)][1]; else { let tries = 0; while (tries++ < 20 && !SAMPLE.some(i => i.type === t)) SAMPLE.push(...sample(rand, 20, P)); const k = SAMPLE.findIndex(i => i.type === t); who = k < 0 ? 0 : k; } startSS(); }

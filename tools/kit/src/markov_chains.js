@@ -90,6 +90,7 @@ C.w = K.slider(g, { label: "Chance of winning each bet", min: 0.3, max: 0.7, ste
 g = ui.group("Tokens");
 C.tokens = K.slider(g, { label: "Number of tokens", min: 50, max: 1000, step: 50, value: 300, on: v => { P.tokens = v; restart(); } });
 C.speed = K.slider(g, { label: "Steps per second", min: 0.5, max: 10, step: 0.5, value: 2, on: v => P.speed = v });
+ui.headerSpeed(C.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Numbers"), [["n", "Step n"], ["sim", "Tokens in each state"], ["th", "π₀Tⁿ (theory)"], ["ss", "Steady state / absorption"], ["Tn", "Tⁿ"]]);
 function showCtl() { const w = P.ch === "weather", r = P.ch === "ruin"; C.p.el.style.display = C.q.el.style.display = w ? "" : "none"; C.N.el.style.display = C.k.el.style.display = C.w.el.style.display = r ? "" : "none"; C.ch.el.querySelectorAll("button")[3].style.display = ui.level === "adv" ? "" : "none"; }
 function set(o) { Object.assign(P, DEF, o); if (P.ch === "ruin" && ui.setLevel && ui.level !== "adv") ui.setLevel("adv"); for (const k of ["p", "q", "N", "k", "w", "tokens", "speed"]) C[k].set(P[k]); C.ch.set(P.ch); showCtl(); restart(); }

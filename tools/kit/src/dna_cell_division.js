@@ -124,6 +124,7 @@ ctl.n = K.seg(g, { label: "Pairs of chromosomes", value: 2, options: [[2, "2"], 
 ctl.cross = K.toggle(g, { label: "Crossing over (A level)", value: false, on: v => { P.cross = v; gam = {}; } });
 let r4 = K.row(g); K.btn(r4, "Make 100 gametes", () => { for (let i = 0; i < 100; i++) addGamete(); }, "primary"); K.btn(r4, "Clear", () => { gam = {}; });
 ctl.speed = K.slider(ui.group("Watch"), { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
 const relabel = l => l.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);
 function doMutate() { const before = gene, after = mutate(gene, P.kind, Math.min(P.pos - 1, gene.length - 1), rnd); const k = classify(HBB, after); gene = after; step = 0; tried[k]++; ui.tip(`${P.kind === "sub" ? "Substitution" : P.kind === "ins" ? "Insertion" : "Deletion"} at base ${P.pos}: ${k}`, 3000); }

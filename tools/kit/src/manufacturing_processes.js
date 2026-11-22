@@ -94,6 +94,7 @@ ctl.tol = K.slider(g, { label: "Tolerance on the 60 mm width", min: 0.02, max: 0
 ctl.wear = K.slider(g, { label: "Tool wear (A level)", min: 0, max: 1, step: 0.05, value: 0, fmt: v => v ? (v < 0.4 ? "slow" : v < 0.8 ? "medium" : "fast") : "none", on: v => P.wear = v });
 let rr = K.row(g); K.btn(rr, "🔧 Reset the tool", () => { drift = 0; parts.push({ reset: true }); }, "primary"); K.btn(rr, "Clear", () => restart());
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["unit", "cost per unit"], ["total", "total cost of the order"], ["best", "cheapest process for this quantity"], ["be", "break-even with the compared process"], ["days", "time to make the order"], ["rej", "rejected so far (theory)"], ["cpk", "Cpk now (beyond spec)"]]);
 function restart() { parts = []; drift = 0; made = 0; rejects = 0; belt = []; }
 function set(o) { Object.assign(P, DEF, o); ctl.qty.set(Math.log10(Math.max(1, P.qty))); for (const k of ["proc", "compare", "machines", "tol", "wear", "speed"]) ctl[k].set(P[k]); restart(); }

@@ -175,6 +175,7 @@ ctl.modern = K.toggle(g, { label: "Industrial Revolution from 1760", value: fals
 ctl.auto = K.toggle(g, { label: "Black Death in 1348", value: false, on: v => P.autoPlague = v });
 K.btn(K.row(g), "☠ Plague: 40% die", () => { M.plague(); ui.tip("Plague! 40% of the people have died."); });
 ctl.speed = K.slider(g, { label: "Speed", min: 2, max: 40, step: 1, value: P.speed, fmt: v => v + " years a second", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 g = groups.ireland = ui.group("Ireland: the choices");
 ctl.blight = K.slider(g, { label: "Blight severity", min: 0, max: 1.2, step: 0.05, value: 1, fmt: v => v === 1 ? "as it happened" : Math.round(v * 100) + "% of the real loss", on: v => { P.irl.blight = v; restartIrl(); } });
 ctl.relief = K.slider(g, { label: "Relief and imports", min: 0, max: 2, step: 0.05, value: 1, fmt: v => v === 1 ? "as it happened" : v === 0 ? "none" : v.toFixed(2) + " × historical", on: v => { P.irl.relief = v; restartIrl(); } });
@@ -182,6 +183,7 @@ ctl.exports = K.toggle(g, { label: "Food exports continue (as happened)", value:
 ctl.emig = K.slider(g, { label: "Emigration", min: 0.2, max: 2, step: 0.05, value: 1, fmt: v => v === 1 ? "as it happened" : v.toFixed(2) + " × historical", on: v => { P.irl.emig = v; restartIrl(); } });
 ctl.post = K.toggle(g, { label: "Post-Famine changes (later marriage, chain emigration)", value: true, on: v => { P.irl.post = v; restartIrl(); } });
 ctl.irlSpeed = K.slider(g, { label: "Speed", min: 1, max: 15, step: 1, value: P.irlSpeed, fmt: v => v + " years a second", tip: "Slows to a year every 2 seconds during 1845–51 at the lowest speeds", on: v => P.irlSpeed = v });
+ui.headerSpeed(ctl.irlSpeed);   // playback speed lives in the header, beside Pause and Reset
 K.btn(K.row(g), "↺ Start again from 1781", () => restartIrl(), "primary");
 g = ui.group("Readings");
 const read = K.readout(g, [["yr", "year"], ["pop", "population"], ["y", "food per head"], ["bd", "births / deaths (per 1,000)"], ["a", "–"], ["b", "–"]]);

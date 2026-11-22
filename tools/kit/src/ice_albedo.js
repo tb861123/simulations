@@ -116,6 +116,7 @@ g = ui.group("Slow change");
 ctl.slow = K.seg(g, { value: "none", options: [["none", "none"], ["sundown", "Sun dims"], ["sunup", "Sun brightens"], ["loop", "down, then up"], ["co2up", "CO₂ builds up"], ["co2down", "CO₂ falls"]], on: v => { P.slow = v; loopDir = -1; } });
 let rr = K.row(g); K.btn(rr, "↺ Warm start", () => { T = warmStart(); trail = []; hist = []; yr = 0; }, "primary"); K.btn(rr, "❄ Snowball start", () => { T = snowStart(); trail = []; hist = []; yr = 0; });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.5, max: 100, step: 0.5, value: 1, fmt: v => K.sig(v * 5, 3) + " years per second", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["T", "global mean temperature"], ["edge", "ice edge"], ["st", "state"], ["al", "planet's albedo"], ["tip", "tipping points (Sun %)"]]);
 function set(o) {
   Object.assign(P, { sun: 100, co2: 420, D: 0.45, ai: 0.62, surf: "ocean", noise: 0, slow: "none" }, o);

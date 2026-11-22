@@ -149,6 +149,7 @@ g = ui.group("The sample");
 C.n = K.slider(g, { label: "Sample size n", min: 5, max: 200, step: 1, value: 20, on: v => setP({ n: v }) });
 C.sigma = K.slider(g, { label: "Population SD σ (known)", min: 1, max: 60, step: 1, value: 6, on: v => setP({ sigma: v }) });
 C.speed = K.seg(g, { label: "Speed", value: "slow", options: [["slow", "one at a time"], ["fast", "fast"], ["turbo", "turbo"]], on: v => P.speed = v });
+ui.headerSpeed(C.speed);   // playback speed lives in the header, beside Pause and Reset
 let rw = K.row(g); K.btn(rw, "Take one sample", () => { ui.setPlaying(false); newSample(true); }, "primary"); K.btn(rw, "Clear tally", () => clearTally(), "danger");
 g = ui.group("The truth (normally unknown)");
 C.ptrue = K.slider(g, { label: "True p", min: 0, max: 1, step: 0.01, value: 0.25, fmt: v => v.toFixed(2), on: v => setP({ ptrue: v }) });
