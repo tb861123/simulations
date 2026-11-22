@@ -191,6 +191,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["fractal_explorer.js", "fractal_explorer", "fractal-explorer.html", "Fractal Explorer", "explore"],
   ["strange_attractors.js", "strange_attractors", "strange-attractors.html", "Strange Attractors", "explore"],
   ["life_automata.js", "life_automata", "life-automata.html", "Life and Cellular Automata", "explore"],
+  ["sandpile_avalanches.js", "sandpile_avalanches", "sandpile-avalanches.html", "Sandpile Avalanches", "physics"],
   ["gravity_slingshots.js", "gravity_slingshots", "gravity-slingshots.html", "Gravity-Assist Sandbox", "astrophysics"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
