@@ -184,6 +184,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["approaches_and_inheritance.js", "approaches_and_inheritance", "approaches-and-inheritance.html", "Nature and Nurture: Twin Studies", "psychology"],
   ["biopsychology.js", "biopsychology", "biopsychology.html", "Biopsychology: Synapse, Stress and Rhythms", "psychology"],
   ["attachment_strange_situation.js", "attachment_strange_situation", "attachment-strange-situation.html", "Attachment: The Strange Situation", "psychology"],
+  ["cosmic_distance_ladder.js", "cosmic_distance_ladder", "cosmic-distance-ladder.html", "The Cosmic Distance Ladder", "astrophysics"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
