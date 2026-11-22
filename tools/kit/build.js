@@ -193,6 +193,8 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["life_automata.js", "life_automata", "life-automata.html", "Life and Cellular Automata", "explore"],
   ["sandpile_avalanches.js", "sandpile_avalanches", "sandpile-avalanches.html", "Sandpile Avalanches", "physics"],
   ["thin_film_colours.js", "thin_film_colours", "thin-film-colours.html", "Thin-Film Interference Colours", "physics"],
+  ["aurora_magnetosphere.js", "aurora_magnetosphere", "aurora-magnetosphere.html", "Aurora and the Magnetosphere", "physics"],
+  ["fourier_epicycles.js", "fourier_epicycles", "fourier-epicycles.html", "Fourier Epicycles", "explore"],
   ["gravity_slingshots.js", "gravity_slingshots", "gravity-slingshots.html", "Gravity-Assist Sandbox", "astrophysics"],
   ["bridge_builder.js", "bridge_builder", "bridge-builder.html", "Bridge Builder", "engineering"],
   ["domino_chains.js", "domino_chains", "domino-chains.html", "Domino Chain Reactions", "engineering"],
