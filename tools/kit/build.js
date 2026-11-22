@@ -185,6 +185,10 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["biopsychology.js", "biopsychology", "biopsychology.html", "Biopsychology: Synapse, Stress and Rhythms", "psychology"],
   ["attachment_strange_situation.js", "attachment_strange_situation", "attachment-strange-situation.html", "Attachment: The Strange Situation", "psychology"],
   ["cosmic_distance_ladder.js", "cosmic_distance_ladder", "cosmic-distance-ladder.html", "The Cosmic Distance Ladder", "astrophysics"],
+  ["slime_mould_networks.js", "slime_mould_networks", "slime-mould-networks.html", "Slime Mould Networks", "biology"],
+  ["ant_colony.js", "ant_colony", "ant-colony.html", "Ant Colony Foraging", "biology"],
+  ["creature_evolution.js", "creature_evolution", "creature-evolution.html", "Creature Evolution Arena", "biology"],
+  ["fractal_explorer.js", "fractal_explorer", "fractal-explorer.html", "Fractal Explorer", "explore"],
   ["gravity_slingshots.js", "gravity_slingshots", "gravity-slingshots.html", "Gravity-Assist Sandbox", "astrophysics"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");

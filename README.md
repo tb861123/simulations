@@ -14,11 +14,11 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and eighty-three simulations are built with the shared toolkit (the
+All one hundred and eighty-seven simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and seventy-four newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and seventy-eight newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
-mathematics, statistics, chemistry, economics, geography, PE and music simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones, and the Cosmic Distance Ladder). They share a small
+mathematics, statistics, chemistry, economics, geography, PE and music simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones, and the Cosmic Distance Ladder, and the explore simulations). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
@@ -152,6 +152,9 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`biology/natural_selection/`](biology/natural_selection/) | Natural Selection ★: moths on changing bark with real camouflage, mutation, extinction and a "be the bird" mode | Open `natural-selection.html` |
 | [`biology/murmuration/`](biology/murmuration/) | Murmuration ★: a 3-D flock of starlings from three local rules, with a hunting falcon | Open `murmuration.html` |
 | [`biology/turing_patterns/`](biology/turing_patterns/) | Turing Patterns ★: spots, stripes and mazes from a reaction–diffusion model; paint, heal, and map the patterns | Open `turing-patterns.html` |
+| [`biology/slime_mould_networks/`](biology/slime_mould_networks/) | Slime Mould Networks: Physarum agents (Jones 2010) on the graphics card sense, turn, move and deposit trail; food smell and shrinkage pull the mesh back into tubes joining the food. Towns around Tokyo (Tero 2010), England's cities, Steiner junctions, a maze; network length against the minimum spanning tree | Open `slime-mould-networks.html` |
+| [`biology/ant_colony/`](biology/ant_colony/) | Ant Colony Foraging: ants lay and follow home and food scents (fading with time since the source), with random exploration; trails form and adapt to walls and moved food; the double bridge (Goss 1989); optimum evaporation, randomness and colony size | Open `ant-colony.html` |
+| [`biology/creature_evolution/`](biology/creature_evolution/) | Creature Evolution Arena: a genetic algorithm evolves 2D spring-and-muscle creatures to walk, jump or swim (anisotropic water drag); whole generations race on editable ground, lineage colours, a gallery of ancestors to replay; selection, mutation rate and contingency | Open `creature-evolution.html` |
 | [`biology/epidemics/`](biology/epidemics/) | Epidemics and Vaccination ★: a town followed hour by hour; R0, herd immunity, flattening the curve, isolation | Open `epidemics.html` |
 | [`biology/predator_prey/`](biology/predator_prey/) | Foxes and Rabbits ★: every animal followed; population cycles, carrying capacity, culling, refuges, extinction | Open `predator-prey.html` |
 | [`biology/membranes/`](biology/membranes/) | Membranes and Movement ★: particles crossing by diffusion, osmosis and active transport, agar cubes (SA:V), potato osmosis, water potential | Open `membranes.html` |
@@ -220,6 +223,20 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`astrophysics/dark_matter/`](astrophysics/dark_matter/) | Dark matter ★: rotation curves of five galaxies, Doppler slit spectra, halo fitting with χ², MOND | Open `dark-matter.html` |
 | [`astrophysics/cosmic_distance_ladder/`](astrophysics/cosmic_distance_ladder/) | The Cosmic Distance Ladder: six tabs, one per rung: radar echoes from Venus size the AU, stellar parallax (Bessel, Hipparcos, Gaia), Cepheids and Leavitt's law calibrated by parallax, Type Ia supernovae calibrated by Cepheids (stretch correction), Hubble's law and H₀; random and systematic errors climb the ladder (Baade 1952, the Hubble tension) | Open `cosmic-distance-ladder.html` |
 | [`astrophysics/three_body_chaos/`](astrophysics/three_body_chaos/) | Three-Body Chaos ★: N-body gravity with a "twin universe" to watch prediction fail (the earlier outcome-map lab is in `original_lab/`) | Open `three-body-chaos.html` |
+
+## Explore
+
+Visual "explore" simulations: things to play with for their own sake, with real
+science and mathematics underneath. Each has a WebGL main view (the graphics
+card draws it; a clear message appears if WebGL is switched off), Investigate
+cards written as challenges, a Batch run and worksheets, but no Standard /
+Advanced switch and no Revise tab. Explore simulations that belong to a subject
+(Slime Mould Networks, Ant Colony Foraging, Creature Evolution Arena) are listed
+under that subject.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`explore/fractal_explorer/`](explore/fractal_explorer/) | Fractal Explorer: Mandelbrot and Julia sets on the graphics card (double-single precision to about 10⁻¹²), live Julia preview, orbits, Newton fractals, famous places and a zoom tour; π from escape times at the cusp and neck, Monte Carlo area, box-counting dimension | Open `fractal-explorer.html` |
 
 ## Mathematics
 
