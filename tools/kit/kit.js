@@ -636,7 +636,14 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
       }
       hSpeed.style.display = any ? "" : "none";
     }
-    setInterval(() => hsList.length && syncSpeed(), 250);
+    setInterval(() => { hsList.length && syncSpeed(); placeHud(); }, 250);
+    // the heads-up box (top right) moves down below an investigation's question (top left) when the two would overlap
+    function placeHud() {
+      if (!hudEl) return; hudEl.style.top = "";
+      if (!banner || hudEl.style.display === "none") return;
+      const a = banner.getBoundingClientRect(), b = hudEl.getBoundingClientRect();
+      if (a.right > b.left - 6 && a.bottom > b.top && a.top < b.bottom) hudEl.style.top = (a.bottom - stage.getBoundingClientRect().top + 8) + "px";
+    }
     // floating hint and heads-up text over the stage
     let tipEl = null, tipT = 0;
     ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };

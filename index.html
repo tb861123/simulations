@@ -11,7 +11,7 @@
 -->
 <style>
   :root { --bg:#0a0f1c; --panel:#111a2c; --panel2:#17223a; --line:#24324f; --text:#e9eef8; --muted:#8fa0bf; --accent:#5ad1ff; --ink:#04121c; --star:#ffd166; --shadow:0 14px 34px rgba(0,0,0,.4); }
-  :root[data-theme=light] { --bg:#eef2f8; --panel:#ffffff; --panel2:#f3f6fb; --line:#d5dceb; --text:#172033; --muted:#5d6b85; --accent:#0b7fc2; --ink:#ffffff; --star:#b97a00; --shadow:0 10px 26px rgba(30,50,90,.16); }
+  :root[data-theme=light] { --bg:#eef2f8; --panel:#ffffff; --panel2:#f3f6fb; --line:#d5dceb; --text:#172033; --muted:#5d6b85; --accent:#0a72ae; --ink:#ffffff; --star:#8a5a00; --shadow:0 10px 26px rgba(30,50,90,.16); }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); color: var(--text); }
   body { font: 15px/1.5 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
@@ -22,7 +22,7 @@
   .eyebrow { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); font-weight: 700; }
   h1 { font-size: 38px; line-height: 1.1; margin: 8px 0 10px; letter-spacing: -.5px; }
   .hero p { max-width: 780px; color: var(--muted); font-size: 16.5px; margin: 0; }
-  .strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding-bottom: 18px; }
+  .strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding-bottom: 18px; }
   .strip div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 15px; }
   .strip b { display: block; font-size: 14.5px; margin-bottom: 2px; } .strip span { color: var(--muted); font-size: 13.5px; }
   .strip .starbox { border-color: color-mix(in srgb, var(--star) 55%, var(--line)); } .strip .starbox b { color: var(--star); }
@@ -40,7 +40,15 @@
   .chip:hover { border-color: var(--c, var(--accent)); }
   .chip.on { background: var(--c, var(--accent)); border-color: var(--c, var(--accent)); color: #08101c; font-weight: 600; }
   .chip.on b { color: #08101c; } .chip.on i { background: #08101c; }
+  :root[data-theme=light] .chip[data-k=all].on, :root[data-theme=light] .chip[data-k=all].on b { color: var(--ink); }
   .chip.star { --c: var(--star); color: var(--star); border-color: color-mix(in srgb, var(--star) 50%, var(--line)); } .chip.star.on { color: #08101c; }
+  /* subject chips: wrap onto several rows at the top of the page; once the bar sticks while scrolling they become one row that scrolls sideways (mouse wheel works), so the bar stays one line tall */
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; flex: 1 1 0; min-width: 0; }
+  .chip { flex: none; white-space: nowrap; }
+  .bar:not(.stuck) .wrap { align-items: flex-start; }
+  .bar.stuck .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 2px 0; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); }
+  .bar.stuck .chips::-webkit-scrollbar { display: none; }
+  .bar.stuck .chips.end { -webkit-mask-image: none; mask-image: none; }
   .tools { margin-left: auto; display: flex; gap: 7px; align-items: center; }
   #count { color: var(--muted); font-size: 13px; margin-right: 4px; }
   .icon { font: inherit; font-size: 14px; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 6px 11px; cursor: pointer; }
@@ -54,6 +62,8 @@
   section { scroll-margin-top: 70px; }
   h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: var(--c, var(--accent)); margin: 30px 0 12px; display: flex; align-items: center; gap: 10px; }
   h2::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--c, var(--accent)); }
+  /* the subject colours are bright for the dark theme: darken them on the light background so headings stay readable */
+  :root[data-theme=light] h2, :root[data-theme=light] .sub { color: color-mix(in srgb, var(--c, var(--accent)) 50%, #000); }
   h2 span { color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 13px; }
   h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(285px, 1fr)); gap: 20px; }
@@ -118,9 +128,10 @@
     <div><b>Honest models</b><span>Each one lists its rules, assumptions and simplifications. Every one has printable worksheets.</span></div>
   </section>
 </div>
+<div id="barTop"></div>
 <div class="bar"><div class="wrap">
   <label class="search"><input id="q" type="search" placeholder="Search, e.g. moth, tax, orbit" aria-label="Search simulations"><kbd>/</kbd></label>
-  <span id="nav" style="display:contents"></span>
+  <span id="nav" class="chips"></span>
   <span class="tools"><span id="count"></span><button class="icon" id="viewBtn" title="Switch between cards and a compact list">☰ List</button><button class="icon" id="themeBtn" title="Light / dark">◐</button></span>
 </div></div>
 <div class="wrap">
@@ -584,11 +595,18 @@ function apply() {
   });
   el("none").style.display = shown ? "none" : "block";
   el("count").textContent = words.length || subject !== "all" ? `Showing ${seen.size} of ${SIMS.length}` : "";
-  document.querySelectorAll(".chip").forEach(b => b.classList.toggle("on", b.dataset.k === subject));
+  document.querySelectorAll(".chip").forEach(b => b.classList.toggle("on", b.dataset.k === subject)); if (typeof showChip === "function") showChip();
 }
 function setSubject(k, fromHash) { subject = k === "enhanced" || SUBJECTS.some(s => s[0] === k) ? k : "all"; apply(); if (!fromHash) history.replaceState(null, "", subject === "all" ? location.pathname + location.search : "#" + subject); }
 el("nav").addEventListener("click", e => { const b = e.target.closest(".chip"); if (b) { setSubject(b.dataset.k === subject ? "all" : b.dataset.k); document.querySelector(".bar").scrollIntoView({ block: "start" }); } });
 el("q").addEventListener("input", apply);
+// ---- Keep the sticky bar one row tall once it is stuck to the top of the window ----
+const bar = document.querySelector(".bar"), chips = el("nav");
+const chipEnd = () => chips.classList.toggle("end", chips.scrollLeft + chips.clientWidth >= chips.scrollWidth - 2);
+const showChip = () => { const b = chips.querySelector(".chip.on"); if (b && bar.classList.contains("stuck")) chips.scrollLeft = Math.max(0, b.offsetLeft - chips.offsetLeft - 60); chipEnd(); };
+new IntersectionObserver(([e]) => { bar.classList.toggle("stuck", !e.isIntersecting); showChip(); }).observe(el("barTop"));
+chips.addEventListener("wheel", e => { if (!bar.classList.contains("stuck") || Math.abs(e.deltaX) > Math.abs(e.deltaY) || chips.scrollWidth <= chips.clientWidth) return; e.preventDefault(); chips.scrollLeft += e.deltaY; }, { passive: false });
+chips.addEventListener("scroll", chipEnd);
 el("clearBtn").onclick = () => { el("q").value = ""; setSubject("all"); el("q").focus(); };
 addEventListener("keydown", e => {
   if (e.key === "/" && document.activeElement !== el("q")) { e.preventDefault(); el("q").focus(); el("q").select(); }
