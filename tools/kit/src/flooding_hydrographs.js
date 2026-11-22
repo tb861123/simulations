@@ -185,6 +185,7 @@ g = ui.group("Watch");
 let r1 = K.row(g); K.btn(r1, "▶ Run the storm again", () => { t = 0; drops = []; ui.setPlaying(true); }, "primary"); K.btn(r1, "📌 Keep this hydrograph", () => keepNow());
 K.btn(K.row(g), "Clear kept hydrographs", () => kept = []);
 ctl.speed = K.slider(g, { label: "Speed", min: 0.5, max: 24, step: 0.5, value: 1, fmt: v => "× " + v + " (" + v + " h a second)", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["pk", "peak discharge"], ["lag", "lag time"], ["bf", "bankfull"], ["now", "discharge now"]]);
 
 function newGusts() { gustArr = gusts(rnd, P.dur); }

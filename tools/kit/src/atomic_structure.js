@@ -154,6 +154,7 @@ ctl.pc = K.slider(g, { label: "Second isotope", min: 0, max: 100, step: 1, value
 ctl.exact = K.toggle(g, { label: "Use exact isotope masses (not mass numbers)", value: true, on: v => { P.exact = v; newSample(); } });
 let rw = K.row(g); K.btn(rw, "↺ New sample", () => newSample(), "primary");
 ctl.speed = K.slider(g, { label: "Weighing speed", min: 1, max: 200, step: 1, value: 8, unit: "atoms per second", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["sym", "symbol"], ["cfg", "electrons"], ["ch", "charge"], ["st", "nucleus"], ["ar", "Ar (data) · sample average"]]);
 function newSample() { sample = []; runAvg = []; }
 function fresh() { newSample(); }

@@ -124,6 +124,7 @@ ctl.d0 = K.slider(g, { label: "Difference in starting angle", min: -7, max: -1, 
 K.btn(K.row(g), "↺ Release again", () => newDP(), "primary");
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.1, max: 2, step: 0.1, value: 1, fmt: v => "× " + v.toFixed(1) + (v === 1 ? " (real time)" : ""), on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["T", "measured period"], ["Tth", "theory"], ["f", "frequency"], ["A", "amplitude now"]]);
 let ups = [];
 function restart() {

@@ -1,0 +1,871 @@
+<!doctype html>
+<!-- Calculus Explorer: one self-contained file, works offline. Built from tools/kit (kit.css, kit.js, src/calculus_explorer.js); edit those and run "node build.js". -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Calculus Explorer</title>
+<style>
+/* ===== Enhanced (kit-built) simulations: shared look and feel (inlined into every page by build.js) ===== */
+:root{
+  --bg:#0a0f1c; --panel:#111a2c; --panel2:#17223a; --line:#24324f; --text:#e9eef8; --muted:#8fa0bf; --grid:#1f2c47;
+  --accent:#5ad1ff; --accent-ink:#04121c; --good:#6ee7a0; --warn:#ffb454; --bad:#ff6b81;
+  --s0:#5ad1ff; --s1:#ffb454; --s2:#7ee787; --s3:#ff7b9c; --s4:#c4a1ff; --s5:#ffe66d;
+  --shadow:0 10px 30px rgba(0,0,0,.45); --r:12px;
+}
+:root[data-theme=light]{
+  --bg:#eef2f8; --panel:#ffffff; --panel2:#f3f6fb; --line:#d5dceb; --text:#172033; --muted:#5d6b85; --grid:#e3e8f2;
+  --accent:#0b7fc2; --accent-ink:#ffffff; --good:#12924c; --warn:#b86a00; --bad:#d1344d;
+  --s0:#0b7fc2; --s1:#d97a00; --s2:#1b9e4b; --s3:#d6336c; --s4:#7048c8; --s5:#a08800;
+  --shadow:0 8px 24px rgba(30,50,90,.15);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+.k-top{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;min-height:52px}
+.k-home{color:var(--muted);text-decoration:none;font-size:13px;white-space:nowrap}.k-home:hover{color:var(--accent)}
+.k-title{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
+.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.k-chip{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 9px;white-space:nowrap;align-self:center}
+.k-blurb{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-actions{display:flex;gap:6px;flex:none;align-items:center}
+.k-btn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:.12s;user-select:none}
+.k-btn:hover{border-color:var(--accent);color:var(--accent)}
+.k-btn:active{transform:translateY(1px)}
+.k-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.k-btn.primary:hover{filter:brightness(1.1);color:var(--accent-ink)}
+.k-btn.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel2))}
+.k-btn.small{padding:3px 9px;font-size:12.5px}
+.k-btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.k-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
+.k-left{display:flex;flex-direction:column;min-width:0;min-height:0}
+.k-stage{flex:1;position:relative;min-height:0;background:#060a14;overflow:hidden}
+.k-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.k-dock{flex:none;height:190px;display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.k-dock:empty{display:none}
+.k-dock>*{flex:1;min-width:0;background:var(--panel)}
+.k-chart{position:relative;height:100%;min-height:80px}
+.k-chart canvas{position:absolute;inset:0;width:100%;height:100%}
+.k-side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.k-tabs{display:flex;border-bottom:1px solid var(--line);flex:none}
+.k-tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:10px 4px;cursor:pointer;color:var(--muted);font-weight:600}
+.k-tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.k-pane{flex:1;overflow-y:auto;padding:12px 14px 20px;display:none;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.k-pane.on{display:block}
+.k-group{margin-bottom:14px}
+.k-group>h3{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);margin:0 0 8px;font-weight:700}
+.k-ctl{margin-bottom:10px}
+.k-ctl label{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:2px}
+.k-ctl label b{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.k-ctl label b.k-typein{cursor:text;border-bottom:1px dashed currentColor;padding:0 1px}
+.k-ctl label b.k-typein:hover,.k-ctl label b.k-typein:focus{outline:1px solid var(--accent);outline-offset:1px;border-radius:3px}
+.k-typebox{width:9em;font:inherit;font-size:12.5px;padding:1px 4px;border-radius:4px;border:1px solid var(--accent);background:var(--panel-2,#1b2438);color:var(--text)}
+.k-ctl small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3;margin-top:1px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:none;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-moz-range-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);margin-top:-6.5px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+.k-seg{display:flex;flex-wrap:wrap;gap:4px}
+.k-seg .k-btn{flex:1 1 auto;padding:5px 8px;font-size:13px;text-align:center}
+.k-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.k-row .k-btn{flex:1 1 auto;text-align:center}
+.k-toggle{display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:9px;font-size:13px;user-select:none}
+.k-toggle i{flex:none;width:34px;height:19px;border-radius:99px;background:var(--line);position:relative;transition:.15s}
+.k-toggle i::after{content:"";position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;background:var(--muted);transition:.15s}
+.k-toggle.on i{background:var(--accent)}.k-toggle.on i::after{left:17px;background:var(--accent-ink)}
+.k-read{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.k-read div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 9px}
+.k-read span{display:block;font-size:11px;color:var(--muted)}
+.k-read b{font-size:16px;font-variant-numeric:tabular-nums;font-weight:650}
+.k-mcard{border:1px solid var(--line);background:var(--panel2);border-radius:var(--r);padding:11px 12px;margin-bottom:10px}
+.k-mcard h4{margin:0 0 4px;font-size:14.5px;display:flex;gap:8px;align-items:center}
+.k-mcard h4 em{font-style:normal;flex:none;width:22px;height:22px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:12px}
+.k-mcard.done h4 em{background:var(--good);color:#04130a}
+.k-mcard p{margin:0 0 8px;color:var(--muted);font-size:13px}
+.k-banner{position:absolute;left:12px;top:12px;max-width:min(520px,70%);background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--accent);border-radius:var(--r);padding:10px 34px 10px 13px;box-shadow:var(--shadow);z-index:5;backdrop-filter:blur(6px);font-size:13.5px}
+.k-banner b{color:var(--accent)}
+.k-banner .x{position:absolute;right:8px;top:6px;cursor:pointer;color:var(--muted);background:none;border:0;font-size:16px}
+.k-banner details{margin-top:6px;color:var(--muted)}.k-banner summary{cursor:pointer;color:var(--warn)}
+.k-tip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(8,14,26,.82);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:99px;padding:6px 16px;font-size:13px;pointer-events:none;z-index:4;transition:opacity .6s;white-space:nowrap}
+.k-hud{position:absolute;right:12px;top:12px;background:rgba(8,14,26,.72);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:10px;padding:7px 11px;font-size:12.5px;z-index:3;pointer-events:none;font-variant-numeric:tabular-nums;line-height:1.5;text-align:right}
+.k-notes h3{font-size:14px;margin:14px 0 4px;color:var(--accent)}.k-notes h3:first-child{margin-top:0}
+.k-notes p,.k-notes li{font-size:13px;color:var(--text)}.k-notes ul{padding-left:18px;margin:4px 0}
+.k-notes code{background:var(--panel2);padding:1px 5px;border-radius:5px;font-size:12.5px}
+.k-overlay{position:fixed;inset:0;background:rgba(3,6,12,.7);display:none;z-index:50;backdrop-filter:blur(3px)}
+.k-overlay.on{display:grid;place-items:center}
+.k-modal{width:min(1180px,95vw);height:min(700px,92vh);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:grid;grid-template-columns:290px 1fr;overflow:hidden}
+.k-blist{border-right:1px solid var(--line);overflow-y:auto;padding:14px}
+.k-blist h2{font-size:16px;margin:0 0 4px}.k-blist>p{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+.k-bitem{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;cursor:pointer}
+.k-bitem.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.k-bitem b{display:block;font-size:13.5px}.k-bitem span{color:var(--muted);font-size:12.5px}
+.k-bmain{display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 16px}
+.k-bhead{display:flex;gap:10px;align-items:flex-start}
+.k-bhead h3{margin:0;font-size:17px;flex:1}.k-bhead p{margin:3px 0 0;color:var(--muted);font-size:13px;font-weight:400}
+.k-bbar{display:flex;gap:10px;align-items:center;margin:10px 0 8px}
+.k-prog{flex:1;height:6px;background:var(--line);border-radius:9px;overflow:hidden}.k-prog i{display:block;height:100%;width:0;background:var(--accent)}
+.k-bchart{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.k-bfoot{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;height:150px;margin-top:10px}
+.k-btable{overflow:auto;border:1px solid var(--line);border-radius:10px;font-size:12.5px}
+.k-btable table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.k-btable th,.k-btable td{padding:3px 8px;text-align:right;border-bottom:1px solid var(--line)}
+.k-btable th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600}
+.k-bnote{overflow:auto;font-size:13px;color:var(--muted);background:var(--panel2);border-radius:10px;padding:9px 12px}
+.k-bnote b{color:var(--text)}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+.k-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.02em;padding:1px 7px;border-radius:99px;vertical-align:1px;white-space:nowrap;background:#35505a;color:#c9ecdf}
+.k-tag.adv{background:#4b3a78;color:#e3d6ff}.k-tag.beyond{background:#39465c;color:#cfdaf0}
+.k-idea{font-size:13px;margin:0 0 8px;line-height:1.4}.k-spec{font-size:12px;color:var(--muted);margin:0 0 10px}
+.k-pane>h3{font-size:14px;margin:14px 0 8px;color:var(--accent)}
+.k-q h4{font-size:12px}.k-q .k-marks{margin-left:auto;color:var(--muted);font-weight:400}.k-q p{color:var(--text);font-size:13.5px}
+.k-q details{font-size:13px;color:var(--muted)}.k-q summary{cursor:pointer;color:var(--warn)}.k-q details ul{padding-left:18px;margin:4px 0}
+.k-level{padding-bottom:4px}
+.k-tabs button{font-size:13px;padding-left:2px;padding-right:2px}
+.k-wsrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px;font-size:12.5px;color:var(--muted)}
+.k-mcard .btn+.btn,.k-mcard button+button{margin-left:6px}
+/* playback-speed control moved into the header (ui.headerSpeed) */
+.k-hspeed{display:flex;align-items:center;gap:10px;padding:0 6px 0 10px;margin:0 4px;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.k-hspeed .k-ctl{display:flex;align-items:center;gap:7px;margin:0}
+.k-hspeed .k-ctl.k-hoff{display:none}
+.k-hspeed .k-ctl label{display:contents}
+.k-hspeed .k-ctl label span{order:0;font-size:12.5px;color:var(--muted);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+.k-hspeed .k-ctl input[type=range]{order:1;width:96px}
+.k-hspeed .k-ctl label b,.k-hspeed .k-typebox{order:2;font-size:12.5px;white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+.k-hspeed .k-typebox{width:6.5em}
+.k-hspeed .k-hunit{order:3;font-style:normal;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.k-hspeed .k-ctl>small{display:none}
+.k-hspeed .k-seg{order:1;flex-wrap:nowrap;gap:3px}
+.k-hspeed .k-seg .k-btn{flex:none;padding:3px 8px;font-size:12px}
+.k-group.k-emptied{display:none}
+@media (max-width:1400px){.k-blurb{display:none}.k-top:has(.k-hspeed:not([style*="none"])) .k-chip{display:none}}
+</style></head><body>
+<script>
+"use strict";
+/* =====================================================================
+   K: the small shared toolkit behind the ★ enhanced simulations.
+   It builds the page frame (header, stage, chart dock, side panel),
+   the sliders and buttons, the live charts, the Investigations cards
+   and the Batch run window. Each simulation's own code (below this
+   script in the page) holds the science.
+   ===================================================================== */
+const K = (() => {
+  const $ = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const col = i => cssVar("--s" + (i % 6));
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // ---- Repeatable random numbers: the same seed always gives the same run ----
+  function rng(seed) {
+    let a = (seed >>> 0) || 1;
+    const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    r.gauss = () => { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307179586 * r()); };
+    r.int = n => Math.floor(r() * n);
+    r.pick = arr => arr[Math.floor(r() * arr.length)];
+    return r;
+  }
+  // ---- Simple statistics ----
+  const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+  const sd = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); };
+  const se = a => sd(a) / Math.sqrt(a.length || 1);
+  function linfit(pts) { // least-squares straight line through [x,y] points
+    const n = pts.length, mx = mean(pts.map(p => p[0])), my = mean(pts.map(p => p[1]));
+    let sxy = 0, sxx = 0, syy = 0; for (const [x, y] of pts) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; syy += (y - my) ** 2; }
+    const m = sxy / (sxx || 1); return { m, c: my - m * mx, r: sxy / Math.sqrt((sxx * syy) || 1), n };
+  }
+  function download(name, text) { const a = $("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  const sig = (v, n = 3) => { if (v == null || !isFinite(v)) return "–"; if (v === 0) return "0"; const a = Math.abs(v); if (a >= 1e5 || a < 1e-3) return v.toExponential(n - 1); return String(+v.toPrecision(n)); };
+
+  // ---- Controls ----
+  /* Typing a value into a slider: read a displayed value ("2.2 mF", "4.7 × 10⁵ Pa", "£30,000", "−12 °C") as a number,
+     then search the slider's positions for the one whose display matches (copes with log scales and unit prefixes). */
+  const PRE = { p: 1e-12, n: 1e-9, "μ": 1e-6, "µ": 1e-6, u: 1e-6, m: 1e-3, k: 1e3, M: 1e6, G: 1e9 }, SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+  function parseVal(text) {
+    const t = String(text).replace(/[−–]/g, "-").replace(/[   ]/g, " ");
+    const m = t.match(/-?(?:\d{1,3}(?:[, ]\d{3})+|\d+)(?:\.\d+)?|-?\.\d+/);
+    if (!m) return null;
+    let v = parseFloat(m[0].replace(/[, ]/g, "")), rest = t.slice(m.index + m[0].length);
+    const pw = m[0] === "10" && rest.match(/^(?:\^\s*(-?\d+(?:\.\d+)?)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))/);         // a bare power of ten: 10⁻⁹ or 10^6.5
+    if (pw) { v = Math.pow(10, pw[1] != null ? +pw[1] : (pw[2][0] === "⁻" ? -1 : 1) * +[...pw[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join("")); rest = rest.slice(pw[0].length); }
+    const ex = rest.match(/^\s*(?:[×x*]\s*10\s*(?:\^\s*(-?\d+)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))|[eE]([-+]?\d+))/);
+    if (ex) { const p = ex[1] != null ? +ex[1] : ex[3] != null ? +ex[3] : (ex[2][0] === "⁻" ? -1 : 1) * +[...ex[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join(""); v *= Math.pow(10, p); rest = rest.slice(ex[0].length); }
+    const wd = rest.match(/^\s*(thousand|million|billion|trillion)\b/i);    // "1 million K"
+    if (wd) { v *= { thousand: 1e3, million: 1e6, billion: 1e9, trillion: 1e12 }[wd[1].toLowerCase()]; rest = rest.slice(wd[0].length); }
+    const pm = !wd && rest.match(/^\s*([pnμµumkMG])(?=[A-Za-zΩ°])/);
+    if (pm) v *= PRE[pm[1]];
+    return isFinite(v) ? { v, unit: rest } : null;
+  }
+  // what was typed, in the units on display unless a unit was typed too ("2.2", "2.2 mF" and "1e-6" all work)
+  function typedVal(raw, shown) {
+    const q = parseVal(raw); if (!q) return null;
+    if (/[A-Za-zμµΩ°%£$€]/.test(q.unit)) return q;
+    const s = parseVal(shown); return parseVal(raw + (s ? " " + s.unit.trim() : ""));
+  }
+  function invertSlider(lo, hi, st, g, target) {
+    const n = Math.max(1, Math.round((hi - lo) / st)), pos = i => +(lo + i * st).toFixed(10);
+    let e0 = 0, e1 = n;                                                       // ends may show words ("off"): step in to the first numbers
+    while (e0 < n && g(pos(e0)) == null && e0 < 60) e0++;
+    while (e1 > e0 && g(pos(e1)) == null && n - e1 < 60) e1--;
+    const a = g(pos(e0)), b = g(pos(e1));
+    if (a == null || b == null || a === b) return null;
+    const up = b > a;
+    if (up ? target < a : target > a) return pos(e0 > 0 ? 0 : e0);
+    if (up ? target > b : target < b) return pos(e1 < n ? n : e1);
+    let i0 = e0, i1 = e1, v0 = a, v1 = b;
+    while (i1 - i0 > 1) { const im = (i0 + i1) >> 1, vm = g(pos(im)); if (vm == null) break; if ((vm < target) === up) { i0 = im; v0 = vm; } else { i1 = im; v1 = vm; } }
+    return Math.abs(v0 - target) <= Math.abs(v1 - target) ? pos(i0) : pos(i1);
+  }
+  // try every position (cheap here: only the format function runs) and take the closest display; ties go to the one nearest the current setting
+  function nearestSlider(lo, hi, st, g, target, cur) {
+    const n = Math.max(1, Math.round((hi - lo) / st)); if (n > 20000) return invertSlider(lo, hi, st, g, target);
+    let best = null, be = Infinity, bd = Infinity;
+    for (let i = 0; i <= n; i++) { const p = +(lo + i * st).toFixed(10), v = g(p); if (v == null) continue; const e = Math.abs(v - target), d = Math.abs(p - cur); if (e < be - 1e-12 * Math.abs(target) || (Math.abs(e - be) <= 1e-12 * Math.abs(target) && d < bd)) { best = p; be = e; bd = d; } }
+    return best;
+  }
+  const scratch = document.createElement("div");
+  const textOf = html => { scratch.innerHTML = html; scratch.querySelectorAll("sup").forEach(x => x.replaceWith("^" + x.textContent)); return scratch.textContent; };
+  function slider(parent, o) {
+    const w = $("div", "k-ctl"), lab = $("label"), name = $("span", "", o.label), val = $("b", "k-typein"), inp = $("input");
+    inp.type = "range"; inp.min = o.min; inp.max = o.max; inp.step = o.step || 1; inp.value = o.value;
+    const fmt = o.fmt || (v => sig(v, 4) + (o.unit ? " " + o.unit : ""));
+    const show = () => val.innerHTML = fmt(+inp.value);
+    lab.append(name, val); w.append(lab, inp); if (o.tip) w.append($("small", "", o.tip)); parent.append(w); show();
+    inp.addEventListener("input", () => { show(); o.on && o.on(+inp.value); });
+    // click the value (or Tab to it and press Enter) to type one
+    const g = p => { let q = null; try { q = parseVal(textOf(fmt(p))); } catch (e) { } return q ? q.v : null; };
+    let numeric = true; try { const ends = [+o.min, (+o.min + +o.max) / 2, +o.max].map(g).filter(v => v != null); numeric = new Set(ends).size > 1; } catch (e) { }
+    if (!numeric) val.classList.remove("k-typein"); else { val.tabIndex = 0; val.title = "Click to type a value"; }
+    function edit() {
+      if (w.querySelector(".k-typebox")) return;
+      const shown = textOf(val.innerHTML), box = $("input", "k-typebox"); box.type = "text"; box.value = shown.trim(); box.setAttribute("aria-label", "Type a value for " + o.label);
+      val.style.display = "none"; val.after(box); box.focus(); box.select(); let done = false;
+      const finish = ok => {
+        if (done) return; done = true; const raw = box.value.trim(); box.remove(); val.style.display = "";
+        if (!ok || !raw || raw === shown.trim()) return; const t = typedVal(raw, shown); if (!t) return;
+        const p = nearestSlider(+o.min, +o.max, +(o.step || 1), g, t.v, +inp.value); if (p == null) return;
+        inp.value = p; show(); o.on && o.on(+inp.value);
+      };
+      box.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); });
+      box.addEventListener("blur", () => finish(true)); box.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); });
+    }
+    if (numeric) val.addEventListener("click", e => { e.preventDefault(); edit(); });
+    if (numeric) val.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); edit(); } });
+    return { el: w, get value() { return +inp.value; }, set(v, fire) { inp.value = v; show(); if (fire) o.on && o.on(+inp.value); } };
+  }
+  function seg(parent, o) {
+    const w = $("div", "k-ctl"); if (o.label) w.append($("label", "", `<span>${o.label}</span>`));
+    const row = $("div", "k-seg"); w.append(row); if (o.tip) w.append($("small", "", o.tip)); parent.append(w);
+    let value = o.value; const btns = [];
+    const paint = () => btns.forEach(([v, b]) => b.classList.toggle("on", v === value));
+    for (const [v, label, title] of o.options) { const b = $("button", "k-btn", label); if (title) b.title = title; b.onclick = () => { value = v; paint(); o.on && o.on(v); }; row.append(b); btns.push([v, b]); }
+    paint();
+    return { el: w, get value() { return value; }, set(v, fire) { value = v; paint(); if (fire) o.on && o.on(v); } };
+  }
+  function toggle(parent, o) {
+    const w = $("div", "k-toggle" + (o.value ? " on" : ""), `<i></i><span>${o.label}</span>`); parent.append(w); let value = !!o.value;
+    w.onclick = () => { value = !value; w.classList.toggle("on", value); o.on && o.on(value); };
+    return { el: w, get value() { return value; }, set(v, fire) { value = !!v; w.classList.toggle("on", value); if (fire) o.on && o.on(value); } };
+  }
+  function btn(parent, label, on, cls) { const b = $("button", "k-btn " + (cls || ""), label); b.onclick = on; parent.append(b); return b; }
+  function row(parent) { const r = $("div", "k-row"); parent.append(r); return r; }
+  function readout(parent, items) { // small tiles of live numbers
+    const g = $("div", "k-read"), map = {}; parent.append(g);
+    for (const [id, label] of items) { const d = $("div", "", `<span>${label}</span><b>–</b>`); g.append(d); map[id] = d.lastChild; }
+    return { el: g, set(id, v) { if (map[id].textContent !== String(v)) map[id].innerHTML = v; } };
+  }
+  function note(parent, html) { const s = $("small", "", html); s.style.cssText = "display:block;color:var(--muted);margin:-2px 0 10px;font-size:12px;line-height:1.35"; parent.append(s); return s; }
+
+  // ---- A canvas that stays sharp on high-DPI screens and follows its container's size ----
+  function canvas(parent, onresize) {
+    const cv = $("canvas"); parent.append(cv); const c = { el: cv, ctx: cv.getContext("2d"), w: 1, h: 1, dpr: 1 };
+    const fit = () => {
+      const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
+      c.dpr = Math.min(window.devicePixelRatio || 1, 2); c.w = w; c.h = h; cv.width = Math.round(w * c.dpr); cv.height = Math.round(h * c.dpr);
+      c.ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0); onresize && onresize(c);
+    };
+    new ResizeObserver(fit).observe(parent); fit(); return c;
+  }
+  // Pointer handling in the element's own pixel coordinates
+  function pointer(el, h) {
+    const pos = e => { const r = el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, e }; };
+    let down = false;
+    el.addEventListener("pointerdown", e => { down = true; el.setPointerCapture(e.pointerId); h.down && h.down(pos(e)); });
+    el.addEventListener("pointermove", e => { const p = pos(e); if (down) h.drag && h.drag(p); else h.hover && h.hover(p); });
+    const up = e => { if (down) { down = false; h.up && h.up(pos(e)); } };
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+    el.addEventListener("pointerleave", e => h.leave && h.leave(pos(e)));
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+
+  // ---- Charts ----
+  const charts = new Set();
+  function niceTicks(a, b, n) {
+    const span = (b - a) || 1, raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    const step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p, t = [];
+    for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + step * 1e-6; v += step) t.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    return { t, step };
+  }
+  // tick labels: very big or very small numbers in standard form, with enough digits that neighbouring ticks differ (2.4e+5, 2.6e+5…)
+  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(clamp(Math.floor(Math.log10(a) + 1e-9) - Math.floor(Math.log10(step) + 1e-9), 0, 4)); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
+  /* chart(parent,{title,xLabel,yLabel,xMin,xMax,yMin,yMax,yZero})  then  .draw(series, extra)
+     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r, alpha, fillAlpha (area fill, default .22; 1 for solid stacked areas)}]
+     extra:  {xMin..yMax overrides, vlines:[{x,color,label,dash}], hlines:[{y,...}], bands:[{x0,x1,color}]} */
+  function chart(parent, o = {}) {
+    const wrap = $("div", "k-chart"), cv = $("canvas"); wrap.append(cv); parent.append(wrap);
+    const ctx = cv.getContext("2d"); let last = [[], {}];
+    const api = { el: wrap, opts: o, draw(series, extra) { last = [series || [], extra || {}]; render(); }, redraw: () => render(), map: null };
+    function render() {
+      const W = wrap.clientWidth, H = wrap.clientHeight; if (W < 40 || H < 40) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      const [series, ex] = last, q = Object.assign({}, o, ex);
+      const text = cssVar("--text"), muted = cssVar("--muted"), grid = cssVar("--grid");
+      // work out the axis ranges from the data unless they are fixed
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const s of series) for (const p of s.pts) { if (p[1] == null || !isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
+      for (const l of q.hlines || []) { if (l.y < y0) y0 = l.y; if (l.y > y1) y1 = l.y; }
+      if (!isFinite(x0)) { x0 = 0; x1 = 1; } if (!isFinite(y0)) { y0 = 0; y1 = 1; }
+      if (q.yZero || series.some(s => s.type === "bars")) { y0 = Math.min(0, y0); y1 = Math.max(0, y1); }
+      const py = (y1 - y0) * 0.08 || Math.abs(y1) * 0.1 || 1; if (q.yMin == null && y0 !== 0) y0 -= py; if (q.yMax == null) y1 += py;
+      if (x1 === x0) { x0 -= 0.5; x1 += 0.5; }
+      if (q.xMin != null) x0 = q.xMin; if (q.xMax != null) x1 = q.xMax; if (q.yMin != null) y0 = q.yMin; if (q.yMax != null) y1 = q.yMax;
+      const R = 12, T = 24, B = q.xLabel ? 34 : 22, ph = H - T - B, yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; let yw = 0; for (const v of yt.t) yw = Math.max(yw, ctx.measureText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step)).width);
+      const L = Math.max(54, Math.ceil(yw) + 26), pw = W - L - R;   // the left margin widens if the tick labels are long, so they never cover the axis title
+      const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + ph - (y - y0) / (y1 - y0) * ph;
+      api.map = { X, Y, x0, x1, y0, y1, L, T, pw, ph };
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; ctx.lineWidth = 1;
+      for (const b of q.bands || []) { ctx.fillStyle = b.color; ctx.fillRect(X(Math.max(x0, b.x0)), T, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)), ph); }
+      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70)));
+      ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.beginPath();
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      for (const v of xt.t) { const x = Math.round(X(v)) + .5; ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.fillText(q.xFmt ? q.xFmt(v) : tickFmt(v, xt.step), x, T + ph + 4); }
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      for (const v of yt.t) { const y = Math.round(Y(v)) + .5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.fillText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step), L - 5, y); }
+      ctx.stroke(); ctx.strokeStyle = muted; ctx.strokeRect(L + .5, T + .5, pw, ph);
+      if (q.xLabel) { ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(q.xLabel, L + pw / 2, H - 3); }
+      if (q.yLabel) { ctx.save(); ctx.translate(11, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(q.yLabel, 0, 0); ctx.restore(); }
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+      series.forEach((s, i) => {
+        const c = s.color || col(i); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = s.width || 1.8; ctx.setLineDash(s.dash || []); ctx.globalAlpha = s.alpha == null ? 1 : s.alpha;
+        const P = s.pts;
+        if (s.type === "bars") { const w = Math.max(1, Math.abs(X(s.w || 1) - X(0)) - 1); for (const p of P) { const yy = Y(p[1]); ctx.fillRect(X(p[0]) - w / 2, Math.min(yy, Y(0)), w, Math.abs(Y(0) - yy)); } }
+        else if (s.type === "dots" || s.type === "err") {
+          const r = s.r || 3;
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) continue; const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+        } else {
+          ctx.beginPath(); let pen = false;   // a missing value (null, NaN) leaves a gap in the line
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
+          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= s.fillAlpha == null ? .22 : s.fillAlpha; ctx.fill(); } else ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+      });
+      for (const l of q.vlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(l.x), T); ctx.lineTo(X(l.x), T + ph); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = X(l.x) > L + pw * .7 ? "right" : "left"; ctx.textBaseline = "top"; ctx.fillText(l.label, X(l.x) + (ctx.textAlign === "right" ? -5 : 5), T + 4 + (l.row || 0) * 13); } }
+      for (const l of q.hlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Y(l.y)); ctx.lineTo(L + pw, Y(l.y)); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(l.label, L + pw - 5, Y(l.y) - 2); } }
+      ctx.restore();
+      // title on the left, legend on the right
+      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
+      for (let i = series.length - 1; i >= 0; i--) { const s = series[i]; if (!s.label) continue; const w = ctx.measureText(s.label).width; lx -= w; ctx.fillStyle = muted; ctx.fillText(s.label, lx, 12); lx -= 12; ctx.fillStyle = s.color || col(i); ctx.fillRect(lx, 8, 8, 8); lx -= 10; }
+      if (q.title) { // the title gives way (with an ellipsis) if the legend needs the room
+        ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.fillStyle = text; let t = q.title; const room = lx - L - 8;
+        if (ctx.measureText(t).width > room) { while (t.length > 3 && ctx.measureText(t + "…").width > room) t = t.slice(0, -1); t = t.length > 3 ? t + "…" : ""; }
+        ctx.fillText(t, L, 12);
+      }
+    }
+    new ResizeObserver(render).observe(wrap); charts.add(api); return api;
+  }
+  function histogram(vals, bins, lo, hi) { // returns bar points [centre, count] and the bin width
+    if (lo == null) lo = Math.min(...vals); if (hi == null) hi = Math.max(...vals); if (hi === lo) { hi += .5; lo -= .5; }
+    const w = (hi - lo) / bins, c = new Array(bins).fill(0);
+    for (const v of vals) { const i = Math.floor((v - lo) / w); if (i >= 0 && i <= bins) c[Math.min(i, bins - 1)]++; }
+    return { pts: c.map((n, i) => [lo + (i + .5) * w, n]), w };
+  }
+
+  // ---- The page frame ----
+
+  let K_last = null;
+  /* ---- Worksheets ----
+     worksheetDoc(o, picks, opt) returns a printable HTML page: one A4 sheet per investigation card (o.missions) and per batch
+     experiment (o.batch), then teacher notes. picks = [{ kind: "m" | "b", item }]. opt = { file, teacher, results: { [batch title]: summary } } */
+  const wsCSS = `body{font:14px/1.45 "Segoe UI",system-ui,sans-serif;color:#111;margin:0;background:#eee}.sheet{background:#fff;width:186mm;min-height:270mm;margin:12px auto;padding:12mm;box-sizing:border-box;page-break-after:always}
+  .top{display:flex;justify-content:space-between;color:#555;font-size:12px;border-bottom:1px solid #999;padding-bottom:4px}h1{font-size:20px;margin:10px 0 4px}h2{font-size:15px;margin:16px 0 6px;color:#14467a}.tag{font-size:11px;border:1px solid #14467a;border-radius:9px;padding:0 6px;color:#14467a;vertical-align:middle}
+  .q{background:#eef4fb;border-left:4px solid #14467a;padding:8px 10px}.lines div{border-bottom:1px solid #aaa;height:26px}.box{border:1px solid #aaa;height:110px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:4px 6px;height:24px;text-align:center;font-size:13px}th{background:#f2f2f2}
+  ol{margin:4px 0 4px 20px;padding:0}.bar{position:sticky;top:0;background:#14467a;color:#fff;padding:8px 16px;display:flex;gap:12px;align-items:center}.bar button{font:inherit;padding:4px 12px;cursor:pointer}.note{background:#fafafa;border:1px solid #ccc;padding:8px 10px;margin:8px 0}
+  .grid{height:200px;border:1px solid #888;background-image:linear-gradient(#ddd 1px,transparent 1px),linear-gradient(90deg,#ddd 1px,transparent 1px);background-size:20px 20px;position:relative}
+  @media print{body{background:#fff}.bar{display:none}.sheet{margin:0;width:auto;min-height:0}}`;
+  const wsLines = n => `<div class="lines">${"<div></div>".repeat(n)}</div>`;
+  function worksheetDoc(o, picks, opt = {}) {
+    const file = opt.file || (location.pathname.split("/").pop() || "the simulation"), nM = (o.missions || []).length, nB = (o.batch || []).length;
+    const tagA = x => x.lvl === "adv" ? ' <span class="tag">A level</span>' : "", head = (k, n, of) => `<div class="top"><span>${o.title} · ${k} ${n} of ${of}</span><span>Name ____________________ &nbsp; Date __________</span></div>`;
+    const sheets = picks.map(({ kind, item: x }) => {
+      if (kind === "m") {
+        const n = o.missions.indexOf(x) + 1;
+        return `<div class="sheet">${head("Investigation", n, nM)}<h1>${x.title}${tagA(x)}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b>${x.lvl === "adv" ? " and choose <b>Advanced (A level)</b> in the Controls tab" : ""}.</li><li>Open the <b>Investigate</b> tab and press <b>Set it up ▸</b> on “${x.title}”. It sets everything up for you.</li><li>You can still change the controls afterwards to test your ideas.</li></ol>
+<h2>2 · The question</h2><div class="q">${x.q}</div>
+<h2>3 · Predict</h2><p>Before you watch, write what you think will happen, and why.</p>${wsLines(3)}
+<h2>4 · Observe and record</h2><p>Watch the simulation and try the controls. Record what you changed, what you saw and any readings (from the Readings panel or the graphs).</p>
+<table><tr><th style="width:30%">What I changed</th><th>What I saw or measured</th><th style="width:22%">Reading</th></tr>${"<tr><td></td><td></td><td></td></tr>".repeat(5)}</table>
+<h2>5 · Answer the question</h2>${wsLines(4)}
+<h2>6 · Explain</h2><p>Use the science to explain your answer. Open <b>The model</b> tab: which rule or assumption in the model causes what you saw? Would the real world behave the same way?</p>${wsLines(4)}</div>`;
+      }
+      const n = o.batch.indexOf(x) + 1, reps = x.reps || (x.xs ? 6 : 200);
+      const rec = x.xs ? `<table><tr><th>${x.xLabel}</th><th>mean</th><th>SD</th><th>SE</th>${x.theory ? "<th>theory</th>" : ""}<th>difference from theory, in SEs</th></tr>${x.xs.map(v => `<tr><td>${v}</td><td></td><td></td><td></td>${x.theory ? "<td></td>" : ""}<td></td></tr>`).join("")}</table>`
+        : `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${x.theory != null ? "<th>theory</th>" : ""}</tr><tr><td></td><td></td><td></td><td></td><td></td><td></td>${x.theory != null ? "<td></td>" : ""}</tr></table><p>Sketch the histogram:</p><div class="grid"></div>`;
+      return `<div class="sheet">${head("Batch experiment", n, nB)}<h1>${x.title}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b> and press <b>📊 Batch run</b>.</li><li>Click the experiment “${x.title}”. It sets everything up for you.</li><li>Press <b>▶ Run</b> and wait for it to finish (${x.xs ? `${x.xs.length} settings × ${reps} runs` : `${reps} runs`}).</li></ol>
+<div class="q"><b>${x.question}</b>${x.how ? `<br><small>${x.how}</small>` : ""}</div>
+<h2>2 · Predict before you run it</h2><p>${x.xs ? `How do you think <b>${x.yLabel}</b> will change as <b>${x.xLabel}</b> goes from ${x.xs[0]} to ${x.xs[x.xs.length - 1]}? Sketch your prediction, then give your reason.` : `What average do you expect for <b>${x.yLabel}</b>? Will every run give the same answer? Give your reason.`}</p>${x.xs ? `<div class="grid" style="height:150px"></div>` : ""}${wsLines(2)}
+<h2>3 · Record the results</h2><p>Copy the numbers from the table under the graph${x.theory != null ? " (theory: " + (x.theoryLabel || "the theory line") + ")" : ""}.</p>${rec}
+<h2>4 · Think about it</h2><ol><li>Does the simulation agree with the theory${x.theory == null ? " (or with your prediction)" : ""}? Use the difference in standard errors (or how close the points are to the line) to say how well.${wsLines(2)}</li>
+<li>Why don't all the runs give the same answer? What would happen to the standard error with four times as many runs?${wsLines(2)}</li>
+<li>Open <b>The model</b> tab. Name one simplification that could make the model differ from real life.${wsLines(2)}</li></ol></div>`;
+    });
+    let notes = "";
+    if (opt.teacher !== false) {
+      notes = `<div class="sheet"><div class="top"><span>${o.title} · Teacher notes</span><span>${file}</span></div><h1>Teacher notes</h1>` + picks.map(({ kind, item: x }) => {
+        if (kind === "m") return `<h2>Investigation ${o.missions.indexOf(x) + 1}: ${x.title}${tagA(x)}</h2><div class="note"><b>What to look for:</b> ${x.hint || "–"}</div>`;
+        const r = opt.results && opt.results[x.title], th = x.theory == null ? "" : x.xs ? x.xs.map(v => `${v}: ${sig(x.theory(v))}`).join(" · ") : sig(+x.theory);
+        return `<h2>Batch experiment ${o.batch.indexOf(x) + 1}: ${x.title}</h2><div class="note">${x.note || ""}${th ? `<br><b>Theory (${x.theoryLabel || "theory"}):</b> ${th}` : ""}${r ? `<br><b>Result from a test run:</b> ${r}` : ""}</div>`;
+      }).join("") + `</div>`;
+    }
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${o.title} – worksheets</title><style>${wsCSS}</style></head><body><div class="bar"><b>${o.title} – worksheets</b><span>${picks.length} sheet${picks.length > 1 ? "s" : ""}${opt.teacher !== false ? ", then teacher notes" : ""}. Print, or save as PDF.</span><button onclick="print()">🖨 Print</button></div>${sheets.join("")}${notes}</body></html>`;
+  }
+  // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
+  function batchSummary(e, seed0 = 12345) {
+    const rows = []; let i = 0;
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
+    return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
+  }
+  function openDoc(html, name) { const w = window.open("", "_blank"); if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(name, html); }
+  // ---- Sound (Web Audio). Pages that ask for it (app option `sound`) get a 🔇/🔊 button in the header.
+  //      It is OFF until someone presses it, so a room full of laptops stays quiet; nothing plays while it is off.
+  //      tone(f, {dur, vol, type, at, glide}) plays a note; noise({dur, vol, filter, freq, at}) a hiss, thump or rumble;
+  //      click() a Geiger-style tick; hum() a continuous tone you retune every frame (it fades out if not updated). ----
+  const sound = (() => {
+    let ctx = null, master = null, on = false, buf = null; const live = new Set(), hums = [], fns = [];
+    const ready = () => on && ctx && ctx.state === "running";
+    async function enable(v) {
+      on = !!v;
+      if (on) { try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (!master) { master = ctx.createGain(); master.gain.value = 0.7; master.connect(ctx.destination); } await ctx.resume(); } catch (e) { on = false; } }
+      else stop();
+      fns.forEach(f => f(on));
+    }
+    const track = n => { live.add(n); n.onended = () => live.delete(n); };
+    function tone(f, o = {}) {
+      if (!ready() || !(f > 15) || f > ctx.sampleRate / 2) return;
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.3, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.008, dur / 2);
+      const osc = ctx.createOscillator(), g = ctx.createGain(); osc.type = o.type || "sine"; osc.frequency.setValueAtTime(f, t); if (o.glide) osc.frequency.exponentialRampToValueAtTime(Math.max(16, o.glide), t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      osc.connect(g); g.connect(master); osc.start(t); osc.stop(t + dur + 0.02); track(osc);
+    }
+    function noise(o = {}) {
+      if (!ready()) return;
+      if (!buf) { buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.2, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.004, dur / 2);
+      const src = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain(); src.buffer = buf; src.loop = true;
+      fl.type = o.filter || "lowpass"; fl.frequency.value = o.freq || 1000; if (o.sweep) fl.frequency.exponentialRampToValueAtTime(o.sweep, t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      src.connect(fl); fl.connect(g); g.connect(master); src.start(t, Math.random()); src.stop(t + dur + 0.02); track(src);
+    }
+    const click = (o = {}) => noise({ dur: 0.012, vol: o.vol == null ? 0.5 : o.vol, filter: "highpass", freq: 1800, at: o.at });
+    function hum(type = "sine") {
+      let osc = null, g = null, last = 0;
+      const h = {
+        set(f, vol = 0.15) { if (!ready()) { h.kill(); return; } if (!osc) { osc = ctx.createOscillator(); g = ctx.createGain(); osc.type = type; g.gain.value = 0; osc.connect(g); g.connect(master); osc.start(); } const t = ctx.currentTime; osc.frequency.setTargetAtTime(Math.max(16, f), t, 0.02); g.gain.setTargetAtTime(vol, t, 0.04); last = performance.now(); },
+        kill() { if (osc) { try { g.gain.setTargetAtTime(0, ctx.currentTime, 0.03); osc.stop(ctx.currentTime + 0.25); } catch (e) { } osc = null; } },
+        stale() { return osc && performance.now() - last > 250; }
+      };
+      hums.push(h); return h;
+    }
+    function stop() { for (const n of live) { try { n.stop(); } catch (e) { } } live.clear(); hums.forEach(h => h.kill()); }
+    setInterval(() => hums.forEach(h => { if (h.stale()) h.kill(); }), 200);    // a hum nobody is updating (paused, other view) fades away
+    document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); });
+    return { enable, ready, tone, noise, click, hum, stop, get on() { return on; }, onChange: f => fns.push(f) };
+  })();
+  function app(o) {
+    document.title = o.title + " · Science Simulations";
+    const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
+    if (saved) document.documentElement.dataset.theme = saved;
+    const top = $("header", "k-top"), main = $("main", "k-main");
+    top.innerHTML = `<a class="k-home" href="${o.home || "../../index.html"}" title="Back to the list of simulations">◂ All simulations</a>
+      <div class="k-title"><span class="k-chip">${o.subject}</span><h1 title="${o.title}">${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
+    const act = top.querySelector(".k-actions");
+    const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
+    left.append(stage, dock); main.append(left, side); document.body.append(top, main);
+    const ui = { stage, dock, side, playing: true, speed: 1, canvas: fn => canvas(stage, fn), config: o };
+    const wsName = o.title.replace(/\W+/g, "-").toLowerCase() + "-worksheet.html";
+    ui.worksheet = (picks, teacher) => openDoc(worksheetDoc(o, picks, { teacher }), wsName);
+    ui.allPicks = () => (o.missions || []).map(item => ({ kind: "m", item })).concat((o.batch || []).map(item => ({ kind: "b", item })));
+    // header buttons
+    const bPlay = btn(act, "⏸ Pause", () => ui.setPlaying(!ui.playing)); bPlay.title = "Space bar";
+    ui.setPlaying = p => { ui.playing = p; bPlay.innerHTML = p ? "⏸ Pause" : "▶ Play"; bPlay.classList.toggle("primary", !p); };
+    if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
+    if (o.reset) btn(act, "↺ Reset", () => o.reset());
+    // the simulation's playback-speed control sits here, beside Pause / Step / Reset (see ui.headerSpeed below)
+    const hSpeed = $("div", "k-hspeed"); hSpeed.style.display = "none"; act.append(hSpeed);
+    if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
+    if (o.sound) { const bS = btn(act, "🔇 Sound", () => sound.enable(!sound.on)); bS.title = typeof o.sound === "string" ? o.sound : "Turn sound on or off (off to start with)"; sound.onChange(v => { bS.innerHTML = v ? "🔊 Sound" : "🔇 Sound"; bS.classList.toggle("primary", v); }); }
+    btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
+    btn(act, "⛶", () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).title = "Full screen";
+    addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
+    // side panel tabs
+    const tabs = $("nav", "k-tabs"), panes = {}; side.append(tabs);
+    const names = [["controls", "Controls"], ["missions", "Investigate"]].concat(o.revise ? [["revise", "Revise"]] : [], [["notes", "The model"]]);
+    const show = id => { if (id === "revise" && ui.renderRevise) ui.renderRevise(); for (const [k] of names) { panes[k].classList.toggle("on", k === id); panes[k]._tab.classList.toggle("on", k === id); } };
+    for (const [k, label] of names) { const b = $("button", "", label); b.onclick = () => show(k); tabs.append(b); panes[k] = $("div", "k-pane" + (k === "notes" ? " k-notes" : "")); panes[k]._tab = b; side.append(panes[k]); }
+    show("controls"); ui.controls = panes.controls; ui.showTab = show;
+    ui.group = title => { const g = $("div", "k-group", title ? `<h3>${title}</h3>` : ""); panes.controls.append(g); return g; };
+    panes.notes.innerHTML = o.notes || "";
+    // investigations: each card sets the simulation up and pins its question over the stage
+    let banner = null;
+    ui.mission = m => {
+      if (banner) banner.remove(); banner = null; if (!m) return;
+      banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
+      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
+    };
+    if ((o.missions || []).length || (o.batch || []).length) { const wr = $("div", "k-wsrow", "<span>Worksheets:</span>"); panes.missions.append(wr); btn(wr, "📄 Every investigation", () => ui.worksheet(ui.allPicks(), true), "small").title = "One printable sheet per investigation and batch experiment, then teacher notes"; btn(wr, "📄 Without teacher notes", () => ui.worksheet(ui.allPicks(), false), "small"); }
+    const mcards = (o.missions || []).map(m => {
+      const c = $("div", "k-mcard", `<h4><em></em>${m.title}${m.lvl === "adv" ? ' <span class="k-tag adv">A level</span>' : ""}</h4><p>${m.q}</p>`);
+      btn(c, "Set it up ▸", () => { c.classList.add("done"); c.querySelector("em").textContent = "✓"; m.setup && m.setup(); ui.mission(m); ui.setPlaying(true); show("controls"); }, "small primary");
+      btn(c, "📄 Worksheet", () => ui.worksheet([{ kind: "m", item: m }], true), "small").title = "A printable worksheet for this investigation";
+      panes.missions.append(c); return [m, c];
+    });
+    /* ---- Level (Standard / Advanced) and the Revise tab ----
+       o.levels = { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "...", adv: "..." } }
+       o.revise = { ideas: [{ lvl: "std"|"adv"|"beyond", tag, text }], questions: [{ lvl, q, marks, ans }] }   (q and ans may be functions, so they can use the numbers on screen)
+       Advanced shows everything; Standard hides anything marked "adv". */
+    ui.level = "std"; try { const l = localStorage.getItem("k-level"); if (l === "adv" || l === "std") ui.level = l; } catch (e) { }
+    if (!o.levels) ui.level = "adv";
+    const val = v => typeof v === "function" ? v() : v;
+    function renderLevel() {
+      let k = 0; for (const [m, c] of mcards) { const on = m.lvl !== "adv" || ui.level === "adv"; c.style.display = on ? "" : "none"; if (on) { k++; if (!c.classList.contains("done")) c.querySelector("em").textContent = k; } }
+      if (!o.revise) return; const P = panes.revise, see = x => x.lvl !== "adv" || ui.level === "adv", tagName = { std: "std", adv: "adv", beyond: "beyond" };
+      P.innerHTML = (o.levels ? `<p class="k-spec">${o.levels.specs[ui.level]}</p>` : "") + `<h3>Key ideas</h3>` + o.revise.ideas.filter(see).map(x => `<div class="k-idea"><span class="k-tag ${tagName[x.lvl]}">${x.tag}</span> ${val(x.text)}</div>`).join("") +
+        `<h3>Exam practice</h3>` + o.revise.questions.filter(see).map((x, i) => `<div class="k-mcard k-q"><h4><em>${i + 1}</em><span class="k-tag ${tagName[x.lvl]}">${x.lvl === "adv" ? "A level" : "GCSE"}</span><span class="k-marks">[${x.marks} mark${x.marks > 1 ? "s" : ""}]</span></h4><p>${val(x.q)}</p><details><summary>Mark scheme</summary>${val(x.ans)}</details></div>`).join("");
+      if (o.revise.questions.some(x => typeof x.q === "function")) btn(P, "↻ Use the numbers on screen now", renderLevel, "small");
+    }
+    if (o.levels) { const lg = $("div", "k-group k-level"); panes.controls.append(lg); const sg = seg(lg, { value: ui.level, options: [["std", o.levels.std], ["adv", o.levels.adv]], on: v => { ui.level = v; try { localStorage.setItem("k-level", v); } catch (e) { } hint.textContent = o.levels.specs[v]; renderLevel(); ui.onLevel && ui.onLevel(v); } }); const hint = $("small", "", o.levels.specs[ui.level]); hint.style.cssText = "display:block;color:var(--muted);font-size:11.5px;margin-top:-4px"; lg.append(hint); ui.setLevel = v => sg.set(v, true); }
+    try { renderLevel(); } catch (e) { setTimeout(renderLevel, 0); }   // questions may use values the simulation has not set up yet
+    ui.renderRevise = renderLevel;
+    /* ui.headerSpeed(control, { label }) moves a speed slider (or Slow/Fast buttons) made with K.slider / K.seg
+       from the Controls tab up into the header bar. It is the same control, so the simulation's own code
+       (ctl.speed.set(...), investigations, mode switches) keeps working. If the group it came from is hidden
+       (for example a mode that does not use it), the header copy is hidden too; a group left with only its
+       heading is hidden. A label like "Speed (minutes per second)" shows as "Speed" with the bracket after the value. */
+    const hsList = [];
+    ui.headerSpeed = (c, opt = {}) => {
+      const el = c.el, from = el.parentNode, name = el.querySelector("label > span"), tip = el.querySelector(":scope > small");
+      const full = name ? name.textContent : "", m = /^(.*?)\s*\((.+)\)$/.exec(full);
+      el.title = full + (tip ? " · " + tip.textContent : "");
+      if (name) name.textContent = opt.label || (m ? m[1] : full);
+      if (m && !opt.label) { const u = $("i", "k-hunit", m[2]); (el.querySelector("label") || el).append(u); }
+      el.classList.add("k-hctl"); hSpeed.append(el); hSpeed.style.display = ""; hsList.push({ el, from }); syncSpeed();
+      return c;
+    };
+    function syncSpeed() {
+      let any = false;
+      for (const { el, from } of hsList) {
+        if (from.classList.contains("k-group") && ![...from.children].some(x => x.tagName !== "H3")) from.classList.add("k-emptied");
+        let hide = false; for (let x = from; x && x !== panes.controls && x !== document.body; x = x.parentNode) if (x.style.display === "none" || x.hidden) { hide = true; break; }
+        el.classList.toggle("k-hoff", hide); if (!hide && el.style.display !== "none") any = true;
+      }
+      hSpeed.style.display = any ? "" : "none";
+    }
+    setInterval(() => hsList.length && syncSpeed(), 250);
+    // floating hint and heads-up text over the stage
+    let tipEl = null, tipT = 0;
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; } hudEl.style.display = html ? "" : "none"; };
+    // animation loop: step(dt) only while playing, draw() every frame
+    ui.run = (step, draw) => { let t0 = performance.now(); const f = t => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (ui.playing && !ov.classList.contains("on")) step(dt); draw(dt); requestAnimationFrame(f); }; requestAnimationFrame(f); };
+
+    // ---- Batch run window ----
+    const ov = $("div", "k-overlay"); document.body.append(ov);
+    let bstate = null;
+    function openBatch() {
+      ov.classList.add("on"); if (bstate) return;
+      const modal = $("div", "k-modal"), list = $("div", "k-blist", `<h2>📊 Batch run</h2><p>Runs the model many times without drawing it, then compares the results with theory. Pick a question:</p>`), mainB = $("div", "k-bmain");
+      modal.append(list, mainB); ov.append(modal); ov.addEventListener("pointerdown", e => { if (e.target === ov) ov.classList.remove("on"); });
+      mainB.innerHTML = `<div class="k-bhead"><h3></h3></div><div class="k-bbar"></div><div class="k-bchart"></div><div class="k-bfoot"><div class="k-btable"></div><div class="k-bnote"></div></div>`;
+      const head = mainB.querySelector("h3"), bar = mainB.querySelector(".k-bbar"), tbl = mainB.querySelector(".k-btable"), noteEl = mainB.querySelector(".k-bnote");
+      btn(mainB.querySelector(".k-bhead"), "✕ Close", () => ov.classList.remove("on"));
+      const ch = chart(mainB.querySelector(".k-bchart"), {});
+      const bRun = btn(bar, "▶ Run", () => runExp(), "primary"), prog = $("div", "k-prog", "<i></i>"), status = $("span", "", ""); status.style.cssText = "color:var(--muted);font-size:12.5px;min-width:110px";
+      const bCsv = btn(bar, "⬇ CSV", () => bstate.rows.length && download(o.title.replace(/\W+/g, "-").toLowerCase() + "-batch.csv", bstate.csv()));
+      bar.insertBefore(prog, bCsv); bar.insertBefore(status, bCsv);
+      btn(bar, "📄 Worksheet", () => ui.worksheet([{ kind: "b", item: bstate.exp }], true)).title = "A printable worksheet for this experiment";
+      bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
+      const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
+      function pick(e) { bstate.token++; bstate.exp = e; bRun.textContent = "▶ Run"; bRun.onclick = () => runExp(); bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
+      function paint() {
+        const e = bstate.exp, rows = bstate.rows, series = [], extra = { title: "", xLabel: e.xs ? e.xLabel : e.yLabel, yLabel: e.xs ? e.yLabel : "number of runs" };
+        if (e.xs) {
+          const groups = e.xs.map(x => rows.filter(r => r[0] === x).map(r => r[3])), done = e.xs.map((x, i) => [x, groups[i]]).filter(g => g[1].length);
+          if (e.theory) {
+            // the theory curve is drawn smoothly between the settings; a theory that only exists AT the settings (a table, a whole number of things) is drawn through those points instead
+            const th = x => { try { const y = e.theory(x); return y == null || !isFinite(y) ? null : +y; } catch (er) { return null; } };
+            const a = Math.min(...e.xs), b = Math.max(...e.xs); let tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, th(x)]); }
+            const atXs = [...e.xs].sort((u, v) => u - v).map(x => [x, th(x)]); if (tp.some(q => q[1] == null) && atXs.every(q => q[1] != null)) tp = atXs;
+            series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
+          series.push({ pts: rows.map(r => [r[0], r[3]]), type: "dots", color: cssVar("--s0"), alpha: .3, r: 2.5, label: "single runs" });
+          series.push({ pts: done.map(([x, g]) => [x, mean(g), se(g)]), type: "err", color: cssVar("--s0"), r: 4.5, label: "mean ± SE" });
+          let fitTxt = "";
+          if (e.fit && done.length > 2) { const f = linfit(done.map(([x, g]) => [x, mean(g)])), a = Math.min(...e.xs), b = Math.max(...e.xs); series.push({ pts: [[a, f.m * a + f.c], [b, f.m * b + f.c]], color: cssVar("--s2"), label: "best-fit line" }); fitTxt = `<tr><td colspan="6" style="text-align:left">Best-fit line: gradient <b>${sig(f.m)}</b>, intercept ${sig(f.c)}, r = ${f.r.toFixed(3)}</td></tr>`; }
+          extra.xMin = Math.min(...e.xs) - (Math.max(...e.xs) - Math.min(...e.xs)) * .05; extra.xMax = Math.max(...e.xs) + (Math.max(...e.xs) - Math.min(...e.xs)) * .05; if (e.yMin != null) extra.yMin = e.yMin; if (e.yMax != null) extra.yMax = e.yMax;
+          tbl.innerHTML = `<table><tr><th>${e.xLabel}</th><th>runs</th><th>mean</th><th>SD</th><th>SE</th>${e.theory ? "<th>theory</th>" : ""}</tr>` + done.map(([x, g]) => `<tr><td>${sig(x, 4)}</td><td>${g.length}</td><td>${sig(mean(g))}</td><td>${sig(sd(g))}</td><td>${sig(se(g))}</td>${e.theory ? `<td>${sig(e.theory(x))}</td>` : ""}</tr>`).join("") + fitTxt + "</table>";
+        } else {
+          const v = rows.map(r => r[3]);
+          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) { extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); series.push({ pts: [[+e.theory, 0]], type: "dots", r: 0.01, alpha: 0 }); } }   // an invisible point keeps the theory line on the chart even if every run misses it
+          tbl.innerHTML = v.length ? `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${e.theory != null ? "<th>theory</th>" : ""}</tr><tr><td>${v.length}</td><td>${sig(mean(v))}</td><td>${sig(sd(v))}</td><td>${sig(se(v))}</td><td>${sig(Math.min(...v))}</td><td>${sig(Math.max(...v))}</td>${e.theory != null ? `<td>${sig(+e.theory)}</td>` : ""}</tr></table>` : "";
+        }
+        ch.opts.xFmt = null; ch.draw(series, extra);
+      }
+      function runExp() {
+        const e = bstate.exp, token = ++bstate.token; bstate.rows = []; const tasks = [];
+        if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) tasks.push([x, r]); } else for (let r = 0; r < (e.reps || 200); r++) tasks.push([0, r]);
+        let i = 0; const seed0 = (Date.now() % 100000) * 7 + 1; bRun.textContent = "■ Stop"; bRun.onclick = () => { bstate.token++; fin(); };
+        const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
+        (function slice() {
+          if (token !== bstate.token) return; const t = performance.now();
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
+          if (i < tasks.length) setTimeout(slice, 0); else fin();
+        })();
+      }
+      pick(o.batch[0]);
+    }
+    ui.openBatch = openBatch;
+    K_last = ui;
+    return ui;
+  }
+  return { sound, $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app, worksheetDoc, batchSummary, get ui() { return K_last; } };
+})();
+</script>
+<script>
+/* =====================================================================
+   CALCULUS EXPLORER
+   DIFFERENTIATION FROM FIRST PRINCIPLES: the gradient of a curve at x is
+   the limit of the gradient of a chord from (x, f(x)) to (x + h, f(x + h))
+   as h shrinks to 0:
+        f'(x) = lim (h → 0) [ f(x + h) − f(x) ] / h
+   e.g. for f(x) = x²: [(x + h)² − x²]/h = (2xh + h²)/h = 2x + h → 2x.
+   STATIONARY POINTS are where f'(x) = 0: a maximum if f''(x) < 0, a
+   minimum if f''(x) > 0 (and if f''(x) = 0, look either side).
+   INTEGRATION: the area under y = f(x) from a to b is the limit of a sum
+   of thin strips,  ∫ f(x) dx = F(b) − F(a)  where F' = f.
+   Area below the x-axis counts as negative. The TRAPEZIUM RULE uses
+   n strips of width h = (b − a)/n:
+        ∫ ≈ h/2 [ y0 + 2(y1 + … + y(n−1)) + yn ]
+   ===================================================================== */
+
+// ---------------- 1. The functions (each with its exact derivatives and an antiderivative) ----------------
+const FN = {
+  cubic: { name: "cubic ax³ + bx² + cx + d", x0: -3, x1: 3, f: (x, q) => ((q.a * x + q.b) * x + q.c) * x + q.d, d1: (x, q) => (3 * q.a * x + 2 * q.b) * x + q.c, d2: (x, q) => 6 * q.a * x + 2 * q.b, F: (x, q) => q.a * x ** 4 / 4 + q.b * x ** 3 / 3 + q.c * x * x / 2 + q.d * x, tex: q => poly(q) },
+  sq: { name: "x²", x0: -3, x1: 3, f: x => x * x, d1: x => 2 * x, d2: () => 2, F: x => x ** 3 / 3, tex: () => "y = x²", fp: (x, h) => `[(${fx(x)} + h)² − ${fx(x)}²] ÷ h = (${fx(2 * x)}h + h²) ÷ h = ${fx(2 * x)} + h` },
+  cube: { name: "x³", x0: -2.5, x1: 2.5, f: x => x ** 3, d1: x => 3 * x * x, d2: x => 6 * x, F: x => x ** 4 / 4, tex: () => "y = x³", fp: (x, h) => `[(${fx(x)} + h)³ − ${fx(x)}³] ÷ h = ${fx(3 * x * x)} + ${fx(3 * x)}h + h²` },
+  sin: { name: "sin x (A level)", adv: true, x0: -1, x1: 7, f: Math.sin, d1: Math.cos, d2: x => -Math.sin(x), F: x => -Math.cos(x), tex: () => "y = sin x  (x in radians)" },
+  exp: { name: "eˣ (A level)", adv: true, x0: -3, x1: 2.5, f: Math.exp, d1: Math.exp, d2: Math.exp, F: Math.exp, tex: () => "y = eˣ" },
+  ln: { name: "ln x (A level)", adv: true, x0: 0.05, x1: 8, f: Math.log, d1: x => 1 / x, d2: x => -1 / (x * x), F: x => x * Math.log(x) - x, tex: () => "y = ln x" },
+};
+const fx = v => (Math.abs(v) < 1e-9 ? 0 : +v.toFixed(3)).toString();
+function poly(q) { const t = []; [[q.a, "x³"], [q.b, "x²"], [q.c, "x"], [q.d, ""]].forEach(([k, s]) => { if (Math.abs(k) < 1e-9) return; const sg = k < 0 ? " − " : t.length ? " + " : "", m = Math.abs(k); t.push(sg + (m === 1 && s ? "" : fx(m)) + s); }); return "y = " + (t.join("") || "0"); }
+// stationary points of the current function: solve f'(x) = 0 by scanning for sign changes then halving the interval
+function stationary(Q) {
+  const D = FN[Q.fn], out = [], N = 800; let px = D.x0, pv = D.d1(px, Q);
+  for (let i = 1; i <= N; i++) { const x = D.x0 + (D.x1 - D.x0) * i / N, v = D.d1(x, Q); if (pv === 0 || pv * v < 0 || (Math.abs(v) < 1e-12)) { let a = px, b = x; for (let k = 0; k < 60; k++) { const m = (a + b) / 2; D.d1(a, Q) * D.d1(m, Q) <= 0 ? b = m : a = m; } const r = (a + b) / 2; if (!out.some(o => Math.abs(o.x - r) < 1e-6)) { const s2 = D.d2(r, Q), kind = s2 < -1e-9 ? "maximum" : s2 > 1e-9 ? "minimum" : (D.d1(r - 1e-3, Q) * D.d1(r + 1e-3, Q) < 0 ? (D.d1(r - 1e-3, Q) > 0 ? "maximum" : "minimum") : "point of inflection"); out.push({ x: r, y: D.f(r, Q), kind, s2 }); } } px = x; pv = v; }
+  return out;
+}
+// points of inflection: where f'' changes sign
+function inflections(Q) { const D = FN[Q.fn], out = [], N = 800; let px = D.x0, pv = D.d2(px, Q); for (let i = 1; i <= N; i++) { const x = D.x0 + (D.x1 - D.x0) * (i - 0.3183) / N, v = D.d2(x, Q); if (pv * v < 0) { let a = px, b = x; for (let k = 0; k < 50; k++) { const m = (a + b) / 2; D.d2(a, Q) * D.d2(m, Q) <= 0 ? b = m : a = m; } out.push({ x: (a + b) / 2, y: D.f((a + b) / 2, Q) }); } px = x; pv = v; } return out; }
+// numerical areas: n strips from a to b
+function strips(Q, method, n) {
+  const D = FN[Q.fn], a = Q.a0, b = Q.b0, h = (b - a) / n; let s = 0;
+  for (let i = 0; i < n; i++) { const x = a + i * h; s += method === "left" ? D.f(x, Q) : method === "right" ? D.f(x + h, Q) : method === "mid" ? D.f(x + h / 2, Q) : (D.f(x, Q) + D.f(x + h, Q)) / 2; }
+  return s * h;
+}
+const exactArea = Q => FN[Q.fn].F(Q.b0, Q) - FN[Q.fn].F(Q.a0, Q);
+function totalArea(Q) { const D = FN[Q.fn], N = 4000, h = (Q.b0 - Q.a0) / N; let s = 0; for (let i = 0; i < N; i++) s += Math.abs(D.f(Q.a0 + (i + .5) * h, Q)); return s * h; }   // area counting every part as positive
+
+// ---------------- 2. State ----------------
+const DEF = { fn: "cubic", a: 1, b: 0, c: -3, d: 1, mode: "grad", x: 1, hExp: -0.3, a0: -1, b0: 2, n: 6, method: "trap", showD1: true, showD2: false, conc: false };
+const P = Object.assign({}, DEF);
+const hVal = () => Math.pow(10, P.hExp);
+
+// ---------------- 3. The page ----------------
+const ui = K.app({
+  title: "Calculus Explorer", subject: "Mathematics",
+  blurb: "Chords become tangents, gradients become a new function, and thin strips become an area: differentiation from first principles, stationary points and integration",
+  reset: () => set({}),
+  levels: { std: "AS (8MA0)", adv: "A level (9MA0)", specs: {
+    std: "Pearson Edexcel AS Mathematics (8MA0) Pure 7.1–7.3: the gradient as the limit of a chord, differentiation from first principles for small powers of x, gradients, tangents and normals, increasing and decreasing functions, stationary points and the second derivative; Pure 8.1–8.3: indefinite and definite integrals and the area under a curve.",
+    adv: "Pearson Edexcel A level Mathematics (9MA0) Pure 7: first principles for sin x and cos x, derivatives of eˣ and ln x, concave and convex curves and points of inflection; Pure 8: area as the limit of a sum, areas below the axis and between curves; Pure 9: the trapezium rule and its over- or under-estimates." } },
+  missions: [
+    { title: "Chord to tangent", q: "f(x) = x² at x = 1. Shrink h towards 0. What value does the chord's gradient approach? How does the algebra in the box explain it?", hint: "The chord gradient is 2 + h, so it approaches 2 as h → 0: f'(1) = 2. In general [(x + h)² − x²]/h = 2x + h → 2x. This is differentiation from first principles.", setup: () => set({ fn: "sq", mode: "grad", x: 1, hExp: 0 }) },
+    { title: "The gradient function", q: "Drag the point along y = x³ (or use the slider). The lower chart traces the gradient at every x. What shape is the gradient function?", hint: "A parabola, 3x²: always positive or zero, zero at the origin (a point of inflection), and the same for x and −x.", setup: () => set({ fn: "cube", mode: "grad", x: -2, hExp: -3 }) },
+    { title: "Stationary points", q: "y = x³ − 3x + 1. Find where the gradient is zero. Which point is a maximum and which a minimum? Check with f''(x).", hint: "f'(x) = 3x² − 3 = 0 at x = ±1. f''(x) = 6x: f''(−1) = −6 < 0, a maximum at (−1, 3); f''(1) = 6 > 0, a minimum at (1, −1).", setup: () => set({ mode: "stat" }) },
+    { title: "Increasing and decreasing", q: "On which intervals is y = x³ − 3x + 1 increasing? Compare with where the gradient function is above the x-axis.", hint: "Increasing where f'(x) > 0: x < −1 and x > 1 (green). Decreasing for −1 < x < 1 (red).", setup: () => set({ mode: "stat", showD1: true }) },
+    { title: "Area under a curve", q: "Find the area under y = x² from 0 to 2 with 4, then 20, then 100 rectangles. What value does it approach? Check by integrating.", hint: "∫₀² x² dx = [x³/3]₀² = 8/3 ≈ 2.667. More, thinner strips give a better estimate: area is the limit of a sum.", setup: () => set({ fn: "sq", mode: "area", a0: 0, b0: 2, n: 4, method: "left" }) },
+    { title: "Below the axis", q: "∫ from −1 to 2 of x³ − 3x + 1. Why is the integral different from the total shaded area?", hint: "Parts below the x-axis give a negative contribution to the integral. To find the total area, integrate each part separately and add the sizes.", setup: () => set({ mode: "area", a0: -1, b0: 2, n: 60, method: "mid" }) },
+    { lvl: "adv", title: "Gradient of sin x from first principles", q: "f(x) = sin x. Move the point and watch the gradient function. Which function is it? Why must x be in radians?", hint: "The gradient function is cos x. First principles uses sin h/h → 1 and (cos h − 1)/h → 0 as h → 0, which are only true in radians.", setup: () => set({ fn: "sin", mode: "grad", x: 0, hExp: -2 }) },
+    { lvl: "adv", title: "Concave, convex and inflection", q: "y = x³ − 3x + 1: where is the curve concave (f'' < 0) and convex (f'' > 0)? Where is the point of inflection?", hint: "f''(x) = 6x: concave for x < 0, convex for x > 0, point of inflection at (0, 1) where f'' changes sign. It is not a stationary point (f'(0) = −3).", setup: () => set({ mode: "stat", showD2: true, conc: true }) },
+    { lvl: "adv", title: "Trapezium rule: over or under?", q: "Use the trapezium rule on eˣ from 0 to 2 with 4 strips. Is it an overestimate or an underestimate? Why?", hint: "An overestimate: eˣ is convex (curves upwards), so every trapezium's top lies above the curve. For a concave curve (like ln x) it underestimates.", setup: () => set({ fn: "exp", mode: "area", a0: 0, b0: 2, n: 4, method: "trap" }) },
+  ],
+  batch: [
+    { title: "How fast does the chord gradient converge?", question: "For y = x³ at x = 1, how far is the chord gradient from the true gradient 3 for each h?", how: "Exact calculation (no randomness): one run per h.", xLabel: "h", yLabel: "chord gradient − 3", xs: [1, 0.8, 0.6, 0.4, 0.2, 0.1, 0.05], reps: 1, yMin: 0, theory: h => 3 * h + h * h, theoryLabel: "3h + h²", run: h => ((1 + h) ** 3 - 1) / h - 3, note: "The error is 3h + h², so it shrinks in proportion to h for small h: halving h halves the error." },
+    { title: "Trapezium rule error", question: "How does the error of the trapezium rule for ∫₀^π sin x dx (exactly 2) shrink as the number of strips grows?", how: "Exact calculation: one run per n. The answer is an underestimate (sin is concave), so the size of the error is plotted.", xLabel: "strips n", yLabel: "2 − trapezium estimate", xs: [2, 3, 4, 6, 8, 12, 16], reps: 1, yMin: 0, theory: n => Math.PI ** 2 / (6 * n * n), theoryLabel: "π²/(6n²)", run: n => 2 - strips(Object.assign({}, DEF, { fn: "sin", a0: 0, b0: Math.PI }), "trap", n), note: "Doubling n divides the error by 4: the error is proportional to h². The formula comes from (h²/12)(f'(b) − f'(a))." },
+    { title: "Left rectangles against the trapezium rule", question: "For ∫₀¹ eˣ dx = e − 1, how much bigger is the error with left-hand rectangles?", how: "Exact calculation: one run per n. The plotted value is (exact − left sum).", xLabel: "strips n", yLabel: "exact − left-rectangle sum", xs: [2, 4, 6, 8, 12, 16, 24], reps: 1, yMin: 0, theory: n => (Math.E - 1) / (2 * n), theoryLabel: "(e − 1)/(2n)", run: n => (Math.E - 1) - strips(Object.assign({}, DEF, { fn: "exp", a0: 0, b0: 1 }), "left", n), note: "Rectangles converge only like 1/n; the trapezium rule like 1/n². That is why the trapezium rule is used." },
+    { title: "Random cubics: how many stationary points?", question: "For y = x³ + bx² + cx with b and c random between −3 and 3, how many stationary points are there on average?", how: "Each run draws 50 random cubics and records the mean number of stationary points (found from the discriminant of f'(x) = 3x² + 2bx + c).", yLabel: "mean number of stationary points", reps: 200, bins: 20, theory: 4 / 3, theoryLabel: "2 × P(b² > 3c) = 4/3", run: (x, r) => { let k = 0; for (let i = 0; i < 50; i++) { const b = 6 * r() - 3, c = 6 * r() - 3; if (4 * b * b - 12 * c > 0) k += 2; } return k / 50; }, note: "f'(x) = 0 is a quadratic: two stationary points if its discriminant 4b² − 12c > 0, none if it is negative. This happens two-thirds of the time." },
+    { title: "Area by random darts", question: "Throw n random points at the square 0 ≤ x, y ≤ 1. Does the fraction under y = x² estimate ∫₀¹ x² dx = 1/3?", how: "Each run throws 400 random points.", yLabel: "estimated area", reps: 300, bins: 24, theory: 1 / 3, theoryLabel: "1/3", run: (x, r) => { let k = 0; for (let i = 0; i < 400; i++) { const px = r(), py = r(); if (py < px * px) k++; } return k / 400; }, note: "A Monte Carlo estimate: unbiased, but noisy (SD √(p(1−p)/400) ≈ 0.024). Strips are far more accurate for one variable; random points win in many dimensions." },
+  ],
+  revise: {
+    ideas: [
+      { lvl: "std", tag: "P7.1", text: "The gradient at a point is the limit of the gradient of a chord: f'(x) = lim (h→0) [f(x + h) − f(x)]/h. dy/dx is the rate of change of y with respect to x." },
+      { lvl: "std", tag: "P7.2", text: "If y = xⁿ then dy/dx = nxⁿ⁻¹ (and kxⁿ → knxⁿ⁻¹). The tangent at x = a has gradient f'(a); the normal is perpendicular, gradient −1/f'(a)." },
+      { lvl: "std", tag: "P7.3", text: "Increasing where f'(x) > 0, decreasing where f'(x) < 0. Stationary points: f'(x) = 0. If f''(x) < 0 it is a maximum, if f''(x) > 0 a minimum." },
+      { lvl: "std", tag: "P8.2", text: "∫ xⁿ dx = xⁿ⁺¹/(n + 1) + c (n ≠ −1). Definite integral: ∫ₐᵇ f(x) dx = F(b) − F(a). It gives the area between the curve and the x-axis, negative where the curve is below the axis." },
+      { lvl: "adv", tag: "P7.1", text: "d/dx sin x = cos x and d/dx cos x = −sin x (x in radians, from first principles using sin h/h → 1). d/dx eᵏˣ = keᵏˣ, d/dx ln x = 1/x." },
+      { lvl: "adv", tag: "P7.3", text: "Concave where f''(x) < 0, convex where f''(x) > 0. A point of inflection is where the curve changes from concave to convex (f'' changes sign)." },
+      { lvl: "adv", tag: "P9", text: "Trapezium rule: ∫ₐᵇ y dx ≈ ½h[y₀ + 2(y₁ + … + yₙ₋₁) + yₙ], h = (b − a)/n. It overestimates for convex curves and underestimates for concave ones; more strips improve it." },
+    ],
+    questions: [
+      { lvl: "std", marks: 4, q: "Prove from first principles that the derivative of x³ is 3x².", ans: "<ul><li>gradient of chord = [(x + h)³ − x³]/h</li><li>= (3x²h + 3xh² + h³)/h</li><li>= 3x² + 3xh + h²</li><li>as h → 0 this tends to 3x², so dy/dx = 3x²</li></ul>" },
+      { lvl: "std", marks: 5, q: () => `Find the stationary points of ${poly(P.fn === "cubic" ? P : DEF)} and determine their nature.`, ans: () => { const Q = P.fn === "cubic" ? P : DEF, s = stationary(Object.assign({}, Q, { fn: "cubic" })); return `<ul><li>dy/dx = ${fx(3 * Q.a)}x² ${Q.b < 0 ? "−" : "+"} ${fx(Math.abs(2 * Q.b))}x ${Q.c < 0 ? "−" : "+"} ${fx(Math.abs(Q.c))} = 0</li>${s.length ? s.map(p => `<li>x = ${fx(p.x)}, y = ${fx(p.y)}: f'' = ${fx(p.s2)} → ${p.kind}</li>`).join("") : "<li>no real solutions: no stationary points</li>"}</ul>`; } },
+      { lvl: "std", marks: 3, q: "Find the area enclosed by y = x(4 − x) and the x-axis.", ans: "<ul><li>crosses the axis at x = 0 and 4</li><li>∫₀⁴ (4x − x²) dx = [2x² − x³/3]₀⁴</li><li>= 32 − 64/3 = 32/3 ≈ 10.67</li></ul>" },
+      { lvl: "adv", marks: 4, q: "Use the trapezium rule with 4 strips to estimate ∫₀² eˣ dx. State, with a reason, whether it is an over- or underestimate.", ans: "<ul><li>h = 0.5; y = 1, 1.6487, 2.7183, 4.4817, 7.3891</li><li>½ × 0.5 × [1 + 7.3891 + 2(1.6487 + 2.7183 + 4.4817)] = 6.522</li><li>overestimate (exact e² − 1 = 6.389)</li><li>because eˣ is convex: the trapezia lie above the curve</li></ul>" },
+      { lvl: "adv", marks: 3, q: "Show that the curve y = x³ − 3x + 1 has a point of inflection at (0, 1).", ans: "<ul><li>d²y/dx² = 6x</li><li>= 0 at x = 0, y = 1</li><li>6x changes sign (negative for x < 0, positive for x > 0), so the curve changes from concave to convex: a point of inflection</li></ul>" },
+    ]
+  },
+  notes: `<h3>What the page does</h3><ul><li>Every function has its exact derivatives built in; the chord gradient is worked out from the function values, so you can watch it approach the exact gradient.</li><li>Stationary points are found by scanning f'(x) for sign changes and then halving the interval; their nature uses f''(x) (and the sign of f' either side if f'' = 0).</li><li>Areas: left or right rectangles, midpoint rectangles or the trapezium rule, compared with the exact F(b) − F(a).</li></ul>
+<h3>Assumptions and simplifications</h3><ul><li>The computer cannot take a true limit: h stops at 10⁻⁴. With far smaller h, rounding errors in the computer's arithmetic would spoil the chord gradient.</li><li>The graph is drawn from many short straight lines; stationary points closer together than about 1% of the window could be missed.</li><li>Trigonometric functions use radians.</li></ul>`,
+});
+
+// ---------------- 4. Controls ----------------
+const C = {};
+let g = ui.group("Function");
+C.fn = K.seg(g, { value: "cubic", options: Object.entries(FN).map(([k, v]) => [k, v.name]), on: v => set({ fn: v, mode: P.mode }) });
+C.a = K.slider(g, { label: "a", min: -2, max: 2, step: 0.1, value: 1, fmt: v => v.toFixed(1), on: v => P.a = v });
+C.b = K.slider(g, { label: "b", min: -4, max: 4, step: 0.1, value: 0, fmt: v => v.toFixed(1), on: v => P.b = v });
+C.c = K.slider(g, { label: "c", min: -6, max: 6, step: 0.1, value: -3, fmt: v => v.toFixed(1), on: v => P.c = v });
+C.d = K.slider(g, { label: "d", min: -6, max: 6, step: 0.1, value: 1, fmt: v => v.toFixed(1), on: v => P.d = v });
+g = ui.group("What to explore");
+C.mode = K.seg(g, { value: "grad", options: [["grad", "gradient: chord → tangent"], ["stat", "stationary points"], ["area", "area under the curve"]], on: v => { P.mode = v; showCtl(); } });
+C.x = K.slider(g, { label: "Point x", min: -4, max: 4, step: 0.01, value: 1, fmt: v => v.toFixed(2), on: v => P.x = v });
+C.h = K.slider(g, { label: "Chord width h", min: -4, max: 0.3, step: 0.05, value: -0.3, fmt: v => K.sig(Math.pow(10, v), 3), on: v => P.hExp = v });
+C.showD1 = K.toggle(g, { label: "Show the gradient function f'(x)", value: true, on: v => P.showD1 = v });
+C.showD2 = K.toggle(g, { label: "Show the second derivative f''(x)", value: false, on: v => P.showD2 = v });
+C.conc = K.toggle(g, { label: "Shade concave / convex (A level)", value: false, on: v => P.conc = v });
+C.a0 = K.slider(g, { label: "From x = a", min: -4, max: 4, step: 0.05, value: -1, fmt: v => v.toFixed(2), on: v => P.a0 = Math.min(v, P.b0 - 0.05) });
+C.b0 = K.slider(g, { label: "To x = b", min: -4, max: 4, step: 0.05, value: 2, fmt: v => v.toFixed(2), on: v => P.b0 = Math.max(v, P.a0 + 0.05) });
+C.n = K.slider(g, { label: "Number of strips n", min: 1, max: 200, step: 1, value: 6, on: v => P.n = v });
+C.method = K.seg(g, { label: "Strips", value: "trap", options: [["left", "left rectangles"], ["right", "right rectangles"], ["mid", "midpoint"], ["trap", "trapezium rule"]], on: v => P.method = v });
+const read = K.readout(ui.group("Numbers"), [["f", "Function"], ["r1", ""], ["r2", ""], ["r3", ""], ["r4", ""]]);
+const relabel = n => n.forEach((t, i) => read.el.children[i + 1].firstElementChild.textContent = t);
+function showCtl() {
+  const m = P.mode, adv = ui.level === "adv", cub = P.fn === "cubic";
+  for (const k of ["a", "b", "c", "d"]) C[k].el.style.display = cub ? "" : "none";
+  C.x.el.style.display = C.h.el.style.display = m === "grad" ? "" : "none";
+  C.showD1.el.style.display = m !== "area" ? "" : "none"; C.showD2.el.style.display = m === "stat" ? "" : "none"; C.conc.el.style.display = m === "stat" && adv ? "" : "none";
+  for (const k of ["a0", "b0", "n", "method"]) C[k].el.style.display = m === "area" ? "" : "none";
+  C.fn.el.querySelectorAll("button").forEach((b, i) => b.style.display = !Object.values(FN)[i].adv || adv ? "" : "none");
+}
+function fitRanges() { const D = FN[P.fn]; for (const k of ["x", "a0", "b0"]) { const inp = C[k].el.querySelector("input"); inp.min = D.x0; inp.max = D.x1; } }
+function set(o) {
+  Object.assign(P, DEF, o); if (FN[P.fn].adv && ui.setLevel && ui.level !== "adv") ui.setLevel("adv"); if ((o.conc) && ui.setLevel && ui.level !== "adv") ui.setLevel("adv");
+  fitRanges(); const D = FN[P.fn]; P.x = K.clamp(P.x, D.x0, D.x1); P.a0 = K.clamp(P.a0, D.x0, D.x1); P.b0 = K.clamp(P.b0, D.x0, D.x1);
+  for (const k of ["a", "b", "c", "d", "x", "n"]) C[k].set(P[k]); C.h.set(P.hExp); C.a0.set(P.a0); C.b0.set(P.b0);
+  for (const k of ["fn", "mode", "method", "showD1", "showD2", "conc"]) C[k].set(P[k]); trace = []; showCtl();
+}
+
+// ---------------- 5. Drawing ----------------
+const cv = ui.canvas(() => { });
+const chA = K.chart(ui.dock, {}), chB = K.chart(ui.dock, {});
+let view = null, dragging = null, trace = [];
+const M = { L: 50, R: 20, T: 20, B: 30 };
+function makeView() { const D = FN[P.fn]; let lo = Infinity, hi = -Infinity; for (let i = 0; i <= 300; i++) { const x = D.x0 + (D.x1 - D.x0) * i / 300, y = D.f(x, P); if (isFinite(y)) { lo = Math.min(lo, y); hi = Math.max(hi, y); } } lo = Math.max(lo, -12); hi = Math.min(hi, 12); if (P.mode !== "area" || true) { lo = Math.min(lo, -0.5); hi = Math.max(hi, 0.5); } const p = (hi - lo) * 0.12; return { x0: D.x0, x1: D.x1, y0: lo - p, y1: hi + p }; }
+const SX = x => M.L + (x - view.x0) / (view.x1 - view.x0) * (cv.w - M.L - M.R), SY = y => cv.h - M.B - (y - view.y0) / (view.y1 - view.y0) * (cv.h - M.T - M.B), WX = px => view.x0 + (px - M.L) / (cv.w - M.L - M.R) * (view.x1 - view.x0);
+const TX = (c, s, x, y, col = "#c9d4ea", al = "left", f = "12px") => { c.fillStyle = col; c.font = f + " Segoe UI,system-ui,sans-serif"; c.textAlign = al; c.fillText(s, x, y); };
+function curve(c, fn, col, w = 2.5, dash) { c.strokeStyle = col; c.lineWidth = w; c.setLineDash(dash || []); c.beginPath(); let pen = false; for (let px = M.L; px <= cv.w - M.R; px += 1.5) { const y = fn(WX(px)); if (!isFinite(y) || Math.abs(y) > 1e3) { pen = false; continue; } const py = SY(y); pen ? c.lineTo(px, py) : c.moveTo(px, py); pen = true; } c.stroke(); c.setLineDash([]); c.lineWidth = 1; }
+K.pointer(cv.el, {
+  down: p => { if (!view) return; const x = WX(p.x); if (P.mode === "grad") dragging = "x"; else if (P.mode === "area") dragging = Math.abs(x - P.a0) < Math.abs(x - P.b0) ? "a0" : "b0"; move(p); },
+  drag: p => move(p), up: () => dragging = null,
+  hover: p => cv.el.style.cursor = P.mode === "stat" ? "default" : "ew-resize"
+});
+function move(p) { if (!dragging) return; const D = FN[P.fn], x = K.clamp(WX(p.x), D.x0, D.x1); if (dragging === "x") { P.x = x; C.x.set(x); } if (dragging === "a0") { P.a0 = Math.min(x, P.b0 - 0.05); C.a0.set(P.a0); } if (dragging === "b0") { P.b0 = Math.max(x, P.a0 + 0.05); C.b0.set(P.b0); } }
+function draw() {
+  const c = cv.ctx, w = cv.w, h = cv.h, D = FN[P.fn], f = x => D.f(x, P); view = makeView();
+  c.fillStyle = "#0b1222"; c.fillRect(0, 0, w, h);
+  // grid
+  const tk = (a, b, n) => { const st = Math.pow(10, Math.floor(Math.log10((b - a) / n))), m = (b - a) / n / st, step = (m < 2 ? 1 : m < 5 ? 2 : 5) * st, o = []; for (let k = Math.ceil(a / step); k * step <= b; k++) o.push(+(k * step).toPrecision(8)); return o; };
+  c.strokeStyle = "#1a2440"; for (const v of tk(view.x0, view.x1, 12)) { c.beginPath(); c.moveTo(SX(v), M.T); c.lineTo(SX(v), h - M.B); c.stroke(); TX(c, String(v), SX(v), h - M.B + 15, "#8fa0bf", "center", "11px"); }
+  for (const v of tk(view.y0, view.y1, 8)) { c.beginPath(); c.moveTo(M.L, SY(v)); c.lineTo(w - M.R, SY(v)); c.stroke(); TX(c, String(v), M.L - 6, SY(v) + 4, "#8fa0bf", "right", "11px"); }
+  c.strokeStyle = "#5d6e93"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(M.L, SY(0)); c.lineTo(w - M.R, SY(0)); if (view.x0 < 0) { c.moveTo(SX(0), M.T); c.lineTo(SX(0), h - M.B); } c.stroke(); c.lineWidth = 1;
+  c.save(); c.beginPath(); c.rect(M.L, M.T, w - M.L - M.R, h - M.T - M.B); c.clip();
+  if (P.mode === "stat") {
+    // shading: increasing (green) / decreasing (red) along the axis, or concave / convex
+    for (let px = M.L; px < w - M.R; px += 2) { const x = WX(px), g1 = D.d1(x, P), g2 = D.d2(x, P); c.fillStyle = P.conc && ui.level === "adv" ? (g2 < 0 ? "rgba(196,161,255,.12)" : "rgba(255,230,109,.08)") : (g1 > 0 ? "rgba(126,231,135,.08)" : "rgba(255,107,129,.08)"); c.fillRect(px, M.T, 2, h); }
+    if (P.showD1) curve(c, x => D.d1(x, P), "#ffb454", 1.8, [6, 4]);
+    if (P.showD2) curve(c, x => D.d2(x, P), "#c4a1ff", 1.5, [2, 4]);
+  }
+  if (P.mode === "area") {
+    const n = P.n, hh = (P.b0 - P.a0) / n;
+    for (let px = Math.max(M.L, SX(P.a0)); px < Math.min(w - M.R, SX(P.b0)); px++) { const y = f(WX(px)); c.fillStyle = y >= 0 ? "rgba(90,209,255,.18)" : "rgba(255,107,129,.2)"; c.fillRect(px, Math.min(SY(y), SY(0)), 1, Math.abs(SY(y) - SY(0))); }
+    c.strokeStyle = "#ffe66d"; c.fillStyle = "rgba(255,230,109,.18)";
+    for (let i = 0; i < n; i++) { const xa = P.a0 + i * hh, xb = xa + hh; c.beginPath(); if (P.method === "trap") { c.moveTo(SX(xa), SY(0)); c.lineTo(SX(xa), SY(f(xa))); c.lineTo(SX(xb), SY(f(xb))); c.lineTo(SX(xb), SY(0)); } else { const y = f(P.method === "left" ? xa : P.method === "right" ? xb : xa + hh / 2); c.rect(SX(xa), Math.min(SY(y), SY(0)), SX(xb) - SX(xa), Math.abs(SY(y) - SY(0))); } c.closePath(); c.fill(); if (n <= 80) c.stroke(); }
+    for (const x of [P.a0, P.b0]) { c.strokeStyle = "#fff"; c.setLineDash([4, 4]); c.beginPath(); c.moveTo(SX(x), M.T); c.lineTo(SX(x), h - M.B); c.stroke(); c.setLineDash([]); }
+  }
+  curve(c, f, "#5ad1ff", 2.8);
+  if (P.mode === "grad") {
+    const x = P.x, hv = hVal(), y = f(x), y2 = f(x + hv), m = (y2 - y) / hv, t = D.d1(x, P), L = (view.x1 - view.x0);
+    c.strokeStyle = "#7ee787"; c.lineWidth = 2; c.beginPath(); c.moveTo(SX(x - L), SY(y - t * L)); c.lineTo(SX(x + L), SY(y + t * L)); c.stroke();
+    c.strokeStyle = "#ffb454"; c.setLineDash([6, 4]); c.beginPath(); c.moveTo(SX(x - L), SY(y - m * L)); c.lineTo(SX(x + L), SY(y + m * L)); c.stroke(); c.setLineDash([]); c.lineWidth = 1;
+    if (Math.abs(SX(x + hv) - SX(x)) > 18) { c.strokeStyle = "#ffb454"; c.setLineDash([2, 3]); c.beginPath(); c.moveTo(SX(x), SY(y)); c.lineTo(SX(x + hv), SY(y)); c.lineTo(SX(x + hv), SY(y2)); c.stroke(); c.setLineDash([]); TX(c, "h", (SX(x) + SX(x + hv)) / 2, SY(y) + 14, "#ffb454", "center"); }
+    for (const [px, py, col] of [[x, y, "#fff"], [x + hv, y2, "#ffb454"]]) { c.fillStyle = col; c.beginPath(); c.arc(SX(px), SY(py), 6, 0, 6.3); c.fill(); }
+    if (P.showD1) curve(c, xx => D.d1(xx, P), "rgba(255,180,84,.35)", 1.5, [3, 5]);
+  }
+  if (P.mode === "stat") {
+    for (const s of stationary(P)) { c.fillStyle = s.kind === "maximum" ? "#ff8a9a" : s.kind === "minimum" ? "#7ee787" : "#ffe66d"; c.beginPath(); c.arc(SX(s.x), SY(s.y), 7, 0, 6.3); c.fill(); TX(c, `${s.kind} (${fx(s.x)}, ${fx(s.y)})`, SX(s.x) + 10, SY(s.y) + (s.kind === "maximum" ? -10 : 18), c.fillStyle, "left", "600 12px"); c.strokeStyle = c.fillStyle; c.beginPath(); c.moveTo(SX(s.x) - 40, SY(s.y)); c.lineTo(SX(s.x) + 40, SY(s.y)); c.stroke(); }
+    if (ui.level === "adv" && (P.showD2 || P.conc)) for (const q of inflections(P)) { c.strokeStyle = "#c4a1ff"; c.lineWidth = 2; c.beginPath(); c.arc(SX(q.x), SY(q.y), 7, 0, 6.3); c.stroke(); c.lineWidth = 1; TX(c, `point of inflection (${fx(q.x)}, ${fx(q.y)})`, SX(q.x) + 10, SY(q.y) - 10, "#c4a1ff", "left", "11px"); }
+  }
+  c.restore();
+  TX(c, D.tex(P), M.L + 10, M.T + 18, "#5ad1ff", "left", "600 14px");
+  if (P.mode === "grad") { const hv = hVal(), m = (f(P.x + hv) - f(P.x)) / hv; ui.hud(`chord gradient [f(x + h) − f(x)] ÷ h = <b style="color:#ffb454">${m.toFixed(5)}</b><br>tangent gradient f'(${fx(P.x)}) = <b style="color:#7ee787">${D.d1(P.x, P).toFixed(5)}</b>${D.fp ? "<br>" + D.fp(P.x, hv) : ""}`); }
+  else if (P.mode === "area") { const ex = exactArea(P), ap = strips(P, P.method, P.n); ui.hud(`∫ from ${fx(P.a0)} to ${fx(P.b0)} = <b>${ex.toFixed(5)}</b><br>${P.n} strips (${P.method === "trap" ? "trapezium rule" : P.method + " rectangles"}): <b style="color:#ffe66d">${ap.toFixed(5)}</b> (${ap > ex ? "over" : "under"} by ${Math.abs(ap - ex).toExponential(2)})`); }
+  else ui.hud(`<span style="color:#7ee787">green</span>: increasing (f' > 0) · <span style="color:#ff8a9a">red</span>: decreasing${P.showD1 ? "<br>dashed orange: gradient function f'(x)" : ""}`);
+}
+function panels() {
+  const D = FN[P.fn], f = x => D.f(x, P); read.set("f", D.tex(P).replace("y = ", ""));
+  if (P.mode === "grad") {
+    relabel(["Point", "Chord gradient", "True gradient f'(x)", "Difference"]); const hv = hVal(), m = (f(P.x + hv) - f(P.x)) / hv, t = D.d1(P.x, P);
+    read.set("r1", `(${fx(P.x)}, ${fx(f(P.x))}), h = ${K.sig(hv, 3)}`); read.set("r2", m.toFixed(6)); read.set("r3", t.toFixed(6)); read.set("r4", (m - t).toExponential(2));
+    // chart A: gradient function traced as you move; chart B: chord gradient against h
+    const key = P.fn + P.a + P.b + P.c + P.d; if (trace.key !== key) { trace = []; trace.key = key; } trace.push([P.x, t]); if (trace.length > 2000) trace.shift();
+    const g = []; for (let i = 0; i <= 200; i++) { const x = D.x0 + (D.x1 - D.x0) * i / 200; g.push([x, D.d1(x, P)]); }
+    chA.opts.title = "The gradient function: the gradient at every x you visit"; chA.opts.xLabel = "x"; chA.opts.yLabel = "gradient";
+    chA.draw([{ pts: g, color: K.cssVar("--muted"), dash: [4, 4], label: "f'(x)" }, { pts: trace.slice(), type: "dots", r: 2.5, color: K.cssVar("--s2"), label: "visited" }], { xMin: D.x0, xMax: D.x1, vlines: [{ x: P.x }] });
+    const hs = []; for (let e = 0.3; e >= -4; e -= 0.05) { const hv2 = Math.pow(10, e); hs.push([hv2, (f(P.x + hv2) - f(P.x)) / hv2]); }
+    chB.opts.title = "Chord gradient as h shrinks"; chB.opts.xLabel = "h"; chB.opts.yLabel = "chord gradient";
+    chB.draw([{ pts: hs.filter(p => p[0] <= 1), color: K.cssVar("--s1"), label: "chord" }, { pts: [[hv, m]], type: "dots", r: 5, color: K.cssVar("--s1") }], { xMin: 0, xMax: 1, hlines: [{ y: t, color: K.cssVar("--s2"), label: "f'(x) = " + t.toFixed(3) }] });
+  } else if (P.mode === "stat") {
+    const s = stationary(P); relabel(["Stationary points", "f'(x)", "Nature (f'')", "Points of inflection"]);
+    read.set("r1", s.length ? s.map(p => `(${fx(p.x)}, ${fx(p.y)})`).join(", ") : "none"); read.set("r2", P.fn === "cubic" ? `${fx(3 * P.a)}x² + ${fx(2 * P.b)}x + ${fx(P.c)}` : "see the graph"); read.set("r3", s.length ? s.map(p => `${p.kind} (f'' = ${fx(p.s2)})`).join("; ") : "–");
+    read.set("r4", ui.level === "adv" ? (inflections(P).map(q => `(${fx(q.x)}, ${fx(q.y)})`).join(", ") || "none") : "A level");
+    const g1 = [], g2 = []; for (let i = 0; i <= 200; i++) { const x = D.x0 + (D.x1 - D.x0) * i / 200; g1.push([x, D.d1(x, P)]); g2.push([x, D.d2(x, P)]); }
+    chA.opts.title = "Gradient function f'(x): stationary where it crosses 0"; chA.opts.xLabel = "x"; chA.opts.yLabel = "f'(x)"; chA.draw([{ pts: g1, color: K.cssVar("--s1"), label: "f'(x)" }], { hlines: [{ y: 0 }], vlines: s.map(p => ({ x: p.x, color: K.cssVar("--s2") })) });
+    chB.opts.title = "Second derivative f''(x)"; chB.opts.xLabel = "x"; chB.opts.yLabel = "f''(x)"; chB.draw([{ pts: g2, color: K.cssVar("--s4"), label: "f''(x)" }], { hlines: [{ y: 0 }] });
+  } else {
+    const ex = exactArea(P), ap = strips(P, P.method, P.n); relabel(["Exact ∫ = F(b) − F(a)", "Estimate", "Error", "Total area (all positive)"]);
+    read.set("r1", ex.toFixed(6)); read.set("r2", ap.toFixed(6)); read.set("r3", (ap - ex).toExponential(3)); read.set("r4", totalArea(P).toFixed(5));
+    const ns = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 100, 150, 200], ser = [["left", "--s0"], ["right", "--s3"], ["mid", "--s4"], ["trap", "--s1"]].map(([m, col]) => ({ pts: ns.map(n => [n, strips(P, m, n)]), color: K.cssVar(col), label: m === "trap" ? "trapezium" : m }));
+    chA.opts.title = "Estimates against the number of strips"; chA.opts.xLabel = "n"; chA.opts.yLabel = "estimate"; chA.draw(ser, { hlines: [{ y: ex, label: "exact", color: K.cssVar("--s2") }], vlines: [{ x: P.n }] });
+    const er = ["left", "trap"].map((m, i) => ({ pts: ns.map(n => [Math.log10(n), Math.log10(Math.abs(strips(P, m, n) - ex) + 1e-16)]), color: K.cssVar(i ? "--s1" : "--s0"), label: m === "trap" ? "trapezium" : "left" }));
+    chB.opts.title = "log₁₀ |error| against log₁₀ n (gradients −1 and −2)"; chB.opts.xLabel = "log₁₀ n"; chB.opts.yLabel = "log₁₀ |error|"; chB.draw(er);
+  }
+}
+let frame = 0;
+ui.run(() => { }, () => { draw(); if (frame++ % 4 === 0) panels(); });
+ui.onLevel = v => { if (v === "std" && FN[P.fn].adv) set({ mode: P.mode }); showCtl(); };
+set({});
+ui.tip("Drag on the graph to move the point. Shrink h to turn the chord into a tangent.", 7000);
+</script>
+</body></html>

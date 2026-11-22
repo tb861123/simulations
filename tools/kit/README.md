@@ -1,6 +1,6 @@
 # The simulation kit
 
-A small shared toolkit behind the ★ enhanced simulations (page frame, sliders,
+A small shared toolkit behind the simulations (page frame, sliders,
 charts, Investigate cards, Batch run window). So that every simulation stays a
 single self-contained HTML file, the kit is copied into each page by a build
 step:
@@ -42,7 +42,17 @@ photosynthesis_respiration, externalities, flooding_hydrographs, queues,
 energy_changes, gas_exchange, tectonic_hazards, car_crash, firms_competition,
 arousal_performance, stellar_life_cycle, inheritance, simple_harmonic_motion,
 membranes, antibiotic_resistance, exoplanet_hunting, reactivity_metals,
-youngs_modulus, nuclear_fusion, states_of_matter, circular_motion, crystallisation, atomic_structure, periodic_groups, dna_cell_division, ecosystems, homeostasis, aerofoil_flow, ice_albedo, carbon_cycle, dark_matter, expanding_universe, planet_formation, taxes_price_controls, labour_market, circular_flow, sport_biomechanics, fitness_testing, skill_acquisition, atomic_spectra, nuclear_fission, particle_physics, acids_salts_tests, chromatography, moles_reacting_masses, immunity, plant_transport, biotechnology, inside_sound, strings, air_columns, build_timbre, pitch_intervals, rhythm_metre, sea_level_rise, weather_chaos, river_landforms, trade_exchange_rates, inequality, electrochemical_cells, capacitors, magnetism_induction, heating_insulation.
+youngs_modulus, nuclear_fusion, states_of_matter, circular_motion, crystallisation, atomic_structure, periodic_groups, dna_cell_division, ecosystems, homeostasis, aerofoil_flow, ice_albedo, carbon_cycle, dark_matter, expanding_universe, planet_formation, taxes_price_controls, labour_market, circular_flow, sport_biomechanics, fitness_testing, skill_acquisition, atomic_spectra, nuclear_fission, particle_physics, acids_salts_tests, chromatography, moles_reacting_masses, immunity, plant_transport, biotechnology, inside_sound, strings, air_columns, build_timbre, pitch_intervals, rhythm_metre, sea_level_rise, weather_chaos, river_landforms, trade_exchange_rates, inequality, electrochemical_cells, capacitors, magnetism_induction, heating_insulation, hypothesis_testing, distributions, regression_correlation, sampling_data, calculus_explorer, numerical_methods, vectors_kinematics, mechanics_forces, complex_numbers, matrix_transformations, rate_equations, spectroscopy, transition_metals, organic_mechanisms, differential_equations, series_convergence, polar_curves, vectors_3d, population_and_famine, arms_race_and_alliances, revolutions_and_unrest, great_depression, exposure_triangle, lens_optics, light_and_colour, composition_and_sampling, markov_chains, behavioural_economics, development_economics, financial_markets, hyperbolic_functions, sorting_algorithms, searching_and_hashing, pathfinding, breakeven_and_margins, cash_flow_forecast, investment_appraisal, inventory_and_supply_chain, electoral_systems, voting_paradoxes, gerrymandering, materials_properties, manufacturing_processes, ergonomics_anthropometrics, ethical_dilemmas, argument_validity, problem_of_evil, globalisation_migration, urban_places, water_insecurity, data_structures, logic_gates, cpu_fetch_execute, binary_and_floating_point, muscles_neuromuscular, exercise_regulation, nutrition_ergogenic_aids, sport_psychology, networking_and_encryption, neural_networks_and_ml, turing_and_fsm, memory_models, harmony_cadences, keys_modulation, structure_texture, modern_techniques, forgetting_curve, conformity_obedience, conditioning, research_methods, approaches_and_inheritance, biopsychology, attachment_strange_situation, cosmic_distance_ladder, coasts, glaciers, slopes_landslides, density_pressure, energy_resources, fieldwork_sampling.
+
+## Speed control in the header
+
+A simulation's playback-speed control (a `K.slider` or `K.seg`) goes in the
+header bar beside Pause / Step / Reset: make it as usual, then call
+`ui.headerSpeed(ctl.speed)` (optionally `{ label: "Short name" }`). It is the
+same control, so `ctl.speed.set(...)` and investigations still work. If the
+group it was made in is hidden (a mode that does not use it), the header copy
+hides too. Only move controls that change how fast the animation plays, not a
+model setting such as a tempo, a presentation rate or a physical speed.
 
 ## Sound
 
@@ -55,7 +65,7 @@ by itself if not updated). All of these do nothing while sound is off, so
 batch runs and worksheet generation stay silent. `K.sound.on` says whether
 it is on. Used by Gas in a Box, Simple Harmonic Motion, Lightning and Nerve
 Impulse; the music pages, Heart and Circulation, Radioactive Decay and
-Chladni Plates have their own Play buttons or sound switches, coasts, glaciers, slopes_landslides.
+Chladni Plates have their own Play buttons or sound switches.
 
 ## Levels and the Revise tab
 

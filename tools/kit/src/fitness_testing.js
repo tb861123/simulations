@@ -149,6 +149,7 @@ ctl.train = K.seg(g, { value: "none", options: [["none", "none"], ["aerobic", "a
 ctl.weeks = K.slider(g, { label: "Weeks of training", min: 2, max: 16, step: 1, value: 8, on: v => { P.weeks = v; runTest(); } });
 g = ui.group("Run");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => v + "×", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 K.btn(K.row(g), "⏭ Finish", () => prog = 1, "primary");
 const read = K.readout(ui.group("Squad statistics"), [["mean", "mean"], ["med", "median · mode"], ["range", "range"], ["sd", "SD (A level)"], ["te", "typical error · CV (beyond the spec)"], ["swc", "smallest worthwhile change (beyond the spec)"], ["sel", "selected performer"]]);
 const TRAINS = { aerobic: ["msft", "cooper", "qc"], strength: ["grip", "pressup", "situp"], speed: ["sprint", "vj", "illinois"], flex: ["sitreach"], circuit: ["situp", "pressup", "msft", "cooper", "illinois", "grip"] };

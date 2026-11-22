@@ -1,0 +1,835 @@
+<!doctype html>
+<!-- CPU: Fetch–Decode–Execute: one self-contained file, works offline. Built from tools/kit (kit.css, kit.js, src/cpu_fetch_execute.js); edit those and run "node build.js". -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CPU: Fetch–Decode–Execute</title>
+<style>
+/* ===== Enhanced (kit-built) simulations: shared look and feel (inlined into every page by build.js) ===== */
+:root{
+  --bg:#0a0f1c; --panel:#111a2c; --panel2:#17223a; --line:#24324f; --text:#e9eef8; --muted:#8fa0bf; --grid:#1f2c47;
+  --accent:#5ad1ff; --accent-ink:#04121c; --good:#6ee7a0; --warn:#ffb454; --bad:#ff6b81;
+  --s0:#5ad1ff; --s1:#ffb454; --s2:#7ee787; --s3:#ff7b9c; --s4:#c4a1ff; --s5:#ffe66d;
+  --shadow:0 10px 30px rgba(0,0,0,.45); --r:12px;
+}
+:root[data-theme=light]{
+  --bg:#eef2f8; --panel:#ffffff; --panel2:#f3f6fb; --line:#d5dceb; --text:#172033; --muted:#5d6b85; --grid:#e3e8f2;
+  --accent:#0b7fc2; --accent-ink:#ffffff; --good:#12924c; --warn:#b86a00; --bad:#d1344d;
+  --s0:#0b7fc2; --s1:#d97a00; --s2:#1b9e4b; --s3:#d6336c; --s4:#7048c8; --s5:#a08800;
+  --shadow:0 8px 24px rgba(30,50,90,.15);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+.k-top{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;min-height:52px}
+.k-home{color:var(--muted);text-decoration:none;font-size:13px;white-space:nowrap}.k-home:hover{color:var(--accent)}
+.k-title{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
+.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.k-chip{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 9px;white-space:nowrap;align-self:center}
+.k-blurb{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-actions{display:flex;gap:6px;flex:none;align-items:center}
+.k-btn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:.12s;user-select:none}
+.k-btn:hover{border-color:var(--accent);color:var(--accent)}
+.k-btn:active{transform:translateY(1px)}
+.k-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.k-btn.primary:hover{filter:brightness(1.1);color:var(--accent-ink)}
+.k-btn.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel2))}
+.k-btn.small{padding:3px 9px;font-size:12.5px}
+.k-btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.k-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
+.k-left{display:flex;flex-direction:column;min-width:0;min-height:0}
+.k-stage{flex:1;position:relative;min-height:0;background:#060a14;overflow:hidden}
+.k-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.k-dock{flex:none;height:190px;display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.k-dock:empty{display:none}
+.k-dock>*{flex:1;min-width:0;background:var(--panel)}
+.k-chart{position:relative;height:100%;min-height:80px}
+.k-chart canvas{position:absolute;inset:0;width:100%;height:100%}
+.k-side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.k-tabs{display:flex;border-bottom:1px solid var(--line);flex:none}
+.k-tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:10px 4px;cursor:pointer;color:var(--muted);font-weight:600}
+.k-tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.k-pane{flex:1;overflow-y:auto;padding:12px 14px 20px;display:none;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.k-pane.on{display:block}
+.k-group{margin-bottom:14px}
+.k-group>h3{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);margin:0 0 8px;font-weight:700}
+.k-ctl{margin-bottom:10px}
+.k-ctl label{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:2px}
+.k-ctl label b{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.k-ctl label b.k-typein{cursor:text;border-bottom:1px dashed currentColor;padding:0 1px}
+.k-ctl label b.k-typein:hover,.k-ctl label b.k-typein:focus{outline:1px solid var(--accent);outline-offset:1px;border-radius:3px}
+.k-typebox{width:9em;font:inherit;font-size:12.5px;padding:1px 4px;border-radius:4px;border:1px solid var(--accent);background:var(--panel-2,#1b2438);color:var(--text)}
+.k-ctl small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3;margin-top:1px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:none;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-moz-range-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);margin-top:-6.5px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+.k-seg{display:flex;flex-wrap:wrap;gap:4px}
+.k-seg .k-btn{flex:1 1 auto;padding:5px 8px;font-size:13px;text-align:center}
+.k-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.k-row .k-btn{flex:1 1 auto;text-align:center}
+.k-toggle{display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:9px;font-size:13px;user-select:none}
+.k-toggle i{flex:none;width:34px;height:19px;border-radius:99px;background:var(--line);position:relative;transition:.15s}
+.k-toggle i::after{content:"";position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;background:var(--muted);transition:.15s}
+.k-toggle.on i{background:var(--accent)}.k-toggle.on i::after{left:17px;background:var(--accent-ink)}
+.k-read{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.k-read div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 9px}
+.k-read span{display:block;font-size:11px;color:var(--muted)}
+.k-read b{font-size:16px;font-variant-numeric:tabular-nums;font-weight:650}
+.k-mcard{border:1px solid var(--line);background:var(--panel2);border-radius:var(--r);padding:11px 12px;margin-bottom:10px}
+.k-mcard h4{margin:0 0 4px;font-size:14.5px;display:flex;gap:8px;align-items:center}
+.k-mcard h4 em{font-style:normal;flex:none;width:22px;height:22px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:12px}
+.k-mcard.done h4 em{background:var(--good);color:#04130a}
+.k-mcard p{margin:0 0 8px;color:var(--muted);font-size:13px}
+.k-banner{position:absolute;left:12px;top:12px;max-width:min(520px,70%);background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--accent);border-radius:var(--r);padding:10px 34px 10px 13px;box-shadow:var(--shadow);z-index:5;backdrop-filter:blur(6px);font-size:13.5px}
+.k-banner b{color:var(--accent)}
+.k-banner .x{position:absolute;right:8px;top:6px;cursor:pointer;color:var(--muted);background:none;border:0;font-size:16px}
+.k-banner details{margin-top:6px;color:var(--muted)}.k-banner summary{cursor:pointer;color:var(--warn)}
+.k-tip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(8,14,26,.82);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:99px;padding:6px 16px;font-size:13px;pointer-events:none;z-index:4;transition:opacity .6s;white-space:nowrap}
+.k-hud{position:absolute;right:12px;top:12px;background:rgba(8,14,26,.72);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:10px;padding:7px 11px;font-size:12.5px;z-index:3;pointer-events:none;font-variant-numeric:tabular-nums;line-height:1.5;text-align:right}
+.k-notes h3{font-size:14px;margin:14px 0 4px;color:var(--accent)}.k-notes h3:first-child{margin-top:0}
+.k-notes p,.k-notes li{font-size:13px;color:var(--text)}.k-notes ul{padding-left:18px;margin:4px 0}
+.k-notes code{background:var(--panel2);padding:1px 5px;border-radius:5px;font-size:12.5px}
+.k-overlay{position:fixed;inset:0;background:rgba(3,6,12,.7);display:none;z-index:50;backdrop-filter:blur(3px)}
+.k-overlay.on{display:grid;place-items:center}
+.k-modal{width:min(1180px,95vw);height:min(700px,92vh);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:grid;grid-template-columns:290px 1fr;overflow:hidden}
+.k-blist{border-right:1px solid var(--line);overflow-y:auto;padding:14px}
+.k-blist h2{font-size:16px;margin:0 0 4px}.k-blist>p{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+.k-bitem{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;cursor:pointer}
+.k-bitem.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.k-bitem b{display:block;font-size:13.5px}.k-bitem span{color:var(--muted);font-size:12.5px}
+.k-bmain{display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 16px}
+.k-bhead{display:flex;gap:10px;align-items:flex-start}
+.k-bhead h3{margin:0;font-size:17px;flex:1}.k-bhead p{margin:3px 0 0;color:var(--muted);font-size:13px;font-weight:400}
+.k-bbar{display:flex;gap:10px;align-items:center;margin:10px 0 8px}
+.k-prog{flex:1;height:6px;background:var(--line);border-radius:9px;overflow:hidden}.k-prog i{display:block;height:100%;width:0;background:var(--accent)}
+.k-bchart{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.k-bfoot{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;height:150px;margin-top:10px}
+.k-btable{overflow:auto;border:1px solid var(--line);border-radius:10px;font-size:12.5px}
+.k-btable table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.k-btable th,.k-btable td{padding:3px 8px;text-align:right;border-bottom:1px solid var(--line)}
+.k-btable th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600}
+.k-bnote{overflow:auto;font-size:13px;color:var(--muted);background:var(--panel2);border-radius:10px;padding:9px 12px}
+.k-bnote b{color:var(--text)}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+.k-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.02em;padding:1px 7px;border-radius:99px;vertical-align:1px;white-space:nowrap;background:#35505a;color:#c9ecdf}
+.k-tag.adv{background:#4b3a78;color:#e3d6ff}.k-tag.beyond{background:#39465c;color:#cfdaf0}
+.k-idea{font-size:13px;margin:0 0 8px;line-height:1.4}.k-spec{font-size:12px;color:var(--muted);margin:0 0 10px}
+.k-pane>h3{font-size:14px;margin:14px 0 8px;color:var(--accent)}
+.k-q h4{font-size:12px}.k-q .k-marks{margin-left:auto;color:var(--muted);font-weight:400}.k-q p{color:var(--text);font-size:13.5px}
+.k-q details{font-size:13px;color:var(--muted)}.k-q summary{cursor:pointer;color:var(--warn)}.k-q details ul{padding-left:18px;margin:4px 0}
+.k-level{padding-bottom:4px}
+.k-tabs button{font-size:13px;padding-left:2px;padding-right:2px}
+.k-wsrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px;font-size:12.5px;color:var(--muted)}
+.k-mcard .btn+.btn,.k-mcard button+button{margin-left:6px}
+/* playback-speed control moved into the header (ui.headerSpeed) */
+.k-hspeed{display:flex;align-items:center;gap:10px;padding:0 6px 0 10px;margin:0 4px;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.k-hspeed .k-ctl{display:flex;align-items:center;gap:7px;margin:0}
+.k-hspeed .k-ctl.k-hoff{display:none}
+.k-hspeed .k-ctl label{display:contents}
+.k-hspeed .k-ctl label span{order:0;font-size:12.5px;color:var(--muted);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+.k-hspeed .k-ctl input[type=range]{order:1;width:96px}
+.k-hspeed .k-ctl label b,.k-hspeed .k-typebox{order:2;font-size:12.5px;white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+.k-hspeed .k-typebox{width:6.5em}
+.k-hspeed .k-hunit{order:3;font-style:normal;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.k-hspeed .k-ctl>small{display:none}
+.k-hspeed .k-seg{order:1;flex-wrap:nowrap;gap:3px}
+.k-hspeed .k-seg .k-btn{flex:none;padding:3px 8px;font-size:12px}
+.k-group.k-emptied{display:none}
+@media (max-width:1400px){.k-blurb{display:none}.k-top:has(.k-hspeed:not([style*="none"])) .k-chip{display:none}}
+</style></head><body>
+<script>
+"use strict";
+/* =====================================================================
+   K: the small shared toolkit behind the ★ enhanced simulations.
+   It builds the page frame (header, stage, chart dock, side panel),
+   the sliders and buttons, the live charts, the Investigations cards
+   and the Batch run window. Each simulation's own code (below this
+   script in the page) holds the science.
+   ===================================================================== */
+const K = (() => {
+  const $ = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const col = i => cssVar("--s" + (i % 6));
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // ---- Repeatable random numbers: the same seed always gives the same run ----
+  function rng(seed) {
+    let a = (seed >>> 0) || 1;
+    const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    r.gauss = () => { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307179586 * r()); };
+    r.int = n => Math.floor(r() * n);
+    r.pick = arr => arr[Math.floor(r() * arr.length)];
+    return r;
+  }
+  // ---- Simple statistics ----
+  const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+  const sd = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); };
+  const se = a => sd(a) / Math.sqrt(a.length || 1);
+  function linfit(pts) { // least-squares straight line through [x,y] points
+    const n = pts.length, mx = mean(pts.map(p => p[0])), my = mean(pts.map(p => p[1]));
+    let sxy = 0, sxx = 0, syy = 0; for (const [x, y] of pts) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; syy += (y - my) ** 2; }
+    const m = sxy / (sxx || 1); return { m, c: my - m * mx, r: sxy / Math.sqrt((sxx * syy) || 1), n };
+  }
+  function download(name, text) { const a = $("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  const sig = (v, n = 3) => { if (v == null || !isFinite(v)) return "–"; if (v === 0) return "0"; const a = Math.abs(v); if (a >= 1e5 || a < 1e-3) return v.toExponential(n - 1); return String(+v.toPrecision(n)); };
+
+  // ---- Controls ----
+  /* Typing a value into a slider: read a displayed value ("2.2 mF", "4.7 × 10⁵ Pa", "£30,000", "−12 °C") as a number,
+     then search the slider's positions for the one whose display matches (copes with log scales and unit prefixes). */
+  const PRE = { p: 1e-12, n: 1e-9, "μ": 1e-6, "µ": 1e-6, u: 1e-6, m: 1e-3, k: 1e3, M: 1e6, G: 1e9 }, SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+  function parseVal(text) {
+    const t = String(text).replace(/[−–]/g, "-").replace(/[   ]/g, " ");
+    const m = t.match(/-?(?:\d{1,3}(?:[, ]\d{3})+|\d+)(?:\.\d+)?|-?\.\d+/);
+    if (!m) return null;
+    let v = parseFloat(m[0].replace(/[, ]/g, "")), rest = t.slice(m.index + m[0].length);
+    const pw = m[0] === "10" && rest.match(/^(?:\^\s*(-?\d+(?:\.\d+)?)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))/);         // a bare power of ten: 10⁻⁹ or 10^6.5
+    if (pw) { v = Math.pow(10, pw[1] != null ? +pw[1] : (pw[2][0] === "⁻" ? -1 : 1) * +[...pw[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join("")); rest = rest.slice(pw[0].length); }
+    const ex = rest.match(/^\s*(?:[×x*]\s*10\s*(?:\^\s*(-?\d+)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))|[eE]([-+]?\d+))/);
+    if (ex) { const p = ex[1] != null ? +ex[1] : ex[3] != null ? +ex[3] : (ex[2][0] === "⁻" ? -1 : 1) * +[...ex[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join(""); v *= Math.pow(10, p); rest = rest.slice(ex[0].length); }
+    const wd = rest.match(/^\s*(thousand|million|billion|trillion)\b/i);    // "1 million K"
+    if (wd) { v *= { thousand: 1e3, million: 1e6, billion: 1e9, trillion: 1e12 }[wd[1].toLowerCase()]; rest = rest.slice(wd[0].length); }
+    const pm = !wd && rest.match(/^\s*([pnμµumkMG])(?=[A-Za-zΩ°])/);
+    if (pm) v *= PRE[pm[1]];
+    return isFinite(v) ? { v, unit: rest } : null;
+  }
+  // what was typed, in the units on display unless a unit was typed too ("2.2", "2.2 mF" and "1e-6" all work)
+  function typedVal(raw, shown) {
+    const q = parseVal(raw); if (!q) return null;
+    if (/[A-Za-zμµΩ°%£$€]/.test(q.unit)) return q;
+    const s = parseVal(shown); return parseVal(raw + (s ? " " + s.unit.trim() : ""));
+  }
+  function invertSlider(lo, hi, st, g, target) {
+    const n = Math.max(1, Math.round((hi - lo) / st)), pos = i => +(lo + i * st).toFixed(10);
+    let e0 = 0, e1 = n;                                                       // ends may show words ("off"): step in to the first numbers
+    while (e0 < n && g(pos(e0)) == null && e0 < 60) e0++;
+    while (e1 > e0 && g(pos(e1)) == null && n - e1 < 60) e1--;
+    const a = g(pos(e0)), b = g(pos(e1));
+    if (a == null || b == null || a === b) return null;
+    const up = b > a;
+    if (up ? target < a : target > a) return pos(e0 > 0 ? 0 : e0);
+    if (up ? target > b : target < b) return pos(e1 < n ? n : e1);
+    let i0 = e0, i1 = e1, v0 = a, v1 = b;
+    while (i1 - i0 > 1) { const im = (i0 + i1) >> 1, vm = g(pos(im)); if (vm == null) break; if ((vm < target) === up) { i0 = im; v0 = vm; } else { i1 = im; v1 = vm; } }
+    return Math.abs(v0 - target) <= Math.abs(v1 - target) ? pos(i0) : pos(i1);
+  }
+  // try every position (cheap here: only the format function runs) and take the closest display; ties go to the one nearest the current setting
+  function nearestSlider(lo, hi, st, g, target, cur) {
+    const n = Math.max(1, Math.round((hi - lo) / st)); if (n > 20000) return invertSlider(lo, hi, st, g, target);
+    let best = null, be = Infinity, bd = Infinity;
+    for (let i = 0; i <= n; i++) { const p = +(lo + i * st).toFixed(10), v = g(p); if (v == null) continue; const e = Math.abs(v - target), d = Math.abs(p - cur); if (e < be - 1e-12 * Math.abs(target) || (Math.abs(e - be) <= 1e-12 * Math.abs(target) && d < bd)) { best = p; be = e; bd = d; } }
+    return best;
+  }
+  const scratch = document.createElement("div");
+  const textOf = html => { scratch.innerHTML = html; scratch.querySelectorAll("sup").forEach(x => x.replaceWith("^" + x.textContent)); return scratch.textContent; };
+  function slider(parent, o) {
+    const w = $("div", "k-ctl"), lab = $("label"), name = $("span", "", o.label), val = $("b", "k-typein"), inp = $("input");
+    inp.type = "range"; inp.min = o.min; inp.max = o.max; inp.step = o.step || 1; inp.value = o.value;
+    const fmt = o.fmt || (v => sig(v, 4) + (o.unit ? " " + o.unit : ""));
+    const show = () => val.innerHTML = fmt(+inp.value);
+    lab.append(name, val); w.append(lab, inp); if (o.tip) w.append($("small", "", o.tip)); parent.append(w); show();
+    inp.addEventListener("input", () => { show(); o.on && o.on(+inp.value); });
+    // click the value (or Tab to it and press Enter) to type one
+    const g = p => { let q = null; try { q = parseVal(textOf(fmt(p))); } catch (e) { } return q ? q.v : null; };
+    let numeric = true; try { const ends = [+o.min, (+o.min + +o.max) / 2, +o.max].map(g).filter(v => v != null); numeric = new Set(ends).size > 1; } catch (e) { }
+    if (!numeric) val.classList.remove("k-typein"); else { val.tabIndex = 0; val.title = "Click to type a value"; }
+    function edit() {
+      if (w.querySelector(".k-typebox")) return;
+      const shown = textOf(val.innerHTML), box = $("input", "k-typebox"); box.type = "text"; box.value = shown.trim(); box.setAttribute("aria-label", "Type a value for " + o.label);
+      val.style.display = "none"; val.after(box); box.focus(); box.select(); let done = false;
+      const finish = ok => {
+        if (done) return; done = true; const raw = box.value.trim(); box.remove(); val.style.display = "";
+        if (!ok || !raw || raw === shown.trim()) return; const t = typedVal(raw, shown); if (!t) return;
+        const p = nearestSlider(+o.min, +o.max, +(o.step || 1), g, t.v, +inp.value); if (p == null) return;
+        inp.value = p; show(); o.on && o.on(+inp.value);
+      };
+      box.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); });
+      box.addEventListener("blur", () => finish(true)); box.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); });
+    }
+    if (numeric) val.addEventListener("click", e => { e.preventDefault(); edit(); });
+    if (numeric) val.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); edit(); } });
+    return { el: w, get value() { return +inp.value; }, set(v, fire) { inp.value = v; show(); if (fire) o.on && o.on(+inp.value); } };
+  }
+  function seg(parent, o) {
+    const w = $("div", "k-ctl"); if (o.label) w.append($("label", "", `<span>${o.label}</span>`));
+    const row = $("div", "k-seg"); w.append(row); if (o.tip) w.append($("small", "", o.tip)); parent.append(w);
+    let value = o.value; const btns = [];
+    const paint = () => btns.forEach(([v, b]) => b.classList.toggle("on", v === value));
+    for (const [v, label, title] of o.options) { const b = $("button", "k-btn", label); if (title) b.title = title; b.onclick = () => { value = v; paint(); o.on && o.on(v); }; row.append(b); btns.push([v, b]); }
+    paint();
+    return { el: w, get value() { return value; }, set(v, fire) { value = v; paint(); if (fire) o.on && o.on(v); } };
+  }
+  function toggle(parent, o) {
+    const w = $("div", "k-toggle" + (o.value ? " on" : ""), `<i></i><span>${o.label}</span>`); parent.append(w); let value = !!o.value;
+    w.onclick = () => { value = !value; w.classList.toggle("on", value); o.on && o.on(value); };
+    return { el: w, get value() { return value; }, set(v, fire) { value = !!v; w.classList.toggle("on", value); if (fire) o.on && o.on(value); } };
+  }
+  function btn(parent, label, on, cls) { const b = $("button", "k-btn " + (cls || ""), label); b.onclick = on; parent.append(b); return b; }
+  function row(parent) { const r = $("div", "k-row"); parent.append(r); return r; }
+  function readout(parent, items) { // small tiles of live numbers
+    const g = $("div", "k-read"), map = {}; parent.append(g);
+    for (const [id, label] of items) { const d = $("div", "", `<span>${label}</span><b>–</b>`); g.append(d); map[id] = d.lastChild; }
+    return { el: g, set(id, v) { if (map[id].textContent !== String(v)) map[id].innerHTML = v; } };
+  }
+  function note(parent, html) { const s = $("small", "", html); s.style.cssText = "display:block;color:var(--muted);margin:-2px 0 10px;font-size:12px;line-height:1.35"; parent.append(s); return s; }
+
+  // ---- A canvas that stays sharp on high-DPI screens and follows its container's size ----
+  function canvas(parent, onresize) {
+    const cv = $("canvas"); parent.append(cv); const c = { el: cv, ctx: cv.getContext("2d"), w: 1, h: 1, dpr: 1 };
+    const fit = () => {
+      const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
+      c.dpr = Math.min(window.devicePixelRatio || 1, 2); c.w = w; c.h = h; cv.width = Math.round(w * c.dpr); cv.height = Math.round(h * c.dpr);
+      c.ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0); onresize && onresize(c);
+    };
+    new ResizeObserver(fit).observe(parent); fit(); return c;
+  }
+  // Pointer handling in the element's own pixel coordinates
+  function pointer(el, h) {
+    const pos = e => { const r = el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, e }; };
+    let down = false;
+    el.addEventListener("pointerdown", e => { down = true; el.setPointerCapture(e.pointerId); h.down && h.down(pos(e)); });
+    el.addEventListener("pointermove", e => { const p = pos(e); if (down) h.drag && h.drag(p); else h.hover && h.hover(p); });
+    const up = e => { if (down) { down = false; h.up && h.up(pos(e)); } };
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+    el.addEventListener("pointerleave", e => h.leave && h.leave(pos(e)));
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+
+  // ---- Charts ----
+  const charts = new Set();
+  function niceTicks(a, b, n) {
+    const span = (b - a) || 1, raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    const step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p, t = [];
+    for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + step * 1e-6; v += step) t.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    return { t, step };
+  }
+  // tick labels: very big or very small numbers in standard form, with enough digits that neighbouring ticks differ (2.4e+5, 2.6e+5…)
+  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(clamp(Math.floor(Math.log10(a) + 1e-9) - Math.floor(Math.log10(step) + 1e-9), 0, 4)); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
+  /* chart(parent,{title,xLabel,yLabel,xMin,xMax,yMin,yMax,yZero})  then  .draw(series, extra)
+     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r, alpha, fillAlpha (area fill, default .22; 1 for solid stacked areas)}]
+     extra:  {xMin..yMax overrides, vlines:[{x,color,label,dash}], hlines:[{y,...}], bands:[{x0,x1,color}]} */
+  function chart(parent, o = {}) {
+    const wrap = $("div", "k-chart"), cv = $("canvas"); wrap.append(cv); parent.append(wrap);
+    const ctx = cv.getContext("2d"); let last = [[], {}];
+    const api = { el: wrap, opts: o, draw(series, extra) { last = [series || [], extra || {}]; render(); }, redraw: () => render(), map: null };
+    function render() {
+      const W = wrap.clientWidth, H = wrap.clientHeight; if (W < 40 || H < 40) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      const [series, ex] = last, q = Object.assign({}, o, ex);
+      const text = cssVar("--text"), muted = cssVar("--muted"), grid = cssVar("--grid");
+      // work out the axis ranges from the data unless they are fixed
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const s of series) for (const p of s.pts) { if (p[1] == null || !isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
+      for (const l of q.hlines || []) { if (l.y < y0) y0 = l.y; if (l.y > y1) y1 = l.y; }
+      if (!isFinite(x0)) { x0 = 0; x1 = 1; } if (!isFinite(y0)) { y0 = 0; y1 = 1; }
+      if (q.yZero || series.some(s => s.type === "bars")) { y0 = Math.min(0, y0); y1 = Math.max(0, y1); }
+      const py = (y1 - y0) * 0.08 || Math.abs(y1) * 0.1 || 1; if (q.yMin == null && y0 !== 0) y0 -= py; if (q.yMax == null) y1 += py;
+      if (x1 === x0) { x0 -= 0.5; x1 += 0.5; }
+      if (q.xMin != null) x0 = q.xMin; if (q.xMax != null) x1 = q.xMax; if (q.yMin != null) y0 = q.yMin; if (q.yMax != null) y1 = q.yMax;
+      const R = 12, T = 24, B = q.xLabel ? 34 : 22, ph = H - T - B, yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; let yw = 0; for (const v of yt.t) yw = Math.max(yw, ctx.measureText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step)).width);
+      const L = Math.max(54, Math.ceil(yw) + 26), pw = W - L - R;   // the left margin widens if the tick labels are long, so they never cover the axis title
+      const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + ph - (y - y0) / (y1 - y0) * ph;
+      api.map = { X, Y, x0, x1, y0, y1, L, T, pw, ph };
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; ctx.lineWidth = 1;
+      for (const b of q.bands || []) { ctx.fillStyle = b.color; ctx.fillRect(X(Math.max(x0, b.x0)), T, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)), ph); }
+      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70)));
+      ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.beginPath();
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      for (const v of xt.t) { const x = Math.round(X(v)) + .5; ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.fillText(q.xFmt ? q.xFmt(v) : tickFmt(v, xt.step), x, T + ph + 4); }
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      for (const v of yt.t) { const y = Math.round(Y(v)) + .5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.fillText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step), L - 5, y); }
+      ctx.stroke(); ctx.strokeStyle = muted; ctx.strokeRect(L + .5, T + .5, pw, ph);
+      if (q.xLabel) { ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(q.xLabel, L + pw / 2, H - 3); }
+      if (q.yLabel) { ctx.save(); ctx.translate(11, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(q.yLabel, 0, 0); ctx.restore(); }
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+      series.forEach((s, i) => {
+        const c = s.color || col(i); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = s.width || 1.8; ctx.setLineDash(s.dash || []); ctx.globalAlpha = s.alpha == null ? 1 : s.alpha;
+        const P = s.pts;
+        if (s.type === "bars") { const w = Math.max(1, Math.abs(X(s.w || 1) - X(0)) - 1); for (const p of P) { const yy = Y(p[1]); ctx.fillRect(X(p[0]) - w / 2, Math.min(yy, Y(0)), w, Math.abs(Y(0) - yy)); } }
+        else if (s.type === "dots" || s.type === "err") {
+          const r = s.r || 3;
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) continue; const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+        } else {
+          ctx.beginPath(); let pen = false;   // a missing value (null, NaN) leaves a gap in the line
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
+          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= s.fillAlpha == null ? .22 : s.fillAlpha; ctx.fill(); } else ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+      });
+      for (const l of q.vlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(l.x), T); ctx.lineTo(X(l.x), T + ph); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = X(l.x) > L + pw * .7 ? "right" : "left"; ctx.textBaseline = "top"; ctx.fillText(l.label, X(l.x) + (ctx.textAlign === "right" ? -5 : 5), T + 4 + (l.row || 0) * 13); } }
+      for (const l of q.hlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Y(l.y)); ctx.lineTo(L + pw, Y(l.y)); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(l.label, L + pw - 5, Y(l.y) - 2); } }
+      ctx.restore();
+      // title on the left, legend on the right
+      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
+      for (let i = series.length - 1; i >= 0; i--) { const s = series[i]; if (!s.label) continue; const w = ctx.measureText(s.label).width; lx -= w; ctx.fillStyle = muted; ctx.fillText(s.label, lx, 12); lx -= 12; ctx.fillStyle = s.color || col(i); ctx.fillRect(lx, 8, 8, 8); lx -= 10; }
+      if (q.title) { // the title gives way (with an ellipsis) if the legend needs the room
+        ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.fillStyle = text; let t = q.title; const room = lx - L - 8;
+        if (ctx.measureText(t).width > room) { while (t.length > 3 && ctx.measureText(t + "…").width > room) t = t.slice(0, -1); t = t.length > 3 ? t + "…" : ""; }
+        ctx.fillText(t, L, 12);
+      }
+    }
+    new ResizeObserver(render).observe(wrap); charts.add(api); return api;
+  }
+  function histogram(vals, bins, lo, hi) { // returns bar points [centre, count] and the bin width
+    if (lo == null) lo = Math.min(...vals); if (hi == null) hi = Math.max(...vals); if (hi === lo) { hi += .5; lo -= .5; }
+    const w = (hi - lo) / bins, c = new Array(bins).fill(0);
+    for (const v of vals) { const i = Math.floor((v - lo) / w); if (i >= 0 && i <= bins) c[Math.min(i, bins - 1)]++; }
+    return { pts: c.map((n, i) => [lo + (i + .5) * w, n]), w };
+  }
+
+  // ---- The page frame ----
+
+  let K_last = null;
+  /* ---- Worksheets ----
+     worksheetDoc(o, picks, opt) returns a printable HTML page: one A4 sheet per investigation card (o.missions) and per batch
+     experiment (o.batch), then teacher notes. picks = [{ kind: "m" | "b", item }]. opt = { file, teacher, results: { [batch title]: summary } } */
+  const wsCSS = `body{font:14px/1.45 "Segoe UI",system-ui,sans-serif;color:#111;margin:0;background:#eee}.sheet{background:#fff;width:186mm;min-height:270mm;margin:12px auto;padding:12mm;box-sizing:border-box;page-break-after:always}
+  .top{display:flex;justify-content:space-between;color:#555;font-size:12px;border-bottom:1px solid #999;padding-bottom:4px}h1{font-size:20px;margin:10px 0 4px}h2{font-size:15px;margin:16px 0 6px;color:#14467a}.tag{font-size:11px;border:1px solid #14467a;border-radius:9px;padding:0 6px;color:#14467a;vertical-align:middle}
+  .q{background:#eef4fb;border-left:4px solid #14467a;padding:8px 10px}.lines div{border-bottom:1px solid #aaa;height:26px}.box{border:1px solid #aaa;height:110px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:4px 6px;height:24px;text-align:center;font-size:13px}th{background:#f2f2f2}
+  ol{margin:4px 0 4px 20px;padding:0}.bar{position:sticky;top:0;background:#14467a;color:#fff;padding:8px 16px;display:flex;gap:12px;align-items:center}.bar button{font:inherit;padding:4px 12px;cursor:pointer}.note{background:#fafafa;border:1px solid #ccc;padding:8px 10px;margin:8px 0}
+  .grid{height:200px;border:1px solid #888;background-image:linear-gradient(#ddd 1px,transparent 1px),linear-gradient(90deg,#ddd 1px,transparent 1px);background-size:20px 20px;position:relative}
+  @media print{body{background:#fff}.bar{display:none}.sheet{margin:0;width:auto;min-height:0}}`;
+  const wsLines = n => `<div class="lines">${"<div></div>".repeat(n)}</div>`;
+  function worksheetDoc(o, picks, opt = {}) {
+    const file = opt.file || (location.pathname.split("/").pop() || "the simulation"), nM = (o.missions || []).length, nB = (o.batch || []).length;
+    const tagA = x => x.lvl === "adv" ? ' <span class="tag">A level</span>' : "", head = (k, n, of) => `<div class="top"><span>${o.title} · ${k} ${n} of ${of}</span><span>Name ____________________ &nbsp; Date __________</span></div>`;
+    const sheets = picks.map(({ kind, item: x }) => {
+      if (kind === "m") {
+        const n = o.missions.indexOf(x) + 1;
+        return `<div class="sheet">${head("Investigation", n, nM)}<h1>${x.title}${tagA(x)}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b>${x.lvl === "adv" ? " and choose <b>Advanced (A level)</b> in the Controls tab" : ""}.</li><li>Open the <b>Investigate</b> tab and press <b>Set it up ▸</b> on “${x.title}”. It sets everything up for you.</li><li>You can still change the controls afterwards to test your ideas.</li></ol>
+<h2>2 · The question</h2><div class="q">${x.q}</div>
+<h2>3 · Predict</h2><p>Before you watch, write what you think will happen, and why.</p>${wsLines(3)}
+<h2>4 · Observe and record</h2><p>Watch the simulation and try the controls. Record what you changed, what you saw and any readings (from the Readings panel or the graphs).</p>
+<table><tr><th style="width:30%">What I changed</th><th>What I saw or measured</th><th style="width:22%">Reading</th></tr>${"<tr><td></td><td></td><td></td></tr>".repeat(5)}</table>
+<h2>5 · Answer the question</h2>${wsLines(4)}
+<h2>6 · Explain</h2><p>Use the science to explain your answer. Open <b>The model</b> tab: which rule or assumption in the model causes what you saw? Would the real world behave the same way?</p>${wsLines(4)}</div>`;
+      }
+      const n = o.batch.indexOf(x) + 1, reps = x.reps || (x.xs ? 6 : 200);
+      const rec = x.xs ? `<table><tr><th>${x.xLabel}</th><th>mean</th><th>SD</th><th>SE</th>${x.theory ? "<th>theory</th>" : ""}<th>difference from theory, in SEs</th></tr>${x.xs.map(v => `<tr><td>${v}</td><td></td><td></td><td></td>${x.theory ? "<td></td>" : ""}<td></td></tr>`).join("")}</table>`
+        : `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${x.theory != null ? "<th>theory</th>" : ""}</tr><tr><td></td><td></td><td></td><td></td><td></td><td></td>${x.theory != null ? "<td></td>" : ""}</tr></table><p>Sketch the histogram:</p><div class="grid"></div>`;
+      return `<div class="sheet">${head("Batch experiment", n, nB)}<h1>${x.title}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b> and press <b>📊 Batch run</b>.</li><li>Click the experiment “${x.title}”. It sets everything up for you.</li><li>Press <b>▶ Run</b> and wait for it to finish (${x.xs ? `${x.xs.length} settings × ${reps} runs` : `${reps} runs`}).</li></ol>
+<div class="q"><b>${x.question}</b>${x.how ? `<br><small>${x.how}</small>` : ""}</div>
+<h2>2 · Predict before you run it</h2><p>${x.xs ? `How do you think <b>${x.yLabel}</b> will change as <b>${x.xLabel}</b> goes from ${x.xs[0]} to ${x.xs[x.xs.length - 1]}? Sketch your prediction, then give your reason.` : `What average do you expect for <b>${x.yLabel}</b>? Will every run give the same answer? Give your reason.`}</p>${x.xs ? `<div class="grid" style="height:150px"></div>` : ""}${wsLines(2)}
+<h2>3 · Record the results</h2><p>Copy the numbers from the table under the graph${x.theory != null ? " (theory: " + (x.theoryLabel || "the theory line") + ")" : ""}.</p>${rec}
+<h2>4 · Think about it</h2><ol><li>Does the simulation agree with the theory${x.theory == null ? " (or with your prediction)" : ""}? Use the difference in standard errors (or how close the points are to the line) to say how well.${wsLines(2)}</li>
+<li>Why don't all the runs give the same answer? What would happen to the standard error with four times as many runs?${wsLines(2)}</li>
+<li>Open <b>The model</b> tab. Name one simplification that could make the model differ from real life.${wsLines(2)}</li></ol></div>`;
+    });
+    let notes = "";
+    if (opt.teacher !== false) {
+      notes = `<div class="sheet"><div class="top"><span>${o.title} · Teacher notes</span><span>${file}</span></div><h1>Teacher notes</h1>` + picks.map(({ kind, item: x }) => {
+        if (kind === "m") return `<h2>Investigation ${o.missions.indexOf(x) + 1}: ${x.title}${tagA(x)}</h2><div class="note"><b>What to look for:</b> ${x.hint || "–"}</div>`;
+        const r = opt.results && opt.results[x.title], th = x.theory == null ? "" : x.xs ? x.xs.map(v => `${v}: ${sig(x.theory(v))}`).join(" · ") : sig(+x.theory);
+        return `<h2>Batch experiment ${o.batch.indexOf(x) + 1}: ${x.title}</h2><div class="note">${x.note || ""}${th ? `<br><b>Theory (${x.theoryLabel || "theory"}):</b> ${th}` : ""}${r ? `<br><b>Result from a test run:</b> ${r}` : ""}</div>`;
+      }).join("") + `</div>`;
+    }
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${o.title} – worksheets</title><style>${wsCSS}</style></head><body><div class="bar"><b>${o.title} – worksheets</b><span>${picks.length} sheet${picks.length > 1 ? "s" : ""}${opt.teacher !== false ? ", then teacher notes" : ""}. Print, or save as PDF.</span><button onclick="print()">🖨 Print</button></div>${sheets.join("")}${notes}</body></html>`;
+  }
+  // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
+  function batchSummary(e, seed0 = 12345) {
+    const rows = []; let i = 0;
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
+    return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
+  }
+  function openDoc(html, name) { const w = window.open("", "_blank"); if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(name, html); }
+  // ---- Sound (Web Audio). Pages that ask for it (app option `sound`) get a 🔇/🔊 button in the header.
+  //      It is OFF until someone presses it, so a room full of laptops stays quiet; nothing plays while it is off.
+  //      tone(f, {dur, vol, type, at, glide}) plays a note; noise({dur, vol, filter, freq, at}) a hiss, thump or rumble;
+  //      click() a Geiger-style tick; hum() a continuous tone you retune every frame (it fades out if not updated). ----
+  const sound = (() => {
+    let ctx = null, master = null, on = false, buf = null; const live = new Set(), hums = [], fns = [];
+    const ready = () => on && ctx && ctx.state === "running";
+    async function enable(v) {
+      on = !!v;
+      if (on) { try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (!master) { master = ctx.createGain(); master.gain.value = 0.7; master.connect(ctx.destination); } await ctx.resume(); } catch (e) { on = false; } }
+      else stop();
+      fns.forEach(f => f(on));
+    }
+    const track = n => { live.add(n); n.onended = () => live.delete(n); };
+    function tone(f, o = {}) {
+      if (!ready() || !(f > 15) || f > ctx.sampleRate / 2) return;
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.3, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.008, dur / 2);
+      const osc = ctx.createOscillator(), g = ctx.createGain(); osc.type = o.type || "sine"; osc.frequency.setValueAtTime(f, t); if (o.glide) osc.frequency.exponentialRampToValueAtTime(Math.max(16, o.glide), t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      osc.connect(g); g.connect(master); osc.start(t); osc.stop(t + dur + 0.02); track(osc);
+    }
+    function noise(o = {}) {
+      if (!ready()) return;
+      if (!buf) { buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.2, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.004, dur / 2);
+      const src = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain(); src.buffer = buf; src.loop = true;
+      fl.type = o.filter || "lowpass"; fl.frequency.value = o.freq || 1000; if (o.sweep) fl.frequency.exponentialRampToValueAtTime(o.sweep, t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      src.connect(fl); fl.connect(g); g.connect(master); src.start(t, Math.random()); src.stop(t + dur + 0.02); track(src);
+    }
+    const click = (o = {}) => noise({ dur: 0.012, vol: o.vol == null ? 0.5 : o.vol, filter: "highpass", freq: 1800, at: o.at });
+    function hum(type = "sine") {
+      let osc = null, g = null, last = 0;
+      const h = {
+        set(f, vol = 0.15) { if (!ready()) { h.kill(); return; } if (!osc) { osc = ctx.createOscillator(); g = ctx.createGain(); osc.type = type; g.gain.value = 0; osc.connect(g); g.connect(master); osc.start(); } const t = ctx.currentTime; osc.frequency.setTargetAtTime(Math.max(16, f), t, 0.02); g.gain.setTargetAtTime(vol, t, 0.04); last = performance.now(); },
+        kill() { if (osc) { try { g.gain.setTargetAtTime(0, ctx.currentTime, 0.03); osc.stop(ctx.currentTime + 0.25); } catch (e) { } osc = null; } },
+        stale() { return osc && performance.now() - last > 250; }
+      };
+      hums.push(h); return h;
+    }
+    function stop() { for (const n of live) { try { n.stop(); } catch (e) { } } live.clear(); hums.forEach(h => h.kill()); }
+    setInterval(() => hums.forEach(h => { if (h.stale()) h.kill(); }), 200);    // a hum nobody is updating (paused, other view) fades away
+    document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); });
+    return { enable, ready, tone, noise, click, hum, stop, get on() { return on; }, onChange: f => fns.push(f) };
+  })();
+  function app(o) {
+    document.title = o.title + " · Science Simulations";
+    const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
+    if (saved) document.documentElement.dataset.theme = saved;
+    const top = $("header", "k-top"), main = $("main", "k-main");
+    top.innerHTML = `<a class="k-home" href="${o.home || "../../index.html"}" title="Back to the list of simulations">◂ All simulations</a>
+      <div class="k-title"><span class="k-chip">${o.subject}</span><h1 title="${o.title}">${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
+    const act = top.querySelector(".k-actions");
+    const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
+    left.append(stage, dock); main.append(left, side); document.body.append(top, main);
+    const ui = { stage, dock, side, playing: true, speed: 1, canvas: fn => canvas(stage, fn), config: o };
+    const wsName = o.title.replace(/\W+/g, "-").toLowerCase() + "-worksheet.html";
+    ui.worksheet = (picks, teacher) => openDoc(worksheetDoc(o, picks, { teacher }), wsName);
+    ui.allPicks = () => (o.missions || []).map(item => ({ kind: "m", item })).concat((o.batch || []).map(item => ({ kind: "b", item })));
+    // header buttons
+    const bPlay = btn(act, "⏸ Pause", () => ui.setPlaying(!ui.playing)); bPlay.title = "Space bar";
+    ui.setPlaying = p => { ui.playing = p; bPlay.innerHTML = p ? "⏸ Pause" : "▶ Play"; bPlay.classList.toggle("primary", !p); };
+    if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
+    if (o.reset) btn(act, "↺ Reset", () => o.reset());
+    // the simulation's playback-speed control sits here, beside Pause / Step / Reset (see ui.headerSpeed below)
+    const hSpeed = $("div", "k-hspeed"); hSpeed.style.display = "none"; act.append(hSpeed);
+    if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
+    if (o.sound) { const bS = btn(act, "🔇 Sound", () => sound.enable(!sound.on)); bS.title = typeof o.sound === "string" ? o.sound : "Turn sound on or off (off to start with)"; sound.onChange(v => { bS.innerHTML = v ? "🔊 Sound" : "🔇 Sound"; bS.classList.toggle("primary", v); }); }
+    btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
+    btn(act, "⛶", () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).title = "Full screen";
+    addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
+    // side panel tabs
+    const tabs = $("nav", "k-tabs"), panes = {}; side.append(tabs);
+    const names = [["controls", "Controls"], ["missions", "Investigate"]].concat(o.revise ? [["revise", "Revise"]] : [], [["notes", "The model"]]);
+    const show = id => { if (id === "revise" && ui.renderRevise) ui.renderRevise(); for (const [k] of names) { panes[k].classList.toggle("on", k === id); panes[k]._tab.classList.toggle("on", k === id); } };
+    for (const [k, label] of names) { const b = $("button", "", label); b.onclick = () => show(k); tabs.append(b); panes[k] = $("div", "k-pane" + (k === "notes" ? " k-notes" : "")); panes[k]._tab = b; side.append(panes[k]); }
+    show("controls"); ui.controls = panes.controls; ui.showTab = show;
+    ui.group = title => { const g = $("div", "k-group", title ? `<h3>${title}</h3>` : ""); panes.controls.append(g); return g; };
+    panes.notes.innerHTML = o.notes || "";
+    // investigations: each card sets the simulation up and pins its question over the stage
+    let banner = null;
+    ui.mission = m => {
+      if (banner) banner.remove(); banner = null; if (!m) return;
+      banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
+      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
+    };
+    if ((o.missions || []).length || (o.batch || []).length) { const wr = $("div", "k-wsrow", "<span>Worksheets:</span>"); panes.missions.append(wr); btn(wr, "📄 Every investigation", () => ui.worksheet(ui.allPicks(), true), "small").title = "One printable sheet per investigation and batch experiment, then teacher notes"; btn(wr, "📄 Without teacher notes", () => ui.worksheet(ui.allPicks(), false), "small"); }
+    const mcards = (o.missions || []).map(m => {
+      const c = $("div", "k-mcard", `<h4><em></em>${m.title}${m.lvl === "adv" ? ' <span class="k-tag adv">A level</span>' : ""}</h4><p>${m.q}</p>`);
+      btn(c, "Set it up ▸", () => { c.classList.add("done"); c.querySelector("em").textContent = "✓"; m.setup && m.setup(); ui.mission(m); ui.setPlaying(true); show("controls"); }, "small primary");
+      btn(c, "📄 Worksheet", () => ui.worksheet([{ kind: "m", item: m }], true), "small").title = "A printable worksheet for this investigation";
+      panes.missions.append(c); return [m, c];
+    });
+    /* ---- Level (Standard / Advanced) and the Revise tab ----
+       o.levels = { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "...", adv: "..." } }
+       o.revise = { ideas: [{ lvl: "std"|"adv"|"beyond", tag, text }], questions: [{ lvl, q, marks, ans }] }   (q and ans may be functions, so they can use the numbers on screen)
+       Advanced shows everything; Standard hides anything marked "adv". */
+    ui.level = "std"; try { const l = localStorage.getItem("k-level"); if (l === "adv" || l === "std") ui.level = l; } catch (e) { }
+    if (!o.levels) ui.level = "adv";
+    const val = v => typeof v === "function" ? v() : v;
+    function renderLevel() {
+      let k = 0; for (const [m, c] of mcards) { const on = m.lvl !== "adv" || ui.level === "adv"; c.style.display = on ? "" : "none"; if (on) { k++; if (!c.classList.contains("done")) c.querySelector("em").textContent = k; } }
+      if (!o.revise) return; const P = panes.revise, see = x => x.lvl !== "adv" || ui.level === "adv", tagName = { std: "std", adv: "adv", beyond: "beyond" };
+      P.innerHTML = (o.levels ? `<p class="k-spec">${o.levels.specs[ui.level]}</p>` : "") + `<h3>Key ideas</h3>` + o.revise.ideas.filter(see).map(x => `<div class="k-idea"><span class="k-tag ${tagName[x.lvl]}">${x.tag}</span> ${val(x.text)}</div>`).join("") +
+        `<h3>Exam practice</h3>` + o.revise.questions.filter(see).map((x, i) => `<div class="k-mcard k-q"><h4><em>${i + 1}</em><span class="k-tag ${tagName[x.lvl]}">${x.lvl === "adv" ? "A level" : "GCSE"}</span><span class="k-marks">[${x.marks} mark${x.marks > 1 ? "s" : ""}]</span></h4><p>${val(x.q)}</p><details><summary>Mark scheme</summary>${val(x.ans)}</details></div>`).join("");
+      if (o.revise.questions.some(x => typeof x.q === "function")) btn(P, "↻ Use the numbers on screen now", renderLevel, "small");
+    }
+    if (o.levels) { const lg = $("div", "k-group k-level"); panes.controls.append(lg); const sg = seg(lg, { value: ui.level, options: [["std", o.levels.std], ["adv", o.levels.adv]], on: v => { ui.level = v; try { localStorage.setItem("k-level", v); } catch (e) { } hint.textContent = o.levels.specs[v]; renderLevel(); ui.onLevel && ui.onLevel(v); } }); const hint = $("small", "", o.levels.specs[ui.level]); hint.style.cssText = "display:block;color:var(--muted);font-size:11.5px;margin-top:-4px"; lg.append(hint); ui.setLevel = v => sg.set(v, true); }
+    try { renderLevel(); } catch (e) { setTimeout(renderLevel, 0); }   // questions may use values the simulation has not set up yet
+    ui.renderRevise = renderLevel;
+    /* ui.headerSpeed(control, { label }) moves a speed slider (or Slow/Fast buttons) made with K.slider / K.seg
+       from the Controls tab up into the header bar. It is the same control, so the simulation's own code
+       (ctl.speed.set(...), investigations, mode switches) keeps working. If the group it came from is hidden
+       (for example a mode that does not use it), the header copy is hidden too; a group left with only its
+       heading is hidden. A label like "Speed (minutes per second)" shows as "Speed" with the bracket after the value. */
+    const hsList = [];
+    ui.headerSpeed = (c, opt = {}) => {
+      const el = c.el, from = el.parentNode, name = el.querySelector("label > span"), tip = el.querySelector(":scope > small");
+      const full = name ? name.textContent : "", m = /^(.*?)\s*\((.+)\)$/.exec(full);
+      el.title = full + (tip ? " · " + tip.textContent : "");
+      if (name) name.textContent = opt.label || (m ? m[1] : full);
+      if (m && !opt.label) { const u = $("i", "k-hunit", m[2]); (el.querySelector("label") || el).append(u); }
+      el.classList.add("k-hctl"); hSpeed.append(el); hSpeed.style.display = ""; hsList.push({ el, from }); syncSpeed();
+      return c;
+    };
+    function syncSpeed() {
+      let any = false;
+      for (const { el, from } of hsList) {
+        if (from.classList.contains("k-group") && ![...from.children].some(x => x.tagName !== "H3")) from.classList.add("k-emptied");
+        let hide = false; for (let x = from; x && x !== panes.controls && x !== document.body; x = x.parentNode) if (x.style.display === "none" || x.hidden) { hide = true; break; }
+        el.classList.toggle("k-hoff", hide); if (!hide && el.style.display !== "none") any = true;
+      }
+      hSpeed.style.display = any ? "" : "none";
+    }
+    setInterval(() => hsList.length && syncSpeed(), 250);
+    // floating hint and heads-up text over the stage
+    let tipEl = null, tipT = 0;
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; } hudEl.style.display = html ? "" : "none"; };
+    // animation loop: step(dt) only while playing, draw() every frame
+    ui.run = (step, draw) => { let t0 = performance.now(); const f = t => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (ui.playing && !ov.classList.contains("on")) step(dt); draw(dt); requestAnimationFrame(f); }; requestAnimationFrame(f); };
+
+    // ---- Batch run window ----
+    const ov = $("div", "k-overlay"); document.body.append(ov);
+    let bstate = null;
+    function openBatch() {
+      ov.classList.add("on"); if (bstate) return;
+      const modal = $("div", "k-modal"), list = $("div", "k-blist", `<h2>📊 Batch run</h2><p>Runs the model many times without drawing it, then compares the results with theory. Pick a question:</p>`), mainB = $("div", "k-bmain");
+      modal.append(list, mainB); ov.append(modal); ov.addEventListener("pointerdown", e => { if (e.target === ov) ov.classList.remove("on"); });
+      mainB.innerHTML = `<div class="k-bhead"><h3></h3></div><div class="k-bbar"></div><div class="k-bchart"></div><div class="k-bfoot"><div class="k-btable"></div><div class="k-bnote"></div></div>`;
+      const head = mainB.querySelector("h3"), bar = mainB.querySelector(".k-bbar"), tbl = mainB.querySelector(".k-btable"), noteEl = mainB.querySelector(".k-bnote");
+      btn(mainB.querySelector(".k-bhead"), "✕ Close", () => ov.classList.remove("on"));
+      const ch = chart(mainB.querySelector(".k-bchart"), {});
+      const bRun = btn(bar, "▶ Run", () => runExp(), "primary"), prog = $("div", "k-prog", "<i></i>"), status = $("span", "", ""); status.style.cssText = "color:var(--muted);font-size:12.5px;min-width:110px";
+      const bCsv = btn(bar, "⬇ CSV", () => bstate.rows.length && download(o.title.replace(/\W+/g, "-").toLowerCase() + "-batch.csv", bstate.csv()));
+      bar.insertBefore(prog, bCsv); bar.insertBefore(status, bCsv);
+      btn(bar, "📄 Worksheet", () => ui.worksheet([{ kind: "b", item: bstate.exp }], true)).title = "A printable worksheet for this experiment";
+      bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
+      const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
+      function pick(e) { bstate.token++; bstate.exp = e; bRun.textContent = "▶ Run"; bRun.onclick = () => runExp(); bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
+      function paint() {
+        const e = bstate.exp, rows = bstate.rows, series = [], extra = { title: "", xLabel: e.xs ? e.xLabel : e.yLabel, yLabel: e.xs ? e.yLabel : "number of runs" };
+        if (e.xs) {
+          const groups = e.xs.map(x => rows.filter(r => r[0] === x).map(r => r[3])), done = e.xs.map((x, i) => [x, groups[i]]).filter(g => g[1].length);
+          if (e.theory) {
+            // the theory curve is drawn smoothly between the settings; a theory that only exists AT the settings (a table, a whole number of things) is drawn through those points instead
+            const th = x => { try { const y = e.theory(x); return y == null || !isFinite(y) ? null : +y; } catch (er) { return null; } };
+            const a = Math.min(...e.xs), b = Math.max(...e.xs); let tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, th(x)]); }
+            const atXs = [...e.xs].sort((u, v) => u - v).map(x => [x, th(x)]); if (tp.some(q => q[1] == null) && atXs.every(q => q[1] != null)) tp = atXs;
+            series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
+          series.push({ pts: rows.map(r => [r[0], r[3]]), type: "dots", color: cssVar("--s0"), alpha: .3, r: 2.5, label: "single runs" });
+          series.push({ pts: done.map(([x, g]) => [x, mean(g), se(g)]), type: "err", color: cssVar("--s0"), r: 4.5, label: "mean ± SE" });
+          let fitTxt = "";
+          if (e.fit && done.length > 2) { const f = linfit(done.map(([x, g]) => [x, mean(g)])), a = Math.min(...e.xs), b = Math.max(...e.xs); series.push({ pts: [[a, f.m * a + f.c], [b, f.m * b + f.c]], color: cssVar("--s2"), label: "best-fit line" }); fitTxt = `<tr><td colspan="6" style="text-align:left">Best-fit line: gradient <b>${sig(f.m)}</b>, intercept ${sig(f.c)}, r = ${f.r.toFixed(3)}</td></tr>`; }
+          extra.xMin = Math.min(...e.xs) - (Math.max(...e.xs) - Math.min(...e.xs)) * .05; extra.xMax = Math.max(...e.xs) + (Math.max(...e.xs) - Math.min(...e.xs)) * .05; if (e.yMin != null) extra.yMin = e.yMin; if (e.yMax != null) extra.yMax = e.yMax;
+          tbl.innerHTML = `<table><tr><th>${e.xLabel}</th><th>runs</th><th>mean</th><th>SD</th><th>SE</th>${e.theory ? "<th>theory</th>" : ""}</tr>` + done.map(([x, g]) => `<tr><td>${sig(x, 4)}</td><td>${g.length}</td><td>${sig(mean(g))}</td><td>${sig(sd(g))}</td><td>${sig(se(g))}</td>${e.theory ? `<td>${sig(e.theory(x))}</td>` : ""}</tr>`).join("") + fitTxt + "</table>";
+        } else {
+          const v = rows.map(r => r[3]);
+          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) { extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); series.push({ pts: [[+e.theory, 0]], type: "dots", r: 0.01, alpha: 0 }); } }   // an invisible point keeps the theory line on the chart even if every run misses it
+          tbl.innerHTML = v.length ? `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${e.theory != null ? "<th>theory</th>" : ""}</tr><tr><td>${v.length}</td><td>${sig(mean(v))}</td><td>${sig(sd(v))}</td><td>${sig(se(v))}</td><td>${sig(Math.min(...v))}</td><td>${sig(Math.max(...v))}</td>${e.theory != null ? `<td>${sig(+e.theory)}</td>` : ""}</tr></table>` : "";
+        }
+        ch.opts.xFmt = null; ch.draw(series, extra);
+      }
+      function runExp() {
+        const e = bstate.exp, token = ++bstate.token; bstate.rows = []; const tasks = [];
+        if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) tasks.push([x, r]); } else for (let r = 0; r < (e.reps || 200); r++) tasks.push([0, r]);
+        let i = 0; const seed0 = (Date.now() % 100000) * 7 + 1; bRun.textContent = "■ Stop"; bRun.onclick = () => { bstate.token++; fin(); };
+        const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
+        (function slice() {
+          if (token !== bstate.token) return; const t = performance.now();
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
+          if (i < tasks.length) setTimeout(slice, 0); else fin();
+        })();
+      }
+      pick(o.batch[0]);
+    }
+    ui.openBatch = openBatch;
+    K_last = ui;
+    return ui;
+  }
+  return { sound, $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app, worksheetDoc, batchSummary, get ui() { return K_last; } };
+})();
+</script>
+<script>
+/* =====================================================================
+   THE PROCESSOR: FETCH–DECODE–EXECUTE
+   In a Von Neumann computer, instructions and data share one memory.
+   The CPU repeats the cycle (written in register transfer notation):
+     FETCH    MAR ← [PC]             address of the next instruction
+              PC ← [PC] + 1; MDR ← [[MAR]]   read memory via the data bus
+              CIR ← [MDR]            instruction into the current
+                                     instruction register
+     DECODE   the control unit splits CIR into opcode and operand
+     EXECUTE  e.g. LDD 50:  MAR ← 50; MDR ← [[MAR]]; ACC ← [MDR]
+   Registers: PC program counter, MAR memory address register, MDR memory
+   data register, CIR current instruction register, ACC accumulator,
+   IX index register, SR status register (flags).
+   Buses: ADDRESS bus (CPU → memory, one way), DATA bus (both ways),
+   CONTROL bus (read, write, clock signals).
+   Addressing modes (Cambridge 9618 instruction set):
+     immediate  LDM #5   the operand IS the value
+     direct     LDD 50   the operand is the address of the value
+     indirect   LDI 50   address 50 holds the address of the value
+     indexed    LDX 50   the value is at address 50 + [IX]
+   ===================================================================== */
+// ---------------- 1. A tiny assembler and processor ----------------
+const PROGS = {
+  add: { name: "add two numbers", src: "; add NUM1 and NUM2, store and output the total\n        LDD NUM1\n        ADD NUM2\n        STO TOTAL\n        OUT\n        END\nNUM1:   65\nNUM2:   1\nTOTAL:  0" },
+  count: { name: "count down (loop)", src: "; count from 5 down to 1, outputting each digit\n        LDM #5\nLOOP:   STO COUNT\n        ADD #48      ; turn 0–9 into the character '0'–'9'\n        OUT\n        LDD COUNT\n        DEC ACC\n        CMP #0\n        JPN LOOP     ; jump back if ACC ≠ 0\n        END\nCOUNT:  0" },
+  sum: { name: "sum an array (indexed)", src: "; add up the 4 numbers in LIST using the index register\n        LDR #0       ; IX ← 0\n        LDM #0\n        STO TOTAL\nLOOP:   LDX LIST     ; ACC ← value at LIST + IX\n        ADD TOTAL\n        STO TOTAL\n        INC IX\n        LDD TOTAL\n        MOV IX       ; ACC ← IX (to test it)\n        CMP #4\n        LDD TOTAL\n        JPN LOOP\n        END\nTOTAL:  0\nLIST:   7\n        3\n        12\n        8" },
+  modes: { name: "addressing modes", src: "; the same operand, four addressing modes\n        LDM #60      ; immediate: ACC ← 60\n        LDD 60       ; direct: ACC ← [60]\n        LDI 60       ; indirect: ACC ← [[60]]\n        LDR #1\n        LDX 60       ; indexed: ACC ← [60 + IX]\n        END\n        ORG 60\n        62\n        5\n        99" },
+  bits: { name: "bit manipulation", src: "; mask, set and shift bits\n        LDD BYTE     ; 10110110\n        AND #15      ; keep the low 4 bits: 00000110\n        OR #128      ; set the top bit: 10000110\n        LSL #1       ; shift left: 00001100 (top bit lost)\n        LSR #2       ; shift right: 00000011\n        XOR #255     ; flip every bit\n        END\nBYTE:   182" },
+};
+function assemble(src) {
+  const lines = src.split("\n"), mem = new Array(100).fill(0), code = [], labels = {}, errs = [], srcLine = {}; let addr = 0;
+  const parsed = [];
+  for (const raw of lines) { const l = raw.replace(/;.*/, "").trim(); if (!l) continue; let m = l.match(/^([A-Za-z_]\w*):\s*(.*)$/), label = null, rest = l; if (m) { label = m[1].toUpperCase(); rest = m[2].trim(); }
+    const o = rest.match(/^ORG\s+(\d+)$/i); if (o) { addr = +o[1]; if (label) labels[label] = addr; continue; } if (label) labels[label] = addr; if (!rest) continue; parsed.push({ addr, rest, raw }); addr++; }
+  for (const p of parsed) { srcLine[p.addr] = p.raw.trim(); if (/^-?\d+$/.test(p.rest)) { mem[p.addr] = +p.rest; continue; }
+    const m = p.rest.match(/^([A-Za-z]+)\s*(.*)$/); const op = m[1].toUpperCase(); let arg = m[2].trim();
+    let mode = "none", val = null; if (arg.startsWith("#")) { mode = "imm"; val = +arg.slice(1); } else if (/^(ACC|IX)$/i.test(arg)) { mode = "reg"; val = arg.toUpperCase(); } else if (arg) { mode = "addr"; val = /^\d+$/.test(arg) ? +arg : labels[arg.toUpperCase()]; if (val == null) errs.push(`unknown label ${arg}`); }
+    mem[p.addr] = { op, mode, val, text: p.rest.replace(/\s+/g, " ") }; }
+  return { mem, labels, errs, srcLine };
+}
+// The micro-steps of one instruction: each says what moves, and which registers and buses it uses
+function microSteps(cpu) {
+  const steps = [
+    { rtn: "MAR ← [PC]", regs: ["PC", "MAR"], bus: [], f: c => { c.MAR = c.PC; } },
+    { rtn: "PC ← [PC] + 1;  MDR ← [[MAR]]", regs: ["PC", "MDR", "MAR"], bus: ["address", "data", "control"], f: c => { c.PC++; c.MDR = c.mem[c.MAR]; } },
+    { rtn: "CIR ← [MDR]", regs: ["CIR", "MDR"], bus: [], f: c => { c.CIR = c.MDR; } },
+    { rtn: "decode: the control unit reads the opcode", regs: ["CIR", "CU"], bus: [], f: () => { } },
+  ];
+  const I = cpu.mem[cpu.PC]; if (typeof I !== "object") return steps.concat([{ rtn: "this word is data, not an instruction: stop", regs: [], bus: [], f: c => c.halt = true }]);
+  const read = (addrF, then) => [{ rtn: `MAR ← ${addrF.txt}`, regs: ["MAR", "CIR"], bus: [], f: c => { c.MAR = addrF.f(c); } }, { rtn: "MDR ← [[MAR]]", regs: ["MDR", "MAR"], bus: ["address", "data", "control"], f: c => { c.MDR = c.mem[c.MAR]; } }].concat(then);
+  const opnd = { f: c => I.val, txt: String(I.val) }, alu = (name, fn) => I.mode === "imm" ? [{ rtn: `ACC ← [ACC] ${name} ${I.val}`, regs: ["ACC", "ALU"], bus: [], f: c => { c.ACC = fn(c.ACC, I.val); } }] : read(opnd, [{ rtn: `ACC ← [ACC] ${name} [MDR]`, regs: ["ACC", "ALU", "MDR"], bus: [], f: c => { c.ACC = fn(c.ACC, c.MDR); } }]);
+  const W = v => ((v % 256) + 256) % 256;
+  let ex;
+  switch (I.op) {
+    case "LDM": ex = [{ rtn: `ACC ← ${I.val}  (immediate)`, regs: ["ACC", "CIR"], bus: [], f: c => { c.ACC = I.val; } }]; break;
+    case "LDD": ex = read(opnd, [{ rtn: "ACC ← [MDR]  (direct)", regs: ["ACC", "MDR"], bus: [], f: c => { c.ACC = c.MDR; } }]); break;
+    case "LDI": ex = read(opnd, read({ f: c => c.MDR, txt: "[MDR]" }, [{ rtn: "ACC ← [MDR]  (indirect)", regs: ["ACC", "MDR"], bus: [], f: c => { c.ACC = c.MDR; } }])); break;
+    case "LDX": ex = read({ f: c => I.val + c.IX, txt: `${I.val} + [IX]` }, [{ rtn: "ACC ← [MDR]  (indexed)", regs: ["ACC", "MDR", "IX"], bus: [], f: c => { c.ACC = c.MDR; } }]); break;
+    case "LDR": ex = [{ rtn: `IX ← ${I.val}`, regs: ["IX", "CIR"], bus: [], f: c => { c.IX = I.val; } }]; break;
+    case "MOV": ex = [{ rtn: "ACC ← [IX]", regs: ["ACC", "IX"], bus: [], f: c => { c.ACC = c.IX; } }]; break;
+    case "STO": ex = [{ rtn: `MAR ← ${I.val}`, regs: ["MAR", "CIR"], bus: [], f: c => { c.MAR = I.val; } }, { rtn: "MDR ← [ACC]", regs: ["MDR", "ACC"], bus: [], f: c => { c.MDR = c.ACC; } }, { rtn: "[MAR] ← [MDR]  (write to memory)", regs: ["MDR", "MAR"], bus: ["address", "data", "control"], f: c => { c.mem[c.MAR] = c.MDR; c.written = c.MAR; } }]; break;
+    case "ADD": ex = alu("+", (a, b) => W(a + b)); break;
+    case "SUB": ex = alu("−", (a, b) => W(a - b)); break;
+    case "AND": ex = alu("AND", (a, b) => a & b); break;
+    case "OR": ex = alu("OR", (a, b) => a | b); break;
+    case "XOR": ex = alu("XOR", (a, b) => a ^ b); break;
+    case "LSL": ex = [{ rtn: `ACC ← [ACC] shifted left ${I.val}`, regs: ["ACC", "ALU"], bus: [], f: c => { c.ACC = W(c.ACC << I.val); } }]; break;
+    case "LSR": ex = [{ rtn: `ACC ← [ACC] shifted right ${I.val}`, regs: ["ACC", "ALU"], bus: [], f: c => { c.ACC = c.ACC >> I.val; } }]; break;
+    case "INC": ex = [{ rtn: `${I.val} ← [${I.val}] + 1`, regs: [I.val, "ALU"], bus: [], f: c => { c[I.val] = W(c[I.val] + 1); } }]; break;
+    case "DEC": ex = [{ rtn: `${I.val} ← [${I.val}] − 1`, regs: [I.val, "ALU"], bus: [], f: c => { c[I.val] = W(c[I.val] - 1); } }]; break;
+    case "CMP": ex = I.mode === "imm" ? [{ rtn: `compare [ACC] with ${I.val}: set the flag`, regs: ["ACC", "ALU", "SR"], bus: [], f: c => { c.SR = +(c.ACC === I.val); } }] : read(opnd, [{ rtn: "compare [ACC] with [MDR]: set the flag", regs: ["ACC", "ALU", "SR", "MDR"], bus: [], f: c => { c.SR = +(c.ACC === c.MDR); } }]); break;
+    case "JMP": ex = [{ rtn: `PC ← ${I.val}  (jump)`, regs: ["PC", "CIR"], bus: [], f: c => { c.PC = I.val; } }]; break;
+    case "JPE": ex = [{ rtn: `if the flag is set: PC ← ${I.val}`, regs: ["PC", "SR"], bus: [], f: c => { if (c.SR) c.PC = I.val; } }]; break;
+    case "JPN": ex = [{ rtn: `if the flag is NOT set: PC ← ${I.val}`, regs: ["PC", "SR"], bus: [], f: c => { if (!c.SR) c.PC = I.val; } }]; break;
+    case "OUT": ex = [{ rtn: "output the character with code [ACC]", regs: ["ACC"], bus: ["control"], f: c => { c.out += String.fromCharCode(c.ACC); } }]; break;
+    case "END": ex = [{ rtn: "END: stop", regs: [], bus: [], f: c => { c.halt = true; } }]; break;
+    default: ex = [{ rtn: `unknown instruction ${I.op}`, regs: [], bus: [], f: c => { c.halt = true; } }];
+  }
+  return steps.concat(ex.map(s => Object.assign(s, { exec: true })));
+}
+function newCPU(asm) { return { mem: asm.mem.slice(), PC: 0, MAR: 0, MDR: 0, CIR: 0, ACC: 0, IX: 0, SR: 0, out: "", halt: false, cycles: 0, instr: 0, memAcc: 0, written: -1 }; }
+// run a whole program (for the batch runs): returns instructions, micro-steps and memory accesses
+function runAll(asm, limit = 5000) { const c = newCPU(asm); while (!c.halt && c.instr < limit) { const st = microSteps(c); for (const s of st) { s.f(c); c.cycles++; if (s.bus.includes("data")) c.memAcc++; if (c.halt) break; } c.instr++; } return c; }
+
+// ---------------- 2. State ----------------
+const DEF = { prog: "add", speed: 2, bin: false, stages: 5, branch: 0.15 };
+const P = Object.assign({}, DEF);
+let asm = null, cpu = null, steps = [], si = 0, acc = 0, lastStep = null, src = "";
+function load(text) { src = text; asm = assemble(text); cpu = newCPU(asm); steps = microSteps(cpu); si = 0; lastStep = null; acc = 0; if (C.editor) C.editor.value = text; }
+function micro() { if (cpu.halt) return; const s = steps[si]; cpu.written = -1; s.f(cpu); cpu.cycles++; if (s.bus.includes("data")) cpu.memAcc++; lastStep = s; si++; if (si >= steps.length || cpu.halt) { cpu.instr++; if (!cpu.halt) { steps = microSteps(cpu); si = 0; } } }
+
+// ---------------- 3. The page ----------------
+const ui = K.app({
+  title: "CPU: Fetch–Decode–Execute", subject: "Computer Science",
+  blurb: "Step through the fetch–execute cycle in register transfer notation: registers, buses, memory, and Cambridge assembly language with immediate, direct, indirect and indexed addressing",
+  reset: () => load(src), step: () => micro(),
+  levels: { std: "AS Level (9618)", adv: "A Level (9618)", specs: {
+    std: "Cambridge International AS & A Level Computer Science 9618 (AS) topic 4: Von Neumann architecture; the registers PC, MAR, MDR, CIR, ACC, IX and SR; ALU, CU, system clock; address, data and control buses; the fetch–execute cycle in register transfer notation; the 9618 assembly language instruction set; immediate, direct, indirect, indexed and relative addressing; bit manipulation (AND, OR, XOR, shifts).",
+    adv: "Cambridge International AS & A Level Computer Science 9618 (A Level) topic 15.1: RISC and CISC processors and pipelining (instruction-level parallelism): how a pipeline speeds up execution and why branches cause it to be flushed." } },
+  missions: [
+    { title: "One fetch–execute cycle", q: "Press Step repeatedly for the first instruction (LDD NUM1). Write down each register transfer. Which steps use the address bus?", hint: "MAR ← [PC]; PC ← [PC] + 1 and MDR ← [[MAR]] (address and data buses); CIR ← [MDR]; decode; then for LDD: MAR ← address, MDR ← [[MAR]] (buses again), ACC ← [MDR]. Each memory read uses the address bus, data bus and control bus.", setup: () => set({ prog: "add", speed: 1 }, true) },
+    { title: "Why does the PC go up by 1 straight away?", q: "Watch the PC during the fetch. When is it incremented? What would go wrong if it was never incremented?", hint: "During the fetch, before the instruction is executed, so it already points to the next instruction. A jump simply overwrites it. Without incrementing, the CPU would run the same instruction for ever.", setup: () => set({ prog: "add", speed: 1 }, true) },
+    { title: "A loop", q: "Run the count-down program. Which instruction makes the loop? What do CMP and JPN do?", hint: "CMP #0 compares ACC with 0 and sets a flag in the status register. JPN LOOP puts LOOP's address into the PC if the flag is NOT set (ACC ≠ 0), so the instructions repeat. Output: 54321.", setup: () => set({ prog: "count", speed: 6 }) },
+    { title: "Addressing modes", q: "Step through the addressing-modes program. What does ACC hold after each of LDM #60, LDD 60, LDI 60 and LDX 60 (with IX = 1)?", hint: "Immediate: 60 itself. Direct: the contents of address 60 (62). Indirect: address 60 holds 62, and address 62 holds 99. Indexed: address 60 + 1 = 61, which holds 5.", setup: () => set({ prog: "modes", speed: 2 }) },
+    { title: "Summing an array", q: "The sum program uses LDX and INC IX. How does indexed addressing let one loop read every item of the list?", hint: "LDX LIST reads address LIST + IX. Each time round, INC IX moves to the next item. The total is 30 (7 + 3 + 12 + 8).", setup: () => set({ prog: "sum", speed: 10 }) },
+    { title: "Bit manipulation", q: "Turn on binary display and step through the bits program. What does AND #15 do? What happens to the top bit after LSL?", hint: "AND with 00001111 is a mask: it keeps the low four bits and clears the rest. LSL #1 doubles the value but the top bit falls off the end of the 8-bit register. LSR #2 divides by 4 (dropping remainders).", setup: () => set({ prog: "bits", speed: 2, bin: true }) },
+    { lvl: "adv", title: "Pipelining", q: "Look at the pipeline chart. With a 5-stage pipeline, how many clock cycles do 100 instructions take? What do branches do?", hint: "Without pipelining 100 × 5 = 500. With it, a new instruction finishes every cycle once the pipe is full: 5 + 99 = 104. Each taken branch flushes the instructions already fetched, wasting 4 cycles.", setup: () => set({ prog: "count", speed: 6 }) },
+  ],
+  batch: [
+    { title: "Cycles to sum an array", question: "How many micro-steps does the indexed summing program take for a list of n numbers?", how: "Exact: the program is run with n items (and CMP #n).", xLabel: "items n", yLabel: "micro-steps", xs: [1, 2, 4, 8, 12, 16], reps: 1, yMin: 0, fit: true, run: n => { const s = PROGS.sum.src.replace("CMP #4", "CMP #" + n).replace(/LIST:[\s\S]*$/, "LIST:   " + Array.from({ length: n }, (_, i) => i + 1).join("\n        ")); return runAll(assemble(s)).cycles; }, note: "A straight line: a fixed set-up cost plus the same number of micro-steps for every item (the loop body). The gradient is the cost of one pass round the loop: O(n)." },
+    { title: "Memory reads and writes per instruction", question: "For each preset program, how many times is the data bus used per instruction executed?", how: "Exact; x = program number (1 add, 2 count, 3 sum, 4 modes, 5 bits).", xLabel: "program", yLabel: "memory accesses per instruction", xs: [1, 2, 3, 4, 5], reps: 1, yMin: 0, theory: () => 1, theoryLabel: "1 (the fetch alone)", run: k => { const c = runAll(assemble(Object.values(PROGS)[k - 1].src)); return c.memAcc / c.instr; }, note: "Every instruction needs at least one memory access (its fetch); loads and stores need another. That shared memory traffic is the Von Neumann bottleneck." },
+    { title: "Pipelining and branches (A level)", question: "100 instructions on a 5-stage pipeline. Each is a taken branch with probability p, which flushes the pipeline (4 wasted cycles). How many cycles?", how: "Each point: one random run of 100 instructions.", xLabel: "probability of a taken branch p", yLabel: "clock cycles", xs: [0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4], reps: 8, yMin: 0, theory: p => 104 + 400 * p, theoryLabel: "(5 + 99) + 100p × 4", run: (p, r) => { let c = 104; for (let i = 0; i < 100; i++) if (r() < p) c += 4; return c; }, note: "Branches are why pipelined processors try to predict which way a branch will go. Without a pipeline the 100 instructions would take 500 cycles whatever p is." },
+    { title: "Pipeline speed-up (A level)", question: "How much faster is a k-stage pipeline than no pipeline, for 100 instructions with no branches?", how: "Exact: speed-up = (100 × k) ÷ (k + 99).", xLabel: "pipeline stages k", yLabel: "speed-up", xs: [1, 2, 3, 4, 5, 6, 8, 10], reps: 1, yMin: 0, theory: k => 100 * k / (k + 99), theoryLabel: "nk/(k + n − 1)", run: k => 100 * k / (k + 99), note: "Almost k times faster for long runs of instructions, as long as every stage takes the same time and nothing stalls." },
+  ],
+  revise: {
+    ideas: [
+      { lvl: "std", tag: "4.1", text: "Von Neumann: one memory holds both data and instructions; the stored program is fetched and executed one instruction at a time. PC (next instruction's address), MAR (address being used), MDR (data being transferred), CIR (current instruction), ACC (results), IX (index), SR (status flags)." },
+      { lvl: "std", tag: "4.1", text: "Fetch in RTN: MAR ← [PC]; PC ← [PC] + 1; MDR ← [[MAR]]; CIR ← [MDR]. Address bus: one-way, CPU to memory. Data bus: two-way. Control bus: signals such as memory read/write and the clock." },
+      { lvl: "std", tag: "4.2", text: "Addressing: immediate LDM #n (the value), direct LDD a (value at a), indirect LDI a (address at a), indexed LDX a (value at a + IX), relative (address relative to the current instruction). CMP sets a flag; JPE/JPN jump if equal/not equal." },
+      { lvl: "std", tag: "4.3", text: "Bit manipulation: AND with a mask clears bits (keeps where the mask has 1s); OR sets bits; XOR flips bits; LSL n multiplies by 2ⁿ, LSR n divides by 2ⁿ (logical shifts fill with 0)." },
+      { lvl: "adv", tag: "15.1", text: "Pipelining: fetch, decode, execute (and more) stages overlap, so one instruction can finish every clock cycle. A branch, or an instruction needing a result not yet ready, can stall or flush the pipeline. RISC (simple, fixed-length instructions) suits pipelining; CISC has complex, variable-length instructions." },
+    ],
+    questions: [
+      { lvl: "std", marks: 4, q: "Describe the fetch stage of the fetch–execute cycle using register transfer notation.", ans: "<ul><li>MAR ← [PC]</li><li>PC ← [PC] + 1</li><li>MDR ← [[MAR]]</li><li>CIR ← [MDR]</li></ul>" },
+      { lvl: "std", marks: 3, q: "Address 60 contains 62, address 61 contains 5, address 62 contains 99 and IX = 1. State the value in ACC after (a) LDD 60 (b) LDI 60 (c) LDX 60.", ans: "<ul><li>(a) 62 (direct)</li><li>(b) 99 (indirect: address held at 60)</li><li>(c) 5 (indexed: address 60 + 1)</li></ul>" },
+      { lvl: "std", marks: 2, q: () => `ACC holds ${cpu ? cpu.ACC : 182} (${(cpu ? cpu.ACC : 182).toString(2).padStart(8, "0")}). Give the result of AND #15 and of LSL #1.`, ans: () => { const a = cpu ? cpu.ACC : 182; return `<ul><li>AND #15: ${(a & 15).toString(2).padStart(8, "0")} = ${a & 15}</li><li>LSL #1: ${((a << 1) & 255).toString(2).padStart(8, "0")} = ${(a << 1) & 255}</li></ul>`; } },
+      { lvl: "adv", marks: 3, q: "Explain how pipelining improves performance and why a conditional jump can reduce the improvement.", ans: "<ul><li>stages of different instructions are carried out at the same time (fetch the next while decoding/executing the current)</li><li>so (ideally) one instruction completes every clock cycle</li><li>if a jump is taken, instructions already fetched are wrong and must be flushed, wasting cycles</li></ul>" },
+    ]
+  },
+  notes: `<h3>What the page does</h3><ul><li>Your program is assembled into memory addresses 0 upwards (labels and ORG are allowed; a line with just a number is data). Each press of Step does one micro-step, shown in register transfer notation; the registers and buses involved are highlighted.</li><li>Instruction set (Cambridge 9618 style): LDM, LDD, LDI, LDX, LDR, MOV IX, STO, ADD, SUB, AND, OR, XOR, LSL, LSR, INC, DEC, CMP, JMP, JPE, JPN, OUT, END. # means immediate.</li><li>Values are 8-bit (0–255) and wrap round.</li></ul>
+<h3>Simplifications</h3><ul><li>Real processors split instructions into opcode and operand fields of fixed widths; here each memory word holds a whole instruction.</li><li>One micro-step is not one clock cycle on a real CPU, and the decode stage is shown as a single step.</li><li>The pipeline chart is an idealised 5-stage pipeline; real ones also stall for data hazards.</li></ul>`,
+});
+
+// ---------------- 4. Controls ----------------
+const C = {};
+let g = ui.group("Program");
+C.prog = K.seg(g, { value: "add", options: Object.entries(PROGS).map(([k, v]) => [k, v.name]), on: v => set({ prog: v }) });
+C.editor = K.$("textarea"); C.editor.style.cssText = "width:100%;height:190px;font:12px Consolas,monospace;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px;margin:6px 0"; C.editor.spellcheck = false; g.append(C.editor);
+let rw = K.row(g); K.btn(rw, "Assemble and load my program", () => { load(C.editor.value); ui.setPlaying(false); }, "primary");
+g = ui.group("Running");
+C.speed = K.slider(g, { label: "Micro-steps per second", min: 0.5, max: 20, step: 0.5, value: 2, on: v => P.speed = v });
+ui.headerSpeed(C.speed);   // playback speed lives in the header, beside Pause and Reset
+C.bin = K.toggle(g, { label: "Show registers in binary", value: false, on: v => P.bin = v });
+rw = K.row(g); K.btn(rw, "Step ▸", () => { ui.setPlaying(false); micro(); }, "primary"); K.btn(rw, "Run to END", () => { let k = 0; while (!cpu.halt && k++ < 20000) micro(); });
+const read = K.readout(ui.group("Counters"), [["i", "Instructions executed"], ["c", "Micro-steps"], ["m", "Memory accesses"], ["o", "Output"]]);
+function set(o, paused) { Object.assign(P, DEF, o); C.prog.set(P.prog); C.speed.set(P.speed); C.bin.set(P.bin); load(PROGS[P.prog].src); if (paused) ui.setPlaying(false); }
+
+// ---------------- 5. Drawing ----------------
+const cv = ui.canvas(() => { });
+const chA = K.chart(ui.dock, {}), chB = K.chart(ui.dock, {});
+const TX = (c, s, x, y, col = "#c9d4ea", al = "left", f = "12px") => { c.fillStyle = col; c.font = f + " Segoe UI,system-ui,sans-serif"; c.textAlign = al; c.fillText(s, x, y); };
+const fmtV = v => typeof v === "object" ? v.text : P.bin ? (v & 255).toString(2).padStart(8, "0") : String(v);
+function draw() {
+  const c = cv.ctx, w = cv.w, h = cv.h; c.fillStyle = "#0b1222"; c.fillRect(0, 0, w, h); if (!cpu) return;
+  const hot = new Set(lastStep ? lastStep.regs : []), buses = new Set(lastStep ? lastStep.bus : []);
+  // CPU box with registers
+  const cx = 20, cy = 40, cw = Math.min(470, w * 0.52), ch = h - 140;
+  c.strokeStyle = "#5d6e93"; c.lineWidth = 2; c.strokeRect(cx, cy, cw, ch); c.lineWidth = 1; TX(c, "CPU", cx + 10, cy + 20, "#8fa0bf", "left", "600 13px");
+  const regs = [["PC", "program counter"], ["MAR", "memory address register"], ["MDR", "memory data register"], ["CIR", "current instruction register"], ["ACC", "accumulator"], ["IX", "index register"], ["SR", "status register (flag)"]];
+  const rh = Math.min(44, (ch - 60) / 7.5);
+  regs.forEach(([r, name], i) => { const y = cy + 36 + i * rh, on = hot.has(r); c.fillStyle = on ? "rgba(255,180,84,.25)" : "#121b30"; c.fillRect(cx + 14, y, cw * 0.62, rh - 6); c.strokeStyle = on ? "#ffb454" : "#3a4a6e"; c.strokeRect(cx + 14, y, cw * 0.62, rh - 6); TX(c, r, cx + 24, y + rh / 2 + 2, on ? "#ffd9a0" : "#5ad1ff", "left", "600 14px"); TX(c, name, cx + 70, y + rh / 2 + 1, "#5d6e93", "left", "10px"); TX(c, fmtV(cpu[r]), cx + cw * 0.62 + 6, y + rh / 2 + 3, "#fff", "right", "600 14px Consolas,monospace,"); });
+  for (const [u, y, lab] of [["ALU", cy + 36, "arithmetic logic unit"], ["CU", cy + 36 + 2.2 * rh, "control unit"]]) { const on = hot.has(u); c.fillStyle = on ? "rgba(126,231,135,.2)" : "#121b30"; c.fillRect(cx + cw * 0.7, y, cw * 0.27, rh * 1.8); c.strokeStyle = on ? "#7ee787" : "#3a4a6e"; c.strokeRect(cx + cw * 0.7, y, cw * 0.27, rh * 1.8); TX(c, u, cx + cw * 0.835, y + rh * 0.8, on ? "#7ee787" : "#c9d4ea", "center", "600 15px"); TX(c, lab, cx + cw * 0.835, y + rh * 1.25, "#5d6e93", "center", "10px"); }
+  // buses between CPU and memory
+  const mx = cx + cw + 90, by = [["address", "#ffb454", cy + ch * 0.25], ["data", "#5ad1ff", cy + ch * 0.5], ["control", "#c4a1ff", cy + ch * 0.75]];
+  for (const [name, col, y] of by) { const on = buses.has(name); c.strokeStyle = on ? col : "#2a3550"; c.lineWidth = on ? 6 : 3; c.beginPath(); c.moveTo(cx + cw, y); c.lineTo(mx, y); c.stroke(); c.lineWidth = 1; TX(c, name + " bus", (cx + cw + mx) / 2, y - 8, on ? col : "#5d6e93", "center", "600 11px"); }
+  // memory: show addresses around the PC and the data area
+  const rows = Math.floor((h - 60) / 20), used = Object.keys(asm.srcLine).map(Number).sort((a, b) => a - b), show = used.slice(0, rows);
+  TX(c, "MEMORY", mx + 10, cy - 10, "#8fa0bf", "left", "600 13px");
+  show.forEach((a, i) => { const y = cy + i * 20, isPC = a === cpu.PC && !cpu.halt, isMAR = a === cpu.MAR && buses.has("address"), wr = a === cpu.written; if (isPC || isMAR || wr) { c.fillStyle = wr ? "rgba(255,107,129,.3)" : isMAR ? "rgba(255,180,84,.25)" : "rgba(90,209,255,.18)"; c.fillRect(mx, y - 2, w - mx - 16, 20); }
+    TX(c, String(a).padStart(3, " "), mx + 6, y + 13, "#8fa0bf", "left", "12px Consolas,monospace,"); const v = cpu.mem[a]; TX(c, typeof v === "object" ? v.text : fmtV(v), mx + 46, y + 13, typeof v === "object" ? "#dfe8f7" : "#7ee787", "left", "12px Consolas,monospace,"); if (isPC) TX(c, "◀ PC", w - 22, y + 13, "#5ad1ff", "right", "600 11px"); });
+  TX(c, lastStep ? (lastStep.exec ? "EXECUTE: " : si <= 3 && si > 0 ? "FETCH / DECODE: " : "") + lastStep.rtn : "press Step or Play", cx, h - 70, "#ffd166", "left", "600 16px");
+  TX(c, "output: " + (cpu.out || "–"), cx, h - 42, "#7ee787", "left", "600 14px Consolas,monospace,");
+  if (asm.errs.length) TX(c, "assembler: " + asm.errs.join("; "), cx, h - 18, "#ff6b81", "left", "12px");
+  ui.hud(cpu.halt ? "<b>halted</b>" : `next micro-step ${si + 1} of ${steps.length}`);
+}
+function panels() {
+  read.set("i", cpu.instr); read.set("c", cpu.cycles); read.set("m", cpu.memAcc); read.set("o", cpu.out || "–");
+  // chart A: a 5-stage pipeline diagram (instructions against clock cycles); chart B: cycles with and without pipelining
+  const S = 5, N = 8, names = ["fetch", "decode", "read", "execute", "write"];
+  chA.opts.title = "5-stage pipeline: each row is one instruction, colours are stages"; chA.opts.xLabel = "clock cycle"; chA.opts.yLabel = "instruction"; chA.draw([], { xMin: 0, xMax: N + S, yMin: 0, yMax: N + 0.5 });
+  const m = chA.map, cx2 = chA.el.querySelector("canvas").getContext("2d"); if (m) for (let i = 0; i < N; i++) for (let s2 = 0; s2 < S; s2++) { const x0 = m.X(i + s2), x1 = m.X(i + s2 + 1), y0 = m.Y(N - i), y1 = m.Y(N - i - 0.8); cx2.fillStyle = K.cssVar("--s" + s2); cx2.fillRect(x0 + 1, y0, x1 - x0 - 2, y1 - y0); if (i === 0 && x1 - x0 > 30) { cx2.fillStyle = "#000"; cx2.font = "9px Segoe UI"; cx2.textAlign = "center"; cx2.fillText(names[s2], (x0 + x1) / 2, (y0 + y1) / 2 + 3); } }
+  const A = [], B = []; for (let n = 1; n <= 40; n++) { A.push([n, n * S]); B.push([n, S + n - 1]); }
+  chB.opts.title = "Clock cycles for n instructions"; chB.opts.xLabel = "instructions n"; chB.opts.yLabel = "cycles"; chB.draw([{ pts: A, color: K.cssVar("--s3"), label: "no pipeline: 5n" }, { pts: B, color: K.cssVar("--s2"), label: "pipelined: n + 4" }], { yMin: 0 });
+}
+let frame = 0;
+ui.run(dt => { acc += dt * P.speed; while (acc >= 1) { acc--; micro(); } }, () => { draw(); if (frame++ % 6 === 0) panels(); });
+set({});
+ui.tip("Press Step to do one register transfer at a time, or Play to run. Edit the program in the Controls.", 7000);
+</script>
+</body></html>

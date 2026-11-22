@@ -122,6 +122,7 @@ ctl.miss = K.slider(g, { label: "Misses doses", min: 0, max: 0.8, step: 0.05, va
 K.btn(K.row(g), "↺ A new patient (same treatment)", () => newRun(), "primary");
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.5, max: 24, step: 0.5, value: 6, fmt: v => v + " hours a second", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["day", "day"], ["bact", "bacteria"], ["res", "resistant share"], ["drug", "drug level"], ["feel", "patient"], ["out", "outcome so far"]]);
 function newRun() { run = patient(P, rnd); t = 0; cells = []; drugNote.textContent = DRUGS[P.drug].note + `: half-life ${DRUGS[P.drug].half} h, every ${DRUGS[P.drug].every} h.`; }
 function set(o) { Object.assign(P, { drug: "amox", doseX: 1, days: 7, stop: 0, miss: 0, n0: 1e8, pre: 0, virus: false }, o); ctl.drug.set(P.drug); ctl.virus.set(P.virus); ctl.doseX.set(P.doseX); ctl.days.set(P.days); ctl.stop.set(P.stop); ctl.miss.set(P.miss); ctl.n0.set(Math.log10(P.n0)); ctl.pre.set(P.pre ? Math.log10(P.pre) : -9); speed = 6; ctl.speed.set(6); newRun(); }

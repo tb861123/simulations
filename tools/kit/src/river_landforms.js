@@ -144,6 +144,7 @@ let g = ui.group("View");
 ctl.view = K.seg(g, { value: "profile", options: [["profile", "🏞 source to mouth"], ["flume", "🪨 erosion and transport"], ["meander", "〰 meanders"], ["fall", "🌊 waterfalls"]], on: v => { P.view = v; showGroups(); } });
 let rr = K.row(g); K.btn(rr, "▶ Play / ❚❚ Pause", () => run = !run, "primary");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 8, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 grp.profile = g = ui.group("Source to mouth");
 ctl.river = K.seg(g, { value: "uk", options: Object.entries(RIVERS).map(([k, v]) => [k, v.name]), on: v => { P.river = v; field = []; } });
 ctl.x = K.slider(g, { label: "Where you are", min: 0, max: 137, step: 0.5, value: 20, unit: "km from the source", on: v => P.x = Math.min(v, R().L) });

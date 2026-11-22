@@ -223,6 +223,7 @@ ctl.rhr = K.slider(g, { label: "Starting resting HR", min: 40, max: 90, step: 1,
 ctl.resp = K.slider(g, { label: "Responsiveness to training", min: 0.2, max: 2, step: 0.05, value: 1, fmt: v => "× " + v.toFixed(2), on: v => { P.resp = v; changed(); } });
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 1, max: 60, step: 1, value: 20, fmt: v => P.view === "session" ? v + "× real time" : (v / 6).toFixed(1) + " days per second", on: v => { speed = v; dayRate = v / 6; } });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""], ["e", ""], ["f", ""]]);   // relabelled for each view
 function pick(v) { P.method = v; ctl.method.set(Object.keys(METHOD).indexOf(v) < 4 ? v : ""); ctl.method2.set(Object.keys(METHOD).indexOf(v) >= 4 ? v : ""); changed(); }
 function changed() { restartSession(); restartPlan(true); }

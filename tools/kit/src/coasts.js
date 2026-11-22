@@ -104,6 +104,7 @@ const ctl = {}, grp = {};
 let gg = ui.group("View");
 ctl.view = K.seg(gg, { value: "waves", options: [["waves", "🌊 waves"], ["erosion", "🪨 headlands and bays"], ["drift", "↗ longshore drift"], ["hold", "🏘 Holderness"]], on: v => { P.view = v; showGroups(); } });
 ctl.speed = K.slider(gg, { label: "Speed", min: 0.25, max: 8, step: 0.25, value: 1, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 grp.waves = gg = ui.group("Wind and fetch");
 ctl.U = K.slider(gg, { label: "Wind speed", min: 3, max: 30, step: 0.5, value: 15, unit: "m/s", on: v => P.U = v });
 ctl.F = K.slider(gg, { label: "Fetch", min: 1, max: 1000, step: 1, value: 200, unit: "km", on: v => P.F = v });

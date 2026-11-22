@@ -151,6 +151,7 @@ g = ui.group("The power supply");
 ctl.on = K.toggle(g, { label: "Switched on", value: true, on: v => on = v });
 ctl.I = K.slider(g, { label: "Current", min: 0, max: 3, step: 0.1, value: 1, unit: "A", on: v => I = v });
 ctl.speed = K.slider(g, { label: "Speed", min: 1, max: 120, step: 1, value: 30, fmt: v => "1 second shows " + (v < 60 ? v + " s" : (v / 60).toFixed(1) + " min"), on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 let r1 = K.row(g); K.btn(r1, "↺ Start again", () => reset(), "primary");
 const read = K.readout(ui.group("Measurements"), [["t", "time"], ["Q", "charge passed"], ["ne", "moles of electrons"], ["cat", "at the cathode (−)"], ["an", "at the anode (+)"], ["sol", "the solution"]]);
 function set(o) {

@@ -148,6 +148,7 @@ ctl.E = K.slider(g, { label: "Spring energy", min: 1, max: 20, step: 1, value: 5
 K.btn(K.row(g), "▶ Go again", () => newLab(), "primary");
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Slow motion", min: 0.01, max: 0.5, step: 0.01, value: 0.05, fmt: v => v < 0.2 ? `${Math.round(1 / v)}× slower than real` : "× " + v, on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""], ["e", ""], ["f", ""]]);
 const relabel = l => l.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);
 function runNow() { R = crash(P); t = 0; for (const k of ["other"]) ctl[k].el.style.display = P.target === "wall" ? "none" : ""; ctl.slack.el.style.display = P.belt === "belt" ? "" : "none"; ctl.bagT.el.style.display = P.bag ? "" : "none"; }

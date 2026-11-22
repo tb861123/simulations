@@ -91,6 +91,7 @@ const ctl = {}, grp = {};
 let g = ui.group("View");
 ctl.view = K.seg(g, { value: "cans", options: [["cans", "☕ cooling cans"], ["rad", "🔆 radiation"], ["house", "🏠 the house"]], on: v => { P.view = v; showGroups(); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 1, max: 60, step: 1, value: 10, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 grp.cans = g = ui.group("Cooling cans");
 ctl.T0 = K.slider(g, { label: "Starting temperature", min: 40, max: 95, step: 1, value: 80, unit: "°C", on: v => P.T0 = v });
 ctl.ins = K.seg(g, { value: "none", options: Object.entries(INS).map(([k, v]) => [k, v.name]), on: v => { P.ins = v; restartCan(); } });

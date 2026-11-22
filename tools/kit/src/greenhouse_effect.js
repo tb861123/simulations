@@ -177,6 +177,7 @@ g = ui.group("Ocean and weather");
 ctl.depth = K.slider(g, { label: "Ocean mixed-layer depth", min: 5, max: 300, step: 5, value: 70, unit: " m", on: v => { P.depth = v; cl.p.depth = v; } });
 ctl.noise = K.slider(g, { label: "Natural variability", min: 0, max: 2, step: 0.1, value: 0.5, unit: " W/m²", on: v => { P.noise = v; cl.p.noise = v; } });
 ctl.speed = K.slider(g, { label: "Speed (years per second)", min: Math.log(0.25), max: Math.log(100), step: 0.01, value: 0, fmt: v => K.sig(Math.exp(v), 2) + "×", on: v => speed = Math.exp(v) });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 K.btn(K.row(g), "↺ Start again in balance", () => restart(), "primary");
 const read = K.readout(g, [["T", "surface temperature"], ["eq", "heading for"], ["gh", "greenhouse warming"], ["in", "energy in (sunlight absorbed)"], ["out", "energy out (infrared to space)"], ["imb", "imbalance"]]);
 function set(o) {

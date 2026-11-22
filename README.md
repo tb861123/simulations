@@ -12,12 +12,13 @@ Most simulations are a single HTML file: open it in Chrome or Edge, with no
 install and no internet needed. Run any other commands from inside the
 project's own folder.
 
-## ★ Enhanced simulations
+## How the simulations are built
 
-One hundred and six simulations are marked ★ Enhanced on the front page (gold edge and a
-star tag): ninety-nine rebuilt showpieces, which replaced the earlier versions in
-their folders, and seven newer ones (Quantum Wave Lab, Special Relativity, Wind
-Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns). They share a small
+All one hundred and eighty-three simulations are built with the shared toolkit (the
+front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
+their folders, and seventy-four newer ones (Quantum Wave Lab, Special Relativity, Wind
+Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
+mathematics, statistics, chemistry, economics, geography, PE and music simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones, and the Cosmic Distance Ladder). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
@@ -73,7 +74,7 @@ Every simulation has a `worksheets.html` beside it: printable A4 sheets
 (set-up, prediction, results to fill in, questions), then teacher notes. Open it
 and press **Print** (or save as PDF).
 
-- **★ Enhanced simulations:** one sheet for every ready-made investigation (the
+- **Kit simulations:** one sheet for every ready-made investigation (the
   cards in the **Investigate** tab) and one for every batch experiment. The
   teacher notes give what to look for, the theory and the result of a test run
   of each batch experiment. The same sheets can be printed from inside the
@@ -111,8 +112,8 @@ and press **Print** (or save as PDF).
 | [`physics/particle_physics/`](physics/particle_physics/) | Particle physics ★: the atom and isotopes, quarks and hadrons, conservation of Q, B, L and S, bubble chamber, Feynman diagrams | Open `particle-physics.html` |
 | [`physics/nuclear_fusion/`](physics/nuclear_fusion/) | Nuclear fusion ★: the Coulomb barrier, quantum tunnelling, the Gamow peak, and the temperature and pressure needed in stars and reactors | Open `nuclear-fusion.html` |
 | [`physics/heating_insulation/`](physics/heating_insulation/) | Heating and insulation ★: cooling cans and insulators, Leslie cube and coin drop, a house's heat loss, insulation savings and payback | Open `heating-insulation.html` |
-| [`physics/density_pressure/`](physics/density_pressure/) | Density and pressure: density practicals, p = F/A, liquid pressure, floating, gas pressure, terminal velocity | Open `density-pressure.html` |
-| [`physics/energy_resources/`](physics/energy_resources/) | Energy resources and electricity: power stations, running the GB grid, transformers and transmission losses, wind turbine practical | Open `energy-resources.html` |
+| [`physics/density_pressure/`](physics/density_pressure/) | Density and pressure ★: density practicals with errors and uncertainty, eureka can bias, p = F/A, hρg, floating and Archimedes, terminal velocity and Stokes' law | Open `density-pressure.html` |
+| [`physics/energy_resources/`](physics/energy_resources/) | Energy resources ★: power stations and Sankey diagrams, Run Britain hour by hour, I²R losses and transformers, wind power ∝ v³ and the model turbine, GB generation 2000–2024 | Open `energy-resources.html` |
 | [`physics/quantum_wave_lab/`](physics/quantum_wave_lab/) | Quantum Wave Lab ★: the 2-D Schrödinger equation live. Tunnelling, double slit one particle at a time, uncertainty, measurement (A level and beyond) | Open `quantum-wave-lab.html` |
 | [`physics/special_relativity/`](physics/special_relativity/) | Special relativity ★: light clocks, simultaneity, train and tunnel, twin paradox, muons, from any frame, with a spacetime diagram | Open `special-relativity.html` |
 | [`physics/wind_tunnel/`](physics/wind_tunnel/) | Wind tunnel ★: viscous flow by the lattice Boltzmann method, with vortex streets, lift and drag (complements Aerofoil Flow) | Open `wind-tunnel.html` |
@@ -124,19 +125,23 @@ and press **Print** (or save as PDF).
 | Folder | What it is | How to run |
 |---|---|---|
 | [`chemistry/collision_theory/`](chemistry/collision_theory/) | Collision Theory and Rates ★: reacting molecules, activation energy, catalysts, surface area, runaway reactions, the Arrhenius plot | Open `collision-theory.html` |
-| [`chemistry/dynamic_equilibrium/`](chemistry/dynamic_equilibrium/) | Dynamic Equilibrium ★: A + B ⇌ AB with real particle collisions; Le Chatelier, K and Q, energy profile | Open `dynamic-equilibrium.html` |
+| [`chemistry/dynamic_equilibrium/`](chemistry/dynamic_equilibrium/) | Dynamic Equilibrium ★: A + B ⇌ AB with real particle collisions; Le Chatelier, K and Q, energy profile; Kc and Kp with units at A level | Open `dynamic-equilibrium.html` |
 | [`chemistry/atomic_structure/`](chemistry/atomic_structure/) | Atomic structure ★: build atoms and ions, isotopes, weighing atoms for Ar; s, p, d and ionisation energies at A level | Open `atomic-structure.html` |
 | [`chemistry/bonding/`](chemistry/bonding/) | Bonding and Structure ★: ionic, covalent and metallic bonds forming; heat, conduct and hammer the structure | Open `bonding.html` |
 | [`chemistry/organic_chemistry/`](chemistry/organic_chemistry/) | Crude Oil, Cracking and Polymers ★: molecules in a fractionating column, cracking and the bromine test, combustion, addition polymers, free-radical substitution | Open `organic-chemistry.html` |
 | [`chemistry/periodic_groups/`](chemistry/periodic_groups/) | Groups 1 and 7 ★: alkali metals with water, halogen states and displacement, trends down the groups | Open `periodic-groups.html` |
 | [`chemistry/reactivity_metals/`](chemistry/reactivity_metals/) | Reactivity ★: metals with water and acid, displacement with temperature rises, extraction (blast furnace, electrolysis), redox | Open `reactivity-metals.html` |
 | [`chemistry/electrolysis/`](chemistry/electrolysis/) | Electrolysis ★: ions drifting to the electrodes, products at each, half-equations, Faraday's law | Open `electrolysis.html` |
-| [`chemistry/energy_changes/`](chemistry/energy_changes/) | Energy Changes ★: bonds breaking and forming on a profile, cup calorimetry with extrapolation, burning alcohols, ΔG at A level | Open `energy-changes.html` |
+| [`chemistry/energy_changes/`](chemistry/energy_changes/) | Energy Changes ★: bonds breaking and forming on a profile, cup calorimetry with extrapolation, burning alcohols, ΔG, Hess and Born–Haber cycles at A level | Open `energy-changes.html` |
 | [`chemistry/acids_salts_tests/`](chemistry/acids_salts_tests/) | Acids, salts and tests ★: pH and indicators, titration and pH curves, solubility and precipitation, ion and gas tests with unknowns, buffers | Open `acids-salts-tests.html` |
 | [`chemistry/chromatography/`](chemistry/chromatography/) | Chromatography ★: paper chromatography and Rf, purity and identification, method mistakes, TLC and gas chromatography | Open `chromatography.html` |
 | [`chemistry/crystallisation/`](chemistry/crystallisation/) | Crystallisation ★: crystals growing in cooling magma (granite, basalt, obsidian) and in salt solutions; solubility curves, seeds, JMAK theory | Open `crystallisation.html` |
 | [`chemistry/moles_reacting_masses/`](chemistry/moles_reacting_masses/) | Moles and reacting masses ★: the mole, limiting reactants, empirical formula and water of crystallisation practicals, gas volumes, atom economy | Open `moles-reacting-masses.html` |
 | [`chemistry/electrochemical_cells/`](chemistry/electrochemical_cells/) | Electrochemical cells ★: displacement and reactivity, simple cells, half-cells and E°, CP10, fuel and storage cells, redox titrations | Open `electrochemical-cells.html` |
+| [`chemistry/rate_equations/`](chemistry/rate_equations/) | Rate equations and kinetics: continuous monitoring with tangents and half-lives, zero, first and second order, initial rates with an iodine clock, mechanisms and the rate-determining step, the Arrhenius plot (CP13, CP14) | Open `rate-equations.html` |
+| [`chemistry/spectroscopy/`](chemistry/spectroscopy/) | Spectroscopy and structure: mass spectra (M+1, Cl and Br), infrared, ¹³C and ¹H NMR (n + 1, integration, D₂O) for 17 molecules; mystery molecules to identify | Open `spectroscopy.html` |
+| [`chemistry/transition_metals/`](chemistry/transition_metals/) | Transition metals and colour: NaOH and NH₃ tests, ligand exchange, vanadium with zinc, colour from d-orbital splitting (calculated from absorption spectra), colorimetry, catalysis and autocatalysis | Open `transition-metals.html` |
+| [`chemistry/organic_mechanisms/`](chemistry/organic_mechanisms/) | Organic mechanisms and synthesis: a reaction map with route finding and yields, curly-arrow mechanisms step by step, functional-group tests, substitution against elimination, oxidation and esterification | Open `organic-mechanisms.html` |
 
 ## Biology and medicine
 
@@ -197,7 +202,10 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`climate/tropical_storms/`](climate/tropical_storms/) | Tropical Storms ★: grow, steer and land a hurricane; surge and impacts, a whole season, a warmer world | Open `tropical-storms.html` |
 | [`climate/tectonic_hazards/`](climate/tectonic_hazards/) | Tectonic Hazards ★: plate boundaries and the Benioff zone, P and S waves and triangulation, a tsunami crossing the ocean, disaster risk | Open `tectonic-hazards.html` |
 | [`climate/slopes_landslides/`](climate/slopes_landslides/) | Weathering, slopes and landslides ★: freeze–thaw and chemical weathering against climate, the factor of safety and pore water pressure, roots, undercut cliffs, soil creep, landslides and rainfall thresholds | Open `slopes-landslides.html` |
-| [`climate/fieldwork_sampling/`](climate/fieldwork_sampling/) | Fieldwork: sampling methods, bias, descriptive statistics, Spearman's rank, chi-squared, Mann–Whitney U, power | Open `fieldwork-sampling.html` |
+| [`climate/fieldwork_sampling/`](climate/fieldwork_sampling/) | Fieldwork ★: sampling methods and bias, mean, median and IQR, scatter graphs and box plots, Spearman's rank, chi-squared, Student's t-test, power and false alarms | Open `fieldwork-sampling.html` |
+| [`climate/globalisation_migration/`](climate/globalisation_migration/) | Globalisation and migration: trade by the gravity model, time–space compression 1960–2020, push–pull migration with diasporas and borders (Brexit, Gulf visas), remittances, a KOF-style index | Open `globalisation-migration.html` |
+| [`climate/urban_places/`](climate/urban_places/) | Changing urban places: bid-rent, Schelling segregation and the index of dissimilarity, location quotients, regeneration and gentrification, deprivation, the urban heat island | Open `urban-places.html` |
+| [`climate/water_insecurity/`](climate/water_insecurity/) | Water insecurity and drought: soil-moisture budgets, the water budget, runs of dry years and Day Zero, the Falkenmark index, dams, desalination, demand management and upstream neighbours | Open `water-insecurity.html` |
 
 ## Astrophysics
 
@@ -210,7 +218,27 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`astrophysics/expanding_universe/`](astrophysics/expanding_universe/) | Expanding universe ★: red-shift, a galaxy survey with standard candles, Hubble's law, H₀ and the age of the universe | Open `expanding-universe.html` |
 | [`astrophysics/gravitational_lensing/`](astrophysics/gravitational_lensing/) | Black Holes and Gravitational Lensing ★: a ray-traced black hole with accretion disc, Einstein rings and arcs, microlensing planets, Eddington 1919 | Open `gravitational-lensing.html` |
 | [`astrophysics/dark_matter/`](astrophysics/dark_matter/) | Dark matter ★: rotation curves of five galaxies, Doppler slit spectra, halo fitting with χ², MOND | Open `dark-matter.html` |
+| [`astrophysics/cosmic_distance_ladder/`](astrophysics/cosmic_distance_ladder/) | The Cosmic Distance Ladder: six tabs, one per rung: radar echoes from Venus size the AU, stellar parallax (Bessel, Hipparcos, Gaia), Cepheids and Leavitt's law calibrated by parallax, Type Ia supernovae calibrated by Cepheids (stretch correction), Hubble's law and H₀; random and systematic errors climb the ladder (Baade 1952, the Hubble tension) | Open `cosmic-distance-ladder.html` |
 | [`astrophysics/three_body_chaos/`](astrophysics/three_body_chaos/) | Three-Body Chaos ★: N-body gravity with a "twin universe" to watch prediction fail (the earlier outcome-map lab is in `original_lab/`) | Open `three-body-chaos.html` |
+
+## Mathematics
+
+Mathematics simulations: Standard level follows Pearson Edexcel AS Mathematics (8MA0) and Advanced follows A level Mathematics (9MA0); the statistics ones are in the Statistics section below. Further Mathematics simulations (marked "Further Maths") follow AS Further Mathematics (8FM0) and A level Further Mathematics (9FM0).
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`mathematics/calculus_explorer/`](mathematics/calculus_explorer/) | Calculus Explorer: differentiation from first principles (chord to tangent), the gradient function, stationary points with f'' and points of inflection, concave/convex, areas by rectangles and the trapezium rule against the exact integral (A level Mathematics) | Open `calculus-explorer.html` |
+| [`mathematics/numerical_methods/`](mathematics/numerical_methods/) | Numerical Methods: change of sign and bisection (and how asymptotes and repeated roots fool it), iteration x = g(x) with staircase and cobweb diagrams, convergence and divergence, Newton–Raphson and its failures, error charts showing linear and quadratic convergence (A level Mathematics) | Open `numerical-methods.html` |
+| [`mathematics/vectors_kinematics/`](mathematics/vectors_kinematics/) | Kinematics and Vectors: s–t and v–t graphs with tangent gradients and signed areas, SUVAT, variable acceleration (s = pt³ + qt² + rt), distance vs displacement; draggable 2D vectors (a ± b, λa, unit vectors, direction); projectiles as r and v vectors with range against angle (A level Mathematics) | Open `vectors-kinematics.html` |
+| [`mathematics/mechanics_forces/`](mathematics/mechanics_forces/) | Forces and Newton's Laws: F = ma with force diagrams drawn to scale; connected particles over a smooth pulley and an Atwood machine; friction F ≤ μR and limiting equilibrium on a rough slope with a push; moments, reactions and tipping on a beam (A level Mathematics) | Open `mechanics-forces.html` |
+| [`mathematics/complex_numbers/`](mathematics/complex_numbers/) | Complex Numbers (Further Maths): Argand diagram with draggable z and w; add, subtract, multiply (rotate and stretch), divide, conjugate; loci and regions |z − a| = r, |z − a| = |z − b|, arg(z − a) = θ; de Moivre powers and nth roots of unity and of any complex number | Open `complex-numbers.html` |
+| [`mathematics/matrix_transformations/`](mathematics/matrix_transformations/) | Matrix Transformations (Further Maths): 2 × 2 transformations animated on a grid with the images of i and j, determinant as area and orientation, singular matrices, inverses, invariant lines and lines of invariant points, composition NM, and 3 × 3 transformations of a cube with the volume scale factor | Open `matrix-transformations.html` |
+| [`mathematics/differential_equations/`](mathematics/differential_equations/) | Differential Equations (Further Maths): slope fields for six first-order equations with clickable solution curves (separable and integrating-factor solutions) and Euler's method with its error; second-order damped and driven oscillations from the auxiliary equation (light, critical, heavy damping), phase plane and resonance | Open `differential-equations.html` |
+| [`mathematics/series_convergence/`](mathematics/series_convergence/) | Series and Convergence (Further Maths): binomial expansions with rational powers, the geometric series and Maclaurin series for eˣ, sin x, cos x and ln(1 + x) term by term with intervals of convergence and errors; partial sums of Σr, Σr², Σr³ (standard results), Σ(½)ʳ, Σ1/r, Σ1/r² and the alternating harmonic series | Open `series-convergence.html` |
+| [`mathematics/polar_curves/`](mathematics/polar_curves/) | Polar Curves (Further Maths): r = f(θ) traced by a rotating arm (cardioid, limaçon, rose, spiral, circle, lemniscate), r ≥ 0 convention, area as thin sectors approaching ½∫r² dθ, and tangents parallel and perpendicular to the initial line | Open `polar-curves.html` |
+| [`mathematics/vectors_3d/`](mathematics/vectors_3d/) | Lines and Planes in 3D (Further Maths): a turnable 3D view of two lines (intersecting, parallel or skew, angle from the scalar product, common perpendicular and shortest distance), a line meeting a plane with the angle and a point's perpendicular distance, and two planes meeting in a line | Open `vectors-3d.html` |
+| [`mathematics/markov_chains/`](mathematics/markov_chains/) | Markov Chains (Further Maths): transition matrices with tokens moving between states (weather, brand switching, four places), πₙ = π₀Tⁿ against the simulation, steady states and mean return times, and absorbing chains (gambler's ruin) | Open `markov-chains.html` |
+| [`mathematics/hyperbolic_functions/`](mathematics/hyperbolic_functions/) | Hyperbolic Functions (Further Maths): cosh, sinh and tanh from exponentials, cosh² − sinh² = 1, the unit hyperbola beside the unit circle (sector area t/2), inverse hyperbolic functions as logarithms, derivatives, and a hanging chain as a catenary | Open `hyperbolic-functions.html` |
 
 ## Statistics
 
@@ -218,6 +246,10 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 |---|---|---|
 | [`statistics/central_limit_theorem/`](statistics/central_limit_theorem/) | Central Limit Theorem ★: draw any population, watch sample means form a bell curve; live confidence intervals | Open `central-limit-theorem.html` |
 | [`statistics/queues/`](statistics/queues/) | Supermarket Queues ★: random arrivals, utilisation and Erlang C, one snake or many queues, variability, Little's law | Open `queues.html` |
+| [`statistics/hypothesis_testing/`](statistics/hypothesis_testing/) | Hypothesis Testing: binomial tests (one- and two-tailed, critical regions, actual significance level, p-values) and the normal test for a mean; Type I/II errors and power from hundreds of simulated tests (A level Mathematics) | Open `hypothesis-testing.html` |
+| [`statistics/distributions/`](statistics/distributions/) | Probability Distributions: a Galton board builds B(n, p) ball by ball (nCr routes, P(X ≤ b), mean and variance); normal areas, inverse normal and points of inflection; normal approximation with continuity correction; Poisson as an extension (A level Mathematics) | Open `distributions.html` |
+| [`statistics/regression_correlation/`](statistics/regression_correlation/) | Regression and Correlation: draggable scatter diagram with the least-squares line, residuals and squared residuals, PMCC, outliers and leverage, interpolation vs extrapolation, correlation vs causation, critical values of r, and log graphs for y = axⁿ (Kepler's planets) and y = kbˣ (A level Mathematics) | Open `regression-correlation.html` |
+| [`statistics/sampling_data/`](statistics/sampling_data/) | Sampling and Data: an illustrative large data set of daily weather (8 stations, 1987 and 2015); census and five sampling methods, cleaning tr and n/a, box plots with outliers, histograms with frequency density, cumulative frequency, mean, σ, quartiles and IQR (A level Mathematics) | Open `sampling-data.html` |
 
 ## Economics
 
@@ -225,7 +257,7 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 
 | Folder | What it is | How to run |
 |---|---|---|
-| [`economics/supply_demand/`](economics/supply_demand/) | The Trading Pit ★: supply and demand from haggling buyers and sellers; tax, price cap and floor | Open `supply-demand.html` |
+| [`economics/supply_demand/`](economics/supply_demand/) | The Trading Pit ★: supply and demand from haggling buyers and sellers; tax, price cap and floor; PED, YED and XED with total revenue at A level | Open `supply-demand.html` |
 | [`economics/taxes_price_controls/`](economics/taxes_price_controls/) | Taxes and price controls ★: tax incidence and elasticity, subsidies, maximum and minimum prices, black markets, deadweight loss, UK examples | Open `taxes-price-controls.html` |
 | [`economics/firms_competition/`](economics/firms_competition/) | Firms and Competition ★: cost and revenue curves, MC = MR, entry and exit across market structures, the prisoner's dilemma | Open `firms-competition.html` |
 | [`economics/labour_market/`](economics/labour_market/) | Labour market ★: wages from MRP and reservation wages, minimum wage, monopsony with MCL, two markets and mobility | Open `labour-market.html` |
@@ -234,6 +266,34 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 | [`economics/externalities/`](economics/externalities/) | Market Failure and Externalities ★: externalities with the welfare-loss triangle, taxes, subsidies, limits, information, cap and trade, public goods, lemons | Open `externalities.html` |
 | [`economics/trade_exchange_rates/`](economics/trade_exchange_rates/) | Trade and Exchange Rates ★: comparative advantage and terms of trade, tariffs, quotas and customs unions, the market for pounds, Marshall–Lerner and the J-curve, real GBP 2000–2025 | Open `trade-exchange-rates.html` |
 | [`economics/inequality/`](economics/inequality/) | Inequality ★: Lorenz and Gini, income against wealth, UK taxes and benefits, poverty, inheritance, the trading game, Kuznets and Laffer curves | Open `inequality.html` |
+| [`economics/behavioural_economics/`](economics/behavioural_economics/) | Behavioural economics: bounded rationality and defaults (auto-enrolment), anchoring, present bias, herding and information cascades, fairness in the ultimatum game, nudges and the boomerang effect | Open `behavioural-economics.html` |
+| [`economics/development_economics/`](economics/development_economics/) | Development economics: a developing country over 50 years with Harrod–Domar saving, the Lewis model, primary product dependency and Prebisch–Singer, the foreign currency gap, aid, education and the HDI | Open `development-economics.html` |
+| [`economics/financial_markets/`](economics/financial_markets/) | Banks, bonds and financial markets: bond prices and yields, bank runs with reserves, capital, deposit insurance and the lender of last resort, moral hazard from bailouts, speculative bubbles | Open `financial-markets.html` |
+
+## Business
+
+Standard level follows GCSE Business (Pearson Edexcel 1BS0); Advanced follows
+Pearson Edexcel A level Business (9BS0). Economics topics (markets, firms,
+the macroeconomy) are in the Economics section.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`business/breakeven_and_margins/`](business/breakeven_and_margins/) | Break-even and margins ★: fixed and variable costs, contribution, break-even chart, margin of safety, target profit, PED and the profit-maximising price, stepped fixed costs | Open `breakeven-and-margins.html` |
+| [`business/cash_flow_forecast/`](business/cash_flow_forecast/) | Cash-flow forecast ★: inflows, outflows, net cash flow, opening and closing balances, overdraft limit, credit terms, seasonality, loans, factoring and bad debts, profit against cash | Open `cash-flow-forecast.html` |
+| [`business/investment_appraisal/`](business/investment_appraisal/) | Investment appraisal ★: payback, ARR, NPV and discount factors, sensitivity, possible futures and risk, IRR (beyond spec); decision trees, EMV and risk attitude | Open `investment-appraisal.html` |
+| [`business/inventory_and_supply_chain/`](business/inventory_and_supply_chain/) | Stock control ★: bar-gate graphs, re-order level, lead time, buffer stock, JIT and late deliveries, holding and ordering costs, EOQ and the bullwhip effect (beyond spec) | Open `inventory-and-supply-chain.html` |
+
+## Politics
+
+Advanced follows Pearson Edexcel A level Politics (9PL0): UK politics, UK
+government and the USA; Standard covers the core ideas for students starting
+the course.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`politics/electoral_systems/`](politics/electoral_systems/) | Electoral systems ★: FPTP, SV, AV, STV, AMS and list PR on the same ranked ballots, safe and marginal seats, wasted votes, the cube law, thresholds, Gallagher index | Open `electoral-systems.html` |
+| [`politics/voting_paradoxes/`](politics/voting_paradoxes/) | Voting paradoxes ★: median voter theorem, abstention, third parties, tactical voting, primaries and polarisation; Condorcet cycles, agenda setting, plurality v AV v Borda, Arrow's theorem | Open `voting-paradoxes.html` |
+| [`politics/gerrymandering/`](politics/gerrymandering/) | Gerrymandering ★: packing and cracking, wasted votes, efficiency gap, equal population and contiguity, a gerrymander machine, ensembles of random fair maps, US redistricting cases | Open `gerrymandering.html` |
 
 ## Physical Education
 
@@ -248,6 +308,10 @@ Standard level follows OCR GCSE (9–1) Physical Education (J587); Advanced foll
 | [`physical_education/skill_acquisition/`](physical_education/skill_acquisition/) | Skill acquisition ★: Hick's law (test yourself), information processing and the PRP, practice types, guidance, feedback, classification, schema | Open `skill-acquisition.html` |
 | [`physical_education/arousal_performance/`](physical_education/arousal_performance/) | Arousal and Performance ★: inverted-U, drive, catastrophe, ZOF, mental preparation, social facilitation, Ringelmann | Open `arousal-performance.html` |
 | [`physical_education/luck_and_skill/`](physical_education/luck_and_skill/) | Luck, Skill and the League ★: does the best team win? League against cup, home advantage, the sacked-manager bounce | Open `luck-and-skill.html` |
+| [`physical_education/muscles_neuromuscular/`](physical_education/muscles_neuromuscular/) | Muscles and the neuromuscular system: motor units, all-or-none, wave and spatial summation, tetanus, fibre types and fatigue, muscle spindles, Golgi tendon organs and PNF | Open `muscles-neuromuscular.html` |
+| [`physical_education/exercise_regulation/`](physical_education/exercise_regulation/) | Heart, lungs and blood in exercise: the cardiac control centre and receptors, the anticipatory rise, Q = SV × HR, venous return, the vascular shunt, VE = TV × f, cardiovascular drift | Open `exercise-regulation.html` |
+| [`physical_education/nutrition_ergogenic_aids/`](physical_education/nutrition_ergogenic_aids/) | Nutrition and ergogenic aids: glycogen and hitting the wall, carbo-loading, hydration, creatine, caffeine, bicarbonate, nitrate, altitude training and EPO, false positives in drug testing | Open `nutrition-ergogenic-aids.html` |
+| [`physical_education/sport_psychology/`](physical_education/sport_psychology/) | Motivation, confidence and leadership: Weiner's attribution and learned helplessness, Bandura's self-efficacy, goal setting, Atkinson's achievement motivation, Chelladurai and Fiedler | Open `sport-psychology.html` |
 
 ## Music
 
@@ -264,8 +328,98 @@ The audit of the earlier music pack is kept in [`music/original_audit/`](music/o
 | [`music/build_timbre/`](music/build_timbre/) | Build a Timbre ★: Fourier synthesis, instrument presets, ADSR envelope, spectral centroid, the missing fundamental, autocorrelation pitch | Open `build-timbre.html` |
 | [`music/pitch_intervals/`](music/pitch_intervals/) | Pitch and Intervals ★: keyboard and stave, interval names and spelling, equal temperament against just intonation, beats, consonance and roughness | Open `pitch-intervals.html` |
 | [`music/rhythm_metre/`](music/rhythm_metre/) | Rhythm and Metre ★: step sequencer, BPM, simple, compound and irregular metres, backbeat, syncopation score, swing, polyrhythm, human timing | Open `rhythm-metre.html` |
+| [`music/harmony_cadences/`](music/harmony_cadences/) | Harmony, chords and cadences: Roman numerals and inversions, automatic four-part voicing on a grand stave, voice-leading rules, the four cadences, chromatic chords | Open `harmony-cadences.html` |
+| [`music/keys_modulation/`](music/keys_modulation/) | Keys, scales and modulation: major, minor, modes, pentatonic, blues and whole-tone scales, the circle of fifths, key finding and modulation | Open `keys-modulation.html` |
+| [`music/structure_texture/`](music/structure_texture/) | Structure and texture: binary, ternary, rondo, variations, AABA, verse–chorus and sonata form; monophonic to heterophonic textures; a self-similarity map | Open `structure-texture.html` |
+| [`music/modern_techniques/`](music/modern_techniques/) | Twentieth-century techniques: tone rows and the 12 × 12 matrix (P, R, I, RI), Reich's phasing, Glass's additive process | Open `modern-techniques.html` |
 
-## History
+## History (OCR H505)
+
+A newer subject. History is a weaker fit for simulation than the sciences, so
+only models that genuinely teach are built: each one shows how far an outcome
+depended on its causes and on people's choices, and is honest about the rough
+figures behind it. Standard level is GCSE History; Advanced follows OCR A level
+History A (H505), with spec tags for the relevant units.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`history/population_and_famine/`](history/population_and_famine/) | Population and Famine ★: Malthus's positive and preventive checks, the Black Death and wages, Ireland 1781–1901 against the census, the blight, relief, exports, emigration and the post-Famine decline | Open `population-and-famine.html` |
+| [`history/arms_race_and_alliances/`](history/arms_race_and_alliances/) | Arms Races and Alliances ★: Richardson's equations for the Anglo-German naval race and the nuclear arms race (fear against fatigue, arms control), and the July Crisis as a chain of chances: blank cheque, alliances, the Schlieffen Plan, mediation | Open `arms-race-and-alliances.html` |
+| [`history/revolutions_and_unrest/`](history/revolutions_and_unrest/) | Revolutions and Unrest ★: Granovetter's crowd thresholds (one person can stop a riot), Epstein's rebellion model (grievance = hardship × (1 − legitimacy), arrest risk, prison), Russia 1905 and 1917 as events, hidden grievance, sudden against gradual loss of legitimacy | Open `revolutions-and-unrest.html` |
+| [`history/great_depression/`](history/great_depression/) | The Great Depression ★: the Wall Street Crash, bank runs and the money multiplier, the gold standard, austerity against deficit spending, the 1937 recession; USA and Germany against real GDP and unemployment, with the Nazi vote | Open `great-depression.html` |
+
+## Photography (AQA 7206)
+
+Standard level follows AQA GCSE Art and Design: Photography (8206); Advanced
+follows AQA A level Art and Design: Photography (7206), whose subject content
+asks for viewpoint, composition, aperture, depth of field, shutter speed and
+movement, lenses, lighting, film and digital processes.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`photography/exposure_triangle/`](photography/exposure_triangle/) | The Exposure Triangle ★: f-stops, shutter and ISO with a live histogram and meter, M/A/S/P modes, Sunny 16, depth of field and the circle of confusion, motion blur, camera shake, photon noise; film's characteristic curve, development time, temperature and pushing | Open `exposure-triangle.html` |
+| [`photography/lens_optics/`](photography/lens_optics/) | Lenses and Perspective ★: focal length and field of view, crop factors (APS-C, Micro Four Thirds, phone), perspective depends on viewpoint ('compression'), lens extension, magnification and macro, depth of field at equal framing | Open `lens-optics.html` |
+| [`photography/light_and_colour/`](photography/light_and_colour/) | Light and Colour ★: black-body colour temperature, white balance and casts, grey-world auto white balance, additive RGB and subtractive CMY mixing, inverse square law, key and fill lights, lighting ratios, hard and soft shadows | Open `light-and-colour.html` |
+| [`photography/composition_and_sampling/`](photography/composition_and_sampling/) | Pixels, Compression and Composition ★: resolution and print size at 72–300 dpi, sampling, the Nyquist limit and moiré, anti-aliasing filters, bit depth, banding and dither, JPEG (DCT, quantisation, blocks, PSNR, generation loss), cropping with thirds, golden section and aspect ratios | Open `composition-and-sampling.html` |
+
+## Design and Technology
+
+Standard level follows AQA GCSE Design and Technology (8552); Advanced follows
+AQA A level Design and Technology: Product Design (7552). Engineering
+structures and earthquakes are in the Engineering section.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`design_technology/materials_properties/`](design_technology/materials_properties/) | Materials ★: tensile tests of 17 materials, stress, strain, Young's modulus, yield, UTS, ductility, toughness, work hardening and annealing, design briefs, factor of safety, selection charts | Open `materials-properties.html` |
+| [`design_technology/manufacturing_processes/`](design_technology/manufacturing_processes/) | Manufacturing ★: 3D printing, laser cutting, CNC, vacuum forming, injection moulding, tooling and cost per unit, scales of production, break-even quantity, tolerances, rejects, control charts, Cpk | Open `manufacturing-processes.html` |
+| [`design_technology/ergonomics_anthropometrics/`](design_technology/ergonomics_anthropometrics/) | Ergonomics ★: anthropometric data, percentiles, normal distribution, clearance, reach and adjustability, mixed populations, children, small surveys against published data | Open `ergonomics-anthropometrics.html` |
+
+## Religion, Philosophy and Ethics
+
+Standard level follows GCSE Religious Studies; Advanced follows OCR A level
+Religious Studies (H573): Philosophy of religion, Religion and ethics, and
+Developments in Christian thought. These pages model arguments and theories
+so that students can test them; they take no side.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`religious_studies/ethical_dilemmas/`](religious_studies/ethical_dilemmas/) | Ethical theories ★: natural law and double effect, Kant, act and rule utilitarianism, hedonic calculus, situation ethics; trolley cases, lying, euthanasia, whistleblowing; a society of promises | Open `ethical-dilemmas.html` |
+| [`religious_studies/argument_validity/`](religious_studies/argument_validity/) | Arguments ★: deductive and inductive, validity and soundness, syllogisms and Venn diagrams, fallacies, existential import; ontological, cosmological and teleological arguments as premise chains | Open `argument-validity.html` |
+| [`religious_studies/problem_of_evil/`](religious_studies/problem_of_evil/) | Problem of evil ★: logical and evidential problems, the inconsistent triad, free will defence, Augustine, Irenaeus and Hick (soul-making, epistemic distance), Rowe's fawn and Bayes, sceptical theism | Open `problem-of-evil.html` |
+
+## Computer Science (Cambridge 9618)
+
+Standard level follows Cambridge International AS Level Computer Science (9618, Papers 1–2); Advanced follows the A Level (Papers 3–4).
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`computing/sorting_algorithms/`](computing/sorting_algorithms/) | Sorting Algorithms: bubble and insertion sort with highlighted pseudocode (9618 style), merge sort and quick sort, comparison and move counters, random/nearly sorted/reversed data, a race, and Big O curves (Cambridge 9618) | Open `sorting-algorithms.html` |
+| [`computing/searching_and_hashing/`](computing/searching_and_hashing/) | Searching and Hashing: linear and binary search animated with comparison counts and O(n) against O(log n); hash tables (A Level) with key MOD size, collisions, linear probing and chaining, probes against load factor, and the birthday problem (Cambridge 9618) | Open `searching-and-hashing.html` |
+| [`computing/pathfinding/`](computing/pathfinding/) | Pathfinding: Dijkstra's algorithm and A* (Manhattan heuristic) on an editable grid with walls and mud, the priority queue and g + h = f values, greedy best-first for comparison, and Dijkstra's distance table on a small exam-style graph (Cambridge 9618 A Level AI) | Open `pathfinding.html` |
+| [`computing/data_structures/`](computing/data_structures/) | Data Structures: stack (overflow and underflow), circular queue (MOD wrap-round), linked list in an array with StartPointer and a free list, and binary search trees with traversals and search cost (Cambridge 9618) | Open `data-structures.html` |
+| [`computing/logic_gates/`](computing/logic_gates/) | Logic Gates and Circuits: gate symbols with clickable inputs and highlighted truth tables, a circuit from an expression, half and full adders, NAND-only XOR, an SR flip-flop with feedback, a 4-bit ripple-carry adder and Karnaugh maps (Cambridge 9618) | Open `logic-gates.html` |
+| [`computing/cpu_fetch_execute/`](computing/cpu_fetch_execute/) | CPU: Fetch–Decode–Execute: a Von Neumann CPU stepping through register transfer notation with registers and buses lit up; an editable Cambridge 9618 assembly program (LDM, LDD, LDI, LDX, STO, ADD, CMP, JPN, AND, LSL…) with addressing modes and bit manipulation; pipelining at A Level | Open `cpu-fetch-execute.html` |
+| [`computing/binary_and_floating_point/`](computing/binary_and_floating_point/) | Binary and Floating Point: clickable bits with unsigned, two's complement, hex, BCD and ASCII views; binary addition with carries, carry and overflow flags; A Level normalised floating point (two's complement mantissa and exponent), range against precision, rounding errors and overflow/underflow (Cambridge 9618) | Open `binary-and-floating-point.html` |
+| [`computing/networking_and_encryption/`](computing/networking_and_encryption/) | Networks and Encryption: packet switching on a router network (independent routes, out-of-order arrival, loss and TCP retransmission, reassembly by sequence number) against circuit switching; Caesar and Vigenère ciphers with frequency analysis; toy RSA key pairs and a digital signature (Cambridge 9618) | Open `networking-and-encryption.html` |
+| [`computing/neural_networks_and_ml/`](computing/neural_networks_and_ml/) | Neural Networks and Machine Learning: supervised learning on 2D data (line, XOR, circle, spiral) with a single neuron or a hidden layer trained by back-propagation; decision boundary, weights diagram, loss and accuracy curves, learning rate, training against test data and overfitting (Cambridge 9618 A Level AI) | Open `neural-networks-and-ml.html` |
+| [`computing/turing_and_fsm/`](computing/turing_and_fsm/) | State Machines and Turing Machines: state-transition diagrams with start and accepting states driven by your input (vending machine, door lock, divisible by 3, ends in 01), and Turing machines with tape, head and rule table (binary increment, unary addition, busy beaver) (Cambridge 9618 AS 12.2, Turing machines beyond) | Open `turing-and-fsm.html` |
+
+## Psychology (AQA 7182)
+
+Standard level follows AQA AS Psychology (7181); Advanced follows AQA A level Psychology (7182). Every simulation runs a class of simulated participants, so results vary like real data.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`psychology/memory_models/`](psychology/memory_models/) | Models of Memory: the multi-store model with a rehearsal buffer (sensory register, STM slots, LTM) producing the serial position curve; Glanzer and Cunitz, Peterson and Peterson, digit span and chunking, and working-memory dual tasks, all run on a class of simulated participants (AQA 7182) | Open `memory-models.html` |
+| [`psychology/forgetting_curve/`](psychology/forgetting_curve/) | Forgetting: the forgetting curve with massed, spaced and expanding revision; proactive and retroactive interference against similarity; context- and state-dependent retrieval failure in a 2 × 2 design like Godden and Baddeley, with means, SDs and effect sizes (AQA 7182) | Open `forgetting-curve.html` |
+| [`psychology/conformity_obedience/`](psychology/conformity_obedience/) | Social Influence: Asch's conformity study with group size, unanimity, difficulty and private answers; Milgram's obedience study and its variations (proximity, location, uniform, rebel peers); minority influence and the snowball effect as an agent model (AQA 7182) | Open `conformity-obedience.html` |
+| [`psychology/conditioning/`](psychology/conditioning/) | Learning: Conditioning: Pavlov's dog with a Rescorla–Wagner learning curve, extinction, spontaneous recovery and a generalisation gradient; a Skinner box rat on continuous, fixed/variable ratio and interval schedules with a cumulative record and the partial reinforcement extinction effect (AQA 7182) | Open `conditioning.html` |
+| [`psychology/research_methods/`](psychology/research_methods/) | Research Methods: Inferential Tests: simulated studies with independent groups, repeated measures or correlation designs and nominal, ordinal or interval data; the AQA decision tree; all eight tests with exact critical values and null distributions; Type I and II errors, power, one- and two-tailed tests (AQA 7182) | Open `research-methods.html` |
+| [`psychology/approaches_and_inheritance/`](psychology/approaches_and_inheritance/) | Nature and Nurture: Twin Studies: MZ and DZ twins reared together and apart and adoptees generated from the ACE model; Falconer's formula, concordance rates with a liability threshold and diathesis–stress, the equal environments assumption and selective placement (AQA 7182) | Open `approaches-and-inheritance.html` |
+| [`psychology/biopsychology/`](psychology/biopsychology/) | Biopsychology: Synapse, Stress and Rhythms: excitatory and inhibitory synapses onto an integrate-and-fire neuron (spatial and temporal summation, SSRIs, antagonists); fight or flight through the SAM pathway (adrenaline) and HPA axis (cortisol, negative feedback, beta-blockers, chronic stress); A level: the SCN body clock, Siffre's cave and jet lag on an actogram (AQA 7182; the nerve impulse itself is in medical/nerve_impulse) | Open `biopsychology.html` |
+| [`psychology/attachment_strange_situation/`](psychology/attachment_strange_situation/) | Attachment: The Strange Situation: Ainsworth's seven episodes for simulated secure, avoidant and resistant infants (exploration, stranger and separation anxiety, reunion, hidden arousal), caregiver sensitivity, cultural variation against van IJzendoorn and Kroonenberg, sampling variation; Schaffer and Emerson's stages and multiple attachments with responsive v present carers (AQA 7182) | Open `attachment-strange-situation.html` |
+
+## Where the old repositories went
 
 `engineering/fluid_dynamics/` (now retired), `chemistry/chem_sims/` (now retired) and `physics/physics_sims/` (now retired)
 were moved here from their own repositories (`tb861123/Fluid_dynamics`,

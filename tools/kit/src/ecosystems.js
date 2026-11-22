@@ -173,6 +173,7 @@ grp.lake = g = ui.group("Lake");
 ctl.runoff = K.slider(g, { label: "Fertiliser washed in", min: 0, max: 1.5, step: 0.05, value: 0, fmt: v => v ? v.toFixed(2) + " (relative)" : "none", on: v => { P.runoff = v; } });
 K.btn(K.row(g), "↺ Start again", () => { lake = LAKE0(); lakeHist = []; }, "primary");
 ctl.speed = K.slider(ui.group("Watch"), { label: "Speed", min: 0.25, max: 5, step: 0.25, value: 1, fmt: v => v + "×", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
 const relabel = l => l.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);
 function addQuad(qx, qy) {

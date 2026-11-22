@@ -218,6 +218,7 @@ ctl.wfh = K.slider(g, { label: "Adults working from home", min: 0, max: 90, step
 ctl.masks = K.toggle(g, { label: "Masks outside the home", value: false, on: v => { M.masks = v; theory = seir(M, N, seeds, 300); } });
 g = ui.group("Watch");
 ctl.speed = K.seg(g, { label: "One day takes", value: dayLen, options: [[5, "5 s"], [2.5, "2.5 s"], [1, "1 s"], [0.4, "0.4 s"]], on: v => dayLen = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["day", "day"], ["r", "R now"], ["hit", "herd immunity needs"], ["peak", "peak infectious"], ["tot", "infected so far"], ["dead", "deaths"], ["wh", "caught at home"], ["ws", "at school"], ["ww", "at work"], ["wv", "shops and cafés"]]);
 function set(o) {
   if (o.disease) { Object.assign(M, DISEASES[o.disease]); ctl.disease.set(o.disease); for (const k of ["R0", "lat", "inf"]) ctl[k].set(M[k]); }

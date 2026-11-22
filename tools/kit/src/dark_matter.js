@@ -114,6 +114,7 @@ ctl.mond = K.toggle(g, { label: "MOND instead of dark matter (A level)", value: 
 let rf = K.row(g); K.btn(rf, "🎯 Fit the halo for me", () => { const f = fitHalo(data, Gx, P.fitRs); Gx.halo.on = true; Gx.halo.M = f.M; if (P.fitRs) Gx.halo.rs = f.rs; syncCtl(); }, "primary"); ctl.reveal = K.btn(rf, "Reveal", () => { revealed = true; });
 ctl.fitRs = K.toggle(g, { label: "Fit the scale radius too", value: false, on: v => P.fitRs = v });
 ctl.speed = K.slider(ui.group("Watch"), { label: "Speed", min: 0.1, max: 4, step: 0.1, value: 1, fmt: v => K.sig(v * 10, 2) + " million years per second", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["vis", "visible mass inside last point"], ["dark", "dark mass inside last point"], ["ratio", "dark ÷ visible"], ["chi", "χ² (points)"], ["mv", "mass from v²r/G"]]);
 function sci(lg) { let e = Math.floor(lg), m = Math.pow(10, lg - e); if (m >= 9.95) { m = 1; e++; } return m.toFixed(1) + " × 10" + sup(e) + " M☉"; }
 function sup(n) { return String(n).split("").map(c => "⁰¹²³⁴⁵⁶⁷⁸⁹"[+c]).join(""); }

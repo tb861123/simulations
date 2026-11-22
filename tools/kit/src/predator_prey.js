@@ -172,6 +172,7 @@ g = ui.group("The meadow");
 ctl.size = K.seg(g, { value: "large", options: [["small", "small (6 ha)"], ["medium", "medium (26 ha)"], ["large", "large (82 ha)"]], on: v => { size = v; restart(); } });
 r1 = K.row(g); K.btn(r1, "↺ Start again", () => restart(), "primary");
 ctl.rate = K.slider(g, { label: "Speed", min: 5, max: 120, step: 5, value: rate, fmt: v => v + " days a second", on: v => rate = v });
+ui.headerSpeed(ctl.rate);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["yr", "time"], ["r", "rabbits"], ["f", "foxes"], ["g", "grass cover"], ["ratio", "rabbits per fox"], ["eat", "rabbits eaten this year"]]);
 function set(o) {
   Object.assign(P, DEF, { refuge: o.refuge || 0 }); ctl.grow.set(P.grow); ctl.breed.set(P.breed); ctl.hunt.set(P.hunt); ctl.need.set(1); ctl.refuge.set(P.refuge); ctl.cull.set(0); size = o.size || "large"; ctl.size.set(size); rate = 40; ctl.rate.set(40); restart(o.rabbits, o.foxes); bgT = -1;

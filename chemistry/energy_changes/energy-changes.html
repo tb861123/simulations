@@ -22,10 +22,10 @@ button,input,select{font:inherit;color:inherit}
 .k-top{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;min-height:52px}
 .k-home{color:var(--muted);text-decoration:none;font-size:13px;white-space:nowrap}.k-home:hover{color:var(--accent)}
 .k-title{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
-.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .k-chip{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 9px;white-space:nowrap;align-self:center}
 .k-blurb{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.k-actions{display:flex;gap:6px;flex:none}
+.k-actions{display:flex;gap:6px;flex:none;align-items:center}
 .k-btn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:.12s;user-select:none}
 .k-btn:hover{border-color:var(--accent);color:var(--accent)}
 .k-btn:active{transform:translateY(1px)}
@@ -121,6 +121,21 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padd
 .k-tabs button{font-size:13px;padding-left:2px;padding-right:2px}
 .k-wsrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px;font-size:12.5px;color:var(--muted)}
 .k-mcard .btn+.btn,.k-mcard button+button{margin-left:6px}
+/* playback-speed control moved into the header (ui.headerSpeed) */
+.k-hspeed{display:flex;align-items:center;gap:10px;padding:0 6px 0 10px;margin:0 4px;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.k-hspeed .k-ctl{display:flex;align-items:center;gap:7px;margin:0}
+.k-hspeed .k-ctl.k-hoff{display:none}
+.k-hspeed .k-ctl label{display:contents}
+.k-hspeed .k-ctl label span{order:0;font-size:12.5px;color:var(--muted);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+.k-hspeed .k-ctl input[type=range]{order:1;width:96px}
+.k-hspeed .k-ctl label b,.k-hspeed .k-typebox{order:2;font-size:12.5px;white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+.k-hspeed .k-typebox{width:6.5em}
+.k-hspeed .k-hunit{order:3;font-style:normal;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.k-hspeed .k-ctl>small{display:none}
+.k-hspeed .k-seg{order:1;flex-wrap:nowrap;gap:3px}
+.k-hspeed .k-seg .k-btn{flex:none;padding:3px 8px;font-size:12px}
+.k-group.k-emptied{display:none}
+@media (max-width:1400px){.k-blurb{display:none}.k-top:has(.k-hspeed:not([style*="none"])) .k-chip{display:none}}
 </style></head><body>
 <script>
 "use strict";
@@ -288,9 +303,10 @@ const K = (() => {
     for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + step * 1e-6; v += step) t.push(Math.abs(v) < step * 1e-9 ? 0 : v);
     return { t, step };
   }
-  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(0); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
+  // tick labels: very big or very small numbers in standard form, with enough digits that neighbouring ticks differ (2.4e+5, 2.6e+5…)
+  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(clamp(Math.floor(Math.log10(a) + 1e-9) - Math.floor(Math.log10(step) + 1e-9), 0, 4)); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
   /* chart(parent,{title,xLabel,yLabel,xMin,xMax,yMin,yMax,yZero})  then  .draw(series, extra)
-     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r}]
+     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r, alpha, fillAlpha (area fill, default .22; 1 for solid stacked areas)}]
      extra:  {xMin..yMax overrides, vlines:[{x,color,label,dash}], hlines:[{y,...}], bands:[{x0,x1,color}]} */
   function chart(parent, o = {}) {
     const wrap = $("div", "k-chart"), cv = $("canvas"); wrap.append(cv); parent.append(wrap);
@@ -305,19 +321,21 @@ const K = (() => {
       const text = cssVar("--text"), muted = cssVar("--muted"), grid = cssVar("--grid");
       // work out the axis ranges from the data unless they are fixed
       let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-      for (const s of series) for (const p of s.pts) { if (!isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
+      for (const s of series) for (const p of s.pts) { if (p[1] == null || !isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
       for (const l of q.hlines || []) { if (l.y < y0) y0 = l.y; if (l.y > y1) y1 = l.y; }
       if (!isFinite(x0)) { x0 = 0; x1 = 1; } if (!isFinite(y0)) { y0 = 0; y1 = 1; }
       if (q.yZero || series.some(s => s.type === "bars")) { y0 = Math.min(0, y0); y1 = Math.max(0, y1); }
       const py = (y1 - y0) * 0.08 || Math.abs(y1) * 0.1 || 1; if (q.yMin == null && y0 !== 0) y0 -= py; if (q.yMax == null) y1 += py;
       if (x1 === x0) { x0 -= 0.5; x1 += 0.5; }
       if (q.xMin != null) x0 = q.xMin; if (q.xMax != null) x1 = q.xMax; if (q.yMin != null) y0 = q.yMin; if (q.yMax != null) y1 = q.yMax;
-      const L = 54, R = 12, T = 24, B = q.xLabel ? 34 : 22, pw = W - L - R, ph = H - T - B;
+      const R = 12, T = 24, B = q.xLabel ? 34 : 22, ph = H - T - B, yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; let yw = 0; for (const v of yt.t) yw = Math.max(yw, ctx.measureText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step)).width);
+      const L = Math.max(54, Math.ceil(yw) + 26), pw = W - L - R;   // the left margin widens if the tick labels are long, so they never cover the axis title
       const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + ph - (y - y0) / (y1 - y0) * ph;
       api.map = { X, Y, x0, x1, y0, y1, L, T, pw, ph };
       ctx.font = "11px Segoe UI,system-ui,sans-serif"; ctx.lineWidth = 1;
       for (const b of q.bands || []) { ctx.fillStyle = b.color; ctx.fillRect(X(Math.max(x0, b.x0)), T, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)), ph); }
-      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70))), yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70)));
       ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.beginPath();
       ctx.textAlign = "center"; ctx.textBaseline = "top";
       for (const v of xt.t) { const x = Math.round(X(v)) + .5; ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.fillText(q.xFmt ? q.xFmt(v) : tickFmt(v, xt.step), x, T + ph + 4); }
@@ -333,11 +351,11 @@ const K = (() => {
         if (s.type === "bars") { const w = Math.max(1, Math.abs(X(s.w || 1) - X(0)) - 1); for (const p of P) { const yy = Y(p[1]); ctx.fillRect(X(p[0]) - w / 2, Math.min(yy, Y(0)), w, Math.abs(Y(0) - yy)); } }
         else if (s.type === "dots" || s.type === "err") {
           const r = s.r || 3;
-          for (const p of P) { const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) continue; const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
         } else {
-          ctx.beginPath(); let pen = false;
-          for (const p of P) { if (!isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
-          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= .22; ctx.fill(); } else ctx.stroke();
+          ctx.beginPath(); let pen = false;   // a missing value (null, NaN) leaves a gap in the line
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
+          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= s.fillAlpha == null ? .22 : s.fillAlpha; ctx.fill(); } else ctx.stroke();
         }
         ctx.setLineDash([]); ctx.globalAlpha = 1;
       });
@@ -345,7 +363,7 @@ const K = (() => {
       for (const l of q.hlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Y(l.y)); ctx.lineTo(L + pw, Y(l.y)); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(l.label, L + pw - 5, Y(l.y) - 2); } }
       ctx.restore();
       // title on the left, legend on the right
-      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
+      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
       for (let i = series.length - 1; i >= 0; i--) { const s = series[i]; if (!s.label) continue; const w = ctx.measureText(s.label).width; lx -= w; ctx.fillStyle = muted; ctx.fillText(s.label, lx, 12); lx -= 12; ctx.fillStyle = s.color || col(i); ctx.fillRect(lx, 8, 8, 8); lx -= 10; }
       if (q.title) { // the title gives way (with an ellipsis) if the legend needs the room
         ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.fillStyle = text; let t = q.title; const room = lx - L - 8;
@@ -471,7 +489,7 @@ const K = (() => {
     if (saved) document.documentElement.dataset.theme = saved;
     const top = $("header", "k-top"), main = $("main", "k-main");
     top.innerHTML = `<a class="k-home" href="${o.home || "../../index.html"}" title="Back to the list of simulations">◂ All simulations</a>
-      <div class="k-title"><span class="k-chip">${o.subject}</span><h1>${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
+      <div class="k-title"><span class="k-chip">${o.subject}</span><h1 title="${o.title}">${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
     const act = top.querySelector(".k-actions");
     const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
     left.append(stage, dock); main.append(left, side); document.body.append(top, main);
@@ -484,6 +502,8 @@ const K = (() => {
     ui.setPlaying = p => { ui.playing = p; bPlay.innerHTML = p ? "⏸ Pause" : "▶ Play"; bPlay.classList.toggle("primary", !p); };
     if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
     if (o.reset) btn(act, "↺ Reset", () => o.reset());
+    // the simulation's playback-speed control sits here, beside Pause / Step / Reset (see ui.headerSpeed below)
+    const hSpeed = $("div", "k-hspeed"); hSpeed.style.display = "none"; act.append(hSpeed);
     if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
     if (o.sound) { const bS = btn(act, "🔇 Sound", () => sound.enable(!sound.on)); bS.title = typeof o.sound === "string" ? o.sound : "Turn sound on or off (off to start with)"; sound.onChange(v => { bS.innerHTML = v ? "🔊 Sound" : "🔇 Sound"; bS.classList.toggle("primary", v); }); }
     btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
@@ -528,6 +548,31 @@ const K = (() => {
     if (o.levels) { const lg = $("div", "k-group k-level"); panes.controls.append(lg); const sg = seg(lg, { value: ui.level, options: [["std", o.levels.std], ["adv", o.levels.adv]], on: v => { ui.level = v; try { localStorage.setItem("k-level", v); } catch (e) { } hint.textContent = o.levels.specs[v]; renderLevel(); ui.onLevel && ui.onLevel(v); } }); const hint = $("small", "", o.levels.specs[ui.level]); hint.style.cssText = "display:block;color:var(--muted);font-size:11.5px;margin-top:-4px"; lg.append(hint); ui.setLevel = v => sg.set(v, true); }
     try { renderLevel(); } catch (e) { setTimeout(renderLevel, 0); }   // questions may use values the simulation has not set up yet
     ui.renderRevise = renderLevel;
+    /* ui.headerSpeed(control, { label }) moves a speed slider (or Slow/Fast buttons) made with K.slider / K.seg
+       from the Controls tab up into the header bar. It is the same control, so the simulation's own code
+       (ctl.speed.set(...), investigations, mode switches) keeps working. If the group it came from is hidden
+       (for example a mode that does not use it), the header copy is hidden too; a group left with only its
+       heading is hidden. A label like "Speed (minutes per second)" shows as "Speed" with the bracket after the value. */
+    const hsList = [];
+    ui.headerSpeed = (c, opt = {}) => {
+      const el = c.el, from = el.parentNode, name = el.querySelector("label > span"), tip = el.querySelector(":scope > small");
+      const full = name ? name.textContent : "", m = /^(.*?)\s*\((.+)\)$/.exec(full);
+      el.title = full + (tip ? " · " + tip.textContent : "");
+      if (name) name.textContent = opt.label || (m ? m[1] : full);
+      if (m && !opt.label) { const u = $("i", "k-hunit", m[2]); (el.querySelector("label") || el).append(u); }
+      el.classList.add("k-hctl"); hSpeed.append(el); hSpeed.style.display = ""; hsList.push({ el, from }); syncSpeed();
+      return c;
+    };
+    function syncSpeed() {
+      let any = false;
+      for (const { el, from } of hsList) {
+        if (from.classList.contains("k-group") && ![...from.children].some(x => x.tagName !== "H3")) from.classList.add("k-emptied");
+        let hide = false; for (let x = from; x && x !== panes.controls && x !== document.body; x = x.parentNode) if (x.style.display === "none" || x.hidden) { hide = true; break; }
+        el.classList.toggle("k-hoff", hide); if (!hide && el.style.display !== "none") any = true;
+      }
+      hSpeed.style.display = any ? "" : "none";
+    }
+    setInterval(() => hsList.length && syncSpeed(), 250);
     // floating hint and heads-up text over the stage
     let tipEl = null, tipT = 0;
     ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
@@ -552,12 +597,17 @@ const K = (() => {
       btn(bar, "📄 Worksheet", () => ui.worksheet([{ kind: "b", item: bstate.exp }], true)).title = "A printable worksheet for this experiment";
       bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
       const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
-      function pick(e) { bstate.token++; bstate.exp = e; bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
+      function pick(e) { bstate.token++; bstate.exp = e; bRun.textContent = "▶ Run"; bRun.onclick = () => runExp(); bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
       function paint() {
         const e = bstate.exp, rows = bstate.rows, series = [], extra = { title: "", xLabel: e.xs ? e.xLabel : e.yLabel, yLabel: e.xs ? e.yLabel : "number of runs" };
         if (e.xs) {
           const groups = e.xs.map(x => rows.filter(r => r[0] === x).map(r => r[3])), done = e.xs.map((x, i) => [x, groups[i]]).filter(g => g[1].length);
-          if (e.theory) { const a = Math.min(...e.xs), b = Math.max(...e.xs), tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, e.theory(x)]); } series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
+          if (e.theory) {
+            // the theory curve is drawn smoothly between the settings; a theory that only exists AT the settings (a table, a whole number of things) is drawn through those points instead
+            const th = x => { try { const y = e.theory(x); return y == null || !isFinite(y) ? null : +y; } catch (er) { return null; } };
+            const a = Math.min(...e.xs), b = Math.max(...e.xs); let tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, th(x)]); }
+            const atXs = [...e.xs].sort((u, v) => u - v).map(x => [x, th(x)]); if (tp.some(q => q[1] == null) && atXs.every(q => q[1] != null)) tp = atXs;
+            series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
           series.push({ pts: rows.map(r => [r[0], r[3]]), type: "dots", color: cssVar("--s0"), alpha: .3, r: 2.5, label: "single runs" });
           series.push({ pts: done.map(([x, g]) => [x, mean(g), se(g)]), type: "err", color: cssVar("--s0"), r: 4.5, label: "mean ± SE" });
           let fitTxt = "";
@@ -566,7 +616,7 @@ const K = (() => {
           tbl.innerHTML = `<table><tr><th>${e.xLabel}</th><th>runs</th><th>mean</th><th>SD</th><th>SE</th>${e.theory ? "<th>theory</th>" : ""}</tr>` + done.map(([x, g]) => `<tr><td>${sig(x, 4)}</td><td>${g.length}</td><td>${sig(mean(g))}</td><td>${sig(sd(g))}</td><td>${sig(se(g))}</td>${e.theory ? `<td>${sig(e.theory(x))}</td>` : ""}</tr>`).join("") + fitTxt + "</table>";
         } else {
           const v = rows.map(r => r[3]);
-          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); }
+          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) { extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); series.push({ pts: [[+e.theory, 0]], type: "dots", r: 0.01, alpha: 0 }); } }   // an invisible point keeps the theory line on the chart even if every run misses it
           tbl.innerHTML = v.length ? `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${e.theory != null ? "<th>theory</th>" : ""}</tr><tr><td>${v.length}</td><td>${sig(mean(v))}</td><td>${sig(sd(v))}</td><td>${sig(se(v))}</td><td>${sig(Math.min(...v))}</td><td>${sig(Math.max(...v))}</td>${e.theory != null ? `<td>${sig(+e.theory)}</td>` : ""}</tr></table>` : "";
         }
         ch.opts.xFmt = null; ch.draw(series, extra);
@@ -685,14 +735,40 @@ const DG = {
 };
 const dG = (k, T) => DG[k].dH - T * DG[k].dS / 1000;
 
+// ---- Born–Haber cycles (A level): data-book values in kJ/mol. The lattice energy is found by Hess's law:
+//      ΔfH = atomise metal + ionise + atomise non-metal + electron affinities + lattice energy ----
+const BH = {
+  NaCl: { m: "Na", x: "Cl", f: -411, atM: 107, ie: [496], atX: 122, ea: [-349], nx: 1, theory: -766, st: ["Na(s) + ½Cl₂(g)", "NaCl(s)"] },
+  KCl: { m: "K", x: "Cl", f: -437, atM: 89, ie: [419], atX: 122, ea: [-349], nx: 1, theory: -701, st: ["K(s) + ½Cl₂(g)", "KCl(s)"] },
+  LiF: { m: "Li", x: "F", f: -616, atM: 159, ie: [520], atX: 79, ea: [-328], nx: 1, theory: -1033, st: ["Li(s) + ½F₂(g)", "LiF(s)"] },
+  MgO: { m: "Mg", x: "O", f: -602, atM: 148, ie: [738, 1451], atX: 249, ea: [-141, 798], nx: 1, theory: -3795, st: ["Mg(s) + ½O₂(g)", "MgO(s)"] },
+  CaO: { m: "Ca", x: "O", f: -635, atM: 178, ie: [590, 1145], atX: 249, ea: [-141, 798], nx: 1, theory: -3414, st: ["Ca(s) + ½O₂(g)", "CaO(s)"] },
+  MgCl2: { m: "Mg", x: "Cl", f: -641, atM: 148, ie: [738, 1451], atX: 122, ea: [-349], nx: 2, theory: -2326, st: ["Mg(s) + Cl₂(g)", "MgCl₂(s)"] },
+  AgCl: { m: "Ag", x: "Cl", f: -127, atM: 285, ie: [731], atX: 122, ea: [-349], nx: 1, theory: -833, st: ["Ag(s) + ½Cl₂(g)", "AgCl(s)"] }
+};
+// the steps of the cycle, each [label, ΔH]; the last is the lattice energy that closes the cycle
+function bhSteps(k) { const B = BH[k], n = B.nx, s = [[`atomise ${B.m}: ${B.m}(s) → ${B.m}(g)`, B.atM]];
+  B.ie.forEach((v, i) => s.push([`${["1st", "2nd"][i]} ionisation energy of ${B.m}`, v]));
+  s.push([`atomise ${B.x}: ${n > 1 ? n + " × " : ""}½${B.x}₂(g) → ${B.x}(g)`, n * B.atX]);
+  B.ea.forEach((v, i) => s.push([`${["1st", "2nd"][i]} electron affinity of ${B.x}${n > 1 ? " (× " + n + ")" : ""}`, n * v]));
+  const sum = s.reduce((a, q) => a + q[1], 0); s.push(["lattice energy (forming the solid from gaseous ions)", B.f - sum]); return s; }
+const latticeE = k => bhSteps(k).slice(-1)[0][1];
+// Kapustinskii's estimate for 1:1 crystals (r = sum of ionic radii in pm), and real Born–Haber lattice energies of the alkali halides
+const kapustinskii = r => -1.2025e5 * 2 / r * (1 - 34.5 / r);
+const HALIDES = { 209: ["LiF", -1037], 235: ["NaF", -918], 257: ["LiCl", -853], 271: ["KF", -821], 283: ["NaCl", -787], 298: ["NaBr", -747], 319: ["KCl", -715], 334: ["KBr", -682], 358: ["KI", -649] };
+// ---- Hess's law from enthalpies of combustion: ΔfH(compound) = Σ ΔcH(elements) − ΔcH(compound) ----
+const HESS = { ch4: { n: "methane", f: "CH₄", C: 1, H: 4, O: 0, dc: -890, book: -75 }, c2h6: { n: "ethane", f: "C₂H₆", C: 2, H: 6, O: 0, dc: -1560, book: -84 }, c3h8: { n: "propane", f: "C₃H₈", C: 3, H: 8, O: 0, dc: -2219, book: -104 }, eth: { n: "ethanol", f: "C₂H₅OH", C: 2, H: 6, O: 1, dc: -1367, book: -277 }, glu: { n: "glucose", f: "C₆H₁₂O₆", C: 6, H: 12, O: 6, dc: -2803, book: -1273 } };
+const hessF = k => { const H = HESS[k]; return H.C * -394 + H.H / 2 * -286 - H.dc; };
+
 // ---------------- The page ----------------
-const P = { mode: "profile", rx: "ch4", cat: false, cup: "neut", conc: 1, cont: "lid", stir: true, alc: 2, screen: true, height: 2, dg: "caco3", T: 298 };
+const P = { mode: "profile", rx: "ch4", cat: false, cup: "neut", conc: 1, cont: "lid", stir: true, alc: 2, screen: true, height: 2, dg: "caco3", T: 298, bh: "NaCl", cyc: "bh", hess: "eth" };
+let bhT = 0;
 let rnd = K.rng(Date.now() % 99991 + 29), speed = 1, prog = 0, auto = true, cup = null, cupT = 0, fuel = null, fuelT = 0, fuelLog = [], fuelRuns = [], cupRuns = [];
 const ui = K.app({
   title: "Energy Changes", subject: "Chemistry",
   blurb: "Bonds breaking and forming, exothermic and endothermic, measured in a cup and a flame",
   reset: () => set({ mode: P.mode }),
-  levels: { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "Pearson Edexcel International GCSE Chemistry (4CH1) 3(a) Energetics: exothermic and endothermic reactions, reaction profiles and activation energy, calorimetry (Q = mcΔT, ΔH in kJ/mol), bond energies; practical: temperature changes in a polystyrene cup.", adv: "Pearson Edexcel A level Chemistry (9CH0) Topic 8 Energetics I (standard enthalpy changes, calorimetry and its errors, mean bond enthalpies) and Topic 13 Energetics II (entropy, ΔG = ΔH − TΔS, feasibility)." } },
+  levels: { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "Pearson Edexcel International GCSE Chemistry (4CH1) 3(a) Energetics: exothermic and endothermic reactions, reaction profiles and activation energy, calorimetry (Q = mcΔT, ΔH in kJ/mol), bond energies; practical: temperature changes in a polystyrene cup.", adv: "Pearson Edexcel A level Chemistry (9CH0) Topic 8 Energetics I (standard enthalpy changes, calorimetry and its errors, mean bond enthalpies) and Topic 13 Energetics II (lattice energy and Born–Haber cycles, polarisation and covalent character, entropy, ΔG = ΔH − TΔS, feasibility); Hess cycles (Topic 8)." } },
   missions: [
     { title: "Breaking and making", q: "Watch methane burn. Which part of the journey takes energy in, and which gives it out? Use the bond tally to work out ΔH.", hint: "Breaking bonds always takes energy in (uphill); making bonds always gives energy out (downhill). Burning methane breaks 4 C–H and 2 O=O (2648 kJ) and makes 2 C=O and 4 O–H (3466 kJ). More is given out than taken in: ΔH = 2648 − 3466 = −818 kJ/mol, exothermic. The data-book value is −802: bond energies are averages from many molecules.", setup() { set({ mode: "profile", rx: "ch4" }); } },
     { title: "Endothermic: lightning", q: "Try N₂ + O₂ → 2NO, which happens in lightning and hot car engines. Is it exothermic or endothermic? Why does it need such a high temperature?", hint: "The N≡N triple bond is very strong (945 kJ/mol), so breaking the reactants' bonds takes more energy than making NO gives back: ΔH = +181 kJ/mol, endothermic. The activation energy is also huge, so it only happens at thousands of degrees.", setup() { set({ mode: "profile", rx: "no" }); } },
@@ -702,6 +778,10 @@ const ui = K.app({
     { title: "Glass beaker, no stirring", q: "Repeat the neutralisation in a glass beaker without stirring. How far off is your ΔH now? Why?", hint: "Glass conducts heat away much faster than polystyrene and has a bigger heat capacity itself, and without stirring the thermometer reads late, by which time heat has been lost. ΔT is too small, so ΔH comes out much too small. Polystyrene is a good insulator with a tiny heat capacity: that is why the practical uses it.", setup() { set({ mode: "cup", cup: "neut", cont: "glass", stir: false }); } },
     { title: "Extrapolate!", q: "Zinc powder reacts with copper(II) sulfate quite slowly. Compare ΔH from the highest reading with ΔH from extrapolating the cooling line back to the moment of mixing.", hint: "While the reaction is still going, heat is already leaking away, so the highest reading is lower than the true rise. Extending the straight cooling line back to the time of mixing estimates the rise there would have been with no heat loss. The extrapolated ΔH is closer to the data-book value (−217 kJ/mol).", setup() { set({ mode: "cup", cup: "zinc" }); } },
     { title: "Burning alcohols", q: "Heat 100 g of water by 20 °C with each alcohol in turn. Which releases most energy per mole? Why is the measured value so much smaller than the data book?", hint: "Each extra CH₂ adds about 650 kJ/mol to ΔHc in the data book, a steady pattern. The measured values are less than half: heat warms the air, the can and the clamp, combustion is incomplete (soot), and some alcohol evaporates. A draught screen and a short gap between flame and can help.", setup() { set({ mode: "fuel", alc: 1 }); } },
+    { lvl: "adv", title: "Build a Born–Haber cycle", q: "Cycles: sodium chloride. Watch the cycle build step by step. Which steps take energy in? Use Hess's law to find the lattice energy.", hint: "Atomising Na (+107), ionising Na (+496) and atomising ½Cl₂ (+122) take energy in; the electron affinity of Cl (−349) gives some out. Lattice energy = ΔfH − (sum of the others) = −411 − 376 = −787 kJ/mol.", setup() { set({ mode: "bh", bh: "NaCl", cyc: "bh" }); } },
+    { lvl: "adv", title: "Why is MgO so strong?", q: "Compare the lattice energies of NaCl and MgO. Why is MgO's nearly five times as exothermic? Why does it pay to make Mg²⁺ and O²⁻ despite the huge 2nd ionisation energy and 2nd electron affinity?", hint: "Ions with double charges attract four times as strongly, and Mg²⁺ and O²⁻ are smaller, so the lattice energy (−3845) more than pays for IE₂ (+1451) and EA₂ (+798). That is why MgO melts at 2852 °C.", setup() { set({ mode: "bh", bh: "MgO", cyc: "bh" }); } },
+    { lvl: "adv", title: "Covalent character", q: "Compare the Born–Haber lattice energy with the theoretical (purely ionic) value for NaCl, MgCl₂ and AgCl. Which differ most, and why?", hint: "NaCl agrees within 3%: almost purely ionic. AgCl (10%) and MgCl₂ (8%) are more exothermic than the ionic model predicts: the small or highly charged cation polarises the anion's electron cloud, adding covalent character.", setup() { set({ mode: "bh", bh: "AgCl", cyc: "bh" }); } },
+    { lvl: "adv", title: "Hess's law from combustion", q: "Cycles: Hess. Find the enthalpy of formation of ethanol from enthalpies of combustion. Why can it not be measured directly?", hint: "ΔfH = 2(−394) + 3(−286) − (−1367) = −279 kJ/mol (data book −277). Carbon, hydrogen and oxygen do not react cleanly to give only ethanol, so we go round the cycle via CO₂ and H₂O.", setup() { set({ mode: "bh", cyc: "hess", hess: "eth" }); } },
     { lvl: "adv", title: "When is it feasible?", q: "Calcium carbonate decomposes only when strongly heated. Find the temperature at which ΔG becomes zero. Why does temperature matter for this reaction but hardly at all for burning magnesium?", hint: "ΔG = ΔH − TΔS. For CaCO₃, ΔH = +178 kJ/mol and ΔS = +161 J/K/mol: ΔG < 0 when T > 178 000 ÷ 161 = 1106 K (833 °C). For burning magnesium ΔH is so large and negative that ΔG stays negative until very high temperatures, even though ΔS is negative. Feasible does not mean fast: kinetics still needs the activation energy.", setup() { set({ mode: "dg", dg: "caco3", T: 298 }); } }
   ],
   batch: [
@@ -710,10 +790,14 @@ const ui = K.app({
     { title: "Does the temperature rise double with concentration?", question: "If both solutions are twice as concentrated, does ΔT double?", how: "Neutralisation in a cup with a lid; concentration of both solutions 0.25 to 2 mol/dm³. Theory: ΔT = n × 57 100 ÷ (50 × 4.18) with no heat lost.", xLabel: "concentration (mol/dm³)", yLabel: "temperature rise (°C)", xs: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2], reps: 4, yMin: 0, fit: true, theory: c => 0.025 * c * 57100 / (50 * 4.18), theoryLabel: "no heat lost", run: (x, r) => cupRun({ rx: "neut", conc: x, cont: "lid", stir: true }, r).dTmax, note: "A straight line through the origin: twice the moles in the same volume of water gives twice the heat and twice the rise. It sits slightly below the no-loss line." },
     { title: "Highest reading or extrapolation?", question: "For the slow zinc + copper(II) sulfate reaction, which gives a better ΔH?", how: "1 = from the highest reading, 2 = from extrapolating the cooling line back to the time of mixing. Polystyrene cup with lid, stirred, 6 runs each.", xLabel: "method (1 highest, 2 extrapolated)", yLabel: "ΔH measured (kJ/mol)", xs: [1, 2], reps: 6, theory: () => -217, theoryLabel: "data book", run: (x, r) => { const q = cupRun({ rx: "zinc", conc: 1, cont: "lid", stir: true }, r); return x === 1 ? q.dHmax : q.dHext; }, note: "Extrapolating corrects for the heat lost while the reaction was still going, so it lands much nearer the data book." },
     { title: "Energy from the alcohols", question: "How does the measured enthalpy of combustion change along the alcohol series?", how: "Methanol (1 carbon) to pentan-1-ol (5); heat 100 g of water by 20 °C in a copper can 2 cm above the flame, with a draught screen. Theory: data-book ΔHc.", xLabel: "carbon atoms in the alcohol", yLabel: "ΔHc (kJ/mol)", xs: [1, 2, 3, 4, 5], reps: 4, fit: true, theory: n => -726 - 651 * (n - 1), theoryLabel: "data book", run: (x, r) => fuelRun({ n: x, screen: true, height: 2 }, r).dHc, note: "Both lines are straight, because each alcohol has one more CH₂ than the last, but the measured values are less than half of the data book: most of the heat never reaches the water." },
+    { lvl: "adv", title: "Lattice energy and the size of the ions", question: "How does the Born–Haber lattice energy of the alkali halides depend on the distance between the ions?", how: "Nine alkali halides (LiF to KI); x = sum of the ionic radii; each Born–Haber value carries the uncertainty of its data (±1%).", xLabel: "r(+) + r(−) (pm)", yLabel: "lattice energy (kJ/mol)", xs: Object.keys(HALIDES).map(Number), reps: 4, theory: r => kapustinskii(r), theoryLabel: "Kapustinskii (ionic model)", run: (r, rr) => HALIDES[r][1] * (1 + 0.01 * rr.gauss()), note: "Smaller ions sit closer together and attract more strongly: the lattice energy is more exothermic. The simple ionic model follows the trend but is a little less exothermic than the real values." },
     { title: "Distance between flame and can", question: "How much of the heat reaches the water as the can is raised?", how: "Ethanol, draught screen; the can 1 to 10 cm above the wick. Efficiency = energy into the water ÷ energy the alcohol burned should release.", xLabel: "height of the can above the flame (cm)", yLabel: "efficiency (%)", xs: [1, 2, 4, 6, 8, 10], reps: 4, yMin: 0, run: (x, r) => { const q = fuelRun({ n: 2, screen: true, height: x }, r); return 100 * q.dHc / ALC[2].dHc; }, note: "The further the flame from the can, the more heat escapes into the air around it." }
   ],
   revise: {
     ideas: [
+      { lvl: "adv", tag: "9CH0 8", text: "Hess's law: the enthalpy change of a reaction is independent of the route. ΔfH from combustion data: ΔfH = Σ ΔcH(elements) − ΔcH(compound)." },
+      { lvl: "adv", tag: "9CH0 13", text: "Lattice energy: the enthalpy change when 1 mol of an ionic solid forms from its gaseous ions (always exothermic). It is more exothermic for smaller ions and higher charges." },
+      { lvl: "adv", tag: "9CH0 13", text: "Born–Haber cycle: ΔfH = ΔatH(metal) + IE(s) + ΔatH(non-metal) + EA(s) + lattice energy. A Born–Haber value more exothermic than the ionic-model value shows covalent character (polarisation of the anion)." },
       { lvl: "std", tag: "4CH1 3.1", text: "Exothermic reactions give out heat to the surroundings (ΔH negative); endothermic reactions take heat in (ΔH positive)." },
       { lvl: "std", tag: "4CH1 3.2", text: "Calorimetry: heat energy change Q = m c ΔT, with m the mass of the solution (1 cm³ ≈ 1 g) and c = 4.18 J/g/°C. Molar enthalpy change ΔH = −Q ÷ moles." },
       { lvl: "std", tag: "4CH1 3.4", text: "Practical: measure temperature changes in a polystyrene cup (dissolving, displacement, neutralisation); combustion of alcohols with a spirit burner and a can of water." },
@@ -742,14 +826,14 @@ const ui = K.app({
 <h3>Simplifications</h3>
 <ul><li>Molecules are drawn flat; bond energies are averages (the data-book ΔH is shown beside the bond-energy result).</li>
 <li>The density and specific heat capacity of every solution are taken as those of water.</li>
-<li>The earlier version also had Hess cycles and Born–Haber cycles (A level); they are not in this version.</li></ul>
+</ul><h3>Cycles (A level)</h3><ul><li>Born–Haber steps use data-book values (kJ/mol); the lattice energy is whatever closes the cycle. The theoretical (ionic model) lattice energies are data-book values too.</li><li>Kapustinskii's estimate U = 1.2025 × 10⁵ × 2 ÷ r × (1 − 34.5/r) kJ/mol (r = sum of ionic radii in pm) is shown against Born–Haber values for the alkali halides.</li><li>Hess cycles use ΔcH(C) = −394 and ΔcH(H₂) = −286 kJ/mol.</li></ul>
 <p>The earlier version of this simulation, with its worksheets, is kept in <a href="original/energy-changes.html">original/energy-changes.html</a>.</p>`
 });
 
 // ---------------- Controls ----------------
 const ctl = {}, grp = {};
 let g = ui.group("Set-up");
-ctl.mode = K.seg(g, { value: "profile", options: [["profile", "⛰ Profiles and bonds"], ["cup", "🥤 Cup"], ["fuel", "🔥 Fuels"], ["dg", "ΔG (A level)"]], on: v => set({ mode: v }) });
+ctl.mode = K.seg(g, { value: "profile", options: [["profile", "⛰ Profiles and bonds"], ["cup", "🥤 Cup"], ["fuel", "🔥 Fuels"], ["dg", "ΔG (A level)"], ["bh", "🔄 Cycles (A level)"]], on: v => set({ mode: v }) });
 grp.profile = g = ui.group("Reaction");
 ctl.rx = K.seg(g, { value: "ch4", options: Object.entries(RX).map(([k, x]) => [k, x.name]), on: v => { P.rx = v; prog = 0; } });
 ctl.cat = K.toggle(g, { label: "Add a catalyst", value: false, on: v => P.cat = v });
@@ -769,19 +853,25 @@ let rf = K.row(g); K.btn(rf, "↺ Light it again", () => newFuel(), "primary"); 
 grp.dg = g = ui.group("Feasibility (A level)");
 ctl.dg = K.seg(g, { value: "caco3", options: Object.entries(DG).map(([k, x]) => [k, x.name]), on: v => P.dg = v });
 ctl.T = K.slider(g, { label: "Temperature", min: 100, max: 2500, step: 10, value: 298, fmt: v => `${v} K (${v - 273} °C)`, on: v => P.T = v });
+grp.bh = g = ui.group("Cycles (A level)");
+ctl.cyc = K.seg(g, { value: "bh", options: [["bh", "Born–Haber"], ["hess", "Hess from combustion"]], on: v => { P.cyc = v; bhT = 0; } });
+ctl.bh = K.seg(g, { label: "Ionic compound", value: "NaCl", options: Object.keys(BH).map(k => [k, k.replace("2", "₂")]), on: v => { P.bh = v; bhT = 0; } });
+ctl.hess = K.seg(g, { label: "Compound to form", value: "eth", options: Object.entries(HESS).map(([k, x]) => [k, x.n]), on: v => { P.hess = v; bhT = 0; } });
+K.btn(K.row(g), "↺ Build it again", () => bhT = 0, "primary");
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 6, step: 0.25, value: 1, fmt: v => "× " + v, on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
 const relabel = l => l.forEach((t, i) => read.el.children[i].firstElementChild.textContent = t);
 function newCup() { cup = cupRun({ rx: P.cup, conc: P.conc, cont: P.cont, stir: P.stir }, rnd); cupT = 0; }
 function newFuel() { fuel = fuelRun({ n: P.alc, screen: P.screen, height: P.height }, rnd); fuelT = 0; fuelLog = []; }
 function set(o) {
-  Object.assign(P, { rx: "ch4", cat: false, cup: "neut", conc: 1, cont: "lid", stir: true, alc: 2, screen: true, height: 2, dg: "caco3", T: 298 }, o);
-  for (const k of ["mode", "rx", "cup", "cont", "alc", "dg"]) ctl[k].set(P[k]); for (const k of ["conc", "height", "T"]) ctl[k].set(P[k]); ctl.cat.set(P.cat); ctl.stir.set(P.stir); ctl.screen.set(P.screen);
+  Object.assign(P, { rx: "ch4", cat: false, cup: "neut", conc: 1, cont: "lid", stir: true, alc: 2, screen: true, height: 2, dg: "caco3", T: 298, bh: "NaCl", cyc: "bh", hess: "eth" }, o); bhT = 0;
+  for (const k of ["mode", "rx", "cup", "cont", "alc", "dg", "cyc", "bh", "hess"]) ctl[k].set(P[k]); for (const k of ["conc", "height", "T"]) ctl[k].set(P[k]); ctl.cat.set(P.cat); ctl.stir.set(P.stir); ctl.screen.set(P.screen);
   for (const k in grp) grp[k].style.display = k === P.mode ? "" : "none"; prog = 0; auto = true; ctl.auto.set(true); newCup(); newFuel(); speed = o.speed || 1; ctl.speed.set(speed);
-  chA.opts.title = { profile: "Bond tally", cup: "Temperature against time", fuel: "Water temperature and mass of alcohol", dg: "ΔG against temperature" }[P.mode];
-  chB.opts.title = { profile: "Bond energies: bonds broken and made", cup: "Your ΔH against the data book", fuel: "Your ΔHc against the data book", dg: "ΔH and −TΔS at this temperature" }[P.mode];
-  relabel({ profile: ["bonds broken (in)", "bonds made (out)", "ΔH from bond energies", "data book"], cup: ["temperature change", "Q = m c ΔT", "ΔH (highest reading)", "ΔH (extrapolated)"], fuel: ["water temperature", "alcohol burned", "energy per gram", "ΔHc measured"], dg: ["ΔH", "TΔS", "ΔG", "feasible above"] }[P.mode]);
+  chA.opts.title = { profile: "Bond tally", cup: "Temperature against time", fuel: "Water temperature and mass of alcohol", dg: "ΔG against temperature", bh: "The steps of the cycle" }[P.mode];
+  chB.opts.title = { profile: "Bond energies: bonds broken and made", cup: "Your ΔH against the data book", fuel: "Your ΔHc against the data book", dg: "ΔH and −TΔS at this temperature", bh: "Born–Haber against the ionic model" }[P.mode];
+  relabel({ profile: ["bonds broken (in)", "bonds made (out)", "ΔH from bond energies", "data book"], cup: ["temperature change", "Q = m c ΔT", "ΔH (highest reading)", "ΔH (extrapolated)"], fuel: ["water temperature", "alcohol burned", "energy per gram", "ΔHc measured"], dg: ["ΔH", "TΔS", "ΔG", "feasible above"], bh: ["ΔfH", "sum of the other steps", "lattice energy (Hess)", "ionic model"] }[P.mode]);
 }
 
 // ---------------- Drawing ----------------
@@ -885,7 +975,29 @@ function drawDG(c, w, h) {
   const Tf = D.dH / (D.dS / 1000); T(c, Tf > 0 ? (D.dH > 0 ? `feasible above ${Tf.toFixed(0)} K` : `feasible below ${Tf.toFixed(0)} K`) : (D.dH < 0 ? "feasible at all temperatures" : "never feasible"), x0 + 3 * (bw + 30) + 10, mid + 14, "#aab6cc", "left", "13px");
   T(c, `K = e^(−ΔG/RT) = ${K.sig(Math.exp(-g0 * 1000 / (8.314 * P.T)), 3)}`, x0 + 3 * (bw + 30) + 10, mid + 38, "#aab6cc", "left", "13px");
 }
-function draw() { const c = cv.ctx, w = cv.w, h = cv.h; c.fillStyle = "#070b14"; c.fillRect(0, 0, w, h); ({ profile: drawProfile, cup: drawCup, fuel: drawFuel, dg: drawDG })[P.mode](c, w, h); }
+// an energy-level diagram: each step is an arrow up (endothermic, red) or down (exothermic, blue) from the last level
+function drawBH(c, w, h) {
+  if (P.cyc === "hess") { const H = HESS[P.hess], f = hessF(P.hess), nO2 = H.C + H.H / 4 - H.O / 2, el = `${H.C}C(s) + ${H.H / 2}H₂(g)${H.O ? ` + ${H.O === 1 ? "½" : H.O / 2}O₂(g)` : ""}`, show = Math.min(3, Math.floor(bhT)) ;
+    T(c, `Hess's law: the enthalpy of formation of ${H.n}`, 40, 40, "#eef2f8", "left", "600 15px");
+    const A = [w * 0.2, 140], B = [w * 0.68, 140], C2 = [w * 0.44, h - 90];
+    T(c, el, A[0], A[1], "#eef2f8", "center", "600 14px"); T(c, H.f + (H.O ? "(l)" : "(g)"), B[0], B[1], "#eef2f8", "center", "600 14px"); T(c, `${H.C}CO₂(g) + ${H.H / 2}H₂O(l)`, C2[0], C2[1], "#eef2f8", "center", "600 14px"); T(c, `+ ${K.sig(nO2, 3)} O₂`, C2[0], C2[1] + 18, "#8fa0bf", "center", "11.5px");
+    const arr = (p, q, col, lab, on) => { if (!on) return; c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 2.5; const x1 = p[0], y1 = p[1] + 12, x2 = q[0], y2 = q[1] - 22; c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); const a = Math.atan2(y2 - y1, x2 - x1); c.beginPath(); c.moveTo(x2, y2); c.lineTo(x2 - 11 * Math.cos(a - .4), y2 - 11 * Math.sin(a - .4)); c.lineTo(x2 - 11 * Math.cos(a + .4), y2 - 11 * Math.sin(a + .4)); c.fill(); c.lineWidth = 1; T(c, lab, (x1 + x2) / 2 + (x2 < x1 ? 14 : -14), (y1 + y2) / 2, col, x2 < x1 ? "left" : "right", "600 12.5px"); };
+    arr(A, C2, "#6fb1ff", `ΔcH(elements) = ${H.C}(−394) + ${H.H / 2}(−286) = ${H.C * -394 + H.H / 2 * -286}`, show >= 1); arr(B, C2, "#6fb1ff", `ΔcH(${H.n}) = ${H.dc}`, show >= 2);
+    if (show >= 3) { c.strokeStyle = "#ffd166"; c.fillStyle = "#ffd166"; c.lineWidth = 2.5; c.beginPath(); c.moveTo(A[0] + 110, A[1] - 5); c.lineTo(B[0] - 50, B[1] - 5); c.stroke(); c.beginPath(); c.moveTo(B[0] - 50, B[1] - 5); c.lineTo(B[0] - 61, B[1] - 10); c.lineTo(B[0] - 61, B[1]); c.fill(); c.lineWidth = 1; T(c, `ΔfH = ?`, (A[0] + B[0]) / 2 + 30, A[1] - 16, "#ffd166", "center", "600 13px"); }
+    if (show >= 3) { T(c, `ΔfH = ΔcH(elements) − ΔcH(${H.n})`, 40, h - 40, "#ffd166", "left", "600 13px"); T(c, `= ${H.C * -394 + H.H / 2 * -286} − (${H.dc}) = ${f} kJ/mol   (data book ${H.book})`, 40, h - 20, "#ffd166", "left", "13px"); }
+    return; }
+  const st = bhSteps(P.bh), B = BH[P.bh], n = Math.min(st.length + 1, Math.floor(bhT)); let lv = [0]; st.forEach(q => lv.push(lv[lv.length - 1] + q[1]));
+  const hi = Math.max(...lv), lo = Math.min(...lv, B.f), top = 50, bot = h - 40, Y = e => top + (hi - e) / (hi - lo) * (bot - top), x0 = 60, dx = Math.min(70, (w * 0.6) / (st.length + 1));
+  T(c, `Born–Haber cycle for ${B.st[1]}`, 20, 26, "#eef2f8", "left", "600 15px");
+  const lvl = (e, x, lab, col = "#cfd8ea") => { c.strokeStyle = col; c.lineWidth = 2; c.beginPath(); c.moveTo(x - 30, Y(e)); c.lineTo(x + 30, Y(e)); c.stroke(); c.lineWidth = 1; T(c, lab, x + 36, Y(e) + 4, "#aab6cc", "left", "11.5px"); };
+  lvl(0, x0, B.st[0]); for (let i = 0; i < Math.min(n, st.length); i++) { const x = x0 + (i + 1) * dx, e0 = lv[i], e1 = lv[i + 1], up = e1 > e0, col = up ? "#ff8a70" : "#6fb1ff", last = i === st.length - 1;
+    c.strokeStyle = col; c.fillStyle = col; c.lineWidth = last ? 3 : 2; c.beginPath(); c.moveTo(x, Y(e0)); c.lineTo(x, Y(e1)); c.stroke(); c.beginPath(); c.moveTo(x, Y(e1)); c.lineTo(x - 6, Y(e1) + (up ? 10 : -10)); c.lineTo(x + 6, Y(e1) + (up ? 10 : -10)); c.fill(); c.lineWidth = 1;
+    c.strokeStyle = "rgba(255,255,255,.25)"; c.beginPath(); c.moveTo(x - dx, Y(e0)); c.lineTo(x, Y(e0)); c.stroke(); T(c, (st[i][1] > 0 ? "+" : "") + st[i][1].toFixed(0), x + 5, (Y(e0) + Y(e1)) / 2, col, "left", last ? "600 13px" : "600 11.5px"); }
+  if (n >= st.length) { const xf = x0 + (st.length + 1) * dx; c.strokeStyle = "#ffd166"; c.fillStyle = "#ffd166"; c.lineWidth = 2; c.beginPath(); c.moveTo(x0 + 20, Y(0)); c.lineTo(xf, Y(0)); c.lineTo(xf, Y(B.f)); c.stroke(); c.beginPath(); c.moveTo(xf, Y(B.f)); c.lineTo(xf - 6, Y(B.f) - 10); c.lineTo(xf + 6, Y(B.f) - 10); c.fill(); c.lineWidth = 1; T(c, `ΔfH = ${B.f}`, xf + 8, (Y(0) + Y(B.f)) / 2, "#ffd166", "left", "600 12px"); T(c, B.st[1], xf - 40, Y(B.f) + 18, "#eef2f8", "left", "600 12px"); }
+  let y = 70; const tx = w * 0.66; st.forEach((q, i) => { if (i < n) { y = (() => { T(c, `${q[0]}`, tx, y, i === st.length - 1 ? "#ffd166" : "#cfd8ea", "left", "11.5px"); T(c, `${q[1] > 0 ? "+" : ""}${q[1].toFixed(0)} kJ/mol`, tx, y + 14, q[1] > 0 ? "#ff8a70" : "#6fb1ff", "left", "600 11.5px"); return y + 34; })(); } });
+  if (n >= st.length) { T(c, `Lattice energy = ΔfH − (sum of the other steps)`, tx, y + 6, "#eef2f8", "left", "600 12px"); T(c, `= ${B.f} − (${(B.f - latticeE(P.bh)).toFixed(0)}) = ${latticeE(P.bh).toFixed(0)} kJ/mol`, tx, y + 22, "#ffd166", "left", "600 12px"); T(c, `ionic model: ${B.theory} kJ/mol (${(100 * (latticeE(P.bh) / B.theory - 1)).toFixed(0)}% different)`, tx, y + 40, "#aab6cc", "left", "11.5px"); }
+}
+function draw() { const c = cv.ctx, w = cv.w, h = cv.h; c.fillStyle = "#070b14"; c.fillRect(0, 0, w, h); ({ profile: drawProfile, cup: drawCup, fuel: drawFuel, dg: drawDG, bh: drawBH })[P.mode](c, w, h); }
 let dragging = false;
 K.pointer(cv.el, { down(p) { if (P.mode === "profile" && geoP && p.x > geoP.x0 && p.x < geoP.x1 + 20) { dragging = true; auto = false; ctl.auto.set(false); prog = K.clamp((p.x - geoP.x0) / (geoP.x1 - geoP.x0), 0, 1); } }, drag(p) { if (dragging) prog = K.clamp((p.x - geoP.x0) / (geoP.x1 - geoP.x0), 0, 1); }, up() { dragging = false; } });
 
@@ -896,6 +1008,7 @@ ui.run(dt => {
   if (P.mode === "profile" && auto) { prog += dt * speed * 0.18; if (prog > 1.25) prog = 0; }
   if (P.mode === "cup") cupT = Math.min(cup.trace.length * 0.05, cupT + dt * speed * 1.2);
   if (P.mode === "fuel") fuelT = Math.min(1, fuelT + dt * speed / 12);
+  if (P.mode === "bh") bhT = Math.min(20, bhT + dt * speed * 0.8);
 }, () => {
   draw(); if (frame++ % 5) return; const pr = Math.min(1, prog);
   if (P.mode === "profile") {
@@ -925,6 +1038,15 @@ ui.run(dt => {
     chB.draw([{ pts: ALC.slice(1).map((a, i) => [i + 1, a.dHc]), color: "#7d8aa5", dash: [5, 4], label: "data book" }, { pts: fuelRuns, type: "dots", color: "#ffd166", r: 5, label: "your results" }], { xMin: 0.5, xMax: 5.5 });
     read.set("a", (20 + 20 * frac).toFixed(1) + " °C"); read.set("b", (f.mass * frac).toFixed(2) + " g"); read.set("c", frac >= 1 ? f.perG.toFixed(1) + " kJ/g" : "…"); read.set("d", frac >= 1 ? f.dHc.toFixed(0) + " kJ/mol" : "…");
     ui.hud(`${A.name}: data book ${A.dHc} kJ/mol<br>${P.screen ? "draught screen up" : "<b>no draught screen</b>"}`);
+  } else if (P.mode === "bh") {
+    chA.opts.xFmt = null; chB.opts.xFmt = null;
+    if (P.cyc === "bh") { const st = bhSteps(P.bh); chA.opts.title = "The steps of the cycle"; chB.opts.title = "Born–Haber against the ionic model"; chA.opts.xLabel = "step"; chA.opts.yLabel = "ΔH (kJ/mol)"; chA.opts.xFmt = whole(v => String(v)); chA.draw([{ pts: st.map((q, i) => [i + 1, q[1]]).filter(p => p[1] > 0), type: "bars", w: 0.6, color: "#ff8a70", label: "endothermic" }, { pts: st.map((q, i) => [i + 1, q[1]]).filter(p => p[1] <= 0), type: "bars", w: 0.6, color: "#6fb1ff", label: "exothermic" }], { xMin: 0.4, xMax: st.length + 0.6 });
+      const ks = Object.keys(BH); chB.opts.xLabel = "compound"; chB.opts.yLabel = "lattice energy (kJ/mol)"; chB.opts.xFmt = whole(v => (ks[v - 1] || "").replace("2", "₂")); chB.draw([{ pts: ks.map((k, i) => [i + 1, BH[k].theory]), type: "dots", r: 5, color: "#8fa0bf", label: "ionic model" }, { pts: ks.map((k, i) => [i + 1, latticeE(k)]), type: "dots", r: 5, color: "#ffd166", label: "Born–Haber" }], { xMin: 0.5, xMax: ks.length + 0.5 });
+      relabel(["ΔfH", "sum of the other steps", "lattice energy (Hess)", "ionic model"]); const B = BH[P.bh]; read.set("a", B.f + " kJ/mol"); read.set("b", (B.f - latticeE(P.bh)).toFixed(0) + " kJ/mol"); read.set("c", latticeE(P.bh).toFixed(0) + " kJ/mol"); read.set("d", B.theory + " kJ/mol");
+      ui.hud("ΔfH = atomisation + ionisation + atomisation + electron affinity + <b>lattice energy</b>"); }
+    else { const ks = Object.keys(HESS); chA.opts.title = "ΔfH from Hess cycles"; chA.opts.xLabel = "compound"; chA.opts.yLabel = "ΔfH (kJ/mol)"; chA.opts.xFmt = whole(v => (HESS[ks[v - 1]] || { n: "" }).n); chA.draw([{ pts: ks.map((k, i) => [i + 1, hessF(k)]), type: "bars", w: 0.5, color: "#ffd166", label: "from the Hess cycle" }, { pts: ks.map((k, i) => [i + 1, HESS[k].book]), type: "dots", r: 5, color: "#7fe3a0", label: "data book" }], { xMin: 0.4, xMax: ks.length + 0.6 });
+      chB.opts.title = "Combustion enthalpies used"; chB.opts.xLabel = ""; chB.opts.yLabel = "ΔcH (kJ/mol)"; chB.opts.xFmt = whole(v => ["", "C", "H₂", HESS[P.hess].f][v] || ""); chB.draw([{ pts: [[1, -394], [2, -286], [3, HESS[P.hess].dc]], type: "bars", w: 0.5, color: "#6fb1ff", label: "" }], { xMin: 0.4, xMax: 3.6 });
+      relabel(["Σ ΔcH(elements)", "ΔcH(compound)", "ΔfH (Hess)", "data book"]); const H = HESS[P.hess]; read.set("a", (H.C * -394 + H.H / 2 * -286) + " kJ/mol"); read.set("b", H.dc + " kJ/mol"); read.set("c", hessF(P.hess) + " kJ/mol"); read.set("d", H.book + " kJ/mol"); ui.hud("The enthalpy change is the same by either route"); }
   } else {
     const D = DG[P.dg], pts = []; for (let T2 = 100; T2 <= 2500; T2 += 20) pts.push([T2, dG(P.dg, T2)]);
     chA.opts.xFmt = null; chB.opts.xFmt = null; chA.opts.xLabel = "temperature (K)"; chA.opts.yLabel = "ΔG (kJ/mol)"; chB.opts.xLabel = "temperature (K)"; chB.opts.yLabel = "kJ/mol";
@@ -933,7 +1055,8 @@ ui.run(dt => {
     const Tf = D.dH / (D.dS / 1000); read.set("a", (D.dH > 0 ? "+" : "") + D.dH + " kJ/mol"); read.set("b", (P.T * D.dS / 1000).toFixed(1) + " kJ/mol"); read.set("c", dG(P.dg, P.T).toFixed(1) + " kJ/mol"); read.set("d", Tf > 0 ? Tf.toFixed(0) + " K" : "—");
     ui.hud(`ΔG = ΔH − TΔS = <b>${dG(P.dg, P.T).toFixed(1)}</b> kJ/mol`);
   }
-  ctl.mode.el.querySelectorAll("button")[3].style.display = ui.level === "adv" ? "" : "none"; if (ui.level !== "adv" && P.mode === "dg") set({ mode: "profile" });
+  ctl.mode.el.querySelectorAll("button")[3].style.display = ui.level === "adv" ? "" : "none"; ctl.mode.el.querySelectorAll("button")[4].style.display = ui.level === "adv" ? "" : "none"; if (ui.level !== "adv" && (P.mode === "dg" || P.mode === "bh")) set({ mode: "profile" });
+  ctl.bh.el.style.display = P.cyc === "bh" ? "" : "none"; ctl.hess.el.style.display = P.cyc === "hess" ? "" : "none";
 });
 set({});
 ui.tip("Watch the bonds break and form as the ball rolls over the hump · drag the ball yourself, or switch set-ups at the top of the controls", 8000);

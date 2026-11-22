@@ -260,6 +260,7 @@ ctl.uv = K.slider(g, { label: "UV light", min: 0, max: 3, step: 0.1, value: 1, o
 K.btn(K.row(g), "↺ Start again", () => { chl = new Chlor(160, Math.round(160 * P.ratio), P.uv, rnd); }, "primary");
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.25, max: 4, step: 0.25, value: 1, fmt: v => "× " + v, on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);   // the four tiles are relabelled for each part
 function set(o) {
   const mode = o.mode || P.mode;

@@ -22,10 +22,10 @@ button,input,select{font:inherit;color:inherit}
 .k-top{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;min-height:52px}
 .k-home{color:var(--muted);text-decoration:none;font-size:13px;white-space:nowrap}.k-home:hover{color:var(--accent)}
 .k-title{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
-.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .k-chip{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 9px;white-space:nowrap;align-self:center}
 .k-blurb{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.k-actions{display:flex;gap:6px;flex:none}
+.k-actions{display:flex;gap:6px;flex:none;align-items:center}
 .k-btn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:.12s;user-select:none}
 .k-btn:hover{border-color:var(--accent);color:var(--accent)}
 .k-btn:active{transform:translateY(1px)}
@@ -121,6 +121,21 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padd
 .k-tabs button{font-size:13px;padding-left:2px;padding-right:2px}
 .k-wsrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px;font-size:12.5px;color:var(--muted)}
 .k-mcard .btn+.btn,.k-mcard button+button{margin-left:6px}
+/* playback-speed control moved into the header (ui.headerSpeed) */
+.k-hspeed{display:flex;align-items:center;gap:10px;padding:0 6px 0 10px;margin:0 4px;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.k-hspeed .k-ctl{display:flex;align-items:center;gap:7px;margin:0}
+.k-hspeed .k-ctl.k-hoff{display:none}
+.k-hspeed .k-ctl label{display:contents}
+.k-hspeed .k-ctl label span{order:0;font-size:12.5px;color:var(--muted);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+.k-hspeed .k-ctl input[type=range]{order:1;width:96px}
+.k-hspeed .k-ctl label b,.k-hspeed .k-typebox{order:2;font-size:12.5px;white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+.k-hspeed .k-typebox{width:6.5em}
+.k-hspeed .k-hunit{order:3;font-style:normal;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.k-hspeed .k-ctl>small{display:none}
+.k-hspeed .k-seg{order:1;flex-wrap:nowrap;gap:3px}
+.k-hspeed .k-seg .k-btn{flex:none;padding:3px 8px;font-size:12px}
+.k-group.k-emptied{display:none}
+@media (max-width:1400px){.k-blurb{display:none}.k-top:has(.k-hspeed:not([style*="none"])) .k-chip{display:none}}
 </style></head><body>
 <script>
 "use strict";
@@ -288,9 +303,10 @@ const K = (() => {
     for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + step * 1e-6; v += step) t.push(Math.abs(v) < step * 1e-9 ? 0 : v);
     return { t, step };
   }
-  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(0); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
+  // tick labels: very big or very small numbers in standard form, with enough digits that neighbouring ticks differ (2.4e+5, 2.6e+5…)
+  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(clamp(Math.floor(Math.log10(a) + 1e-9) - Math.floor(Math.log10(step) + 1e-9), 0, 4)); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
   /* chart(parent,{title,xLabel,yLabel,xMin,xMax,yMin,yMax,yZero})  then  .draw(series, extra)
-     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r}]
+     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r, alpha, fillAlpha (area fill, default .22; 1 for solid stacked areas)}]
      extra:  {xMin..yMax overrides, vlines:[{x,color,label,dash}], hlines:[{y,...}], bands:[{x0,x1,color}]} */
   function chart(parent, o = {}) {
     const wrap = $("div", "k-chart"), cv = $("canvas"); wrap.append(cv); parent.append(wrap);
@@ -305,19 +321,21 @@ const K = (() => {
       const text = cssVar("--text"), muted = cssVar("--muted"), grid = cssVar("--grid");
       // work out the axis ranges from the data unless they are fixed
       let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-      for (const s of series) for (const p of s.pts) { if (!isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
+      for (const s of series) for (const p of s.pts) { if (p[1] == null || !isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
       for (const l of q.hlines || []) { if (l.y < y0) y0 = l.y; if (l.y > y1) y1 = l.y; }
       if (!isFinite(x0)) { x0 = 0; x1 = 1; } if (!isFinite(y0)) { y0 = 0; y1 = 1; }
       if (q.yZero || series.some(s => s.type === "bars")) { y0 = Math.min(0, y0); y1 = Math.max(0, y1); }
       const py = (y1 - y0) * 0.08 || Math.abs(y1) * 0.1 || 1; if (q.yMin == null && y0 !== 0) y0 -= py; if (q.yMax == null) y1 += py;
       if (x1 === x0) { x0 -= 0.5; x1 += 0.5; }
       if (q.xMin != null) x0 = q.xMin; if (q.xMax != null) x1 = q.xMax; if (q.yMin != null) y0 = q.yMin; if (q.yMax != null) y1 = q.yMax;
-      const L = 54, R = 12, T = 24, B = q.xLabel ? 34 : 22, pw = W - L - R, ph = H - T - B;
+      const R = 12, T = 24, B = q.xLabel ? 34 : 22, ph = H - T - B, yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; let yw = 0; for (const v of yt.t) yw = Math.max(yw, ctx.measureText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step)).width);
+      const L = Math.max(54, Math.ceil(yw) + 26), pw = W - L - R;   // the left margin widens if the tick labels are long, so they never cover the axis title
       const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + ph - (y - y0) / (y1 - y0) * ph;
       api.map = { X, Y, x0, x1, y0, y1, L, T, pw, ph };
       ctx.font = "11px Segoe UI,system-ui,sans-serif"; ctx.lineWidth = 1;
       for (const b of q.bands || []) { ctx.fillStyle = b.color; ctx.fillRect(X(Math.max(x0, b.x0)), T, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)), ph); }
-      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70))), yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70)));
       ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.beginPath();
       ctx.textAlign = "center"; ctx.textBaseline = "top";
       for (const v of xt.t) { const x = Math.round(X(v)) + .5; ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.fillText(q.xFmt ? q.xFmt(v) : tickFmt(v, xt.step), x, T + ph + 4); }
@@ -333,11 +351,11 @@ const K = (() => {
         if (s.type === "bars") { const w = Math.max(1, Math.abs(X(s.w || 1) - X(0)) - 1); for (const p of P) { const yy = Y(p[1]); ctx.fillRect(X(p[0]) - w / 2, Math.min(yy, Y(0)), w, Math.abs(Y(0) - yy)); } }
         else if (s.type === "dots" || s.type === "err") {
           const r = s.r || 3;
-          for (const p of P) { const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) continue; const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
         } else {
-          ctx.beginPath(); let pen = false;
-          for (const p of P) { if (!isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
-          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= .22; ctx.fill(); } else ctx.stroke();
+          ctx.beginPath(); let pen = false;   // a missing value (null, NaN) leaves a gap in the line
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
+          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= s.fillAlpha == null ? .22 : s.fillAlpha; ctx.fill(); } else ctx.stroke();
         }
         ctx.setLineDash([]); ctx.globalAlpha = 1;
       });
@@ -345,7 +363,7 @@ const K = (() => {
       for (const l of q.hlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Y(l.y)); ctx.lineTo(L + pw, Y(l.y)); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(l.label, L + pw - 5, Y(l.y) - 2); } }
       ctx.restore();
       // title on the left, legend on the right
-      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
+      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
       for (let i = series.length - 1; i >= 0; i--) { const s = series[i]; if (!s.label) continue; const w = ctx.measureText(s.label).width; lx -= w; ctx.fillStyle = muted; ctx.fillText(s.label, lx, 12); lx -= 12; ctx.fillStyle = s.color || col(i); ctx.fillRect(lx, 8, 8, 8); lx -= 10; }
       if (q.title) { // the title gives way (with an ellipsis) if the legend needs the room
         ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.fillStyle = text; let t = q.title; const room = lx - L - 8;
@@ -471,7 +489,7 @@ const K = (() => {
     if (saved) document.documentElement.dataset.theme = saved;
     const top = $("header", "k-top"), main = $("main", "k-main");
     top.innerHTML = `<a class="k-home" href="${o.home || "../../index.html"}" title="Back to the list of simulations">◂ All simulations</a>
-      <div class="k-title"><span class="k-chip">${o.subject}</span><h1>${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
+      <div class="k-title"><span class="k-chip">${o.subject}</span><h1 title="${o.title}">${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
     const act = top.querySelector(".k-actions");
     const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
     left.append(stage, dock); main.append(left, side); document.body.append(top, main);
@@ -484,6 +502,8 @@ const K = (() => {
     ui.setPlaying = p => { ui.playing = p; bPlay.innerHTML = p ? "⏸ Pause" : "▶ Play"; bPlay.classList.toggle("primary", !p); };
     if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
     if (o.reset) btn(act, "↺ Reset", () => o.reset());
+    // the simulation's playback-speed control sits here, beside Pause / Step / Reset (see ui.headerSpeed below)
+    const hSpeed = $("div", "k-hspeed"); hSpeed.style.display = "none"; act.append(hSpeed);
     if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
     if (o.sound) { const bS = btn(act, "🔇 Sound", () => sound.enable(!sound.on)); bS.title = typeof o.sound === "string" ? o.sound : "Turn sound on or off (off to start with)"; sound.onChange(v => { bS.innerHTML = v ? "🔊 Sound" : "🔇 Sound"; bS.classList.toggle("primary", v); }); }
     btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
@@ -528,6 +548,31 @@ const K = (() => {
     if (o.levels) { const lg = $("div", "k-group k-level"); panes.controls.append(lg); const sg = seg(lg, { value: ui.level, options: [["std", o.levels.std], ["adv", o.levels.adv]], on: v => { ui.level = v; try { localStorage.setItem("k-level", v); } catch (e) { } hint.textContent = o.levels.specs[v]; renderLevel(); ui.onLevel && ui.onLevel(v); } }); const hint = $("small", "", o.levels.specs[ui.level]); hint.style.cssText = "display:block;color:var(--muted);font-size:11.5px;margin-top:-4px"; lg.append(hint); ui.setLevel = v => sg.set(v, true); }
     try { renderLevel(); } catch (e) { setTimeout(renderLevel, 0); }   // questions may use values the simulation has not set up yet
     ui.renderRevise = renderLevel;
+    /* ui.headerSpeed(control, { label }) moves a speed slider (or Slow/Fast buttons) made with K.slider / K.seg
+       from the Controls tab up into the header bar. It is the same control, so the simulation's own code
+       (ctl.speed.set(...), investigations, mode switches) keeps working. If the group it came from is hidden
+       (for example a mode that does not use it), the header copy is hidden too; a group left with only its
+       heading is hidden. A label like "Speed (minutes per second)" shows as "Speed" with the bracket after the value. */
+    const hsList = [];
+    ui.headerSpeed = (c, opt = {}) => {
+      const el = c.el, from = el.parentNode, name = el.querySelector("label > span"), tip = el.querySelector(":scope > small");
+      const full = name ? name.textContent : "", m = /^(.*?)\s*\((.+)\)$/.exec(full);
+      el.title = full + (tip ? " · " + tip.textContent : "");
+      if (name) name.textContent = opt.label || (m ? m[1] : full);
+      if (m && !opt.label) { const u = $("i", "k-hunit", m[2]); (el.querySelector("label") || el).append(u); }
+      el.classList.add("k-hctl"); hSpeed.append(el); hSpeed.style.display = ""; hsList.push({ el, from }); syncSpeed();
+      return c;
+    };
+    function syncSpeed() {
+      let any = false;
+      for (const { el, from } of hsList) {
+        if (from.classList.contains("k-group") && ![...from.children].some(x => x.tagName !== "H3")) from.classList.add("k-emptied");
+        let hide = false; for (let x = from; x && x !== panes.controls && x !== document.body; x = x.parentNode) if (x.style.display === "none" || x.hidden) { hide = true; break; }
+        el.classList.toggle("k-hoff", hide); if (!hide && el.style.display !== "none") any = true;
+      }
+      hSpeed.style.display = any ? "" : "none";
+    }
+    setInterval(() => hsList.length && syncSpeed(), 250);
     // floating hint and heads-up text over the stage
     let tipEl = null, tipT = 0;
     ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
@@ -552,12 +597,17 @@ const K = (() => {
       btn(bar, "📄 Worksheet", () => ui.worksheet([{ kind: "b", item: bstate.exp }], true)).title = "A printable worksheet for this experiment";
       bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
       const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
-      function pick(e) { bstate.token++; bstate.exp = e; bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
+      function pick(e) { bstate.token++; bstate.exp = e; bRun.textContent = "▶ Run"; bRun.onclick = () => runExp(); bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
       function paint() {
         const e = bstate.exp, rows = bstate.rows, series = [], extra = { title: "", xLabel: e.xs ? e.xLabel : e.yLabel, yLabel: e.xs ? e.yLabel : "number of runs" };
         if (e.xs) {
           const groups = e.xs.map(x => rows.filter(r => r[0] === x).map(r => r[3])), done = e.xs.map((x, i) => [x, groups[i]]).filter(g => g[1].length);
-          if (e.theory) { const a = Math.min(...e.xs), b = Math.max(...e.xs), tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, e.theory(x)]); } series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
+          if (e.theory) {
+            // the theory curve is drawn smoothly between the settings; a theory that only exists AT the settings (a table, a whole number of things) is drawn through those points instead
+            const th = x => { try { const y = e.theory(x); return y == null || !isFinite(y) ? null : +y; } catch (er) { return null; } };
+            const a = Math.min(...e.xs), b = Math.max(...e.xs); let tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, th(x)]); }
+            const atXs = [...e.xs].sort((u, v) => u - v).map(x => [x, th(x)]); if (tp.some(q => q[1] == null) && atXs.every(q => q[1] != null)) tp = atXs;
+            series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
           series.push({ pts: rows.map(r => [r[0], r[3]]), type: "dots", color: cssVar("--s0"), alpha: .3, r: 2.5, label: "single runs" });
           series.push({ pts: done.map(([x, g]) => [x, mean(g), se(g)]), type: "err", color: cssVar("--s0"), r: 4.5, label: "mean ± SE" });
           let fitTxt = "";
@@ -566,7 +616,7 @@ const K = (() => {
           tbl.innerHTML = `<table><tr><th>${e.xLabel}</th><th>runs</th><th>mean</th><th>SD</th><th>SE</th>${e.theory ? "<th>theory</th>" : ""}</tr>` + done.map(([x, g]) => `<tr><td>${sig(x, 4)}</td><td>${g.length}</td><td>${sig(mean(g))}</td><td>${sig(sd(g))}</td><td>${sig(se(g))}</td>${e.theory ? `<td>${sig(e.theory(x))}</td>` : ""}</tr>`).join("") + fitTxt + "</table>";
         } else {
           const v = rows.map(r => r[3]);
-          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); }
+          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) { extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); series.push({ pts: [[+e.theory, 0]], type: "dots", r: 0.01, alpha: 0 }); } }   // an invisible point keeps the theory line on the chart even if every run misses it
           tbl.innerHTML = v.length ? `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${e.theory != null ? "<th>theory</th>" : ""}</tr><tr><td>${v.length}</td><td>${sig(mean(v))}</td><td>${sig(sd(v))}</td><td>${sig(se(v))}</td><td>${sig(Math.min(...v))}</td><td>${sig(Math.max(...v))}</td>${e.theory != null ? `<td>${sig(+e.theory)}</td>` : ""}</tr></table>` : "";
         }
         ch.opts.xFmt = null; ch.draw(series, extra);
@@ -864,6 +914,7 @@ g = ui.group("What to show");
 ctl.graph = K.seg(g, { label: "Right-hand graph", value: "pV", options: [["pV", "p–V"], ["pT", "p–T"], ["VT", "V–T"], ["height", "height"], ["mix", "mixing"], ["ring", "tube"]], on: v => { graph = v; } });
 ctl.colour = K.seg(g, { label: "Colour molecules by", value: "speed", options: [["speed", "kinetic energy"], ["gas", "which gas"]], on: v => { colourBy = v; } });
 ctl.rate = K.slider(g, { label: "Slow motion", min: 1, max: 80, step: 1, value: rate, fmt: v => v + " ps each second", on: v => rate = v });
+ui.headerSpeed(ctl.rate);   // playback speed lives in the header, beside Pause and Reset
 r1 = K.row(g); K.btn(r1, "Clear the graphs and tallies", clearLog);
 const read = K.readout(g, [["T", "gas temperature"], ["p", "pressure (measured)"], ["pi", "pressure (NkT/V)"], ["V", "volume"], ["v", "typical speed"], ["ke", "mean KE per molecule"], ["mfp", "mean free path"], ["dU", "ΔU since cleared"], ["Q", "heat in, Q"], ["W", "work done on gas, W"]]);
 function set(o) {

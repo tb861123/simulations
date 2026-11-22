@@ -190,6 +190,7 @@ ctl.fault = K.seg(g, { label: "Valves", value: "", options: [["", "healthy"], ["
 function fault(v) { P.avR = v === "as" ? 18 : 1; P.mvLeak = v === "mr" ? 0.008 : 0; P.avLeak = v === "ar" ? 0.008 : 0; }
 g = ui.group("Watch");
 ctl.rate = K.seg(g, { label: "Speed", value: 1, options: [[0.1, "⅒"], [0.25, "¼"], [0.5, "½"], [1, "real time"]], on: v => rate = v });
+ui.headerSpeed(ctl.rate);   // playback speed lives in the header, beside Pause and Reset
 ctl.sound = K.toggle(g, { label: "Heart sounds (lub-dub)", value: false, on: v => { sound = v; if (v && !audio) try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { } } });
 let r1 = K.row(g); K.btn(r1, "Keep this loop for comparison", () => { ghost = loop.slice(); }); K.btn(r1, "Forget it", () => { ghost = null; });
 const read = K.readout(g, [["hr", "heart rate"], ["bp", "blood pressure"], ["sv", "stroke volume"], ["co", "cardiac output"], ["ef", "ejection fraction"], ["la", "pressure in lung veins"], ["o2", "heart muscle's oxygen supply"], ["ph", "now"]]);

@@ -144,6 +144,7 @@ ctl.bohr = K.toggle(g, { label: "Bohr shift", value: true, on: v => { P.bohr = v
 ctl.curve = K.seg(g, { label: "Right-hand graph", value: "cap", options: [["cap", "PO₂ along the capillary"], ["odc", "Dissociation curve"]], on: v => { P.curve = v === "odc"; } });
 g = ui.group("Watch");
 ctl.speed = K.slider(g, { label: "Speed", min: 0.1, max: 2, step: 0.1, value: 1, fmt: v => "× " + v.toFixed(1) + (v === 1 ? " (real time)" : ""), on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["pa", "alveolar PO₂"], ["sa", "arterial saturation"], ["co2", "alveolar PCO₂"], ["ve", "breathing (rate × depth)"], ["q", "heart rate · cardiac output"], ["tc", "time in the capillary"]]);
 function update() { S = solve(P); for (const k of ["f", "vt"]) ctl[k].el.style.display = P.manual ? "" : "none"; }
 function set(o) { Object.assign(P, BASE, { curve: false }, o); for (const k of ["ex", "alt", "area", "thick", "narrow", "hb", "co", "f", "vt"]) ctl[k].set(P[k]); for (const k of ["trained", "acclim", "smoker", "manual", "bohr"]) ctl[k].set(P[k]); ctl.curve.set(P.curve ? "odc" : "cap"); update(); }

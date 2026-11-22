@@ -1,0 +1,939 @@
+<!doctype html>
+<!-- Population and Famine: one self-contained file, works offline. Built from tools/kit (kit.css, kit.js, src/population_and_famine.js); edit those and run "node build.js". -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Population and Famine</title>
+<style>
+/* ===== Enhanced (kit-built) simulations: shared look and feel (inlined into every page by build.js) ===== */
+:root{
+  --bg:#0a0f1c; --panel:#111a2c; --panel2:#17223a; --line:#24324f; --text:#e9eef8; --muted:#8fa0bf; --grid:#1f2c47;
+  --accent:#5ad1ff; --accent-ink:#04121c; --good:#6ee7a0; --warn:#ffb454; --bad:#ff6b81;
+  --s0:#5ad1ff; --s1:#ffb454; --s2:#7ee787; --s3:#ff7b9c; --s4:#c4a1ff; --s5:#ffe66d;
+  --shadow:0 10px 30px rgba(0,0,0,.45); --r:12px;
+}
+:root[data-theme=light]{
+  --bg:#eef2f8; --panel:#ffffff; --panel2:#f3f6fb; --line:#d5dceb; --text:#172033; --muted:#5d6b85; --grid:#e3e8f2;
+  --accent:#0b7fc2; --accent-ink:#ffffff; --good:#12924c; --warn:#b86a00; --bad:#d1344d;
+  --s0:#0b7fc2; --s1:#d97a00; --s2:#1b9e4b; --s3:#d6336c; --s4:#7048c8; --s5:#a08800;
+  --shadow:0 8px 24px rgba(30,50,90,.15);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+.k-top{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;min-height:52px}
+.k-home{color:var(--muted);text-decoration:none;font-size:13px;white-space:nowrap}.k-home:hover{color:var(--accent)}
+.k-title{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
+.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.k-chip{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 9px;white-space:nowrap;align-self:center}
+.k-blurb{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-actions{display:flex;gap:6px;flex:none;align-items:center}
+.k-btn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:.12s;user-select:none}
+.k-btn:hover{border-color:var(--accent);color:var(--accent)}
+.k-btn:active{transform:translateY(1px)}
+.k-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.k-btn.primary:hover{filter:brightness(1.1);color:var(--accent-ink)}
+.k-btn.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel2))}
+.k-btn.small{padding:3px 9px;font-size:12.5px}
+.k-btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.k-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
+.k-left{display:flex;flex-direction:column;min-width:0;min-height:0}
+.k-stage{flex:1;position:relative;min-height:0;background:#060a14;overflow:hidden}
+.k-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.k-dock{flex:none;height:190px;display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.k-dock:empty{display:none}
+.k-dock>*{flex:1;min-width:0;background:var(--panel)}
+.k-chart{position:relative;height:100%;min-height:80px}
+.k-chart canvas{position:absolute;inset:0;width:100%;height:100%}
+.k-side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.k-tabs{display:flex;border-bottom:1px solid var(--line);flex:none}
+.k-tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:10px 4px;cursor:pointer;color:var(--muted);font-weight:600}
+.k-tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.k-pane{flex:1;overflow-y:auto;padding:12px 14px 20px;display:none;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.k-pane.on{display:block}
+.k-group{margin-bottom:14px}
+.k-group>h3{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);margin:0 0 8px;font-weight:700}
+.k-ctl{margin-bottom:10px}
+.k-ctl label{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:2px}
+.k-ctl label b{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.k-ctl label b.k-typein{cursor:text;border-bottom:1px dashed currentColor;padding:0 1px}
+.k-ctl label b.k-typein:hover,.k-ctl label b.k-typein:focus{outline:1px solid var(--accent);outline-offset:1px;border-radius:3px}
+.k-typebox{width:9em;font:inherit;font-size:12.5px;padding:1px 4px;border-radius:4px;border:1px solid var(--accent);background:var(--panel-2,#1b2438);color:var(--text)}
+.k-ctl small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3;margin-top:1px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:none;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-moz-range-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);margin-top:-6.5px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+.k-seg{display:flex;flex-wrap:wrap;gap:4px}
+.k-seg .k-btn{flex:1 1 auto;padding:5px 8px;font-size:13px;text-align:center}
+.k-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.k-row .k-btn{flex:1 1 auto;text-align:center}
+.k-toggle{display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:9px;font-size:13px;user-select:none}
+.k-toggle i{flex:none;width:34px;height:19px;border-radius:99px;background:var(--line);position:relative;transition:.15s}
+.k-toggle i::after{content:"";position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;background:var(--muted);transition:.15s}
+.k-toggle.on i{background:var(--accent)}.k-toggle.on i::after{left:17px;background:var(--accent-ink)}
+.k-read{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.k-read div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 9px}
+.k-read span{display:block;font-size:11px;color:var(--muted)}
+.k-read b{font-size:16px;font-variant-numeric:tabular-nums;font-weight:650}
+.k-mcard{border:1px solid var(--line);background:var(--panel2);border-radius:var(--r);padding:11px 12px;margin-bottom:10px}
+.k-mcard h4{margin:0 0 4px;font-size:14.5px;display:flex;gap:8px;align-items:center}
+.k-mcard h4 em{font-style:normal;flex:none;width:22px;height:22px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:12px}
+.k-mcard.done h4 em{background:var(--good);color:#04130a}
+.k-mcard p{margin:0 0 8px;color:var(--muted);font-size:13px}
+.k-banner{position:absolute;left:12px;top:12px;max-width:min(520px,70%);background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--accent);border-radius:var(--r);padding:10px 34px 10px 13px;box-shadow:var(--shadow);z-index:5;backdrop-filter:blur(6px);font-size:13.5px}
+.k-banner b{color:var(--accent)}
+.k-banner .x{position:absolute;right:8px;top:6px;cursor:pointer;color:var(--muted);background:none;border:0;font-size:16px}
+.k-banner details{margin-top:6px;color:var(--muted)}.k-banner summary{cursor:pointer;color:var(--warn)}
+.k-tip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(8,14,26,.82);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:99px;padding:6px 16px;font-size:13px;pointer-events:none;z-index:4;transition:opacity .6s;white-space:nowrap}
+.k-hud{position:absolute;right:12px;top:12px;background:rgba(8,14,26,.72);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:10px;padding:7px 11px;font-size:12.5px;z-index:3;pointer-events:none;font-variant-numeric:tabular-nums;line-height:1.5;text-align:right}
+.k-notes h3{font-size:14px;margin:14px 0 4px;color:var(--accent)}.k-notes h3:first-child{margin-top:0}
+.k-notes p,.k-notes li{font-size:13px;color:var(--text)}.k-notes ul{padding-left:18px;margin:4px 0}
+.k-notes code{background:var(--panel2);padding:1px 5px;border-radius:5px;font-size:12.5px}
+.k-overlay{position:fixed;inset:0;background:rgba(3,6,12,.7);display:none;z-index:50;backdrop-filter:blur(3px)}
+.k-overlay.on{display:grid;place-items:center}
+.k-modal{width:min(1180px,95vw);height:min(700px,92vh);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:grid;grid-template-columns:290px 1fr;overflow:hidden}
+.k-blist{border-right:1px solid var(--line);overflow-y:auto;padding:14px}
+.k-blist h2{font-size:16px;margin:0 0 4px}.k-blist>p{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+.k-bitem{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;cursor:pointer}
+.k-bitem.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.k-bitem b{display:block;font-size:13.5px}.k-bitem span{color:var(--muted);font-size:12.5px}
+.k-bmain{display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 16px}
+.k-bhead{display:flex;gap:10px;align-items:flex-start}
+.k-bhead h3{margin:0;font-size:17px;flex:1}.k-bhead p{margin:3px 0 0;color:var(--muted);font-size:13px;font-weight:400}
+.k-bbar{display:flex;gap:10px;align-items:center;margin:10px 0 8px}
+.k-prog{flex:1;height:6px;background:var(--line);border-radius:9px;overflow:hidden}.k-prog i{display:block;height:100%;width:0;background:var(--accent)}
+.k-bchart{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.k-bfoot{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;height:150px;margin-top:10px}
+.k-btable{overflow:auto;border:1px solid var(--line);border-radius:10px;font-size:12.5px}
+.k-btable table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.k-btable th,.k-btable td{padding:3px 8px;text-align:right;border-bottom:1px solid var(--line)}
+.k-btable th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600}
+.k-bnote{overflow:auto;font-size:13px;color:var(--muted);background:var(--panel2);border-radius:10px;padding:9px 12px}
+.k-bnote b{color:var(--text)}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+.k-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.02em;padding:1px 7px;border-radius:99px;vertical-align:1px;white-space:nowrap;background:#35505a;color:#c9ecdf}
+.k-tag.adv{background:#4b3a78;color:#e3d6ff}.k-tag.beyond{background:#39465c;color:#cfdaf0}
+.k-idea{font-size:13px;margin:0 0 8px;line-height:1.4}.k-spec{font-size:12px;color:var(--muted);margin:0 0 10px}
+.k-pane>h3{font-size:14px;margin:14px 0 8px;color:var(--accent)}
+.k-q h4{font-size:12px}.k-q .k-marks{margin-left:auto;color:var(--muted);font-weight:400}.k-q p{color:var(--text);font-size:13.5px}
+.k-q details{font-size:13px;color:var(--muted)}.k-q summary{cursor:pointer;color:var(--warn)}.k-q details ul{padding-left:18px;margin:4px 0}
+.k-level{padding-bottom:4px}
+.k-tabs button{font-size:13px;padding-left:2px;padding-right:2px}
+.k-wsrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px;font-size:12.5px;color:var(--muted)}
+.k-mcard .btn+.btn,.k-mcard button+button{margin-left:6px}
+/* playback-speed control moved into the header (ui.headerSpeed) */
+.k-hspeed{display:flex;align-items:center;gap:10px;padding:0 6px 0 10px;margin:0 4px;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.k-hspeed .k-ctl{display:flex;align-items:center;gap:7px;margin:0}
+.k-hspeed .k-ctl.k-hoff{display:none}
+.k-hspeed .k-ctl label{display:contents}
+.k-hspeed .k-ctl label span{order:0;font-size:12.5px;color:var(--muted);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+.k-hspeed .k-ctl input[type=range]{order:1;width:96px}
+.k-hspeed .k-ctl label b,.k-hspeed .k-typebox{order:2;font-size:12.5px;white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+.k-hspeed .k-typebox{width:6.5em}
+.k-hspeed .k-hunit{order:3;font-style:normal;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.k-hspeed .k-ctl>small{display:none}
+.k-hspeed .k-seg{order:1;flex-wrap:nowrap;gap:3px}
+.k-hspeed .k-seg .k-btn{flex:none;padding:3px 8px;font-size:12px}
+.k-group.k-emptied{display:none}
+@media (max-width:1400px){.k-blurb{display:none}.k-top:has(.k-hspeed:not([style*="none"])) .k-chip{display:none}}
+</style></head><body>
+<script>
+"use strict";
+/* =====================================================================
+   K: the small shared toolkit behind the ★ enhanced simulations.
+   It builds the page frame (header, stage, chart dock, side panel),
+   the sliders and buttons, the live charts, the Investigations cards
+   and the Batch run window. Each simulation's own code (below this
+   script in the page) holds the science.
+   ===================================================================== */
+const K = (() => {
+  const $ = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const col = i => cssVar("--s" + (i % 6));
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // ---- Repeatable random numbers: the same seed always gives the same run ----
+  function rng(seed) {
+    let a = (seed >>> 0) || 1;
+    const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    r.gauss = () => { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307179586 * r()); };
+    r.int = n => Math.floor(r() * n);
+    r.pick = arr => arr[Math.floor(r() * arr.length)];
+    return r;
+  }
+  // ---- Simple statistics ----
+  const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+  const sd = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); };
+  const se = a => sd(a) / Math.sqrt(a.length || 1);
+  function linfit(pts) { // least-squares straight line through [x,y] points
+    const n = pts.length, mx = mean(pts.map(p => p[0])), my = mean(pts.map(p => p[1]));
+    let sxy = 0, sxx = 0, syy = 0; for (const [x, y] of pts) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; syy += (y - my) ** 2; }
+    const m = sxy / (sxx || 1); return { m, c: my - m * mx, r: sxy / Math.sqrt((sxx * syy) || 1), n };
+  }
+  function download(name, text) { const a = $("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  const sig = (v, n = 3) => { if (v == null || !isFinite(v)) return "–"; if (v === 0) return "0"; const a = Math.abs(v); if (a >= 1e5 || a < 1e-3) return v.toExponential(n - 1); return String(+v.toPrecision(n)); };
+
+  // ---- Controls ----
+  /* Typing a value into a slider: read a displayed value ("2.2 mF", "4.7 × 10⁵ Pa", "£30,000", "−12 °C") as a number,
+     then search the slider's positions for the one whose display matches (copes with log scales and unit prefixes). */
+  const PRE = { p: 1e-12, n: 1e-9, "μ": 1e-6, "µ": 1e-6, u: 1e-6, m: 1e-3, k: 1e3, M: 1e6, G: 1e9 }, SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+  function parseVal(text) {
+    const t = String(text).replace(/[−–]/g, "-").replace(/[   ]/g, " ");
+    const m = t.match(/-?(?:\d{1,3}(?:[, ]\d{3})+|\d+)(?:\.\d+)?|-?\.\d+/);
+    if (!m) return null;
+    let v = parseFloat(m[0].replace(/[, ]/g, "")), rest = t.slice(m.index + m[0].length);
+    const pw = m[0] === "10" && rest.match(/^(?:\^\s*(-?\d+(?:\.\d+)?)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))/);         // a bare power of ten: 10⁻⁹ or 10^6.5
+    if (pw) { v = Math.pow(10, pw[1] != null ? +pw[1] : (pw[2][0] === "⁻" ? -1 : 1) * +[...pw[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join("")); rest = rest.slice(pw[0].length); }
+    const ex = rest.match(/^\s*(?:[×x*]\s*10\s*(?:\^\s*(-?\d+)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))|[eE]([-+]?\d+))/);
+    if (ex) { const p = ex[1] != null ? +ex[1] : ex[3] != null ? +ex[3] : (ex[2][0] === "⁻" ? -1 : 1) * +[...ex[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join(""); v *= Math.pow(10, p); rest = rest.slice(ex[0].length); }
+    const wd = rest.match(/^\s*(thousand|million|billion|trillion)\b/i);    // "1 million K"
+    if (wd) { v *= { thousand: 1e3, million: 1e6, billion: 1e9, trillion: 1e12 }[wd[1].toLowerCase()]; rest = rest.slice(wd[0].length); }
+    const pm = !wd && rest.match(/^\s*([pnμµumkMG])(?=[A-Za-zΩ°])/);
+    if (pm) v *= PRE[pm[1]];
+    return isFinite(v) ? { v, unit: rest } : null;
+  }
+  // what was typed, in the units on display unless a unit was typed too ("2.2", "2.2 mF" and "1e-6" all work)
+  function typedVal(raw, shown) {
+    const q = parseVal(raw); if (!q) return null;
+    if (/[A-Za-zμµΩ°%£$€]/.test(q.unit)) return q;
+    const s = parseVal(shown); return parseVal(raw + (s ? " " + s.unit.trim() : ""));
+  }
+  function invertSlider(lo, hi, st, g, target) {
+    const n = Math.max(1, Math.round((hi - lo) / st)), pos = i => +(lo + i * st).toFixed(10);
+    let e0 = 0, e1 = n;                                                       // ends may show words ("off"): step in to the first numbers
+    while (e0 < n && g(pos(e0)) == null && e0 < 60) e0++;
+    while (e1 > e0 && g(pos(e1)) == null && n - e1 < 60) e1--;
+    const a = g(pos(e0)), b = g(pos(e1));
+    if (a == null || b == null || a === b) return null;
+    const up = b > a;
+    if (up ? target < a : target > a) return pos(e0 > 0 ? 0 : e0);
+    if (up ? target > b : target < b) return pos(e1 < n ? n : e1);
+    let i0 = e0, i1 = e1, v0 = a, v1 = b;
+    while (i1 - i0 > 1) { const im = (i0 + i1) >> 1, vm = g(pos(im)); if (vm == null) break; if ((vm < target) === up) { i0 = im; v0 = vm; } else { i1 = im; v1 = vm; } }
+    return Math.abs(v0 - target) <= Math.abs(v1 - target) ? pos(i0) : pos(i1);
+  }
+  // try every position (cheap here: only the format function runs) and take the closest display; ties go to the one nearest the current setting
+  function nearestSlider(lo, hi, st, g, target, cur) {
+    const n = Math.max(1, Math.round((hi - lo) / st)); if (n > 20000) return invertSlider(lo, hi, st, g, target);
+    let best = null, be = Infinity, bd = Infinity;
+    for (let i = 0; i <= n; i++) { const p = +(lo + i * st).toFixed(10), v = g(p); if (v == null) continue; const e = Math.abs(v - target), d = Math.abs(p - cur); if (e < be - 1e-12 * Math.abs(target) || (Math.abs(e - be) <= 1e-12 * Math.abs(target) && d < bd)) { best = p; be = e; bd = d; } }
+    return best;
+  }
+  const scratch = document.createElement("div");
+  const textOf = html => { scratch.innerHTML = html; scratch.querySelectorAll("sup").forEach(x => x.replaceWith("^" + x.textContent)); return scratch.textContent; };
+  function slider(parent, o) {
+    const w = $("div", "k-ctl"), lab = $("label"), name = $("span", "", o.label), val = $("b", "k-typein"), inp = $("input");
+    inp.type = "range"; inp.min = o.min; inp.max = o.max; inp.step = o.step || 1; inp.value = o.value;
+    const fmt = o.fmt || (v => sig(v, 4) + (o.unit ? " " + o.unit : ""));
+    const show = () => val.innerHTML = fmt(+inp.value);
+    lab.append(name, val); w.append(lab, inp); if (o.tip) w.append($("small", "", o.tip)); parent.append(w); show();
+    inp.addEventListener("input", () => { show(); o.on && o.on(+inp.value); });
+    // click the value (or Tab to it and press Enter) to type one
+    const g = p => { let q = null; try { q = parseVal(textOf(fmt(p))); } catch (e) { } return q ? q.v : null; };
+    let numeric = true; try { const ends = [+o.min, (+o.min + +o.max) / 2, +o.max].map(g).filter(v => v != null); numeric = new Set(ends).size > 1; } catch (e) { }
+    if (!numeric) val.classList.remove("k-typein"); else { val.tabIndex = 0; val.title = "Click to type a value"; }
+    function edit() {
+      if (w.querySelector(".k-typebox")) return;
+      const shown = textOf(val.innerHTML), box = $("input", "k-typebox"); box.type = "text"; box.value = shown.trim(); box.setAttribute("aria-label", "Type a value for " + o.label);
+      val.style.display = "none"; val.after(box); box.focus(); box.select(); let done = false;
+      const finish = ok => {
+        if (done) return; done = true; const raw = box.value.trim(); box.remove(); val.style.display = "";
+        if (!ok || !raw || raw === shown.trim()) return; const t = typedVal(raw, shown); if (!t) return;
+        const p = nearestSlider(+o.min, +o.max, +(o.step || 1), g, t.v, +inp.value); if (p == null) return;
+        inp.value = p; show(); o.on && o.on(+inp.value);
+      };
+      box.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); });
+      box.addEventListener("blur", () => finish(true)); box.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); });
+    }
+    if (numeric) val.addEventListener("click", e => { e.preventDefault(); edit(); });
+    if (numeric) val.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); edit(); } });
+    return { el: w, get value() { return +inp.value; }, set(v, fire) { inp.value = v; show(); if (fire) o.on && o.on(+inp.value); } };
+  }
+  function seg(parent, o) {
+    const w = $("div", "k-ctl"); if (o.label) w.append($("label", "", `<span>${o.label}</span>`));
+    const row = $("div", "k-seg"); w.append(row); if (o.tip) w.append($("small", "", o.tip)); parent.append(w);
+    let value = o.value; const btns = [];
+    const paint = () => btns.forEach(([v, b]) => b.classList.toggle("on", v === value));
+    for (const [v, label, title] of o.options) { const b = $("button", "k-btn", label); if (title) b.title = title; b.onclick = () => { value = v; paint(); o.on && o.on(v); }; row.append(b); btns.push([v, b]); }
+    paint();
+    return { el: w, get value() { return value; }, set(v, fire) { value = v; paint(); if (fire) o.on && o.on(v); } };
+  }
+  function toggle(parent, o) {
+    const w = $("div", "k-toggle" + (o.value ? " on" : ""), `<i></i><span>${o.label}</span>`); parent.append(w); let value = !!o.value;
+    w.onclick = () => { value = !value; w.classList.toggle("on", value); o.on && o.on(value); };
+    return { el: w, get value() { return value; }, set(v, fire) { value = !!v; w.classList.toggle("on", value); if (fire) o.on && o.on(value); } };
+  }
+  function btn(parent, label, on, cls) { const b = $("button", "k-btn " + (cls || ""), label); b.onclick = on; parent.append(b); return b; }
+  function row(parent) { const r = $("div", "k-row"); parent.append(r); return r; }
+  function readout(parent, items) { // small tiles of live numbers
+    const g = $("div", "k-read"), map = {}; parent.append(g);
+    for (const [id, label] of items) { const d = $("div", "", `<span>${label}</span><b>–</b>`); g.append(d); map[id] = d.lastChild; }
+    return { el: g, set(id, v) { if (map[id].textContent !== String(v)) map[id].innerHTML = v; } };
+  }
+  function note(parent, html) { const s = $("small", "", html); s.style.cssText = "display:block;color:var(--muted);margin:-2px 0 10px;font-size:12px;line-height:1.35"; parent.append(s); return s; }
+
+  // ---- A canvas that stays sharp on high-DPI screens and follows its container's size ----
+  function canvas(parent, onresize) {
+    const cv = $("canvas"); parent.append(cv); const c = { el: cv, ctx: cv.getContext("2d"), w: 1, h: 1, dpr: 1 };
+    const fit = () => {
+      const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
+      c.dpr = Math.min(window.devicePixelRatio || 1, 2); c.w = w; c.h = h; cv.width = Math.round(w * c.dpr); cv.height = Math.round(h * c.dpr);
+      c.ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0); onresize && onresize(c);
+    };
+    new ResizeObserver(fit).observe(parent); fit(); return c;
+  }
+  // Pointer handling in the element's own pixel coordinates
+  function pointer(el, h) {
+    const pos = e => { const r = el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, e }; };
+    let down = false;
+    el.addEventListener("pointerdown", e => { down = true; el.setPointerCapture(e.pointerId); h.down && h.down(pos(e)); });
+    el.addEventListener("pointermove", e => { const p = pos(e); if (down) h.drag && h.drag(p); else h.hover && h.hover(p); });
+    const up = e => { if (down) { down = false; h.up && h.up(pos(e)); } };
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+    el.addEventListener("pointerleave", e => h.leave && h.leave(pos(e)));
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+
+  // ---- Charts ----
+  const charts = new Set();
+  function niceTicks(a, b, n) {
+    const span = (b - a) || 1, raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    const step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p, t = [];
+    for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + step * 1e-6; v += step) t.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    return { t, step };
+  }
+  // tick labels: very big or very small numbers in standard form, with enough digits that neighbouring ticks differ (2.4e+5, 2.6e+5…)
+  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(clamp(Math.floor(Math.log10(a) + 1e-9) - Math.floor(Math.log10(step) + 1e-9), 0, 4)); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
+  /* chart(parent,{title,xLabel,yLabel,xMin,xMax,yMin,yMax,yZero})  then  .draw(series, extra)
+     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r, alpha, fillAlpha (area fill, default .22; 1 for solid stacked areas)}]
+     extra:  {xMin..yMax overrides, vlines:[{x,color,label,dash}], hlines:[{y,...}], bands:[{x0,x1,color}]} */
+  function chart(parent, o = {}) {
+    const wrap = $("div", "k-chart"), cv = $("canvas"); wrap.append(cv); parent.append(wrap);
+    const ctx = cv.getContext("2d"); let last = [[], {}];
+    const api = { el: wrap, opts: o, draw(series, extra) { last = [series || [], extra || {}]; render(); }, redraw: () => render(), map: null };
+    function render() {
+      const W = wrap.clientWidth, H = wrap.clientHeight; if (W < 40 || H < 40) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      const [series, ex] = last, q = Object.assign({}, o, ex);
+      const text = cssVar("--text"), muted = cssVar("--muted"), grid = cssVar("--grid");
+      // work out the axis ranges from the data unless they are fixed
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const s of series) for (const p of s.pts) { if (p[1] == null || !isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
+      for (const l of q.hlines || []) { if (l.y < y0) y0 = l.y; if (l.y > y1) y1 = l.y; }
+      if (!isFinite(x0)) { x0 = 0; x1 = 1; } if (!isFinite(y0)) { y0 = 0; y1 = 1; }
+      if (q.yZero || series.some(s => s.type === "bars")) { y0 = Math.min(0, y0); y1 = Math.max(0, y1); }
+      const py = (y1 - y0) * 0.08 || Math.abs(y1) * 0.1 || 1; if (q.yMin == null && y0 !== 0) y0 -= py; if (q.yMax == null) y1 += py;
+      if (x1 === x0) { x0 -= 0.5; x1 += 0.5; }
+      if (q.xMin != null) x0 = q.xMin; if (q.xMax != null) x1 = q.xMax; if (q.yMin != null) y0 = q.yMin; if (q.yMax != null) y1 = q.yMax;
+      const R = 12, T = 24, B = q.xLabel ? 34 : 22, ph = H - T - B, yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; let yw = 0; for (const v of yt.t) yw = Math.max(yw, ctx.measureText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step)).width);
+      const L = Math.max(54, Math.ceil(yw) + 26), pw = W - L - R;   // the left margin widens if the tick labels are long, so they never cover the axis title
+      const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + ph - (y - y0) / (y1 - y0) * ph;
+      api.map = { X, Y, x0, x1, y0, y1, L, T, pw, ph };
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; ctx.lineWidth = 1;
+      for (const b of q.bands || []) { ctx.fillStyle = b.color; ctx.fillRect(X(Math.max(x0, b.x0)), T, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)), ph); }
+      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70)));
+      ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.beginPath();
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      for (const v of xt.t) { const x = Math.round(X(v)) + .5; ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.fillText(q.xFmt ? q.xFmt(v) : tickFmt(v, xt.step), x, T + ph + 4); }
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      for (const v of yt.t) { const y = Math.round(Y(v)) + .5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.fillText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step), L - 5, y); }
+      ctx.stroke(); ctx.strokeStyle = muted; ctx.strokeRect(L + .5, T + .5, pw, ph);
+      if (q.xLabel) { ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(q.xLabel, L + pw / 2, H - 3); }
+      if (q.yLabel) { ctx.save(); ctx.translate(11, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(q.yLabel, 0, 0); ctx.restore(); }
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+      series.forEach((s, i) => {
+        const c = s.color || col(i); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = s.width || 1.8; ctx.setLineDash(s.dash || []); ctx.globalAlpha = s.alpha == null ? 1 : s.alpha;
+        const P = s.pts;
+        if (s.type === "bars") { const w = Math.max(1, Math.abs(X(s.w || 1) - X(0)) - 1); for (const p of P) { const yy = Y(p[1]); ctx.fillRect(X(p[0]) - w / 2, Math.min(yy, Y(0)), w, Math.abs(Y(0) - yy)); } }
+        else if (s.type === "dots" || s.type === "err") {
+          const r = s.r || 3;
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) continue; const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+        } else {
+          ctx.beginPath(); let pen = false;   // a missing value (null, NaN) leaves a gap in the line
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
+          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= s.fillAlpha == null ? .22 : s.fillAlpha; ctx.fill(); } else ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+      });
+      for (const l of q.vlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(l.x), T); ctx.lineTo(X(l.x), T + ph); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = X(l.x) > L + pw * .7 ? "right" : "left"; ctx.textBaseline = "top"; ctx.fillText(l.label, X(l.x) + (ctx.textAlign === "right" ? -5 : 5), T + 4 + (l.row || 0) * 13); } }
+      for (const l of q.hlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Y(l.y)); ctx.lineTo(L + pw, Y(l.y)); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(l.label, L + pw - 5, Y(l.y) - 2); } }
+      ctx.restore();
+      // title on the left, legend on the right
+      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
+      for (let i = series.length - 1; i >= 0; i--) { const s = series[i]; if (!s.label) continue; const w = ctx.measureText(s.label).width; lx -= w; ctx.fillStyle = muted; ctx.fillText(s.label, lx, 12); lx -= 12; ctx.fillStyle = s.color || col(i); ctx.fillRect(lx, 8, 8, 8); lx -= 10; }
+      if (q.title) { // the title gives way (with an ellipsis) if the legend needs the room
+        ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.fillStyle = text; let t = q.title; const room = lx - L - 8;
+        if (ctx.measureText(t).width > room) { while (t.length > 3 && ctx.measureText(t + "…").width > room) t = t.slice(0, -1); t = t.length > 3 ? t + "…" : ""; }
+        ctx.fillText(t, L, 12);
+      }
+    }
+    new ResizeObserver(render).observe(wrap); charts.add(api); return api;
+  }
+  function histogram(vals, bins, lo, hi) { // returns bar points [centre, count] and the bin width
+    if (lo == null) lo = Math.min(...vals); if (hi == null) hi = Math.max(...vals); if (hi === lo) { hi += .5; lo -= .5; }
+    const w = (hi - lo) / bins, c = new Array(bins).fill(0);
+    for (const v of vals) { const i = Math.floor((v - lo) / w); if (i >= 0 && i <= bins) c[Math.min(i, bins - 1)]++; }
+    return { pts: c.map((n, i) => [lo + (i + .5) * w, n]), w };
+  }
+
+  // ---- The page frame ----
+
+  let K_last = null;
+  /* ---- Worksheets ----
+     worksheetDoc(o, picks, opt) returns a printable HTML page: one A4 sheet per investigation card (o.missions) and per batch
+     experiment (o.batch), then teacher notes. picks = [{ kind: "m" | "b", item }]. opt = { file, teacher, results: { [batch title]: summary } } */
+  const wsCSS = `body{font:14px/1.45 "Segoe UI",system-ui,sans-serif;color:#111;margin:0;background:#eee}.sheet{background:#fff;width:186mm;min-height:270mm;margin:12px auto;padding:12mm;box-sizing:border-box;page-break-after:always}
+  .top{display:flex;justify-content:space-between;color:#555;font-size:12px;border-bottom:1px solid #999;padding-bottom:4px}h1{font-size:20px;margin:10px 0 4px}h2{font-size:15px;margin:16px 0 6px;color:#14467a}.tag{font-size:11px;border:1px solid #14467a;border-radius:9px;padding:0 6px;color:#14467a;vertical-align:middle}
+  .q{background:#eef4fb;border-left:4px solid #14467a;padding:8px 10px}.lines div{border-bottom:1px solid #aaa;height:26px}.box{border:1px solid #aaa;height:110px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:4px 6px;height:24px;text-align:center;font-size:13px}th{background:#f2f2f2}
+  ol{margin:4px 0 4px 20px;padding:0}.bar{position:sticky;top:0;background:#14467a;color:#fff;padding:8px 16px;display:flex;gap:12px;align-items:center}.bar button{font:inherit;padding:4px 12px;cursor:pointer}.note{background:#fafafa;border:1px solid #ccc;padding:8px 10px;margin:8px 0}
+  .grid{height:200px;border:1px solid #888;background-image:linear-gradient(#ddd 1px,transparent 1px),linear-gradient(90deg,#ddd 1px,transparent 1px);background-size:20px 20px;position:relative}
+  @media print{body{background:#fff}.bar{display:none}.sheet{margin:0;width:auto;min-height:0}}`;
+  const wsLines = n => `<div class="lines">${"<div></div>".repeat(n)}</div>`;
+  function worksheetDoc(o, picks, opt = {}) {
+    const file = opt.file || (location.pathname.split("/").pop() || "the simulation"), nM = (o.missions || []).length, nB = (o.batch || []).length;
+    const tagA = x => x.lvl === "adv" ? ' <span class="tag">A level</span>' : "", head = (k, n, of) => `<div class="top"><span>${o.title} · ${k} ${n} of ${of}</span><span>Name ____________________ &nbsp; Date __________</span></div>`;
+    const sheets = picks.map(({ kind, item: x }) => {
+      if (kind === "m") {
+        const n = o.missions.indexOf(x) + 1;
+        return `<div class="sheet">${head("Investigation", n, nM)}<h1>${x.title}${tagA(x)}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b>${x.lvl === "adv" ? " and choose <b>Advanced (A level)</b> in the Controls tab" : ""}.</li><li>Open the <b>Investigate</b> tab and press <b>Set it up ▸</b> on “${x.title}”. It sets everything up for you.</li><li>You can still change the controls afterwards to test your ideas.</li></ol>
+<h2>2 · The question</h2><div class="q">${x.q}</div>
+<h2>3 · Predict</h2><p>Before you watch, write what you think will happen, and why.</p>${wsLines(3)}
+<h2>4 · Observe and record</h2><p>Watch the simulation and try the controls. Record what you changed, what you saw and any readings (from the Readings panel or the graphs).</p>
+<table><tr><th style="width:30%">What I changed</th><th>What I saw or measured</th><th style="width:22%">Reading</th></tr>${"<tr><td></td><td></td><td></td></tr>".repeat(5)}</table>
+<h2>5 · Answer the question</h2>${wsLines(4)}
+<h2>6 · Explain</h2><p>Use the science to explain your answer. Open <b>The model</b> tab: which rule or assumption in the model causes what you saw? Would the real world behave the same way?</p>${wsLines(4)}</div>`;
+      }
+      const n = o.batch.indexOf(x) + 1, reps = x.reps || (x.xs ? 6 : 200);
+      const rec = x.xs ? `<table><tr><th>${x.xLabel}</th><th>mean</th><th>SD</th><th>SE</th>${x.theory ? "<th>theory</th>" : ""}<th>difference from theory, in SEs</th></tr>${x.xs.map(v => `<tr><td>${v}</td><td></td><td></td><td></td>${x.theory ? "<td></td>" : ""}<td></td></tr>`).join("")}</table>`
+        : `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${x.theory != null ? "<th>theory</th>" : ""}</tr><tr><td></td><td></td><td></td><td></td><td></td><td></td>${x.theory != null ? "<td></td>" : ""}</tr></table><p>Sketch the histogram:</p><div class="grid"></div>`;
+      return `<div class="sheet">${head("Batch experiment", n, nB)}<h1>${x.title}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b> and press <b>📊 Batch run</b>.</li><li>Click the experiment “${x.title}”. It sets everything up for you.</li><li>Press <b>▶ Run</b> and wait for it to finish (${x.xs ? `${x.xs.length} settings × ${reps} runs` : `${reps} runs`}).</li></ol>
+<div class="q"><b>${x.question}</b>${x.how ? `<br><small>${x.how}</small>` : ""}</div>
+<h2>2 · Predict before you run it</h2><p>${x.xs ? `How do you think <b>${x.yLabel}</b> will change as <b>${x.xLabel}</b> goes from ${x.xs[0]} to ${x.xs[x.xs.length - 1]}? Sketch your prediction, then give your reason.` : `What average do you expect for <b>${x.yLabel}</b>? Will every run give the same answer? Give your reason.`}</p>${x.xs ? `<div class="grid" style="height:150px"></div>` : ""}${wsLines(2)}
+<h2>3 · Record the results</h2><p>Copy the numbers from the table under the graph${x.theory != null ? " (theory: " + (x.theoryLabel || "the theory line") + ")" : ""}.</p>${rec}
+<h2>4 · Think about it</h2><ol><li>Does the simulation agree with the theory${x.theory == null ? " (or with your prediction)" : ""}? Use the difference in standard errors (or how close the points are to the line) to say how well.${wsLines(2)}</li>
+<li>Why don't all the runs give the same answer? What would happen to the standard error with four times as many runs?${wsLines(2)}</li>
+<li>Open <b>The model</b> tab. Name one simplification that could make the model differ from real life.${wsLines(2)}</li></ol></div>`;
+    });
+    let notes = "";
+    if (opt.teacher !== false) {
+      notes = `<div class="sheet"><div class="top"><span>${o.title} · Teacher notes</span><span>${file}</span></div><h1>Teacher notes</h1>` + picks.map(({ kind, item: x }) => {
+        if (kind === "m") return `<h2>Investigation ${o.missions.indexOf(x) + 1}: ${x.title}${tagA(x)}</h2><div class="note"><b>What to look for:</b> ${x.hint || "–"}</div>`;
+        const r = opt.results && opt.results[x.title], th = x.theory == null ? "" : x.xs ? x.xs.map(v => `${v}: ${sig(x.theory(v))}`).join(" · ") : sig(+x.theory);
+        return `<h2>Batch experiment ${o.batch.indexOf(x) + 1}: ${x.title}</h2><div class="note">${x.note || ""}${th ? `<br><b>Theory (${x.theoryLabel || "theory"}):</b> ${th}` : ""}${r ? `<br><b>Result from a test run:</b> ${r}` : ""}</div>`;
+      }).join("") + `</div>`;
+    }
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${o.title} – worksheets</title><style>${wsCSS}</style></head><body><div class="bar"><b>${o.title} – worksheets</b><span>${picks.length} sheet${picks.length > 1 ? "s" : ""}${opt.teacher !== false ? ", then teacher notes" : ""}. Print, or save as PDF.</span><button onclick="print()">🖨 Print</button></div>${sheets.join("")}${notes}</body></html>`;
+  }
+  // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
+  function batchSummary(e, seed0 = 12345) {
+    const rows = []; let i = 0;
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
+    return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
+  }
+  function openDoc(html, name) { const w = window.open("", "_blank"); if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(name, html); }
+  // ---- Sound (Web Audio). Pages that ask for it (app option `sound`) get a 🔇/🔊 button in the header.
+  //      It is OFF until someone presses it, so a room full of laptops stays quiet; nothing plays while it is off.
+  //      tone(f, {dur, vol, type, at, glide}) plays a note; noise({dur, vol, filter, freq, at}) a hiss, thump or rumble;
+  //      click() a Geiger-style tick; hum() a continuous tone you retune every frame (it fades out if not updated). ----
+  const sound = (() => {
+    let ctx = null, master = null, on = false, buf = null; const live = new Set(), hums = [], fns = [];
+    const ready = () => on && ctx && ctx.state === "running";
+    async function enable(v) {
+      on = !!v;
+      if (on) { try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (!master) { master = ctx.createGain(); master.gain.value = 0.7; master.connect(ctx.destination); } await ctx.resume(); } catch (e) { on = false; } }
+      else stop();
+      fns.forEach(f => f(on));
+    }
+    const track = n => { live.add(n); n.onended = () => live.delete(n); };
+    function tone(f, o = {}) {
+      if (!ready() || !(f > 15) || f > ctx.sampleRate / 2) return;
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.3, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.008, dur / 2);
+      const osc = ctx.createOscillator(), g = ctx.createGain(); osc.type = o.type || "sine"; osc.frequency.setValueAtTime(f, t); if (o.glide) osc.frequency.exponentialRampToValueAtTime(Math.max(16, o.glide), t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      osc.connect(g); g.connect(master); osc.start(t); osc.stop(t + dur + 0.02); track(osc);
+    }
+    function noise(o = {}) {
+      if (!ready()) return;
+      if (!buf) { buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.2, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.004, dur / 2);
+      const src = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain(); src.buffer = buf; src.loop = true;
+      fl.type = o.filter || "lowpass"; fl.frequency.value = o.freq || 1000; if (o.sweep) fl.frequency.exponentialRampToValueAtTime(o.sweep, t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      src.connect(fl); fl.connect(g); g.connect(master); src.start(t, Math.random()); src.stop(t + dur + 0.02); track(src);
+    }
+    const click = (o = {}) => noise({ dur: 0.012, vol: o.vol == null ? 0.5 : o.vol, filter: "highpass", freq: 1800, at: o.at });
+    function hum(type = "sine") {
+      let osc = null, g = null, last = 0;
+      const h = {
+        set(f, vol = 0.15) { if (!ready()) { h.kill(); return; } if (!osc) { osc = ctx.createOscillator(); g = ctx.createGain(); osc.type = type; g.gain.value = 0; osc.connect(g); g.connect(master); osc.start(); } const t = ctx.currentTime; osc.frequency.setTargetAtTime(Math.max(16, f), t, 0.02); g.gain.setTargetAtTime(vol, t, 0.04); last = performance.now(); },
+        kill() { if (osc) { try { g.gain.setTargetAtTime(0, ctx.currentTime, 0.03); osc.stop(ctx.currentTime + 0.25); } catch (e) { } osc = null; } },
+        stale() { return osc && performance.now() - last > 250; }
+      };
+      hums.push(h); return h;
+    }
+    function stop() { for (const n of live) { try { n.stop(); } catch (e) { } } live.clear(); hums.forEach(h => h.kill()); }
+    setInterval(() => hums.forEach(h => { if (h.stale()) h.kill(); }), 200);    // a hum nobody is updating (paused, other view) fades away
+    document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); });
+    return { enable, ready, tone, noise, click, hum, stop, get on() { return on; }, onChange: f => fns.push(f) };
+  })();
+  function app(o) {
+    document.title = o.title + " · Science Simulations";
+    const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
+    if (saved) document.documentElement.dataset.theme = saved;
+    const top = $("header", "k-top"), main = $("main", "k-main");
+    top.innerHTML = `<a class="k-home" href="${o.home || "../../index.html"}" title="Back to the list of simulations">◂ All simulations</a>
+      <div class="k-title"><span class="k-chip">${o.subject}</span><h1 title="${o.title}">${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
+    const act = top.querySelector(".k-actions");
+    const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
+    left.append(stage, dock); main.append(left, side); document.body.append(top, main);
+    const ui = { stage, dock, side, playing: true, speed: 1, canvas: fn => canvas(stage, fn), config: o };
+    const wsName = o.title.replace(/\W+/g, "-").toLowerCase() + "-worksheet.html";
+    ui.worksheet = (picks, teacher) => openDoc(worksheetDoc(o, picks, { teacher }), wsName);
+    ui.allPicks = () => (o.missions || []).map(item => ({ kind: "m", item })).concat((o.batch || []).map(item => ({ kind: "b", item })));
+    // header buttons
+    const bPlay = btn(act, "⏸ Pause", () => ui.setPlaying(!ui.playing)); bPlay.title = "Space bar";
+    ui.setPlaying = p => { ui.playing = p; bPlay.innerHTML = p ? "⏸ Pause" : "▶ Play"; bPlay.classList.toggle("primary", !p); };
+    if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
+    if (o.reset) btn(act, "↺ Reset", () => o.reset());
+    // the simulation's playback-speed control sits here, beside Pause / Step / Reset (see ui.headerSpeed below)
+    const hSpeed = $("div", "k-hspeed"); hSpeed.style.display = "none"; act.append(hSpeed);
+    if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
+    if (o.sound) { const bS = btn(act, "🔇 Sound", () => sound.enable(!sound.on)); bS.title = typeof o.sound === "string" ? o.sound : "Turn sound on or off (off to start with)"; sound.onChange(v => { bS.innerHTML = v ? "🔊 Sound" : "🔇 Sound"; bS.classList.toggle("primary", v); }); }
+    btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
+    btn(act, "⛶", () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).title = "Full screen";
+    addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
+    // side panel tabs
+    const tabs = $("nav", "k-tabs"), panes = {}; side.append(tabs);
+    const names = [["controls", "Controls"], ["missions", "Investigate"]].concat(o.revise ? [["revise", "Revise"]] : [], [["notes", "The model"]]);
+    const show = id => { if (id === "revise" && ui.renderRevise) ui.renderRevise(); for (const [k] of names) { panes[k].classList.toggle("on", k === id); panes[k]._tab.classList.toggle("on", k === id); } };
+    for (const [k, label] of names) { const b = $("button", "", label); b.onclick = () => show(k); tabs.append(b); panes[k] = $("div", "k-pane" + (k === "notes" ? " k-notes" : "")); panes[k]._tab = b; side.append(panes[k]); }
+    show("controls"); ui.controls = panes.controls; ui.showTab = show;
+    ui.group = title => { const g = $("div", "k-group", title ? `<h3>${title}</h3>` : ""); panes.controls.append(g); return g; };
+    panes.notes.innerHTML = o.notes || "";
+    // investigations: each card sets the simulation up and pins its question over the stage
+    let banner = null;
+    ui.mission = m => {
+      if (banner) banner.remove(); banner = null; if (!m) return;
+      banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
+      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
+    };
+    if ((o.missions || []).length || (o.batch || []).length) { const wr = $("div", "k-wsrow", "<span>Worksheets:</span>"); panes.missions.append(wr); btn(wr, "📄 Every investigation", () => ui.worksheet(ui.allPicks(), true), "small").title = "One printable sheet per investigation and batch experiment, then teacher notes"; btn(wr, "📄 Without teacher notes", () => ui.worksheet(ui.allPicks(), false), "small"); }
+    const mcards = (o.missions || []).map(m => {
+      const c = $("div", "k-mcard", `<h4><em></em>${m.title}${m.lvl === "adv" ? ' <span class="k-tag adv">A level</span>' : ""}</h4><p>${m.q}</p>`);
+      btn(c, "Set it up ▸", () => { c.classList.add("done"); c.querySelector("em").textContent = "✓"; m.setup && m.setup(); ui.mission(m); ui.setPlaying(true); show("controls"); }, "small primary");
+      btn(c, "📄 Worksheet", () => ui.worksheet([{ kind: "m", item: m }], true), "small").title = "A printable worksheet for this investigation";
+      panes.missions.append(c); return [m, c];
+    });
+    /* ---- Level (Standard / Advanced) and the Revise tab ----
+       o.levels = { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "...", adv: "..." } }
+       o.revise = { ideas: [{ lvl: "std"|"adv"|"beyond", tag, text }], questions: [{ lvl, q, marks, ans }] }   (q and ans may be functions, so they can use the numbers on screen)
+       Advanced shows everything; Standard hides anything marked "adv". */
+    ui.level = "std"; try { const l = localStorage.getItem("k-level"); if (l === "adv" || l === "std") ui.level = l; } catch (e) { }
+    if (!o.levels) ui.level = "adv";
+    const val = v => typeof v === "function" ? v() : v;
+    function renderLevel() {
+      let k = 0; for (const [m, c] of mcards) { const on = m.lvl !== "adv" || ui.level === "adv"; c.style.display = on ? "" : "none"; if (on) { k++; if (!c.classList.contains("done")) c.querySelector("em").textContent = k; } }
+      if (!o.revise) return; const P = panes.revise, see = x => x.lvl !== "adv" || ui.level === "adv", tagName = { std: "std", adv: "adv", beyond: "beyond" };
+      P.innerHTML = (o.levels ? `<p class="k-spec">${o.levels.specs[ui.level]}</p>` : "") + `<h3>Key ideas</h3>` + o.revise.ideas.filter(see).map(x => `<div class="k-idea"><span class="k-tag ${tagName[x.lvl]}">${x.tag}</span> ${val(x.text)}</div>`).join("") +
+        `<h3>Exam practice</h3>` + o.revise.questions.filter(see).map((x, i) => `<div class="k-mcard k-q"><h4><em>${i + 1}</em><span class="k-tag ${tagName[x.lvl]}">${x.lvl === "adv" ? "A level" : "GCSE"}</span><span class="k-marks">[${x.marks} mark${x.marks > 1 ? "s" : ""}]</span></h4><p>${val(x.q)}</p><details><summary>Mark scheme</summary>${val(x.ans)}</details></div>`).join("");
+      if (o.revise.questions.some(x => typeof x.q === "function")) btn(P, "↻ Use the numbers on screen now", renderLevel, "small");
+    }
+    if (o.levels) { const lg = $("div", "k-group k-level"); panes.controls.append(lg); const sg = seg(lg, { value: ui.level, options: [["std", o.levels.std], ["adv", o.levels.adv]], on: v => { ui.level = v; try { localStorage.setItem("k-level", v); } catch (e) { } hint.textContent = o.levels.specs[v]; renderLevel(); ui.onLevel && ui.onLevel(v); } }); const hint = $("small", "", o.levels.specs[ui.level]); hint.style.cssText = "display:block;color:var(--muted);font-size:11.5px;margin-top:-4px"; lg.append(hint); ui.setLevel = v => sg.set(v, true); }
+    try { renderLevel(); } catch (e) { setTimeout(renderLevel, 0); }   // questions may use values the simulation has not set up yet
+    ui.renderRevise = renderLevel;
+    /* ui.headerSpeed(control, { label }) moves a speed slider (or Slow/Fast buttons) made with K.slider / K.seg
+       from the Controls tab up into the header bar. It is the same control, so the simulation's own code
+       (ctl.speed.set(...), investigations, mode switches) keeps working. If the group it came from is hidden
+       (for example a mode that does not use it), the header copy is hidden too; a group left with only its
+       heading is hidden. A label like "Speed (minutes per second)" shows as "Speed" with the bracket after the value. */
+    const hsList = [];
+    ui.headerSpeed = (c, opt = {}) => {
+      const el = c.el, from = el.parentNode, name = el.querySelector("label > span"), tip = el.querySelector(":scope > small");
+      const full = name ? name.textContent : "", m = /^(.*?)\s*\((.+)\)$/.exec(full);
+      el.title = full + (tip ? " · " + tip.textContent : "");
+      if (name) name.textContent = opt.label || (m ? m[1] : full);
+      if (m && !opt.label) { const u = $("i", "k-hunit", m[2]); (el.querySelector("label") || el).append(u); }
+      el.classList.add("k-hctl"); hSpeed.append(el); hSpeed.style.display = ""; hsList.push({ el, from }); syncSpeed();
+      return c;
+    };
+    function syncSpeed() {
+      let any = false;
+      for (const { el, from } of hsList) {
+        if (from.classList.contains("k-group") && ![...from.children].some(x => x.tagName !== "H3")) from.classList.add("k-emptied");
+        let hide = false; for (let x = from; x && x !== panes.controls && x !== document.body; x = x.parentNode) if (x.style.display === "none" || x.hidden) { hide = true; break; }
+        el.classList.toggle("k-hoff", hide); if (!hide && el.style.display !== "none") any = true;
+      }
+      hSpeed.style.display = any ? "" : "none";
+    }
+    setInterval(() => hsList.length && syncSpeed(), 250);
+    // floating hint and heads-up text over the stage
+    let tipEl = null, tipT = 0;
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; } hudEl.style.display = html ? "" : "none"; };
+    // animation loop: step(dt) only while playing, draw() every frame
+    ui.run = (step, draw) => { let t0 = performance.now(); const f = t => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (ui.playing && !ov.classList.contains("on")) step(dt); draw(dt); requestAnimationFrame(f); }; requestAnimationFrame(f); };
+
+    // ---- Batch run window ----
+    const ov = $("div", "k-overlay"); document.body.append(ov);
+    let bstate = null;
+    function openBatch() {
+      ov.classList.add("on"); if (bstate) return;
+      const modal = $("div", "k-modal"), list = $("div", "k-blist", `<h2>📊 Batch run</h2><p>Runs the model many times without drawing it, then compares the results with theory. Pick a question:</p>`), mainB = $("div", "k-bmain");
+      modal.append(list, mainB); ov.append(modal); ov.addEventListener("pointerdown", e => { if (e.target === ov) ov.classList.remove("on"); });
+      mainB.innerHTML = `<div class="k-bhead"><h3></h3></div><div class="k-bbar"></div><div class="k-bchart"></div><div class="k-bfoot"><div class="k-btable"></div><div class="k-bnote"></div></div>`;
+      const head = mainB.querySelector("h3"), bar = mainB.querySelector(".k-bbar"), tbl = mainB.querySelector(".k-btable"), noteEl = mainB.querySelector(".k-bnote");
+      btn(mainB.querySelector(".k-bhead"), "✕ Close", () => ov.classList.remove("on"));
+      const ch = chart(mainB.querySelector(".k-bchart"), {});
+      const bRun = btn(bar, "▶ Run", () => runExp(), "primary"), prog = $("div", "k-prog", "<i></i>"), status = $("span", "", ""); status.style.cssText = "color:var(--muted);font-size:12.5px;min-width:110px";
+      const bCsv = btn(bar, "⬇ CSV", () => bstate.rows.length && download(o.title.replace(/\W+/g, "-").toLowerCase() + "-batch.csv", bstate.csv()));
+      bar.insertBefore(prog, bCsv); bar.insertBefore(status, bCsv);
+      btn(bar, "📄 Worksheet", () => ui.worksheet([{ kind: "b", item: bstate.exp }], true)).title = "A printable worksheet for this experiment";
+      bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
+      const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
+      function pick(e) { bstate.token++; bstate.exp = e; bRun.textContent = "▶ Run"; bRun.onclick = () => runExp(); bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
+      function paint() {
+        const e = bstate.exp, rows = bstate.rows, series = [], extra = { title: "", xLabel: e.xs ? e.xLabel : e.yLabel, yLabel: e.xs ? e.yLabel : "number of runs" };
+        if (e.xs) {
+          const groups = e.xs.map(x => rows.filter(r => r[0] === x).map(r => r[3])), done = e.xs.map((x, i) => [x, groups[i]]).filter(g => g[1].length);
+          if (e.theory) {
+            // the theory curve is drawn smoothly between the settings; a theory that only exists AT the settings (a table, a whole number of things) is drawn through those points instead
+            const th = x => { try { const y = e.theory(x); return y == null || !isFinite(y) ? null : +y; } catch (er) { return null; } };
+            const a = Math.min(...e.xs), b = Math.max(...e.xs); let tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, th(x)]); }
+            const atXs = [...e.xs].sort((u, v) => u - v).map(x => [x, th(x)]); if (tp.some(q => q[1] == null) && atXs.every(q => q[1] != null)) tp = atXs;
+            series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
+          series.push({ pts: rows.map(r => [r[0], r[3]]), type: "dots", color: cssVar("--s0"), alpha: .3, r: 2.5, label: "single runs" });
+          series.push({ pts: done.map(([x, g]) => [x, mean(g), se(g)]), type: "err", color: cssVar("--s0"), r: 4.5, label: "mean ± SE" });
+          let fitTxt = "";
+          if (e.fit && done.length > 2) { const f = linfit(done.map(([x, g]) => [x, mean(g)])), a = Math.min(...e.xs), b = Math.max(...e.xs); series.push({ pts: [[a, f.m * a + f.c], [b, f.m * b + f.c]], color: cssVar("--s2"), label: "best-fit line" }); fitTxt = `<tr><td colspan="6" style="text-align:left">Best-fit line: gradient <b>${sig(f.m)}</b>, intercept ${sig(f.c)}, r = ${f.r.toFixed(3)}</td></tr>`; }
+          extra.xMin = Math.min(...e.xs) - (Math.max(...e.xs) - Math.min(...e.xs)) * .05; extra.xMax = Math.max(...e.xs) + (Math.max(...e.xs) - Math.min(...e.xs)) * .05; if (e.yMin != null) extra.yMin = e.yMin; if (e.yMax != null) extra.yMax = e.yMax;
+          tbl.innerHTML = `<table><tr><th>${e.xLabel}</th><th>runs</th><th>mean</th><th>SD</th><th>SE</th>${e.theory ? "<th>theory</th>" : ""}</tr>` + done.map(([x, g]) => `<tr><td>${sig(x, 4)}</td><td>${g.length}</td><td>${sig(mean(g))}</td><td>${sig(sd(g))}</td><td>${sig(se(g))}</td>${e.theory ? `<td>${sig(e.theory(x))}</td>` : ""}</tr>`).join("") + fitTxt + "</table>";
+        } else {
+          const v = rows.map(r => r[3]);
+          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) { extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); series.push({ pts: [[+e.theory, 0]], type: "dots", r: 0.01, alpha: 0 }); } }   // an invisible point keeps the theory line on the chart even if every run misses it
+          tbl.innerHTML = v.length ? `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${e.theory != null ? "<th>theory</th>" : ""}</tr><tr><td>${v.length}</td><td>${sig(mean(v))}</td><td>${sig(sd(v))}</td><td>${sig(se(v))}</td><td>${sig(Math.min(...v))}</td><td>${sig(Math.max(...v))}</td>${e.theory != null ? `<td>${sig(+e.theory)}</td>` : ""}</tr></table>` : "";
+        }
+        ch.opts.xFmt = null; ch.draw(series, extra);
+      }
+      function runExp() {
+        const e = bstate.exp, token = ++bstate.token; bstate.rows = []; const tasks = [];
+        if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) tasks.push([x, r]); } else for (let r = 0; r < (e.reps || 200); r++) tasks.push([0, r]);
+        let i = 0; const seed0 = (Date.now() % 100000) * 7 + 1; bRun.textContent = "■ Stop"; bRun.onclick = () => { bstate.token++; fin(); };
+        const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
+        (function slice() {
+          if (token !== bstate.token) return; const t = performance.now();
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
+          if (i < tasks.length) setTimeout(slice, 0); else fin();
+        })();
+      }
+      pick(o.batch[0]);
+    }
+    ui.openBatch = openBatch;
+    K_last = ui;
+    return ui;
+  }
+  return { sound, $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app, worksheetDoc, batchSummary, get ui() { return K_last; } };
+})();
+</script>
+<script>
+/* =====================================================================
+   POPULATION AND FAMINE
+   Two linked models for historians.
+
+   a. MALTHUS'S WORLD. Thomas Malthus (Essay on the Principle of
+      Population, 1798) argued that population, left unchecked, grows
+      geometrically while food grows only slowly, so living standards are
+      pushed back to subsistence. In a farming economy with a fixed amount
+      of land, each extra worker adds less food than the last
+      (DIMINISHING RETURNS):
+            food per head  y = A × (N₀ ÷ N)^α × harvest
+      Births rise and deaths fall when food per head is high, so the
+      population grows until y is pushed back down to the level where
+      births = deaths (the "Malthusian equilibrium"). Better farming
+      (bigger A) gives MORE PEOPLE, not richer people: the Malthusian trap.
+      Malthus's two checks: POSITIVE checks raise deaths (famine, disease);
+      PREVENTIVE checks lower births (later marriage). A strong preventive
+      check holds people further above famine.
+      The Industrial Revolution let technology grow faster than population,
+      and fertility then fell (the demographic transition): the escape.
+
+   b. IRELAND 1781–1901. The potato fed a fast-growing rural population on
+      tiny plots. Blight (Phytophthora infestans) from 1845 destroyed most
+      of the crop for several years. About a million people died of
+      hunger and the diseases that follow it, and over a million emigrated
+      (1845–51). The model asks how much the death toll depended on the
+      blight itself and how much on choices: relief, food exports and
+      emigration. After the Famine the population kept falling for
+      decades (later marriage, consolidated farms, chain emigration).
+   Historical census figures (whole island, millions) are drawn for
+   comparison. The model is calibrated to them, so agreement before 1845
+   is built in: the interesting question is what changes when you change
+   the choices.
+   ===================================================================== */
+const clamp = K.clamp, ln = Math.log;
+// ---------------- a. Malthus's world (one step = one year) ----------------
+const ALPHA = 0.5, N0 = 4;    // α: how fast returns diminish; N₀: the population (millions) when A = 1 gives food per head 1
+const birthRate = (y, p, modern) => 0.035 - 0.012 * p + 0.010 * ln(y) - (modern ? 0.016 * Math.max(0, ln(y) - 0.35) : 0);   // p = preventive check, 0 to 1
+const deathRate = (y, famineAt = 0.7) => 0.030 - 0.020 * ln(y) + 0.25 * Math.max(0, famineAt - y);                         // positive check: famine below y = 0.7
+// the equilibrium food per head, where births = deaths (with no famine): solve 0.035 − 0.012p + 0.010 ln y = 0.030 − 0.020 ln y + n
+const yStar = (p, n = 0) => Math.exp((n + 0.030 - 0.035 + 0.012 * p) / 0.030);
+// with technology growing at g a year, food per head stays steady only if population grows at n = g ÷ α
+const ySteady = (g, p) => yStar(p, g / ALPHA);
+class Malthus {
+  constructor(o, r) {
+    this.o = Object.assign({ g: 0.001, p: 0.3, sigma: 0.1, modern: false, irYear: 1760, start: 1300 }, o); this.r = r;
+    this.year = this.o.start; this.A = 1; this.N = N0 * Math.pow(1 / yStar(this.o.p), 1 / ALPHA); this.y = yStar(this.o.p); this.h = 1;
+    this.famines = 0; this.log = []; this.plagueYears = [];
+  }
+  step() {
+    const o = this.o, ir = o.modern && this.year >= o.irYear;
+    this.A *= 1 + (ir ? 0.015 : o.g);                                    // technology (better crops, tools, rotation): 1.5% a year after the Industrial Revolution
+    this.h = Math.exp(o.sigma * this.r.gauss() - o.sigma * o.sigma / 2);  // the harvest: good and bad years at random (mean 1)
+    this.y = this.A * Math.pow(N0 / this.N, ALPHA) * this.h;
+    if (this.y < 0.7) this.famines++;
+    const b = birthRate(this.y, o.p, ir), d = deathRate(this.y);
+    this.N *= 1 + b - d; this.b = b; this.d = d; this.year++;
+    this.log.push([this.year, this.N, this.y]); if (this.log.length > 800) this.log.shift();
+  }
+  plague(k = 0.4) { this.N *= 1 - k; this.plagueYears.push(this.year); }  // the Black Death killed perhaps 40–50% of England in 1348–50
+}
+
+// ---------------- b. Ireland 1781–1901 ----------------
+// Effective potato yield each year as a fraction of normal (less was planted after 1846: seed potatoes were eaten)
+const BLIGHT = { 1845: 0.6, 1846: 0.12, 1847: 0.3, 1848: 0.45, 1849: 0.6, 1850: 0.8 };
+// Share of the food gap made up by relief and imports, as it happened: Peel's maize (1845–46), public works (1846–47, wages too low and too slow),
+// soup kitchens (summer 1847, up to 3 million fed a day), then the Poor Law Extension Act put the cost on local rates (1847 on)
+const RELIEF = { 1845: 0.6, 1846: 0.3, 1847: 0.55, 1848: 0.35, 1849: 0.4, 1850: 0.5, 1851: 0.6 };
+const CENSUS = [[1821, 6.80], [1831, 7.77], [1841, 8.18], [1851, 6.55], [1861, 5.80], [1871, 5.41], [1881, 5.17], [1891, 4.70], [1901, 4.46]];
+const IRL_DEF = { blight: 1, relief: 1, exports: true, emig: 1, post: true, noise: 0, reliefJitter: 0 };
+class Ireland {
+  constructor(o, r) { this.o = Object.assign({}, IRL_DEF, o); this.r = r; this.year = 1781; this.N = 4.05; this.P = 2.6; this.dead = 0; this.gone = 0; this.log = []; this.yearly = []; this.food = null; }
+  step() {
+    const o = this.o, yr = this.year, fam = yr >= 1845 && yr <= 1851, after = yr > 1851;
+    const G = 1.6, X = 0.8;   // food kept from grain, dairy and meat, and the food exported (both in millions of people fed for a year; rough)
+    // before 1845 the potato ground grows with the people (subdivision of plots, reclaimed bog and hillside): dependence on one crop rises
+    if (yr < 1845) this.P = Math.max(this.P, 1.04 * this.N - G); else if (after) this.P = Math.max(0, Math.min(this.P, 1.04 * this.N - G - 0.6));
+    let hp = 1; if (BLIGHT[yr] != null) hp = 1 - (1 - BLIGHT[yr]) * o.blight;
+    if (o.noise && this.r) hp = clamp(hp * Math.exp(o.noise * this.r.gauss()), 0, 1.3);
+    const potato = this.P * hp, kept = G + (after ? 0.6 : 0), stopped = !o.exports && fam ? X : 0;
+    let y = (potato + kept + stopped) / this.N, relief = 0;
+    if (fam && y < 1) { const share = clamp((RELIEF[yr] || 0) * o.relief * (1 + (o.reliefJitter && this.r ? o.reliefJitter * this.r.gauss() : 0)), 0, 1); relief = (1 - y) * share; y += relief; }
+    y = Math.min(y, 1.1);
+    // births: high and early marriage before the Famine (slowly falling as land ran out); later marriage afterwards
+    const b = after && o.post ? 0.028 : 0.0365 - 0.00004 * (yr - 1781);
+    // deaths: a normal level, plus hunger and the diseases that follow it (typhus, relapsing fever, dysentery) when food falls short
+    const d0 = after ? 0.0185 : 0.021, d = d0 + 0.2 * Math.pow(Math.max(0, 0.97 - y), 1.2);
+    // emigration: a steady flow after 1815, plus famine flight; after the Famine, chain emigration (letters and passage money from America)
+    let e = (yr < 1815 ? 0.0012 : 0.0045) * o.emig + 0.12 * o.emig * Math.max(0, 0.97 - y);
+    if (after && o.post) e = Math.max(e, (yr < 1880 ? 0.0185 : 0.016) * o.emig);
+    const deaths = (d - d0) * this.N, em = e * this.N;
+    if (fam) { this.dead += deaths; this.gone += em; }
+    this.food = { yr, potato, kept, stopped, exported: fam && o.exports ? X : 0, relief: relief * this.N, need: this.N, y };
+    this.yearly.push([yr, deaths * 1000, em * 1000]);
+    this.N += (b - d - e) * this.N; this.year++; this.log.push([this.year, this.N]);
+  }
+  run(to = 1901) { while (this.year < to) this.step(); return this; }
+}
+const famineToll = (o, r) => new Ireland(o, r).run(1852);   // excess deaths and emigrants 1845–51 (millions)
+
+// ---------------- The page ----------------
+const P = { view: "malthus", g: 0.001, p: 0.3, sigma: 0.1, modern: false, speed: 12, autoPlague: false, irl: Object.assign({}, IRL_DEF), irlSpeed: 4 };
+let rnd = K.rng(Date.now() % 99991 + 7), M, IR, acc = 0;
+const ui = K.app({
+  title: "Population and Famine", subject: "History",
+  blurb: "Malthus's trap, the Black Death, and the Great Irish Famine: what was nature and what was choice?",
+  reset: () => set({}),
+  levels: {
+    std: "Standard (GCSE)", adv: "Advanced (A level)", specs: {
+      std: "GCSE History: thematic studies of population, health and living standards; causation (short- and long-term causes) and consequence. The model shows Malthus's idea of positive and preventive checks and the Black Death.",
+      adv: "OCR A level History A (H505) Y316 Britain and Ireland 1791–1921: the Great Famine, government relief (Peel, Russell, the soup kitchens, the Poor Law), emigration and the land question. AO1 causation, consequence and significance; AO3 interpretations (the 'nationalist' and 'revisionist' views of British responsibility). Malthusian theory is context."
+    }
+  },
+  missions: [
+    { title: "The Malthusian trap", q: "Technology improves slowly (0.1% a year) for six centuries. Watch the population and food per head. Does better farming make people better off?", hint: "Population grows to match the extra food, so food per head stays near the equilibrium (about 0.95 on this scale). Six centuries of progress gave England more people, not richer people: the Malthusian trap.", setup() { set({ view: "malthus" }); } },
+    { title: "The Black Death", q: "Press 'Plague' to kill 40% of the people. What happens to food per head (and so wages) in the years after? How long do the gains last?", hint: "With fewer people on the same land, each worker produces more, so food per head and real wages jump (this happened after 1348: the Statute of Labourers tried to hold wages down). As the population recovers over about a century, wages fall back. Historians link the higher wages to the end of serfdom and the Peasants' Revolt (1381).", setup() { set({ view: "malthus" }); M.plague(); ui.tip("Plague! 40% of the people have died."); } },
+    { title: "Positive or preventive check?", q: "Set the preventive check to zero (everyone marries young), then to its maximum (late marriage, as in north-west Europe). Count the famine years. Which society lives better?", hint: "With no preventive check, births only balance deaths when people are close to starving, so bad harvests often cause famine (the positive check). Late marriage holds births down, so the equilibrium is well above famine level. Historians (Wrigley and Schofield) argue this 'European marriage pattern' kept England out of the worst famines after 1600.", setup() { set({ view: "malthus", p: 0 }); } },
+    { title: "Escape from the trap", q: "Turn on the Industrial Revolution (1760). Does population growth swallow the gains this time? What has to happen to the birth rate?", hint: "Technology now grows at 1.5% a year, faster than population can follow, so food per head rises. As people get richer, fertility falls (the demographic transition), so the gains are kept. Malthus wrote in 1798, just as this escape began.", setup() { set({ view: "malthus", modern: true, speed: 20 }); } },
+    { title: "Ireland: the population before 1845", q: "Run Ireland from 1781. How fast did the population grow, and what made that possible? Compare the model with the census dots.", hint: "From about 4 million to over 8 million in 60 years. The potato gave more food per acre than any grain, so plots could be split between sons and people married young. By 1841 about a third of the people depended almost entirely on the potato: a population exposed to the failure of one crop.", setup() { set({ view: "ireland" }); } },
+    { title: "Ireland: the blight", q: "The run starts in 1840. Watch 1845–51. Read the food bar each year: how much of the gap did relief fill? Note the deaths and emigration totals.", hint: "The worst years were 1846–47 ('Black '47'). In this model about 1.1 million die and 1.1 million emigrate, close to historians' estimates (about 1 million deaths; over 1 million emigrants). Most deaths were from disease spread by hunger and crowded workhouses, not starvation alone.", setup() { set({ view: "ireland", irlSpeed: 2 }); IR.run(1840); } },
+    { title: "Was it nature or choice?", lvl: "adv", q: "Change one choice at a time: relief generosity, stopping food exports, emigration. Which makes the biggest difference to the death toll? What does this suggest about the debate over British responsibility?", hint: "Halving the blight cuts deaths sharply, but so does doubling relief or keeping exported food at home. The blight was the trigger; how many died depended a great deal on policy. The 'revisionist' view stresses the scale of the natural disaster and the limits of 1840s government; 'nationalist' and post-revisionist historians (e.g. Kinealy) stress choices: laissez-faire, the end of the soup kitchens in 1847, the Gregory clause. A model cannot settle the moral question, but it shows the size of the choices.", setup() { set({ view: "ireland", irlSpeed: 6 }); } },
+    { title: "Why did the population keep falling?", lvl: "adv", q: "Turn off 'post-Famine changes' and run to 1901. What would have happened without later marriage, consolidated farms and chain emigration?", hint: "The model recovers towards 7–8 million. The real census fell to 4.5 million by 1901: the long-term consequences (emigration as a way of life, the stem family) mattered more for the population than the Famine deaths themselves. A good example of distinguishing short- and long-term consequences.", setup() { set({ view: "ireland", irl: { post: false }, irlSpeed: 10 }); } }
+  ],
+  batch: [
+    { title: "Does better technology make people richer?", question: "Pre-industrial economy: how does food per head after 500 years depend on how fast farming improves?", how: "Technology growth swept from 0 to 0.5% a year; random harvests (SD 10%), preventive check 0.3. Food per head averaged over years 400–500. Theory: the steady state where population grows at g ÷ α.", xLabel: "technology growth (% a year)", yLabel: "food per head (index)", xs: [0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5], reps: 5, theory: x => ySteady(x / 100, 0.3), theoryLabel: "steady state", run: (x, r) => { const m = new Malthus({ g: x / 100, p: 0.3, sigma: 0.1 }, r); let s = 0; for (let i = 0; i < 500; i++) { m.step(); if (i >= 400) s += m.y; } return s / 100; }, note: "Faster technology only slightly raises food per head, because population growth absorbs most of it: at 0.1% a year (typical before 1700) people are barely better off. Points sit a little below the line because famine years kill extra people." },
+    { title: "After the Black Death", question: "How many years does the population take to recover after 40% die?", how: "Malthus's world settled for 200 years, then plague kills 40%. Measure the years until the population is back to 95% of its old level. Random harvests (SD 10%). Theory: the same run with average harvests every year.", reps: 200, bins: 20, yLabel: "years to recover", theory: (() => { const m = new Malthus({ sigma: 0 }, K.rng(1)); for (let i = 0; i < 200; i++) m.step(); const n0 = m.N; m.plague(); let t = 0; while (m.N < 0.95 * n0 && t < 1000) { m.step(); t++; } return t; })(), theoryLabel: "average harvests", run: (x, r) => { const m = new Malthus({ sigma: 0.1 }, r); for (let i = 0; i < 200; i++) m.step(); const n0 = m.N; m.plague(); let t = 0; while (m.N < 0.95 * n0 && t < 1000) { m.step(); t++; } return t; }, note: "Recovery takes about 70 years in the model, with wide variation from the luck of the harvests. England's population did not regain its 1300 level until the 1500s or later: repeated plague outbreaks kept it down, which this single-plague model leaves out." },
+    { title: "Late marriage and famine", question: "How often is there famine, depending on the preventive check?", how: "Preventive check from 0 (universal early marriage) to 1 (late marriage, many never marry). 1,000 years with random harvests (SD 10%); count famine years (food per head below 0.7) per century.", xLabel: "preventive check", yLabel: "famine years per century", xs: [0, 0.2, 0.4, 0.6, 0.8, 1], reps: 5, yMin: 0, run: (x, r) => { const m = new Malthus({ g: 0, p: x, sigma: 0.1 }, r); for (let i = 0; i < 1000; i++) m.step(); return m.famines / 10; }, note: "Without a preventive check, the population lives close to the famine line and bad harvests often push it over. A stronger preventive check lifts the equilibrium, so famines become rare: Malthus's own hope (he called it 'moral restraint')." },
+    { title: "Relief and the death toll", lvl: "adv", question: "How do excess deaths in 1845–51 depend on the generosity of relief?", how: "Ireland model; relief from none to twice the historical share of the food gap (capped at the whole gap); random potato yields (SD 10%) around the blight figures. Theory: the same run with exactly the blight figures.", xLabel: "relief (× historical)", yLabel: "excess deaths 1845–51 (thousands)", xs: [0, 0.5, 1, 1.5, 2], reps: 6, yMin: 0, theory: x => 1000 * famineToll({ relief: x }).dead, theoryLabel: "no random variation", run: (x, r) => 1000 * famineToll({ relief: x, noise: 0.1 }, r).dead, note: "Relief matters a great deal in the model: doubling it more than halves the deaths. In reality, relief was limited by money, administration, transport and ideology (laissez-faire and providentialism), which is exactly where historians disagree." },
+    { title: "How certain is 'about a million'?", lvl: "adv", question: "If we are unsure of the blight's severity and the relief given, how wide is the range of excess deaths?", how: "Each run: blight severity and relief each vary at random by about 10–15%; random potato yields. Compare with the usual historians' estimate of about 1 million (range roughly 0.8–1.1 million).", reps: 200, bins: 22, yLabel: "excess deaths 1845–51 (thousands)", theory: 1000, theoryLabel: "historians' estimate", run: (x, r) => 1000 * famineToll({ blight: clamp(1 + 0.1 * r.gauss(), 0.6, 1.3), reliefJitter: 0.15, noise: 0.08 }, r).dead, note: "Small uncertainties in the inputs give a wide range of outputs. Historians face the same problem: there was no death registration in Ireland until 1864, so excess deaths are estimated from the 1841 and 1851 censuses and assumptions about births and emigration." },
+    { title: "Exports or no exports?", lvl: "adv", question: "How much would keeping exported food in Ireland have reduced deaths?", how: "0 = food exports continue (as happened), 1 = exports stopped in 1845–51. Random potato yields (SD 10%).", xLabel: "exports stopped (0 = no, 1 = yes)", yLabel: "excess deaths 1845–51 (thousands)", xs: [0, 1], reps: 30, yMin: 0, run: (x, r) => 1000 * famineToll({ exports: !x, noise: 0.1 }, r).dead, note: "In the model stopping exports saves about a quarter of the lives. But the size of the effect rests on a rough guess at how much food was exported; historians (e.g. Ó Gráda, Kinealy) argue about this figure, and the exported food was owned by farmers who needed the money for rent." }
+  ],
+  revise: {
+    ideas: [
+      { lvl: "std", tag: "Causation", text: "Long-term causes make an event possible (Ireland's dependence on the potato, subdivided plots, population growth); the trigger sets it off (blight, 1845); short-term causes and choices shape how bad it is (relief, exports, evictions)." },
+      { lvl: "std", tag: "Malthus", text: "Malthus (1798): population grows faster than food unless checked. Positive checks raise the death rate (famine, disease, war); preventive checks lower the birth rate (later marriage)." },
+      { lvl: "std", tag: "Consequence", text: "The Black Death (1348–50) killed perhaps 40–50% of England's people. Labour became scarce, so wages rose despite the Statute of Labourers (1351): one cause of the decline of serfdom and of the Peasants' Revolt (1381)." },
+      { lvl: "std", tag: "Using models", text: "A model shows what follows from its assumptions. It can test 'what if' questions (counterfactuals), but its answer is only as good as its figures, many of which are estimates." },
+      { lvl: "adv", tag: "Y316", text: "Peel bought £100,000 of American maize (1845) and set up public works; Russell's Whig government (1846) relied on public works and the market, then soup kitchens (Temporary Relief Act 1847, up to 3 million meals a day), then the Poor Law Extension Act (1847) put the cost on Irish rates. The Gregory clause denied relief to anyone holding more than a quarter acre." },
+      { lvl: "adv", tag: "Y316", text: "Consequences: about 1 million excess deaths and over 1 million emigrants (1845–51); the population fell from 8.2 million (1841) to 6.6 million (1851) and 4.5 million (1901). Smallholdings were cleared, the Irish language declined, and resentment fed Young Ireland (1848), the Fenians and the land war." },
+      { lvl: "adv", tag: "AO3 interpretations", text: "Nationalist interpretation (e.g. John Mitchel): Britain let Ireland starve. Revisionist (1950s–80s): a natural disaster beyond the capacity of the age. Post-revisionist (Kinealy, Ó Gráda, from the 1990s): ideology (laissez-faire, providentialism, Trevelyan) and policy choices made it far worse." },
+      { lvl: "beyond", tag: "Beyond the spec", text: "In the model, food per head y = A(N₀/N)^α × harvest. Births = deaths sets the equilibrium; technology growth g gives population growth g ÷ α in the long run, with food per head barely changing." }
+    ],
+    questions: [
+      { lvl: "std", marks: 4, q: "Explain one long-term cause and one short-term cause of the Great Irish Famine.", ans: "<ul><li>long-term: dependence on the potato (about a third of people lived almost entirely on it), made possible by subdivision and high population growth</li><li>explained: the failure of one crop left millions with no other food</li><li>short-term: potato blight destroyed most of the crop in 1846</li><li>explained: there was no reserve, and relief was too small or too slow (public works paid too little)</li></ul>" },
+      { lvl: "std", marks: 3, q: "Explain why wages rose in England after the Black Death.", ans: "<ul><li>about 40% or more of the population died</li><li>so labour became scarce while land was unchanged</li><li>workers could demand higher pay and move to other employers (despite the Statute of Labourers)</li></ul>" },
+      { lvl: "std", marks: 3, q: () => `In the simulation, food per head is ${M ? M.y.toFixed(2) : "–"} and the population is ${M ? M.N.toFixed(1) : "–"} million. Use Malthus's ideas to predict what will happen to the population, and explain why.`, ans: "<ul><li>if food per head is above the equilibrium, births exceed deaths so the population grows (or falls if below)</li><li>more people on the same land means diminishing returns: food per head falls</li><li>until births = deaths again (the Malthusian equilibrium)</li></ul>" },
+      { lvl: "adv", marks: 12, q: "'The Great Famine was caused more by British government policy than by the potato blight.' How far do you agree? (Use the model's results as one piece of evidence.)", ans: "<ul><li>case for blight: unprecedented, repeated failures 1845–49; Phytophthora not understood; no state of the 1840s had managed relief on this scale</li><li>case for policy: Peel's maize and the soup kitchens worked while they lasted; public works paid too little; soup kitchens closed in 1847; Poor Law put cost on bankrupt local rates; Gregory clause; exports continued; Trevelyan's providentialism</li><li>model: relief and exports change the death toll greatly, so policy mattered to the scale, though the blight was the trigger</li><li>limits of the model: export and relief figures are rough estimates; deaths mostly from disease</li><li>reach a supported judgement (e.g. blight necessary, policy decisive for the scale)</li></ul>" },
+      { lvl: "adv", marks: 4, q: "Explain why historians' estimates of famine deaths vary.", ans: "<ul><li>no civil registration of deaths in Ireland until 1864</li><li>estimates come from the 1841 and 1851 censuses (themselves imperfect)</li><li>need assumptions about the births that would have happened and about emigration</li><li>so the range is roughly 0.8 to 1.1 million or more</li></ul>" }
+    ]
+  },
+  notes: `<h3>What is being modelled</h3>
+<p><b>Malthus's world.</b> One farming economy, a year at a time. Food per head y = A × (N₀ ÷ N)<sup>0.5</sup> × harvest, where A is technology and N the population. Harvests vary at random. Birth rate = 0.035 − 0.012 × (preventive check) + 0.010 ln y; death rate = 0.030 − 0.020 ln y, plus extra famine deaths whenever y falls below 0.7. After the Industrial Revolution (if on), technology grows at 1.5% a year and richer people have fewer children.</p>
+<p><b>Ireland 1781–1901.</b> Food each year (in millions of people fed) = potatoes + other food kept + (exports, if stopped) + relief. Before 1845 potato ground grows with the people. Blight yields are set for 1845–50; relief makes up the historical share of the shortfall each year (Peel's maize, public works, soup kitchens, Poor Law). Deaths and emigration rise when food per head falls below 0.97. After 1851, if 'post-Famine changes' are on, births fall and emigration stays high.</p>
+<h3>Assumptions and simplifications</h3>
+<ul><li>Everyone is alike: no classes, regions or landlords. In reality the west (Connacht, Munster) suffered far more than Ulster and Leinster.</li>
+<li>Food is shared equally. Real famines are about who can <i>buy</i> food (Amartya Sen's 'entitlements'), not only how much exists.</li>
+<li>Deaths depend only on food. In reality typhus, relapsing fever and dysentery killed most victims, spread by vagrancy and crowded workhouses; evictions (perhaps 250,000 people) are not modelled separately.</li>
+<li>The relief shares, food kept and food exported are rough estimates chosen so the totals match historians' figures (about 1 million deaths, over 1 million emigrants). Change them and you change the answer: that is the point.</li>
+<li>The pre-Famine population is fitted to the census, so agreement with the dots up to 1841 is not evidence that the model is right.</li>
+<li>Malthus's world is not one real country: the numbers are chosen to show the mechanism, loosely like medieval England.</li>
+<li>A model cannot judge intentions or morality: it only shows how much outcomes depended on each factor.</li></ul>
+<h3>Historical figures used</h3>
+<p>Census populations of Ireland (millions): 1821 6.80, 1831 7.77, 1841 8.18, 1851 6.55, 1861 5.80, 1871 5.41, 1881 5.17, 1891 4.70, 1901 4.46.</p>`
+});
+
+// ---------------- Controls ----------------
+const ctl = {}, groups = {};
+let g = ui.group("What to show");
+ctl.view = K.seg(g, { value: "malthus", options: [["malthus", "🌾 Malthus's world"], ["ireland", "🥔 Ireland 1781–1901"]], on: v => { P.view = v; showGroups(); } });
+g = groups.malthus = ui.group("Malthus's world");
+ctl.g = K.slider(g, { label: "Technology improves by", min: 0, max: 0.5, step: 0.01, value: 0.1, fmt: v => v.toFixed(2) + "% a year", tip: "Before 1700, about 0.05–0.1% a year", on: v => { P.g = v / 100; M.o.g = P.g; } });
+ctl.p = K.slider(g, { label: "Preventive check (late marriage)", min: 0, max: 1, step: 0.05, value: P.p, fmt: v => v === 0 ? "none" : v.toFixed(2), on: v => { P.p = v; M.o.p = v; } });
+ctl.sigma = K.slider(g, { label: "Harvest variability", min: 0, max: 0.3, step: 0.01, value: P.sigma, fmt: v => Math.round(v * 100) + "%", on: v => { P.sigma = v; M.o.sigma = v; } });
+ctl.modern = K.toggle(g, { label: "Industrial Revolution from 1760", value: false, on: v => { P.modern = v; M.o.modern = v; } });
+ctl.auto = K.toggle(g, { label: "Black Death in 1348", value: false, on: v => P.autoPlague = v });
+K.btn(K.row(g), "☠ Plague: 40% die", () => { M.plague(); ui.tip("Plague! 40% of the people have died."); });
+ctl.speed = K.slider(g, { label: "Speed", min: 2, max: 40, step: 1, value: P.speed, fmt: v => v + " years a second", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
+g = groups.ireland = ui.group("Ireland: the choices");
+ctl.blight = K.slider(g, { label: "Blight severity", min: 0, max: 1.2, step: 0.05, value: 1, fmt: v => v === 1 ? "as it happened" : Math.round(v * 100) + "% of the real loss", on: v => { P.irl.blight = v; restartIrl(); } });
+ctl.relief = K.slider(g, { label: "Relief and imports", min: 0, max: 2, step: 0.05, value: 1, fmt: v => v === 1 ? "as it happened" : v === 0 ? "none" : v.toFixed(2) + " × historical", on: v => { P.irl.relief = v; restartIrl(); } });
+ctl.exports = K.toggle(g, { label: "Food exports continue (as happened)", value: true, on: v => { P.irl.exports = v; restartIrl(); } });
+ctl.emig = K.slider(g, { label: "Emigration", min: 0.2, max: 2, step: 0.05, value: 1, fmt: v => v === 1 ? "as it happened" : v.toFixed(2) + " × historical", on: v => { P.irl.emig = v; restartIrl(); } });
+ctl.post = K.toggle(g, { label: "Post-Famine changes (later marriage, chain emigration)", value: true, on: v => { P.irl.post = v; restartIrl(); } });
+ctl.irlSpeed = K.slider(g, { label: "Speed", min: 1, max: 15, step: 1, value: P.irlSpeed, fmt: v => v + " years a second", tip: "Slows to a year every 2 seconds during 1845–51 at the lowest speeds", on: v => P.irlSpeed = v });
+ui.headerSpeed(ctl.irlSpeed);   // playback speed lives in the header, beside Pause and Reset
+K.btn(K.row(g), "↺ Start again from 1781", () => restartIrl(), "primary");
+g = ui.group("Readings");
+const read = K.readout(g, [["yr", "year"], ["pop", "population"], ["y", "food per head"], ["bd", "births / deaths (per 1,000)"], ["a", "–"], ["b", "–"]]);
+function showGroups() { groups.malthus.style.display = P.view === "malthus" ? "" : "none"; groups.ireland.style.display = P.view === "ireland" ? "" : "none"; chA.opts.title = P.view === "malthus" ? "Population (millions)" : "Population of Ireland (millions): model and census"; chB.opts.title = P.view === "malthus" ? "Food per head (real wages)" : "Each year: excess deaths and emigrants (thousands)"; }
+function restartMalthus() { M = new Malthus({ g: P.g, p: P.p, sigma: P.sigma, modern: P.modern }, rnd); }
+function restartIrl() { IR = new Ireland(P.irl, rnd); acc = 0; }
+function set(o) {
+  Object.assign(P, { view: "malthus", g: 0.001, p: 0.3, sigma: 0.1, modern: false, speed: 12, autoPlague: false, irlSpeed: 4 }, o); P.irl = Object.assign({}, IRL_DEF, o.irl || {});
+  ctl.view.set(P.view); ctl.g.set(P.g * 100); ctl.p.set(P.p); ctl.sigma.set(P.sigma); ctl.modern.set(P.modern); ctl.auto.set(P.autoPlague); ctl.speed.set(P.speed);
+  ctl.blight.set(P.irl.blight); ctl.relief.set(P.irl.relief); ctl.exports.set(P.irl.exports); ctl.emig.set(P.irl.emig); ctl.post.set(P.irl.post); ctl.irlSpeed.set(P.irlSpeed);
+  restartMalthus(); restartIrl(); showGroups();
+}
+
+// ---------------- Drawing ----------------
+const cv = ui.canvas(() => { });
+const chA = K.chart(ui.dock, { title: "Population (millions)", xLabel: "year", yMin: 0 });
+const chB = K.chart(ui.dock, { title: "Food per head", xLabel: "year", yMin: 0 });
+const FONT = "Segoe UI,system-ui,sans-serif", people = m => (Math.round(m * 1000) * 1000).toLocaleString("en-GB");   // millions → "1,150,000"
+function drawMalthus(c, w, h) {
+  // left: the Malthus diagram (birth and death rates against food per head); right: the village
+  const L = 70, T = 50, W = Math.min(w * 0.55, w - 360), H = h - 110, x0 = 0.5, x1 = 2.2, yr0 = 0, yr1 = 0.06;
+  const X = v => L + (v - x0) / (x1 - x0) * W, Y = v => T + H - (v - yr0) / (yr1 - yr0) * H, ir = M.o.modern && M.year >= M.o.irYear;
+  c.strokeStyle = "#3a4560"; c.lineWidth = 1; c.strokeRect(L, T, W, H);
+  c.fillStyle = "#aab6cc"; c.font = "12px " + FONT; c.textAlign = "center";
+  for (let v = 0.5; v <= 2.2; v += 0.25) { c.fillText(v.toFixed(2), X(v), T + H + 16); }
+  c.fillText("food per head (real wage)", L + W / 2, T + H + 34); c.textAlign = "right";
+  for (let v = 0; v <= 0.06; v += 0.01) c.fillText(Math.round(v * 1000), L - 6, Y(v) + 4);
+  c.save(); c.translate(L - 40, T + H / 2); c.rotate(-Math.PI / 2); c.textAlign = "center"; c.fillText("per 1,000 people a year", 0, 0); c.restore();
+  c.fillStyle = "rgba(255,93,108,0.12)"; c.fillRect(X(x0), T, X(0.7) - X(x0), H); c.fillStyle = "#ff8a95"; c.textAlign = "left"; c.fillText("famine", X(0.52), T + 16);
+  const curve = (f, col, lab) => { c.strokeStyle = col; c.lineWidth = 2.5; c.beginPath(); for (let i = 0; i <= 120; i++) { const v = x0 + (x1 - x0) * i / 120, yy = clamp(f(v), 0, yr1); i ? c.lineTo(X(v), Y(yy)) : c.moveTo(X(v), Y(yy)); } c.stroke(); c.fillStyle = col; c.fillText(lab, X(1.9), Y(clamp(f(1.9), 0, yr1)) - 8); };
+  curve(v => birthRate(v, M.o.p, ir), "#7fe3a0", "births"); curve(v => deathRate(v), "#ff8a95", "deaths");
+  const ys = yStar(M.o.p); c.setLineDash([4, 4]); c.strokeStyle = "#ffd166"; c.beginPath(); c.moveTo(X(ys), T); c.lineTo(X(ys), T + H); c.stroke(); c.setLineDash([]);
+  c.fillStyle = "#ffd166"; c.fillText("equilibrium y* = " + ys.toFixed(2), X(ys) + 5, T + 30);
+  // the society now: births above deaths → growing (arrow right-to-left: more people, less food each)
+  const yy = clamp(M.y, x0, x1); c.fillStyle = "#fff"; c.beginPath(); c.arc(X(yy), Y(clamp(M.b, 0, yr1)), 6, 0, 6.3); c.fill(); c.beginPath(); c.arc(X(yy), Y(clamp(M.d, 0, yr1)), 6, 0, 6.3); c.fill();
+  c.strokeStyle = "#fff"; c.setLineDash([2, 3]); c.beginPath(); c.moveTo(X(yy), Y(clamp(M.b, 0, yr1))); c.lineTo(X(yy), Y(clamp(M.d, 0, yr1))); c.stroke(); c.setLineDash([]);
+  c.font = "600 14px " + FONT; c.fillStyle = "#eef2f8"; c.textAlign = "left"; c.fillText("Malthus's diagram", L, T - 18);
+  c.font = "12px " + FONT; c.fillStyle = "#aab6cc"; c.fillText(M.b > M.d ? "births > deaths: population grows, food per head falls ←" : "deaths > births: population falls, food per head rises →", L + 150, T - 18);
+  // the village: fixed land (fields), people (one dot = 50,000), a grain heap per person
+  const vx = L + W + 50, vw = w - vx - 30; if (vw < 150) return;
+  c.font = "600 14px " + FONT; c.fillStyle = "#eef2f8"; c.fillText(`${M.year}: the same land, ${M.N.toFixed(1)} million people`, vx, T - 18);
+  const rows = 8, cols = 8, fw = vw / cols, fh = (H * 0.45) / rows;
+  for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) { c.fillStyle = `hsl(${45 + 50 * clamp(M.h - 0.7, 0, 0.6)}, 55%, ${22 + 18 * clamp(M.h, 0, 1.4) / 1.4}%)`; c.fillRect(vx + j * fw + 1, T + i * fh + 1, fw - 2, fh - 2); }
+  c.fillStyle = "#aab6cc"; c.font = "12px " + FONT; c.fillText(`harvest ${Math.round(M.h * 100)}% of normal`, vx, T + rows * fh + 16);
+  const n = Math.round(M.N / 0.05), pr = Math.max(2, Math.min(5, Math.sqrt(vw * H * 0.4 / Math.max(1, n)) / 2.6)), per = Math.max(1, Math.floor(vw / (pr * 2.6)));
+  for (let i = 0; i < Math.min(n, 900); i++) { const px = vx + (i % per) * pr * 2.6 + pr, py = T + rows * fh + 34 + Math.floor(i / per) * pr * 2.6; if (py > T + H + 30) break; c.fillStyle = M.y < 0.7 ? "#ff8a95" : M.y > 1.2 ? "#7fe3a0" : "#dfe6f3"; c.beginPath(); c.arc(px, py, pr, 0, 6.3); c.fill(); }
+}
+function drawIreland(c, w, h) {
+  const f = IR.food, yr = IR.year; c.font = "600 15px " + FONT; c.fillStyle = "#eef2f8"; c.textAlign = "left";
+  c.fillText(`Ireland, ${f ? f.yr : yr}`, 30, 34); c.font = "12px " + FONT; c.fillStyle = "#aab6cc";
+  c.fillText(yr < 1845 ? "Before the Famine: the potato feeds a growing population" : yr <= 1851 ? "The Great Famine (An Gorta Mór)" : "After the Famine", 30, 54);
+  // food bar for the year just simulated: what fed the people, against what they needed
+  if (f) {
+    const bx = 30, by = 90, bw = Math.min(w - 380, 620), unit = bw / Math.max(f.need * 1.15, f.potato + f.kept + f.stopped + f.relief + f.exported);
+    c.fillStyle = "#eef2f8"; c.font = "600 13px " + FONT; c.fillText(`Food in ${f.yr} (millions of people fed for a year)`, bx, by - 10);
+    let x = bx; const seg = (v, col, lab) => { if (v <= 0.005) return; c.fillStyle = col; c.fillRect(x, by, v * unit, 34); if (v * unit > 60) { c.fillStyle = "#0b1020"; c.font = "12px " + FONT; c.fillText(lab, x + 5, by + 21); } x += v * unit; };
+    seg(f.potato, "#c9a96a", "potatoes " + f.potato.toFixed(1)); seg(f.kept, "#7fb3e3", "other food " + f.kept.toFixed(1)); seg(f.stopped, "#9be15d", "exports kept"); seg(f.relief, "#c58cff", "relief " + f.relief.toFixed(1));
+    if (f.exported) { c.globalAlpha = 0.5; c.fillStyle = "#ff8a95"; c.fillRect(x + 4, by + 6, f.exported * unit, 22); c.globalAlpha = 1; c.fillStyle = "#ff8a95"; c.font = "12px " + FONT; c.fillText("exported →", x + 8, by + 21); }
+    c.strokeStyle = "#ffd166"; c.lineWidth = 2; c.setLineDash([5, 3]); c.beginPath(); c.moveTo(bx + f.need * unit, by - 4); c.lineTo(bx + f.need * unit, by + 40); c.stroke(); c.setLineDash([]);
+    c.fillStyle = "#ffd166"; c.fillText("needed " + f.need.toFixed(1), bx + f.need * unit - 30, by + 54);
+    c.fillStyle = f.y < 0.9 ? "#ff8a95" : "#aab6cc"; c.fillText(`food per head ${f.y.toFixed(2)}${f.y < 0.9 ? ": hunger and disease" : ""}`, bx, by + 54);
+  }
+  // people: one figure = 100,000. Alive, died in the Famine (excess), emigrated in the Famine
+  const gx = 30, gy = 190, cell = Math.max(10, Math.min(24, (w - 360) / 22)), per = Math.floor((w - 360) / cell);
+  const fig = (x, y, col) => { c.fillStyle = col; c.beginPath(); c.arc(x, y - 4, cell * 0.2, 0, 6.3); c.fill(); c.fillRect(x - cell * 0.18, y - 1, cell * 0.36, cell * 0.38); };
+  const alive = Math.round(IR.N * 10), died = Math.round(IR.dead * 10), gone = Math.round(IR.gone * 10);
+  c.fillStyle = "#eef2f8"; c.font = "600 13px " + FONT; c.fillText("Each figure = 100,000 people", gx, gy - 12);
+  let k = 0; const place = (n, col) => { for (let i = 0; i < n; i++, k++) fig(gx + (k % per) * cell + cell / 2, gy + Math.floor(k / per) * cell * 1.4 + cell, col); };
+  place(alive, "#dfe6f3"); k = Math.ceil(k / per) * per + per; place(died, "#ff5d6c"); place(gone, "#5ab0ff");
+  // tally box
+  const tx = w - 300, ty = 190; c.fillStyle = "rgba(20,27,46,0.9)"; c.fillRect(tx, ty - 20, 270, 140); c.strokeStyle = "#3a4560"; c.strokeRect(tx, ty - 20, 270, 140);
+  c.font = "13px " + FONT; const line = (t, v, col, i) => { c.fillStyle = col; c.fillText(t, tx + 12, ty + 6 + i * 24); c.textAlign = "right"; c.fillText(v, tx + 258, ty + 6 + i * 24); c.textAlign = "left"; };
+  line("population now", IR.N.toFixed(2) + " million", "#dfe6f3", 0); line("excess deaths 1845–51", people(IR.dead), "#ff8a95", 1); line("emigrated 1845–51", people(IR.gone), "#5ab0ff", 2);
+  c.fillStyle = "#aab6cc"; c.font = "12px " + FONT; c.fillText("Historians: about 1 million died and", tx + 12, ty + 82); c.fillText("over 1 million emigrated (1845–51)", tx + 12, ty + 98);
+}
+
+// ---------------- The loop ----------------
+let frame = 0;
+ui.run(dt => {
+  if (P.view === "malthus") {
+    acc += dt * P.speed; while (acc >= 1) { acc -= 1; if (P.autoPlague && M.year === 1348) { M.plague(); ui.tip("1348: the Black Death arrives. About 40% die."); } M.step(); if (M.year > 2000) { restartMalthus(); } }
+  } else if (IR.year < 1901) {
+    const sp = IR.year >= 1845 && IR.year <= 1851 ? Math.min(P.irlSpeed, Math.max(0.5, P.irlSpeed / 3)) : P.irlSpeed;
+    acc += dt * sp; while (acc >= 1 && IR.year < 1901) { acc -= 1; IR.step(); }
+  }
+}, () => {
+  const c = cv.ctx, w = cv.w, h = cv.h; c.fillStyle = "#0b1020"; c.fillRect(0, 0, w, h);
+  if (P.view === "malthus") drawMalthus(c, w, h); else drawIreland(c, w, h);
+  if (frame++ % 4) return;
+  if (P.view === "malthus") {
+    chA.draw([{ pts: M.log.map(q => [q[0], q[1]]), color: "#5ab0ff", label: "population" }], { yMin: 0, vlines: M.plagueYears.filter(y => y >= (M.log[0] || [0])[0]).map(y => ({ x: y, color: "#ff5d6c", label: "plague" })) });
+    chB.draw([{ pts: M.log.map(q => [q[0], q[2]]), color: "#ffd166", label: "food per head" }], { yMin: 0, hlines: [{ y: 0.7, color: "#ff5d6c", label: "famine line" }, { y: yStar(M.o.p), color: "#7fe3a0", label: "equilibrium" }] });
+    read.set("yr", M.year); read.set("pop", M.N.toFixed(2) + " million"); read.set("y", M.y.toFixed(2)); read.set("bd", `${(M.b * 1000).toFixed(1)} / ${(M.d * 1000).toFixed(1)}`);
+    read.set("a", "famine years so far: " + M.famines); read.set("b", "technology A = " + M.A.toFixed(2));
+    ui.hud("");
+  } else {
+    chA.draw([{ pts: [[1781, 4.05]].concat(IR.log), color: "#5ab0ff", label: "model" }, { pts: CENSUS, type: "dots", color: "#ffd166", r: 4, label: "census" }], { xMin: 1780, xMax: 1902, yMin: 0, yMax: 9.5, bands: [{ x0: 1845, x1: 1852, color: "rgba(255,93,108,0.15)" }] });
+    const yl = IR.yearly.filter(q => q[0] >= 1835);
+    chB.draw([{ pts: yl.map(q => [q[0], q[1]]), type: "bars", w: 0.42, color: "#ff5d6c", label: "excess deaths" }, { pts: yl.map(q => [q[0] + 0.45, q[2]]), type: "bars", w: 0.42, color: "#5ab0ff", label: "emigrants" }], { xMin: 1834, xMax: 1902, yMin: 0 });
+    const f = IR.food; read.set("yr", Math.min(IR.year, 1901)); read.set("pop", IR.N.toFixed(2) + " million"); read.set("y", f ? f.y.toFixed(2) : "–"); read.set("bd", "–");
+    read.set("a", "excess deaths: " + people(IR.dead)); read.set("b", "emigrants: " + people(IR.gone));
+    ui.hud(IR.year >= 1901 ? "<b>1901</b>: the run is over. Change a choice to run it again." : "");
+  }
+});
+set({});
+ui.tip("Malthus's world: watch the dots on the diagram. Switch to Ireland at the top of the controls.", 7000);
+</script>
+</body></html>

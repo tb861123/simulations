@@ -113,6 +113,7 @@ ctl.ink = K.toggle(g, { label: "Mistake: felt-tip baseline", value: false, on: v
 ctl.deep = K.toggle(g, { label: "Mistake: solvent above the baseline", value: false, on: v => { P.deep = v; restart(); } });
 let rr = K.row(g); K.btn(rr, "⏹ Take the paper out", () => run = false, "primary"); K.btn(rr, "↺ New paper", () => restart()); K.btn(rr, "💨 Spray locating agent", () => P.sprayed = true);
 ctl.speed = K.slider(g, { label: "Speed", min: 1, max: 20, step: 1, value: 4, fmt: v => v + " minutes per second", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 ctl.err = K.slider(g, { label: "Your ruler error (SD)", min: 0, max: 0.3, step: 0.01, value: 0.05, fmt: v => (v * 10).toFixed(1) + " mm", on: v => P.err = v });
 g = ui.group("TLC and GC (A level)");
 ctl.polar = K.slider(g, { label: "TLC eluent polarity", min: 0, max: 1, step: 0.05, value: 0.4, fmt: v => v < 0.2 ? "hexane-rich" : v > 0.8 ? "ethyl ethanoate-rich" : v.toFixed(2), on: v => P.polar = v });

@@ -219,6 +219,7 @@ ctl.evac = K.slider(g, { label: "People evacuated in time", min: 0, max: 100, st
 ctl.strong = K.seg(g, { label: "Buildings", value: true, options: [[false, "weakly built"], [true, "built to resist wind"]], on: v => { C.strong = v; } });
 g = ui.group("Watch"); mapGroups.push(g);
 ctl.rate = K.slider(g, { label: "Speed", min: 2, max: 48, step: 2, value: rate, fmt: v => v + " hours a second", on: v => rate = v });
+ui.headerSpeed(ctl.rate);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["name", "storm"], ["wind", "strongest winds"], ["cat", "category"], ["p", "pressure in the eye"], ["sea", "sea temperature beneath"], ["lim", "speed limit here"], ["why", "now"], ["tally", "this season"]]);
 function dateOf(d) { const m = [["June", 152], ["July", 182], ["August", 213], ["September", 244], ["October", 274], ["November", 305]]; let k = 0; for (let i = 0; i < m.length; i++) if (d >= m[i][1]) k = i; return Math.floor(d - m[k][1] + 1) + " " + m[k][0]; }
 function setView(v) { view = v; ctl.view.set(v); for (const q of mapGroups) q.style.display = v === "map" ? "" : "none"; globeGroup.style.display = v === "globe" ? "" : "none"; casesBox.style.display = v === "cases" ? "" : "none"; }

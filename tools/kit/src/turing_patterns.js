@@ -158,6 +158,7 @@ g = ui.group("Watch");
 ctl.pal = K.seg(g, { label: "Colours", value: "leopard", options: [["leopard", "leopard"], ["zebra", "zebra"], ["giraffe", "giraffe"], ["coral", "coral"]], on: v => { pal = v; ctl.pal2.set(""); } });
 ctl.pal2 = K.seg(g, { value: "", options: [["fish", "fish"], ["cells", "cells"], ["ink", "ink"], ["heat", "heat"]], on: v => { pal = v; ctl.pal.set(""); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 1, max: 30, step: 1, value: speed, fmt: v => v + " steps a frame", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["n", "separate patches"], ["cover", "skin covered"], ["sp", "typical spacing"], ["big", "in the biggest patch"], ["t", "time"]]);
 function set(o) {
   const q = PRESETS[o.preset]; skin.F = q.F; skin.k = q.k; ctl.F.set(q.F); ctl.k.set(q.k); pal = o.pal || q.pal; ctl.pal.set(""); ctl.pal2.set(""); (["leopard", "zebra", "giraffe", "coral"].includes(pal) ? ctl.pal : ctl.pal2).set(pal);

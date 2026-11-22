@@ -118,6 +118,7 @@ ctl.wiggle = K.toggle(g, { label: "Seasonal wiggle (the Keeling curve look)", va
 g = ui.group("Run");
 let rr = K.row(g); K.btn(rr, "↺ Back to 1750", () => restart(), "primary"); K.btn(rr, "⏩ Jump to 2024", () => { while (S.yr < 2024) { cStep(S, P, 0.1); if (Math.abs(S.yr % 1) < 0.05) record(); } });
 ctl.speed = K.slider(g, { label: "Speed", min: 0.5, max: 20, step: 0.5, value: 1, fmt: v => K.sig(v * 3, 3) + " years per second", on: v => speed = v });
+ui.headerSpeed(ctl.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Readings"), [["ppm", "CO₂"], ["af", "staying in the air"], ["ph", "ocean pH"], ["dT", "warming (CO₂ only)"], ["rev", "Revelle factor"]]);
 function restart() { S = c0(); hist = []; record(); }
 function record() { const c = carb(dicOf(S.surf)), em = S.emitted || 1e-9; hist.push({ yr: S.yr, ppm: S.air / 2.124, pH: c.pH, air: (S.air - 595) / em * 100, ocean: (S.surf + S.mid + S.deep - 39170) / em * 100, land: (S.plants + S.soil - 2250) / em * 100, T: S.T }); }

@@ -166,6 +166,7 @@ let r1 = K.row(g); K.btn(r1, "↺ Start again", () => restart(), "primary"); K.b
 K.note(g, "Click any vehicle to tap its brakes for two seconds.");
 g = ui.group("Watch");
 ctl.rate = K.slider(g, { label: "Speed", min: 1, max: 12, step: 1, value: rate, fmt: v => v + "× real time", on: v => rate = v });
+ui.headerSpeed(ctl.rate);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(g, [["den", "density"], ["flow", "flow per lane"], ["v", "average speed"], ["stop", "crawling (under 15 km/h)"], ["wave", "jam is moving at"], ["t", "time"]]);
 function fixN() { const max = Math.floor(P.L * P.lanes / 8); if (P.n > max) P.n = max; ctl.n.set(P.n); }
 // change which vehicles are self-driving without restarting the traffic

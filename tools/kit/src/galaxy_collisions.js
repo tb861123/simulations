@@ -203,6 +203,7 @@ g = ui.group("View");
 ctl.n = K.slider(g, { label: "Stars", min: 20000, max: 300000, step: 10000, value: P.n, fmt: v => (v / 1000) + " thousand", on: v => { P.n = v; restart(); }, tip: "Fewer if the picture is jerky" });
 ctl.colour = K.seg(g, { label: "Colour", value: 0, options: [[0, "natural"], [1, "by galaxy"]], on: v => colourMode = v });
 ctl.rate = K.slider(g, { label: "Speed", min: 30, max: 360, step: 30, value: rate, fmt: v => v + " million years a second", on: v => rate = v });
+ui.headerSpeed(ctl.rate);   // playback speed lives in the header, beside Pause and Reset
 ctl.zoom = K.slider(g, { label: "Zoom", min: 0.3, max: 3, step: 0.05, value: 1, fmt: v => "× " + v.toFixed(2), on: v => cam.zoom = v });
 K.note(g, "Drag to turn the view. Scroll to zoom.");
 const read = K.readout(g, [["t", "time since start"], ["sep", "distance apart"], ["v", "closing speed"], ["min", "closest so far"], ["pass", "close passes"], ["state", "state"], ["tail", "stars in tails"], ["hot", "gas forming stars"]]);
