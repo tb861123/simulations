@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and seventy simulations are built with the shared toolkit (the
+All one hundred and seventy-one simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and sixty-five newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
@@ -398,6 +398,14 @@ Standard level follows Cambridge International AS Level Computer Science (9618, 
 | [`computing/networking_and_encryption/`](computing/networking_and_encryption/) | Networks and Encryption: packet switching on a router network (independent routes, out-of-order arrival, loss and TCP retransmission, reassembly by sequence number) against circuit switching; Caesar and Vigenère ciphers with frequency analysis; toy RSA key pairs and a digital signature (Cambridge 9618) | Open `networking-and-encryption.html` |
 | [`computing/neural_networks_and_ml/`](computing/neural_networks_and_ml/) | Neural Networks and Machine Learning: supervised learning on 2D data (line, XOR, circle, spiral) with a single neuron or a hidden layer trained by back-propagation; decision boundary, weights diagram, loss and accuracy curves, learning rate, training against test data and overfitting (Cambridge 9618 A Level AI) | Open `neural-networks-and-ml.html` |
 | [`computing/turing_and_fsm/`](computing/turing_and_fsm/) | State Machines and Turing Machines: state-transition diagrams with start and accepting states driven by your input (vending machine, door lock, divisible by 3, ends in 01), and Turing machines with tape, head and rule table (binary increment, unary addition, busy beaver) (Cambridge 9618 AS 12.2, Turing machines beyond) | Open `turing-and-fsm.html` |
+
+## Psychology (AQA 7182)
+
+Standard level follows AQA AS Psychology (7181); Advanced follows AQA A level Psychology (7182). Every simulation runs a class of simulated participants, so results vary like real data.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`psychology/memory_models/`](psychology/memory_models/) | Models of Memory: the multi-store model with a rehearsal buffer (sensory register, STM slots, LTM) producing the serial position curve; Glanzer and Cunitz, Peterson and Peterson, digit span and chunking, and working-memory dual tasks, all run on a class of simulated participants (AQA 7182) | Open `memory-models.html` |
 
 ## Where the old repositories went
 
