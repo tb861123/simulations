@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and seventy-one simulations are built with the shared toolkit (the
+All one hundred and seventy-two simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and sixty-five newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
@@ -406,6 +406,7 @@ Standard level follows AQA AS Psychology (7181); Advanced follows AQA A level Ps
 | Folder | What it is | How to run |
 |---|---|---|
 | [`psychology/memory_models/`](psychology/memory_models/) | Models of Memory: the multi-store model with a rehearsal buffer (sensory register, STM slots, LTM) producing the serial position curve; Glanzer and Cunitz, Peterson and Peterson, digit span and chunking, and working-memory dual tasks, all run on a class of simulated participants (AQA 7182) | Open `memory-models.html` |
+| [`psychology/forgetting_curve/`](psychology/forgetting_curve/) | Forgetting: the forgetting curve with massed, spaced and expanding revision; proactive and retroactive interference against similarity; context- and state-dependent retrieval failure in a 2 × 2 design like Godden and Baddeley, with means, SDs and effect sizes (AQA 7182) | Open `forgetting-curve.html` |
 
 ## Where the old repositories went
 
