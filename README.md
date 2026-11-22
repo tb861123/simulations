@@ -14,11 +14,11 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and sixty-four simulations are built with the shared toolkit (the
+All one hundred and sixty-eight simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and fifty-seven newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and sixty-five newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
-mathematics, statistics, chemistry, economics and geography simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones). They share a small
+mathematics, statistics, chemistry, economics, geography and PE simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
@@ -307,6 +307,10 @@ Standard level follows OCR GCSE (9–1) Physical Education (J587); Advanced foll
 | [`physical_education/skill_acquisition/`](physical_education/skill_acquisition/) | Skill acquisition ★: Hick's law (test yourself), information processing and the PRP, practice types, guidance, feedback, classification, schema | Open `skill-acquisition.html` |
 | [`physical_education/arousal_performance/`](physical_education/arousal_performance/) | Arousal and Performance ★: inverted-U, drive, catastrophe, ZOF, mental preparation, social facilitation, Ringelmann | Open `arousal-performance.html` |
 | [`physical_education/luck_and_skill/`](physical_education/luck_and_skill/) | Luck, Skill and the League ★: does the best team win? League against cup, home advantage, the sacked-manager bounce | Open `luck-and-skill.html` |
+| [`physical_education/muscles_neuromuscular/`](physical_education/muscles_neuromuscular/) | Muscles and the neuromuscular system: motor units, all-or-none, wave and spatial summation, tetanus, fibre types and fatigue, muscle spindles, Golgi tendon organs and PNF | Open `muscles-neuromuscular.html` |
+| [`physical_education/exercise_regulation/`](physical_education/exercise_regulation/) | Heart, lungs and blood in exercise: the cardiac control centre and receptors, the anticipatory rise, Q = SV × HR, venous return, the vascular shunt, VE = TV × f, cardiovascular drift | Open `exercise-regulation.html` |
+| [`physical_education/nutrition_ergogenic_aids/`](physical_education/nutrition_ergogenic_aids/) | Nutrition and ergogenic aids: glycogen and hitting the wall, carbo-loading, hydration, creatine, caffeine, bicarbonate, nitrate, altitude training and EPO, false positives in drug testing | Open `nutrition-ergogenic-aids.html` |
+| [`physical_education/sport_psychology/`](physical_education/sport_psychology/) | Motivation, confidence and leadership: Weiner's attribution and learned helplessness, Bandura's self-efficacy, goal setting, Atkinson's achievement motivation, Chelladurai and Fiedler | Open `sport-psychology.html` |
 
 ## Music
 
