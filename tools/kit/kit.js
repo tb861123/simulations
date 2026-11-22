@@ -350,8 +350,8 @@ const K = (() => {
        K.gl.create(parent, { dprMax, alpha, antialias, onResize, message })  → view { el, gl, gl2, w, h, dpr, ok }  (or ok: false + a message)
        K.gl.program(gl, vertexSrc, fragmentSrc)   → program with .use() and .set({ uName: value, uTex: texture })
        K.gl.quad(gl)                              → full-screen quad: q.draw(program)  (vertex shader: K.gl.QUAD_VS, gives vUv)
-       K.gl.floatType(gl)                         → the best renderable float format: { type, internal, format, kind: "float"|"half"|"byte" }
-       K.gl.target(gl, w, h, { float, filter, wrap, data }) → one texture + framebuffer
+       K.gl.floatType(gl, { blend })              → the best renderable float format: { type, internal, format, kind: "float"|"half"|"byte" }
+       K.gl.target(gl, w, h, { float, blend, filter, wrap, data }) → one texture + framebuffer
        K.gl.pingpong(gl, w, h, opts)              → { read, write, swap(), w, h, kind }  (step a grid simulation on the GPU)
        K.gl.points(gl, { aName: size, ... })      → geometry: g.set("aName", Float32Array), g.draw(program, count, mode)
        K.gl.screenshot(name, canvases…)           → saves the canvases, layered in order, as one PNG file */
@@ -430,8 +430,10 @@ const K = (() => {
     }
     // which floating-point textures can this card draw into? Checked once per context by actually trying.
     const fcache = new WeakMap();
-    function floatType(gl) {
-      if (fcache.has(gl)) return fcache.get(gl);
+    function floatType(gl, o = {}) {
+      // o.blend: the target will be drawn into with blending (e.g. adding up particle deposits). 32-bit floats only blend
+      // with EXT_float_blend, so without it the half-float format is chosen instead.
+      const key = o.blend ? "b" : "n", c = fcache.get(gl) || {}; fcache.set(gl, c); if (c[key]) return c[key];
       const gl2 = typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext, tries = [];
       if (gl2) {
         if (gl.getExtension("EXT_color_buffer_float")) tries.push({ type: gl.FLOAT, internal: gl.RGBA32F, format: gl.RGBA, kind: "float", linear: !!gl.getExtension("OES_texture_float_linear") }, { type: gl.HALF_FLOAT, internal: gl.RGBA16F, format: gl.RGBA, kind: "half", linear: true });
@@ -446,13 +448,13 @@ const K = (() => {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
         const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tx, 0);
         const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE; gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb); gl.deleteTexture(tx);
-        if (ok) { pick = t; break; }
+        if (ok && (!o.blend || t.kind !== "float" || gl.getExtension("EXT_float_blend"))) { pick = t; break; }
       }
-      fcache.set(gl, pick); return pick;
+      c[key] = pick; return pick;
     }
     // a texture you can draw into (a framebuffer). opts: float (true = best float type), filter "nearest"|"linear", wrap "clamp"|"repeat", data (typed array to start from)
     function target(gl, w, h, o = {}) {
-      const ft = o.float ? floatType(gl) : { type: gl.UNSIGNED_BYTE, internal: gl.RGBA, format: gl.RGBA, kind: "byte", linear: true };
+      const ft = o.float ? floatType(gl, o) : { type: gl.UNSIGNED_BYTE, internal: gl.RGBA, format: gl.RGBA, kind: "byte", linear: true };
       const tex = gl.createTexture(), fb = gl.createFramebuffer(), lin = o.filter === "linear" && ft.linear;
       const t = { tex, fb, w, h, kind: ft.kind, type: ft.type };
       gl.bindTexture(gl.TEXTURE_2D, tex);
