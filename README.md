@@ -14,11 +14,11 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and thirty-nine simulations are built with the shared toolkit (the
+All one hundred and fifty-nine simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and thirty-seven newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and fifty-seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
-mathematics, statistics, chemistry and economics simulations, and the History and Photography ones). They share a small
+mathematics, statistics, chemistry, economics and geography simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
@@ -203,6 +203,9 @@ Geography sims follow Edexcel GCSE Geography A (1GA0) at Standard level and Edex
 | [`climate/tectonic_hazards/`](climate/tectonic_hazards/) | Tectonic Hazards ★: plate boundaries and the Benioff zone, P and S waves and triangulation, a tsunami crossing the ocean, disaster risk | Open `tectonic-hazards.html` |
 | [`climate/slopes_landslides/`](climate/slopes_landslides/) | Weathering, slopes and landslides ★: freeze–thaw and chemical weathering against climate, the factor of safety and pore water pressure, roots, undercut cliffs, soil creep, landslides and rainfall thresholds | Open `slopes-landslides.html` |
 | [`climate/fieldwork_sampling/`](climate/fieldwork_sampling/) | Fieldwork ★: sampling methods and bias, mean, median and IQR, scatter graphs and box plots, Spearman's rank, chi-squared, Student's t-test, power and false alarms | Open `fieldwork-sampling.html` |
+| [`climate/globalisation_migration/`](climate/globalisation_migration/) | Globalisation and migration: trade by the gravity model, time–space compression 1960–2020, push–pull migration with diasporas and borders (Brexit, Gulf visas), remittances, a KOF-style index | Open `globalisation-migration.html` |
+| [`climate/urban_places/`](climate/urban_places/) | Changing urban places: bid-rent, Schelling segregation and the index of dissimilarity, location quotients, regeneration and gentrification, deprivation, the urban heat island | Open `urban-places.html` |
+| [`climate/water_insecurity/`](climate/water_insecurity/) | Water insecurity and drought: soil-moisture budgets, the water budget, runs of dry years and Day Zero, the Falkenmark index, dams, desalination, demand management and upstream neighbours | Open `water-insecurity.html` |
 
 ## Astrophysics
 
@@ -234,6 +237,7 @@ Mathematics simulations: Standard level follows Pearson Edexcel AS Mathematics (
 | [`mathematics/polar_curves/`](mathematics/polar_curves/) | Polar Curves (Further Maths): r = f(θ) traced by a rotating arm (cardioid, limaçon, rose, spiral, circle, lemniscate), r ≥ 0 convention, area as thin sectors approaching ½∫r² dθ, and tangents parallel and perpendicular to the initial line | Open `polar-curves.html` |
 | [`mathematics/vectors_3d/`](mathematics/vectors_3d/) | Lines and Planes in 3D (Further Maths): a turnable 3D view of two lines (intersecting, parallel or skew, angle from the scalar product, common perpendicular and shortest distance), a line meeting a plane with the angle and a point's perpendicular distance, and two planes meeting in a line | Open `vectors-3d.html` |
 | [`mathematics/markov_chains/`](mathematics/markov_chains/) | Markov Chains (Further Maths): transition matrices with tokens moving between states (weather, brand switching, four places), πₙ = π₀Tⁿ against the simulation, steady states and mean return times, and absorbing chains (gambler's ruin) | Open `markov-chains.html` |
+| [`mathematics/hyperbolic_functions/`](mathematics/hyperbolic_functions/) | Hyperbolic Functions (Further Maths): cosh, sinh and tanh from exponentials, cosh² − sinh² = 1, the unit hyperbola beside the unit circle (sector area t/2), inverse hyperbolic functions as logarithms, derivatives, and a hanging chain as a catenary | Open `hyperbolic-functions.html` |
 
 ## Statistics
 
@@ -264,6 +268,31 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 | [`economics/behavioural_economics/`](economics/behavioural_economics/) | Behavioural economics: bounded rationality and defaults (auto-enrolment), anchoring, present bias, herding and information cascades, fairness in the ultimatum game, nudges and the boomerang effect | Open `behavioural-economics.html` |
 | [`economics/development_economics/`](economics/development_economics/) | Development economics: a developing country over 50 years with Harrod–Domar saving, the Lewis model, primary product dependency and Prebisch–Singer, the foreign currency gap, aid, education and the HDI | Open `development-economics.html` |
 | [`economics/financial_markets/`](economics/financial_markets/) | Banks, bonds and financial markets: bond prices and yields, bank runs with reserves, capital, deposit insurance and the lender of last resort, moral hazard from bailouts, speculative bubbles | Open `financial-markets.html` |
+
+## Business
+
+Standard level follows GCSE Business (Pearson Edexcel 1BS0); Advanced follows
+Pearson Edexcel A level Business (9BS0). Economics topics (markets, firms,
+the macroeconomy) are in the Economics section.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`business/breakeven_and_margins/`](business/breakeven_and_margins/) | Break-even and margins ★: fixed and variable costs, contribution, break-even chart, margin of safety, target profit, PED and the profit-maximising price, stepped fixed costs | Open `breakeven-and-margins.html` |
+| [`business/cash_flow_forecast/`](business/cash_flow_forecast/) | Cash-flow forecast ★: inflows, outflows, net cash flow, opening and closing balances, overdraft limit, credit terms, seasonality, loans, factoring and bad debts, profit against cash | Open `cash-flow-forecast.html` |
+| [`business/investment_appraisal/`](business/investment_appraisal/) | Investment appraisal ★: payback, ARR, NPV and discount factors, sensitivity, possible futures and risk, IRR (beyond spec); decision trees, EMV and risk attitude | Open `investment-appraisal.html` |
+| [`business/inventory_and_supply_chain/`](business/inventory_and_supply_chain/) | Stock control ★: bar-gate graphs, re-order level, lead time, buffer stock, JIT and late deliveries, holding and ordering costs, EOQ and the bullwhip effect (beyond spec) | Open `inventory-and-supply-chain.html` |
+
+## Politics
+
+Advanced follows Pearson Edexcel A level Politics (9PL0): UK politics, UK
+government and the USA; Standard covers the core ideas for students starting
+the course.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`politics/electoral_systems/`](politics/electoral_systems/) | Electoral systems ★: FPTP, SV, AV, STV, AMS and list PR on the same ranked ballots, safe and marginal seats, wasted votes, the cube law, thresholds, Gallagher index | Open `electoral-systems.html` |
+| [`politics/voting_paradoxes/`](politics/voting_paradoxes/) | Voting paradoxes ★: median voter theorem, abstention, third parties, tactical voting, primaries and polarisation; Condorcet cycles, agenda setting, plurality v AV v Borda, Arrow's theorem | Open `voting-paradoxes.html` |
+| [`politics/gerrymandering/`](politics/gerrymandering/) | Gerrymandering ★: packing and cracking, wasted votes, efficiency gap, equal population and contiguity, a gerrymander machine, ensembles of random fair maps, US redistricting cases | Open `gerrymandering.html` |
 
 ## Physical Education
 
@@ -323,6 +352,41 @@ movement, lenses, lighting, film and digital processes.
 | [`photography/lens_optics/`](photography/lens_optics/) | Lenses and Perspective ★: focal length and field of view, crop factors (APS-C, Micro Four Thirds, phone), perspective depends on viewpoint ('compression'), lens extension, magnification and macro, depth of field at equal framing | Open `lens-optics.html` |
 | [`photography/light_and_colour/`](photography/light_and_colour/) | Light and Colour ★: black-body colour temperature, white balance and casts, grey-world auto white balance, additive RGB and subtractive CMY mixing, inverse square law, key and fill lights, lighting ratios, hard and soft shadows | Open `light-and-colour.html` |
 | [`photography/composition_and_sampling/`](photography/composition_and_sampling/) | Pixels, Compression and Composition ★: resolution and print size at 72–300 dpi, sampling, the Nyquist limit and moiré, anti-aliasing filters, bit depth, banding and dither, JPEG (DCT, quantisation, blocks, PSNR, generation loss), cropping with thirds, golden section and aspect ratios | Open `composition-and-sampling.html` |
+
+## Design and Technology
+
+Standard level follows AQA GCSE Design and Technology (8552); Advanced follows
+AQA A level Design and Technology: Product Design (7552). Engineering
+structures and earthquakes are in the Engineering section.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`design_technology/materials_properties/`](design_technology/materials_properties/) | Materials ★: tensile tests of 17 materials, stress, strain, Young's modulus, yield, UTS, ductility, toughness, work hardening and annealing, design briefs, factor of safety, selection charts | Open `materials-properties.html` |
+| [`design_technology/manufacturing_processes/`](design_technology/manufacturing_processes/) | Manufacturing ★: 3D printing, laser cutting, CNC, vacuum forming, injection moulding, tooling and cost per unit, scales of production, break-even quantity, tolerances, rejects, control charts, Cpk | Open `manufacturing-processes.html` |
+| [`design_technology/ergonomics_anthropometrics/`](design_technology/ergonomics_anthropometrics/) | Ergonomics ★: anthropometric data, percentiles, normal distribution, clearance, reach and adjustability, mixed populations, children, small surveys against published data | Open `ergonomics-anthropometrics.html` |
+
+## Religion, Philosophy and Ethics
+
+Standard level follows GCSE Religious Studies; Advanced follows OCR A level
+Religious Studies (H573): Philosophy of religion, Religion and ethics, and
+Developments in Christian thought. These pages model arguments and theories
+so that students can test them; they take no side.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`religious_studies/ethical_dilemmas/`](religious_studies/ethical_dilemmas/) | Ethical theories ★: natural law and double effect, Kant, act and rule utilitarianism, hedonic calculus, situation ethics; trolley cases, lying, euthanasia, whistleblowing; a society of promises | Open `ethical-dilemmas.html` |
+| [`religious_studies/argument_validity/`](religious_studies/argument_validity/) | Arguments ★: deductive and inductive, validity and soundness, syllogisms and Venn diagrams, fallacies, existential import; ontological, cosmological and teleological arguments as premise chains | Open `argument-validity.html` |
+| [`religious_studies/problem_of_evil/`](religious_studies/problem_of_evil/) | Problem of evil ★: logical and evidential problems, the inconsistent triad, free will defence, Augustine, Irenaeus and Hick (soul-making, epistemic distance), Rowe's fawn and Bayes, sceptical theism | Open `problem-of-evil.html` |
+
+## Computer Science (Cambridge 9618)
+
+Standard level follows Cambridge International AS Level Computer Science (9618, Papers 1–2); Advanced follows the A Level (Papers 3–4).
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`computing/sorting_algorithms/`](computing/sorting_algorithms/) | Sorting Algorithms: bubble and insertion sort with highlighted pseudocode (9618 style), merge sort and quick sort, comparison and move counters, random/nearly sorted/reversed data, a race, and Big O curves (Cambridge 9618) | Open `sorting-algorithms.html` |
+| [`computing/searching_and_hashing/`](computing/searching_and_hashing/) | Searching and Hashing: linear and binary search animated with comparison counts and O(n) against O(log n); hash tables (A Level) with key MOD size, collisions, linear probing and chaining, probes against load factor, and the birthday problem (Cambridge 9618) | Open `searching-and-hashing.html` |
+| [`computing/pathfinding/`](computing/pathfinding/) | Pathfinding: Dijkstra's algorithm and A* (Manhattan heuristic) on an editable grid with walls and mud, the priority queue and g + h = f values, greedy best-first for comparison, and Dijkstra's distance table on a small exam-style graph (Cambridge 9618 A Level AI) | Open `pathfinding.html` |
 
 ## Where the old repositories went
 
