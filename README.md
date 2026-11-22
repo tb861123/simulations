@@ -14,11 +14,11 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and seventy-two simulations are built with the shared toolkit (the
+All one hundred and seventy-six simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and sixty-five newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and seventy-three newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
-mathematics, statistics, chemistry, economics, geography and PE simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones). They share a small
+mathematics, statistics, chemistry, economics, geography, PE and music simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
@@ -327,6 +327,10 @@ The audit of the earlier music pack is kept in [`music/original_audit/`](music/o
 | [`music/build_timbre/`](music/build_timbre/) | Build a Timbre ★: Fourier synthesis, instrument presets, ADSR envelope, spectral centroid, the missing fundamental, autocorrelation pitch | Open `build-timbre.html` |
 | [`music/pitch_intervals/`](music/pitch_intervals/) | Pitch and Intervals ★: keyboard and stave, interval names and spelling, equal temperament against just intonation, beats, consonance and roughness | Open `pitch-intervals.html` |
 | [`music/rhythm_metre/`](music/rhythm_metre/) | Rhythm and Metre ★: step sequencer, BPM, simple, compound and irregular metres, backbeat, syncopation score, swing, polyrhythm, human timing | Open `rhythm-metre.html` |
+| [`music/harmony_cadences/`](music/harmony_cadences/) | Harmony, chords and cadences: Roman numerals and inversions, automatic four-part voicing on a grand stave, voice-leading rules, the four cadences, chromatic chords | Open `harmony-cadences.html` |
+| [`music/keys_modulation/`](music/keys_modulation/) | Keys, scales and modulation: major, minor, modes, pentatonic, blues and whole-tone scales, the circle of fifths, key finding and modulation | Open `keys-modulation.html` |
+| [`music/structure_texture/`](music/structure_texture/) | Structure and texture: binary, ternary, rondo, variations, AABA, verse–chorus and sonata form; monophonic to heterophonic textures; a self-similarity map | Open `structure-texture.html` |
+| [`music/modern_techniques/`](music/modern_techniques/) | Twentieth-century techniques: tone rows and the 12 × 12 matrix (P, R, I, RI), Reich's phasing, Glass's additive process | Open `modern-techniques.html` |
 
 ## History (OCR H505)
 
