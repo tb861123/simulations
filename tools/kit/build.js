@@ -181,6 +181,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["conformity_obedience.js", "conformity_obedience", "conformity-obedience.html", "Social Influence", "psychology"],
   ["conditioning.js", "conditioning", "conditioning.html", "Learning: Conditioning", "psychology"],
   ["research_methods.js", "research_methods", "research-methods.html", "Research Methods: Inferential Tests", "psychology"],
+  ["approaches_and_inheritance.js", "approaches_and_inheritance", "approaches-and-inheritance.html", "Nature and Nurture: Twin Studies", "psychology"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
