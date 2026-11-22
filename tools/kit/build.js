@@ -171,6 +171,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["binary_and_floating_point.js", "binary_and_floating_point", "binary-and-floating-point.html", "Binary and Floating Point", "computing"],
   ["networking_and_encryption.js", "networking_and_encryption", "networking-and-encryption.html", "Networks and Encryption", "computing"],
   ["neural_networks_and_ml.js", "neural_networks_and_ml", "neural-networks-and-ml.html", "Neural Networks and Machine Learning", "computing"],
+  ["turing_and_fsm.js", "turing_and_fsm", "turing-and-fsm.html", "State Machines and Turing Machines", "computing"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
