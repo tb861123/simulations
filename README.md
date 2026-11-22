@@ -14,9 +14,9 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and eighty-four simulations are built with the shared toolkit (the
+All one hundred and eighty-five simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and seventy-five newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and seventy-six newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
 mathematics, statistics, chemistry, economics, geography, PE and music simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones, and the Cosmic Distance Ladder, and the explore simulations). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -153,6 +153,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`biology/murmuration/`](biology/murmuration/) | Murmuration ★: a 3-D flock of starlings from three local rules, with a hunting falcon | Open `murmuration.html` |
 | [`biology/turing_patterns/`](biology/turing_patterns/) | Turing Patterns ★: spots, stripes and mazes from a reaction–diffusion model; paint, heal, and map the patterns | Open `turing-patterns.html` |
 | [`biology/slime_mould_networks/`](biology/slime_mould_networks/) | Slime Mould Networks: Physarum agents (Jones 2010) on the graphics card sense, turn, move and deposit trail; food smell and shrinkage pull the mesh back into tubes joining the food. Towns around Tokyo (Tero 2010), England's cities, Steiner junctions, a maze; network length against the minimum spanning tree | Open `slime-mould-networks.html` |
+| [`biology/ant_colony/`](biology/ant_colony/) | Ant Colony Foraging: ants lay and follow home and food scents (fading with time since the source), with random exploration; trails form and adapt to walls and moved food; the double bridge (Goss 1989); optimum evaporation, randomness and colony size | Open `ant-colony.html` |
 | [`biology/epidemics/`](biology/epidemics/) | Epidemics and Vaccination ★: a town followed hour by hour; R0, herd immunity, flattening the curve, isolation | Open `epidemics.html` |
 | [`biology/predator_prey/`](biology/predator_prey/) | Foxes and Rabbits ★: every animal followed; population cycles, carrying capacity, culling, refuges, extinction | Open `predator-prey.html` |
 | [`biology/membranes/`](biology/membranes/) | Membranes and Movement ★: particles crossing by diffusion, osmosis and active transport, agar cubes (SA:V), potato osmosis, water potential | Open `membranes.html` |

@@ -240,7 +240,7 @@ const ui = K.app({
 <li>Town and city positions are approximate (from longitude and latitude). The comparison with railways and motorways is a visual one; the model knows nothing about people, hills or cost.</li></ul>
 <h3>Sources</h3>
 <p>Jones, J. (2010) "Characteristics of pattern formation and evolution in approximations of Physarum transport networks", <i>Artificial Life</i> 16. Tero, A. et al. (2010) "Rules for biologically inspired adaptive network design", <i>Science</i> 327.</p>
-<p>See also <a href="../turing_patterns/turing-patterns.html">Turing Patterns</a> (reaction and diffusion making spots and stripes).</p>`
+<p>See also <a href="../turing_patterns/turing-patterns.html">Turing Patterns</a> (reaction and diffusion making spots and stripes) and <a href="../ant_colony/ant-colony.html">Ant Colony Foraging</a> (scent trails between a nest and food).</p>`
 });
 // the Tokyo batch experiment has no x setting: run() gets the random generator as its second argument
 ui.config.batch[4].run = (x, r) => trial(r, { preset: "tokyo" }).ratio;
