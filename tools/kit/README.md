@@ -124,6 +124,9 @@ with WebGL switched off, and checks the results. It is not on the front page.
 
 Some older simulations now draw (and sometimes step) with WebGL while keeping
 their CPU model for the Batch run, worksheets and investigations' set-ups:
-Turing Patterns (GPU model and drawing), Ripple Tank and Wind Tunnel (drawing only), Aerofoil Flow (exact panel-method flow at every pixel), Quantum Wave Lab, Wildfire and Lightning (drawing only). Each has a "Detail (graphics card)" group or note saying
-what runs where, falls back to its 2D drawing without WebGL, and lists the
-grid resolution and any numerical differences in "The model".
+Turing Patterns (GPU model and drawing, with a "Detail (graphics card)"
+group and a GPU-against-CPU check), Ripple Tank, Wind Tunnel, Quantum Wave
+Lab, Wildfire and Lightning (drawing only), and Aerofoil Flow (the exact
+panel-method flow at every pixel). Each falls back to its 2D drawing without
+WebGL (`fallback` / `onLost`), and says in "The model" what runs where, the
+grid resolution and any numerical differences.
