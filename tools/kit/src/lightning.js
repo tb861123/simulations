@@ -134,7 +134,7 @@ const ui = K.app({
 <li>No side flash or ground current after the strike, and no thunder, rain physics or charge build-up in the cloud. The cloud base is one flat sheet.</li>
 <li>η is a fitting number that stands in for the complicated physics of how air breaks down. It is not derived from first principles.</li>
 <li>The scene is a scale model: real cloud bases are 1–2 km up.</li>
-<li>Batch runs use a coarser grid (6 m cells) so that hundreds of strikes finish quickly.</li></ul>`
+<li>Batch runs use a coarser grid (6 m cells) so that hundreds of strikes finish quickly.</li><li>The air is a 188 × 96 grid of cells and the breakdown model runs on the ordinary processor (CPU), exactly as before, so the strikes, charts and Batch run are unchanged. The graphics card (WebGL) only draws: the voltage and field maps are coloured at every screen pixel from a smooth blend of the cells, and the glow round the bolt is a blurred copy of it added back on top (decoration, not part of the model). Without WebGL the storm is drawn in 2D as before.</li></ul>`
 });
 function bstorm(objs, eta) { const s = new Storm(88, 50); s.eta = eta; if (objs.length) s.build(objs); return s; }
 
@@ -178,6 +178,65 @@ function tally() {
 
 // ---------------- Drawing ----------------
 let clouds = null;
+/* ---- The graphics card (WebGL) draws the sky, the voltage map and the glow of the bolt ----
+   The breakdown model is still worked out on the CPU (Storm, above), exactly as before. The graphics card:
+     * colours the voltage (or field) map at every SCREEN pixel from a smooth (bicubic) blend of the cells,
+       using the same formulas as the 2D drawing, so the equal-voltage lines are smooth curves;
+     * makes the bolt glow: the channel is drawn into a half-size picture, blurred (a Gaussian blur, twice,
+       at two widths) and added back on top, like the bloom round a real bright light.
+   The thin bright core of the bolt, the ground, buildings, clouds and labels are still drawn on the 2D canvas
+   on top. Without WebGL: the old 2D drawing. */
+const wgl = { on: false, size: null };
+const gv = K.gl.create(ui.stage, { dprMax: 2, antialias: false, fallback: "No WebGL here: drawing the storm without the graphics card.", onLost: () => { wgl.on = false; }, onResize: () => { wgl.size = null; } });
+const SKY_FS = `precision highp float;
+uniform sampler2D uT; uniform vec2 uN; uniform float uShow, uGy, uAlpha; varying vec2 vUv;
+${K.gl.BICUBIC}
+void main() {
+  float yy = 1.0 - vUv.y;                                                        // 0 at the top, 1 at the bottom, as on the 2D canvas
+  vec3 bg = yy < 0.6 ? mix(vec3(11.0, 14.0, 28.0), vec3(21.0, 26.0, 48.0), yy / 0.6) : mix(vec3(21.0, 26.0, 48.0), vec3(29.0, 33.0, 56.0), (yy - 0.6) / 0.4);
+  vec3 c = bg; vec2 p = vec2(vUv.x, yy) * uN - 0.5;
+  if (uShow > 0.5 && p.y > 0.5 && p.y < uGy - 0.5) {
+    vec4 q = bicubic(uT, uN, p); float V = q.r, ex = q.b, ey = q.a, solid = q.g;    // voltage, 1 inside the ground or an object, the field (worked out per cell as in the 2D drawing)
+    vec3 f; float a;
+    if (uShow < 1.5) { float v = V * 16.0, d = abs(v - floor(v + 0.5)); a = (12.0 + 225.0 * clamp(1.25 - d / (length(vec2(ex, ey)) * 16.0 + 1e-4), 0.0, 1.0)) / 255.0; f = vec3(60.0 + 195.0 * V, 150.0 + 30.0 * V, 255.0 - 170.0 * V); }   // equal steps of voltage
+    else { float e = length(vec2(ex, ey)) * uGy, s1 = clamp((e - 1.0) / 5.0, 0.0, 1.0), s2 = clamp((e - 6.0) / 14.0, 0.0, 1.0); f = vec3(120.0 + 135.0 * s1, 40.0 + 200.0 * s2, 255.0 - 120.0 * s2); a = 235.0 * sqrt(s1) / 255.0; }   // field strength
+    c = mix(bg, f, a * uAlpha * (1.0 - smoothstep(0.3, 0.7, solid)));
+  }
+  gl_FragColor = vec4(c / 255.0, 1.0);
+}`;
+const LINE_VS = `attribute vec2 aPos; uniform vec2 uView; void main() { gl_Position = vec4(aPos.x / uView.x * 2.0 - 1.0, 1.0 - aPos.y / uView.y * 2.0, 0.0, 1.0); }`;
+const LINE_FS = `precision mediump float; uniform vec3 uCol; void main() { gl_FragColor = vec4(uCol, 1.0); }`;
+const BLUR_FS = `precision mediump float; uniform sampler2D uT; uniform vec2 uStep; varying vec2 vUv;
+void main() { vec3 s = texture2D(uT, vUv).rgb * 0.2;   // a 9-tap Gaussian blur along one direction
+  s += (texture2D(uT, vUv + uStep).rgb + texture2D(uT, vUv - uStep).rgb) * 0.17 + (texture2D(uT, vUv + 2.0 * uStep).rgb + texture2D(uT, vUv - 2.0 * uStep).rgb) * 0.11;
+  s += (texture2D(uT, vUv + 3.0 * uStep).rgb + texture2D(uT, vUv - 3.0 * uStep).rgb) * 0.06 + (texture2D(uT, vUv + 4.0 * uStep).rgb + texture2D(uT, vUv - 4.0 * uStep).rgb) * 0.025;
+  gl_FragColor = vec4(s, 1.0); }`;
+const ADD_FS = `precision mediump float; uniform sampler2D uA, uB; uniform float uGain; varying vec2 vUv; void main() { gl_FragColor = vec4((texture2D(uA, vUv).rgb * 1.6 + texture2D(uB, vUv).rgb * 2.2) * uGain, 1.0); }`;
+if (gv.ok && K.gl.floatType(gv.gl).kind !== "byte") {
+  try { const gl = gv.gl; wgl.sky = K.gl.program(gl, K.gl.QUAD_VS, SKY_FS); wgl.line = K.gl.program(gl, LINE_VS, LINE_FS); wgl.blur = K.gl.program(gl, K.gl.QUAD_VS, BLUR_FS); wgl.add = K.gl.program(gl, K.gl.QUAD_VS, ADD_FS); wgl.quad = K.gl.quad(gl); wgl.segs = K.gl.points(gl, { aPos: 2 }); wgl.tex = K.gl.target(gl, NX, NY, { float: true }); wgl.buf = new Float32Array(4 * NX * NY); wgl.on = true; }
+  catch (e) { console.warn(e.message); K.gl.notice(ui.stage, "WebGL did not start properly: drawing the storm without it."); }
+} else if (gv.ok) K.gl.notice(ui.stage, "This graphics card cannot store decimal numbers in textures: drawing the storm without it.");
+window.__glInfo = () => ({ gpu: wgl.on, grid: NX + " × " + NY, model: "CPU", webgl: gv.ok ? (gv.gl2 ? 2 : 1) : 0 });
+// the sky and the voltage map; then the glow of the channel (a list of [x1, y1, x2, y2] in CSS pixels, with a colour)
+function skyGL(w, h) {
+  const gl = gv.gl, V = storm.V, type = storm.type, B = wgl.buf;
+  for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) { const i = x + y * NX; B[4 * i] = V[i]; B[4 * i + 1] = type[i] === 2 ? 1 : 0;
+    B[4 * i + 2] = (V[x < NX - 1 ? i + 1 : i] - V[x ? i - 1 : i]) / 2; B[4 * i + 3] = y > 0 && y < NY - 1 ? (V[i + NX] - V[i - NX]) / 2 : 0; }
+  wgl.tex.upload(B); K.gl.bindTarget(gl, null);
+  wgl.sky.set({ uT: wgl.tex, uN: [NX, NY], uShow: show === "volt" ? 1 : show === "field" ? 2 : 0, uGy: storm.gy, uAlpha: show === "volt" ? 0.8 : 0.6 }); wgl.quad.draw(wgl.sky);
+}
+function glowGL(w, h, groups, gain) {
+  const gl = gv.gl, W = Math.max(2, Math.round(w / 2)), H = Math.max(2, Math.round(h / 2));
+  if (!wgl.size || wgl.size[0] !== W || wgl.size[1] !== H) { for (const k of ["A", "B", "C"]) if (wgl[k]) wgl[k].dispose(); wgl.A = K.gl.target(gl, W, H, { filter: "linear" }); wgl.B = K.gl.target(gl, W, H, { filter: "linear" }); wgl.C = K.gl.target(gl, W, H, { filter: "linear" }); wgl.size = [W, H]; }
+  K.gl.bindTarget(gl, wgl.A); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+  for (const [segs, col] of groups) if (segs.length) { wgl.segs.set("aPos", new Float32Array(segs)); wgl.line.set({ uView: [w, h], uCol: col }); wgl.segs.draw(wgl.line, segs.length / 2, gl.LINES); }
+  gl.disable(gl.BLEND);
+  const blur = (from, to, dx, dy) => { wgl.blur.set({ uT: from, uStep: [dx / W, dy / H] }); wgl.quad.draw(wgl.blur, to); };
+  blur(wgl.A, wgl.B, 1, 0); blur(wgl.B, wgl.C, 0, 1);              // a narrow glow (in C)
+  blur(wgl.C, wgl.B, 3, 0); blur(wgl.B, wgl.A, 0, 3);              // and a wide one (in A)
+  K.gl.bindTarget(gl, null); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+  wgl.add.set({ uA: wgl.A, uB: wgl.C, uGain: gain }); wgl.quad.draw(wgl.add); gl.disable(gl.BLEND);
+}
 const cv = ui.canvas(c => makeClouds(c));
 const fimg = document.createElement("canvas"); fimg.width = NX; fimg.height = NY; const fctx = fimg.getContext("2d"), fdata = fctx.createImageData(NX, NY);
 const drops = []; for (let i = 0; i < 140; i++) drops.push([Math.random(), Math.random(), 0.6 + Math.random() * 0.8]);
@@ -190,8 +249,9 @@ function makeClouds(cv) {   // a bank of storm cloud along the top, painted once
 function draw(dt) {
   const c = cv.ctx, w = cv.w, h = cv.h, sx = w / NX, sy = h / NY, gy = storm.gy, V = storm.V, type = storm.type;
   const X = i => ((i % NX) + .5 + JX[i]) * sx, Y = i => (((i / NX) | 0) + .5 + JY[i]) * sy;
-  const bg = c.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, "#0b0e1c"); bg.addColorStop(.6, "#151a30"); bg.addColorStop(1, "#1d2138"); c.fillStyle = bg; c.fillRect(0, 0, w, h);
-  if (show !== "none") {   // paint the voltage or the field strength, one grid cell per pixel, then stretch it over the scene
+  if (wgl.on) { skyGL(w, h); c.clearRect(0, 0, w, h); }
+  else { const bg = c.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, "#0b0e1c"); bg.addColorStop(.6, "#151a30"); bg.addColorStop(1, "#1d2138"); c.fillStyle = bg; c.fillRect(0, 0, w, h); }
+  if (show !== "none" && !wgl.on) {   // paint the voltage or the field strength, one grid cell per pixel, then stretch it over the scene
     const px = fdata.data;
     for (let y = 1; y < gy; y++) for (let x = 0; x < NX; x++) {
       const i = x + y * NX, j = i * 4; if (type[i] === 2) { px[j + 3] = 0; continue; }
@@ -216,11 +276,18 @@ function draw(dt) {
   // the channel: every cell joined to the cell it grew from
   const cells = storm.cells, par = storm.parent; c.lineCap = "round"; c.globalCompositeOperation = "lighter";
   const fade = phase === "glow" ? Math.max(0, 1 - phaseT / 1.1) : 1, pass = (lw, col) => { c.lineWidth = lw; c.strokeStyle = col; c.beginPath(); for (const i of cells) { const p = par[i]; if (p < 0) continue; c.moveTo(X(p), Y(p)); c.lineTo(X(i), Y(i)); } c.stroke(); };
-  if (phase === "leader") { pass(5, "rgba(120,100,255,.16)"); pass(1.3, "rgba(196,180,255,.9)"); c.fillStyle = "#fff"; for (let k = Math.max(0, cells.length - 10); k < cells.length; k++) { c.beginPath(); c.arc(X(cells[k]), Y(cells[k]), 1.8, 0, 6.3); c.fill(); } }
-  else { pass(4, `rgba(120,100,255,${0.12 * fade})`); pass(1.1, `rgba(196,180,255,${0.55 * fade})`);
+  if (wgl.on) {   // the glow comes from the graphics card; the thin bright core is still drawn below
+    const lead = []; for (const i of cells) { const p = par[i]; if (p >= 0) lead.push(X(p), Y(p), X(i), Y(i)); }
+    const str = [], n = strokePath.length, upto = phase === "leader" ? 0 : Math.min(n, Math.ceil(phaseT / 0.12 * n)), a = phase === "stroke" ? 1 : fade;
+    for (let k = 0; k < upto; k++) { const i = strokePath[k], from = k ? [X(strokePath[k - 1]), Y(strokePath[k - 1])] : [storm.struck.x * sx + sx / 2, storm.top[storm.struck.x] * sy]; str.push(from[0], from[1], X(i), Y(i)); }
+    glowGL(w, h, [[lead, [0.47 * 0.5, 0.39 * 0.5, 1 * 0.5].map(v => v * (phase === "leader" ? 1 : 0.6 * fade))], [str, [0.55 * a, 0.68 * a, 1 * a]]], 3.2);
+    c.globalCompositeOperation = "lighter";
+  }
+  if (phase === "leader") { if (!wgl.on) pass(5, "rgba(120,100,255,.16)"); pass(1.3, "rgba(196,180,255,.9)"); c.fillStyle = "#fff"; for (let k = Math.max(0, cells.length - 10); k < cells.length; k++) { c.beginPath(); c.arc(X(cells[k]), Y(cells[k]), 1.8, 0, 6.3); c.fill(); } }
+  else { if (!wgl.on) pass(4, `rgba(120,100,255,${0.12 * fade})`); pass(1.1, `rgba(196,180,255,${0.55 * fade})`);
     // the return stroke: a wave of current running up the one path that reached the ground
     const n = strokePath.length, upto = Math.min(n, Math.ceil(phaseT / 0.12 * n)), a = phase === "stroke" ? 1 : fade;
-    for (const [lw, col] of [[16, `rgba(110,140,255,${.22 * a})`], [7, `rgba(170,200,255,${.5 * a})`], [2.6, `rgba(255,255,255,${a})`]]) { c.lineWidth = lw; c.strokeStyle = col; c.beginPath(); for (let k = 0; k < upto; k++) { const i = strokePath[k]; k ? c.lineTo(X(i), Y(i)) : c.moveTo(storm.struck.x * sx + sx / 2, (storm.top[storm.struck.x]) * sy); if (!k) c.lineTo(X(i), Y(i)); } c.stroke(); } }
+    for (const [lw, col] of (wgl.on ? [] : [[16, `rgba(110,140,255,${.22 * a})`]]).concat([[7, `rgba(170,200,255,${.5 * a})`], [2.6, `rgba(255,255,255,${a})`]])) { c.lineWidth = lw; c.strokeStyle = col; c.beginPath(); for (let k = 0; k < upto; k++) { const i = strokePath[k]; k ? c.lineTo(X(i), Y(i)) : c.moveTo(storm.struck.x * sx + sx / 2, (storm.top[storm.struck.x]) * sy); if (!k) c.lineTo(X(i), Y(i)); } c.stroke(); } }
   c.globalCompositeOperation = "source-over";
   if (clouds) { c.drawImage(clouds, 0, -40); if (flash > 0.02) { c.globalCompositeOperation = "lighter"; c.globalAlpha = flash; for (let k = 0; k < 3; k++) c.drawImage(clouds, 0, -40); c.globalAlpha = 1; c.globalCompositeOperation = "source-over"; } }
   if (flash > 0.02) { c.fillStyle = `rgba(200,215,255,${flash * 0.3})`; c.fillRect(0, 0, w, h); }
