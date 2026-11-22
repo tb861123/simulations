@@ -14,11 +14,11 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and fifty-nine simulations are built with the shared toolkit (the
+All one hundred and sixty-seven simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and fifty-seven newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and sixty-five newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
-mathematics, statistics, chemistry, economics and geography simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones). They share a small
+mathematics, statistics, chemistry, economics, geography and PE simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
@@ -307,6 +307,10 @@ Standard level follows OCR GCSE (9–1) Physical Education (J587); Advanced foll
 | [`physical_education/skill_acquisition/`](physical_education/skill_acquisition/) | Skill acquisition ★: Hick's law (test yourself), information processing and the PRP, practice types, guidance, feedback, classification, schema | Open `skill-acquisition.html` |
 | [`physical_education/arousal_performance/`](physical_education/arousal_performance/) | Arousal and Performance ★: inverted-U, drive, catastrophe, ZOF, mental preparation, social facilitation, Ringelmann | Open `arousal-performance.html` |
 | [`physical_education/luck_and_skill/`](physical_education/luck_and_skill/) | Luck, Skill and the League ★: does the best team win? League against cup, home advantage, the sacked-manager bounce | Open `luck-and-skill.html` |
+| [`physical_education/muscles_neuromuscular/`](physical_education/muscles_neuromuscular/) | Muscles and the neuromuscular system: motor units, all-or-none, wave and spatial summation, tetanus, fibre types and fatigue, muscle spindles, Golgi tendon organs and PNF | Open `muscles-neuromuscular.html` |
+| [`physical_education/exercise_regulation/`](physical_education/exercise_regulation/) | Heart, lungs and blood in exercise: the cardiac control centre and receptors, the anticipatory rise, Q = SV × HR, venous return, the vascular shunt, VE = TV × f, cardiovascular drift | Open `exercise-regulation.html` |
+| [`physical_education/nutrition_ergogenic_aids/`](physical_education/nutrition_ergogenic_aids/) | Nutrition and ergogenic aids: glycogen and hitting the wall, carbo-loading, hydration, creatine, caffeine, bicarbonate, nitrate, altitude training and EPO, false positives in drug testing | Open `nutrition-ergogenic-aids.html` |
+| [`physical_education/sport_psychology/`](physical_education/sport_psychology/) | Motivation, confidence and leadership: Weiner's attribution and learned helplessness, Bandura's self-efficacy, goal setting, Atkinson's achievement motivation, Chelladurai and Fiedler | Open `sport-psychology.html` |
 
 ## Music
 
@@ -387,6 +391,10 @@ Standard level follows Cambridge International AS Level Computer Science (9618, 
 | [`computing/sorting_algorithms/`](computing/sorting_algorithms/) | Sorting Algorithms: bubble and insertion sort with highlighted pseudocode (9618 style), merge sort and quick sort, comparison and move counters, random/nearly sorted/reversed data, a race, and Big O curves (Cambridge 9618) | Open `sorting-algorithms.html` |
 | [`computing/searching_and_hashing/`](computing/searching_and_hashing/) | Searching and Hashing: linear and binary search animated with comparison counts and O(n) against O(log n); hash tables (A Level) with key MOD size, collisions, linear probing and chaining, probes against load factor, and the birthday problem (Cambridge 9618) | Open `searching-and-hashing.html` |
 | [`computing/pathfinding/`](computing/pathfinding/) | Pathfinding: Dijkstra's algorithm and A* (Manhattan heuristic) on an editable grid with walls and mud, the priority queue and g + h = f values, greedy best-first for comparison, and Dijkstra's distance table on a small exam-style graph (Cambridge 9618 A Level AI) | Open `pathfinding.html` |
+| [`computing/data_structures/`](computing/data_structures/) | Data Structures: stack (overflow and underflow), circular queue (MOD wrap-round), linked list in an array with StartPointer and a free list, and binary search trees with traversals and search cost (Cambridge 9618) | Open `data-structures.html` |
+| [`computing/logic_gates/`](computing/logic_gates/) | Logic Gates and Circuits: gate symbols with clickable inputs and highlighted truth tables, a circuit from an expression, half and full adders, NAND-only XOR, an SR flip-flop with feedback, a 4-bit ripple-carry adder and Karnaugh maps (Cambridge 9618) | Open `logic-gates.html` |
+| [`computing/cpu_fetch_execute/`](computing/cpu_fetch_execute/) | CPU: Fetch–Decode–Execute: a Von Neumann CPU stepping through register transfer notation with registers and buses lit up; an editable Cambridge 9618 assembly program (LDM, LDD, LDI, LDX, STO, ADD, CMP, JPN, AND, LSL…) with addressing modes and bit manipulation; pipelining at A Level | Open `cpu-fetch-execute.html` |
+| [`computing/binary_and_floating_point/`](computing/binary_and_floating_point/) | Binary and Floating Point: clickable bits with unsigned, two's complement, hex, BCD and ASCII views; binary addition with carries, carry and overflow flags; A Level normalised floating point (two's complement mantissa and exponent), range against precision, rounding errors and overflow/underflow (Cambridge 9618) | Open `binary-and-floating-point.html` |
 
 ## Where the old repositories went
 
