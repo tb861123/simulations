@@ -155,6 +155,9 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["composition_and_sampling.js", "composition_and_sampling", "composition-and-sampling.html", "Pixels, Compression and Composition", "photography"],
   ["markov_chains.js", "markov_chains", "markov-chains.html", "Markov Chains", "mathematics"],
   ["hyperbolic_functions.js", "hyperbolic_functions", "hyperbolic-functions.html", "Hyperbolic Functions", "mathematics"],
+  ["sorting_algorithms.js", "sorting_algorithms", "sorting-algorithms.html", "Sorting Algorithms", "computing"],
+  ["searching_and_hashing.js", "searching_and_hashing", "searching-and-hashing.html", "Searching and Hashing", "computing"],
+  ["pathfinding.js", "pathfinding", "pathfinding.html", "Pathfinding: Dijkstra and A*", "computing"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {

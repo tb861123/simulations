@@ -14,11 +14,11 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and fifty-three simulations are built with the shared toolkit (the
+All one hundred and fifty-six simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and fifty newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and fifty-three newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
-mathematics, statistics, chemistry and economics simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones). They share a small
+mathematics, statistics, chemistry and economics simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
@@ -374,6 +374,16 @@ so that students can test them; they take no side.
 | [`religious_studies/ethical_dilemmas/`](religious_studies/ethical_dilemmas/) | Ethical theories ★: natural law and double effect, Kant, act and rule utilitarianism, hedonic calculus, situation ethics; trolley cases, lying, euthanasia, whistleblowing; a society of promises | Open `ethical-dilemmas.html` |
 | [`religious_studies/argument_validity/`](religious_studies/argument_validity/) | Arguments ★: deductive and inductive, validity and soundness, syllogisms and Venn diagrams, fallacies, existential import; ontological, cosmological and teleological arguments as premise chains | Open `argument-validity.html` |
 | [`religious_studies/problem_of_evil/`](religious_studies/problem_of_evil/) | Problem of evil ★: logical and evidential problems, the inconsistent triad, free will defence, Augustine, Irenaeus and Hick (soul-making, epistemic distance), Rowe's fawn and Bayes, sceptical theism | Open `problem-of-evil.html` |
+
+## Computer Science (Cambridge 9618)
+
+Standard level follows Cambridge International AS Level Computer Science (9618, Papers 1–2); Advanced follows the A Level (Papers 3–4).
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`computing/sorting_algorithms/`](computing/sorting_algorithms/) | Sorting Algorithms: bubble and insertion sort with highlighted pseudocode (9618 style), merge sort and quick sort, comparison and move counters, random/nearly sorted/reversed data, a race, and Big O curves (Cambridge 9618) | Open `sorting-algorithms.html` |
+| [`computing/searching_and_hashing/`](computing/searching_and_hashing/) | Searching and Hashing: linear and binary search animated with comparison counts and O(n) against O(log n); hash tables (A Level) with key MOD size, collisions, linear probing and chaining, probes against load factor, and the birthday problem (Cambridge 9618) | Open `searching-and-hashing.html` |
+| [`computing/pathfinding/`](computing/pathfinding/) | Pathfinding: Dijkstra's algorithm and A* (Manhattan heuristic) on an editable grid with walls and mud, the priority queue and g + h = f values, greedy best-first for comparison, and Dijkstra's distance table on a small exam-style graph (Cambridge 9618 A Level AI) | Open `pathfinding.html` |
 
 ## Where the old repositories went
 
