@@ -102,7 +102,7 @@ End every change with an explicit line saying which applies:
 ## Audience and style
 
 These are teaching simulations for school students (GCSE / iGCSE / WJEC, and
-A level for economics, business, politics, design and technology, religious studies, PE, music, physical geography, biology, physics, chemistry, history and photography, with a Standard / Advanced level switch).
+A level for economics, business, politics, design and technology, religious studies, PE, music, physical geography, biology, physics, chemistry, history, photography, mathematics and further mathematics, computer science and psychology, with a Standard / Advanced level switch).
 Comment code so a student can follow the science. List a model's
 assumptions and simplifications inside the simulation itself.
 
