@@ -1,0 +1,1418 @@
+<!doctype html>
+<!-- Domino Chain Reactions: one self-contained file, works offline. Built from tools/kit (kit.css, kit.js, src/domino_chains.js); edit those and run "node build.js". -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Domino Chain Reactions</title>
+<style>
+/* ===== Enhanced (kit-built) simulations: shared look and feel (inlined into every page by build.js) ===== */
+:root{
+  --bg:#0a0f1c; --panel:#111a2c; --panel2:#17223a; --line:#24324f; --text:#e9eef8; --muted:#8fa0bf; --grid:#1f2c47;
+  --accent:#5ad1ff; --accent-ink:#04121c; --good:#6ee7a0; --warn:#ffb454; --bad:#ff6b81;
+  --s0:#5ad1ff; --s1:#ffb454; --s2:#7ee787; --s3:#ff7b9c; --s4:#c4a1ff; --s5:#ffe66d;
+  --shadow:0 10px 30px rgba(0,0,0,.45); --r:12px;
+}
+:root[data-theme=light]{
+  --bg:#eef2f8; --panel:#ffffff; --panel2:#f3f6fb; --line:#d5dceb; --text:#172033; --muted:#5d6b85; --grid:#e3e8f2;
+  --accent:#0b7fc2; --accent-ink:#ffffff; --good:#12924c; --warn:#b86a00; --bad:#d1344d;
+  --s0:#0b7fc2; --s1:#d97a00; --s2:#1b9e4b; --s3:#d6336c; --s4:#7048c8; --s5:#a08800;
+  --shadow:0 8px 24px rgba(30,50,90,.15);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+.k-top{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;min-height:52px}
+.k-home{color:var(--muted);text-decoration:none;font-size:13px;white-space:nowrap}.k-home:hover{color:var(--accent)}
+.k-title{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
+.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.k-chip{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 9px;white-space:nowrap;align-self:center}
+.k-blurb{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-actions{display:flex;gap:6px;flex:none;align-items:center}
+.k-btn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:.12s;user-select:none}
+.k-btn:hover{border-color:var(--accent);color:var(--accent)}
+.k-btn:active{transform:translateY(1px)}
+.k-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.k-btn.primary:hover{filter:brightness(1.1);color:var(--accent-ink)}
+.k-btn.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel2))}
+.k-btn.small{padding:3px 9px;font-size:12.5px}
+.k-btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.k-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
+.k-left{display:flex;flex-direction:column;min-width:0;min-height:0}
+.k-stage{flex:1;position:relative;min-height:0;background:#060a14;overflow:hidden}
+.k-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.k-dock{flex:none;height:190px;display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.k-dock:empty{display:none}
+.k-dock>*{flex:1;min-width:0;background:var(--panel)}
+.k-chart{position:relative;height:100%;min-height:80px}
+.k-chart canvas{position:absolute;inset:0;width:100%;height:100%}
+.k-side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.k-tabs{display:flex;border-bottom:1px solid var(--line);flex:none}
+.k-tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:10px 4px;cursor:pointer;color:var(--muted);font-weight:600}
+.k-tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.k-pane{flex:1;overflow-y:auto;padding:12px 14px 20px;display:none;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.k-pane.on{display:block}
+.k-group{margin-bottom:14px}
+.k-group>h3{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);margin:0 0 8px;font-weight:700}
+.k-ctl{margin-bottom:10px}
+.k-ctl label{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:2px}
+.k-ctl label b{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.k-ctl label b.k-typein{cursor:text;border-bottom:1px dashed currentColor;padding:0 1px}
+.k-ctl label b.k-typein:hover,.k-ctl label b.k-typein:focus{outline:1px solid var(--accent);outline-offset:1px;border-radius:3px}
+.k-typebox{width:9em;font:inherit;font-size:12.5px;padding:1px 4px;border-radius:4px;border:1px solid var(--accent);background:var(--panel-2,#1b2438);color:var(--text)}
+.k-ctl small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3;margin-top:1px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:none;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-moz-range-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);margin-top:-6.5px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+.k-seg{display:flex;flex-wrap:wrap;gap:4px}
+.k-seg .k-btn{flex:1 1 auto;padding:5px 8px;font-size:13px;text-align:center}
+.k-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.k-row .k-btn{flex:1 1 auto;text-align:center}
+.k-toggle{display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:9px;font-size:13px;user-select:none}
+.k-toggle i{flex:none;width:34px;height:19px;border-radius:99px;background:var(--line);position:relative;transition:.15s}
+.k-toggle i::after{content:"";position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;background:var(--muted);transition:.15s}
+.k-toggle.on i{background:var(--accent)}.k-toggle.on i::after{left:17px;background:var(--accent-ink)}
+.k-read{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.k-read div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 9px}
+.k-read span{display:block;font-size:11px;color:var(--muted)}
+.k-read b{font-size:16px;font-variant-numeric:tabular-nums;font-weight:650}
+.k-mcard{border:1px solid var(--line);background:var(--panel2);border-radius:var(--r);padding:11px 12px;margin-bottom:10px}
+.k-mcard h4{margin:0 0 4px;font-size:14.5px;display:flex;gap:8px;align-items:center}
+.k-mcard h4 em{font-style:normal;flex:none;width:22px;height:22px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:12px}
+.k-mcard.done h4 em{background:var(--good);color:#04130a}
+.k-mcard p{margin:0 0 8px;color:var(--muted);font-size:13px}
+.k-banner{position:absolute;left:12px;top:12px;max-width:min(520px,70%);background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--accent);border-radius:var(--r);padding:10px 34px 10px 13px;box-shadow:var(--shadow);z-index:5;backdrop-filter:blur(6px);font-size:13.5px}
+.k-banner b{color:var(--accent)}
+.k-banner .x{position:absolute;right:8px;top:6px;cursor:pointer;color:var(--muted);background:none;border:0;font-size:16px}
+.k-banner details{margin-top:6px;color:var(--muted)}.k-banner summary{cursor:pointer;color:var(--warn)}
+.k-tip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(8,14,26,.82);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:99px;padding:6px 16px;font-size:13px;pointer-events:none;z-index:4;transition:opacity .6s;white-space:nowrap}
+.k-hud{position:absolute;right:12px;top:12px;background:rgba(8,14,26,.72);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:10px;padding:7px 11px;font-size:12.5px;z-index:3;pointer-events:none;font-variant-numeric:tabular-nums;line-height:1.5;text-align:right}
+.k-notes h3{font-size:14px;margin:14px 0 4px;color:var(--accent)}.k-notes h3:first-child{margin-top:0}
+.k-notes p,.k-notes li{font-size:13px;color:var(--text)}.k-notes ul{padding-left:18px;margin:4px 0}
+.k-notes code{background:var(--panel2);padding:1px 5px;border-radius:5px;font-size:12.5px}
+.k-overlay{position:fixed;inset:0;background:rgba(3,6,12,.7);display:none;z-index:50;backdrop-filter:blur(3px)}
+.k-overlay.on{display:grid;place-items:center}
+.k-modal{width:min(1180px,95vw);height:min(700px,92vh);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:grid;grid-template-columns:290px 1fr;overflow:hidden}
+.k-blist{border-right:1px solid var(--line);overflow-y:auto;padding:14px}
+.k-blist h2{font-size:16px;margin:0 0 4px}.k-blist>p{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+.k-bitem{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;cursor:pointer}
+.k-bitem.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.k-bitem b{display:block;font-size:13.5px}.k-bitem span{color:var(--muted);font-size:12.5px}
+.k-bmain{display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 16px}
+.k-bhead{display:flex;gap:10px;align-items:flex-start}
+.k-bhead h3{margin:0;font-size:17px;flex:1}.k-bhead p{margin:3px 0 0;color:var(--muted);font-size:13px;font-weight:400}
+.k-bbar{display:flex;gap:10px;align-items:center;margin:10px 0 8px}
+.k-prog{flex:1;height:6px;background:var(--line);border-radius:9px;overflow:hidden}.k-prog i{display:block;height:100%;width:0;background:var(--accent)}
+.k-bchart{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.k-bfoot{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;height:150px;margin-top:10px}
+.k-btable{overflow:auto;border:1px solid var(--line);border-radius:10px;font-size:12.5px}
+.k-btable table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.k-btable th,.k-btable td{padding:3px 8px;text-align:right;border-bottom:1px solid var(--line)}
+.k-btable th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600}
+.k-bnote{overflow:auto;font-size:13px;color:var(--muted);background:var(--panel2);border-radius:10px;padding:9px 12px}
+.k-bnote b{color:var(--text)}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+.k-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.02em;padding:1px 7px;border-radius:99px;vertical-align:1px;white-space:nowrap;background:#35505a;color:#c9ecdf}
+.k-tag.adv{background:#4b3a78;color:#e3d6ff}.k-tag.beyond{background:#39465c;color:#cfdaf0}
+.k-idea{font-size:13px;margin:0 0 8px;line-height:1.4}.k-spec{font-size:12px;color:var(--muted);margin:0 0 10px}
+.k-pane>h3{font-size:14px;margin:14px 0 8px;color:var(--accent)}
+.k-q h4{font-size:12px}.k-q .k-marks{margin-left:auto;color:var(--muted);font-weight:400}.k-q p{color:var(--text);font-size:13.5px}
+.k-q details{font-size:13px;color:var(--muted)}.k-q summary{cursor:pointer;color:var(--warn)}.k-q details ul{padding-left:18px;margin:4px 0}
+.k-level{padding-bottom:4px}
+.k-tabs button{font-size:13px;padding-left:2px;padding-right:2px}
+.k-wsrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px;font-size:12.5px;color:var(--muted)}
+.k-mcard .btn+.btn,.k-mcard button+button{margin-left:6px}
+/* playback-speed control moved into the header (ui.headerSpeed) */
+.k-hspeed{display:flex;align-items:center;gap:10px;padding:0 6px 0 10px;margin:0 4px;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.k-hspeed .k-ctl{display:flex;align-items:center;gap:7px;margin:0}
+.k-hspeed .k-ctl.k-hoff{display:none}
+.k-hspeed .k-ctl label{display:contents}
+.k-hspeed .k-ctl label span{order:0;font-size:12.5px;color:var(--muted);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+.k-hspeed .k-ctl input[type=range]{order:1;width:96px}
+.k-hspeed .k-ctl label b,.k-hspeed .k-typebox{order:2;font-size:12.5px;white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+.k-hspeed .k-typebox{width:6.5em}
+.k-hspeed .k-hunit{order:3;font-style:normal;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.k-hspeed .k-ctl>small{display:none}
+.k-hspeed .k-seg{order:1;flex-wrap:nowrap;gap:3px}
+.k-hspeed .k-seg .k-btn{flex:none;padding:3px 8px;font-size:12px}
+.k-group.k-emptied{display:none}
+@media (max-width:1400px){.k-blurb{display:none}.k-top:has(.k-hspeed:not([style*="none"])) .k-chip{display:none}}
+</style></head><body>
+<script>
+"use strict";
+/* =====================================================================
+   K: the small shared toolkit behind the ★ enhanced simulations.
+   It builds the page frame (header, stage, chart dock, side panel),
+   the sliders and buttons, the live charts, the Investigations cards
+   and the Batch run window. Each simulation's own code (below this
+   script in the page) holds the science.
+   ===================================================================== */
+const K = (() => {
+  const $ = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const col = i => cssVar("--s" + (i % 6));
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // ---- Repeatable random numbers: the same seed always gives the same run ----
+  function rng(seed) {
+    let a = (seed >>> 0) || 1;
+    const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    r.gauss = () => { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307179586 * r()); };
+    r.int = n => Math.floor(r() * n);
+    r.pick = arr => arr[Math.floor(r() * arr.length)];
+    return r;
+  }
+  // ---- Simple statistics ----
+  const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+  const sd = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); };
+  const se = a => sd(a) / Math.sqrt(a.length || 1);
+  function linfit(pts) { // least-squares straight line through [x,y] points
+    const n = pts.length, mx = mean(pts.map(p => p[0])), my = mean(pts.map(p => p[1]));
+    let sxy = 0, sxx = 0, syy = 0; for (const [x, y] of pts) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; syy += (y - my) ** 2; }
+    const m = sxy / (sxx || 1); return { m, c: my - m * mx, r: sxy / Math.sqrt((sxx * syy) || 1), n };
+  }
+  function download(name, text) { const a = $("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  const sig = (v, n = 3) => { if (v == null || !isFinite(v)) return "–"; if (v === 0) return "0"; const a = Math.abs(v); if (a >= 1e5 || a < 1e-3) return v.toExponential(n - 1); return String(+v.toPrecision(n)); };
+
+  // ---- Controls ----
+  /* Typing a value into a slider: read a displayed value ("2.2 mF", "4.7 × 10⁵ Pa", "£30,000", "−12 °C") as a number,
+     then search the slider's positions for the one whose display matches (copes with log scales and unit prefixes). */
+  const PRE = { p: 1e-12, n: 1e-9, "μ": 1e-6, "µ": 1e-6, u: 1e-6, m: 1e-3, k: 1e3, M: 1e6, G: 1e9 }, SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+  function parseVal(text) {
+    const t = String(text).replace(/[−–]/g, "-").replace(/[   ]/g, " ");
+    const m = t.match(/-?(?:\d{1,3}(?:[, ]\d{3})+|\d+)(?:\.\d+)?|-?\.\d+/);
+    if (!m) return null;
+    let v = parseFloat(m[0].replace(/[, ]/g, "")), rest = t.slice(m.index + m[0].length);
+    const pw = m[0] === "10" && rest.match(/^(?:\^\s*(-?\d+(?:\.\d+)?)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))/);         // a bare power of ten: 10⁻⁹ or 10^6.5
+    if (pw) { v = Math.pow(10, pw[1] != null ? +pw[1] : (pw[2][0] === "⁻" ? -1 : 1) * +[...pw[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join("")); rest = rest.slice(pw[0].length); }
+    const ex = rest.match(/^\s*(?:[×x*]\s*10\s*(?:\^\s*(-?\d+)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))|[eE]([-+]?\d+))/);
+    if (ex) { const p = ex[1] != null ? +ex[1] : ex[3] != null ? +ex[3] : (ex[2][0] === "⁻" ? -1 : 1) * +[...ex[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join(""); v *= Math.pow(10, p); rest = rest.slice(ex[0].length); }
+    const wd = rest.match(/^\s*(thousand|million|billion|trillion)\b/i);    // "1 million K"
+    if (wd) { v *= { thousand: 1e3, million: 1e6, billion: 1e9, trillion: 1e12 }[wd[1].toLowerCase()]; rest = rest.slice(wd[0].length); }
+    const pm = !wd && rest.match(/^\s*([pnμµumkMG])(?=[A-Za-zΩ°])/);
+    if (pm) v *= PRE[pm[1]];
+    return isFinite(v) ? { v, unit: rest } : null;
+  }
+  // what was typed, in the units on display unless a unit was typed too ("2.2", "2.2 mF" and "1e-6" all work)
+  function typedVal(raw, shown) {
+    const q = parseVal(raw); if (!q) return null;
+    if (/[A-Za-zμµΩ°%£$€]/.test(q.unit)) return q;
+    const s = parseVal(shown); return parseVal(raw + (s ? " " + s.unit.trim() : ""));
+  }
+  function invertSlider(lo, hi, st, g, target) {
+    const n = Math.max(1, Math.round((hi - lo) / st)), pos = i => +(lo + i * st).toFixed(10);
+    let e0 = 0, e1 = n;                                                       // ends may show words ("off"): step in to the first numbers
+    while (e0 < n && g(pos(e0)) == null && e0 < 60) e0++;
+    while (e1 > e0 && g(pos(e1)) == null && n - e1 < 60) e1--;
+    const a = g(pos(e0)), b = g(pos(e1));
+    if (a == null || b == null || a === b) return null;
+    const up = b > a;
+    if (up ? target < a : target > a) return pos(e0 > 0 ? 0 : e0);
+    if (up ? target > b : target < b) return pos(e1 < n ? n : e1);
+    let i0 = e0, i1 = e1, v0 = a, v1 = b;
+    while (i1 - i0 > 1) { const im = (i0 + i1) >> 1, vm = g(pos(im)); if (vm == null) break; if ((vm < target) === up) { i0 = im; v0 = vm; } else { i1 = im; v1 = vm; } }
+    return Math.abs(v0 - target) <= Math.abs(v1 - target) ? pos(i0) : pos(i1);
+  }
+  // try every position (cheap here: only the format function runs) and take the closest display; ties go to the one nearest the current setting
+  function nearestSlider(lo, hi, st, g, target, cur) {
+    const n = Math.max(1, Math.round((hi - lo) / st)); if (n > 20000) return invertSlider(lo, hi, st, g, target);
+    let best = null, be = Infinity, bd = Infinity;
+    for (let i = 0; i <= n; i++) { const p = +(lo + i * st).toFixed(10), v = g(p); if (v == null) continue; const e = Math.abs(v - target), d = Math.abs(p - cur); if (e < be - 1e-12 * Math.abs(target) || (Math.abs(e - be) <= 1e-12 * Math.abs(target) && d < bd)) { best = p; be = e; bd = d; } }
+    return best;
+  }
+  const scratch = document.createElement("div");
+  const textOf = html => { scratch.innerHTML = html; scratch.querySelectorAll("sup").forEach(x => x.replaceWith("^" + x.textContent)); return scratch.textContent; };
+  function slider(parent, o) {
+    const w = $("div", "k-ctl"), lab = $("label"), name = $("span", "", o.label), val = $("b", "k-typein"), inp = $("input");
+    inp.type = "range"; inp.min = o.min; inp.max = o.max; inp.step = o.step || 1; inp.value = o.value;
+    const fmt = o.fmt || (v => sig(v, 4) + (o.unit ? " " + o.unit : ""));
+    const show = () => val.innerHTML = fmt(+inp.value);
+    lab.append(name, val); w.append(lab, inp); if (o.tip) w.append($("small", "", o.tip)); parent.append(w); show();
+    inp.addEventListener("input", () => { show(); o.on && o.on(+inp.value); });
+    // click the value (or Tab to it and press Enter) to type one
+    const g = p => { let q = null; try { q = parseVal(textOf(fmt(p))); } catch (e) { } return q ? q.v : null; };
+    let numeric = true; try { const ends = [+o.min, (+o.min + +o.max) / 2, +o.max].map(g).filter(v => v != null); numeric = new Set(ends).size > 1; } catch (e) { }
+    if (!numeric) val.classList.remove("k-typein"); else { val.tabIndex = 0; val.title = "Click to type a value"; }
+    function edit() {
+      if (w.querySelector(".k-typebox")) return;
+      const shown = textOf(val.innerHTML), box = $("input", "k-typebox"); box.type = "text"; box.value = shown.trim(); box.setAttribute("aria-label", "Type a value for " + o.label);
+      val.style.display = "none"; val.after(box); box.focus(); box.select(); let done = false;
+      const finish = ok => {
+        if (done) return; done = true; const raw = box.value.trim(); box.remove(); val.style.display = "";
+        if (!ok || !raw || raw === shown.trim()) return; const t = typedVal(raw, shown); if (!t) return;
+        const p = nearestSlider(+o.min, +o.max, +(o.step || 1), g, t.v, +inp.value); if (p == null) return;
+        inp.value = p; show(); o.on && o.on(+inp.value);
+      };
+      box.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); });
+      box.addEventListener("blur", () => finish(true)); box.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); });
+    }
+    if (numeric) val.addEventListener("click", e => { e.preventDefault(); edit(); });
+    if (numeric) val.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); edit(); } });
+    return { el: w, get value() { return +inp.value; }, set(v, fire) { inp.value = v; show(); if (fire) o.on && o.on(+inp.value); } };
+  }
+  function seg(parent, o) {
+    const w = $("div", "k-ctl"); if (o.label) w.append($("label", "", `<span>${o.label}</span>`));
+    const row = $("div", "k-seg"); w.append(row); if (o.tip) w.append($("small", "", o.tip)); parent.append(w);
+    let value = o.value; const btns = [];
+    const paint = () => btns.forEach(([v, b]) => b.classList.toggle("on", v === value));
+    for (const [v, label, title] of o.options) { const b = $("button", "k-btn", label); if (title) b.title = title; b.onclick = () => { value = v; paint(); o.on && o.on(v); }; row.append(b); btns.push([v, b]); }
+    paint();
+    return { el: w, get value() { return value; }, set(v, fire) { value = v; paint(); if (fire) o.on && o.on(v); } };
+  }
+  function toggle(parent, o) {
+    const w = $("div", "k-toggle" + (o.value ? " on" : ""), `<i></i><span>${o.label}</span>`); parent.append(w); let value = !!o.value;
+    w.onclick = () => { value = !value; w.classList.toggle("on", value); o.on && o.on(value); };
+    return { el: w, get value() { return value; }, set(v, fire) { value = !!v; w.classList.toggle("on", value); if (fire) o.on && o.on(value); } };
+  }
+  function btn(parent, label, on, cls) { const b = $("button", "k-btn " + (cls || ""), label); b.onclick = on; parent.append(b); return b; }
+  function row(parent) { const r = $("div", "k-row"); parent.append(r); return r; }
+  function readout(parent, items) { // small tiles of live numbers
+    const g = $("div", "k-read"), map = {}; parent.append(g);
+    for (const [id, label] of items) { const d = $("div", "", `<span>${label}</span><b>–</b>`); g.append(d); map[id] = d.lastChild; }
+    return { el: g, set(id, v) { if (map[id].textContent !== String(v)) map[id].innerHTML = v; } };
+  }
+  function note(parent, html) { const s = $("small", "", html); s.style.cssText = "display:block;color:var(--muted);margin:-2px 0 10px;font-size:12px;line-height:1.35"; parent.append(s); return s; }
+
+  // ---- A canvas that stays sharp on high-DPI screens and follows its container's size ----
+  function canvas(parent, onresize) {
+    const cv = $("canvas"); parent.append(cv); const c = { el: cv, ctx: cv.getContext("2d"), w: 1, h: 1, dpr: 1 };
+    const fit = () => {
+      const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
+      c.dpr = Math.min(window.devicePixelRatio || 1, 2); c.w = w; c.h = h; cv.width = Math.round(w * c.dpr); cv.height = Math.round(h * c.dpr);
+      c.ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0); onresize && onresize(c);
+    };
+    new ResizeObserver(fit).observe(parent); fit(); return c;
+  }
+  // Pointer handling in the element's own pixel coordinates
+  function pointer(el, h) {
+    const pos = e => { const r = el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, e }; };
+    let down = false;
+    el.addEventListener("pointerdown", e => { down = true; el.setPointerCapture(e.pointerId); h.down && h.down(pos(e)); });
+    el.addEventListener("pointermove", e => { const p = pos(e); if (down) h.drag && h.drag(p); else h.hover && h.hover(p); });
+    const up = e => { if (down) { down = false; h.up && h.up(pos(e)); } };
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+    el.addEventListener("pointerleave", e => h.leave && h.leave(pos(e)));
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+
+  // ---- Charts ----
+  const charts = new Set();
+  function niceTicks(a, b, n) {
+    const span = (b - a) || 1, raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    const step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p, t = [];
+    for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + step * 1e-6; v += step) t.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    return { t, step };
+  }
+  // tick labels: very big or very small numbers in standard form, with enough digits that neighbouring ticks differ (2.4e+5, 2.6e+5…)
+  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(clamp(Math.floor(Math.log10(a) + 1e-9) - Math.floor(Math.log10(step) + 1e-9), 0, 4)); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
+  /* chart(parent,{title,xLabel,yLabel,xMin,xMax,yMin,yMax,yZero})  then  .draw(series, extra)
+     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r, alpha, fillAlpha (area fill, default .22; 1 for solid stacked areas)}]
+     extra:  {xMin..yMax overrides, vlines:[{x,color,label,dash}], hlines:[{y,...}], bands:[{x0,x1,color}]} */
+  function chart(parent, o = {}) {
+    const wrap = $("div", "k-chart"), cv = $("canvas"); wrap.append(cv); parent.append(wrap);
+    const ctx = cv.getContext("2d"); let last = [[], {}];
+    const api = { el: wrap, opts: o, draw(series, extra) { last = [series || [], extra || {}]; render(); }, redraw: () => render(), map: null };
+    function render() {
+      const W = wrap.clientWidth, H = wrap.clientHeight; if (W < 40 || H < 40) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      const [series, ex] = last, q = Object.assign({}, o, ex);
+      const text = cssVar("--text"), muted = cssVar("--muted"), grid = cssVar("--grid");
+      // work out the axis ranges from the data unless they are fixed
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const s of series) for (const p of s.pts) { if (p[1] == null || !isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
+      for (const l of q.hlines || []) { if (l.y < y0) y0 = l.y; if (l.y > y1) y1 = l.y; }
+      if (!isFinite(x0)) { x0 = 0; x1 = 1; } if (!isFinite(y0)) { y0 = 0; y1 = 1; }
+      if (q.yZero || series.some(s => s.type === "bars")) { y0 = Math.min(0, y0); y1 = Math.max(0, y1); }
+      const py = (y1 - y0) * 0.08 || Math.abs(y1) * 0.1 || 1; if (q.yMin == null && y0 !== 0) y0 -= py; if (q.yMax == null) y1 += py;
+      if (x1 === x0) { x0 -= 0.5; x1 += 0.5; }
+      if (q.xMin != null) x0 = q.xMin; if (q.xMax != null) x1 = q.xMax; if (q.yMin != null) y0 = q.yMin; if (q.yMax != null) y1 = q.yMax;
+      const R = 12, T = 24, B = q.xLabel ? 34 : 22, ph = H - T - B, yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; let yw = 0; for (const v of yt.t) yw = Math.max(yw, ctx.measureText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step)).width);
+      const L = Math.max(54, Math.ceil(yw) + 26), pw = W - L - R;   // the left margin widens if the tick labels are long, so they never cover the axis title
+      const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + ph - (y - y0) / (y1 - y0) * ph;
+      api.map = { X, Y, x0, x1, y0, y1, L, T, pw, ph };
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; ctx.lineWidth = 1;
+      for (const b of q.bands || []) { ctx.fillStyle = b.color; ctx.fillRect(X(Math.max(x0, b.x0)), T, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)), ph); }
+      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70)));
+      ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.beginPath();
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      for (const v of xt.t) { const x = Math.round(X(v)) + .5; ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.fillText(q.xFmt ? q.xFmt(v) : tickFmt(v, xt.step), x, T + ph + 4); }
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      for (const v of yt.t) { const y = Math.round(Y(v)) + .5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.fillText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step), L - 5, y); }
+      ctx.stroke(); ctx.strokeStyle = muted; ctx.strokeRect(L + .5, T + .5, pw, ph);
+      if (q.xLabel) { ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(q.xLabel, L + pw / 2, H - 3); }
+      if (q.yLabel) { ctx.save(); ctx.translate(11, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(q.yLabel, 0, 0); ctx.restore(); }
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+      series.forEach((s, i) => {
+        const c = s.color || col(i); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = s.width || 1.8; ctx.setLineDash(s.dash || []); ctx.globalAlpha = s.alpha == null ? 1 : s.alpha;
+        const P = s.pts;
+        if (s.type === "bars") { const w = Math.max(1, Math.abs(X(s.w || 1) - X(0)) - 1); for (const p of P) { const yy = Y(p[1]); ctx.fillRect(X(p[0]) - w / 2, Math.min(yy, Y(0)), w, Math.abs(Y(0) - yy)); } }
+        else if (s.type === "dots" || s.type === "err") {
+          const r = s.r || 3;
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) continue; const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+        } else {
+          ctx.beginPath(); let pen = false;   // a missing value (null, NaN) leaves a gap in the line
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
+          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= s.fillAlpha == null ? .22 : s.fillAlpha; ctx.fill(); } else ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+      });
+      for (const l of q.vlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(l.x), T); ctx.lineTo(X(l.x), T + ph); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = X(l.x) > L + pw * .7 ? "right" : "left"; ctx.textBaseline = "top"; ctx.fillText(l.label, X(l.x) + (ctx.textAlign === "right" ? -5 : 5), T + 4 + (l.row || 0) * 13); } }
+      for (const l of q.hlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Y(l.y)); ctx.lineTo(L + pw, Y(l.y)); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(l.label, L + pw - 5, Y(l.y) - 2); } }
+      ctx.restore();
+      // title on the left, legend on the right
+      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
+      for (let i = series.length - 1; i >= 0; i--) { const s = series[i]; if (!s.label) continue; const w = ctx.measureText(s.label).width; lx -= w; ctx.fillStyle = muted; ctx.fillText(s.label, lx, 12); lx -= 12; ctx.fillStyle = s.color || col(i); ctx.fillRect(lx, 8, 8, 8); lx -= 10; }
+      if (q.title) { // the title gives way (with an ellipsis) if the legend needs the room
+        ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.fillStyle = text; let t = q.title; const room = lx - L - 8;
+        if (ctx.measureText(t).width > room) { while (t.length > 3 && ctx.measureText(t + "…").width > room) t = t.slice(0, -1); t = t.length > 3 ? t + "…" : ""; }
+        ctx.fillText(t, L, 12);
+      }
+    }
+    new ResizeObserver(render).observe(wrap); charts.add(api); return api;
+  }
+  function histogram(vals, bins, lo, hi) { // returns bar points [centre, count] and the bin width
+    if (lo == null) lo = Math.min(...vals); if (hi == null) hi = Math.max(...vals); if (hi === lo) { hi += .5; lo -= .5; }
+    const w = (hi - lo) / bins, c = new Array(bins).fill(0);
+    for (const v of vals) { const i = Math.floor((v - lo) / w); if (i >= 0 && i <= bins) c[Math.min(i, bins - 1)]++; }
+    return { pts: c.map((n, i) => [lo + (i + .5) * w, n]), w };
+  }
+
+  // ---- The page frame ----
+
+  let K_last = null;
+  /* ---- Worksheets ----
+     worksheetDoc(o, picks, opt) returns a printable HTML page: one A4 sheet per investigation card (o.missions) and per batch
+     experiment (o.batch), then teacher notes. picks = [{ kind: "m" | "b", item }]. opt = { file, teacher, results: { [batch title]: summary } } */
+  const wsCSS = `body{font:14px/1.45 "Segoe UI",system-ui,sans-serif;color:#111;margin:0;background:#eee}.sheet{background:#fff;width:186mm;min-height:270mm;margin:12px auto;padding:12mm;box-sizing:border-box;page-break-after:always}
+  .top{display:flex;justify-content:space-between;color:#555;font-size:12px;border-bottom:1px solid #999;padding-bottom:4px}h1{font-size:20px;margin:10px 0 4px}h2{font-size:15px;margin:16px 0 6px;color:#14467a}.tag{font-size:11px;border:1px solid #14467a;border-radius:9px;padding:0 6px;color:#14467a;vertical-align:middle}
+  .q{background:#eef4fb;border-left:4px solid #14467a;padding:8px 10px}.lines div{border-bottom:1px solid #aaa;height:26px}.box{border:1px solid #aaa;height:110px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:4px 6px;height:24px;text-align:center;font-size:13px}th{background:#f2f2f2}
+  ol{margin:4px 0 4px 20px;padding:0}.bar{position:sticky;top:0;background:#14467a;color:#fff;padding:8px 16px;display:flex;gap:12px;align-items:center}.bar button{font:inherit;padding:4px 12px;cursor:pointer}.note{background:#fafafa;border:1px solid #ccc;padding:8px 10px;margin:8px 0}
+  .grid{height:200px;border:1px solid #888;background-image:linear-gradient(#ddd 1px,transparent 1px),linear-gradient(90deg,#ddd 1px,transparent 1px);background-size:20px 20px;position:relative}
+  @media print{body{background:#fff}.bar{display:none}.sheet{margin:0;width:auto;min-height:0}}`;
+  const wsLines = n => `<div class="lines">${"<div></div>".repeat(n)}</div>`;
+  function worksheetDoc(o, picks, opt = {}) {
+    const file = opt.file || (location.pathname.split("/").pop() || "the simulation"), nM = (o.missions || []).length, nB = (o.batch || []).length;
+    const tagA = x => x.lvl === "adv" ? ' <span class="tag">A level</span>' : "", head = (k, n, of) => `<div class="top"><span>${o.title} · ${k} ${n} of ${of}</span><span>Name ____________________ &nbsp; Date __________</span></div>`;
+    const sheets = picks.map(({ kind, item: x }) => {
+      if (kind === "m") {
+        const n = o.missions.indexOf(x) + 1;
+        return `<div class="sheet">${head("Investigation", n, nM)}<h1>${x.title}${tagA(x)}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b>${x.lvl === "adv" ? " and choose <b>Advanced (A level)</b> in the Controls tab" : ""}.</li><li>Open the <b>Investigate</b> tab and press <b>Set it up ▸</b> on “${x.title}”. It sets everything up for you.</li><li>You can still change the controls afterwards to test your ideas.</li></ol>
+<h2>2 · The question</h2><div class="q">${x.q}</div>
+<h2>3 · Predict</h2><p>Before you watch, write what you think will happen, and why.</p>${wsLines(3)}
+<h2>4 · Observe and record</h2><p>Watch the simulation and try the controls. Record what you changed, what you saw and any readings (from the Readings panel or the graphs).</p>
+<table><tr><th style="width:30%">What I changed</th><th>What I saw or measured</th><th style="width:22%">Reading</th></tr>${"<tr><td></td><td></td><td></td></tr>".repeat(5)}</table>
+<h2>5 · Answer the question</h2>${wsLines(4)}
+<h2>6 · Explain</h2><p>Use the science to explain your answer. Open <b>The model</b> tab: which rule or assumption in the model causes what you saw? Would the real world behave the same way?</p>${wsLines(4)}</div>`;
+      }
+      const n = o.batch.indexOf(x) + 1, reps = x.reps || (x.xs ? 6 : 200);
+      const rec = x.xs ? `<table><tr><th>${x.xLabel}</th><th>mean</th><th>SD</th><th>SE</th>${x.theory ? "<th>theory</th>" : ""}<th>difference from theory, in SEs</th></tr>${x.xs.map(v => `<tr><td>${v}</td><td></td><td></td><td></td>${x.theory ? "<td></td>" : ""}<td></td></tr>`).join("")}</table>`
+        : `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${x.theory != null ? "<th>theory</th>" : ""}</tr><tr><td></td><td></td><td></td><td></td><td></td><td></td>${x.theory != null ? "<td></td>" : ""}</tr></table><p>Sketch the histogram:</p><div class="grid"></div>`;
+      return `<div class="sheet">${head("Batch experiment", n, nB)}<h1>${x.title}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b> and press <b>📊 Batch run</b>.</li><li>Click the experiment “${x.title}”. It sets everything up for you.</li><li>Press <b>▶ Run</b> and wait for it to finish (${x.xs ? `${x.xs.length} settings × ${reps} runs` : `${reps} runs`}).</li></ol>
+<div class="q"><b>${x.question}</b>${x.how ? `<br><small>${x.how}</small>` : ""}</div>
+<h2>2 · Predict before you run it</h2><p>${x.xs ? `How do you think <b>${x.yLabel}</b> will change as <b>${x.xLabel}</b> goes from ${x.xs[0]} to ${x.xs[x.xs.length - 1]}? Sketch your prediction, then give your reason.` : `What average do you expect for <b>${x.yLabel}</b>? Will every run give the same answer? Give your reason.`}</p>${x.xs ? `<div class="grid" style="height:150px"></div>` : ""}${wsLines(2)}
+<h2>3 · Record the results</h2><p>Copy the numbers from the table under the graph${x.theory != null ? " (theory: " + (x.theoryLabel || "the theory line") + ")" : ""}.</p>${rec}
+<h2>4 · Think about it</h2><ol><li>Does the simulation agree with the theory${x.theory == null ? " (or with your prediction)" : ""}? Use the difference in standard errors (or how close the points are to the line) to say how well.${wsLines(2)}</li>
+<li>Why don't all the runs give the same answer? What would happen to the standard error with four times as many runs?${wsLines(2)}</li>
+<li>Open <b>The model</b> tab. Name one simplification that could make the model differ from real life.${wsLines(2)}</li></ol></div>`;
+    });
+    let notes = "";
+    if (opt.teacher !== false) {
+      notes = `<div class="sheet"><div class="top"><span>${o.title} · Teacher notes</span><span>${file}</span></div><h1>Teacher notes</h1>` + picks.map(({ kind, item: x }) => {
+        if (kind === "m") return `<h2>Investigation ${o.missions.indexOf(x) + 1}: ${x.title}${tagA(x)}</h2><div class="note"><b>What to look for:</b> ${x.hint || "–"}</div>`;
+        const r = opt.results && opt.results[x.title], th = x.theory == null ? "" : x.xs ? x.xs.map(v => `${v}: ${sig(x.theory(v))}`).join(" · ") : sig(+x.theory);
+        return `<h2>Batch experiment ${o.batch.indexOf(x) + 1}: ${x.title}</h2><div class="note">${x.note || ""}${th ? `<br><b>Theory (${x.theoryLabel || "theory"}):</b> ${th}` : ""}${r ? `<br><b>Result from a test run:</b> ${r}` : ""}</div>`;
+      }).join("") + `</div>`;
+    }
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${o.title} – worksheets</title><style>${wsCSS}</style></head><body><div class="bar"><b>${o.title} – worksheets</b><span>${picks.length} sheet${picks.length > 1 ? "s" : ""}${opt.teacher !== false ? ", then teacher notes" : ""}. Print, or save as PDF.</span><button onclick="print()">🖨 Print</button></div>${sheets.join("")}${notes}</body></html>`;
+  }
+  // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
+  function batchSummary(e, seed0 = 12345) {
+    const rows = []; let i = 0;
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
+    return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
+  }
+  function openDoc(html, name) { const w = window.open("", "_blank"); if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(name, html); }
+  // ---- Sound (Web Audio). Pages that ask for it (app option `sound`) get a 🔇/🔊 button in the header.
+  //      It is OFF until someone presses it, so a room full of laptops stays quiet; nothing plays while it is off.
+  //      tone(f, {dur, vol, type, at, glide}) plays a note; noise({dur, vol, filter, freq, at}) a hiss, thump or rumble;
+  //      click() a Geiger-style tick; hum() a continuous tone you retune every frame (it fades out if not updated). ----
+  const sound = (() => {
+    let ctx = null, master = null, on = false, buf = null; const live = new Set(), hums = [], fns = [];
+    const ready = () => on && ctx && ctx.state === "running";
+    async function enable(v) {
+      on = !!v;
+      if (on) { try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (!master) { master = ctx.createGain(); master.gain.value = 0.7; master.connect(ctx.destination); } await ctx.resume(); } catch (e) { on = false; } }
+      else stop();
+      fns.forEach(f => f(on));
+    }
+    const track = n => { live.add(n); n.onended = () => live.delete(n); };
+    function tone(f, o = {}) {
+      if (!ready() || !(f > 15) || f > ctx.sampleRate / 2) return;
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.3, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.008, dur / 2);
+      const osc = ctx.createOscillator(), g = ctx.createGain(); osc.type = o.type || "sine"; osc.frequency.setValueAtTime(f, t); if (o.glide) osc.frequency.exponentialRampToValueAtTime(Math.max(16, o.glide), t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      osc.connect(g); g.connect(master); osc.start(t); osc.stop(t + dur + 0.02); track(osc);
+    }
+    function noise(o = {}) {
+      if (!ready()) return;
+      if (!buf) { buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.2, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.004, dur / 2);
+      const src = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain(); src.buffer = buf; src.loop = true;
+      fl.type = o.filter || "lowpass"; fl.frequency.value = o.freq || 1000; if (o.sweep) fl.frequency.exponentialRampToValueAtTime(o.sweep, t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      src.connect(fl); fl.connect(g); g.connect(master); src.start(t, Math.random()); src.stop(t + dur + 0.02); track(src);
+    }
+    const click = (o = {}) => noise({ dur: 0.012, vol: o.vol == null ? 0.5 : o.vol, filter: "highpass", freq: 1800, at: o.at });
+    function hum(type = "sine") {
+      let osc = null, g = null, last = 0;
+      const h = {
+        set(f, vol = 0.15) { if (!ready()) { h.kill(); return; } if (!osc) { osc = ctx.createOscillator(); g = ctx.createGain(); osc.type = type; g.gain.value = 0; osc.connect(g); g.connect(master); osc.start(); } const t = ctx.currentTime; osc.frequency.setTargetAtTime(Math.max(16, f), t, 0.02); g.gain.setTargetAtTime(vol, t, 0.04); last = performance.now(); },
+        kill() { if (osc) { try { g.gain.setTargetAtTime(0, ctx.currentTime, 0.03); osc.stop(ctx.currentTime + 0.25); } catch (e) { } osc = null; } },
+        stale() { return osc && performance.now() - last > 250; }
+      };
+      hums.push(h); return h;
+    }
+    function stop() { for (const n of live) { try { n.stop(); } catch (e) { } } live.clear(); hums.forEach(h => h.kill()); }
+    setInterval(() => hums.forEach(h => { if (h.stale()) h.kill(); }), 200);    // a hum nobody is updating (paused, other view) fades away
+    document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); });
+    return { enable, ready, tone, noise, click, hum, stop, get on() { return on; }, onChange: f => fns.push(f) };
+  })();
+  /* ---- WebGL helper (K.gl) ----
+     A small, stable toolkit so that simulations can draw with the graphics card without re-writing the same boilerplate.
+     Shaders are written in GLSL ES 1.00 ("precision mediump float; attribute/varying/gl_FragColor"), which runs on both
+     WebGL2 and WebGL1. Everything is documented in tools/kit/README.md ("WebGL").
+       K.gl.create(parent, { dprMax, alpha, antialias, onResize, message, fallback, onLost })  → view { el, gl, gl2, w, h, dpr, ok }  (or ok: false + a message)
+       K.gl.program(gl, vertexSrc, fragmentSrc)   → program with .use() and .set({ uName: value, uTex: texture })
+       K.gl.quad(gl)                              → full-screen quad: q.draw(program)  (vertex shader: K.gl.QUAD_VS, gives vUv)
+       K.gl.floatType(gl, { blend })              → the best renderable float format: { type, internal, format, kind: "float"|"half"|"byte" }
+       K.gl.target(gl, w, h, { float, blend, filter, wrap, data }) → one texture + framebuffer
+       K.gl.pingpong(gl, w, h, opts)              → { read, write, swap(), w, h, kind }  (step a grid simulation on the GPU)
+       K.gl.points(gl, { aName: size, ... })      → geometry: g.set("aName", Float32Array), g.draw(program, count, mode)
+       K.gl.screenshot(name, canvases…)           → saves the canvases, layered in order, as one PNG file */
+  const glKit = (() => {
+    const QUAD_VS = `attribute vec2 aPos; varying vec2 vUv; void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }`;
+    function noGL(parent, msg) {
+      const d = $("div", "k-nogl", msg || "<b>This view needs WebGL</b>, which this browser or computer has switched off.<br>Try Chrome or Edge, and check that “Use graphics acceleration” is on in the browser's settings. The Batch run still works.");
+      d.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;color:var(--muted);font-size:14px;line-height:1.5;z-index:1";
+      parent.append(d); return d;
+    }
+    // a small note in the corner of the stage (not blocking it), e.g. when a page falls back to its 2D drawing; "" hides it
+    function notice(parent, html) {
+      let n = parent.querySelector(":scope > .k-glnote");
+      if (!n) { n = $("div", "k-glnote"); n.style.cssText = "position:absolute;left:10px;bottom:10px;z-index:3;max-width:55%;padding:4px 9px;border-radius:6px;background:rgba(8,12,24,.8);color:#ffcf8a;font-size:11.5px;line-height:1.35;pointer-events:none"; parent.append(n); }
+      n.innerHTML = html || ""; n.style.display = html ? "" : "none"; return n;
+    }
+    // a WebGL canvas that fills its parent, follows its size and stays sharp (up to dprMax device pixels per CSS pixel)
+    function create(parent, o = {}) {
+      const el = $("canvas"); parent.append(el);
+      const attrs = { alpha: !!o.alpha, antialias: o.antialias !== false, preserveDrawingBuffer: true, premultipliedAlpha: false, powerPreference: "high-performance" };
+      let gl = null, gl2 = false;
+      if (!o.webgl1) { try { gl = el.getContext("webgl2", attrs); gl2 = !!gl; } catch (e) { } }
+      if (!gl) { try { gl = el.getContext("webgl", attrs) || el.getContext("experimental-webgl", attrs); } catch (e) { } }
+      const v = { el, gl, gl2, ok: !!gl, w: 1, h: 1, dpr: 1, message: null };
+      // o.fallback (html): the page can still draw without WebGL, so say so in a small corner note instead of covering the stage
+      if (!gl) { el.style.display = "none"; v.message = o.fallback ? notice(parent, o.fallback) : noGL(parent, o.message); return v; }
+      const fit = () => {
+        const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
+        v.dpr = Math.min(window.devicePixelRatio || 1, o.dprMax || 1.5); v.w = w; v.h = h;
+        const W = Math.round(w * v.dpr), H = Math.round(h * v.dpr); if (el.width !== W || el.height !== H) { el.width = W; el.height = H; }
+        o.onResize && o.onResize(v);
+      };
+      v.resize = fit; new ResizeObserver(fit).observe(parent); fit();
+      el.addEventListener("webglcontextlost", e => {
+        e.preventDefault(); v.ok = false;
+        if (o.fallback) { el.style.display = "none"; v.message = notice(parent, o.lostText || "The graphics card stopped (WebGL context lost): carrying on with the simpler drawing. Reload the page to get it back."); }
+        else if (!v.message) v.message = noGL(parent, "<b>The graphics card stopped drawing this view.</b><br>Reload the page to start it again.");
+        o.onLost && o.onLost(v);   // a page with a 2D fallback switches to it here
+      });
+      return v;
+    }
+    // compile and link, with readable errors (the offending line is printed with the message)
+    function compile(gl, type, src) {
+      const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        const log = gl.getShaderInfoLog(s) || "", m = /ERROR: \d+:(\d+)/.exec(log), lines = src.split("\n");
+        const where = m ? `\n  line ${m[1]}: ${(lines[+m[1] - 1] || "").trim()}` : "";
+        throw new Error(`K.gl: ${type === gl.VERTEX_SHADER ? "vertex" : "fragment"} shader did not compile: ${log.trim()}${where}`);
+      }
+      return s;
+    }
+    function program(gl, vs, fs) {
+      const p = gl.createProgram(); gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, vs)); gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, fs));
+      gl.bindAttribLocation(p, 0, "aPos"); gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error("K.gl: shader program did not link: " + gl.getProgramInfoLog(p));
+      // find every uniform and how to set it, so .set({ uTime: 1.5, uRes: [w, h], uTex: texture }) just works
+      const U = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+      for (let i = 0; i < n; i++) {
+        const info = gl.getActiveUniform(p, i), name = info.name.replace(/\[0\]$/, ""), loc = gl.getUniformLocation(p, info.name), t = info.type, arr = info.size > 1;
+        const f = { [gl.FLOAT]: arr ? "1fv" : "1f", [gl.FLOAT_VEC2]: "2fv", [gl.FLOAT_VEC3]: "3fv", [gl.FLOAT_VEC4]: "4fv", [gl.INT]: arr ? "1iv" : "1i", [gl.BOOL]: "1i", [gl.INT_VEC2]: "2iv", [gl.FLOAT_MAT2]: "m2", [gl.FLOAT_MAT3]: "m3", [gl.FLOAT_MAT4]: "m4", [gl.SAMPLER_2D]: "tex" }[t] || "1f";
+        U[name] = { loc, f };
+      }
+      const api = { prog: p, uniforms: U, gl };
+      api.use = () => { gl.useProgram(p); return api; };
+      api.set = vals => {
+        gl.useProgram(p); let unit = 0;
+        for (const k in U) if (U[k].f === "tex") U[k].unit = unit++;   // fixed texture units, in declaration order
+        for (const k in vals) {
+          const u = U[k]; if (!u) continue; const v = vals[k];          // a uniform the shader optimised away is quietly ignored
+          if (u.f === "tex") { gl.activeTexture(gl.TEXTURE0 + u.unit); gl.bindTexture(gl.TEXTURE_2D, v && v.tex ? v.tex : v); gl.uniform1i(u.loc, u.unit); }
+          else if (u.f === "m2" || u.f === "m3" || u.f === "m4") gl["uniformMatrix" + u.f[1] + "fv"](u.loc, false, v);
+          else if (u.f === "1f") gl.uniform1f(u.loc, +v); else if (u.f === "1i") gl.uniform1i(u.loc, v === true ? 1 : v === false ? 0 : v | 0);
+          else gl["uniform" + u.f](u.loc, v);
+        }
+        return api;
+      };
+      return api;
+    }
+    // two triangles covering the screen: every pixel runs the fragment shader once (grids, fractals, ray tracing)
+    function quad(gl) {
+      const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      return {
+        draw(pr, target) {
+          if (target !== undefined) bindTarget(gl, target);
+          pr.use(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+      };
+    }
+    // which floating-point textures can this card draw into? Checked once per context by actually trying.
+    const fcache = new WeakMap();
+    function floatType(gl, o = {}) {
+      // o.blend: the target will be drawn into with blending (e.g. adding up particle deposits). 32-bit floats only blend
+      // with EXT_float_blend, so without it the half-float format is chosen instead.
+      const key = o.blend ? "b" : "n", c = fcache.get(gl) || {}; fcache.set(gl, c); if (c[key]) return c[key];
+      const gl2 = typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext, tries = [];
+      if (gl2) {
+        if (gl.getExtension("EXT_color_buffer_float")) tries.push({ type: gl.FLOAT, internal: gl.RGBA32F, format: gl.RGBA, kind: "float", linear: !!gl.getExtension("OES_texture_float_linear") }, { type: gl.HALF_FLOAT, internal: gl.RGBA16F, format: gl.RGBA, kind: "half", linear: true });
+        else if (gl.getExtension("EXT_color_buffer_half_float")) tries.push({ type: gl.HALF_FLOAT, internal: gl.RGBA16F, format: gl.RGBA, kind: "half", linear: true });
+      } else {
+        if (gl.getExtension("OES_texture_float")) { gl.getExtension("WEBGL_color_buffer_float"); tries.push({ type: gl.FLOAT, internal: gl.RGBA, format: gl.RGBA, kind: "float", linear: !!gl.getExtension("OES_texture_float_linear") }); }
+        const h = gl.getExtension("OES_texture_half_float"); if (h) { gl.getExtension("EXT_color_buffer_half_float"); tries.push({ type: h.HALF_FLOAT_OES, internal: gl.RGBA, format: gl.RGBA, kind: "half", linear: !!gl.getExtension("OES_texture_half_float_linear") }); }
+      }
+      let pick = { type: gl.UNSIGNED_BYTE, internal: gl.RGBA, format: gl.RGBA, kind: "byte", linear: true };
+      for (const t of tries) {
+        const tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx); gl.texImage2D(gl.TEXTURE_2D, 0, t.internal, 4, 4, 0, t.format, t.type, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tx, 0);
+        const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE; gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb); gl.deleteTexture(tx);
+        if (ok && (!o.blend || t.kind !== "float" || gl.getExtension("EXT_float_blend"))) { pick = t; break; }
+      }
+      c[key] = pick; return pick;
+    }
+    // a texture you can draw into (a framebuffer). opts: float (true = best float type), filter "nearest"|"linear", wrap "clamp"|"repeat", data (typed array to start from)
+    function target(gl, w, h, o = {}) {
+      const ft = o.float ? floatType(gl, o) : { type: gl.UNSIGNED_BYTE, internal: gl.RGBA, format: gl.RGBA, kind: "byte", linear: true };
+      const tex = gl.createTexture(), fb = gl.createFramebuffer(), lin = o.filter === "linear" && ft.linear;
+      const t = { tex, fb, w, h, kind: ft.kind, type: ft.type };
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, lin ? gl.LINEAR : gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, lin ? gl.LINEAR : gl.NEAREST);
+      const wr = o.wrap === "repeat" ? gl.REPEAT : gl.CLAMP_TO_EDGE; gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wr); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wr);
+      t.upload = data => {   // data: Float32Array (float targets) or Uint8Array, 4 numbers per texel; half floats are converted for you
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        let d = data || null;
+        if (d && ft.kind === "half") { gl.texImage2D(gl.TEXTURE_2D, 0, ft.internal, w, h, 0, ft.format, ft.type, toHalf(d)); return t; }
+        if (d && ft.kind === "byte" && d instanceof Float32Array) { const b = new Uint8Array(d.length); for (let i = 0; i < d.length; i++) b[i] = Math.max(0, Math.min(255, Math.round(d[i] * 255))); d = b; }
+        gl.texImage2D(gl.TEXTURE_2D, 0, ft.internal, w, h, 0, ft.format, ft.type, d); return t;
+      };
+      t.upload(o.data);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      t.read = (x = 0, y = 0, rw = w, rh = h) => {   // copy all of it (or a rectangle) back to the CPU. Slow: tests and occasional measurements only. Floats 0–1 for byte targets.
+        bindTarget(gl, t); let out;
+        if (ft.kind === "byte") { const b = new Uint8Array(4 * rw * rh); gl.readPixels(x, y, rw, rh, gl.RGBA, gl.UNSIGNED_BYTE, b); out = Float32Array.from(b, q => q / 255); }
+        else { out = new Float32Array(4 * rw * rh); gl.readPixels(x, y, rw, rh, gl.RGBA, gl.FLOAT, out); }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null); return out;
+      };
+      t.dispose = () => { gl.deleteTexture(tex); gl.deleteFramebuffer(fb); };
+      return t;
+    }
+    function toHalf(f) {   // Float32Array → Uint16Array of half floats (used only when uploading starting data)
+      const out = new Uint16Array(f.length), fv = new Float32Array(1), iv = new Uint32Array(fv.buffer);
+      for (let i = 0; i < f.length; i++) { fv[0] = f[i]; const x = iv[0], s = (x >> 16) & 0x8000, e = ((x >> 23) & 0xff) - 112, m = x & 0x7fffff; out[i] = e <= 0 ? s : e >= 31 ? s | 0x7c00 : s | (e << 10) | (m >> 13); }
+      return out;
+    }
+    // draw into a target (or null = the screen), with the viewport set to match
+    function bindTarget(gl, t) { gl.bindFramebuffer(gl.FRAMEBUFFER, t ? t.fb : null); if (t) gl.viewport(0, 0, t.w, t.h); else gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight); }
+    // two targets: read the old state from .read, draw the new state into .write, then swap()
+    function pingpong(gl, w, h, o = {}) {
+      const a = target(gl, w, h, o), b = target(gl, w, h, o);
+      const pp = { read: a, write: b, w, h, kind: a.kind, swap() { const t = pp.read; pp.read = pp.write; pp.write = t; return pp; }, upload(d) { pp.read.upload(d); pp.write.upload(d); return pp; }, dispose() { a.dispose(); b.dispose(); } };
+      return pp;
+    }
+    // points (or lines, triangles): one buffer per attribute, e.g. points(gl, { aPos: 3, aCol: 4 }); g.set("aPos", positions); g.draw(prog, n)
+    function points(gl, layout) {
+      const bufs = {};
+      for (const k in layout) bufs[k] = { buf: gl.createBuffer(), size: typeof layout[k] === "number" ? layout[k] : layout[k].size, type: (layout[k].type) || gl.FLOAT, norm: !!layout[k].normalized, n: 0 };
+      const g = {
+        set(name, data, usage) { const b = bufs[name]; gl.bindBuffer(gl.ARRAY_BUFFER, b.buf); gl.bufferData(gl.ARRAY_BUFFER, data, usage || gl.DYNAMIC_DRAW); b.n = data.length / b.size; return g; },
+        draw(pr, count, mode) {
+          pr.use(); const used = [];
+          for (const k in bufs) { const loc = gl.getAttribLocation(pr.prog, k); if (loc < 0) continue; const b = bufs[k]; gl.bindBuffer(gl.ARRAY_BUFFER, b.buf); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, b.size, b.type, b.norm, 0, 0); used.push(loc); }
+          const n = count == null ? Math.min(...Object.values(bufs).map(b => b.n)) : count;
+          if (n > 0) gl.drawArrays(mode == null ? gl.POINTS : mode, 0, n);
+          for (const loc of used) if (loc !== 0) gl.disableVertexAttribArray(loc);
+          return g;
+        }
+      };
+      return g;
+    }
+    // layer the canvases (WebGL first, then 2D labels on top) into one PNG and download it
+    function screenshot(name, ...cvs) {
+      cvs = cvs.flat().filter(Boolean).map(c => c.el || c); if (!cvs.length) return null;
+      const W = cvs[0].width, H = cvs[0].height, out = document.createElement("canvas"); out.width = W; out.height = H; const x = out.getContext("2d");
+      x.fillStyle = getComputedStyle(cvs[0].parentNode || document.body).backgroundColor || "#000"; x.fillRect(0, 0, W, H);
+      for (const c of cvs) x.drawImage(c, 0, 0, W, H);
+      const url = out.toDataURL("image/png");
+      if (name !== false) { const a = $("a"); a.href = url; a.download = (name || "screenshot").replace(/\.png$/i, "") + ".png"; document.body.append(a); a.click(); a.remove(); }
+      return url;
+    }
+    /* GLSL you can paste into a fragment shader (before main) to read a grid texture smoothly:
+         vec4 bicubic(sampler2D t, vec2 n, vec2 p)   n = grid size in cells, p = position in cells (cell centres at 0, 1, 2…)
+       Catmull-Rom interpolation of all four channels between cell centres (edges clamped), limited to the range
+       of the four nearest cells so a sharp spike does not get dark or bright rings round it. */
+    const BICUBIC = `vec4 kCell(sampler2D t, vec2 n, vec2 i) { return texture2D(t, (clamp(i, vec2(0.0), n - 1.0) + 0.5) / n); }
+vec4 kCR(float t) { float t2 = t * t, t3 = t2 * t; return vec4(-0.5 * t3 + t2 - 0.5 * t, 1.5 * t3 - 2.5 * t2 + 1.0, -1.5 * t3 + 2.0 * t2 + 0.5 * t, 0.5 * t3 - 0.5 * t2); }
+vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
+  vec2 i = floor(p), f = p - i; vec4 wx = kCR(f.x), wy = kCR(f.y), s = vec4(0.0);
+  for (int y = 0; y < 4; y++) { vec4 row = vec4(0.0); for (int x = 0; x < 4; x++) row += wx[x] * kCell(t, n, i + vec2(float(x) - 1.0, float(y) - 1.0)); s += wy[y] * row; }
+  vec4 a = kCell(t, n, i), b = kCell(t, n, i + vec2(1.0, 0.0)), c = kCell(t, n, i + vec2(0.0, 1.0)), d = kCell(t, n, i + 1.0);
+  return clamp(s, min(min(a, b), min(c, d)), max(max(a, b), max(c, d)));
+}
+`;
+    // draw into part of the screen: a rectangle in CSS pixels measured from the top left (as on a 2D canvas), e.g. a letterboxed picture
+    function viewportRect(view, x, y, w, h) { const d = view.dpr, gl = view.gl; gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(Math.round(x * d), Math.round((view.h - y - h) * d), Math.round(w * d), Math.round(h * d)); }
+    return { create, program, quad, floatType, target, pingpong, points, screenshot, bindTarget, viewportRect, noGL, notice, QUAD_VS, BICUBIC };
+  })();
+  function app(o) {
+    document.title = o.title + " · Science Simulations";
+    const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
+    if (saved) document.documentElement.dataset.theme = saved;
+    const top = $("header", "k-top"), main = $("main", "k-main");
+    top.innerHTML = `<a class="k-home" href="${o.home || "../../index.html"}" title="Back to the list of simulations">◂ All simulations</a>
+      <div class="k-title"><span class="k-chip">${o.subject}</span><h1 title="${o.title}">${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
+    const act = top.querySelector(".k-actions");
+    const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
+    left.append(stage, dock); main.append(left, side); document.body.append(top, main);
+    const ui = { stage, dock, side, playing: true, speed: 1, canvas: fn => canvas(stage, fn), config: o };
+    const wsName = o.title.replace(/\W+/g, "-").toLowerCase() + "-worksheet.html";
+    ui.worksheet = (picks, teacher) => openDoc(worksheetDoc(o, picks, { teacher }), wsName);
+    ui.allPicks = () => (o.missions || []).map(item => ({ kind: "m", item })).concat((o.batch || []).map(item => ({ kind: "b", item })));
+    // header buttons
+    const bPlay = btn(act, "⏸ Pause", () => ui.setPlaying(!ui.playing)); bPlay.title = "Space bar";
+    ui.setPlaying = p => { ui.playing = p; bPlay.innerHTML = p ? "⏸ Pause" : "▶ Play"; bPlay.classList.toggle("primary", !p); };
+    if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
+    if (o.reset) btn(act, "↺ Reset", () => o.reset());
+    // the simulation's playback-speed control sits here, beside Pause / Step / Reset (see ui.headerSpeed below)
+    const hSpeed = $("div", "k-hspeed"); hSpeed.style.display = "none"; act.append(hSpeed);
+    if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
+    if (o.sound) { const bS = btn(act, "🔇 Sound", () => sound.enable(!sound.on)); bS.title = typeof o.sound === "string" ? o.sound : "Turn sound on or off (off to start with)"; sound.onChange(v => { bS.innerHTML = v ? "🔊 Sound" : "🔇 Sound"; bS.classList.toggle("primary", v); }); }
+    btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
+    btn(act, "⛶", () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).title = "Full screen";
+    addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
+    // side panel tabs
+    const tabs = $("nav", "k-tabs"), panes = {}; side.append(tabs);
+    const names = [["controls", "Controls"], ["missions", "Investigate"]].concat(o.revise ? [["revise", "Revise"]] : [], [["notes", "The model"]]);
+    const show = id => { if (id === "revise" && ui.renderRevise) ui.renderRevise(); for (const [k] of names) { panes[k].classList.toggle("on", k === id); panes[k]._tab.classList.toggle("on", k === id); } };
+    for (const [k, label] of names) { const b = $("button", "", label); b.onclick = () => show(k); tabs.append(b); panes[k] = $("div", "k-pane" + (k === "notes" ? " k-notes" : "")); panes[k]._tab = b; side.append(panes[k]); }
+    show("controls"); ui.controls = panes.controls; ui.showTab = show;
+    ui.group = title => { const g = $("div", "k-group", title ? `<h3>${title}</h3>` : ""); panes.controls.append(g); return g; };
+    panes.notes.innerHTML = o.notes || "";
+    // investigations: each card sets the simulation up and pins its question over the stage
+    let banner = null;
+    ui.mission = m => {
+      if (banner) banner.remove(); banner = null; if (!m) return;
+      banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
+      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
+    };
+    if ((o.missions || []).length || (o.batch || []).length) { const wr = $("div", "k-wsrow", "<span>Worksheets:</span>"); panes.missions.append(wr); btn(wr, "📄 Every investigation", () => ui.worksheet(ui.allPicks(), true), "small").title = "One printable sheet per investigation and batch experiment, then teacher notes"; btn(wr, "📄 Without teacher notes", () => ui.worksheet(ui.allPicks(), false), "small"); }
+    const mcards = (o.missions || []).map(m => {
+      const c = $("div", "k-mcard", `<h4><em></em>${m.title}${m.lvl === "adv" ? ' <span class="k-tag adv">A level</span>' : ""}</h4><p>${m.q}</p>`);
+      btn(c, "Set it up ▸", () => { c.classList.add("done"); c.querySelector("em").textContent = "✓"; m.setup && m.setup(); ui.mission(m); ui.setPlaying(true); show("controls"); }, "small primary");
+      btn(c, "📄 Worksheet", () => ui.worksheet([{ kind: "m", item: m }], true), "small").title = "A printable worksheet for this investigation";
+      panes.missions.append(c); return [m, c];
+    });
+    /* ---- Level (Standard / Advanced) and the Revise tab ----
+       o.levels = { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "...", adv: "..." } }
+       o.revise = { ideas: [{ lvl: "std"|"adv"|"beyond", tag, text }], questions: [{ lvl, q, marks, ans }] }   (q and ans may be functions, so they can use the numbers on screen)
+       Advanced shows everything; Standard hides anything marked "adv". */
+    ui.level = "std"; try { const l = localStorage.getItem("k-level"); if (l === "adv" || l === "std") ui.level = l; } catch (e) { }
+    if (!o.levels) ui.level = "adv";
+    const val = v => typeof v === "function" ? v() : v;
+    function renderLevel() {
+      let k = 0; for (const [m, c] of mcards) { const on = m.lvl !== "adv" || ui.level === "adv"; c.style.display = on ? "" : "none"; if (on) { k++; if (!c.classList.contains("done")) c.querySelector("em").textContent = k; } }
+      if (!o.revise) return; const P = panes.revise, see = x => x.lvl !== "adv" || ui.level === "adv", tagName = { std: "std", adv: "adv", beyond: "beyond" };
+      P.innerHTML = (o.levels ? `<p class="k-spec">${o.levels.specs[ui.level]}</p>` : "") + `<h3>Key ideas</h3>` + o.revise.ideas.filter(see).map(x => `<div class="k-idea"><span class="k-tag ${tagName[x.lvl]}">${x.tag}</span> ${val(x.text)}</div>`).join("") +
+        `<h3>Exam practice</h3>` + o.revise.questions.filter(see).map((x, i) => `<div class="k-mcard k-q"><h4><em>${i + 1}</em><span class="k-tag ${tagName[x.lvl]}">${x.lvl === "adv" ? "A level" : "GCSE"}</span><span class="k-marks">[${x.marks} mark${x.marks > 1 ? "s" : ""}]</span></h4><p>${val(x.q)}</p><details><summary>Mark scheme</summary>${val(x.ans)}</details></div>`).join("");
+      if (o.revise.questions.some(x => typeof x.q === "function")) btn(P, "↻ Use the numbers on screen now", renderLevel, "small");
+    }
+    if (o.levels) { const lg = $("div", "k-group k-level"); panes.controls.append(lg); const sg = seg(lg, { value: ui.level, options: [["std", o.levels.std], ["adv", o.levels.adv]], on: v => { ui.level = v; try { localStorage.setItem("k-level", v); } catch (e) { } hint.textContent = o.levels.specs[v]; renderLevel(); ui.onLevel && ui.onLevel(v); } }); const hint = $("small", "", o.levels.specs[ui.level]); hint.style.cssText = "display:block;color:var(--muted);font-size:11.5px;margin-top:-4px"; lg.append(hint); ui.setLevel = v => sg.set(v, true); }
+    try { renderLevel(); } catch (e) { setTimeout(renderLevel, 0); }   // questions may use values the simulation has not set up yet
+    ui.renderRevise = renderLevel;
+    /* ui.headerSpeed(control, { label }) moves a speed slider (or Slow/Fast buttons) made with K.slider / K.seg
+       from the Controls tab up into the header bar. It is the same control, so the simulation's own code
+       (ctl.speed.set(...), investigations, mode switches) keeps working. If the group it came from is hidden
+       (for example a mode that does not use it), the header copy is hidden too; a group left with only its
+       heading is hidden. A label like "Speed (minutes per second)" shows as "Speed" with the bracket after the value. */
+    const hsList = [];
+    ui.headerSpeed = (c, opt = {}) => {
+      const el = c.el, from = el.parentNode, name = el.querySelector("label > span"), tip = el.querySelector(":scope > small");
+      const full = name ? name.textContent : "", m = /^(.*?)\s*\((.+)\)$/.exec(full);
+      el.title = full + (tip ? " · " + tip.textContent : "");
+      if (name) name.textContent = opt.label || (m ? m[1] : full);
+      if (m && !opt.label) { const u = $("i", "k-hunit", m[2]); (el.querySelector("label") || el).append(u); }
+      el.classList.add("k-hctl"); hSpeed.append(el); hSpeed.style.display = ""; hsList.push({ el, from }); syncSpeed();
+      return c;
+    };
+    function syncSpeed() {
+      let any = false;
+      for (const { el, from } of hsList) {
+        if (from.classList.contains("k-group") && ![...from.children].some(x => x.tagName !== "H3")) from.classList.add("k-emptied");
+        let hide = false; for (let x = from; x && x !== panes.controls && x !== document.body; x = x.parentNode) if (x.style.display === "none" || x.hidden) { hide = true; break; }
+        el.classList.toggle("k-hoff", hide); if (!hide && el.style.display !== "none") any = true;
+      }
+      hSpeed.style.display = any ? "" : "none";
+    }
+    setInterval(() => hsList.length && syncSpeed(), 250);
+    // floating hint and heads-up text over the stage
+    let tipEl = null, tipT = 0;
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; } hudEl.style.display = html ? "" : "none"; };
+    // animation loop: step(dt) only while playing, draw() every frame
+    ui.run = (step, draw) => { let t0 = performance.now(); const f = t => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (ui.playing && !ov.classList.contains("on")) step(dt); draw(dt); requestAnimationFrame(f); }; requestAnimationFrame(f); };
+
+    // ---- Batch run window ----
+    const ov = $("div", "k-overlay"); document.body.append(ov);
+    let bstate = null;
+    function openBatch() {
+      ov.classList.add("on"); if (bstate) return;
+      const modal = $("div", "k-modal"), list = $("div", "k-blist", `<h2>📊 Batch run</h2><p>Runs the model many times without drawing it, then compares the results with theory. Pick a question:</p>`), mainB = $("div", "k-bmain");
+      modal.append(list, mainB); ov.append(modal); ov.addEventListener("pointerdown", e => { if (e.target === ov) ov.classList.remove("on"); });
+      mainB.innerHTML = `<div class="k-bhead"><h3></h3></div><div class="k-bbar"></div><div class="k-bchart"></div><div class="k-bfoot"><div class="k-btable"></div><div class="k-bnote"></div></div>`;
+      const head = mainB.querySelector("h3"), bar = mainB.querySelector(".k-bbar"), tbl = mainB.querySelector(".k-btable"), noteEl = mainB.querySelector(".k-bnote");
+      btn(mainB.querySelector(".k-bhead"), "✕ Close", () => ov.classList.remove("on"));
+      const ch = chart(mainB.querySelector(".k-bchart"), {});
+      const bRun = btn(bar, "▶ Run", () => runExp(), "primary"), prog = $("div", "k-prog", "<i></i>"), status = $("span", "", ""); status.style.cssText = "color:var(--muted);font-size:12.5px;min-width:110px";
+      const bCsv = btn(bar, "⬇ CSV", () => bstate.rows.length && download(o.title.replace(/\W+/g, "-").toLowerCase() + "-batch.csv", bstate.csv()));
+      bar.insertBefore(prog, bCsv); bar.insertBefore(status, bCsv);
+      btn(bar, "📄 Worksheet", () => ui.worksheet([{ kind: "b", item: bstate.exp }], true)).title = "A printable worksheet for this experiment";
+      bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
+      const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
+      function pick(e) { bstate.token++; bstate.exp = e; bRun.textContent = "▶ Run"; bRun.onclick = () => runExp(); bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
+      function paint() {
+        const e = bstate.exp, rows = bstate.rows, series = [], extra = { title: "", xLabel: e.xs ? e.xLabel : e.yLabel, yLabel: e.xs ? e.yLabel : "number of runs" };
+        if (e.xs) {
+          const groups = e.xs.map(x => rows.filter(r => r[0] === x).map(r => r[3])), done = e.xs.map((x, i) => [x, groups[i]]).filter(g => g[1].length);
+          if (e.theory) {
+            // the theory curve is drawn smoothly between the settings; a theory that only exists AT the settings (a table, a whole number of things) is drawn through those points instead
+            const th = x => { try { const y = e.theory(x); return y == null || !isFinite(y) ? null : +y; } catch (er) { return null; } };
+            const a = Math.min(...e.xs), b = Math.max(...e.xs); let tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, th(x)]); }
+            const atXs = [...e.xs].sort((u, v) => u - v).map(x => [x, th(x)]); if (tp.some(q => q[1] == null) && atXs.every(q => q[1] != null)) tp = atXs;
+            series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
+          series.push({ pts: rows.map(r => [r[0], r[3]]), type: "dots", color: cssVar("--s0"), alpha: .3, r: 2.5, label: "single runs" });
+          series.push({ pts: done.map(([x, g]) => [x, mean(g), se(g)]), type: "err", color: cssVar("--s0"), r: 4.5, label: "mean ± SE" });
+          let fitTxt = "";
+          if (e.fit && done.length > 2) { const f = linfit(done.map(([x, g]) => [x, mean(g)])), a = Math.min(...e.xs), b = Math.max(...e.xs); series.push({ pts: [[a, f.m * a + f.c], [b, f.m * b + f.c]], color: cssVar("--s2"), label: "best-fit line" }); fitTxt = `<tr><td colspan="6" style="text-align:left">Best-fit line: gradient <b>${sig(f.m)}</b>, intercept ${sig(f.c)}, r = ${f.r.toFixed(3)}</td></tr>`; }
+          extra.xMin = Math.min(...e.xs) - (Math.max(...e.xs) - Math.min(...e.xs)) * .05; extra.xMax = Math.max(...e.xs) + (Math.max(...e.xs) - Math.min(...e.xs)) * .05; if (e.yMin != null) extra.yMin = e.yMin; if (e.yMax != null) extra.yMax = e.yMax;
+          tbl.innerHTML = `<table><tr><th>${e.xLabel}</th><th>runs</th><th>mean</th><th>SD</th><th>SE</th>${e.theory ? "<th>theory</th>" : ""}</tr>` + done.map(([x, g]) => `<tr><td>${sig(x, 4)}</td><td>${g.length}</td><td>${sig(mean(g))}</td><td>${sig(sd(g))}</td><td>${sig(se(g))}</td>${e.theory ? `<td>${sig(e.theory(x))}</td>` : ""}</tr>`).join("") + fitTxt + "</table>";
+        } else {
+          const v = rows.map(r => r[3]);
+          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) { extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); series.push({ pts: [[+e.theory, 0]], type: "dots", r: 0.01, alpha: 0 }); } }   // an invisible point keeps the theory line on the chart even if every run misses it
+          tbl.innerHTML = v.length ? `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${e.theory != null ? "<th>theory</th>" : ""}</tr><tr><td>${v.length}</td><td>${sig(mean(v))}</td><td>${sig(sd(v))}</td><td>${sig(se(v))}</td><td>${sig(Math.min(...v))}</td><td>${sig(Math.max(...v))}</td>${e.theory != null ? `<td>${sig(+e.theory)}</td>` : ""}</tr></table>` : "";
+        }
+        ch.opts.xFmt = null; ch.draw(series, extra);
+      }
+      function runExp() {
+        const e = bstate.exp, token = ++bstate.token; bstate.rows = []; const tasks = [];
+        if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) tasks.push([x, r]); } else for (let r = 0; r < (e.reps || 200); r++) tasks.push([0, r]);
+        let i = 0; const seed0 = (Date.now() % 100000) * 7 + 1; bRun.textContent = "■ Stop"; bRun.onclick = () => { bstate.token++; fin(); };
+        const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
+        (function slice() {
+          if (token !== bstate.token) return; const t = performance.now();
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
+          if (i < tasks.length) setTimeout(slice, 0); else fin();
+        })();
+      }
+      pick(o.batch[0]);
+    }
+    ui.openBatch = openBatch;
+    K_last = ui;
+    return ui;
+  }
+  return { gl: glKit, sound, $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app, worksheetDoc, batchSummary, get ui() { return K_last; } };
+})();
+</script>
+<script>
+/* =====================================================================
+   DOMINO CHAIN REACTIONS
+   A small rigid-body physics engine, written for this page. Every domino,
+   ball and plank is a rigid body with a position, an angle, a velocity and
+   a spin. Each time step (1/600 s):
+     1. gravity changes every velocity (v += g·dt),
+     2. the computer finds every pair of bodies that touch (contacts),
+     3. it applies impulses at the contacts, again and again, until the
+        bodies stop moving into each other and friction stops them sliding
+        (the "sequential impulses" method used in most game engines),
+     4. every body moves on: x += v·dt, angle += ω·dt.
+   A standing domino stores energy (it is a tall, thin thing balanced on
+   its edge). A small push tips it past its balance point; it falls,
+   releasing that energy, and pushes the next one: a chain reaction.
+   ===================================================================== */
+
+// ---------------------------------------------------------------- physics (no drawing: the Batch run uses this too)
+const G = 9.81, DT = 1 / 600, ITER = 12;
+const DOM = { h: 0.048, t: 0.0075, m: 0.010 };   // a standard domino: 48 mm tall, 7.5 mm thick, 10 g
+const PHYS = { ddMu: 0.25 };                     // friction between two dominoes (sliding over each other); the table grips more
+const cross = (ax, ay, bx, by) => ax * by - ay * bx;
+
+let BID = 0;
+function makeBody(o) {
+  const b = Object.assign({ shape: "box", x: 0, y: 0, a: 0, vx: 0, vy: 0, w: 0, mu: 0.4, e: 0, fixed: false, kind: "box", hw: 0.01, hh: 0.01, r: 0.01, m: 1 }, o);
+  b.id = BID++;
+  if (b.fixed) { b.invM = 0; b.invI = 0; }
+  else { b.invM = 1 / b.m; const I = b.shape === "circle" ? 0.4 * b.m * b.r * b.r : b.m * ((2 * b.hw) ** 2 + (2 * b.hh) ** 2) / 12; b.invI = 1 / I; }
+  return b;
+}
+// a domino of height h and thickness t standing with its base centre at (x, y)
+const domino = (x, y, h = DOM.h, t = DOM.t, o = {}) => makeBody(Object.assign({ kind: "domino", x, y: y + h / 2, hw: t / 2, hh: h / 2, m: DOM.m * (h / DOM.h) ** 3, mu: 0.6 }, o));
+const ball = (x, y, r, o = {}) => makeBody(Object.assign({ kind: "ball", shape: "circle", x, y, r, m: 7800 * 4 / 3 * Math.PI * r ** 3, mu: 0.3, e: 0.3 }, o));
+// a fixed plank (ramp, shelf or the table) from (x1, y1) to (x2, y2), thickness th; its top surface runs along the line
+function plank(x1, y1, x2, y2, th = 0.006, o = {}) {
+  const L = Math.hypot(x2 - x1, y2 - y1), a = Math.atan2(y2 - y1, x2 - x1);
+  return makeBody(Object.assign({ kind: "plank", fixed: true, x: (x1 + x2) / 2 + Math.sin(a) * th / 2, y: (y1 + y2) / 2 - Math.cos(a) * th / 2, a, hw: L / 2, hh: th / 2, mu: 0.4 }, o));
+}
+
+/* ---- Collision detection: for two bodies that overlap, a contact normal n (pointing from A to B) and up to two contact
+   points, each with its separation (negative = overlapping by that much). */
+function corners(b) { const c = Math.cos(b.a), s = Math.sin(b.a); return [[1, 1], [-1, 1], [-1, -1], [1, -1]].map(([i, j]) => [b.x + c * i * b.hw - s * j * b.hh, b.y + s * i * b.hw + c * j * b.hh]); }
+function boxBox(A, B) {
+  const ca = Math.cos(A.a), sa = Math.sin(A.a), cb = Math.cos(B.a), sb = Math.sin(B.a), dx = B.x - A.x, dy = B.y - A.y;
+  const axes = [[ca, sa, A, 0], [-sa, ca, A, 1], [cb, sb, B, 0], [-sb, cb, B, 1]];
+  const proj = (b, nx, ny) => { const c = Math.cos(b.a), s = Math.sin(b.a); return b.hw * Math.abs(c * nx + s * ny) + b.hh * Math.abs(-s * nx + c * ny); };
+  let best = null;
+  for (const [nx, ny, owner, k] of axes) {
+    const sep = Math.abs(dx * nx + dy * ny) - proj(A, nx, ny) - proj(B, nx, ny);
+    if (sep > 0.0005) return null;
+    // prefer A's faces unless B's are clearly better (stops the choice flickering between frames)
+    if (!best || sep > best.sep + (owner === A ? 0 : 1e-5)) best = { sep, nx, ny, owner, k };
+  }
+  const ref = best.owner, inc = ref === A ? B : A; let nx = best.nx, ny = best.ny;
+  if ((inc.x - ref.x) * nx + (inc.y - ref.y) * ny < 0) { nx = -nx; ny = -ny; }   // normal points from the reference box to the other one
+  const eN = proj(ref, nx, ny), tx = -ny, ty = nx, eT = proj(ref, tx, ty);
+  // the incident face: the face of the other box that faces back towards the reference box most squarely
+  const ci = Math.cos(inc.a), si = Math.sin(inc.a), faces = [[ci, si, inc.hw, -si, ci, inc.hh], [-ci, -si, inc.hw, -si, ci, inc.hh], [-si, ci, inc.hh, ci, si, inc.hw], [si, -ci, inc.hh, ci, si, inc.hw]];
+  let f = faces[0], fd = 9; for (const q of faces) { const d = q[0] * nx + q[1] * ny; if (d < fd) { fd = d; f = q; } }
+  const fx = inc.x + f[0] * f[2], fy = inc.y + f[1] * f[2], pts = [[fx + f[3] * f[5], fy + f[4] * f[5]], [fx - f[3] * f[5], fy - f[4] * f[5]]];
+  // clip that face to the sides of the reference face
+  const tc = ref.x * tx + ref.y * ty; let P = pts;
+  for (const [sgn, lim] of [[1, tc + eT], [-1, -(tc - eT)]]) {
+    const d0 = sgn * (P[0][0] * tx + P[0][1] * ty) - lim, d1 = sgn * (P[1][0] * tx + P[1][1] * ty) - lim, out = [];
+    if (d0 <= 0) out.push(P[0]); if (d1 <= 0) out.push(P[1]);
+    if (d0 * d1 < 0) { const u = d0 / (d0 - d1); out.push([P[0][0] + u * (P[1][0] - P[0][0]), P[0][1] + u * (P[1][1] - P[0][1])]); }
+    if (out.length < 2) { if (!out.length) return null; P = [out[0], out[0]]; } else P = out.slice(0, 2);
+  }
+  const cs = [];
+  for (const p of (P[0] === P[1] ? [P[0]] : P)) { const sep = (p[0] - ref.x) * nx + (p[1] - ref.y) * ny - eN; if (sep < 0.0005) cs.push({ x: p[0] - nx * sep / 2, y: p[1] - ny * sep / 2, sep }); }
+  if (!cs.length) return null;
+  return ref === A ? { nx, ny, cs } : { nx: -nx, ny: -ny, cs };
+}
+function circleBox(C, B, flip) {
+  const c = Math.cos(B.a), s = Math.sin(B.a), dx = C.x - B.x, dy = C.y - B.y, lx = c * dx + s * dy, ly = -s * dx + c * dy;
+  let qx = Math.max(-B.hw, Math.min(B.hw, lx)), qy = Math.max(-B.hh, Math.min(B.hh, ly)), nxl, nyl, d;
+  if (qx === lx && qy === ly) {   // the centre is inside the box: push out through the nearest face
+    const px = B.hw - Math.abs(lx), py = B.hh - Math.abs(ly);
+    if (px < py) { nxl = Math.sign(lx) || 1; nyl = 0; qx = nxl * B.hw; d = -px; } else { nxl = 0; nyl = Math.sign(ly) || 1; qy = nyl * B.hh; d = -py; }
+  } else { const ex = lx - qx, ey = ly - qy; d = Math.hypot(ex, ey); if (d > C.r + 0.0005) return null; nxl = ex / d; nyl = ey / d; }
+  const nx = c * nxl - s * nyl, ny = s * nxl + c * nyl, px = B.x + c * qx - s * qy, py = B.y + s * qx + c * qy, sep = d - C.r;
+  // normal from the box to the circle; flip so it points from A to B
+  return flip ? { nx: -nx, ny: -ny, cs: [{ x: px, y: py, sep }] } : { nx, ny, cs: [{ x: px, y: py, sep }] };
+}
+function circleCircle(A, B) { const dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy); if (d > A.r + B.r + 0.0005 || d === 0) return null; const nx = dx / d, ny = dy / d; return { nx, ny, cs: [{ x: A.x + nx * A.r, y: A.y + ny * A.r, sep: d - A.r - B.r }] }; }
+function collide(A, B) {
+  if (A.shape === "box" && B.shape === "box") return boxBox(A, B);
+  if (A.shape === "circle" && B.shape === "circle") return circleCircle(A, B);
+  return A.shape === "circle" ? circleBox(A, B, true) : circleBox(B, A, false);
+}
+const radius = b => b.shape === "circle" ? b.r : Math.hypot(b.hw, b.hh);
+
+/* ---- The world: bodies, pivots (a plank pinned to a fixed point, e.g. a see-saw lever) and the step. */
+class World {
+  constructor() { this.bodies = []; this.pins = []; this.arb = new Map(); this.t = 0; }
+  add(b) { this.bodies.push(b); return b; }
+  pin(b, px, py) { const c = Math.cos(b.a), s = Math.sin(b.a), dx = px - b.x, dy = py - b.y; this.pins.push({ b, lx: c * dx + s * dy, ly: -s * dx + c * dy, px, py, Px: 0, Py: 0 }); }
+  step(dt = DT) {
+    const bs = this.bodies, n = bs.length, arbs = new Map();
+    for (const b of bs) if (!b.fixed) b.vy -= G * dt;                       // 1. gravity
+    // 2. find the touching pairs (a quick distance check first), keeping last step's impulses where a contact persists
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      const A = bs[i], B = bs[j]; if (A.fixed && B.fixed) continue;
+      const rr = radius(A) + radius(B); if (Math.abs(A.x - B.x) > rr || Math.abs(A.y - B.y) > rr) continue;
+      const m = collide(A, B); if (!m) continue;
+      const key = A.id * 100000 + B.id, old = this.arb.get(key);
+      for (const c of m.cs) { c.Pn = 0; c.Pt = 0; if (old) for (const o of old.cs) if (Math.hypot(o.x - c.x, o.y - c.y) < 0.002) { c.Pn = o.Pn; c.Pt = o.Pt; break; } }
+      m.A = A; m.B = B; m.mu = A.kind === "domino" && B.kind === "domino" ? PHYS.ddMu : Math.sqrt(A.mu * B.mu); m.e = Math.max(A.e, B.e); arbs.set(key, m);
+    }
+    this.arb = arbs;
+    // prepare each contact: its "effective mass" along the normal and along the surface, and a small push-apart (bias) for any overlap
+    for (const m of arbs.values()) {
+      const { A, B, nx, ny } = m, tx = -ny, ty = nx;
+      for (const c of m.cs) {
+        const rax = c.x - A.x, ray = c.y - A.y, rbx = c.x - B.x, rby = c.y - B.y;
+        const rnA = cross(rax, ray, nx, ny), rnB = cross(rbx, rby, nx, ny), rtA = cross(rax, ray, tx, ty), rtB = cross(rbx, rby, tx, ty);
+        c.mN = 1 / (A.invM + B.invM + A.invI * rnA * rnA + B.invI * rnB * rnB); c.mT = 1 / (A.invM + B.invM + A.invI * rtA * rtA + B.invI * rtB * rtB);
+        c.rax = rax; c.ray = ray; c.rbx = rbx; c.rby = rby;
+        const vn = (B.vx - B.w * rby - A.vx + A.w * ray) * nx + (B.vy + B.w * rbx - A.vy - A.w * rax) * ny;
+        c.bias = -0.2 / dt * Math.min(0, c.sep + 0.0002) + (vn < -0.3 ? -m.e * vn : 0);
+        // warm start: re-apply last step's impulses, so stacks settle quickly
+        const Px = c.Pn * nx + c.Pt * tx, Py = c.Pn * ny + c.Pt * ty; impulse(A, B, c, -Px, -Py);
+      }
+    }
+    for (const p of this.pins) { p.Px *= 0.9; p.Py *= 0.9; }
+    // 3. sequential impulses: nudge each contact in turn until nothing is moving into anything else
+    for (let it = 0; it < ITER; it++) {
+      for (const m of arbs.values()) {
+        const { A, B, nx, ny } = m, tx = -ny, ty = nx;
+        for (const c of m.cs) {
+          let dvx = B.vx - B.w * c.rby - A.vx + A.w * c.ray, dvy = B.vy + B.w * c.rbx - A.vy - A.w * c.rax;
+          const vn = dvx * nx + dvy * ny; let dPn = c.mN * (-vn + c.bias); const P0 = c.Pn; c.Pn = Math.max(P0 + dPn, 0); dPn = c.Pn - P0;   // contacts push, never pull
+          impulse(A, B, c, -dPn * nx, -dPn * ny);
+          dvx = B.vx - B.w * c.rby - A.vx + A.w * c.ray; dvy = B.vy + B.w * c.rbx - A.vy - A.w * c.rax;
+          const vt = dvx * tx + dvy * ty, maxF = m.mu * c.Pn; let dPt = c.mT * -vt; const T0 = c.Pt; c.Pt = Math.max(-maxF, Math.min(maxF, T0 + dPt)); dPt = c.Pt - T0;   // friction: at most μ × the push
+          impulse(A, B, c, -dPt * tx, -dPt * ty);
+        }
+      }
+      for (const p of this.pins) pinSolve(p, dt);
+    }
+    // 4. move
+    for (const b of bs) if (!b.fixed) { b.x += b.vx * dt; b.y += b.vy * dt; b.a += b.w * dt; }
+    this.t += dt;
+  }
+}
+// apply an impulse (Px, Py) to A at its contact point and the opposite impulse to B
+function impulse(A, B, c, Px, Py) {
+  A.vx += Px * A.invM; A.vy += Py * A.invM; A.w += A.invI * cross(c.rax, c.ray, Px, Py);
+  B.vx -= Px * B.invM; B.vy -= Py * B.invM; B.w -= B.invI * cross(c.rbx, c.rby, Px, Py);
+}
+// a pin: keeps a point on the plank at a fixed place (the plank can still turn about it)
+function pinSolve(p, dt) {
+  const b = p.b, c = Math.cos(b.a), s = Math.sin(b.a), rx = c * p.lx - s * p.ly, ry = s * p.lx + c * p.ly;
+  const ex = b.x + rx - p.px, ey = b.y + ry - p.py, vx = b.vx - b.w * ry, vy = b.vy + b.w * rx;
+  const k11 = b.invM + b.invI * ry * ry, k12 = -b.invI * rx * ry, k22 = b.invM + b.invI * rx * rx, det = k11 * k22 - k12 * k12;
+  const bx = -vx - 0.2 / dt * ex, by = -vy - 0.2 / dt * ey, Px = (k22 * bx - k12 * by) / det, Py = (k11 * by - k12 * bx) / det;
+  b.vx += Px * b.invM; b.vy += Py * b.invM; b.w += b.invI * cross(rx, ry, Px, Py);
+}
+const tilt = b => Math.abs(Math.atan2(Math.sin(b.a), Math.cos(b.a)));
+
+/* ---- A line of dominoes on a table. pitch = distance from one domino to the next (front face to front face).
+   jitter: random placement error (m). Returns the world and the dominoes in order. The first one gets a gentle push. */
+function dominoLine(n, pitch, o = {}) {
+  const w = new World(), h = o.h || DOM.h, t = o.t || DOM.t, r = o.rand || Math.random, ds = [], grow = o.grow || 1;
+  w.add(plank(-0.5, 0, 50, 0, 0.02, { kind: "table", mu: 0.5 }));
+  let x = 0.02, hh = h, tt = t;
+  for (let i = 0; i < n; i++) {
+    ds.push(w.add(domino(x + (o.jitter || 0) * (2 * r() - 1), 0, hh, tt)));
+    const step = pitch * (grow === 1 ? 1 : hh / h); hh *= grow; tt *= grow; x += grow === 1 ? pitch : step * (1 + grow) / 2;
+  }
+  return { w, ds };
+}
+// tip a domino forwards by giving it a little spin (as a fingertip push does)
+function push(d, strength = 1) { d.w = -strength * Math.sqrt(G / (2 * d.hh)) * 0.9; d.vx = -d.w * d.hh * 0.5; }
+// run a line until the toppling stops; records when each domino tipped past 30°
+function runLine(L, tMax = 6) {
+  const tt = L.ds.map(() => null); push(L.ds[0]); let last = 0;
+  while (L.w.t < tMax) {
+    for (let k = 0; k < 6; k++) L.w.step();
+    L.ds.forEach((d, i) => { if (tt[i] == null && tilt(d) > 0.52) { tt[i] = L.w.t; last = L.w.t; } });
+    if (tt[tt.length - 1] != null || L.w.t - last > 0.6) break;
+  }
+  return tt;
+}
+// wave speed from the topple times of dominoes i0..i1 (a straight-line fit of position against time)
+function frontSpeed(L, tt, i0, i1) {
+  const pts = []; for (let i = i0; i <= i1; i++) if (tt[i] != null) pts.push([tt[i], L.ds[i].x]);
+  if (pts.length < 4) return null; const mt = pts.reduce((a, p) => a + p[0], 0) / pts.length, mx = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+  let num = 0, den = 0; for (const [t, x] of pts) { num += (t - mt) * (x - mx); den += (t - mt) ** 2; } return num / den;
+}
+/* ---- A published model of the wave speed (van Leeuwen, "The domino effect", 2004; frictionless, inelastic).
+   The fallen dominoes lean on each other in a "train": if the domino ahead is tilted by θa, the one behind it, whose
+   front top corner rests on the back face of the one ahead, is tilted by θb = θa + asin((d cos θa − t)/h).
+   So the whole train moves as one object with one angle, the front domino's. Between collisions its energy is
+   conserved: ½ I_eff ω² + (potential energy of every domino) = constant. When the front domino's top corner reaches
+   the next domino (h sin θ = d − t) that domino joins the train; the collision is "sticky" (inelastic), so the new
+   train's speed is found from momentum-like bookkeeping (no energy is created). The wave settles to a steady speed:
+   one spacing d per time T between collisions. d = spacing (pitch), h = height, t = thickness. */
+function trainAngles(th0, d, h, t, kMax = 40) {   // angles of the whole train, front first, and dθ_j/dθ_front
+  const th = [th0], dd = [1];
+  for (let j = 1; j < kMax; j++) {
+    const a = th[j - 1], q = (d * Math.cos(a) - t) / h; if (q <= -1 || q >= 1) break;
+    const b = a + Math.asin(q); if (b > Math.PI / 2 - 0.02) break;     // lying almost flat: it stops counting
+    th.push(b); dd.push(dd[j - 1] * (1 - d * Math.sin(a) / h / Math.sqrt(1 - q * q)));
+  }
+  return { th, dd };
+}
+function modelSpeed(d, h, t = DOM.t) {
+  if (d - t >= h || d <= t) return 0;
+  const thc = Math.asin((d - t) / h), Ip = (h * h + t * t) / 3;      // per unit mass: moment of inertia about the pivot edge
+  const V = th => trainAngles(th, d, h, t).th.reduce((s, a) => s + G * (h / 2 * Math.cos(a) + t / 2 * Math.sin(a)), 0);
+  const Ieff = th => Ip * trainAngles(th, d, h, t).dd.reduce((s, c) => s + c * c, 0);
+  let w = Math.sqrt(G / h), T = 0, Tprev = 0;                         // start: one domino, pushed
+  for (let n = 0; n < 40; n++) {
+    // fall from θ = 0 to θc with the train's energy conserved
+    const E = 0.5 * Ieff(0) * w * w + V(0), N = 120; T = 0; let wEnd = w;
+    for (let i = 0; i < N; i++) { const th = (i + 0.5) / N * thc, k = E - V(th); if (k <= 0) return 0; T += (thc / N) / Math.sqrt(2 * k / Ieff(th)); }
+    wEnd = Math.sqrt(Math.max(0, 2 * (E - V(thc)) / Ieff(thc)));
+    // collision: the front domino (at θc) hits a new upright one, which becomes the new front
+    const old = trainAngles(thc, d, h, t), neu = trainAngles(0, d, h, t), m = Math.min(old.dd.length + 1, neu.dd.length);
+    let num = 0, den = 0; for (let j = 0; j < m; j++) { const c = neu.dd[j], before = j === 0 ? 0 : old.dd[j - 1] * wEnd; num += c * before; den += c * c; }
+    w = num / den;
+    if (n > 5 && Math.abs(T - Tprev) < 1e-6 * T) break; Tprev = T;
+  }
+  return d / T;
+}
+// ---------------------------------------------------------------- end of physics
+
+// ---------------------------------------------------------------- scenes
+// the highest fixed surface under x (at or below height yMax): where a new domino or ball should stand
+function surfaceAt(w, x, yMax = 9) {
+  let best = -Infinity;
+  for (const b of w.bodies) {
+    if (!b.fixed) continue; const c = Math.cos(b.a), s = Math.sin(b.a); if (Math.abs(c) < 0.2) continue;
+    const lx = (x - b.x + s * b.hh) / c; if (Math.abs(lx) > b.hw) continue;
+    const y = b.y + s * lx + c * b.hh; if (y <= yMax + 0.002 && y > best) best = y;
+  }
+  return best === -Infinity ? null : best;
+}
+const PRESETS = {
+  classic: { name: "Classic line", info: "40 dominoes, spaced at half their height." },
+  spacing: { name: "Wider and wider", info: "The gaps grow along the line. Where does the wave stop?" },
+  amplifier: { name: "Domino amplifier", info: "Each domino is 1.35 times taller than the one before: a 12 mm domino ends up toppling one 18 cm tall." },
+  stairs: { name: "Down the stairs", info: "A line that steps down three shelves." },
+  ballrun: { name: "Ball run", info: "Dominoes push a steel ball down a ramp; it starts a second line." },
+  split: { name: "Two-way split", info: "A ball drops between two back-to-back dominoes and wedges them apart: two waves run opposite ways." },
+  empty: { name: "Empty table", info: "Build your own with the tools." },
+};
+function buildPreset(key, o) {
+  const w = new World(), ds = [], h = o.h, t = h * DOM.t / DOM.h, p = o.pitch;
+  w.add(plank(-1, 0, 3, 0, 0.03, { kind: "table", mu: 0.6 }));
+  const row = (x0, y0, n, pitch, dir = 1) => { for (let i = 0; i < n; i++) ds.push(w.add(domino(x0 + dir * i * pitch, y0, h, t))); };
+  if (key === "classic") row(0.03, 0, 40, p);
+  if (key === "spacing") { let x = 0.03; for (let i = 0; i < 30; i++) { ds.push(w.add(domino(x, 0, h, t))); x += h * (0.35 + 0.035 * i) + t; } }
+  if (key === "amplifier") { let hh = 0.012, x = 0.03; const g = o.grow || 1.35; for (let i = 0; i < 10; i++) { ds.push(w.add(domino(x, 0, hh, hh * 0.15))); x += hh * 0.075 + 0.6 * hh + hh * g * 0.075; hh *= g; } }
+  if (key === "stairs") { for (let k = 0; k < 4; k++) { const y = 0.09 - k * 0.03, x0 = k * 0.32; if (y > 0) w.add(plank(x0 - 0.02, y, x0 + 0.32, y, 0.012)); row(x0 + 0.02, Math.max(0, y), Math.floor(0.29 / p) + 1, p); } }
+  if (key === "ballrun") {
+    w.add(plank(-0.02, 0.12, 0.42, 0.12, 0.012)); row(0.02, 0.12, Math.floor(0.3 / p), p);
+    const nb = Math.floor(0.3 / p); row(0.02, 0.12, 0, p); w.add(ball(0.02 + (nb - 1) * p + (o.boff || 0.028), 0.12 + (o.br || 0.016), o.br || 0.016));
+    w.add(plank(0.44, 0.105, 0.70, 0.035, 0.008));                       // the ramp: the ball flies off its end into the next line
+    row(o.bx || 0.74, 0, 18, p);
+  }
+  if (key === "split") {
+    // two lines back to back, with a small gap in the middle; a ball dropped into the gap wedges them apart
+    const gap = h * 0.35, c = 0.6;
+    for (let i = 0; i < 14; i++) ds.push(w.add(domino(c + gap / 2 + t / 2 + i * p, 0, h, t)));
+    for (let i = 0; i < 14; i++) ds.push(w.add(domino(c - gap / 2 - t / 2 - i * p, 0, h, t)));
+    w.dropBall = [c, h + 0.05, gap * 0.75];
+  }
+  return { w, ds };
+}
+
+// ---------------------------------------------------------------- page state
+const S = {};
+let preset = "classic", W = null, dom = [], speed = 0.5, tool = "push", spacingR = 0.5, heightMM = 48, frame = 0, drag = null, hover = null;
+let fallT = new Map(), hist = { x: [], ke: [] }, t0 = 0, started = false, glowOn = true;
+const ui = K.app({
+  title: "Domino Chain Reactions", subject: "Engineering", blurb: "Set up dominoes, ramps and balls, give one a nudge, and watch the energy run down the line.",
+  reset: () => load(preset),
+  missions: [
+    { title: "One small push", q: "Click the first domino (with the <b>Push</b> tool) to tip it. Watch the top chart: the toppling front moves along at a steady speed. How fast? Where did all that energy come from?",
+      hint: "Each standing domino stores gravitational potential energy: its centre of mass is high. Your push only has to lift the first one past its tipping point (its centre over its front edge). After that, every domino falling releases its own energy, which tips the next. The wave runs at a steady speed, about 1 m/s for ordinary dominoes.",
+      setup: () => { S.preset.set("classic"); load("classic"); } },
+    { title: "How far apart?", q: "Change the <b>spacing</b> and load the classic line again. Try 0.2, 0.5 and 0.9 of the height. Which is fastest? What happens at more than one height apart?",
+      hint: "Close together, each domino only has to tip a little before it hits the next, so the wave is quick. Far apart, each falls further first. More than about one height (plus a thickness) apart, a domino lands flat without reaching the next one and the wave stops dead. The 'Wider and wider' line shows exactly where.",
+      setup: () => { S.sp.set(0.2, true); S.preset.set("classic"); load("classic"); } },
+    { title: "Where does it stop?", q: "Load <b>Wider and wider</b>: the gaps grow along the line. Push the first domino. Which gap stops the wave? Measure it with the domino height.",
+      hint: "It stops where the gap between one domino's front and the next one's back is a little more than the height: the falling domino's top can no longer reach. Before that, the wave slows down as the gaps grow.",
+      setup: () => { S.preset.set("spacing"); load("spacing"); } },
+    { title: "Friction matters", q: "Set friction between dominoes to 0, push, and read the front speed. Then set it to 0.5. Compare both with the <b>model</b> readout (van Leeuwen's frictionless model).",
+      hint: "With no friction the simulation agrees with van Leeuwen's model to a few per cent. Real dominoes rub as they slide over each other, which wastes energy, so real waves are slower (about 30% here). A good model tells you what you have left out.",
+      setup: () => { S.mu.set(0, true); S.preset.set("classic"); load("classic"); } },
+    { title: "The domino amplifier", q: "Each domino is 1.35 times taller than the one before. Push the tiny first one (12 mm). Can it really knock over the last one, 15 times taller and 3000 times heavier?",
+      hint: "Yes: the energy that tips each domino is not the push from the one before but its own stored potential energy. A small domino only has to lift a big one slightly to tip it. This is an amplifier: a tiny input releases a huge output. Lorne Whitehead (1983) showed that real dominoes can grow by about 1.5 times each step; in this model the collisions are not springy, so the limit is about 1.4 (see the Batch run).",
+      setup: () => { S.preset.set("amplifier"); load("amplifier"); } },
+    { title: "Two ways at once", q: "Load <b>Two-way split</b> and press <b>Drop the ball</b>. The ball wedges between two back-to-back dominoes. Do the two waves travel at the same speed?",
+      hint: "They do (within the wobble of the start): the speed of the wave depends on the dominoes and their spacing, not on how hard the first one was pushed. However it starts, the wave settles to the same steady speed. That is the signature of a wave carried by the medium itself.",
+      setup: () => { S.preset.set("split"); load("split"); } },
+    { title: "Build a contraption", q: "Load <b>Ball run</b> and push the first domino. Then build your own: use the tools to add rows of dominoes, ramps, balls and see-saws. Can you make a chain that changes direction?",
+      hint: "Energy is passed on in different forms: gravitational potential energy to kinetic energy of the dominoes, then of the rolling ball, back to the dominoes. Each step loses some energy as heat and sound, so every stage must be 'set' (store its own energy), as dominoes and balls on slopes do.",
+      setup: () => { S.preset.set("ballrun"); load("ballrun"); } },
+  ],
+  batch: [
+    { title: "Wave speed vs spacing (no friction)", question: "How does the spacing change the speed of the wave? Does a published model get it right?", how: "30 standard dominoes (48 mm × 7.5 mm), no friction between dominoes. Each is placed within ±0.3 mm of its spot. The speed is measured over dominoes 10 to 26.",
+      xLabel: "spacing ÷ height (d/h)", yLabel: "wave speed (m/s)", xs: [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], reps: 3, yMin: 0,
+      run: (x, r) => { const mu0 = PHYS.ddMu; PHYS.ddMu = 0; const L = dominoLine(30, x * DOM.h, { jitter: 0.0003, rand: r }); const v = frontSpeed(L, runLine(L), 10, 26); PHYS.ddMu = mu0; return v; },
+      theory: x => modelSpeed(x * DOM.h, DOM.h), theoryLabel: "van Leeuwen's model (2004)",
+      note: "The model treats the fallen dominoes as a train leaning on each other, with sticky collisions and no friction. It agrees with the simulation to a few per cent. Closer spacing means a faster wave; at d/h ≈ 1.16 (height plus thickness) the dominoes can no longer reach each other." },
+    { title: "Friction slows the wave", question: "How much does friction between the dominoes slow the wave?", how: "30 standard dominoes at d/h = 0.5; friction between dominoes from 0 to 0.5.",
+      xLabel: "friction between dominoes (μ)", yLabel: "wave speed (m/s)", xs: [0, 0.1, 0.2, 0.3, 0.4, 0.5], reps: 3, yMin: 0,
+      run: (x, r) => { const mu0 = PHYS.ddMu; PHYS.ddMu = x; const L = dominoLine(30, 0.5 * DOM.h, { jitter: 0.0003, rand: r }); const v = frontSpeed(L, runLine(L), 10, 26); PHYS.ddMu = mu0; return v; },
+      theory: () => modelSpeed(0.5 * DOM.h, DOM.h), theoryLabel: "model without friction",
+      note: "Each fallen domino slides down the back of the next one. Friction turns some of the energy into heat, so the train pushes less hard and the wave is slower. Real dominoes (μ about 0.2–0.3) run about 25–35% slower than the frictionless model." },
+    { title: "Bigger dominoes, faster wave", question: "If every domino (and the spacing) is scaled up, how does the speed change?", how: "Dominoes of different heights, all the same shape, spaced at half their height; friction 0.25.",
+      xLabel: "domino height (mm)", yLabel: "wave speed (m/s)", xs: [12, 24, 48, 96, 192], reps: 3, yMin: 0,
+      run: (x, r) => { const h = x / 1000, L = dominoLine(30, 0.5 * h, { h, t: h * DOM.t / DOM.h, jitter: 0.0003 * h / DOM.h, rand: r }); return frontSpeed(L, runLine(L, 12), 10, 26); },
+      theory: x => modelSpeed(0.5 * x / 1000, x / 1000, x / 1000 * DOM.t / DOM.h) * 0.71, theoryLabel: "∝ √h (model × 0.71, the friction factor)",
+      note: "Everything about a falling domino scales with √(g h): the wave speed is proportional to the square root of the height. Four times taller, twice as fast. The theory line is the frictionless model scaled by 0.71 (the slowing found in the friction experiment); only its shape is being tested." },
+    { title: "Does the wave get through?", question: "How likely is the wave to reach the end of a line of 15, as the spacing grows?", how: "15 standard dominoes; each placed within ±2 mm of its spot, so the gaps vary. Result = 1 if all 15 fall.",
+      xLabel: "spacing ÷ height (d/h)", yLabel: "chance the wave gets through", xs: [0.6, 0.8, 1.0, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3], reps: 8, yMin: 0, yMax: 1.05,
+      run: (x, r) => { const L = dominoLine(15, x * DOM.h, { jitter: 0.002, rand: r }); const tt = runLine(L, 4); return tt.every(t => t != null) ? 1 : 0; },
+      theory: x => x * DOM.h - DOM.t < DOM.h ? 1 : 0, theoryLabel: "reaches if gap < height (d − t < h)",
+      note: "A domino can only reach the next one if the gap between them (spacing minus thickness) is less than its height. Near the limit, small placement errors decide it: one slightly-too-wide gap anywhere stops the whole wave, so the success rate falls off before the theoretical limit." },
+    { title: "How fast can an amplifier grow?", question: "If each domino is bigger than the last by a factor k, how big can k be?", how: "10 dominoes, the first 12 mm tall, each k times taller (and thicker, and further on) than the one before. Result = how many fall. Placement within ±0.5% of size.",
+      xLabel: "growth factor k", yLabel: "dominoes that fall (of 10)", xs: [1.1, 1.2, 1.3, 1.35, 1.4, 1.5, 1.6], reps: 3, yMin: 0, yMax: 10.5,
+      run: (x, r) => { const w = new World(); w.add(plank(-1, 0, 5, 0, 0.03, { kind: "table", mu: 0.6 })); const ds = []; let hh = 0.012, xx = 0.03; for (let i = 0; i < 10; i++) { ds.push(w.add(domino(xx + hh * 0.005 * (2 * r() - 1), 0, hh, hh * 0.15))); xx += hh * 0.075 + 0.6 * hh + hh * x * 0.075; hh *= x; } push(ds[0], 1.3); for (let i = 0; i < 600 * 6; i++) w.step(); return ds.filter(d => tilt(d) > 0.5).length; },
+      note: "The bigger domino is k³ times heavier. With bouncy real dominoes Whitehead reached k = 1.5; here, collisions are not springy and less of the falling domino's momentum is passed on, so the chain fails above about k = 1.4." },
+  ],
+  notes: `<h3>What is being calculated</h3><p>A small 2-D rigid-body engine, written for this page. Each body (domino, ball, see-saw) has a position, an angle, a velocity and a spin. Every 1/600 s: gravity changes the velocities; the computer finds every pair of bodies that touch and where (up to two contact points each); it applies impulses at the contacts, 12 times round, until nothing is moving into anything else and friction (at most μ × the push) stops sliding; then everything moves on. This "sequential impulses" method is the one used in game physics engines.</p>
+  <h3>Why the wave travels</h3><p>A standing domino has its centre of mass high up, so it stores gravitational potential energy. Tipping it past the point where its centre is over its front edge needs only a little energy; it then falls, releasing much more, and pushes the next. The wave speed depends on the dominoes and the spacing, not on the first push.</p>
+  <h3>The model readout</h3><p>van Leeuwen (2004) modelled fallen dominoes as a train leaning on each other with no friction and sticky collisions. It predicts the steady speed for a given spacing, height and thickness. The simulation with friction set to 0 agrees with it to a few per cent; real friction slows the wave.</p>
+  <h3>Assumptions and simplifications</h3><ul><li>2-D: dominoes, balls and planks are seen side-on and cannot twist sideways, so a line cannot curve or branch on the table (the Two-way split shows two lines started at once instead).</li><li>Bodies are perfectly rigid; collisions between dominoes are not springy (no bounce), balls bounce a little (coefficient of restitution 0.3).</li><li>Dominoes have the sizes of real ones (48 × 7.5 mm, 10 g); bigger ones are scaled in every direction.</li><li>Friction is the same everywhere it acts (table 0.6, domino on domino 0.25 unless changed, ball 0.3); there is no rolling resistance or air resistance.</li><li>Time steps of 1/600 s, so very fast impacts are slightly smoothed.</li><li>A domino counts as "fallen" once it has tipped 30°.</li></ul>
+  <h3>Mouse</h3><p>Choose a tool, then click or drag on the table. Push: click a domino to tip it (it falls away from the side you click). Row: drag along a surface. Ramp: drag from one end to the other. Right-drag to pan, wheel to zoom.</p>`,
+});
+
+// ---------------------------------------------------------------- controls
+let g = ui.group("Scene");
+S.preset = K.seg(g, { value: preset, options: Object.entries(PRESETS).map(([k, v]) => [k, v.name]), on: v => load(v) });
+const preNote = K.note(g, "");
+{ const r = K.row(g); K.btn(r, "👉 Push the first domino", () => pushFirst(), "primary"); S.drop = K.btn(r, "Drop the ball", () => dropBall()); K.btn(r, "↺ Set up again", () => load(preset)); }
+g = ui.group("Dominoes");
+S.sp = K.slider(g, { label: "Spacing (÷ height)", min: 0.2, max: 1.3, step: 0.05, value: 0.5, fmt: v => v.toFixed(2) + " (" + (v * heightMM).toFixed(0) + " mm)", on: v => { spacingR = v; }, tip: "Distance from one domino to the next, as a fraction of the height. Used by the presets and the Row tool." });
+S.h = K.slider(g, { label: "Height of new dominoes", min: 12, max: 192, step: 6, value: 48, fmt: v => v + " mm" + (v === 48 ? " (standard)" : ""), on: v => { heightMM = v; S.sp.set(spacingR); } });
+S.mu = K.slider(g, { label: "Friction between dominoes", min: 0, max: 0.6, step: 0.05, value: PHYS.ddMu, fmt: v => "μ = " + v.toFixed(2) + (v === 0 ? " (none: like the model)" : ""), on: v => { PHYS.ddMu = v; } });
+K.note(g, "Spacing and height apply when you load a preset or draw a row.");
+g = ui.group("Tools");
+S.tool = K.seg(g, { value: tool, options: [["push", "Push"], ["domino", "Domino"], ["row", "Row"], ["ball", "Ball"], ["ramp", "Ramp"], ["seesaw", "See-saw"], ["delete", "Delete"]], on: v => tool = v });
+const toolNote = K.note(g, "");
+g = ui.group("View");
+S.speed = K.slider(g, { label: "Speed (slow motion)", min: 0.05, max: 1.5, step: 0.05, value: 0.5, fmt: v => v.toFixed(2) + "×", on: v => speed = v });
+S.glow = K.toggle(g, { label: "Light up each domino as it falls", value: true, on: v => glowOn = v });
+{ const r = K.row(g); K.btn(r, "Fit view", () => fitView()); K.btn(r, "📷 Screenshot", () => glOn ? K.gl.screenshot("dominoes", gv.el, cv.el) : K.gl.screenshot("dominoes", cv.el)); }
+ui.headerSpeed(S.speed, { label: "Speed" });
+g = ui.group("Measurements");
+const read = K.readout(g, [["n", "Fallen"], ["v", "Front speed (measured)"], ["m", "Model (no friction)"], ["r", "v ÷ √(gh)"], ["t", "Time"], ["ke", "Kinetic energy now"]]);
+const chA = K.chart(ui.dock, { title: "Where the toppling front is", xLabel: "time (s)", yLabel: "position (m)" });
+const chB = K.chart(ui.dock, { title: "Kinetic energy of everything", xLabel: "time (s)", yLabel: "mJ" });
+const TOOL_TIPS = { push: "Click a domino to tip it over (away from the side you click).", domino: "Click on a surface to stand a domino there.", row: "Drag along a surface to stand a row of dominoes at the chosen spacing.", ball: "Click to place a steel ball.", ramp: "Drag from one end to the other to fix a ramp or shelf.", seesaw: "Click to place a see-saw (a plank on a pivot).", delete: "Click something to remove it." };
+
+// ---------------------------------------------------------------- scenes and actions
+function load(k) {
+  preset = k; S.preset.set(k); preNote.textContent = PRESETS[k].info;
+  const std = k === "ballrun", built = buildPreset(k, { h: std ? DOM.h : heightMM / 1000, pitch: std ? 0.5 * DOM.h : spacingR * heightMM / 1000 });
+  W = built.w; dom = built.ds; fallT = new Map(); hist = { x: [], ke: [] }; started = false; t0 = 0;
+  S.drop.style.display = W.dropBall ? "" : "none"; fitView();
+}
+function pushFirst() { const d = dom.length ? dom.reduce((a, b) => (b.flipped ? a : (a && a.x < b.x ? a : b)), null) : null; if (!d) return; push(d, 1.2); start(); ui.setPlaying(true); }
+function dropBall() { if (!W.dropBall) return; const [x, y, r] = W.dropBall; W.add(ball(x, y, r)); W.dropBall = null; S.drop.style.display = "none"; start(); ui.setPlaying(true); }
+function start() { if (!started) { started = true; t0 = W.t; } }
+const isDomino = b => b.kind === "domino";
+function step(dt) {
+  if (!W) return; const n = Math.max(1, Math.round(dt * speed / DT));
+  for (let i = 0; i < n; i++) W.step();
+  for (const b of W.bodies) if (isDomino(b) && !fallT.has(b.id) && tilt(b) > 0.52) { fallT.set(b.id, W.t); start(); }
+  if (started && frame % 2 === 0) {
+    let fx = null, ke = 0; for (const b of W.bodies) { if (b.fixed) continue; ke += 0.5 * b.m * (b.vx * b.vx + b.vy * b.vy) + 0.5 * b.w * b.w / b.invI; if (fallT.has(b.id)) fx = fx == null ? b.x : Math.max(fx, b.x); }
+    if (fx != null) hist.x.push([W.t - t0, fx]); hist.ke.push([W.t - t0, ke * 1000]);
+    for (const k in hist) if (hist[k].length > 2500) hist[k] = hist[k].filter((p, i) => i % 2 === 0);
+  }
+}
+// measured front speed: slope of position against time over the last 12 dominoes to fall in the main (rightward) direction
+function measured() {
+  const pts = dom.filter(d => fallT.has(d.id) && !d.flipped).map(d => [fallT.get(d.id), d.x]).sort((a, b) => a[0] - b[0]).slice(-14, -2);
+  if (pts.length < 5) return null; const f = K.linfit(pts); return Math.abs(f.m);
+}
+
+// ---------------------------------------------------------------- camera (metres, y up; the table top is y = 0)
+const cam = { x: 0.5, y: 0.05, s: 900 };
+const cv = ui.canvas(() => { if (!cam.fitted) requestAnimationFrame(fitView); });
+function fitView() {
+  if (!W || cv.w < 10) return; cam.fitted = true; let x0 = Infinity, x1 = -Infinity, y1 = 0.06;
+  for (const b of W.bodies) { if (b.kind === "table") continue; const r = radius(b); x0 = Math.min(x0, b.x - r); x1 = Math.max(x1, b.x + r); y1 = Math.max(y1, b.y + r); }
+  if (!isFinite(x0)) { x0 = 0; x1 = 1; }
+  if (W.dropBall) y1 = Math.max(y1, W.dropBall[1] + 0.03);
+  x0 -= 0.04; x1 += 0.04; const y0 = -0.035; y1 += 0.03;
+  cam.s = Math.min(cv.w / (x1 - x0), cv.h / (y1 - y0)); cam.x = (x0 + x1) / 2;
+  cam.y = y0 + 0.45 * cv.h / cam.s; if ((y1 - cam.y) * cam.s > 0.5 * cv.h) cam.y = (y0 + y1) / 2;   // keep the table low on the screen, with the wall above
+}
+const SX = x => cv.w / 2 + (x - cam.x) * cam.s, SY = y => cv.h / 2 - (y - cam.y) * cam.s, WX = px => cam.x + (px - cv.w / 2) / cam.s, WY = py => cam.y - (py - cv.h / 2) / cam.s;
+// domino colours: a rainbow along the table, so the wave can be followed
+const hueCol = (x) => { /* hue in degrees, then HSL to RGB */ const hh = ((x - cam.x) * cam.s / cv.w + 0.5) * 300 + 190; const f = n => { const k = (n + hh / 30) % 12; return 0.5 - 0.42 * Math.max(-1, Math.min(k - 3, 9 - k, 1)); }; return [f(0), f(8), f(4)]; };
+
+// ---------------------------------------------------------------- WebGL drawing
+const BG_FS = `precision highp float;
+uniform vec2 uRes, uO; uniform float uDpr, uS, uTime;
+float hash(vec2 p) { p = fract(p * vec2(127.1, 311.7)); p += dot(p, p + 19.19); return fract(p.x * p.y); }
+float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
+void main() {
+  vec2 px = gl_FragCoord.xy / uDpr, w = (px - uO) / uS, uv = px / uRes;
+  // the wall: warm, lit by a lamp above the middle, with faint wallpaper stripes
+  vec3 col = mix(vec3(0.10, 0.09, 0.12), vec3(0.32, 0.26, 0.22), smoothstep(0.0, 1.0, uv.y));
+  col += vec3(0.45, 0.33, 0.20) * exp(-pow(length((uv - vec2(0.5, 0.95)) * vec2(1.0, 1.6)), 2.0) * 2.5);
+  col *= 0.93 + 0.07 * smoothstep(0.3, 0.7, abs(fract(px.x / 26.0) - 0.5) * 2.0);
+  col *= 1.0 - 0.35 * length(uv - 0.5);
+  // a soft shadow on the wall just above the table
+  if (w.y > 0.0) col *= 1.0 - 0.35 * exp(-w.y * uS / 18.0);
+  // the table: its top edge, then the wooden front, then darkness underneath
+  if (w.y < 0.0) {
+    float grain = noise(vec2(w.x * 40.0, w.y * 900.0)) * 0.5 + noise(vec2(w.x * 8.0, w.y * 250.0)) * 0.5;
+    col = mix(vec3(0.36, 0.20, 0.10), vec3(0.58, 0.36, 0.18), grain);
+    col *= 0.75 + 0.25 * smoothstep(-0.03, 0.0, w.y);
+    col += vec3(0.6, 0.45, 0.3) * (1.0 - smoothstep(0.0, 2.5, -w.y * uS)) * 0.6;   // the lit top edge
+    if (w.y < -0.03) col = vec3(0.05, 0.04, 0.05) * (1.0 + uv.y);
+  }
+  gl_FragColor = vec4(col, 1.0);
+}`;
+// bodies: one quad each; the fragment shader draws a rounded box (domino, plank) or a ball with soft edges and lighting
+const B_VS = `attribute vec2 aPos; attribute vec2 aLoc; attribute vec2 aHalf; attribute vec4 aCol; attribute float aKind; uniform vec2 uRes;
+varying vec2 vLoc, vHalf; varying vec4 vCol; varying float vKind;
+void main() { vLoc = aLoc; vHalf = aHalf; vCol = aCol; vKind = aKind; gl_Position = vec4(aPos.x / uRes.x * 2.0 - 1.0, 1.0 - aPos.y / uRes.y * 2.0, 0.0, 1.0); }`;
+const B_FS = `precision mediump float; varying vec2 vLoc, vHalf; varying vec4 vCol; varying float vKind;
+float hash(vec2 p) { p = fract(p * vec2(127.1, 311.7)); p += dot(p, p + 19.19); return fract(p.x * p.y); }
+void main() {
+  if (vKind > 8.5) {   // shadow: a soft dark blur
+    float r = min(vHalf.x, vHalf.y) * 0.4; vec2 q = abs(vLoc) - (vHalf - 6.0) + r; float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+    gl_FragColor = vec4(0.0, 0.0, 0.0, 0.35 * (1.0 - smoothstep(-3.0, 6.0, d))); return; }
+  if (vKind > 1.5 && vKind < 2.5) {   // ball: a shiny steel sphere with a stripe that turns with it
+    float r = vHalf.x, d = length(vLoc) - r; if (d > 1.0) discard;
+    vec2 n2 = vLoc / r; float z = sqrt(max(0.0, 1.0 - dot(n2, n2))); vec3 n = vec3(n2.x, -n2.y, z);
+    float diff = max(dot(n, normalize(vec3(-0.4, 0.6, 0.7))), 0.0), spec = pow(max(dot(reflect(-normalize(vec3(-0.4, 0.6, 0.7)), n), vec3(0, 0, 1)), 0.0), 30.0);
+    float a = vHalf.y, stripe = 1.0 - smoothstep(0.08, 0.14, abs(n2.x * sin(a) + n2.y * cos(a)));
+    vec3 c = vCol.rgb * (0.25 + 0.8 * diff) * (1.0 - 0.35 * stripe) + vec3(1.0) * spec * 0.9;
+    gl_FragColor = vec4(c, 1.0 - smoothstep(-1.0, 1.0, d)); return; }
+  float rr = min(vHalf.x, vHalf.y) * (vKind < 0.5 ? 0.35 : 0.2);
+  vec2 q = abs(vLoc) - vHalf + rr; float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - rr;
+  if (d > 1.0) discard;
+  float edge = clamp(-d / max(2.0, min(vHalf.x, vHalf.y) * 0.5), 0.0, 1.0);          // 0 at the edge, 1 inside: a bevel
+  vec3 c = vCol.rgb;
+  if (vKind > 0.5) c *= 0.8 + 0.2 * hash(floor(vec2(vLoc.x / 3.0, vLoc.y * 2.0)));        // planks: wood grain
+  c *= 0.62 + 0.45 * edge; c += 0.18 * (1.0 - smoothstep(0.0, 0.35, abs(vLoc.x / vHalf.x + 0.45))) * (vKind < 0.5 ? 1.0 : 0.3);   // glossy highlight
+  if (vKind < 0.5) { c = mix(c, vec3(1.0), (1.0 - smoothstep(0.0, 1.2, abs(vLoc.y))) * 0.35); c += vCol.a * vec3(1.0, 0.85, 0.5) * 0.9; }   // dividing line; glow as it falls
+  gl_FragColor = vec4(c, 1.0 - smoothstep(-1.0, 1.0, d));
+}`;
+const gv = K.gl.create(ui.stage, { dprMax: 2, fallback: "No WebGL here: drawing a simpler picture without the graphics card.", onLost: () => { glOn = false; } });
+ui.stage.insertBefore(gv.el, ui.stage.firstChild);
+let glOn = false; const P = {};
+if (gv.ok) {
+  try { const gl = gv.gl; P.bg = K.gl.program(gl, K.gl.QUAD_VS, BG_FS); P.b = K.gl.program(gl, B_VS, B_FS); P.quad = K.gl.quad(gl); P.geo = K.gl.points(gl, { aPos: 2, aLoc: 2, aHalf: 2, aCol: 4, aKind: 1 }); glOn = true; }
+  catch (e) { console.warn(e.message); K.gl.notice(ui.stage, "WebGL did not start properly: drawing a simpler picture without it."); }
+}
+function bodyColour(b) {
+  if (b.kind === "ball") return [0.78, 0.8, 0.85, 0];
+  if (b.kind === "plank") return [0.62, 0.42, 0.24, 0];
+  if (b.kind === "lever") return [0.5, 0.33, 0.2, 0];
+  const c = hueCol(b.x), ft = fallT.get(b.id), glow = glowOn && ft != null ? Math.max(0, 1 - (W.t - ft) / 0.35) : 0;
+  return [c[0], c[1], c[2], glow];
+}
+function geometry(shadow) {
+  const pos = [], loc = [], half = [], col = [], kind = [], s = cam.s;
+  for (const b of W.bodies) {
+    if (b.kind === "table") continue;
+    const k = shadow ? 9 : b.kind === "domino" ? 0 : b.kind === "ball" ? 2 : 1, cx = SX(b.x) + (shadow ? 4 : 0), cy = SY(b.y) + (shadow ? 3 : 0);
+    if (shadow && b.fixed) continue;
+    let hx, hy, c, sn;
+    if (b.shape === "circle") { hx = hy = b.r * s + 1.5 + (shadow ? 6 : 0); c = 1; sn = 0; }
+    else { hx = b.hw * s + 1.5 + (shadow ? 6 : 0); hy = b.hh * s + 1.5 + (shadow ? 6 : 0); c = Math.cos(-b.a); sn = Math.sin(-b.a); }
+    const col4 = bodyColour(b), hv = b.shape === "circle" ? [b.r * s, b.a] : [b.hw * s + (shadow ? 6 : 0), b.hh * s + (shadow ? 6 : 0)];
+    const corners = [[-hx, -hy], [hx, -hy], [-hx, hy], [hx, hy]];
+    for (const i of [0, 1, 2, 2, 1, 3]) { const [lx, ly] = corners[i]; pos.push(cx + c * lx - sn * ly, cy + sn * lx + c * ly); loc.push(lx, ly); half.push(...hv); col.push(...col4); kind.push(k); }
+  }
+  return { pos, loc, half, col, kind };
+}
+function glDraw() {
+  const gl = gv.gl, Wd = cv.w, H = cv.h; gl.viewport(0, 0, gv.el.width, gv.el.height); gl.disable(gl.BLEND);
+  P.bg.set({ uRes: [Wd, H], uDpr: gv.el.width / Wd, uO: [SX(0), H - SY(0)], uS: cam.s, uTime: performance.now() / 1000 }); P.quad.draw(P.bg, null);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  for (const sh of [true, false]) {
+    const g_ = geometry(sh); if (!g_.pos.length) continue;
+    for (const [k, v] of [["aPos", g_.pos], ["aLoc", g_.loc], ["aHalf", g_.half], ["aCol", g_.col], ["aKind", g_.kind]]) P.geo.set(k, new Float32Array(v));
+    P.b.set({ uRes: [Wd, H] }); P.geo.draw(P.b, g_.pos.length / 2, gl.TRIANGLES);
+  }
+  gl.disable(gl.BLEND);
+}
+function draw2DScene(c) {   // only without WebGL
+  c.fillStyle = "#2b2420"; c.fillRect(0, 0, cv.w, cv.h); c.fillStyle = "#7a4d28"; c.fillRect(0, SY(0), cv.w, 0.03 * cam.s);
+  for (const b of W.bodies) {
+    if (b.kind === "table") continue; const col = bodyColour(b); c.fillStyle = `rgb(${col.slice(0, 3).map(v => Math.min(255, (v + col[3] * 0.5) * 255) | 0)})`;
+    if (b.shape === "circle") { c.beginPath(); c.arc(SX(b.x), SY(b.y), b.r * cam.s, 0, 6.3); c.fill(); }
+    else { c.save(); c.translate(SX(b.x), SY(b.y)); c.rotate(-b.a); c.fillRect(-b.hw * cam.s, -b.hh * cam.s, 2 * b.hw * cam.s, 2 * b.hh * cam.s); c.restore(); }
+  }
+}
+
+// ---------------------------------------------------------------- the 2D layer: pivots, tool previews, the front marker
+function drawOverlay() {
+  const c = cv.ctx; c.clearRect(0, 0, cv.w, cv.h);
+  if (glOn && gv.ok) glDraw(); else draw2DScene(c);
+  // see-saw pivots
+  c.fillStyle = "#c9b28a"; c.strokeStyle = "#3a2a1a"; c.lineWidth = 1.2;
+  for (const p of W.pins) { const x = SX(p.px), y = SY(p.py), base = SY(surfaceAt(W, p.px, p.py - 0.001) ?? 0); c.beginPath(); c.moveTo(x, y); c.lineTo(x - (base - y) * 0.6, base); c.lineTo(x + (base - y) * 0.6, base); c.closePath(); c.fill(); c.stroke(); c.fillStyle = "#333"; c.beginPath(); c.arc(x, y, 2.5, 0, 6.3); c.fill(); c.fillStyle = "#c9b28a"; }
+  // the toppling front: a small marker above the furthest fallen domino
+  if (started && fallT.size && fallT.size < dom.length) {
+    let f = null; for (const d of dom) if (fallT.has(d.id) && !d.flipped && (!f || d.x > f.x)) f = d;
+    if (f) { const x = SX(f.x), y = SY(f.y + f.hh + 0.012); c.fillStyle = "rgba(255,220,120,.9)"; c.beginPath(); c.moveTo(x, y + 8); c.lineTo(x - 6, y); c.lineTo(x + 6, y); c.closePath(); c.fill(); }
+  }
+  // tool previews
+  const hd = heightMM / 1000, tt = hd * DOM.t / DOM.h;
+  const ghostDomino = (x, y) => { c.strokeStyle = "rgba(255,255,255,.7)"; c.setLineDash([4, 3]); c.strokeRect(SX(x - tt / 2), SY(y + hd), tt * cam.s, hd * cam.s); c.setLineDash([]); };
+  if (hover && !drag && (tool === "domino" || tool === "ball")) { const x = WX(hover.px), y = surfaceAt(W, x, WY(hover.py)); if (y != null) { if (tool === "domino") ghostDomino(x, y); else { c.strokeStyle = "rgba(255,255,255,.7)"; c.beginPath(); c.arc(hover.px, hover.py, 0.012 * cam.s, 0, 6.3); c.stroke(); } } }
+  if (drag && drag.type === "row") { const p = spacingR * hd, n = Math.floor(Math.abs(drag.x1 - drag.x0) / p) + 1, dir = Math.sign(drag.x1 - drag.x0) || 1; for (let i = 0; i < n; i++) { const x = drag.x0 + dir * i * p, y = surfaceAt(W, x, drag.y0 + 0.01); if (y != null) ghostDomino(x, y); } c.fillStyle = "#fff"; c.font = "12px Segoe UI,system-ui,sans-serif"; c.fillText(n + " dominoes", SX(drag.x1) + 8, SY(drag.y0) - 30); }
+  if (drag && drag.type === "ramp") { c.strokeStyle = "rgba(255,210,150,.9)"; c.lineWidth = 4; c.beginPath(); c.moveTo(SX(drag.x0), SY(drag.y0)); c.lineTo(SX(drag.x1), SY(drag.y1)); c.stroke(); }
+  hud();
+}
+function hud() {
+  const n = dom.filter(d => fallT.has(d.id)).length, v = measured();
+  ui.hud(`${PRESETS[preset].name}: <b>${n}</b> of ${dom.length} fallen${v ? ` · front speed <b>${v.toFixed(2)} m/s</b>` : ""}${!started ? "<br><span style='color:#ffd166'>" + (W.dropBall ? "Press <b>Drop the ball</b>" : "Push the first domino to start") + "</span>" : ""}`);
+}
+
+// ---------------------------------------------------------------- mouse
+function bodyAt(px, py) { const x = WX(px), y = WY(py); let best = null, bd = 0.012; for (const b of W.bodies) { if (b.kind === "table") continue; const c = Math.cos(b.a), s = Math.sin(b.a), dx = x - b.x, dy = y - b.y; let d; if (b.shape === "circle") d = Math.hypot(dx, dy) - b.r; else { const lx = Math.abs(c * dx + s * dy) - b.hw, ly = Math.abs(-s * dx + c * dy) - b.hh; d = Math.max(lx, ly); } if (d < bd) { bd = d; best = b; } } return best; }
+function remove(b) { W.bodies = W.bodies.filter(q => q !== b); W.pins = W.pins.filter(p => p.b !== b); dom = dom.filter(q => q !== b); }
+K.pointer(cv.el, {
+  down(p) {
+    if (p.e.button === 2) { drag = { type: "pan", px: p.x, py: p.y, cx: cam.x, cy: cam.y }; return; }
+    const x = WX(p.x), y = WY(p.y), hd = heightMM / 1000, tt = hd * DOM.t / DOM.h;
+    if (tool === "push") { const b = bodyAt(p.x, p.y); if (b && !b.fixed) { if (b.kind === "domino") { push(b, 1.2); if (x > b.x) b.w = -b.w, b.vx = -b.vx; } else { b.vx += x > b.x ? -0.4 : 0.4; } start(); ui.setPlaying(true); } return; }
+    if (tool === "delete") { const b = bodyAt(p.x, p.y); if (b && b.kind !== "table") remove(b); return; }
+    if (tool === "domino") { const s = surfaceAt(W, x, y); if (s != null) dom.push(W.add(domino(x, s + 0.0002, hd, tt))); return; }
+    if (tool === "ball") { const r = 0.012; W.add(ball(x, Math.max(y, (surfaceAt(W, x, y) ?? 0) + r + 0.0005), r)); return; }
+    if (tool === "seesaw") { const s = surfaceAt(W, x, y) ?? 0, py = s + 0.025, lev = W.add(makeBody({ kind: "lever", x, y: py, hw: 0.09, hh: 0.004, m: 0.03, mu: 0.6 })); W.pin(lev, x, py); return; }
+    if (tool === "row" || tool === "ramp") drag = { type: tool, x0: x, y0: y, x1: x, y1: y };
+  },
+  drag(p) { hover = { px: p.x, py: p.y }; if (!drag) return; if (drag.type === "pan") { cam.x = drag.cx - (p.x - drag.px) / cam.s; cam.y = drag.cy + (p.y - drag.py) / cam.s; return; } drag.x1 = WX(p.x); drag.y1 = WY(p.y); },
+  up() {
+    const d = drag; drag = null; if (!d || d.type === "pan") return; const hd = heightMM / 1000, tt = hd * DOM.t / DOM.h;
+    if (d.type === "row") { const pch = spacingR * hd, n = Math.floor(Math.abs(d.x1 - d.x0) / pch) + 1, dir = Math.sign(d.x1 - d.x0) || 1; for (let i = 0; i < n && i < 80; i++) { const x = d.x0 + dir * i * pch, s = surfaceAt(W, x, d.y0 + 0.01); if (s != null) { const b = W.add(domino(x, s + 0.0002, hd, tt)); if (dir < 0) b.flipped = true; dom.push(b); } } }
+    if (d.type === "ramp" && Math.hypot(d.x1 - d.x0, d.y1 - d.y0) > 0.02) { const [a, b] = d.x0 < d.x1 ? [[d.x0, d.y0], [d.x1, d.y1]] : [[d.x1, d.y1], [d.x0, d.y0]]; W.add(plank(a[0], a[1], b[0], b[1], 0.008)); }
+  },
+  hover(p) { hover = { px: p.x, py: p.y }; },
+  leave() { hover = null; },
+});
+cv.el.addEventListener("wheel", e => { e.preventDefault(); const r = cv.el.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, wx = WX(px), wy = WY(py); cam.s = K.clamp(cam.s * (e.deltaY < 0 ? 1.15 : 1 / 1.15), 100, 20000); cam.x = wx - (px - cv.w / 2) / cam.s; cam.y = wy + (py - cv.h / 2) / cam.s; }, { passive: false });
+
+// ---------------------------------------------------------------- charts, readouts, loop
+function readouts() {
+  const n = dom.filter(d => fallT.has(d.id)).length, v = measured(), hd = heightMM / 1000;
+  read.set("n", `${n} / ${dom.length}`); read.set("v", v ? v.toFixed(2) + " m/s" : "–");
+  const ms = modelSpeed(spacingR * hd, hd, hd * DOM.t / DOM.h); read.set("m", ms ? ms.toFixed(2) + " m/s" : "cannot reach"); read.set("r", v ? (v / Math.sqrt(G * hd)).toFixed(2) : "–");
+  read.set("t", started ? (W.t - t0).toFixed(2) + " s" : "–"); const ke = hist.ke.length ? hist.ke[hist.ke.length - 1][1] : 0; read.set("ke", ke.toFixed(2) + " mJ");
+  toolNote.textContent = TOOL_TIPS[tool];
+}
+ui.run(dt => step(dt), () => {
+  frame++; drawOverlay();
+  if (frame % 5 === 0) { chA.draw([{ pts: hist.x, color: "#ffd166", width: 2.2 }], { xMin: 0, yMin: null }); chB.draw([{ pts: hist.ke, color: "#5ad1ff", width: 2 }], { xMin: 0, yMin: 0 }); readouts(); }
+});
+load("classic");
+setTimeout(() => { if (!started) pushFirst(); }, 1500);
+ui.tip("Forty dominoes and one small push. Try the tools and the Investigate tab.", 8000);
+</script>
+</body></html>

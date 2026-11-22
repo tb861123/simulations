@@ -14,9 +14,9 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and ninety-four simulations are built with the shared toolkit (the
+All one hundred and ninety-five simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and eighty-five newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and eighty-six newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
 mathematics, statistics, chemistry, economics, geography, PE and music simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones, and the Cosmic Distance Ladder, and the explore simulations). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -189,6 +189,7 @@ Biology sims follow Edexcel International GCSE Biology (4BI1) at Standard level 
 | [`engineering/car_crash/`](engineering/car_crash/) | Car Crash Safety ★: slow-motion crashes with crumple zones, seatbelts and airbags (momentum and impulse), plus a collisions lab (also listed under Physics) | Open `car-crash.html` |
 | [`engineering/aerofoil_flow/`](engineering/aerofoil_flow/) | Aerofoil flow ★: a 2D wind tunnel with the panel method; pressure, streamlines, lift, camber and the Magnus effect | Open `aerofoil-flow.html` |
 | [`engineering/bridge_builder/`](engineering/bridge_builder/) | Bridge Builder (explore, WebGL): build trusses from steel, timber and cable on a budget; a lorry crosses while members glow blue (tension) or red (compression) and snap or buckle when overloaded (stiffness-method truss solver, Euler buckling, progressive collapse); four levels (budget truss, arch, cable-stayed) and a Sandbox; batch: breaking load vs depth and panels against beam theory, shapes per £, the weakest link, sag vs load | Open `bridge-builder.html` |
+| [`engineering/domino_chains/`](engineering/domino_chains/) | Domino Chain Reactions (explore, WebGL): a rigid-body sandbox written for the page (sequential impulses with friction): dominoes, rows, balls, ramps and see-saws; presets for spacing, a domino amplifier, stairs, a ball run and a two-way split; wave speed against van Leeuwen's model; batch: speed vs spacing, friction and height, success rate vs spacing, amplifier growth limit | Open `domino-chains.html` |
 
 ## Climate and physical geography
 
@@ -236,7 +237,7 @@ science and mathematics underneath. Each has a WebGL main view (the graphics
 card draws it; a clear message appears if WebGL is switched off), Investigate
 cards written as challenges, a Batch run and worksheets, but no Standard /
 Advanced switch and no Revise tab. Explore simulations that belong to a subject
-(Slime Mould Networks, Ant Colony Foraging, Creature Evolution Arena, Gravity-Assist Sandbox, Bridge Builder) are listed
+(Slime Mould Networks, Ant Colony Foraging, Creature Evolution Arena, Gravity-Assist Sandbox, Bridge Builder, Domino Chain Reactions) are listed
 under that subject.
 
 | Folder | What it is | How to run |
