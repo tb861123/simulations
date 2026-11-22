@@ -585,8 +585,13 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     let banner = null;
     ui.mission = m => {
       if (banner) banner.remove(); banner = null; if (!m) return;
-      banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
-      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; placeHud(); }; stage.append(banner); placeHud();
+      // the question box: ✕ closes it; – folds it down to its title line so it stops covering the picture (click the title to open it again)
+      banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><button class="fold" title="Fold away (click the title to open again)">–</button><b class="k-btitle">${m.title}</b><div class="k-bbody">${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}</div>`);
+      const fold = on => { banner.classList.toggle("folded", on); banner.querySelector(".fold").textContent = on ? "+" : "–"; banner.querySelector(".fold").title = on ? "Show the question" : "Fold away (click the title to open again)"; placeHud(); };
+      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; placeHud(); };
+      banner.querySelector(".fold").onclick = () => fold(!banner.classList.contains("folded"));
+      banner.querySelector(".k-btitle").onclick = () => banner.classList.contains("folded") && fold(false);
+      stage.append(banner); placeHud();
     };
     if ((o.missions || []).length || (o.batch || []).length) { const wr = $("div", "k-wsrow", "<span>Worksheets:</span>"); panes.missions.append(wr); btn(wr, "📄 Every investigation", () => ui.worksheet(ui.allPicks(), true), "small").title = "One printable sheet per investigation and batch experiment, then teacher notes"; btn(wr, "📄 Without teacher notes", () => ui.worksheet(ui.allPicks(), false), "small"); }
     const mcards = (o.missions || []).map(m => {
@@ -651,7 +656,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     let tipEl = null, tipT = 0;
     ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
     ui.hideTip = () => { if (tipEl) { clearTimeout(tipT); tipEl.style.opacity = 0; } };
-    let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; } hudEl.style.display = html ? "" : "none"; };
+    let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; if (banner) placeHud(); } hudEl.style.display = html ? "" : "none"; };
     // animation loop: step(dt) only while playing, draw() every frame
     ui.run = (step, draw) => { let t0 = performance.now(); const f = t => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (ui.playing && !ov.classList.contains("on")) step(dt); draw(dt); requestAnimationFrame(f); }; requestAnimationFrame(f); };
 

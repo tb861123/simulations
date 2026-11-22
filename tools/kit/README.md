@@ -54,6 +54,19 @@ group it was made in is hidden (a mode that does not use it), the header copy
 hides too. Only move controls that change how fast the animation plays, not a
 model setting such as a tempo, a presentation rate or a physical speed.
 
+## The investigation question over the stage
+
+"Set it up ▸" on an Investigate card pins its question in a box at the top left
+of the stage. The box has ✕ (close) and – (fold it down to its title line, so
+it stops covering the picture; click the title to open it again). While a
+question is showing, the heads-up box (`ui.hud`, top right) moves down below it
+if the two would overlap. The stage also carries a CSS variable
+`--k-banner-h` (how far below the top of the stage the question ends, `0px` when there
+is none), so an HTML panel laid over the stage can start below it, e.g.
+`padding-top: max(12px, calc(var(--k-banner-h, 0px) + 10px))` (Tropical Storms'
+"Three real storms" cards). `ui.hideTip()` hides the floating hint straight
+away, for a view where it no longer applies.
+
 ## Sound
 
 Pass `sound: "what you will hear"` to `K.app` to add a 🔇/🔊 button to the
