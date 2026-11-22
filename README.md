@@ -14,9 +14,9 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and ninety-six simulations are built with the shared toolkit (the
+All one hundred and ninety-seven simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and eighty-seven newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and eighty-eight newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
 mathematics, statistics, chemistry, economics, geography, PE and music simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones, and the Cosmic Distance Ladder, and the explore simulations). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -246,6 +246,7 @@ under that subject.
 | [`explore/strange_attractors/`](explore/strange_attractors/) | Strange Attractors: nine attractors (seven flows, two maps) integrated by RK4 on the graphics card as up to a million particles with glowing trails and an orbit camera; live parameter morphing, the butterfly effect, Lyapunov exponents (Benettin), period doubling in Rössler | Open `strange-attractors.html` |
 | [`explore/life_automata/`](explore/life_automata/) | Life and Cellular Automata: life-like rules (Life, HighLife, Seeds, Day & Night, Maze, your own B/S) on grids up to 2048 × 1152 stepped on the graphics card; pattern library from RLE, drawing, zoom, age colours; Wolfram's elementary rules scrolling; soup ash, die-out chance, Langton's λ, rule 30 as a coin | Open `life-automata.html` |
 | [`explore/fourier_epicycles/`](explore/fourier_epicycles/) | Fourier Epicycles: draw a shape or choose one; the discrete Fourier transform turns it into a chain of up to 256 spinning circles drawn with WebGL; circle sizes and Parseval's error; the x-coordinate played as a Web Audio periodic wave; error against number of circles for smooth and cornered shapes | Open `fourier-epicycles.html` |
+| [`explore/powers_of_ten/`](explore/powers_of_ten/) | Powers of Ten: a WebGL logarithmic zoom from the observable universe (10²⁷ m) to a quark (< 10⁻¹⁸ m) through 24 nested objects at their real sizes and relative positions, every size cited; live scale bar, power-of-ten readout, light-crossing time, jump-to list, two-object comparison; batch: how many fit across and inside (Monte Carlo over each size's uncertainty), size against mass | Open `powers-of-ten.html` |
 
 ## Mathematics
 
