@@ -169,6 +169,10 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["logic_gates.js", "logic_gates", "logic-gates.html", "Logic Gates and Circuits", "computing"],
   ["cpu_fetch_execute.js", "cpu_fetch_execute", "cpu-fetch-execute.html", "CPU: Fetch–Decode–Execute", "computing"],
   ["binary_and_floating_point.js", "binary_and_floating_point", "binary-and-floating-point.html", "Binary and Floating Point", "computing"],
+  ["harmony_cadences.js", "harmony_cadences", "harmony-cadences.html", "Harmony, Chords and Cadences", "music"],
+  ["keys_modulation.js", "keys_modulation", "keys-modulation.html", "Keys, Scales and Modulation", "music"],
+  ["structure_texture.js", "structure_texture", "structure-texture.html", "Structure and Texture", "music"],
+  ["modern_techniques.js", "modern_techniques", "modern-techniques.html", "Twentieth-Century Techniques", "music"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
