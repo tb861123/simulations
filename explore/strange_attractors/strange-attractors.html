@@ -1,0 +1,1103 @@
+<!doctype html>
+<!-- Strange Attractors: one self-contained file, works offline. Built from tools/kit (kit.css, kit.js, src/strange_attractors.js); edit those and run "node build.js". -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Strange Attractors</title>
+<style>
+/* ===== Enhanced (kit-built) simulations: shared look and feel (inlined into every page by build.js) ===== */
+:root{
+  --bg:#0a0f1c; --panel:#111a2c; --panel2:#17223a; --line:#24324f; --text:#e9eef8; --muted:#8fa0bf; --grid:#1f2c47;
+  --accent:#5ad1ff; --accent-ink:#04121c; --good:#6ee7a0; --warn:#ffb454; --bad:#ff6b81;
+  --s0:#5ad1ff; --s1:#ffb454; --s2:#7ee787; --s3:#ff7b9c; --s4:#c4a1ff; --s5:#ffe66d;
+  --shadow:0 10px 30px rgba(0,0,0,.45); --r:12px;
+}
+:root[data-theme=light]{
+  --bg:#eef2f8; --panel:#ffffff; --panel2:#f3f6fb; --line:#d5dceb; --text:#172033; --muted:#5d6b85; --grid:#e3e8f2;
+  --accent:#0b7fc2; --accent-ink:#ffffff; --good:#12924c; --warn:#b86a00; --bad:#d1344d;
+  --s0:#0b7fc2; --s1:#d97a00; --s2:#1b9e4b; --s3:#d6336c; --s4:#7048c8; --s5:#a08800;
+  --shadow:0 8px 24px rgba(30,50,90,.15);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+.k-top{display:flex;align-items:center;gap:14px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;min-height:52px}
+.k-home{color:var(--muted);text-decoration:none;font-size:13px;white-space:nowrap}.k-home:hover{color:var(--accent)}
+.k-title{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
+.k-title h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.k-chip{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 9px;white-space:nowrap;align-self:center}
+.k-blurb{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k-actions{display:flex;gap:6px;flex:none;align-items:center}
+.k-btn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap;transition:.12s;user-select:none}
+.k-btn:hover{border-color:var(--accent);color:var(--accent)}
+.k-btn:active{transform:translateY(1px)}
+.k-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.k-btn.primary:hover{filter:brightness(1.1);color:var(--accent-ink)}
+.k-btn.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel2))}
+.k-btn.small{padding:3px 9px;font-size:12.5px}
+.k-btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.k-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
+.k-left{display:flex;flex-direction:column;min-width:0;min-height:0}
+.k-stage{flex:1;position:relative;min-height:0;background:#060a14;overflow:hidden}
+.k-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.k-dock{flex:none;height:190px;display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.k-dock:empty{display:none}
+.k-dock>*{flex:1;min-width:0;background:var(--panel)}
+.k-chart{position:relative;height:100%;min-height:80px}
+.k-chart canvas{position:absolute;inset:0;width:100%;height:100%}
+.k-side{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.k-tabs{display:flex;border-bottom:1px solid var(--line);flex:none}
+.k-tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:10px 4px;cursor:pointer;color:var(--muted);font-weight:600}
+.k-tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.k-pane{flex:1;overflow-y:auto;padding:12px 14px 20px;display:none;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.k-pane.on{display:block}
+.k-group{margin-bottom:14px}
+.k-group>h3{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);margin:0 0 8px;font-weight:700}
+.k-ctl{margin-bottom:10px}
+.k-ctl label{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:2px}
+.k-ctl label b{font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.k-ctl label b.k-typein{cursor:text;border-bottom:1px dashed currentColor;padding:0 1px}
+.k-ctl label b.k-typein:hover,.k-ctl label b.k-typein:focus{outline:1px solid var(--accent);outline-offset:1px;border-radius:3px}
+.k-typebox{width:9em;font:inherit;font-size:12.5px;padding:1px 4px;border-radius:4px;border:1px solid var(--accent);background:var(--panel-2,#1b2438);color:var(--text)}
+.k-ctl small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3;margin-top:1px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:none;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-moz-range-track{height:5px;border-radius:9px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);margin-top:-6.5px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--accent)}
+.k-seg{display:flex;flex-wrap:wrap;gap:4px}
+.k-seg .k-btn{flex:1 1 auto;padding:5px 8px;font-size:13px;text-align:center}
+.k-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.k-row .k-btn{flex:1 1 auto;text-align:center}
+.k-toggle{display:flex;align-items:center;gap:9px;cursor:pointer;margin-bottom:9px;font-size:13px;user-select:none}
+.k-toggle i{flex:none;width:34px;height:19px;border-radius:99px;background:var(--line);position:relative;transition:.15s}
+.k-toggle i::after{content:"";position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;background:var(--muted);transition:.15s}
+.k-toggle.on i{background:var(--accent)}.k-toggle.on i::after{left:17px;background:var(--accent-ink)}
+.k-read{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.k-read div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 9px}
+.k-read span{display:block;font-size:11px;color:var(--muted)}
+.k-read b{font-size:16px;font-variant-numeric:tabular-nums;font-weight:650}
+.k-mcard{border:1px solid var(--line);background:var(--panel2);border-radius:var(--r);padding:11px 12px;margin-bottom:10px}
+.k-mcard h4{margin:0 0 4px;font-size:14.5px;display:flex;gap:8px;align-items:center}
+.k-mcard h4 em{font-style:normal;flex:none;width:22px;height:22px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:12px}
+.k-mcard.done h4 em{background:var(--good);color:#04130a}
+.k-mcard p{margin:0 0 8px;color:var(--muted);font-size:13px}
+.k-banner{position:absolute;left:12px;top:12px;max-width:min(520px,70%);background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--accent);border-radius:var(--r);padding:10px 34px 10px 13px;box-shadow:var(--shadow);z-index:5;backdrop-filter:blur(6px);font-size:13.5px}
+.k-banner b{color:var(--accent)}
+.k-banner .x{position:absolute;right:8px;top:6px;cursor:pointer;color:var(--muted);background:none;border:0;font-size:16px}
+.k-banner details{margin-top:6px;color:var(--muted)}.k-banner summary{cursor:pointer;color:var(--warn)}
+.k-tip{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(8,14,26,.82);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:99px;padding:6px 16px;font-size:13px;pointer-events:none;z-index:4;transition:opacity .6s;white-space:nowrap}
+.k-hud{position:absolute;right:12px;top:12px;background:rgba(8,14,26,.72);color:#dfe8f7;border:1px solid #2b3a5c;border-radius:10px;padding:7px 11px;font-size:12.5px;z-index:3;pointer-events:none;font-variant-numeric:tabular-nums;line-height:1.5;text-align:right}
+.k-notes h3{font-size:14px;margin:14px 0 4px;color:var(--accent)}.k-notes h3:first-child{margin-top:0}
+.k-notes p,.k-notes li{font-size:13px;color:var(--text)}.k-notes ul{padding-left:18px;margin:4px 0}
+.k-notes code{background:var(--panel2);padding:1px 5px;border-radius:5px;font-size:12.5px}
+.k-overlay{position:fixed;inset:0;background:rgba(3,6,12,.7);display:none;z-index:50;backdrop-filter:blur(3px)}
+.k-overlay.on{display:grid;place-items:center}
+.k-modal{width:min(1180px,95vw);height:min(700px,92vh);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:grid;grid-template-columns:290px 1fr;overflow:hidden}
+.k-blist{border-right:1px solid var(--line);overflow-y:auto;padding:14px}
+.k-blist h2{font-size:16px;margin:0 0 4px}.k-blist>p{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+.k-bitem{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;cursor:pointer}
+.k-bitem.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.k-bitem b{display:block;font-size:13.5px}.k-bitem span{color:var(--muted);font-size:12.5px}
+.k-bmain{display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 16px}
+.k-bhead{display:flex;gap:10px;align-items:flex-start}
+.k-bhead h3{margin:0;font-size:17px;flex:1}.k-bhead p{margin:3px 0 0;color:var(--muted);font-size:13px;font-weight:400}
+.k-bbar{display:flex;gap:10px;align-items:center;margin:10px 0 8px}
+.k-prog{flex:1;height:6px;background:var(--line);border-radius:9px;overflow:hidden}.k-prog i{display:block;height:100%;width:0;background:var(--accent)}
+.k-bchart{flex:1;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.k-bfoot{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;height:150px;margin-top:10px}
+.k-btable{overflow:auto;border:1px solid var(--line);border-radius:10px;font-size:12.5px}
+.k-btable table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.k-btable th,.k-btable td{padding:3px 8px;text-align:right;border-bottom:1px solid var(--line)}
+.k-btable th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600}
+.k-bnote{overflow:auto;font-size:13px;color:var(--muted);background:var(--panel2);border-radius:10px;padding:9px 12px}
+.k-bnote b{color:var(--text)}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:12px}
+.k-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.02em;padding:1px 7px;border-radius:99px;vertical-align:1px;white-space:nowrap;background:#35505a;color:#c9ecdf}
+.k-tag.adv{background:#4b3a78;color:#e3d6ff}.k-tag.beyond{background:#39465c;color:#cfdaf0}
+.k-idea{font-size:13px;margin:0 0 8px;line-height:1.4}.k-spec{font-size:12px;color:var(--muted);margin:0 0 10px}
+.k-pane>h3{font-size:14px;margin:14px 0 8px;color:var(--accent)}
+.k-q h4{font-size:12px}.k-q .k-marks{margin-left:auto;color:var(--muted);font-weight:400}.k-q p{color:var(--text);font-size:13.5px}
+.k-q details{font-size:13px;color:var(--muted)}.k-q summary{cursor:pointer;color:var(--warn)}.k-q details ul{padding-left:18px;margin:4px 0}
+.k-level{padding-bottom:4px}
+.k-tabs button{font-size:13px;padding-left:2px;padding-right:2px}
+.k-wsrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px;font-size:12.5px;color:var(--muted)}
+.k-mcard .btn+.btn,.k-mcard button+button{margin-left:6px}
+/* playback-speed control moved into the header (ui.headerSpeed) */
+.k-hspeed{display:flex;align-items:center;gap:10px;padding:0 6px 0 10px;margin:0 4px;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.k-hspeed .k-ctl{display:flex;align-items:center;gap:7px;margin:0}
+.k-hspeed .k-ctl.k-hoff{display:none}
+.k-hspeed .k-ctl label{display:contents}
+.k-hspeed .k-ctl label span{order:0;font-size:12.5px;color:var(--muted);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+.k-hspeed .k-ctl input[type=range]{order:1;width:96px}
+.k-hspeed .k-ctl label b,.k-hspeed .k-typebox{order:2;font-size:12.5px;white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+.k-hspeed .k-typebox{width:6.5em}
+.k-hspeed .k-hunit{order:3;font-style:normal;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.k-hspeed .k-ctl>small{display:none}
+.k-hspeed .k-seg{order:1;flex-wrap:nowrap;gap:3px}
+.k-hspeed .k-seg .k-btn{flex:none;padding:3px 8px;font-size:12px}
+.k-group.k-emptied{display:none}
+@media (max-width:1400px){.k-blurb{display:none}.k-top:has(.k-hspeed:not([style*="none"])) .k-chip{display:none}}
+</style></head><body>
+<script>
+"use strict";
+/* =====================================================================
+   K: the small shared toolkit behind the ★ enhanced simulations.
+   It builds the page frame (header, stage, chart dock, side panel),
+   the sliders and buttons, the live charts, the Investigations cards
+   and the Batch run window. Each simulation's own code (below this
+   script in the page) holds the science.
+   ===================================================================== */
+const K = (() => {
+  const $ = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const col = i => cssVar("--s" + (i % 6));
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // ---- Repeatable random numbers: the same seed always gives the same run ----
+  function rng(seed) {
+    let a = (seed >>> 0) || 1;
+    const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    r.gauss = () => { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185307179586 * r()); };
+    r.int = n => Math.floor(r() * n);
+    r.pick = arr => arr[Math.floor(r() * arr.length)];
+    return r;
+  }
+  // ---- Simple statistics ----
+  const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+  const sd = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); };
+  const se = a => sd(a) / Math.sqrt(a.length || 1);
+  function linfit(pts) { // least-squares straight line through [x,y] points
+    const n = pts.length, mx = mean(pts.map(p => p[0])), my = mean(pts.map(p => p[1]));
+    let sxy = 0, sxx = 0, syy = 0; for (const [x, y] of pts) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; syy += (y - my) ** 2; }
+    const m = sxy / (sxx || 1); return { m, c: my - m * mx, r: sxy / Math.sqrt((sxx * syy) || 1), n };
+  }
+  function download(name, text) { const a = $("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  const sig = (v, n = 3) => { if (v == null || !isFinite(v)) return "–"; if (v === 0) return "0"; const a = Math.abs(v); if (a >= 1e5 || a < 1e-3) return v.toExponential(n - 1); return String(+v.toPrecision(n)); };
+
+  // ---- Controls ----
+  /* Typing a value into a slider: read a displayed value ("2.2 mF", "4.7 × 10⁵ Pa", "£30,000", "−12 °C") as a number,
+     then search the slider's positions for the one whose display matches (copes with log scales and unit prefixes). */
+  const PRE = { p: 1e-12, n: 1e-9, "μ": 1e-6, "µ": 1e-6, u: 1e-6, m: 1e-3, k: 1e3, M: 1e6, G: 1e9 }, SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+  function parseVal(text) {
+    const t = String(text).replace(/[−–]/g, "-").replace(/[   ]/g, " ");
+    const m = t.match(/-?(?:\d{1,3}(?:[, ]\d{3})+|\d+)(?:\.\d+)?|-?\.\d+/);
+    if (!m) return null;
+    let v = parseFloat(m[0].replace(/[, ]/g, "")), rest = t.slice(m.index + m[0].length);
+    const pw = m[0] === "10" && rest.match(/^(?:\^\s*(-?\d+(?:\.\d+)?)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))/);         // a bare power of ten: 10⁻⁹ or 10^6.5
+    if (pw) { v = Math.pow(10, pw[1] != null ? +pw[1] : (pw[2][0] === "⁻" ? -1 : 1) * +[...pw[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join("")); rest = rest.slice(pw[0].length); }
+    const ex = rest.match(/^\s*(?:[×x*]\s*10\s*(?:\^\s*(-?\d+)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))|[eE]([-+]?\d+))/);
+    if (ex) { const p = ex[1] != null ? +ex[1] : ex[3] != null ? +ex[3] : (ex[2][0] === "⁻" ? -1 : 1) * +[...ex[2].replace("⁻", "")].map(c => SUP.indexOf(c)).join(""); v *= Math.pow(10, p); rest = rest.slice(ex[0].length); }
+    const wd = rest.match(/^\s*(thousand|million|billion|trillion)\b/i);    // "1 million K"
+    if (wd) { v *= { thousand: 1e3, million: 1e6, billion: 1e9, trillion: 1e12 }[wd[1].toLowerCase()]; rest = rest.slice(wd[0].length); }
+    const pm = !wd && rest.match(/^\s*([pnμµumkMG])(?=[A-Za-zΩ°])/);
+    if (pm) v *= PRE[pm[1]];
+    return isFinite(v) ? { v, unit: rest } : null;
+  }
+  // what was typed, in the units on display unless a unit was typed too ("2.2", "2.2 mF" and "1e-6" all work)
+  function typedVal(raw, shown) {
+    const q = parseVal(raw); if (!q) return null;
+    if (/[A-Za-zμµΩ°%£$€]/.test(q.unit)) return q;
+    const s = parseVal(shown); return parseVal(raw + (s ? " " + s.unit.trim() : ""));
+  }
+  function invertSlider(lo, hi, st, g, target) {
+    const n = Math.max(1, Math.round((hi - lo) / st)), pos = i => +(lo + i * st).toFixed(10);
+    let e0 = 0, e1 = n;                                                       // ends may show words ("off"): step in to the first numbers
+    while (e0 < n && g(pos(e0)) == null && e0 < 60) e0++;
+    while (e1 > e0 && g(pos(e1)) == null && n - e1 < 60) e1--;
+    const a = g(pos(e0)), b = g(pos(e1));
+    if (a == null || b == null || a === b) return null;
+    const up = b > a;
+    if (up ? target < a : target > a) return pos(e0 > 0 ? 0 : e0);
+    if (up ? target > b : target < b) return pos(e1 < n ? n : e1);
+    let i0 = e0, i1 = e1, v0 = a, v1 = b;
+    while (i1 - i0 > 1) { const im = (i0 + i1) >> 1, vm = g(pos(im)); if (vm == null) break; if ((vm < target) === up) { i0 = im; v0 = vm; } else { i1 = im; v1 = vm; } }
+    return Math.abs(v0 - target) <= Math.abs(v1 - target) ? pos(i0) : pos(i1);
+  }
+  // try every position (cheap here: only the format function runs) and take the closest display; ties go to the one nearest the current setting
+  function nearestSlider(lo, hi, st, g, target, cur) {
+    const n = Math.max(1, Math.round((hi - lo) / st)); if (n > 20000) return invertSlider(lo, hi, st, g, target);
+    let best = null, be = Infinity, bd = Infinity;
+    for (let i = 0; i <= n; i++) { const p = +(lo + i * st).toFixed(10), v = g(p); if (v == null) continue; const e = Math.abs(v - target), d = Math.abs(p - cur); if (e < be - 1e-12 * Math.abs(target) || (Math.abs(e - be) <= 1e-12 * Math.abs(target) && d < bd)) { best = p; be = e; bd = d; } }
+    return best;
+  }
+  const scratch = document.createElement("div");
+  const textOf = html => { scratch.innerHTML = html; scratch.querySelectorAll("sup").forEach(x => x.replaceWith("^" + x.textContent)); return scratch.textContent; };
+  function slider(parent, o) {
+    const w = $("div", "k-ctl"), lab = $("label"), name = $("span", "", o.label), val = $("b", "k-typein"), inp = $("input");
+    inp.type = "range"; inp.min = o.min; inp.max = o.max; inp.step = o.step || 1; inp.value = o.value;
+    const fmt = o.fmt || (v => sig(v, 4) + (o.unit ? " " + o.unit : ""));
+    const show = () => val.innerHTML = fmt(+inp.value);
+    lab.append(name, val); w.append(lab, inp); if (o.tip) w.append($("small", "", o.tip)); parent.append(w); show();
+    inp.addEventListener("input", () => { show(); o.on && o.on(+inp.value); });
+    // click the value (or Tab to it and press Enter) to type one
+    const g = p => { let q = null; try { q = parseVal(textOf(fmt(p))); } catch (e) { } return q ? q.v : null; };
+    let numeric = true; try { const ends = [+o.min, (+o.min + +o.max) / 2, +o.max].map(g).filter(v => v != null); numeric = new Set(ends).size > 1; } catch (e) { }
+    if (!numeric) val.classList.remove("k-typein"); else { val.tabIndex = 0; val.title = "Click to type a value"; }
+    function edit() {
+      if (w.querySelector(".k-typebox")) return;
+      const shown = textOf(val.innerHTML), box = $("input", "k-typebox"); box.type = "text"; box.value = shown.trim(); box.setAttribute("aria-label", "Type a value for " + o.label);
+      val.style.display = "none"; val.after(box); box.focus(); box.select(); let done = false;
+      const finish = ok => {
+        if (done) return; done = true; const raw = box.value.trim(); box.remove(); val.style.display = "";
+        if (!ok || !raw || raw === shown.trim()) return; const t = typedVal(raw, shown); if (!t) return;
+        const p = nearestSlider(+o.min, +o.max, +(o.step || 1), g, t.v, +inp.value); if (p == null) return;
+        inp.value = p; show(); o.on && o.on(+inp.value);
+      };
+      box.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); });
+      box.addEventListener("blur", () => finish(true)); box.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); });
+    }
+    if (numeric) val.addEventListener("click", e => { e.preventDefault(); edit(); });
+    if (numeric) val.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); edit(); } });
+    return { el: w, get value() { return +inp.value; }, set(v, fire) { inp.value = v; show(); if (fire) o.on && o.on(+inp.value); } };
+  }
+  function seg(parent, o) {
+    const w = $("div", "k-ctl"); if (o.label) w.append($("label", "", `<span>${o.label}</span>`));
+    const row = $("div", "k-seg"); w.append(row); if (o.tip) w.append($("small", "", o.tip)); parent.append(w);
+    let value = o.value; const btns = [];
+    const paint = () => btns.forEach(([v, b]) => b.classList.toggle("on", v === value));
+    for (const [v, label, title] of o.options) { const b = $("button", "k-btn", label); if (title) b.title = title; b.onclick = () => { value = v; paint(); o.on && o.on(v); }; row.append(b); btns.push([v, b]); }
+    paint();
+    return { el: w, get value() { return value; }, set(v, fire) { value = v; paint(); if (fire) o.on && o.on(v); } };
+  }
+  function toggle(parent, o) {
+    const w = $("div", "k-toggle" + (o.value ? " on" : ""), `<i></i><span>${o.label}</span>`); parent.append(w); let value = !!o.value;
+    w.onclick = () => { value = !value; w.classList.toggle("on", value); o.on && o.on(value); };
+    return { el: w, get value() { return value; }, set(v, fire) { value = !!v; w.classList.toggle("on", value); if (fire) o.on && o.on(value); } };
+  }
+  function btn(parent, label, on, cls) { const b = $("button", "k-btn " + (cls || ""), label); b.onclick = on; parent.append(b); return b; }
+  function row(parent) { const r = $("div", "k-row"); parent.append(r); return r; }
+  function readout(parent, items) { // small tiles of live numbers
+    const g = $("div", "k-read"), map = {}; parent.append(g);
+    for (const [id, label] of items) { const d = $("div", "", `<span>${label}</span><b>–</b>`); g.append(d); map[id] = d.lastChild; }
+    return { el: g, set(id, v) { if (map[id].textContent !== String(v)) map[id].innerHTML = v; } };
+  }
+  function note(parent, html) { const s = $("small", "", html); s.style.cssText = "display:block;color:var(--muted);margin:-2px 0 10px;font-size:12px;line-height:1.35"; parent.append(s); return s; }
+
+  // ---- A canvas that stays sharp on high-DPI screens and follows its container's size ----
+  function canvas(parent, onresize) {
+    const cv = $("canvas"); parent.append(cv); const c = { el: cv, ctx: cv.getContext("2d"), w: 1, h: 1, dpr: 1 };
+    const fit = () => {
+      const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
+      c.dpr = Math.min(window.devicePixelRatio || 1, 2); c.w = w; c.h = h; cv.width = Math.round(w * c.dpr); cv.height = Math.round(h * c.dpr);
+      c.ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0); onresize && onresize(c);
+    };
+    new ResizeObserver(fit).observe(parent); fit(); return c;
+  }
+  // Pointer handling in the element's own pixel coordinates
+  function pointer(el, h) {
+    const pos = e => { const r = el.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, e }; };
+    let down = false;
+    el.addEventListener("pointerdown", e => { down = true; el.setPointerCapture(e.pointerId); h.down && h.down(pos(e)); });
+    el.addEventListener("pointermove", e => { const p = pos(e); if (down) h.drag && h.drag(p); else h.hover && h.hover(p); });
+    const up = e => { if (down) { down = false; h.up && h.up(pos(e)); } };
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+    el.addEventListener("pointerleave", e => h.leave && h.leave(pos(e)));
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+
+  // ---- Charts ----
+  const charts = new Set();
+  function niceTicks(a, b, n) {
+    const span = (b - a) || 1, raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    const step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p, t = [];
+    for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + step * 1e-6; v += step) t.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    return { t, step };
+  }
+  // tick labels: very big or very small numbers in standard form, with enough digits that neighbouring ticks differ (2.4e+5, 2.6e+5…)
+  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(clamp(Math.floor(Math.log10(a) + 1e-9) - Math.floor(Math.log10(step) + 1e-9), 0, 4)); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
+  /* chart(parent,{title,xLabel,yLabel,xMin,xMax,yMin,yMax,yZero})  then  .draw(series, extra)
+     series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r, alpha, fillAlpha (area fill, default .22; 1 for solid stacked areas)}]
+     extra:  {xMin..yMax overrides, vlines:[{x,color,label,dash}], hlines:[{y,...}], bands:[{x0,x1,color}]} */
+  function chart(parent, o = {}) {
+    const wrap = $("div", "k-chart"), cv = $("canvas"); wrap.append(cv); parent.append(wrap);
+    const ctx = cv.getContext("2d"); let last = [[], {}];
+    const api = { el: wrap, opts: o, draw(series, extra) { last = [series || [], extra || {}]; render(); }, redraw: () => render(), map: null };
+    function render() {
+      const W = wrap.clientWidth, H = wrap.clientHeight; if (W < 40 || H < 40) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      const [series, ex] = last, q = Object.assign({}, o, ex);
+      const text = cssVar("--text"), muted = cssVar("--muted"), grid = cssVar("--grid");
+      // work out the axis ranges from the data unless they are fixed
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const s of series) for (const p of s.pts) { if (p[1] == null || !isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
+      for (const l of q.hlines || []) { if (l.y < y0) y0 = l.y; if (l.y > y1) y1 = l.y; }
+      if (!isFinite(x0)) { x0 = 0; x1 = 1; } if (!isFinite(y0)) { y0 = 0; y1 = 1; }
+      if (q.yZero || series.some(s => s.type === "bars")) { y0 = Math.min(0, y0); y1 = Math.max(0, y1); }
+      const py = (y1 - y0) * 0.08 || Math.abs(y1) * 0.1 || 1; if (q.yMin == null && y0 !== 0) y0 -= py; if (q.yMax == null) y1 += py;
+      if (x1 === x0) { x0 -= 0.5; x1 += 0.5; }
+      if (q.xMin != null) x0 = q.xMin; if (q.xMax != null) x1 = q.xMax; if (q.yMin != null) y0 = q.yMin; if (q.yMax != null) y1 = q.yMax;
+      const R = 12, T = 24, B = q.xLabel ? 34 : 22, ph = H - T - B, yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; let yw = 0; for (const v of yt.t) yw = Math.max(yw, ctx.measureText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step)).width);
+      const L = Math.max(54, Math.ceil(yw) + 26), pw = W - L - R;   // the left margin widens if the tick labels are long, so they never cover the axis title
+      const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + ph - (y - y0) / (y1 - y0) * ph;
+      api.map = { X, Y, x0, x1, y0, y1, L, T, pw, ph };
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; ctx.lineWidth = 1;
+      for (const b of q.bands || []) { ctx.fillStyle = b.color; ctx.fillRect(X(Math.max(x0, b.x0)), T, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)), ph); }
+      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70)));
+      ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.beginPath();
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      for (const v of xt.t) { const x = Math.round(X(v)) + .5; ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.fillText(q.xFmt ? q.xFmt(v) : tickFmt(v, xt.step), x, T + ph + 4); }
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      for (const v of yt.t) { const y = Math.round(Y(v)) + .5; ctx.moveTo(L, y); ctx.lineTo(L + pw, y); ctx.fillText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step), L - 5, y); }
+      ctx.stroke(); ctx.strokeStyle = muted; ctx.strokeRect(L + .5, T + .5, pw, ph);
+      if (q.xLabel) { ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(q.xLabel, L + pw / 2, H - 3); }
+      if (q.yLabel) { ctx.save(); ctx.translate(11, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(q.yLabel, 0, 0); ctx.restore(); }
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+      series.forEach((s, i) => {
+        const c = s.color || col(i); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = s.width || 1.8; ctx.setLineDash(s.dash || []); ctx.globalAlpha = s.alpha == null ? 1 : s.alpha;
+        const P = s.pts;
+        if (s.type === "bars") { const w = Math.max(1, Math.abs(X(s.w || 1) - X(0)) - 1); for (const p of P) { const yy = Y(p[1]); ctx.fillRect(X(p[0]) - w / 2, Math.min(yy, Y(0)), w, Math.abs(Y(0) - yy)); } }
+        else if (s.type === "dots" || s.type === "err") {
+          const r = s.r || 3;
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) continue; const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+        } else {
+          ctx.beginPath(); let pen = false;   // a missing value (null, NaN) leaves a gap in the line
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
+          if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= s.fillAlpha == null ? .22 : s.fillAlpha; ctx.fill(); } else ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+      });
+      for (const l of q.vlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(l.x), T); ctx.lineTo(X(l.x), T + ph); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = X(l.x) > L + pw * .7 ? "right" : "left"; ctx.textBaseline = "top"; ctx.fillText(l.label, X(l.x) + (ctx.textAlign === "right" ? -5 : 5), T + 4 + (l.row || 0) * 13); } }
+      for (const l of q.hlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Y(l.y)); ctx.lineTo(L + pw, Y(l.y)); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(l.label, L + pw - 5, Y(l.y) - 2); } }
+      ctx.restore();
+      // title on the left, legend on the right
+      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
+      for (let i = series.length - 1; i >= 0; i--) { const s = series[i]; if (!s.label) continue; const w = ctx.measureText(s.label).width; lx -= w; ctx.fillStyle = muted; ctx.fillText(s.label, lx, 12); lx -= 12; ctx.fillStyle = s.color || col(i); ctx.fillRect(lx, 8, 8, 8); lx -= 10; }
+      if (q.title) { // the title gives way (with an ellipsis) if the legend needs the room
+        ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.fillStyle = text; let t = q.title; const room = lx - L - 8;
+        if (ctx.measureText(t).width > room) { while (t.length > 3 && ctx.measureText(t + "…").width > room) t = t.slice(0, -1); t = t.length > 3 ? t + "…" : ""; }
+        ctx.fillText(t, L, 12);
+      }
+    }
+    new ResizeObserver(render).observe(wrap); charts.add(api); return api;
+  }
+  function histogram(vals, bins, lo, hi) { // returns bar points [centre, count] and the bin width
+    if (lo == null) lo = Math.min(...vals); if (hi == null) hi = Math.max(...vals); if (hi === lo) { hi += .5; lo -= .5; }
+    const w = (hi - lo) / bins, c = new Array(bins).fill(0);
+    for (const v of vals) { const i = Math.floor((v - lo) / w); if (i >= 0 && i <= bins) c[Math.min(i, bins - 1)]++; }
+    return { pts: c.map((n, i) => [lo + (i + .5) * w, n]), w };
+  }
+
+  // ---- The page frame ----
+
+  let K_last = null;
+  /* ---- Worksheets ----
+     worksheetDoc(o, picks, opt) returns a printable HTML page: one A4 sheet per investigation card (o.missions) and per batch
+     experiment (o.batch), then teacher notes. picks = [{ kind: "m" | "b", item }]. opt = { file, teacher, results: { [batch title]: summary } } */
+  const wsCSS = `body{font:14px/1.45 "Segoe UI",system-ui,sans-serif;color:#111;margin:0;background:#eee}.sheet{background:#fff;width:186mm;min-height:270mm;margin:12px auto;padding:12mm;box-sizing:border-box;page-break-after:always}
+  .top{display:flex;justify-content:space-between;color:#555;font-size:12px;border-bottom:1px solid #999;padding-bottom:4px}h1{font-size:20px;margin:10px 0 4px}h2{font-size:15px;margin:16px 0 6px;color:#14467a}.tag{font-size:11px;border:1px solid #14467a;border-radius:9px;padding:0 6px;color:#14467a;vertical-align:middle}
+  .q{background:#eef4fb;border-left:4px solid #14467a;padding:8px 10px}.lines div{border-bottom:1px solid #aaa;height:26px}.box{border:1px solid #aaa;height:110px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:4px 6px;height:24px;text-align:center;font-size:13px}th{background:#f2f2f2}
+  ol{margin:4px 0 4px 20px;padding:0}.bar{position:sticky;top:0;background:#14467a;color:#fff;padding:8px 16px;display:flex;gap:12px;align-items:center}.bar button{font:inherit;padding:4px 12px;cursor:pointer}.note{background:#fafafa;border:1px solid #ccc;padding:8px 10px;margin:8px 0}
+  .grid{height:200px;border:1px solid #888;background-image:linear-gradient(#ddd 1px,transparent 1px),linear-gradient(90deg,#ddd 1px,transparent 1px);background-size:20px 20px;position:relative}
+  @media print{body{background:#fff}.bar{display:none}.sheet{margin:0;width:auto;min-height:0}}`;
+  const wsLines = n => `<div class="lines">${"<div></div>".repeat(n)}</div>`;
+  function worksheetDoc(o, picks, opt = {}) {
+    const file = opt.file || (location.pathname.split("/").pop() || "the simulation"), nM = (o.missions || []).length, nB = (o.batch || []).length;
+    const tagA = x => x.lvl === "adv" ? ' <span class="tag">A level</span>' : "", head = (k, n, of) => `<div class="top"><span>${o.title} · ${k} ${n} of ${of}</span><span>Name ____________________ &nbsp; Date __________</span></div>`;
+    const sheets = picks.map(({ kind, item: x }) => {
+      if (kind === "m") {
+        const n = o.missions.indexOf(x) + 1;
+        return `<div class="sheet">${head("Investigation", n, nM)}<h1>${x.title}${tagA(x)}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b>${x.lvl === "adv" ? " and choose <b>Advanced (A level)</b> in the Controls tab" : ""}.</li><li>Open the <b>Investigate</b> tab and press <b>Set it up ▸</b> on “${x.title}”. It sets everything up for you.</li><li>You can still change the controls afterwards to test your ideas.</li></ol>
+<h2>2 · The question</h2><div class="q">${x.q}</div>
+<h2>3 · Predict</h2><p>Before you watch, write what you think will happen, and why.</p>${wsLines(3)}
+<h2>4 · Observe and record</h2><p>Watch the simulation and try the controls. Record what you changed, what you saw and any readings (from the Readings panel or the graphs).</p>
+<table><tr><th style="width:30%">What I changed</th><th>What I saw or measured</th><th style="width:22%">Reading</th></tr>${"<tr><td></td><td></td><td></td></tr>".repeat(5)}</table>
+<h2>5 · Answer the question</h2>${wsLines(4)}
+<h2>6 · Explain</h2><p>Use the science to explain your answer. Open <b>The model</b> tab: which rule or assumption in the model causes what you saw? Would the real world behave the same way?</p>${wsLines(4)}</div>`;
+      }
+      const n = o.batch.indexOf(x) + 1, reps = x.reps || (x.xs ? 6 : 200);
+      const rec = x.xs ? `<table><tr><th>${x.xLabel}</th><th>mean</th><th>SD</th><th>SE</th>${x.theory ? "<th>theory</th>" : ""}<th>difference from theory, in SEs</th></tr>${x.xs.map(v => `<tr><td>${v}</td><td></td><td></td><td></td>${x.theory ? "<td></td>" : ""}<td></td></tr>`).join("")}</table>`
+        : `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${x.theory != null ? "<th>theory</th>" : ""}</tr><tr><td></td><td></td><td></td><td></td><td></td><td></td>${x.theory != null ? "<td></td>" : ""}</tr></table><p>Sketch the histogram:</p><div class="grid"></div>`;
+      return `<div class="sheet">${head("Batch experiment", n, nB)}<h1>${x.title}</h1>
+<h2>1 · Set it up</h2><ol><li>Open <b>${file}</b> and press <b>📊 Batch run</b>.</li><li>Click the experiment “${x.title}”. It sets everything up for you.</li><li>Press <b>▶ Run</b> and wait for it to finish (${x.xs ? `${x.xs.length} settings × ${reps} runs` : `${reps} runs`}).</li></ol>
+<div class="q"><b>${x.question}</b>${x.how ? `<br><small>${x.how}</small>` : ""}</div>
+<h2>2 · Predict before you run it</h2><p>${x.xs ? `How do you think <b>${x.yLabel}</b> will change as <b>${x.xLabel}</b> goes from ${x.xs[0]} to ${x.xs[x.xs.length - 1]}? Sketch your prediction, then give your reason.` : `What average do you expect for <b>${x.yLabel}</b>? Will every run give the same answer? Give your reason.`}</p>${x.xs ? `<div class="grid" style="height:150px"></div>` : ""}${wsLines(2)}
+<h2>3 · Record the results</h2><p>Copy the numbers from the table under the graph${x.theory != null ? " (theory: " + (x.theoryLabel || "the theory line") + ")" : ""}.</p>${rec}
+<h2>4 · Think about it</h2><ol><li>Does the simulation agree with the theory${x.theory == null ? " (or with your prediction)" : ""}? Use the difference in standard errors (or how close the points are to the line) to say how well.${wsLines(2)}</li>
+<li>Why don't all the runs give the same answer? What would happen to the standard error with four times as many runs?${wsLines(2)}</li>
+<li>Open <b>The model</b> tab. Name one simplification that could make the model differ from real life.${wsLines(2)}</li></ol></div>`;
+    });
+    let notes = "";
+    if (opt.teacher !== false) {
+      notes = `<div class="sheet"><div class="top"><span>${o.title} · Teacher notes</span><span>${file}</span></div><h1>Teacher notes</h1>` + picks.map(({ kind, item: x }) => {
+        if (kind === "m") return `<h2>Investigation ${o.missions.indexOf(x) + 1}: ${x.title}${tagA(x)}</h2><div class="note"><b>What to look for:</b> ${x.hint || "–"}</div>`;
+        const r = opt.results && opt.results[x.title], th = x.theory == null ? "" : x.xs ? x.xs.map(v => `${v}: ${sig(x.theory(v))}`).join(" · ") : sig(+x.theory);
+        return `<h2>Batch experiment ${o.batch.indexOf(x) + 1}: ${x.title}</h2><div class="note">${x.note || ""}${th ? `<br><b>Theory (${x.theoryLabel || "theory"}):</b> ${th}` : ""}${r ? `<br><b>Result from a test run:</b> ${r}` : ""}</div>`;
+      }).join("") + `</div>`;
+    }
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${o.title} – worksheets</title><style>${wsCSS}</style></head><body><div class="bar"><b>${o.title} – worksheets</b><span>${picks.length} sheet${picks.length > 1 ? "s" : ""}${opt.teacher !== false ? ", then teacher notes" : ""}. Print, or save as PDF.</span><button onclick="print()">🖨 Print</button></div>${sheets.join("")}${notes}</body></html>`;
+  }
+  // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
+  function batchSummary(e, seed0 = 12345) {
+    const rows = []; let i = 0;
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
+    return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
+  }
+  function openDoc(html, name) { const w = window.open("", "_blank"); if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(name, html); }
+  // ---- Sound (Web Audio). Pages that ask for it (app option `sound`) get a 🔇/🔊 button in the header.
+  //      It is OFF until someone presses it, so a room full of laptops stays quiet; nothing plays while it is off.
+  //      tone(f, {dur, vol, type, at, glide}) plays a note; noise({dur, vol, filter, freq, at}) a hiss, thump or rumble;
+  //      click() a Geiger-style tick; hum() a continuous tone you retune every frame (it fades out if not updated). ----
+  const sound = (() => {
+    let ctx = null, master = null, on = false, buf = null; const live = new Set(), hums = [], fns = [];
+    const ready = () => on && ctx && ctx.state === "running";
+    async function enable(v) {
+      on = !!v;
+      if (on) { try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (!master) { master = ctx.createGain(); master.gain.value = 0.7; master.connect(ctx.destination); } await ctx.resume(); } catch (e) { on = false; } }
+      else stop();
+      fns.forEach(f => f(on));
+    }
+    const track = n => { live.add(n); n.onended = () => live.delete(n); };
+    function tone(f, o = {}) {
+      if (!ready() || !(f > 15) || f > ctx.sampleRate / 2) return;
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.3, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.008, dur / 2);
+      const osc = ctx.createOscillator(), g = ctx.createGain(); osc.type = o.type || "sine"; osc.frequency.setValueAtTime(f, t); if (o.glide) osc.frequency.exponentialRampToValueAtTime(Math.max(16, o.glide), t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      osc.connect(g); g.connect(master); osc.start(t); osc.stop(t + dur + 0.02); track(osc);
+    }
+    function noise(o = {}) {
+      if (!ready()) return;
+      if (!buf) { buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+      const t = ctx.currentTime + 0.01 + (o.at || 0), dur = o.dur || 0.2, vol = o.vol == null ? 0.3 : o.vol, a = Math.min(o.attack || 0.004, dur / 2);
+      const src = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain(); src.buffer = buf; src.loop = true;
+      fl.type = o.filter || "lowpass"; fl.frequency.value = o.freq || 1000; if (o.sweep) fl.frequency.exponentialRampToValueAtTime(o.sweep, t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      src.connect(fl); fl.connect(g); g.connect(master); src.start(t, Math.random()); src.stop(t + dur + 0.02); track(src);
+    }
+    const click = (o = {}) => noise({ dur: 0.012, vol: o.vol == null ? 0.5 : o.vol, filter: "highpass", freq: 1800, at: o.at });
+    function hum(type = "sine") {
+      let osc = null, g = null, last = 0;
+      const h = {
+        set(f, vol = 0.15) { if (!ready()) { h.kill(); return; } if (!osc) { osc = ctx.createOscillator(); g = ctx.createGain(); osc.type = type; g.gain.value = 0; osc.connect(g); g.connect(master); osc.start(); } const t = ctx.currentTime; osc.frequency.setTargetAtTime(Math.max(16, f), t, 0.02); g.gain.setTargetAtTime(vol, t, 0.04); last = performance.now(); },
+        kill() { if (osc) { try { g.gain.setTargetAtTime(0, ctx.currentTime, 0.03); osc.stop(ctx.currentTime + 0.25); } catch (e) { } osc = null; } },
+        stale() { return osc && performance.now() - last > 250; }
+      };
+      hums.push(h); return h;
+    }
+    function stop() { for (const n of live) { try { n.stop(); } catch (e) { } } live.clear(); hums.forEach(h => h.kill()); }
+    setInterval(() => hums.forEach(h => { if (h.stale()) h.kill(); }), 200);    // a hum nobody is updating (paused, other view) fades away
+    document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); });
+    return { enable, ready, tone, noise, click, hum, stop, get on() { return on; }, onChange: f => fns.push(f) };
+  })();
+  /* ---- WebGL helper (K.gl) ----
+     A small, stable toolkit so that simulations can draw with the graphics card without re-writing the same boilerplate.
+     Shaders are written in GLSL ES 1.00 ("precision mediump float; attribute/varying/gl_FragColor"), which runs on both
+     WebGL2 and WebGL1. Everything is documented in tools/kit/README.md ("WebGL").
+       K.gl.create(parent, { dprMax, alpha, antialias, onResize, message, fallback, onLost })  → view { el, gl, gl2, w, h, dpr, ok }  (or ok: false + a message)
+       K.gl.program(gl, vertexSrc, fragmentSrc)   → program with .use() and .set({ uName: value, uTex: texture })
+       K.gl.quad(gl)                              → full-screen quad: q.draw(program)  (vertex shader: K.gl.QUAD_VS, gives vUv)
+       K.gl.floatType(gl, { blend })              → the best renderable float format: { type, internal, format, kind: "float"|"half"|"byte" }
+       K.gl.target(gl, w, h, { float, blend, filter, wrap, data }) → one texture + framebuffer
+       K.gl.pingpong(gl, w, h, opts)              → { read, write, swap(), w, h, kind }  (step a grid simulation on the GPU)
+       K.gl.points(gl, { aName: size, ... })      → geometry: g.set("aName", Float32Array), g.draw(program, count, mode)
+       K.gl.screenshot(name, canvases…)           → saves the canvases, layered in order, as one PNG file */
+  const glKit = (() => {
+    const QUAD_VS = `attribute vec2 aPos; varying vec2 vUv; void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }`;
+    function noGL(parent, msg) {
+      const d = $("div", "k-nogl", msg || "<b>This view needs WebGL</b>, which this browser or computer has switched off.<br>Try Chrome or Edge, and check that “Use graphics acceleration” is on in the browser's settings. The Batch run still works.");
+      d.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;color:var(--muted);font-size:14px;line-height:1.5;z-index:1";
+      parent.append(d); return d;
+    }
+    // a small note in the corner of the stage (not blocking it), e.g. when a page falls back to its 2D drawing; "" hides it
+    function notice(parent, html) {
+      let n = parent.querySelector(":scope > .k-glnote");
+      if (!n) { n = $("div", "k-glnote"); n.style.cssText = "position:absolute;left:10px;bottom:10px;z-index:3;max-width:55%;padding:4px 9px;border-radius:6px;background:rgba(8,12,24,.8);color:#ffcf8a;font-size:11.5px;line-height:1.35;pointer-events:none"; parent.append(n); }
+      n.innerHTML = html || ""; n.style.display = html ? "" : "none"; return n;
+    }
+    // a WebGL canvas that fills its parent, follows its size and stays sharp (up to dprMax device pixels per CSS pixel)
+    function create(parent, o = {}) {
+      const el = $("canvas"); parent.append(el);
+      const attrs = { alpha: !!o.alpha, antialias: o.antialias !== false, preserveDrawingBuffer: true, premultipliedAlpha: false, powerPreference: "high-performance" };
+      let gl = null, gl2 = false;
+      if (!o.webgl1) { try { gl = el.getContext("webgl2", attrs); gl2 = !!gl; } catch (e) { } }
+      if (!gl) { try { gl = el.getContext("webgl", attrs) || el.getContext("experimental-webgl", attrs); } catch (e) { } }
+      const v = { el, gl, gl2, ok: !!gl, w: 1, h: 1, dpr: 1, message: null };
+      // o.fallback (html): the page can still draw without WebGL, so say so in a small corner note instead of covering the stage
+      if (!gl) { el.style.display = "none"; v.message = o.fallback ? notice(parent, o.fallback) : noGL(parent, o.message); return v; }
+      const fit = () => {
+        const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
+        v.dpr = Math.min(window.devicePixelRatio || 1, o.dprMax || 1.5); v.w = w; v.h = h;
+        const W = Math.round(w * v.dpr), H = Math.round(h * v.dpr); if (el.width !== W || el.height !== H) { el.width = W; el.height = H; }
+        o.onResize && o.onResize(v);
+      };
+      v.resize = fit; new ResizeObserver(fit).observe(parent); fit();
+      el.addEventListener("webglcontextlost", e => {
+        e.preventDefault(); v.ok = false;
+        if (o.fallback) { el.style.display = "none"; v.message = notice(parent, o.lostText || "The graphics card stopped (WebGL context lost): carrying on with the simpler drawing. Reload the page to get it back."); }
+        else if (!v.message) v.message = noGL(parent, "<b>The graphics card stopped drawing this view.</b><br>Reload the page to start it again.");
+        o.onLost && o.onLost(v);   // a page with a 2D fallback switches to it here
+      });
+      return v;
+    }
+    // compile and link, with readable errors (the offending line is printed with the message)
+    function compile(gl, type, src) {
+      const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        const log = gl.getShaderInfoLog(s) || "", m = /ERROR: \d+:(\d+)/.exec(log), lines = src.split("\n");
+        const where = m ? `\n  line ${m[1]}: ${(lines[+m[1] - 1] || "").trim()}` : "";
+        throw new Error(`K.gl: ${type === gl.VERTEX_SHADER ? "vertex" : "fragment"} shader did not compile: ${log.trim()}${where}`);
+      }
+      return s;
+    }
+    function program(gl, vs, fs) {
+      const p = gl.createProgram(); gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, vs)); gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, fs));
+      gl.bindAttribLocation(p, 0, "aPos"); gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error("K.gl: shader program did not link: " + gl.getProgramInfoLog(p));
+      // find every uniform and how to set it, so .set({ uTime: 1.5, uRes: [w, h], uTex: texture }) just works
+      const U = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+      for (let i = 0; i < n; i++) {
+        const info = gl.getActiveUniform(p, i), name = info.name.replace(/\[0\]$/, ""), loc = gl.getUniformLocation(p, info.name), t = info.type, arr = info.size > 1;
+        const f = { [gl.FLOAT]: arr ? "1fv" : "1f", [gl.FLOAT_VEC2]: "2fv", [gl.FLOAT_VEC3]: "3fv", [gl.FLOAT_VEC4]: "4fv", [gl.INT]: arr ? "1iv" : "1i", [gl.BOOL]: "1i", [gl.INT_VEC2]: "2iv", [gl.FLOAT_MAT2]: "m2", [gl.FLOAT_MAT3]: "m3", [gl.FLOAT_MAT4]: "m4", [gl.SAMPLER_2D]: "tex" }[t] || "1f";
+        U[name] = { loc, f };
+      }
+      const api = { prog: p, uniforms: U, gl };
+      api.use = () => { gl.useProgram(p); return api; };
+      api.set = vals => {
+        gl.useProgram(p); let unit = 0;
+        for (const k in U) if (U[k].f === "tex") U[k].unit = unit++;   // fixed texture units, in declaration order
+        for (const k in vals) {
+          const u = U[k]; if (!u) continue; const v = vals[k];          // a uniform the shader optimised away is quietly ignored
+          if (u.f === "tex") { gl.activeTexture(gl.TEXTURE0 + u.unit); gl.bindTexture(gl.TEXTURE_2D, v && v.tex ? v.tex : v); gl.uniform1i(u.loc, u.unit); }
+          else if (u.f === "m2" || u.f === "m3" || u.f === "m4") gl["uniformMatrix" + u.f[1] + "fv"](u.loc, false, v);
+          else if (u.f === "1f") gl.uniform1f(u.loc, +v); else if (u.f === "1i") gl.uniform1i(u.loc, v === true ? 1 : v === false ? 0 : v | 0);
+          else gl["uniform" + u.f](u.loc, v);
+        }
+        return api;
+      };
+      return api;
+    }
+    // two triangles covering the screen: every pixel runs the fragment shader once (grids, fractals, ray tracing)
+    function quad(gl) {
+      const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      return {
+        draw(pr, target) {
+          if (target !== undefined) bindTarget(gl, target);
+          pr.use(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+      };
+    }
+    // which floating-point textures can this card draw into? Checked once per context by actually trying.
+    const fcache = new WeakMap();
+    function floatType(gl, o = {}) {
+      // o.blend: the target will be drawn into with blending (e.g. adding up particle deposits). 32-bit floats only blend
+      // with EXT_float_blend, so without it the half-float format is chosen instead.
+      const key = o.blend ? "b" : "n", c = fcache.get(gl) || {}; fcache.set(gl, c); if (c[key]) return c[key];
+      const gl2 = typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext, tries = [];
+      if (gl2) {
+        if (gl.getExtension("EXT_color_buffer_float")) tries.push({ type: gl.FLOAT, internal: gl.RGBA32F, format: gl.RGBA, kind: "float", linear: !!gl.getExtension("OES_texture_float_linear") }, { type: gl.HALF_FLOAT, internal: gl.RGBA16F, format: gl.RGBA, kind: "half", linear: true });
+        else if (gl.getExtension("EXT_color_buffer_half_float")) tries.push({ type: gl.HALF_FLOAT, internal: gl.RGBA16F, format: gl.RGBA, kind: "half", linear: true });
+      } else {
+        if (gl.getExtension("OES_texture_float")) { gl.getExtension("WEBGL_color_buffer_float"); tries.push({ type: gl.FLOAT, internal: gl.RGBA, format: gl.RGBA, kind: "float", linear: !!gl.getExtension("OES_texture_float_linear") }); }
+        const h = gl.getExtension("OES_texture_half_float"); if (h) { gl.getExtension("EXT_color_buffer_half_float"); tries.push({ type: h.HALF_FLOAT_OES, internal: gl.RGBA, format: gl.RGBA, kind: "half", linear: !!gl.getExtension("OES_texture_half_float_linear") }); }
+      }
+      let pick = { type: gl.UNSIGNED_BYTE, internal: gl.RGBA, format: gl.RGBA, kind: "byte", linear: true };
+      for (const t of tries) {
+        const tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx); gl.texImage2D(gl.TEXTURE_2D, 0, t.internal, 4, 4, 0, t.format, t.type, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tx, 0);
+        const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE; gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb); gl.deleteTexture(tx);
+        if (ok && (!o.blend || t.kind !== "float" || gl.getExtension("EXT_float_blend"))) { pick = t; break; }
+      }
+      c[key] = pick; return pick;
+    }
+    // a texture you can draw into (a framebuffer). opts: float (true = best float type), filter "nearest"|"linear", wrap "clamp"|"repeat", data (typed array to start from)
+    function target(gl, w, h, o = {}) {
+      const ft = o.float ? floatType(gl, o) : { type: gl.UNSIGNED_BYTE, internal: gl.RGBA, format: gl.RGBA, kind: "byte", linear: true };
+      const tex = gl.createTexture(), fb = gl.createFramebuffer(), lin = o.filter === "linear" && ft.linear;
+      const t = { tex, fb, w, h, kind: ft.kind, type: ft.type };
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, lin ? gl.LINEAR : gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, lin ? gl.LINEAR : gl.NEAREST);
+      const wr = o.wrap === "repeat" ? gl.REPEAT : gl.CLAMP_TO_EDGE; gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wr); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wr);
+      t.upload = data => {   // data: Float32Array (float targets) or Uint8Array, 4 numbers per texel; half floats are converted for you
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        let d = data || null;
+        if (d && ft.kind === "half") { gl.texImage2D(gl.TEXTURE_2D, 0, ft.internal, w, h, 0, ft.format, ft.type, toHalf(d)); return t; }
+        if (d && ft.kind === "byte" && d instanceof Float32Array) { const b = new Uint8Array(d.length); for (let i = 0; i < d.length; i++) b[i] = Math.max(0, Math.min(255, Math.round(d[i] * 255))); d = b; }
+        gl.texImage2D(gl.TEXTURE_2D, 0, ft.internal, w, h, 0, ft.format, ft.type, d); return t;
+      };
+      t.upload(o.data);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      t.read = (x = 0, y = 0, rw = w, rh = h) => {   // copy all of it (or a rectangle) back to the CPU. Slow: tests and occasional measurements only. Floats 0–1 for byte targets.
+        bindTarget(gl, t); let out;
+        if (ft.kind === "byte") { const b = new Uint8Array(4 * rw * rh); gl.readPixels(x, y, rw, rh, gl.RGBA, gl.UNSIGNED_BYTE, b); out = Float32Array.from(b, q => q / 255); }
+        else { out = new Float32Array(4 * rw * rh); gl.readPixels(x, y, rw, rh, gl.RGBA, gl.FLOAT, out); }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null); return out;
+      };
+      t.dispose = () => { gl.deleteTexture(tex); gl.deleteFramebuffer(fb); };
+      return t;
+    }
+    function toHalf(f) {   // Float32Array → Uint16Array of half floats (used only when uploading starting data)
+      const out = new Uint16Array(f.length), fv = new Float32Array(1), iv = new Uint32Array(fv.buffer);
+      for (let i = 0; i < f.length; i++) { fv[0] = f[i]; const x = iv[0], s = (x >> 16) & 0x8000, e = ((x >> 23) & 0xff) - 112, m = x & 0x7fffff; out[i] = e <= 0 ? s : e >= 31 ? s | 0x7c00 : s | (e << 10) | (m >> 13); }
+      return out;
+    }
+    // draw into a target (or null = the screen), with the viewport set to match
+    function bindTarget(gl, t) { gl.bindFramebuffer(gl.FRAMEBUFFER, t ? t.fb : null); if (t) gl.viewport(0, 0, t.w, t.h); else gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight); }
+    // two targets: read the old state from .read, draw the new state into .write, then swap()
+    function pingpong(gl, w, h, o = {}) {
+      const a = target(gl, w, h, o), b = target(gl, w, h, o);
+      const pp = { read: a, write: b, w, h, kind: a.kind, swap() { const t = pp.read; pp.read = pp.write; pp.write = t; return pp; }, upload(d) { pp.read.upload(d); pp.write.upload(d); return pp; }, dispose() { a.dispose(); b.dispose(); } };
+      return pp;
+    }
+    // points (or lines, triangles): one buffer per attribute, e.g. points(gl, { aPos: 3, aCol: 4 }); g.set("aPos", positions); g.draw(prog, n)
+    function points(gl, layout) {
+      const bufs = {};
+      for (const k in layout) bufs[k] = { buf: gl.createBuffer(), size: typeof layout[k] === "number" ? layout[k] : layout[k].size, type: (layout[k].type) || gl.FLOAT, norm: !!layout[k].normalized, n: 0 };
+      const g = {
+        set(name, data, usage) { const b = bufs[name]; gl.bindBuffer(gl.ARRAY_BUFFER, b.buf); gl.bufferData(gl.ARRAY_BUFFER, data, usage || gl.DYNAMIC_DRAW); b.n = data.length / b.size; return g; },
+        draw(pr, count, mode) {
+          pr.use(); const used = [];
+          for (const k in bufs) { const loc = gl.getAttribLocation(pr.prog, k); if (loc < 0) continue; const b = bufs[k]; gl.bindBuffer(gl.ARRAY_BUFFER, b.buf); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, b.size, b.type, b.norm, 0, 0); used.push(loc); }
+          const n = count == null ? Math.min(...Object.values(bufs).map(b => b.n)) : count;
+          if (n > 0) gl.drawArrays(mode == null ? gl.POINTS : mode, 0, n);
+          for (const loc of used) if (loc !== 0) gl.disableVertexAttribArray(loc);
+          return g;
+        }
+      };
+      return g;
+    }
+    // layer the canvases (WebGL first, then 2D labels on top) into one PNG and download it
+    function screenshot(name, ...cvs) {
+      cvs = cvs.flat().filter(Boolean).map(c => c.el || c); if (!cvs.length) return null;
+      const W = cvs[0].width, H = cvs[0].height, out = document.createElement("canvas"); out.width = W; out.height = H; const x = out.getContext("2d");
+      x.fillStyle = getComputedStyle(cvs[0].parentNode || document.body).backgroundColor || "#000"; x.fillRect(0, 0, W, H);
+      for (const c of cvs) x.drawImage(c, 0, 0, W, H);
+      const url = out.toDataURL("image/png");
+      if (name !== false) { const a = $("a"); a.href = url; a.download = (name || "screenshot").replace(/\.png$/i, "") + ".png"; document.body.append(a); a.click(); a.remove(); }
+      return url;
+    }
+    /* GLSL you can paste into a fragment shader (before main) to read a grid texture smoothly:
+         vec4 bicubic(sampler2D t, vec2 n, vec2 p)   n = grid size in cells, p = position in cells (cell centres at 0, 1, 2…)
+       Catmull-Rom interpolation of all four channels between cell centres (edges clamped), limited to the range
+       of the four nearest cells so a sharp spike does not get dark or bright rings round it. */
+    const BICUBIC = `vec4 kCell(sampler2D t, vec2 n, vec2 i) { return texture2D(t, (clamp(i, vec2(0.0), n - 1.0) + 0.5) / n); }
+vec4 kCR(float t) { float t2 = t * t, t3 = t2 * t; return vec4(-0.5 * t3 + t2 - 0.5 * t, 1.5 * t3 - 2.5 * t2 + 1.0, -1.5 * t3 + 2.0 * t2 + 0.5 * t, 0.5 * t3 - 0.5 * t2); }
+vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
+  vec2 i = floor(p), f = p - i; vec4 wx = kCR(f.x), wy = kCR(f.y), s = vec4(0.0);
+  for (int y = 0; y < 4; y++) { vec4 row = vec4(0.0); for (int x = 0; x < 4; x++) row += wx[x] * kCell(t, n, i + vec2(float(x) - 1.0, float(y) - 1.0)); s += wy[y] * row; }
+  vec4 a = kCell(t, n, i), b = kCell(t, n, i + vec2(1.0, 0.0)), c = kCell(t, n, i + vec2(0.0, 1.0)), d = kCell(t, n, i + 1.0);
+  return clamp(s, min(min(a, b), min(c, d)), max(max(a, b), max(c, d)));
+}
+`;
+    // draw into part of the screen: a rectangle in CSS pixels measured from the top left (as on a 2D canvas), e.g. a letterboxed picture
+    function viewportRect(view, x, y, w, h) { const d = view.dpr, gl = view.gl; gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(Math.round(x * d), Math.round((view.h - y - h) * d), Math.round(w * d), Math.round(h * d)); }
+    return { create, program, quad, floatType, target, pingpong, points, screenshot, bindTarget, viewportRect, noGL, notice, QUAD_VS, BICUBIC };
+  })();
+  function app(o) {
+    document.title = o.title + " · Science Simulations";
+    const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
+    if (saved) document.documentElement.dataset.theme = saved;
+    const top = $("header", "k-top"), main = $("main", "k-main");
+    top.innerHTML = `<a class="k-home" href="${o.home || "../../index.html"}" title="Back to the list of simulations">◂ All simulations</a>
+      <div class="k-title"><span class="k-chip">${o.subject}</span><h1 title="${o.title}">${o.title}</h1><span class="k-blurb">${o.blurb || ""}</span></div><div class="k-actions"></div>`;
+    const act = top.querySelector(".k-actions");
+    const left = $("section", "k-left"), stage = $("div", "k-stage"), dock = $("div", "k-dock"), side = $("aside", "k-side");
+    left.append(stage, dock); main.append(left, side); document.body.append(top, main);
+    const ui = { stage, dock, side, playing: true, speed: 1, canvas: fn => canvas(stage, fn), config: o };
+    const wsName = o.title.replace(/\W+/g, "-").toLowerCase() + "-worksheet.html";
+    ui.worksheet = (picks, teacher) => openDoc(worksheetDoc(o, picks, { teacher }), wsName);
+    ui.allPicks = () => (o.missions || []).map(item => ({ kind: "m", item })).concat((o.batch || []).map(item => ({ kind: "b", item })));
+    // header buttons
+    const bPlay = btn(act, "⏸ Pause", () => ui.setPlaying(!ui.playing)); bPlay.title = "Space bar";
+    ui.setPlaying = p => { ui.playing = p; bPlay.innerHTML = p ? "⏸ Pause" : "▶ Play"; bPlay.classList.toggle("primary", !p); };
+    if (o.step) btn(act, "⏭ Step", () => { ui.setPlaying(false); o.step(); }).title = "Advance one step while paused";
+    if (o.reset) btn(act, "↺ Reset", () => o.reset());
+    // the simulation's playback-speed control sits here, beside Pause / Step / Reset (see ui.headerSpeed below)
+    const hSpeed = $("div", "k-hspeed"); hSpeed.style.display = "none"; act.append(hSpeed);
+    if (o.batch) btn(act, "📊 Batch run", () => openBatch(), "").title = "Run the model many times and plot the results against theory";
+    if (o.sound) { const bS = btn(act, "🔇 Sound", () => sound.enable(!sound.on)); bS.title = typeof o.sound === "string" ? o.sound : "Turn sound on or off (off to start with)"; sound.onChange(v => { bS.innerHTML = v ? "🔊 Sound" : "🔇 Sound"; bS.classList.toggle("primary", v); }); }
+    btn(act, "◐", () => { const t = document.documentElement.dataset.theme === "light" ? "" : "light"; document.documentElement.dataset.theme = t; try { localStorage.setItem("k-theme", t); } catch (e) { } charts.forEach(c => c.redraw()); ui.onTheme && ui.onTheme(); }).title = "Light / dark";
+    btn(act, "⛶", () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).title = "Full screen";
+    addEventListener("keydown", e => { if (e.code === "Space" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); ui.setPlaying(!ui.playing); } if (e.key === "Escape") ov.classList.remove("on"); });
+    // side panel tabs
+    const tabs = $("nav", "k-tabs"), panes = {}; side.append(tabs);
+    const names = [["controls", "Controls"], ["missions", "Investigate"]].concat(o.revise ? [["revise", "Revise"]] : [], [["notes", "The model"]]);
+    const show = id => { if (id === "revise" && ui.renderRevise) ui.renderRevise(); for (const [k] of names) { panes[k].classList.toggle("on", k === id); panes[k]._tab.classList.toggle("on", k === id); } };
+    for (const [k, label] of names) { const b = $("button", "", label); b.onclick = () => show(k); tabs.append(b); panes[k] = $("div", "k-pane" + (k === "notes" ? " k-notes" : "")); panes[k]._tab = b; side.append(panes[k]); }
+    show("controls"); ui.controls = panes.controls; ui.showTab = show;
+    ui.group = title => { const g = $("div", "k-group", title ? `<h3>${title}</h3>` : ""); panes.controls.append(g); return g; };
+    panes.notes.innerHTML = o.notes || "";
+    // investigations: each card sets the simulation up and pins its question over the stage
+    let banner = null;
+    ui.mission = m => {
+      if (banner) banner.remove(); banner = null; if (!m) return;
+      banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
+      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
+    };
+    if ((o.missions || []).length || (o.batch || []).length) { const wr = $("div", "k-wsrow", "<span>Worksheets:</span>"); panes.missions.append(wr); btn(wr, "📄 Every investigation", () => ui.worksheet(ui.allPicks(), true), "small").title = "One printable sheet per investigation and batch experiment, then teacher notes"; btn(wr, "📄 Without teacher notes", () => ui.worksheet(ui.allPicks(), false), "small"); }
+    const mcards = (o.missions || []).map(m => {
+      const c = $("div", "k-mcard", `<h4><em></em>${m.title}${m.lvl === "adv" ? ' <span class="k-tag adv">A level</span>' : ""}</h4><p>${m.q}</p>`);
+      btn(c, "Set it up ▸", () => { c.classList.add("done"); c.querySelector("em").textContent = "✓"; m.setup && m.setup(); ui.mission(m); ui.setPlaying(true); show("controls"); }, "small primary");
+      btn(c, "📄 Worksheet", () => ui.worksheet([{ kind: "m", item: m }], true), "small").title = "A printable worksheet for this investigation";
+      panes.missions.append(c); return [m, c];
+    });
+    /* ---- Level (Standard / Advanced) and the Revise tab ----
+       o.levels = { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "...", adv: "..." } }
+       o.revise = { ideas: [{ lvl: "std"|"adv"|"beyond", tag, text }], questions: [{ lvl, q, marks, ans }] }   (q and ans may be functions, so they can use the numbers on screen)
+       Advanced shows everything; Standard hides anything marked "adv". */
+    ui.level = "std"; try { const l = localStorage.getItem("k-level"); if (l === "adv" || l === "std") ui.level = l; } catch (e) { }
+    if (!o.levels) ui.level = "adv";
+    const val = v => typeof v === "function" ? v() : v;
+    function renderLevel() {
+      let k = 0; for (const [m, c] of mcards) { const on = m.lvl !== "adv" || ui.level === "adv"; c.style.display = on ? "" : "none"; if (on) { k++; if (!c.classList.contains("done")) c.querySelector("em").textContent = k; } }
+      if (!o.revise) return; const P = panes.revise, see = x => x.lvl !== "adv" || ui.level === "adv", tagName = { std: "std", adv: "adv", beyond: "beyond" };
+      P.innerHTML = (o.levels ? `<p class="k-spec">${o.levels.specs[ui.level]}</p>` : "") + `<h3>Key ideas</h3>` + o.revise.ideas.filter(see).map(x => `<div class="k-idea"><span class="k-tag ${tagName[x.lvl]}">${x.tag}</span> ${val(x.text)}</div>`).join("") +
+        `<h3>Exam practice</h3>` + o.revise.questions.filter(see).map((x, i) => `<div class="k-mcard k-q"><h4><em>${i + 1}</em><span class="k-tag ${tagName[x.lvl]}">${x.lvl === "adv" ? "A level" : "GCSE"}</span><span class="k-marks">[${x.marks} mark${x.marks > 1 ? "s" : ""}]</span></h4><p>${val(x.q)}</p><details><summary>Mark scheme</summary>${val(x.ans)}</details></div>`).join("");
+      if (o.revise.questions.some(x => typeof x.q === "function")) btn(P, "↻ Use the numbers on screen now", renderLevel, "small");
+    }
+    if (o.levels) { const lg = $("div", "k-group k-level"); panes.controls.append(lg); const sg = seg(lg, { value: ui.level, options: [["std", o.levels.std], ["adv", o.levels.adv]], on: v => { ui.level = v; try { localStorage.setItem("k-level", v); } catch (e) { } hint.textContent = o.levels.specs[v]; renderLevel(); ui.onLevel && ui.onLevel(v); } }); const hint = $("small", "", o.levels.specs[ui.level]); hint.style.cssText = "display:block;color:var(--muted);font-size:11.5px;margin-top:-4px"; lg.append(hint); ui.setLevel = v => sg.set(v, true); }
+    try { renderLevel(); } catch (e) { setTimeout(renderLevel, 0); }   // questions may use values the simulation has not set up yet
+    ui.renderRevise = renderLevel;
+    /* ui.headerSpeed(control, { label }) moves a speed slider (or Slow/Fast buttons) made with K.slider / K.seg
+       from the Controls tab up into the header bar. It is the same control, so the simulation's own code
+       (ctl.speed.set(...), investigations, mode switches) keeps working. If the group it came from is hidden
+       (for example a mode that does not use it), the header copy is hidden too; a group left with only its
+       heading is hidden. A label like "Speed (minutes per second)" shows as "Speed" with the bracket after the value. */
+    const hsList = [];
+    ui.headerSpeed = (c, opt = {}) => {
+      const el = c.el, from = el.parentNode, name = el.querySelector("label > span"), tip = el.querySelector(":scope > small");
+      const full = name ? name.textContent : "", m = /^(.*?)\s*\((.+)\)$/.exec(full);
+      el.title = full + (tip ? " · " + tip.textContent : "");
+      if (name) name.textContent = opt.label || (m ? m[1] : full);
+      if (m && !opt.label) { const u = $("i", "k-hunit", m[2]); (el.querySelector("label") || el).append(u); }
+      el.classList.add("k-hctl"); hSpeed.append(el); hSpeed.style.display = ""; hsList.push({ el, from }); syncSpeed();
+      return c;
+    };
+    function syncSpeed() {
+      let any = false;
+      for (const { el, from } of hsList) {
+        if (from.classList.contains("k-group") && ![...from.children].some(x => x.tagName !== "H3")) from.classList.add("k-emptied");
+        let hide = false; for (let x = from; x && x !== panes.controls && x !== document.body; x = x.parentNode) if (x.style.display === "none" || x.hidden) { hide = true; break; }
+        el.classList.toggle("k-hoff", hide); if (!hide && el.style.display !== "none") any = true;
+      }
+      hSpeed.style.display = any ? "" : "none";
+    }
+    setInterval(() => hsList.length && syncSpeed(), 250);
+    // floating hint and heads-up text over the stage
+    let tipEl = null, tipT = 0;
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; } hudEl.style.display = html ? "" : "none"; };
+    // animation loop: step(dt) only while playing, draw() every frame
+    ui.run = (step, draw) => { let t0 = performance.now(); const f = t => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (ui.playing && !ov.classList.contains("on")) step(dt); draw(dt); requestAnimationFrame(f); }; requestAnimationFrame(f); };
+
+    // ---- Batch run window ----
+    const ov = $("div", "k-overlay"); document.body.append(ov);
+    let bstate = null;
+    function openBatch() {
+      ov.classList.add("on"); if (bstate) return;
+      const modal = $("div", "k-modal"), list = $("div", "k-blist", `<h2>📊 Batch run</h2><p>Runs the model many times without drawing it, then compares the results with theory. Pick a question:</p>`), mainB = $("div", "k-bmain");
+      modal.append(list, mainB); ov.append(modal); ov.addEventListener("pointerdown", e => { if (e.target === ov) ov.classList.remove("on"); });
+      mainB.innerHTML = `<div class="k-bhead"><h3></h3></div><div class="k-bbar"></div><div class="k-bchart"></div><div class="k-bfoot"><div class="k-btable"></div><div class="k-bnote"></div></div>`;
+      const head = mainB.querySelector("h3"), bar = mainB.querySelector(".k-bbar"), tbl = mainB.querySelector(".k-btable"), noteEl = mainB.querySelector(".k-bnote");
+      btn(mainB.querySelector(".k-bhead"), "✕ Close", () => ov.classList.remove("on"));
+      const ch = chart(mainB.querySelector(".k-bchart"), {});
+      const bRun = btn(bar, "▶ Run", () => runExp(), "primary"), prog = $("div", "k-prog", "<i></i>"), status = $("span", "", ""); status.style.cssText = "color:var(--muted);font-size:12.5px;min-width:110px";
+      const bCsv = btn(bar, "⬇ CSV", () => bstate.rows.length && download(o.title.replace(/\W+/g, "-").toLowerCase() + "-batch.csv", bstate.csv()));
+      bar.insertBefore(prog, bCsv); bar.insertBefore(status, bCsv);
+      btn(bar, "📄 Worksheet", () => ui.worksheet([{ kind: "b", item: bstate.exp }], true)).title = "A printable worksheet for this experiment";
+      bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
+      const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
+      function pick(e) { bstate.token++; bstate.exp = e; bRun.textContent = "▶ Run"; bRun.onclick = () => runExp(); bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
+      function paint() {
+        const e = bstate.exp, rows = bstate.rows, series = [], extra = { title: "", xLabel: e.xs ? e.xLabel : e.yLabel, yLabel: e.xs ? e.yLabel : "number of runs" };
+        if (e.xs) {
+          const groups = e.xs.map(x => rows.filter(r => r[0] === x).map(r => r[3])), done = e.xs.map((x, i) => [x, groups[i]]).filter(g => g[1].length);
+          if (e.theory) {
+            // the theory curve is drawn smoothly between the settings; a theory that only exists AT the settings (a table, a whole number of things) is drawn through those points instead
+            const th = x => { try { const y = e.theory(x); return y == null || !isFinite(y) ? null : +y; } catch (er) { return null; } };
+            const a = Math.min(...e.xs), b = Math.max(...e.xs); let tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, th(x)]); }
+            const atXs = [...e.xs].sort((u, v) => u - v).map(x => [x, th(x)]); if (tp.some(q => q[1] == null) && atXs.every(q => q[1] != null)) tp = atXs;
+            series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
+          series.push({ pts: rows.map(r => [r[0], r[3]]), type: "dots", color: cssVar("--s0"), alpha: .3, r: 2.5, label: "single runs" });
+          series.push({ pts: done.map(([x, g]) => [x, mean(g), se(g)]), type: "err", color: cssVar("--s0"), r: 4.5, label: "mean ± SE" });
+          let fitTxt = "";
+          if (e.fit && done.length > 2) { const f = linfit(done.map(([x, g]) => [x, mean(g)])), a = Math.min(...e.xs), b = Math.max(...e.xs); series.push({ pts: [[a, f.m * a + f.c], [b, f.m * b + f.c]], color: cssVar("--s2"), label: "best-fit line" }); fitTxt = `<tr><td colspan="6" style="text-align:left">Best-fit line: gradient <b>${sig(f.m)}</b>, intercept ${sig(f.c)}, r = ${f.r.toFixed(3)}</td></tr>`; }
+          extra.xMin = Math.min(...e.xs) - (Math.max(...e.xs) - Math.min(...e.xs)) * .05; extra.xMax = Math.max(...e.xs) + (Math.max(...e.xs) - Math.min(...e.xs)) * .05; if (e.yMin != null) extra.yMin = e.yMin; if (e.yMax != null) extra.yMax = e.yMax;
+          tbl.innerHTML = `<table><tr><th>${e.xLabel}</th><th>runs</th><th>mean</th><th>SD</th><th>SE</th>${e.theory ? "<th>theory</th>" : ""}</tr>` + done.map(([x, g]) => `<tr><td>${sig(x, 4)}</td><td>${g.length}</td><td>${sig(mean(g))}</td><td>${sig(sd(g))}</td><td>${sig(se(g))}</td>${e.theory ? `<td>${sig(e.theory(x))}</td>` : ""}</tr>`).join("") + fitTxt + "</table>";
+        } else {
+          const v = rows.map(r => r[3]);
+          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) { extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); series.push({ pts: [[+e.theory, 0]], type: "dots", r: 0.01, alpha: 0 }); } }   // an invisible point keeps the theory line on the chart even if every run misses it
+          tbl.innerHTML = v.length ? `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${e.theory != null ? "<th>theory</th>" : ""}</tr><tr><td>${v.length}</td><td>${sig(mean(v))}</td><td>${sig(sd(v))}</td><td>${sig(se(v))}</td><td>${sig(Math.min(...v))}</td><td>${sig(Math.max(...v))}</td>${e.theory != null ? `<td>${sig(+e.theory)}</td>` : ""}</tr></table>` : "";
+        }
+        ch.opts.xFmt = null; ch.draw(series, extra);
+      }
+      function runExp() {
+        const e = bstate.exp, token = ++bstate.token; bstate.rows = []; const tasks = [];
+        if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) tasks.push([x, r]); } else for (let r = 0; r < (e.reps || 200); r++) tasks.push([0, r]);
+        let i = 0; const seed0 = (Date.now() % 100000) * 7 + 1; bRun.textContent = "■ Stop"; bRun.onclick = () => { bstate.token++; fin(); };
+        const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
+        (function slice() {
+          if (token !== bstate.token) return; const t = performance.now();
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
+          if (i < tasks.length) setTimeout(slice, 0); else fin();
+        })();
+      }
+      pick(o.batch[0]);
+    }
+    ui.openBatch = openBatch;
+    K_last = ui;
+    return ui;
+  }
+  return { gl: glKit, sound, $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app, worksheetDoc, batchSummary, get ui() { return K_last; } };
+})();
+</script>
+<script>
+/* =====================================================================
+   STRANGE ATTRACTORS
+   Three simple equations say how fast x, y and z change. Follow them
+   from any starting point and the path settles onto a shape: the
+   ATTRACTOR. Some attractors are a single point or a loop. "Strange"
+   ones are fractal surfaces folded over and over, and on them the motion
+   is CHAOTIC: two paths that start a hair's breadth apart drift apart
+   exponentially fast, so long-term prediction is impossible even though
+   the rules contain no randomness at all.
+
+   The rate at which nearby paths separate is the largest LYAPUNOV
+   EXPONENT λ: the gap grows like e^(λt). λ > 0 means chaos; λ = 0 a
+   steady cycle; λ < 0 everything settles to a point.
+
+   The picture: up to a million particles, each following the equations,
+   moved by the graphics card and drawn with glowing trails. The Batch
+   run and the Lyapunov estimates use the main processor.
+   ===================================================================== */
+"use strict";
+/* Each attractor: the equations (for the CPU), the same in GLSL (for the graphics card), its parameters, a time step,
+   where its middle is and how big it is (to fit the view), and a camera angle. Maps (Clifford, de Jong) jump rather than flow. */
+const ATT = {
+  rossler: { start: [1, 1, 1], name: "Rössler", eq: "x′ = −y − z<br>y′ = x + a·y<br>z′ = b + z(x − c)", p: [["a", 0.2, 0, 0.4], ["b", 0.2, 0, 2], ["c", 5.7, 1, 12]], dt: 0.02, ctr: [0, 0, 3], sc: 0.075, cam: [0.6, 0.35],
+    f: (x, y, z, P) => [-y - z, x + P[0] * y, P[1] + z * (x - P[2])], glsl: "vec3(-p.y - p.z, p.x + P.x * p.y, P.y + p.z * (p.x - P.z))", lam: 0.0714 },
+  aizawa: { start: [0.1, 0, 0], name: "Aizawa", eq: "x′ = (z − b)x − d·y<br>y′ = d·x + (z − b)y<br>z′ = c + a·z − z³/3 − (x² + y²)(1 + e·z) + f·z·x³", p: [["a", 0.95, 0.5, 1.2], ["b", 0.7, 0.4, 1], ["c", 0.6, 0.3, 0.9], ["d", 3.5, 1, 5]], fixed: [0.25, 0.1], dt: 0.01, ctr: [0, 0, 0.6], sc: 0.55, cam: [0.4, 0.5],
+    f: (x, y, z, P) => [(z - P[1]) * x - P[3] * y, P[3] * x + (z - P[1]) * y, P[2] + P[0] * z - z * z * z / 3 - (x * x + y * y) * (1 + 0.25 * z) + 0.1 * z * x * x * x], glsl: "vec3((p.z - P.y) * p.x - P.w * p.y, P.w * p.x + (p.z - P.y) * p.y, P.z + P.x * p.z - p.z * p.z * p.z / 3.0 - (p.x * p.x + p.y * p.y) * (1.0 + 0.25 * p.z) + 0.1 * p.z * p.x * p.x * p.x)" },
+  thomas: { start: [0.1, 0, 0], name: "Thomas", eq: "x′ = sin y − b·x<br>y′ = sin z − b·y<br>z′ = sin x − b·z", p: [["b", 0.208186, 0, 0.35]], dt: 0.05, ctr: [0, 0, 0], sc: 0.24, cam: [0.7, 0.6],
+    f: (x, y, z, P) => [Math.sin(y) - P[0] * x, Math.sin(z) - P[0] * y, Math.sin(x) - P[0] * z], glsl: "vec3(sin(p.y) - P.x * p.x, sin(p.z) - P.x * p.y, sin(p.x) - P.x * p.z)" },
+  halvorsen: { start: [-1.48, -1.51, 2.04], name: "Halvorsen", eq: "x′ = −a·x − 4y − 4z − y²<br>y′ = −a·y − 4z − 4x − z²<br>z′ = −a·z − 4x − 4y − x²", p: [["a", 1.27, 1.25, 2]], dt: 0.006, ctr: [-3, -3, -3], sc: 0.11, cam: [0.8, 0.6],
+    f: (x, y, z, P) => [-P[0] * x - 4 * y - 4 * z - y * y, -P[0] * y - 4 * z - 4 * x - z * z, -P[0] * z - 4 * x - 4 * y - x * x], glsl: "vec3(-P.x * p.x - 4.0 * p.y - 4.0 * p.z - p.y * p.y, -P.x * p.y - 4.0 * p.z - 4.0 * p.x - p.z * p.z, -P.x * p.z - 4.0 * p.x - 4.0 * p.y - p.x * p.x)" },
+  chen: { start: [-0.1, 0.5, -0.6], name: "Chen", eq: "x′ = a(y − x)<br>y′ = (c − a)x − x·z + c·y<br>z′ = x·y − b·z", p: [["a", 35, 25, 45], ["b", 3, 1, 6], ["c", 28, 18, 32]], dt: 0.002, ctr: [0, 0, 23], sc: 0.026, cam: [0.3, 0.2],
+    f: (x, y, z, P) => [P[0] * (y - x), (P[2] - P[0]) * x - x * z + P[2] * y, x * y - P[1] * z], glsl: "vec3(P.x * (p.y - p.x), (P.z - P.x) * p.x - p.x * p.z + P.z * p.y, p.x * p.y - P.y * p.z)" },
+  dadras: { start: [1, 1, 1], name: "Dadras", eq: "x′ = y − a·x + b·y·z<br>y′ = c·y − x·z + z<br>z′ = d·x·y − e·z", p: [["a", 3, 2, 4], ["b", 2.7, 1.5, 3.5], ["c", 1.7, 1, 2.5], ["d", 2, 1, 3], ["e", 9, 6, 12]], dt: 0.008, ctr: [2, -2, -2], sc: 0.1, cam: [0.5, 0.4],
+    f: (x, y, z, P) => [y - P[0] * x + P[1] * y * z, P[2] * y - x * z + z, P[3] * x * y - P[4] * z], glsl: "vec3(p.y - P.x * p.x + P.y * p.y * p.z, P.z * p.y - p.x * p.z + p.z, P.w * p.x * p.y - E.x * p.z)" },
+  sprott: { start: [0.63, 0.47, -0.54], name: "Sprott", eq: "x′ = y + a·x·y + x·z<br>y′ = 1 − b·x² + y·z<br>z′ = x − x² − y²", p: [["a", 2.07, 1.5, 2.5], ["b", 1.79, 1.4, 2.2]], dt: 0.01, ctr: [0.75, 0, 0], sc: 0.85, cam: [0.3, 0.9],
+    f: (x, y, z, P) => [y + P[0] * x * y + x * z, 1 - P[1] * x * x + y * z, x - x * x - y * y], glsl: "vec3(p.y + P.x * p.x * p.y + p.x * p.z, 1.0 - P.y * p.x * p.x + p.y * p.z, p.x - p.x * p.x - p.y * p.y)" },
+  clifford: { start: [0.1, 0.1, 0], name: "Clifford (a map)", map: true, eq: "x<sub>next</sub> = sin(a·y) + c·cos(a·x)<br>y<sub>next</sub> = sin(b·x) + d·cos(b·y)", p: [["a", -1.4, -2, 2], ["b", 1.6, -2, 2], ["c", 1.0, -2, 2], ["d", 0.7, -2, 2]], ctr: [0, 0, 0], sc: 0.42,
+    f: (x, y, z, P) => [Math.sin(P[0] * y) + P[2] * Math.cos(P[0] * x), Math.sin(P[1] * x) + P[3] * Math.cos(P[1] * y), 0], glsl: "vec3(sin(P.x * p.y) + P.z * cos(P.x * p.x), sin(P.y * p.x) + P.w * cos(P.y * p.y), 0.0)" },
+  dejong: { start: [0.1, 0.1, 0], name: "de Jong (a map)", map: true, eq: "x<sub>next</sub> = sin(a·y) − cos(b·x)<br>y<sub>next</sub> = sin(c·x) − cos(d·y)", p: [["a", 1.4, -3, 3], ["b", -2.3, -3, 3], ["c", 2.4, -3, 3], ["d", -2.1, -3, 3]], ctr: [0, 0, 0], sc: 0.45,
+    f: (x, y, z, P) => [Math.sin(P[0] * y) - Math.cos(P[1] * x), Math.sin(P[2] * x) - Math.cos(P[3] * y), 0], glsl: "vec3(sin(P.x * p.y) - cos(P.y * p.x), sin(P.z * p.x) - cos(P.w * p.y), 0.0)" }
+};
+// one fourth-order Runge–Kutta step of size h (a careful way to follow a curve: four slopes averaged)
+function rk4(A, P, s, h) {
+  const [x, y, z] = s, k1 = A.f(x, y, z, P), k2 = A.f(x + h / 2 * k1[0], y + h / 2 * k1[1], z + h / 2 * k1[2], P), k3 = A.f(x + h / 2 * k2[0], y + h / 2 * k2[1], z + h / 2 * k2[2], P), k4 = A.f(x + h * k3[0], y + h * k3[1], z + h * k3[2], P);
+  return [x + h / 6 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]), y + h / 6 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]), z + h / 6 * (k1[2] + 2 * k2[2] + 2 * k3[2] + k4[2])];
+}
+const advance = (A, P, s, h) => A.map ? A.f(s[0], s[1], s[2], P) : rk4(A, P, s, h);
+
+// largest Lyapunov exponent (Benettin's method): follow two paths 1e-8 apart; every so often measure how much the gap grew, add up the logs, and shrink the gap back
+function lyapunov(key, P, rand, T = 1500) {
+  const A = ATT[key], h = A.map ? 1 : Math.min(A.dt, 0.01), d0 = 1e-8;
+  let s = [A.start[0] + (rand() - 0.5) * 0.2, A.start[1] + (rand() - 0.5) * 0.2, A.start[2] + (rand() - 0.5) * (A.map ? 0 : 0.2)];
+  for (let i = 0; i < (A.map ? 1000 : 50 / h); i++) { s = advance(A, P, s, h); if (!isFinite(s[0]) || Math.abs(s[0]) > 1e6) return NaN; }   // settle onto the attractor first
+  let q = [s[0] + d0, s[1], s[2]], sum = 0; const steps = A.map ? 20000 : Math.round(T / h), every = A.map ? 1 : 10;
+  for (let i = 1; i <= steps; i++) {
+    s = advance(A, P, s, h); q = advance(A, P, q, h);
+    if (i % every === 0) { const dx = q[0] - s[0], dy = q[1] - s[1], dz = q[2] - s[2], d = Math.hypot(dx, dy, dz) || 1e-300; sum += Math.log(d / d0); q = [s[0] + dx * d0 / d, s[1] + dy * d0 / d, s[2] + dz * d0 / d]; if (!isFinite(s[0])) return NaN; }
+  }
+  return sum / (steps * (A.map ? 1 : h));   // per unit time (flows) or per iteration (maps)
+}
+// two paths starting d0 apart: log10 of their distance after time t
+function separation(key, P, rand, t, d0 = 1e-6) {
+  const A = ATT[key], h = A.dt / 2; let s = [A.start[0] + (rand() - 0.5) * 0.2, A.start[1] + (rand() - 0.5) * 0.2, A.start[2] + (rand() - 0.5) * 0.2];
+  for (let i = 0; i < 60 / h; i++) s = rk4(A, P, s, h);
+  let q = [s[0] + d0, s[1], s[2]]; for (let i = 0; i < Math.round(t / h); i++) { s = rk4(A, P, s, h); q = rk4(A, P, q, h); }
+  return Math.log10(Math.hypot(q[0] - s[0], q[1] - s[1], q[2] - s[2]));
+}
+const params = key => ATT[key].p.map(q => q[1]);
+
+// =====================================================================
+// THE PAGE (everything below runs only in the browser)
+// =====================================================================
+if (typeof module !== "undefined") module.exports = { ATT, lyapunov, separation, rk4, params };
+else page();
+function page() {
+let key = "thomas", P = params(key), nPart = 512, sub = 2, fade = 0.9, exposure = 1, pal = 0, autoRot = true, pair = true;
+const cam = { yaw: 0.4, pitch: 0.5, dist: 3.2 };
+const ui = K.app({
+  title: "Strange Attractors", subject: "Explore",
+  blurb: "Simple equations, no randomness, endless unpredictable motion",
+  reset: () => choose(key, true),
+  missions: [
+    { title: "A gallery of shapes", q: "Step through every attractor. Each is just three equations for how x, y and z change. Which look like ribbons, which like shells, which like knots? Read the equations under 'The attractor': can you guess anything about the shape from them?", hint: "Symmetric equations give symmetric shapes: Thomas's (x → y → z → x) has three-fold symmetry, Halvorsen's too. Rössler's has one slow loop that occasionally flicks up out of the plane (the z term switches on only when x > c). Nobody can predict the detailed shape by looking: you have to compute it.", setup() { choose("thomas", true); } },
+    { title: "The butterfly effect", q: "With 'Two starts' on, two particles begin 0.000001 apart. Watch the separation chart (it is logarithmic). How long until their paths are completely different?", hint: "The gap grows exponentially (a straight line on the log chart) until it is as big as the attractor itself, then it stops growing. For Rössler, λ ≈ 0.07, so each 33 time units the gap grows 10 times: from 10⁻⁶ to 1 takes about 200 time units. Halving the starting error only buys 10 more time units. That is why weather forecasts fail after about two weeks.", setup() { choose("rossler", true); ctl.pair.set(true, true); } },
+    { title: "The road to chaos", q: "Pick Rössler and set c = 2.5. The motion is one simple loop. Raise c slowly: 3.5, 4.2, 4.6, 5.7. Watch the loop and the Lyapunov readout. What happens to the loop before chaos starts?", hint: "The loop doubles: at about c = 3 it goes round twice before repeating (period 2), at about 4.2 four times (period 4), then 8, 16… faster and faster, until at about 4.5 it never repeats: chaos, and λ becomes positive. This 'period-doubling cascade' happens in dripping taps, heart rhythms and populations too (Feigenbaum).", setup() { choose("rossler", true); setP(2, 2.5); } },
+    { title: "Every start, the same shape", q: "Press 'Scatter the particles' (it throws them all over the place, then lets them go) a few times. Every particle starts somewhere different. Where do they end up?", hint: "On the same shape every time: that is what 'attractor' means. The motion along it is unpredictable, but the shape it moves on is completely predictable. Weather is like that too: you cannot say whether it will rain on 3 August next year, but you can say what the climate (the attractor) will be like.", setup() { choose("aizawa", true); } },
+    { title: "Turn the friction down", q: "Choose Thomas. b is like friction. Start at b = 0.32 and turn it down slowly to 0.05. What happens at about 0.208? And near 0?", hint: "Above about 0.33 every path settles to one point. Below it, cycles appear, then (around 0.2) chaos. As b approaches 0 the attractor fills a lattice of cells and the motion becomes like a random walk ('labyrinth chaos'), even though nothing random is in the equations.", setup() { choose("thomas", true); setP(0, 0.32); } },
+    { title: "Maps: jumps, not flows", q: "Choose Clifford. Here x and y do not flow: they jump, by a rule, a million times over. Change a, b, c or d by a tiny amount. Does the picture change smoothly?", hint: "Often it changes smoothly, then suddenly collapses into a handful of dots (a periodic orbit: λ < 0) or explodes into a cloud. Chaos and order are finely interleaved in the parameter space. The batch run maps λ against a.", setup() { choose("clifford", true); } }
+  ],
+  batch: [
+    { title: "Rössler: the road to chaos", question: "How does the largest Lyapunov exponent change as the Rössler parameter c rises?", how: "Each run starts near (1, 1, 1) with a small random change, follows the path for 50 time units to settle, then measures λ over 1500 time units (two paths 10⁻⁸ apart, renormalised every 0.1).", xLabel: "c", yLabel: "largest Lyapunov exponent λ", xs: [2.5, 3, 3.5, 4, 4.2, 4.5, 5, 5.7, 7, 9], reps: 3, run: (x, r) => lyapunov("rossler", [0.2, 0.2, x], r), note: "λ is zero (a cycle) through the period doublings up to about c = 4.2, then turns positive: chaos. At c = 5.7 it is about 0.07 (published value 0.0714). Short runs and different starting points give slightly different estimates." },
+    { title: "Two nearby starts", question: "Two Rössler paths start 10⁻⁶ apart. How does the distance between them grow?", how: "Each run: settle onto the attractor, add a 10⁻⁶ shift, follow both for the time shown, and record log₁₀ of the distance between them.", xLabel: "time", yLabel: "log₁₀ (distance apart)", xs: [0, 25, 50, 75, 100, 125, 150], reps: 6, theory: t => -6 + 0.0714 * t / Math.LN10, theoryLabel: "10⁻⁶ × e^(0.0714 t)", run: (x, r) => separation("rossler", [0.2, 0.2, 5.7], r, x), note: "The gap grows roughly exponentially (a rising straight line on this log scale), but the test run rose a little more slowly than the λ = 0.0714 line, about e^(0.054 t) over 150 time units: a fresh gap first has to turn to line up with the direction of greatest stretching, and the stretching is uneven around the attractor (fast in some places, slow or even shrinking in others). Single runs wander a lot. After about 250 time units the gap reaches the size of the attractor and stops growing." },
+    { title: "Thomas: friction and chaos", question: "How does the friction b change λ for the Thomas attractor?", how: "Each run: start near (0.1, 0, 0), settle, then measure λ over 1500 time units.", xLabel: "b", yLabel: "largest Lyapunov exponent λ", xs: [0.05, 0.1, 0.15, 0.18, 0.21, 0.25, 0.3], reps: 3, run: (x, r) => lyapunov("thomas", [x], r), note: "λ is largest for small b (labyrinth chaos), small or zero in windows of order, and zero once b is large enough for the motion to settle into a cycle or a point. The estimates are noisy: Thomas's chaos is slow, and 1500 time units is not long for it." },
+    { title: "Clifford map: chaos and order", question: "How does λ for the Clifford map change with a (b = 1.6, c = 1, d = 0.7)?", how: "Each run: start near (0.1, 0.1), 1000 jumps to settle, then λ per jump over 20 000 jumps.", xLabel: "a", yLabel: "λ (per jump)", xs: [-2, -1.6, -1.2, -0.8, -0.4, 0, 0.4, 0.8, 1.2, 1.6, 2], reps: 3, run: (x, r) => lyapunov("clifford", [x, 1.6, 1.0, 0.7], r), note: "Positive λ means a chaotic, cloud-like attractor; negative λ means the points settle onto a few dots or a smooth closed curve. Order and chaos alternate as a changes. Different starts can land on different attractors when two exist side by side." }
+  ],
+  notes: `<h3>What is being modelled</h3>
+<p>Each 3D attractor is a set of three <b>differential equations</b> (x′ means the rate at which x changes). A point's path is found by stepping forward in time with the fourth-order Runge–Kutta method. The two <b>maps</b> (Clifford and de Jong) are rules for jumping from one point to the next.</p>
+<ul><li>Up to a million particles are followed at once by the graphics card, starting near the attractor's usual starting point; each is drawn as a dot that leaves a fading trail. Particles that fly off (for some parameter values the motion is not bounded) are started again.</li>
+<li>Colour shows how fast a particle is moving.</li>
+<li><b>Lyapunov exponent</b> (Benettin's method, on the main processor): follow two paths 10⁻⁸ apart; every so often add up the log of how much the gap has grown, and shrink it back to 10⁻⁸. The average growth rate is λ (per unit of time, or per jump for maps).</li>
+<li><b>Two starts</b>: two paths 10⁻⁶ apart, followed on the main processor, drawn as orange and blue trails.</li></ul>
+<h3>Assumptions and limits</h3>
+<ul><li>The time step is small but finite, and the graphics card works with about 7 significant figures. In chaos, rounding errors grow like any other small difference, so individual particles' paths are not exact; the shape of the attractor, and λ, are reliable.</li>
+<li>The equations are mathematical models. Rössler's and Chen's came from studying chemical and electronic oscillators; most of the others were designed to be chaotic.</li>
+<li>Lyapunov estimates come from finite runs and vary a little from start to start.</li></ul>
+<p>The most famous attractor, Lorenz's (1963) "butterfly", is in <a href="../../climate/weather_chaos/weather-chaos.html">Weather and Chaos</a>, and the double pendulum is in <a href="../../physics/simple_harmonic_motion/simple-harmonic-motion.html">Simple Harmonic Motion</a>. See also the <a href="../fractal_explorer/fractal-explorer.html">Fractal Explorer</a>.</p>`
+});
+
+// ---------------- Controls ----------------
+const ctl = {}; let g = ui.group("The attractor");
+ctl.att = K.seg(g, { label: "Choose", value: key, options: Object.keys(ATT).map(k => [k, ATT[k].name.replace(" (a map)", "")]), on: v => choose(v, true) });
+const eqEl = K.note(g, ""); eqEl.style.cssText += ";font:13px/1.5 Consolas,monospace;color:var(--text)";
+const pg = ui.group("Parameters (drag to morph it)"); let pSliders = [];
+g = ui.group("Particles");
+ctl.n = K.slider(g, { label: "Particles", min: 128, max: 1024, step: 128, value: nPart, fmt: v => (v * v / 1e6 >= 1 ? (v * v / 1e6).toFixed(2) + " million" : Math.round(v * v / 1000) + " thousand"), on: v => { nPart = v; makeParticles(); } });
+ctl.trail = K.slider(g, { label: "Trail length", min: 0, max: 0.99, step: 0.01, value: fade, fmt: v => v < 0.05 ? "none" : v.toFixed(2), on: v => fade = v });
+ctl.exp = K.slider(g, { label: "Brightness", min: 0.2, max: 4, step: 0.1, value: exposure, fmt: v => "× " + v.toFixed(1), on: v => exposure = v });
+ctl.pal = K.seg(g, { label: "Colours", value: 0, options: [[0, "Aurora"], [1, "Fire"], [2, "Ice"], [3, "Rainbow"]], on: v => pal = v });
+ctl.sub = K.slider(g, { label: "Speed (steps per frame)", min: 1, max: 8, step: 1, value: sub, on: v => sub = v }); ui.headerSpeed(ctl.sub, { label: "Speed" });
+ctl.rot = K.toggle(g, { label: "Turn slowly", value: true, on: v => autoRot = v });
+ctl.pair = K.toggle(g, { label: "Two starts 0.000001 apart (the butterfly effect)", value: true, on: v => { pair = v; resetPair(); } });
+let r1 = K.row(g); K.btn(r1, "🎲 Scatter the particles", () => scatter(false), "primary"); K.btn(r1, "📷 Screenshot", () => K.gl.screenshot("strange-attractor", view, cv));
+K.note(g, "Drag to turn the view, scroll to zoom.");
+const read = K.readout(g, [["lam", "largest Lyapunov exponent"], ["kind", "so the motion is"], ["sep", "two starts: distance apart"], ["t", "two starts: time"]]);
+
+function setP(i, v) { P[i] = v; if (pSliders[i]) pSliders[i].set(v); updateLyap(); }
+function choose(k, resetView) {
+  key = k; ctl.att.set(k); const A = ATT[k]; P = params(k);
+  eqEl.innerHTML = A.eq; pg.querySelectorAll(".k-ctl").forEach(e => e.remove());
+  pSliders = A.p.map(([nm, v, lo, hi], i) => K.slider(pg, { label: nm, min: lo, max: hi, step: (hi - lo) / 400, value: v, fmt: x => (+x).toFixed(3), on: x => { P[i] = x; updateLyap(); } }));
+  if (resetView) { cam.yaw = A.cam ? A.cam[0] : 0; cam.pitch = A.cam ? A.cam[1] : 0; cam.dist = 3.2; }
+  makeProgram(); scatter(true); resetPair(); updateLyap();
+}
+let lyT = 0; function updateLyap() { clearTimeout(lyT); lyT = setTimeout(() => { const l = lyapunov(key, P, K.rng(7), ATT[key].map ? 0 : 300); read.set("lam", isFinite(l) ? l.toFixed(3) + (ATT[key].map ? " per jump" : " per unit time") : "it flies off"); read.set("kind", !isFinite(l) ? "unbounded" : l > 0.01 ? "chaotic" : l > 0.002 ? "weakly chaotic" : l > -0.002 ? "a cycle" : "settling down"); }, 250); }
+
+// ---------------- The graphics card ----------------
+let glReady = false; const view = K.gl.create(ui.stage, { dprMax: 1.5, onResize: () => glReady && makeAcc() });
+const cv = ui.canvas(() => { });
+const gl = view.gl, ok = view.ok;
+let quad, state, acc, prStep, prDraw, prFade, prShow, pts, accW = 0, accH = 0;
+const HASH = `float hash(vec2 p) { p = fract(p * vec2(443.897, 441.423)); p += dot(p, p.yx + 19.19); return fract((p.x + p.y) * p.x); }`;
+if (ok) {
+  quad = K.gl.quad(gl);
+  prFade = K.gl.program(gl, K.gl.QUAD_VS, `precision highp float; varying vec2 vUv; uniform sampler2D uAcc; uniform float uFade; void main() { gl_FragColor = texture2D(uAcc, vUv) * uFade; }`);
+  prShow = K.gl.program(gl, K.gl.QUAD_VS, `precision highp float; varying vec2 vUv; uniform sampler2D uAcc; uniform float uExp;
+    void main() { vec3 a = texture2D(uAcc, vUv).rgb; vec2 d = vUv - 0.5; vec3 bg = mix(vec3(0.03, 0.035, 0.07), vec3(0.0, 0.0, 0.015), length(d) * 1.4);
+      vec3 c = 1.0 - exp(-a * uExp); gl_FragColor = vec4(bg + pow(c, vec3(0.85)), 1.0); }`);
+  // drawing: each particle is one point, placed by the camera, coloured by its speed
+  prDraw = K.gl.program(gl, `precision highp float; attribute vec2 aPos; uniform sampler2D uState; uniform mat3 uRot; uniform vec3 uCtr; uniform float uSc, uDist, uAspect, uMap, uPal, uBright, uSpeed; varying vec3 vCol;
+    vec3 pal(float t) { t = clamp(t, 0.0, 1.0);
+      if (uPal < 0.5) return mix(mix(vec3(0.1, 0.9, 0.8), vec3(0.45, 0.35, 1.0), smoothstep(0.0, 0.5, t)), vec3(1.0, 0.35, 0.65), smoothstep(0.5, 1.0, t));
+      if (uPal < 1.5) return mix(mix(vec3(0.8, 0.1, 0.02), vec3(1.0, 0.55, 0.05), smoothstep(0.0, 0.5, t)), vec3(1.0, 0.95, 0.6), smoothstep(0.5, 1.0, t));
+      if (uPal < 2.5) return mix(mix(vec3(0.05, 0.25, 0.9), vec3(0.3, 0.75, 1.0), smoothstep(0.0, 0.5, t)), vec3(0.9, 0.97, 1.0), smoothstep(0.5, 1.0, t));
+      return 0.55 + 0.45 * cos(6.2832 * (t * 0.8 + vec3(0.0, 0.33, 0.67))); }
+    void main() { vec4 s = texture2D(uState, aPos); vec3 q = uRot * ((s.xyz - uCtr) * uSc);
+      float d = uMap > 0.5 ? uDist : uDist - q.z; gl_Position = d > 0.1 ? vec4(q.x * 1.8 / d / uAspect, q.y * 1.8 / d, 0.0, 1.0) : vec4(2.0, 2.0, 0.0, 1.0);
+      gl_PointSize = 1.0; vCol = pal(s.w * uSpeed) * uBright; }`,
+    `precision highp float; varying vec3 vCol; void main() { gl_FragColor = vec4(vCol, 1.0); }`);
+}
+function makeAcc() { if (!ok) return; const w = view.el.width, h = view.el.height; if (w === accW && h === accH) return; if (acc) acc.dispose(); acc = K.gl.pingpong(gl, w, h, { float: true, blend: true }); acc.upload(null); accW = w; accH = h; }
+// the step: each particle (one texel: x, y, z and its speed) moves on by a few Runge–Kutta steps (or jumps, for a map)
+function makeProgram() {
+  if (!ok) return; const A = ATT[key];
+  prStep = K.gl.program(gl, K.gl.QUAD_VS, `precision highp float; varying vec2 vUv; uniform sampler2D uState; uniform vec4 P; uniform vec4 E; uniform vec3 uStart, uCtr; uniform float uH, uSub, uSeed, uSc, uMap;
+    ${HASH}
+    vec3 F(vec3 p) { return ${A.glsl}; }
+    void main() {
+      vec4 s = texture2D(uState, vUv); vec3 p = s.xyz, v = vec3(0.0);
+      for (int k = 0; k < 8; k++) { if (float(k) >= uSub) break;
+        if (uMap > 0.5) { vec3 n = F(p); v = n - p; p = n; }
+        else { vec3 k1 = F(p), k2 = F(p + 0.5 * uH * k1), k3 = F(p + 0.5 * uH * k2), k4 = F(p + uH * k3); v = (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0; p += uH * v; } }
+      float r = hash(vUv * 917.0 + uSeed);
+      bool lost = !(p.x == p.x) || !(p.y == p.y) || !(p.z == p.z) || length((p - uCtr) * uSc) > 6.0;
+      if (lost || r < 0.0005) p = uStart + (vec3(hash(vUv * 31.0 + uSeed), hash(vUv * 57.0 + uSeed * 1.3), hash(vUv * 83.0 + uSeed * 1.7)) - 0.5) * (uMap > 0.5 ? vec3(2.0, 2.0, 0.0) : vec3(0.6));
+      gl_FragColor = vec4(p, length(v));
+    }`);
+}
+function makeParticles() {
+  if (!ok) return; if (state) state.dispose(); state = K.gl.pingpong(gl, nPart, nPart, { float: true }); if (prStep) scatter(true);
+  const idx = new Float32Array(2 * nPart * nPart); for (let k = 0; k < nPart * nPart; k++) { idx[2 * k] = (k % nPart + .5) / nPart; idx[2 * k + 1] = (Math.floor(k / nPart) + .5) / nPart; }
+  pts = K.gl.points(gl, { aPos: 2 }).set("aPos", idx, gl.STATIC_DRAW);
+}
+function scatter(settle) { if (!ok || !state) return; const A = ATT[key], d = new Float32Array(4 * nPart * nPart), r = Math.random, spread = A.map ? 2 : 1 / A.sc;
+  for (let k = 0; k < nPart * nPart; k++) { d[4 * k] = A.ctr[0] + (r() - 0.5) * spread; d[4 * k + 1] = A.ctr[1] + (r() - 0.5) * spread; d[4 * k + 2] = A.map ? 0 : A.ctr[2] + (r() - 0.5) * spread; }
+  if (A.map) for (let k = 0; k < nPart * nPart; k++) { d[4 * k] = (r() - 0.5) * 3; d[4 * k + 1] = (r() - 0.5) * 3; }
+  else if (key === "halvorsen" || key === "sprott") for (let k = 0; k < nPart * nPart; k++) for (let j = 0; j < 3; j++) d[4 * k + j] = A.start[j] + (r() - 0.5) * 0.5;   // these two have other, non-chaotic attractors nearby: start close to the usual point
+  state.upload(d); if (acc) acc.upload(null); speedRef = null;
+  if (settle) for (let k = 0; k < (A.map ? 30 : 60); k++) { prStep.set({ uState: state.read, P: [P[0] || 0, P[1] || 0, P[2] || 0, P[3] || 0], E: [P[4] || 0, 0, 0, 0], uStart: A.start, uCtr: A.ctr, uH: A.dt || 0, uSub: 8, uSeed: Math.random() * 100, uSc: A.sc, uMap: A.map ? 1 : 0 }); quad.draw(prStep, state.write); state.swap(); }
+}
+let speedRef = null;   // a typical speed, for the colour scale (worked out on the CPU once per attractor and setting)
+function typicalSpeed() { const A = ATT[key]; let s = A.start.slice(), sum = 0, n = 0; for (let i = 0; i < 3000; i++) { const t = A.map ? A.f(s[0], s[1], s[2], P) : rk4(A, P, s, A.dt); const v = A.map ? Math.hypot(t[0] - s[0], t[1] - s[1]) : Math.hypot(...A.f(...s, P)); s = t; if (i > 500 && isFinite(v)) { sum += v; n++; } } return n ? sum / n : 1; }
+
+// ---------------- Two nearby starts (CPU) ----------------
+let pA, pB, pT, trA, trB, sepLog, xLog;
+function resetPair() { const A = ATT[key], h = A.map ? 1 : A.dt; let s = A.start.slice(); for (let i = 0; i < (A.map ? 200 : 40 / h); i++) s = advance(A, P, s, h); pA = s; pB = [s[0] + 1e-6, s[1], s[2]]; pT = 0; trA = []; trB = []; sepLog = []; xLog = { a: [], b: [] }; }
+function stepPair(n) { const A = ATT[key], h = A.map ? 1 : A.dt; for (let i = 0; i < n; i++) { pA = advance(A, P, pA, h); pB = advance(A, P, pB, h); pT += h;
+  if (!isFinite(pA[0]) || !isFinite(pB[0])) { resetPair(); return; } }
+  trA.push(pA.slice()); trB.push(pB.slice()); if (trA.length > 400) { trA.shift(); trB.shift(); }
+  const d = Math.hypot(pA[0] - pB[0], pA[1] - pB[1], pA[2] - pB[2]); sepLog.push([pT, Math.log10(Math.max(d, 1e-12))]); xLog.a.push([pT, pA[0]]); xLog.b.push([pT, pB[0]]);
+  if (sepLog.length > 600) { sepLog.shift(); xLog.a.shift(); xLog.b.shift(); } }
+
+// ---------------- Camera ----------------
+function rot() { const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw), cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  // turn about the vertical axis, then tip: rows are screen-right, screen-up, towards the viewer (column-major for WebGL)
+  const m = [cy, 0, -sy, sy * sp, cp, cy * sp, sy * cp, -sp, cy * cp]; return m; }
+function project(p, m, w, h) { const A = ATT[key], x = (p[0] - A.ctr[0]) * A.sc, y = (p[1] - A.ctr[1]) * A.sc, z = (p[2] - A.ctr[2]) * A.sc;
+  if (A.map) return [w / 2 + x * 1.8 / cam.dist * h / 2, h / 2 - y * 1.8 / cam.dist * h / 2];
+  const qx = m[0] * x + m[3] * y + m[6] * z, qy = m[1] * x + m[4] * y + m[7] * z, qz = m[2] * x + m[5] * y + m[8] * z, d = cam.dist - qz; if (d < 0.1) return null; return [w / 2 + qx * 1.8 / d * h / 2, h / 2 - qy * 1.8 / d * h / 2]; }
+let grab = null;
+K.pointer(cv.el, { down(p) { grab = { x: p.x, y: p.y, yaw: cam.yaw, pitch: cam.pitch }; }, drag(p) { if (!grab || ATT[key].map) return; cam.yaw = grab.yaw + (p.x - grab.x) * 0.008; cam.pitch = K.clamp(grab.pitch + (p.y - grab.y) * 0.008, -1.5, 1.5); }, up() { grab = null; } });
+cv.el.addEventListener("wheel", e => { e.preventDefault(); cam.dist = K.clamp(cam.dist * Math.exp(e.deltaY * 0.0012), 0.8, 12); }, { passive: false });
+
+// ---------------- Drawing ----------------
+function frame(dt) {
+  const A = ATT[key], c = cv.ctx, w = cv.w, h = cv.h; if (autoRot && !grab && !A.map) cam.yaw += dt * 0.12;
+  if (speedRef == null) speedRef = typicalSpeed();
+  const m = rot(); c.clearRect(0, 0, w, h);
+  if (ok && state && acc) {
+    // 1. move every particle
+    prStep.set({ uState: state.read, P: [P[0] || 0, P[1] || 0, P[2] || 0, P[3] || 0], E: [P[4] || 0, 0, 0, 0], uStart: A.start, uCtr: A.ctr, uH: A.dt || 0, uSub: ui.playing ? (A.map ? 1 : sub) : 0, uSeed: Math.random() * 100, uSc: A.sc, uMap: A.map ? 1 : 0 });
+    quad.draw(prStep, state.write); state.swap();
+    // 2. fade the old trails, 3. add every particle's dot
+    prFade.set({ uAcc: acc.read, uFade: A.map ? Math.max(fade, 0.97) : fade }); quad.draw(prFade, acc.write);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+    prDraw.set({ uState: state.read, uRot: m, uCtr: A.ctr, uSc: A.sc, uDist: cam.dist, uAspect: view.w / view.h, uMap: A.map ? 1 : 0, uPal: pal, uBright: (A.map ? 0.006 : 0.012) * 262144 / (nPart * nPart) * (1 - (A.map ? 0.97 : fade) + 0.05) * 4, uSpeed: 0.6 / (speedRef || 1) });
+    pts.draw(prDraw, nPart * nPart); gl.disable(gl.BLEND); acc.swap();
+    // 4. show
+    K.gl.bindTarget(gl, null); prShow.set({ uAcc: acc.read, uExp: exposure }); quad.draw(prShow);
+  }
+  // the two nearby starts, drawn on the 2D canvas over the top
+  if (pair && trA.length > 1) for (const [tr, col] of [[trA, "rgba(255,170,60,"], [trB, "rgba(90,200,255,"]]) {
+    if (A.map) { c.fillStyle = col + "0.8)"; for (const q of tr) { const a = project(q, m, w, h); if (a) c.fillRect(a[0] - 1.5, a[1] - 1.5, 3, 3); } continue; }   // a map jumps, so dots rather than a line
+    c.lineWidth = 2; for (let i = 1; i < tr.length; i++) { const a = project(tr[i - 1], m, w, h), b = project(tr[i], m, w, h); if (!a || !b) continue; c.strokeStyle = col + (0.15 + 0.85 * i / tr.length) + ")"; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); }
+    const e = project(tr[tr.length - 1], m, w, h); if (e) { c.fillStyle = col + "1)"; c.beginPath(); c.arc(e[0], e[1], 4.5, 0, TAU); c.fill(); } }
+  if (!ok) { c.fillStyle = "#05060c"; c.fillRect(0, 0, w, h); }
+}
+const TAU = Math.PI * 2;
+const chS = K.chart(ui.dock, { title: "Two starts: distance apart (log scale)", xLabel: "time", yLabel: "log₁₀ distance", yMin: -7, yMax: 1.5 });
+const chX = K.chart(ui.dock, { title: "Two starts: x against time", xLabel: "time", yLabel: "x" });
+
+// ---------------- The loop ----------------
+glReady = true; makeAcc(); makeParticles(); choose(key, true);
+let fr = 0;
+ui.run(() => { if (pair) stepPair(ATT[key].map ? 1 : sub * 2); }, dt => {
+  frame(dt); if (fr++ % 5) return;
+  if (pair) { chS.draw([{ pts: sepLog, color: K.cssVar("--s1") }], {}); chX.draw([{ pts: xLog.a, color: "#ffaa3c", label: "orange" }, { pts: xLog.b, color: "#5ac8ff", label: "blue", dash: [4, 3] }], {});
+    const d = sepLog.length ? Math.pow(10, sepLog[sepLog.length - 1][1]) : 0; read.set("sep", d.toExponential(1)); read.set("t", pT.toFixed(1)); }
+  ui.hud(`<b style="font-size:15px">${ATT[key].name}</b><br>${(nPart * nPart / 1e6).toFixed(2)} million particles`);
+});
+window.attTest = { choose, setP, scatter };
+ui.tip("Each glowing dot follows the same three equations · drag to turn the view · move the parameter sliders to morph the shape", 8000);
+}
+</script>
+</body></html>
