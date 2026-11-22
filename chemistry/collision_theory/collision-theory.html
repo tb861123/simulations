@@ -288,7 +288,8 @@ const K = (() => {
     for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + step * 1e-6; v += step) t.push(Math.abs(v) < step * 1e-9 ? 0 : v);
     return { t, step };
   }
-  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(0); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
+  // tick labels: very big or very small numbers in standard form, with enough digits that neighbouring ticks differ (2.4e+5, 2.6e+5…)
+  const tickFmt = (v, step) => { const a = Math.abs(v); if (a >= 1e5 || (a > 0 && a < 1e-3)) return v.toExponential(clamp(Math.floor(Math.log10(a) + 1e-9) - Math.floor(Math.log10(step) + 1e-9), 0, 4)); return v.toFixed(clamp(-Math.floor(Math.log10(step) + 1e-9), 0, 4)); };
   /* chart(parent,{title,xLabel,yLabel,xMin,xMax,yMin,yMax,yZero})  then  .draw(series, extra)
      series: [{pts:[[x,y(,err)]...], type:"line"|"dots"|"bars"|"area"|"err", color, label, dash, width, r, alpha, fillAlpha (area fill, default .22; 1 for solid stacked areas)}]
      extra:  {xMin..yMax overrides, vlines:[{x,color,label,dash}], hlines:[{y,...}], bands:[{x0,x1,color}]} */
@@ -305,19 +306,21 @@ const K = (() => {
       const text = cssVar("--text"), muted = cssVar("--muted"), grid = cssVar("--grid");
       // work out the axis ranges from the data unless they are fixed
       let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-      for (const s of series) for (const p of s.pts) { if (!isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
+      for (const s of series) for (const p of s.pts) { if (p[1] == null || !isFinite(p[1]) || !isFinite(p[0])) continue; const e = p[2] || 0, hw = s.type === "bars" ? (s.w || 0) / 2 : 0; if (p[0] - hw < x0) x0 = p[0] - hw; if (p[0] + hw > x1) x1 = p[0] + hw; if (p[1] - e < y0) y0 = p[1] - e; if (p[1] + e > y1) y1 = p[1] + e; }
       for (const l of q.hlines || []) { if (l.y < y0) y0 = l.y; if (l.y > y1) y1 = l.y; }
       if (!isFinite(x0)) { x0 = 0; x1 = 1; } if (!isFinite(y0)) { y0 = 0; y1 = 1; }
       if (q.yZero || series.some(s => s.type === "bars")) { y0 = Math.min(0, y0); y1 = Math.max(0, y1); }
       const py = (y1 - y0) * 0.08 || Math.abs(y1) * 0.1 || 1; if (q.yMin == null && y0 !== 0) y0 -= py; if (q.yMax == null) y1 += py;
       if (x1 === x0) { x0 -= 0.5; x1 += 0.5; }
       if (q.xMin != null) x0 = q.xMin; if (q.xMax != null) x1 = q.xMax; if (q.yMin != null) y0 = q.yMin; if (q.yMax != null) y1 = q.yMax;
-      const L = 54, R = 12, T = 24, B = q.xLabel ? 34 : 22, pw = W - L - R, ph = H - T - B;
+      const R = 12, T = 24, B = q.xLabel ? 34 : 22, ph = H - T - B, yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      ctx.font = "11px Segoe UI,system-ui,sans-serif"; let yw = 0; for (const v of yt.t) yw = Math.max(yw, ctx.measureText(q.yFmt ? q.yFmt(v) : tickFmt(v, yt.step)).width);
+      const L = Math.max(54, Math.ceil(yw) + 26), pw = W - L - R;   // the left margin widens if the tick labels are long, so they never cover the axis title
       const X = x => L + (x - x0) / (x1 - x0) * pw, Y = y => T + ph - (y - y0) / (y1 - y0) * ph;
       api.map = { X, Y, x0, x1, y0, y1, L, T, pw, ph };
       ctx.font = "11px Segoe UI,system-ui,sans-serif"; ctx.lineWidth = 1;
       for (const b of q.bands || []) { ctx.fillStyle = b.color; ctx.fillRect(X(Math.max(x0, b.x0)), T, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)), ph); }
-      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70))), yt = niceTicks(y0, y1, Math.max(2, Math.floor(ph / 28)));
+      const xt = niceTicks(x0, x1, Math.max(2, Math.floor(pw / 70)));
       ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.beginPath();
       ctx.textAlign = "center"; ctx.textBaseline = "top";
       for (const v of xt.t) { const x = Math.round(X(v)) + .5; ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.fillText(q.xFmt ? q.xFmt(v) : tickFmt(v, xt.step), x, T + ph + 4); }
@@ -333,10 +336,10 @@ const K = (() => {
         if (s.type === "bars") { const w = Math.max(1, Math.abs(X(s.w || 1) - X(0)) - 1); for (const p of P) { const yy = Y(p[1]); ctx.fillRect(X(p[0]) - w / 2, Math.min(yy, Y(0)), w, Math.abs(Y(0) - yy)); } }
         else if (s.type === "dots" || s.type === "err") {
           const r = s.r || 3;
-          for (const p of P) { const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) continue; const x = X(p[0]), y = Y(p[1]); if (s.type === "err" && p[2]) { const e = Math.abs(Y(p[1] + p[2]) - y); ctx.beginPath(); ctx.moveTo(x, y - e); ctx.lineTo(x, y + e); ctx.moveTo(x - 4, y - e); ctx.lineTo(x + 4, y - e); ctx.moveTo(x - 4, y + e); ctx.lineTo(x + 4, y + e); ctx.stroke(); } ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
         } else {
-          ctx.beginPath(); let pen = false;
-          for (const p of P) { if (!isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
+          ctx.beginPath(); let pen = false;   // a missing value (null, NaN) leaves a gap in the line
+          for (const p of P) { if (p[1] == null || !isFinite(p[1])) { pen = false; continue; } const x = X(p[0]), y = Y(p[1]); pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; }
           if (s.type === "area" && P.length) { ctx.stroke(); ctx.lineTo(X(P[P.length - 1][0]), Y(Math.max(y0, 0))); ctx.lineTo(X(P[0][0]), Y(Math.max(y0, 0))); ctx.globalAlpha *= s.fillAlpha == null ? .22 : s.fillAlpha; ctx.fill(); } else ctx.stroke();
         }
         ctx.setLineDash([]); ctx.globalAlpha = 1;
@@ -345,7 +348,7 @@ const K = (() => {
       for (const l of q.hlines || []) { ctx.strokeStyle = l.color || muted; ctx.setLineDash(l.dash || [5, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Y(l.y)); ctx.lineTo(L + pw, Y(l.y)); ctx.stroke(); ctx.setLineDash([]); if (l.label) { ctx.fillStyle = l.color || muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(l.label, L + pw - 5, Y(l.y) - 2); } }
       ctx.restore();
       // title on the left, legend on the right
-      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
+      ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillStyle = text; ctx.font = "11px Segoe UI,system-ui,sans-serif"; let lx = W - R;
       for (let i = series.length - 1; i >= 0; i--) { const s = series[i]; if (!s.label) continue; const w = ctx.measureText(s.label).width; lx -= w; ctx.fillStyle = muted; ctx.fillText(s.label, lx, 12); lx -= 12; ctx.fillStyle = s.color || col(i); ctx.fillRect(lx, 8, 8, 8); lx -= 10; }
       if (q.title) { // the title gives way (with an ellipsis) if the legend needs the room
         ctx.font = "600 12px Segoe UI,system-ui,sans-serif"; ctx.fillStyle = text; let t = q.title; const room = lx - L - 8;
@@ -552,12 +555,17 @@ const K = (() => {
       btn(bar, "📄 Worksheet", () => ui.worksheet([{ kind: "b", item: bstate.exp }], true)).title = "A printable worksheet for this experiment";
       bstate = { exp: null, rows: [], token: 0, csv() { const e = this.exp; return [(e.xs ? e.xLabel + "," : "") + "repeat,seed," + e.yLabel].concat(this.rows.map(r => (e.xs ? r[0] + "," : "") + r[1] + "," + r[2] + "," + r[3])).join("\n"); } };
       const items = o.batch.map(e => { const b = $("button", "k-bitem", `<b>${e.title}</b><span>${e.question}</span>`); b.onclick = () => pick(e); list.append(b); return [e, b]; });
-      function pick(e) { bstate.token++; bstate.exp = e; bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
+      function pick(e) { bstate.token++; bstate.exp = e; bRun.textContent = "▶ Run"; bRun.onclick = () => runExp(); bstate.rows = []; items.forEach(([x, b]) => b.classList.toggle("on", x === e)); head.innerHTML = `${e.title}<p>${e.question} ${e.how || ""}</p>`; noteEl.innerHTML = `<b>Why do the points scatter?</b> ${e.note || "Each run starts from different random numbers, so results vary. The mean of several runs is more trustworthy than any single run, and the standard error says how trustworthy."}`; tbl.innerHTML = ""; status.textContent = e.xs ? `${e.xs.length} settings × ${e.reps || 6} runs` : `${e.reps || 200} runs`; prog.firstChild.style.width = 0; paint(); }
       function paint() {
         const e = bstate.exp, rows = bstate.rows, series = [], extra = { title: "", xLabel: e.xs ? e.xLabel : e.yLabel, yLabel: e.xs ? e.yLabel : "number of runs" };
         if (e.xs) {
           const groups = e.xs.map(x => rows.filter(r => r[0] === x).map(r => r[3])), done = e.xs.map((x, i) => [x, groups[i]]).filter(g => g[1].length);
-          if (e.theory) { const a = Math.min(...e.xs), b = Math.max(...e.xs), tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, e.theory(x)]); } series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
+          if (e.theory) {
+            // the theory curve is drawn smoothly between the settings; a theory that only exists AT the settings (a table, a whole number of things) is drawn through those points instead
+            const th = x => { try { const y = e.theory(x); return y == null || !isFinite(y) ? null : +y; } catch (er) { return null; } };
+            const a = Math.min(...e.xs), b = Math.max(...e.xs); let tp = []; for (let i = 0; i <= 80; i++) { const x = a + (b - a) * i / 80; tp.push([x, th(x)]); }
+            const atXs = [...e.xs].sort((u, v) => u - v).map(x => [x, th(x)]); if (tp.some(q => q[1] == null) && atXs.every(q => q[1] != null)) tp = atXs;
+            series.push({ pts: tp, color: cssVar("--s1"), label: e.theoryLabel || "theory", dash: [6, 4] }); }
           series.push({ pts: rows.map(r => [r[0], r[3]]), type: "dots", color: cssVar("--s0"), alpha: .3, r: 2.5, label: "single runs" });
           series.push({ pts: done.map(([x, g]) => [x, mean(g), se(g)]), type: "err", color: cssVar("--s0"), r: 4.5, label: "mean ± SE" });
           let fitTxt = "";
@@ -566,7 +574,7 @@ const K = (() => {
           tbl.innerHTML = `<table><tr><th>${e.xLabel}</th><th>runs</th><th>mean</th><th>SD</th><th>SE</th>${e.theory ? "<th>theory</th>" : ""}</tr>` + done.map(([x, g]) => `<tr><td>${sig(x, 4)}</td><td>${g.length}</td><td>${sig(mean(g))}</td><td>${sig(sd(g))}</td><td>${sig(se(g))}</td>${e.theory ? `<td>${sig(e.theory(x))}</td>` : ""}</tr>`).join("") + fitTxt + "</table>";
         } else {
           const v = rows.map(r => r[3]);
-          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); }
+          if (v.length) { const h = histogram(v, e.bins || 24, e.lo, e.hi); series.push({ pts: h.pts, w: h.w, type: "bars", color: cssVar("--s0"), alpha: .8 }); extra.vlines = [{ x: mean(v), color: cssVar("--s2"), label: "mean " + sig(mean(v)) }]; if (e.theory != null) { extra.vlines.push({ x: +e.theory, color: cssVar("--s1"), label: (e.theoryLabel || "theory") + " " + sig(+e.theory), row: 1 }); series.push({ pts: [[+e.theory, 0]], type: "dots", r: 0.01, alpha: 0 }); } }   // an invisible point keeps the theory line on the chart even if every run misses it
           tbl.innerHTML = v.length ? `<table><tr><th>runs</th><th>mean</th><th>SD</th><th>SE</th><th>min</th><th>max</th>${e.theory != null ? "<th>theory</th>" : ""}</tr><tr><td>${v.length}</td><td>${sig(mean(v))}</td><td>${sig(sd(v))}</td><td>${sig(se(v))}</td><td>${sig(Math.min(...v))}</td><td>${sig(Math.max(...v))}</td>${e.theory != null ? `<td>${sig(+e.theory)}</td>` : ""}</tr></table>` : "";
         }
         ch.opts.xFmt = null; ch.draw(series, extra);
@@ -752,7 +760,7 @@ const ui = K.app({
   ],
   batch: [
     { title: "Rate against temperature", question: "How does the rate of the gas reaction change with temperature?", how: "Each run: 400 A₂ and 400 B₂ for 150 ps with Ea = 10 kJ/mol. Successful collisions are counted without using the molecules up, so the rate stays steady.", xLabel: "temperature (K)", yLabel: "rate (successful collisions per ps)", xs: [250, 300, 350, 400, 450, 500, 550, 600, 700], reps: 5, yMin: 0, theory: T => theoryRate(400, 400, BL * BH * BD, T, 10), theoryLabel: "collision theory", run: (T, r) => trial({ nA: 400, nB: 400, T, Ea: 10, ps: 150 }, r).nOK / 150, note: "A successful collision is a rare, random event, so the count in 150 ps varies from run to run, most of all at low temperature where only a handful happen." },
-    { title: "The Arrhenius plot", question: "Plot ln(rate) against 1/T. Is it a straight line, and what does its gradient tell you?", how: "The same runs as 'Rate against temperature', replotted. The gradient of the best-fit line is −Ea/R (with 1000/T on the axis, Ea = −gradient × 8.31 kJ/mol).", xLabel: "1000 / temperature (1/K)", yLabel: "ln(rate)", xs: [1.4, 1.6, 1.8, 2, 2.25, 2.5, 2.85, 3.3], reps: 5, fit: true, theory: x => Math.log(theoryRate(400, 400, BL * BH * BD, 1000 / x, 10)), theoryLabel: "collision theory", run(x, r) { const k = trial({ nA: 400, nB: 400, T: 1000 / x, Ea: 10, ps: 200 }, r).nOK / 200; return k > 0 ? Math.log(k) : null; }, note: "Ea was set to 10 kJ/mol, so the gradient should be close to −10/8.31 = −1.2 (it is a little shallower because the collision rate itself rises slowly with temperature). This is how chemists measure activation energies." },
+    { title: "The Arrhenius plot", question: "Plot ln(rate) against 1/T. Is it a straight line, and what does its gradient tell you?", how: "The same runs as 'Rate against temperature', replotted. The gradient of the best-fit line is −Ea/R (with 1000/T on the axis, Ea = −gradient × 8.31 kJ/mol).", xLabel: "1000 / temperature (1/K)", yLabel: "ln(rate)", xs: [1.4, 1.6, 1.8, 2, 2.25, 2.5, 2.85, 3.3], reps: 5, fit: true, theory: x => Math.log(theoryRate(400, 400, BL * BH * BD, 1000 / x, 10)), theoryLabel: "collision theory", run(x, r) { const k = trial({ nA: 400, nB: 400, T: 1000 / x, Ea: 10, ps: 200 }, r).nOK / 200; return k > 0 ? Math.log(k) : null; }, note: "Ea was set to 10 kJ/mol, so the gradient should be close to −10/8.31 = −1.2 (it comes out a little steeper, about −1.45, so Ea looks nearer 12 kJ/mol: the collision rate itself also rises slowly with temperature, as √T, which adds to the slope). This is how chemists measure activation energies." },
     { title: "Rate against concentration", question: "Double the concentration of A₂: does the rate double?", how: "Each run: the chosen number of A₂ with 300 B₂ at 400 K, Ea = 8 kJ/mol, for 150 ps.", xLabel: "number of A₂ molecules", yLabel: "rate (successful collisions per ps)", xs: [50, 100, 150, 200, 300, 400, 500, 600], reps: 5, yMin: 0, fit: true, theory: n => theoryRate(n, 300, BL * BH * BD, 400, 8), theoryLabel: "collision theory", run: (n, r) => trial({ nA: n, nB: 300, T: 400, Ea: 8, ps: 150 }, r).nOK / 150 },
     { title: "Rate against volume (pressure)", question: "Squeeze the same gas into a smaller volume: how does the rate change?", how: "Each run: 250 A₂ and 250 B₂ at 400 K, Ea = 8 kJ/mol, for 150 ps, in a box of the chosen volume.", xLabel: "volume (nm³)", yLabel: "rate (successful collisions per ps)", xs: [1440, 1920, 2880, 3840, 4800, 5760], reps: 5, yMin: 0, theory: V => theoryRate(250, 250, V, 400, 8), theoryLabel: "collision theory (∝ 1/V)", run: (V, r) => trial({ nA: 250, nB: 250, L: V / (BH * BD), T: 400, Ea: 8, ps: 150 }, r).nOK / 150, note: "At the smallest volumes the measured rate creeps above the simple theory: the molecules themselves now take up a noticeable share of the space, so they meet even more often." },
     { title: "Successful collisions against Ea", question: "What share of collisions have at least the activation energy?", how: "Each run: 300 + 300 molecules at 400 K for 100 ps; the result is the percentage of A₂–B₂ collisions with enough energy.", xLabel: "activation energy (kJ/mol)", yLabel: "successful collisions (%)", xs: [0, 2, 4, 6, 8, 10, 12, 15, 18], reps: 5, yMin: 0, theory: E => 100 * Math.exp(-E / (R * 400)), theoryLabel: "e^(−Ea/RT)", run(E, r) { const f = trial({ nA: 300, nB: 300, T: 400, Ea: E, ps: 100 }, r); return 100 * f.nOK / f.nAB; } },

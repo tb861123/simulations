@@ -154,7 +154,7 @@ function panels() {
     const E = FO[P.eq], s0 = starts[starts.length - 1]; relabel(["Starting point", "Gradient there", "Euler at the right edge", "Exact at the right edge"]);
     if (!s0) { ["a", "b", "c", "d"].forEach(k => read.set(k, "–")); chA.draw([]); chB.draw([]); return; }
     const pts = euler(E.f, s0[0], s0[1], P.h, box[1]), last = pts[pts.length - 1], ex = E.exact(last[0], s0[0], s0[1]);
-    read.set("a", `(${s0[0]}, ${s0[1]})`); read.set("b", f3(E.f(s0[0], s0[1]))); read.set("c", `y(${f3(last[0])}) ≈ ${f3(last[1])}`); read.set("d", isFinite(ex) ? f3(ex) : "undefined");
+    read.set("a", `(${s0[0]}, ${s0[1]})`); read.set("b", f3(E.f(s0[0], s0[1]))); read.set("c", `y(${f3(last[0])}) ≈ ${f3(last[1])}`); read.set("d", isFinite(ex) ? f3(ex) : "none: the exact curve ends first");   // e.g. a circle x² + y² = c never reaches x > √c
     chA.opts.title = "Exact solution and Euler's method (latest curve)"; chA.opts.xLabel = "x"; chA.opts.yLabel = "y"; const exPts = []; for (let i = 0; i <= 200; i++) { const x = s0[0] + (box[1] - s0[0]) * i / 200, y = E.exact(x, s0[0], s0[1]); if (isFinite(y) && Math.abs(y) < 1e3) exPts.push([x, y]); }
     chA.draw([{ pts: exPts, color: K.cssVar("--s0"), label: "exact" }, { pts: pts, type: "dots", r: 3, color: K.cssVar("--s1"), label: "Euler" }]);
     chB.opts.title = "Error of Euler's method along the curve"; chB.opts.xLabel = "x"; chB.opts.yLabel = "Euler − exact"; chB.draw([{ pts: pts.map(([x, y]) => [x, y - E.exact(x, s0[0], s0[1])]).filter(p => isFinite(p[1])), color: K.cssVar("--s3"), label: "error" }], { hlines: [{ y: 0 }] });

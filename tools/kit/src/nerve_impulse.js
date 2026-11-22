@@ -59,7 +59,7 @@ class Axon {
       const GNa = gna[i] * m[i] * m[i] * m[i] * h[i], GKk = gk[i] * n[i] * n[i] * n[i] * n[i], c = cm[i] / dt;
       let rhs = c * V[i] + GNa * ENA + GKk * EK + gl[i] * el[i];
       for (const s of this.stim) if (this.t >= s.t0 && this.t < s.t1 && Math.abs(i - s.x) <= 1) rhs += s.amp;
-      if (this.o.noise) rhs += this.o.noise * (Math.random() - .5) * 2;
+      if (this.o.noise) rhs += this.o.noise * ((this.o.rnd || Math.random)() - .5) * 2;   // rnd: the batch run's seeded generator, so a run can be repeated exactly
       const nb = (i > 0 ? 1 : 0) + (i < N - 1 ? 1 : 0), diag = c + GNa + GKk + gl[i] + nb * g, lo = i > 0 ? -g : 0;
       const w = i > 0 ? diag - lo * cp[i - 1] : diag; cp[i] = (i < N - 1 ? -g : 0) / w; dp[i] = (rhs - (i > 0 ? lo * dp[i - 1] : 0)) / w;
     }
@@ -97,15 +97,15 @@ const ui = K.app({
   ],
   batch: [
     { title: "Speed and diameter", question: "How does conduction speed depend on axon diameter?", how: "Unmyelinated axon at 6.3 °C; speed is timed between two electrodes 80 mm apart.", xLabel: "axon diameter (µm)", yLabel: "conduction speed (m/s)", xs: [100, 200, 400, 600, 800, 1000], reps: 4, yMin: 0, theory: d => 12.23 * Math.sqrt(d / 476), theoryLabel: "speed ∝ √diameter",
-      run: (d, r) => measure({ radius: d / 2, noise: 6 }).v, note: "A little random current is injected everywhere to imitate the noisy opening of individual channels. It shifts the moment each patch reaches threshold very slightly." },
+      run: (d, r) => measure({ radius: d / 2, noise: 6, rnd: r }).v, note: "A little random current is injected everywhere to imitate the noisy opening of individual channels. It shifts the moment each patch reaches threshold very slightly." },
     { title: "All or nothing", question: "Does a stronger stimulus give a bigger impulse?", how: "A 0.5 ms pulse of different strengths; the peak voltage is recorded 120 mm away.", xLabel: "stimulus strength (µA/cm²)", yLabel: "peak voltage far along the axon (mV)", xs: [10, 25, 40, 46, 52, 60, 80, 120, 160], reps: 5,
-      run: (a, r) => measure({ noise: 12 }, a).peak, note: "Close to threshold, random channel noise decides whether the axon fires, so the same stimulus can give either result. That really happens in neurons." },
+      run: (a, r) => measure({ noise: 12, rnd: r }, a).peak, note: "Close to threshold, random channel noise decides whether the axon fires, so the same stimulus can give either result. That really happens in neurons." },
     { title: "Speed and temperature", question: "Do warm nerves conduct faster?", how: "Standard squid axon (476 µm). Gate rates triple for every 10 °C.", xLabel: "temperature (°C)", yLabel: "conduction speed (m/s)", xs: [0, 5, 10, 15, 20, 25, 30], reps: 4, yMin: 0,
-      run: (T, r) => measure({ temp: T, noise: 6 }).v, note: "Speed rises with temperature because the Na⁺ gates open sooner. But the spike also gets shorter and smaller, and above about 30 °C this model axon stops conducting (speed 0): 'heat block'." },
+      run: (T, r) => measure({ temp: T, noise: 6, rnd: r }).v, note: "Speed rises with temperature because the Na⁺ gates open sooner. But the spike also gets shorter and smaller, and above about 30 °C this model axon stops conducting (speed 0): 'heat block'." },
     { title: "Refractory period", question: "How soon can a second impulse follow the first?", how: "Two identical strong pulses; the height of the second spike is measured near the stimulus.", xLabel: "gap between pulses (ms)", yLabel: "peak of second spike (mV)", xs: [3, 4, 5, 6, 7, 8, 10, 12, 16, 20], reps: 4,
-      run: (g, r) => measure({ noise: 6 }, 400, 0.5, g).peak2, note: "Around the end of the absolute refractory period, noise decides whether the second spike starts at all." },
+      run: (g, r) => measure({ noise: 6, rnd: r }, 400, 0.5, g).peak2, note: "Around the end of the absolute refractory period, noise decides whether the second spike starts at all." },
     { title: "Sodium channel block", question: "What fraction of Na⁺ channels can be blocked before conduction fails?", how: "Tetrodotoxin blocks a percentage of the Na⁺ channels along the whole axon.", xLabel: "Na⁺ channels blocked (%)", yLabel: "conduction speed (m/s)", xs: [0, 20, 40, 60, 70, 75, 80, 85, 90], reps: 4, yMin: 0,
-      run: (p, r) => measure({ ttx: p / 100, noise: 6 }).v, note: "Near the failure point the outcome is all-or-nothing and sensitive to noise." },
+      run: (p, r) => measure({ ttx: p / 100, noise: 6, rnd: r }).v, note: "Near the failure point the outcome is all-or-nothing and sensitive to noise." },
   ],
   notes: `<h3>What is being calculated</h3><p>The axon is 150 mm long, in 1 mm compartments. For each one the program solves</p><p><code>C dV/dt = −g<sub>Na</sub>m³h(V−E<sub>Na</sub>) − g<sub>K</sub>n⁴(V−E<sub>K</sub>) − g<sub>L</sub>(V−E<sub>L</sub>) + current from neighbours</code></p><p>with the gates m, h and n opening and closing at voltage-dependent rates: the Hodgkin–Huxley equations with their original 1952 squid-axon numbers.</p>
   <h3>Reading the picture</h3><ul><li>Axon colour = membrane voltage (blue at rest, −65 mV; yellow-white at the peak, about +40 mV).</li><li><b>m</b> = Na⁺ activation gate (fast), <b>h</b> = Na⁺ inactivation gate (the "ball and chain"), <b>n</b> = K⁺ gate (slow).</li><li>Na⁺ channel open fraction = m³h; K⁺ channel open fraction = n⁴.</li></ul>
