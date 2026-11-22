@@ -14,11 +14,11 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and sixty-seven simulations are built with the shared toolkit (the
+All one hundred and seventy-five simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and sixty-five newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and seventy-three newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
-mathematics, statistics, chemistry, economics, geography and PE simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones). They share a small
+mathematics, statistics, chemistry, economics, geography, PE and music simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
@@ -327,6 +327,10 @@ The audit of the earlier music pack is kept in [`music/original_audit/`](music/o
 | [`music/build_timbre/`](music/build_timbre/) | Build a Timbre ★: Fourier synthesis, instrument presets, ADSR envelope, spectral centroid, the missing fundamental, autocorrelation pitch | Open `build-timbre.html` |
 | [`music/pitch_intervals/`](music/pitch_intervals/) | Pitch and Intervals ★: keyboard and stave, interval names and spelling, equal temperament against just intonation, beats, consonance and roughness | Open `pitch-intervals.html` |
 | [`music/rhythm_metre/`](music/rhythm_metre/) | Rhythm and Metre ★: step sequencer, BPM, simple, compound and irregular metres, backbeat, syncopation score, swing, polyrhythm, human timing | Open `rhythm-metre.html` |
+| [`music/harmony_cadences/`](music/harmony_cadences/) | Harmony, chords and cadences: Roman numerals and inversions, automatic four-part voicing on a grand stave, voice-leading rules, the four cadences, chromatic chords | Open `harmony-cadences.html` |
+| [`music/keys_modulation/`](music/keys_modulation/) | Keys, scales and modulation: major, minor, modes, pentatonic, blues and whole-tone scales, the circle of fifths, key finding and modulation | Open `keys-modulation.html` |
+| [`music/structure_texture/`](music/structure_texture/) | Structure and texture: binary, ternary, rondo, variations, AABA, verse–chorus and sonata form; monophonic to heterophonic textures; a self-similarity map | Open `structure-texture.html` |
+| [`music/modern_techniques/`](music/modern_techniques/) | Twentieth-century techniques: tone rows and the 12 × 12 matrix (P, R, I, RI), Reich's phasing, Glass's additive process | Open `modern-techniques.html` |
 
 ## History (OCR H505)
 
@@ -395,6 +399,17 @@ Standard level follows Cambridge International AS Level Computer Science (9618, 
 | [`computing/logic_gates/`](computing/logic_gates/) | Logic Gates and Circuits: gate symbols with clickable inputs and highlighted truth tables, a circuit from an expression, half and full adders, NAND-only XOR, an SR flip-flop with feedback, a 4-bit ripple-carry adder and Karnaugh maps (Cambridge 9618) | Open `logic-gates.html` |
 | [`computing/cpu_fetch_execute/`](computing/cpu_fetch_execute/) | CPU: Fetch–Decode–Execute: a Von Neumann CPU stepping through register transfer notation with registers and buses lit up; an editable Cambridge 9618 assembly program (LDM, LDD, LDI, LDX, STO, ADD, CMP, JPN, AND, LSL…) with addressing modes and bit manipulation; pipelining at A Level | Open `cpu-fetch-execute.html` |
 | [`computing/binary_and_floating_point/`](computing/binary_and_floating_point/) | Binary and Floating Point: clickable bits with unsigned, two's complement, hex, BCD and ASCII views; binary addition with carries, carry and overflow flags; A Level normalised floating point (two's complement mantissa and exponent), range against precision, rounding errors and overflow/underflow (Cambridge 9618) | Open `binary-and-floating-point.html` |
+| [`computing/networking_and_encryption/`](computing/networking_and_encryption/) | Networks and Encryption: packet switching on a router network (independent routes, out-of-order arrival, loss and TCP retransmission, reassembly by sequence number) against circuit switching; Caesar and Vigenère ciphers with frequency analysis; toy RSA key pairs and a digital signature (Cambridge 9618) | Open `networking-and-encryption.html` |
+| [`computing/neural_networks_and_ml/`](computing/neural_networks_and_ml/) | Neural Networks and Machine Learning: supervised learning on 2D data (line, XOR, circle, spiral) with a single neuron or a hidden layer trained by back-propagation; decision boundary, weights diagram, loss and accuracy curves, learning rate, training against test data and overfitting (Cambridge 9618 A Level AI) | Open `neural-networks-and-ml.html` |
+| [`computing/turing_and_fsm/`](computing/turing_and_fsm/) | State Machines and Turing Machines: state-transition diagrams with start and accepting states driven by your input (vending machine, door lock, divisible by 3, ends in 01), and Turing machines with tape, head and rule table (binary increment, unary addition, busy beaver) (Cambridge 9618 AS 12.2, Turing machines beyond) | Open `turing-and-fsm.html` |
+
+## Psychology (AQA 7182)
+
+Standard level follows AQA AS Psychology (7181); Advanced follows AQA A level Psychology (7182). Every simulation runs a class of simulated participants, so results vary like real data.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`psychology/memory_models/`](psychology/memory_models/) | Models of Memory: the multi-store model with a rehearsal buffer (sensory register, STM slots, LTM) producing the serial position curve; Glanzer and Cunitz, Peterson and Peterson, digit span and chunking, and working-memory dual tasks, all run on a class of simulated participants (AQA 7182) | Open `memory-models.html` |
 
 ## Where the old repositories went
 
