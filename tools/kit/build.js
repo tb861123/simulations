@@ -189,6 +189,8 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["ant_colony.js", "ant_colony", "ant-colony.html", "Ant Colony Foraging", "biology"],
   ["creature_evolution.js", "creature_evolution", "creature-evolution.html", "Creature Evolution Arena", "biology"],
   ["fractal_explorer.js", "fractal_explorer", "fractal-explorer.html", "Fractal Explorer", "explore"],
+  ["strange_attractors.js", "strange_attractors", "strange-attractors.html", "Strange Attractors", "explore"],
+  ["life_automata.js", "life_automata", "life-automata.html", "Life and Cellular Automata", "explore"],
   ["gravity_slingshots.js", "gravity_slingshots", "gravity-slingshots.html", "Gravity-Assist Sandbox", "astrophysics"],
   ["bridge_builder.js", "bridge_builder", "bridge-builder.html", "Bridge Builder", "engineering"],
 ];
