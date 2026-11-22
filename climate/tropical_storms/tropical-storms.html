@@ -32,6 +32,7 @@ button,input,select{font:inherit;color:inherit}
 .k-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
 .k-btn.primary:hover{filter:brightness(1.1);color:var(--accent-ink)}
 .k-btn.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel2))}
+:root[data-theme=light] .k-btn.on{color:color-mix(in srgb,var(--accent) 80%,#000)}
 .k-btn.small{padding:3px 9px;font-size:12.5px}
 .k-btn.danger:hover{border-color:var(--bad);color:var(--bad)}
 .k-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
@@ -727,7 +728,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     ui.mission = m => {
       if (banner) banner.remove(); banner = null; if (!m) return;
       banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
-      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
+      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; placeHud(); }; stage.append(banner); placeHud();
     };
     if ((o.missions || []).length || (o.batch || []).length) { const wr = $("div", "k-wsrow", "<span>Worksheets:</span>"); panes.missions.append(wr); btn(wr, "📄 Every investigation", () => ui.worksheet(ui.allPicks(), true), "small").title = "One printable sheet per investigation and batch experiment, then teacher notes"; btn(wr, "📄 Without teacher notes", () => ui.worksheet(ui.allPicks(), false), "small"); }
     const mcards = (o.missions || []).map(m => {
@@ -779,7 +780,10 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     }
     setInterval(() => { hsList.length && syncSpeed(); placeHud(); }, 250);
     // the heads-up box (top right) moves down below an investigation's question (top left) when the two would overlap
+    // the stage also carries --k-banner-h (the question's height plus a gap, 0px when there is none) so that HTML panels over the stage can start below it
     function placeHud() {
+      const bh = banner ? Math.ceil(banner.getBoundingClientRect().bottom - stage.getBoundingClientRect().top) + "px" : "0px";
+      if (stage.style.getPropertyValue("--k-banner-h") !== bh) stage.style.setProperty("--k-banner-h", bh);
       if (!hudEl) return; hudEl.style.top = "";
       if (!banner || hudEl.style.display === "none") return;
       const a = banner.getBoundingClientRect(), b = hudEl.getBoundingClientRect();
@@ -788,6 +792,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     // floating hint and heads-up text over the stage
     let tipEl = null, tipT = 0;
     ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    ui.hideTip = () => { if (tipEl) { clearTimeout(tipT); tipEl.style.opacity = 0; } };
     let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; } hudEl.style.display = html ? "" : "none"; };
     // animation loop: step(dt) only while playing, draw() every frame
     ui.run = (step, draw) => { let t0 = performance.now(); const f = t => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (ui.playing && !ov.classList.contains("on")) step(dt); draw(dt); requestAnimationFrame(f); }; requestAnimationFrame(f); };
@@ -1133,7 +1138,7 @@ function draw(tsec) {
 // ---------------- Global winds: the three cells in each hemisphere ----------------
 const casesBox = K.$("div", "", CASES.map(q => `<div style="border:1px solid ${q.col};border-radius:12px;padding:12px 14px;background:rgba(10,16,28,.92);overflow:auto"><h3 style="margin:0;color:${q.col};font-size:17px">${q.name}</h3><div style="color:#aab6cc;font-size:12.5px;margin-bottom:8px">${q.where}</div>
 <table style="font-size:13px;border-collapse:collapse;width:100%">${[["Deaths", q.deaths.toLocaleString()], ["Cost of damage", "US$" + q.damage + " billion"], ["Income per person", "US$" + q.gdp.toLocaleString() + " a year"], ["Winds", q.wind], ["Storm surge", q.surge], ["People", q.people]].map(r => `<tr><td style="color:#aab6cc;padding:3px 8px 3px 0;vertical-align:top;white-space:nowrap">${r[0]}</td><td style="padding:3px 0">${r[1]}</td></tr>`).join("")}</table><p style="font-size:13px;margin:8px 0 0;color:#dfe6f3">${q.why}</p></div>`).join(""));
-casesBox.style.cssText = "position:absolute;inset:0;display:none;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px;background:#070b14;z-index:2;color:#eef2f8"; ui.stage.append(casesBox); const _sv = setView; setView = v => { _sv(v); if (v === "cases") casesBox.style.display = "grid"; };
+casesBox.style.cssText = "position:absolute;inset:0;display:none;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px;padding-top:max(12px, calc(var(--k-banner-h, 0px) + 10px));background:#070b14;z-index:2;color:#eef2f8"; ui.stage.append(casesBox); const _sv = setView; setView = v => { _sv(v); if (v === "cases") casesBox.style.display = "grid"; if (v !== "map") ui.hideTip(); };   // the cards start below an investigation's question; the map's "click warm sea" tip goes away in the other views
 const itcz = () => 7 * Math.sin(2 * Math.PI * (month - 3.6) / 12);        // the belts follow the overhead Sun north in the northern summer and south in the winter
 function drawGlobe(tsec) {
   const c = cv.ctx, w = cv.w, h = cv.h, sh = itcz(); c.fillStyle = "#070b14"; c.fillRect(0, 0, w, h);

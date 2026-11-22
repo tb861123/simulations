@@ -586,7 +586,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     ui.mission = m => {
       if (banner) banner.remove(); banner = null; if (!m) return;
       banner = $("div", "k-banner", `<button class="x" title="Close">✕</button><b>${m.title}</b><br>${m.q}${m.hint ? `<details><summary>What to look for</summary>${m.hint}</details>` : ""}`);
-      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; }; stage.append(banner);
+      banner.querySelector(".x").onclick = () => { banner.remove(); banner = null; placeHud(); }; stage.append(banner); placeHud();
     };
     if ((o.missions || []).length || (o.batch || []).length) { const wr = $("div", "k-wsrow", "<span>Worksheets:</span>"); panes.missions.append(wr); btn(wr, "📄 Every investigation", () => ui.worksheet(ui.allPicks(), true), "small").title = "One printable sheet per investigation and batch experiment, then teacher notes"; btn(wr, "📄 Without teacher notes", () => ui.worksheet(ui.allPicks(), false), "small"); }
     const mcards = (o.missions || []).map(m => {
@@ -638,7 +638,10 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     }
     setInterval(() => { hsList.length && syncSpeed(); placeHud(); }, 250);
     // the heads-up box (top right) moves down below an investigation's question (top left) when the two would overlap
+    // the stage also carries --k-banner-h (the question's height plus a gap, 0px when there is none) so that HTML panels over the stage can start below it
     function placeHud() {
+      const bh = banner ? Math.ceil(banner.getBoundingClientRect().bottom - stage.getBoundingClientRect().top) + "px" : "0px";
+      if (stage.style.getPropertyValue("--k-banner-h") !== bh) stage.style.setProperty("--k-banner-h", bh);
       if (!hudEl) return; hudEl.style.top = "";
       if (!banner || hudEl.style.display === "none") return;
       const a = banner.getBoundingClientRect(), b = hudEl.getBoundingClientRect();
@@ -647,6 +650,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     // floating hint and heads-up text over the stage
     let tipEl = null, tipT = 0;
     ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    ui.hideTip = () => { if (tipEl) { clearTimeout(tipT); tipEl.style.opacity = 0; } };
     let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; } hudEl.style.display = html ? "" : "none"; };
     // animation loop: step(dt) only while playing, draw() every frame
     ui.run = (step, draw) => { let t0 = performance.now(); const f = t => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (ui.playing && !ov.classList.contains("on")) step(dt); draw(dt); requestAnimationFrame(f); }; requestAnimationFrame(f); };
