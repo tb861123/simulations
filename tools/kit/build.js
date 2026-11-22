@@ -178,6 +178,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["turing_and_fsm.js", "turing_and_fsm", "turing-and-fsm.html", "State Machines and Turing Machines", "computing"],
   ["memory_models.js", "memory_models", "memory-models.html", "Models of Memory", "psychology"],
   ["forgetting_curve.js", "forgetting_curve", "forgetting-curve.html", "Forgetting", "psychology"],
+  ["conformity_obedience.js", "conformity_obedience", "conformity-obedience.html", "Social Influence", "psychology"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
