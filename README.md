@@ -14,9 +14,9 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and ninety-three simulations are built with the shared toolkit (the
+All one hundred and ninety-four simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and eighty-four newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and eighty-five newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
 mathematics, statistics, chemistry, economics, geography, PE and music simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones, and the Cosmic Distance Ladder, and the explore simulations). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -121,6 +121,7 @@ and press **Print** (or save as PDF).
 | [`physics/chladni_plates/`](physics/chladni_plates/) | Sound Made Visible ★: Chladni figures on plates and a drum, resonance curve, movable driver, sound | Open `chladni-plates.html` |
 | [`physics/sandpile_avalanches/`](physics/sandpile_avalanches/) | Sandpile Avalanches: the Bak–Tang–Wiesenfeld sandpile (tables up to 512 × 512) drawn with WebGL, a live log–log avalanche histogram with power-law fit, the centre-drop fractal; a falling-sand hourglass with segregation of coarse and fine grains; τ against table size, mean height against 17/8, mean avalanche size against Dhar's exact result | Open `sandpile-avalanches.html` |
 | [`physics/thin_film_colours/`](physics/thin_film_colours/) | Thin-Film Interference Colours: the exact film reflectance (Airy with Fresnel coefficients) at 36 wavelengths × daylight × CIE colour matching → sRGB per pixel on the graphics card; draining swirling bubble, wedge fringes in white or monochromatic light, oil on water, Newton's colour chart, anti-reflection coating; photon-counting batch against the formula | Open `thin-film-colours.html` |
+| [`physics/aurora_magnetosphere/`](physics/aurora_magnetosphere/) | Aurora and the Magnetosphere: Dungey's open magnetosphere (dipole + uniform IMF) in 3D with an orbit camera; field lines coloured closed/open/solar wind, guiding-centre particles sliding along open lines with E×B drift, aurora glow on a night-side globe, Kp from Newell's fit; open–closed boundary against cos²λ = 1.5(|Bz|/B_E)^⅓ | Open `aurora-magnetosphere.html` |
 
 ## Chemistry
 
