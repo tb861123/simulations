@@ -14,11 +14,11 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and forty-four simulations are built with the shared toolkit (the
+All one hundred and fifty-seven simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and thirty-seven newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and fifty-three newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
-mathematics, statistics, chemistry and economics simulations, and the History and Photography ones). They share a small
+mathematics, statistics, chemistry and economics simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
 of worksheets. The earlier Three-Body Chaos Lab is kept in
 `astrophysics/three_body_chaos/original_lab/`, and the earlier Gravitational
@@ -266,6 +266,31 @@ Standard level follows Edexcel International GCSE Economics (4EC1); Advanced fol
 | [`economics/development_economics/`](economics/development_economics/) | Development economics: a developing country over 50 years with Harrod–Domar saving, the Lewis model, primary product dependency and Prebisch–Singer, the foreign currency gap, aid, education and the HDI | Open `development-economics.html` |
 | [`economics/financial_markets/`](economics/financial_markets/) | Banks, bonds and financial markets: bond prices and yields, bank runs with reserves, capital, deposit insurance and the lender of last resort, moral hazard from bailouts, speculative bubbles | Open `financial-markets.html` |
 
+## Business
+
+Standard level follows GCSE Business (Pearson Edexcel 1BS0); Advanced follows
+Pearson Edexcel A level Business (9BS0). Economics topics (markets, firms,
+the macroeconomy) are in the Economics section.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`business/breakeven_and_margins/`](business/breakeven_and_margins/) | Break-even and margins ★: fixed and variable costs, contribution, break-even chart, margin of safety, target profit, PED and the profit-maximising price, stepped fixed costs | Open `breakeven-and-margins.html` |
+| [`business/cash_flow_forecast/`](business/cash_flow_forecast/) | Cash-flow forecast ★: inflows, outflows, net cash flow, opening and closing balances, overdraft limit, credit terms, seasonality, loans, factoring and bad debts, profit against cash | Open `cash-flow-forecast.html` |
+| [`business/investment_appraisal/`](business/investment_appraisal/) | Investment appraisal ★: payback, ARR, NPV and discount factors, sensitivity, possible futures and risk, IRR (beyond spec); decision trees, EMV and risk attitude | Open `investment-appraisal.html` |
+| [`business/inventory_and_supply_chain/`](business/inventory_and_supply_chain/) | Stock control ★: bar-gate graphs, re-order level, lead time, buffer stock, JIT and late deliveries, holding and ordering costs, EOQ and the bullwhip effect (beyond spec) | Open `inventory-and-supply-chain.html` |
+
+## Politics
+
+Advanced follows Pearson Edexcel A level Politics (9PL0): UK politics, UK
+government and the USA; Standard covers the core ideas for students starting
+the course.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`politics/electoral_systems/`](politics/electoral_systems/) | Electoral systems ★: FPTP, SV, AV, STV, AMS and list PR on the same ranked ballots, safe and marginal seats, wasted votes, the cube law, thresholds, Gallagher index | Open `electoral-systems.html` |
+| [`politics/voting_paradoxes/`](politics/voting_paradoxes/) | Voting paradoxes ★: median voter theorem, abstention, third parties, tactical voting, primaries and polarisation; Condorcet cycles, agenda setting, plurality v AV v Borda, Arrow's theorem | Open `voting-paradoxes.html` |
+| [`politics/gerrymandering/`](politics/gerrymandering/) | Gerrymandering ★: packing and cracking, wasted votes, efficiency gap, equal population and contiguity, a gerrymander machine, ensembles of random fair maps, US redistricting cases | Open `gerrymandering.html` |
+
 ## Physical Education
 
 Standard level follows OCR GCSE (9–1) Physical Education (J587); Advanced follows OCR A level Physical Education (H555).
@@ -324,6 +349,31 @@ movement, lenses, lighting, film and digital processes.
 | [`photography/lens_optics/`](photography/lens_optics/) | Lenses and Perspective ★: focal length and field of view, crop factors (APS-C, Micro Four Thirds, phone), perspective depends on viewpoint ('compression'), lens extension, magnification and macro, depth of field at equal framing | Open `lens-optics.html` |
 | [`photography/light_and_colour/`](photography/light_and_colour/) | Light and Colour ★: black-body colour temperature, white balance and casts, grey-world auto white balance, additive RGB and subtractive CMY mixing, inverse square law, key and fill lights, lighting ratios, hard and soft shadows | Open `light-and-colour.html` |
 | [`photography/composition_and_sampling/`](photography/composition_and_sampling/) | Pixels, Compression and Composition ★: resolution and print size at 72–300 dpi, sampling, the Nyquist limit and moiré, anti-aliasing filters, bit depth, banding and dither, JPEG (DCT, quantisation, blocks, PSNR, generation loss), cropping with thirds, golden section and aspect ratios | Open `composition-and-sampling.html` |
+
+## Design and Technology
+
+Standard level follows AQA GCSE Design and Technology (8552); Advanced follows
+AQA A level Design and Technology: Product Design (7552). Engineering
+structures and earthquakes are in the Engineering section.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`design_technology/materials_properties/`](design_technology/materials_properties/) | Materials ★: tensile tests of 17 materials, stress, strain, Young's modulus, yield, UTS, ductility, toughness, work hardening and annealing, design briefs, factor of safety, selection charts | Open `materials-properties.html` |
+| [`design_technology/manufacturing_processes/`](design_technology/manufacturing_processes/) | Manufacturing ★: 3D printing, laser cutting, CNC, vacuum forming, injection moulding, tooling and cost per unit, scales of production, break-even quantity, tolerances, rejects, control charts, Cpk | Open `manufacturing-processes.html` |
+| [`design_technology/ergonomics_anthropometrics/`](design_technology/ergonomics_anthropometrics/) | Ergonomics ★: anthropometric data, percentiles, normal distribution, clearance, reach and adjustability, mixed populations, children, small surveys against published data | Open `ergonomics-anthropometrics.html` |
+
+## Religion, Philosophy and Ethics
+
+Standard level follows GCSE Religious Studies; Advanced follows OCR A level
+Religious Studies (H573): Philosophy of religion, Religion and ethics, and
+Developments in Christian thought. These pages model arguments and theories
+so that students can test them; they take no side.
+
+| Folder | What it is | How to run |
+|---|---|---|
+| [`religious_studies/ethical_dilemmas/`](religious_studies/ethical_dilemmas/) | Ethical theories ★: natural law and double effect, Kant, act and rule utilitarianism, hedonic calculus, situation ethics; trolley cases, lying, euthanasia, whistleblowing; a society of promises | Open `ethical-dilemmas.html` |
+| [`religious_studies/argument_validity/`](religious_studies/argument_validity/) | Arguments ★: deductive and inductive, validity and soundness, syllogisms and Venn diagrams, fallacies, existential import; ontological, cosmological and teleological arguments as premise chains | Open `argument-validity.html` |
+| [`religious_studies/problem_of_evil/`](religious_studies/problem_of_evil/) | Problem of evil ★: logical and evidential problems, the inconsistent triad, free will defence, Augustine, Irenaeus and Hick (soul-making, epistemic distance), Rowe's fawn and Bayes, sceptical theism | Open `problem-of-evil.html` |
 
 ## Computer Science (Cambridge 9618)
 
