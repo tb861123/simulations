@@ -954,7 +954,7 @@ const ui = K.app({
   ],
   notes: `<h3>What is being calculated</h3><p>The tank is a grid of 320 × 180 cells, each 1 mm across. Each time step (1 ms) every cell is pulled towards the average height of its four neighbours: this is the 2-D wave equation, solved by finite differences. Wave speed is 0.5 m/s in open water.</p>
   <h3>What emerges on its own</h3><ul><li>Superposition and interference</li><li>Diffraction through gaps and round edges</li><li>Reflection from walls</li><li>Refraction and focusing where the wave speed changes</li><li>Doppler shift and shock waves from a moving source</li></ul>
-  <h3>Assumptions and simplifications</h3><ul><li>Small-amplitude waves: no breaking, and all wavelengths travel at the same speed (real water waves are dispersive).</li><li>"Glass" is a region where waves travel n times slower. In a real ripple tank you get this with shallower water.</li><li>Walls hold the water still (a fixed boundary), so reflections are inverted. Real tank walls behave more like free boundaries.</li><li>Waves are absorbed at the tank edges (like the foam beach in a real tank) unless you switch that off.</li><li>The grid makes very short wavelengths (below about 8 mm) travel slightly too slowly.</li><li>Intensity is the average of height² over roughly the last 80 ms.</li></ul>
+  <h3>Assumptions and simplifications</h3><ul><li>Small-amplitude waves: no breaking, and all wavelengths travel at the same speed (real water waves are dispersive).</li><li>"Glass" is a region where waves travel n times slower. In a real ripple tank you get this with shallower water.</li><li>Walls hold the water still (a fixed boundary), so reflections are inverted. Real tank walls behave more like free boundaries.</li><li>Waves are absorbed at the tank edges (like the foam beach in a real tank) unless you switch that off.</li><li>The grid makes very short wavelengths (below about 8 mm) travel slightly too slowly.</li><li>Intensity is the average of height² over roughly the last 80 ms.</li><li>The wave equation is worked out on a 320 × 180 grid (1 mm cells) by the ordinary processor, exactly as before, so the probes, the screen chart and the Batch run are unchanged. The graphics card (WebGL) only draws it: it blends smoothly between cells and lights each screen pixel from the slope of the water, so wavefronts look smooth rather than made of 1 mm squares. Without WebGL the tank is drawn in 2D as before.</li></ul>
   <h3>Useful equations</h3><p><code>v = fλ</code> &nbsp; <code>fringe spacing ≈ λD/d</code> &nbsp; <code>n = c₁/c₂ = λ₁/λ₂</code> &nbsp; <code>λ′ = λ(1 − v/c)</code></p>
   <h3>Keys</h3><p><kbd>Space</kbd> pause · right-click or the Erase tool removes things</p>`,
 });
@@ -1009,12 +1009,64 @@ function setScene(s) {
 // ---- Drawing the tank ----
 const img = document.createElement("canvas"); img.width = GW; img.height = GH; const ictx = img.getContext("2d"), idata = ictx.createImageData(GW, GH), px = idata.data;
 let vr = { s: 1, ox: 0, oy: 0 }, hover = null;
+/* ---- The graphics card (WebGL) draws the water ----
+   The wave equation is still worked out on the CPU (Tank.step, above), exactly as before. Each frame the
+   heights, the intensity and the walls and glass are handed to the graphics card, which colours every
+   SCREEN pixel rather than every 1 mm cell: it blends smoothly between cells (bicubic interpolation) and
+   lights the surface from its slope at each pixel, so wavefronts look smooth instead of blocky.
+   Without WebGL the old 2D drawing is used. */
+const gv = K.gl.create(ui.stage, { dprMax: 2, antialias: false, fallback: "No WebGL here: drawing the tank without the graphics card.", onLost: () => { wgl.on = false; } });
+const wgl = { on: false };
+const WAVE_FS = `precision highp float;
+uniform sampler2D uT; uniform vec2 uN; uniform float uView, uGain; varying vec2 vUv;
+vec4 cell(vec2 i) { return texture2D(uT, (clamp(i, vec2(0.0), uN - 1.0) + 0.5) / uN); }      // r height, g intensity, b wall, a glass
+vec4 cr(float t) { float t2 = t * t, t3 = t2 * t; return vec4(-0.5 * t3 + t2 - 0.5 * t, 1.5 * t3 - 2.5 * t2 + 1.0, -1.5 * t3 + 2.0 * t2 + 0.5 * t, 0.5 * t3 - 0.5 * t2); }
+vec2 smooth2(vec2 p) {   // height and intensity, bicubic (Catmull-Rom) between cell centres
+  vec2 i = floor(p), f = p - i; vec4 wx = cr(f.x), wy = cr(f.y); vec2 s = vec2(0.0);
+  for (int y = 0; y < 4; y++) { vec2 row = vec2(0.0); for (int x = 0; x < 4; x++) row += wx[x] * cell(i + vec2(float(x) - 1.0, float(y) - 1.0)).rg; s += wy[y] * row; }
+  vec2 a = cell(i).rg, b = cell(i + vec2(1.0, 0.0)).rg, c = cell(i + vec2(0.0, 1.0)).rg, d = cell(i + 1.0).rg;
+  return clamp(s, min(min(a, b), min(c, d)), max(max(a, b), max(c, d)));   // no overshoot (dark rings) next to a sharp spike such as a source
+}
+vec2 lin2(vec2 p) {      // walls and glass, blended linearly so their edges are smooth
+  vec2 i = floor(p), f = p - i;
+  return mix(mix(cell(i).ba, cell(i + vec2(1.0, 0.0)).ba, f.x), mix(cell(i + vec2(0.0, 1.0)).ba, cell(i + 1.0).ba, f.x), f.y);
+}
+void main() {
+  vec2 p = vec2(vUv.x, 1.0 - vUv.y) * uN - 0.5;          // position in cells (row 0 at the top, as on the CPU)
+  vec2 hv = smooth2(p), wg = lin2(p); vec3 c;
+  if (uView < 0.5) {     // water height: the same colour scale as the 2D drawing, plus a highlight from the slope
+    float w = hv.x * 4.0, v = w / (1.0 + abs(w)), t = v * 0.5 + 0.5, s = (smooth2(p + vec2(1.0, 0.0)).x - smooth2(p - vec2(1.0, 0.0)).x) * 150.0;
+    c = vec3(6.0 + t * t * 150.0 + s, 26.0 + t * 190.0 + s, 70.0 + t * 175.0 + s * 0.6);
+    c += vec3(8.0, 30.0, -14.0) * smoothstep(0.2, 0.8, wg.y);
+  } else {               // intensity: time-averaged height squared
+    float q = min(1.0, sqrt(max(hv.y, 0.0) * uGain));
+    c = 255.0 * vec3(min(1.0, q * 1.7), clamp(q * 1.9 - 0.65, 0.0, 1.0), q < 0.35 ? q * 1.5 : max(0.0, 0.52 - (q - 0.35) * 1.4) + max(0.0, (q - 0.82) * 5.0));
+    c += vec3(0.0, 26.0, 18.0) * smoothstep(0.2, 0.8, wg.y);
+  }
+  c = mix(clamp(c, 0.0, 255.0), vec3(196.0, 204.0, 218.0), smoothstep(0.3, 0.7, wg.x));   // walls
+  gl_FragColor = vec4(c / 255.0, 1.0);
+}`;
+if (gv.ok && K.gl.floatType(gv.gl).kind !== "byte") {
+  try { wgl.prog = K.gl.program(gv.gl, K.gl.QUAD_VS, WAVE_FS); wgl.quad = K.gl.quad(gv.gl); wgl.tex = K.gl.target(gv.gl, GW, GH, { float: true }); wgl.buf = new Float32Array(4 * NC); wgl.on = true; }
+  catch (e) { console.warn(e.message); K.gl.notice(ui.stage, "WebGL did not start properly: drawing the tank without it."); }
+} else if (gv.ok) K.gl.notice(ui.stage, "This graphics card cannot store decimal numbers in textures: drawing the tank without it.");
+window.__glInfo = () => ({ gpu: wgl.on, grid: GW + " × " + GH, model: "CPU", webgl: gv.ok ? (gv.gl2 ? 2 : 1) : 0 });
 const cv = ui.canvas();
 function paint() {
   const u = tank.u, I = tank.inten, wall = tank.wall, glass = tank.glass;
   // the intensity picture rescales itself so that the brightest region (beyond the dipper) is just white
   let mxI = 1e-6; for (let y = 4; y < GH; y += 5) for (let x = 30; x < GW; x += 5) if (I[x + y * GW] > mxI) mxI = I[x + y * GW];
   const iGain = 1 / (0.75 * mxI);
+  const c = cv.ctx, s = Math.min(cv.w / GW, cv.h / GH), ox = (cv.w - GW * s) / 2, oy = (cv.h - GH * s) / 2; vr = { s, ox, oy };
+  if (wgl.on) {
+    // hand this frame's tank to the graphics card and let it colour the pixels
+    const B = wgl.buf; for (let i = 0, j = 0; i < NC; i++, j += 4) { B[j] = u[i]; B[j + 1] = I[i]; B[j + 2] = wall[i]; B[j + 3] = glass[i]; }
+    const gl = gv.gl, d = gv.dpr; wgl.tex.upload(B);
+    K.gl.bindTarget(gl, null); gl.clearColor(0.016, 0.027, 0.055, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.viewport(Math.round(ox * d), Math.round((cv.h - oy - GH * s) * d), Math.round(GW * s * d), Math.round(GH * s * d));
+    wgl.prog.set({ uT: wgl.tex, uN: [GW, GH], uView: view === "height" ? 0 : 1, uGain: iGain }); wgl.quad.draw(wgl.prog);
+    c.clearRect(0, 0, cv.w, cv.h);
+  } else {
   for (let i = 0, j = 0; i < NC; i++, j += 4) {
     let r, g2, b;
     if (wall[i]) { r = 196; g2 = 204; b = 218; }
@@ -1031,8 +1083,8 @@ function paint() {
     px[j] = r; px[j + 1] = g2; px[j + 2] = b; px[j + 3] = 255;
   }
   ictx.putImageData(idata, 0, 0);
-  const c = cv.ctx, s = Math.min(cv.w / GW, cv.h / GH), ox = (cv.w - GW * s) / 2, oy = (cv.h - GH * s) / 2; vr = { s, ox, oy };
   c.fillStyle = "#04070e"; c.fillRect(0, 0, cv.w, cv.h); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high"; c.drawImage(img, ox, oy, GW * s, GH * s);
+  }
   const X = x => ox + (x + .5) * s, Y = y => oy + (y + .5) * s;
   // screen line
   c.setLineDash([6, 5]); c.strokeStyle = "rgba(255,255,255,.75)"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(X(screenX), oy); c.lineTo(X(screenX), oy + GH * s); c.stroke(); c.setLineDash([]);
