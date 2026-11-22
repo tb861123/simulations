@@ -95,7 +95,7 @@ const ctl = {}; let g = ui.group("Kind of automaton");
 ctl.mode = K.seg(g, { value: mode, options: [["2d", "Life-like (2D)"], ["1d", "Elementary (1D)"]], on: v => { setMode(v); if (v === "1d") start1D(true); } });
 const g2 = ui.group("Life-like rule");
 ctl.rule = K.seg(g2, { label: "Rule", value: ruleName, options: RULES.map(([n]) => [n, n]), on: v => setRule(v) });
-const ruleBox = K.$("input"); ruleBox.type = "text"; ruleBox.value = rule.text; ruleBox.style.cssText = "width:120px;font:14px Consolas,monospace;padding:4px 6px;background:var(--panel2,#1b2236);color:var(--text);border:1px solid var(--grid);border-radius:6px";
+const ruleBox = K.$("input"); ruleBox.type = "text"; ruleBox.setAttribute("aria-label", "Rule (birth/survival)"); ruleBox.value = rule.text; ruleBox.style.cssText = "width:120px;font:14px Consolas,monospace;padding:4px 6px;background:var(--panel2,#1b2236);color:var(--text);border:1px solid var(--grid);border-radius:6px";
 const rr = K.row(g2); rr.append("Your own: ", ruleBox); K.btn(rr, "Use it", () => { const q = parseRule(ruleBox.value); if (q) { rule = q; ruleName = "custom"; ctl.rule.set(""); } else ui.tip("Write it like B36/S23 (birth on 3 or 6 neighbours, survive on 2 or 3)", 4000); }, "small");
 ruleBox.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter") rr.querySelector("button").click(); });
 ctl.stamp = K.seg(g2, { label: "Pattern to place (choose 'Place' below, then click)", value: stamp, options: Object.keys(PATTERNS).map(k => [k, PATTERNS[k][0]]), on: v => { stamp = v; tool = "stamp"; ctl.tool.set("stamp"); } });

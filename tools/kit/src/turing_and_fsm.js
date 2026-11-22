@@ -83,10 +83,10 @@ let g = ui.group("Machine");
 C.mode = K.seg(g, { value: "fsm", options: [["fsm", "finite state machine"], ["tm", "Turing machine (beyond)"]], on: v => set({ mode: v }) });
 const gf = ui.group("State machine"), gt = ui.group("Turing machine");
 C.fsm = K.seg(gf, { value: "div3", options: Object.entries(FSMS).map(([k, v]) => [k, v.name]), on: v => { P.fsm = v; P.input = FSMS[v].input; C.inBox.value = P.input; restart(); } });
-C.inBox = K.$("input"); C.inBox.style.cssText = "width:100%;font:16px Consolas,monospace;padding:6px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px"; K.note(gf, "Input string:"); gf.append(C.inBox);
+C.inBox = K.$("input"); C.inBox.setAttribute("aria-label", "Input string"); C.inBox.style.cssText = "width:100%;font:16px Consolas,monospace;padding:6px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px"; K.note(gf, "Input string:"); gf.append(C.inBox);
 C.inBox.addEventListener("input", () => { const M = FSMS[P.fsm]; P.input = C.inBox.value.toUpperCase().split("").filter(ch => M.alphabet.includes(ch)).join(""); restart(); });
 C.tm = K.seg(gt, { value: "inc", options: Object.entries(TMS).map(([k, v]) => [k, v.name]), on: v => { P.tm = v; P.tape = TMS[v].tape; C.tapeBox.value = P.tape; restart(); } });
-C.tapeBox = K.$("input"); C.tapeBox.style.cssText = C.inBox.style.cssText; K.note(gt, "Starting tape:"); gt.append(C.tapeBox); C.tapeBox.addEventListener("input", () => { P.tape = C.tapeBox.value.replace(/\s/g, ""); restart(); });
+C.tapeBox = K.$("input"); C.tapeBox.setAttribute("aria-label", "Starting tape"); C.tapeBox.style.cssText = C.inBox.style.cssText; K.note(gt, "Starting tape:"); gt.append(C.tapeBox); C.tapeBox.addEventListener("input", () => { P.tape = C.tapeBox.value.replace(/\s/g, ""); restart(); });
 C.speed = K.slider(ui.group("Speed"), { label: "Steps per second", min: 0.25, max: 10, step: 0.25, value: 1.5, on: v => P.speed = v });
 ui.headerSpeed(C.speed);   // playback speed lives in the header, beside Pause and Reset
 const read = K.readout(ui.group("Now"), [["a", ""], ["b", ""], ["c", ""]]);

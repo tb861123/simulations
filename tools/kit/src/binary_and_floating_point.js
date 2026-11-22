@@ -97,7 +97,7 @@ C.a = K.slider(gi, { label: "Byte A (or click its bits)", min: 0, max: 255, step
 C.b = K.slider(gi, { label: "Byte B", min: 0, max: 255, step: 1, value: P.b, fmt: v => `${v} = ${toBits(v, 8).join("")}`, on: v => P.b = v });
 C.M = K.slider(gf, { label: "Mantissa bits", min: 4, max: 16, step: 1, value: 8, on: v => { P.M = v; encodeX(); } });
 C.E = K.slider(gf, { label: "Exponent bits", min: 2, max: 8, step: 1, value: 4, on: v => { P.E = v; encodeX(); } });
-C.xbox = K.$("input"); C.xbox.type = "text"; C.xbox.value = "0.1"; C.xbox.style.cssText = "width:100%;font:14px Consolas,monospace;padding:6px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;margin:4px 0";
+C.xbox = K.$("input"); C.xbox.type = "text"; C.xbox.setAttribute("aria-label", "Number to store"); C.xbox.value = "0.1"; C.xbox.style.cssText = "width:100%;font:14px Consolas,monospace;padding:6px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;margin:4px 0";
 const lab = K.note(gf, "Type a denary number to store:"); gf.append(C.xbox); C.xbox.addEventListener("change", () => { const v = parseFloat(C.xbox.value); if (isFinite(v)) { P.x = v; encodeX(); } });
 const read = K.readout(ui.group("Readings"), [["a", ""], ["b", ""], ["c", ""], ["d", ""]]);
 const relabel = n => n.forEach((x, i) => read.el.children[i].firstElementChild.textContent = x);

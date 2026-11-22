@@ -196,7 +196,8 @@ K.pointer(cv.el, {
 cv.el.addEventListener("wheel", e => { e.preventDefault(); tour = null; const r = cv.el.getBoundingClientRect(), p = { x: e.clientX - r.left, y: e.clientY - r.top }, before = toC(p), k = Math.exp(e.deltaY * 0.0015); V.w = K.clamp(V.w * k, 1e-13, 8); const after = toC(p); V.x += before.x - after.x; V.y += before.y - after.y; }, { passive: false });
 
 // ---------------- Drawing ----------------
-function iterFor(w) { return autoIter ? Math.round(K.clamp(150 + 120 * Math.log10(3.2 / w) ** 1.6, 150, 5000)) : maxIter; }
+// more iterations the deeper you zoom; a view wider than the starting one (log negative) just uses the minimum
+function iterFor(w) { return autoIter ? Math.round(K.clamp(150 + 120 * Math.max(0, Math.log10(3.2 / w)) ** 1.6, 150, 5000)) : maxIter; }
 function draw(dt) {
   if (tour) { tour.t += dt; const k = Math.min(1, tour.t / 40); V.w = tour.w0 * Math.pow(tour.w1 / tour.w0, k); const pull = Math.min(1, tour.t / 3); V.x += (tour.x - V.x) * 0.05 * pull + 0; V.y += (tour.y - V.y) * 0.05 * pull; if (k >= 1) tour = null; }
   offset = (offset + cycle * dt) % 1; const it = iterFor(V.w), c = cv.ctx, w = cv.w, h = cv.h, d = view.dpr; c.clearRect(0, 0, w, h);

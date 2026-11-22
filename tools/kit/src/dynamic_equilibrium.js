@@ -122,7 +122,7 @@ let g = ui.group("Conditions");
 S.T = K.slider(g, { label: "Temperature", min: 0.5, max: 2, step: 0.05, value: 1, fmt: v => v.toFixed(2), on: v => box.T = v });
 S.V = K.slider(g, { label: "Volume", min: 30, max: 100, step: 1, value: 100, unit: "%", on: v => { box.W = BW * v / 100; for (const q of box.p) if (q.x > box.W - 8) q.x = box.W - 8 - Math.random() * 20; } });
 g = ui.group("Add or remove");
-for (const [k, name] of [[0, "A"], [1, "B"], [2, "AB"]]) { const r = K.row(g); const cvar = `color-mix(in srgb, var(--s${[0, 1, 4][k]}) 65%, var(--text))`;   // the species colour, nudged towards the text colour so it stays readable in both themes K.btn(r, `+20 ${name}`, () => box.add(k, 20)).style.color = cvar; K.btn(r, `−20 ${name}`, () => box.remove(k, 20)).style.color = cvar; }
+for (const [k, name] of [[0, "A"], [1, "B"], [2, "AB"]]) { const r = K.row(g); const cvar = `color-mix(in srgb, var(--s${[0, 1, 4][k]}) 65%, var(--text))`; /* the species colour, nudged towards the text colour so it stays readable in both themes */ K.btn(r, `+20 ${name}`, () => box.add(k, 20)).style.color = cvar; K.btn(r, `−20 ${name}`, () => box.remove(k, 20)).style.color = cvar; }
 g = ui.group("Energy profile");
 const prof = K.$("div"); prof.style.cssText = "height:120px;position:relative;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;overflow:hidden"; g.append(prof); const pc = K.canvas(prof);
 S.eaf = K.slider(g, { label: "Ea (forward)", min: 0.5, max: 6, step: 0.1, value: 2.5, fmt: v => v.toFixed(1), on: v => box.EaF = v });
