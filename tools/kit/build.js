@@ -187,6 +187,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["cosmic_distance_ladder.js", "cosmic_distance_ladder", "cosmic-distance-ladder.html", "The Cosmic Distance Ladder", "astrophysics"],
   ["slime_mould_networks.js", "slime_mould_networks", "slime-mould-networks.html", "Slime Mould Networks", "biology"],
   ["ant_colony.js", "ant_colony", "ant-colony.html", "Ant Colony Foraging", "biology"],
+  ["creature_evolution.js", "creature_evolution", "creature-evolution.html", "Creature Evolution Arena", "biology"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
