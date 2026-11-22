@@ -193,6 +193,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["life_automata.js", "life_automata", "life-automata.html", "Life and Cellular Automata", "explore"],
   ["sandpile_avalanches.js", "sandpile_avalanches", "sandpile-avalanches.html", "Sandpile Avalanches", "physics"],
   ["gravity_slingshots.js", "gravity_slingshots", "gravity-slingshots.html", "Gravity-Assist Sandbox", "astrophysics"],
+  ["bridge_builder.js", "bridge_builder", "bridge-builder.html", "Bridge Builder", "engineering"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {
