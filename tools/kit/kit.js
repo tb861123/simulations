@@ -343,6 +343,181 @@ const K = (() => {
     document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); });
     return { enable, ready, tone, noise, click, hum, stop, get on() { return on; }, onChange: f => fns.push(f) };
   })();
+  /* ---- WebGL helper (K.gl) ----
+     A small, stable toolkit so that simulations can draw with the graphics card without re-writing the same boilerplate.
+     Shaders are written in GLSL ES 1.00 ("precision mediump float; attribute/varying/gl_FragColor"), which runs on both
+     WebGL2 and WebGL1. Everything is documented in tools/kit/README.md ("WebGL").
+       K.gl.create(parent, { dprMax, alpha, antialias, onResize, message })  → view { el, gl, gl2, w, h, dpr, ok }  (or ok: false + a message)
+       K.gl.program(gl, vertexSrc, fragmentSrc)   → program with .use() and .set({ uName: value, uTex: texture })
+       K.gl.quad(gl)                              → full-screen quad: q.draw(program)  (vertex shader: K.gl.QUAD_VS, gives vUv)
+       K.gl.floatType(gl)                         → the best renderable float format: { type, internal, format, kind: "float"|"half"|"byte" }
+       K.gl.target(gl, w, h, { float, filter, wrap, data }) → one texture + framebuffer
+       K.gl.pingpong(gl, w, h, opts)              → { read, write, swap(), w, h, kind }  (step a grid simulation on the GPU)
+       K.gl.points(gl, { aName: size, ... })      → geometry: g.set("aName", Float32Array), g.draw(program, count, mode)
+       K.gl.screenshot(name, canvases…)           → saves the canvases, layered in order, as one PNG file */
+  const glKit = (() => {
+    const QUAD_VS = `attribute vec2 aPos; varying vec2 vUv; void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }`;
+    function noGL(parent, msg) {
+      const d = $("div", "k-nogl", msg || "<b>This view needs WebGL</b>, which this browser or computer has switched off.<br>Try Chrome or Edge, and check that “Use graphics acceleration” is on in the browser's settings. The Batch run still works.");
+      d.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;color:var(--muted);font-size:14px;line-height:1.5;z-index:1";
+      parent.append(d); return d;
+    }
+    // a WebGL canvas that fills its parent, follows its size and stays sharp (up to dprMax device pixels per CSS pixel)
+    function create(parent, o = {}) {
+      const el = $("canvas"); parent.append(el);
+      const attrs = { alpha: !!o.alpha, antialias: o.antialias !== false, preserveDrawingBuffer: true, premultipliedAlpha: false, powerPreference: "high-performance" };
+      let gl = null, gl2 = false;
+      if (!o.webgl1) { try { gl = el.getContext("webgl2", attrs); gl2 = !!gl; } catch (e) { } }
+      if (!gl) { try { gl = el.getContext("webgl", attrs) || el.getContext("experimental-webgl", attrs); } catch (e) { } }
+      const v = { el, gl, gl2, ok: !!gl, w: 1, h: 1, dpr: 1, message: null };
+      if (!gl) { v.message = noGL(parent, o.message); return v; }
+      const fit = () => {
+        const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
+        v.dpr = Math.min(window.devicePixelRatio || 1, o.dprMax || 1.5); v.w = w; v.h = h;
+        const W = Math.round(w * v.dpr), H = Math.round(h * v.dpr); if (el.width !== W || el.height !== H) { el.width = W; el.height = H; }
+        o.onResize && o.onResize(v);
+      };
+      v.resize = fit; new ResizeObserver(fit).observe(parent); fit();
+      el.addEventListener("webglcontextlost", e => { e.preventDefault(); v.ok = false; if (!v.message) v.message = noGL(parent, "<b>The graphics card stopped drawing this view.</b><br>Reload the page to start it again."); });
+      return v;
+    }
+    // compile and link, with readable errors (the offending line is printed with the message)
+    function compile(gl, type, src) {
+      const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        const log = gl.getShaderInfoLog(s) || "", m = /ERROR: \d+:(\d+)/.exec(log), lines = src.split("\n");
+        const where = m ? `\n  line ${m[1]}: ${(lines[+m[1] - 1] || "").trim()}` : "";
+        throw new Error(`K.gl: ${type === gl.VERTEX_SHADER ? "vertex" : "fragment"} shader did not compile: ${log.trim()}${where}`);
+      }
+      return s;
+    }
+    function program(gl, vs, fs) {
+      const p = gl.createProgram(); gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, vs)); gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, fs));
+      gl.bindAttribLocation(p, 0, "aPos"); gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error("K.gl: shader program did not link: " + gl.getProgramInfoLog(p));
+      // find every uniform and how to set it, so .set({ uTime: 1.5, uRes: [w, h], uTex: texture }) just works
+      const U = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+      for (let i = 0; i < n; i++) {
+        const info = gl.getActiveUniform(p, i), name = info.name.replace(/\[0\]$/, ""), loc = gl.getUniformLocation(p, info.name), t = info.type, arr = info.size > 1;
+        const f = { [gl.FLOAT]: arr ? "1fv" : "1f", [gl.FLOAT_VEC2]: "2fv", [gl.FLOAT_VEC3]: "3fv", [gl.FLOAT_VEC4]: "4fv", [gl.INT]: arr ? "1iv" : "1i", [gl.BOOL]: "1i", [gl.INT_VEC2]: "2iv", [gl.FLOAT_MAT2]: "m2", [gl.FLOAT_MAT3]: "m3", [gl.FLOAT_MAT4]: "m4", [gl.SAMPLER_2D]: "tex" }[t] || "1f";
+        U[name] = { loc, f };
+      }
+      const api = { prog: p, uniforms: U, gl };
+      api.use = () => { gl.useProgram(p); return api; };
+      api.set = vals => {
+        gl.useProgram(p); let unit = 0;
+        for (const k in U) if (U[k].f === "tex") U[k].unit = unit++;   // fixed texture units, in declaration order
+        for (const k in vals) {
+          const u = U[k]; if (!u) continue; const v = vals[k];          // a uniform the shader optimised away is quietly ignored
+          if (u.f === "tex") { gl.activeTexture(gl.TEXTURE0 + u.unit); gl.bindTexture(gl.TEXTURE_2D, v && v.tex ? v.tex : v); gl.uniform1i(u.loc, u.unit); }
+          else if (u.f === "m2" || u.f === "m3" || u.f === "m4") gl["uniformMatrix" + u.f[1] + "fv"](u.loc, false, v);
+          else if (u.f === "1f") gl.uniform1f(u.loc, +v); else if (u.f === "1i") gl.uniform1i(u.loc, v === true ? 1 : v === false ? 0 : v | 0);
+          else gl["uniform" + u.f](u.loc, v);
+        }
+        return api;
+      };
+      return api;
+    }
+    // two triangles covering the screen: every pixel runs the fragment shader once (grids, fractals, ray tracing)
+    function quad(gl) {
+      const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      return {
+        draw(pr, target) {
+          if (target !== undefined) bindTarget(gl, target);
+          pr.use(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+      };
+    }
+    // which floating-point textures can this card draw into? Checked once per context by actually trying.
+    const fcache = new WeakMap();
+    function floatType(gl) {
+      if (fcache.has(gl)) return fcache.get(gl);
+      const gl2 = typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext, tries = [];
+      if (gl2) {
+        if (gl.getExtension("EXT_color_buffer_float")) tries.push({ type: gl.FLOAT, internal: gl.RGBA32F, format: gl.RGBA, kind: "float", linear: !!gl.getExtension("OES_texture_float_linear") }, { type: gl.HALF_FLOAT, internal: gl.RGBA16F, format: gl.RGBA, kind: "half", linear: true });
+        else if (gl.getExtension("EXT_color_buffer_half_float")) tries.push({ type: gl.HALF_FLOAT, internal: gl.RGBA16F, format: gl.RGBA, kind: "half", linear: true });
+      } else {
+        if (gl.getExtension("OES_texture_float")) { gl.getExtension("WEBGL_color_buffer_float"); tries.push({ type: gl.FLOAT, internal: gl.RGBA, format: gl.RGBA, kind: "float", linear: !!gl.getExtension("OES_texture_float_linear") }); }
+        const h = gl.getExtension("OES_texture_half_float"); if (h) { gl.getExtension("EXT_color_buffer_half_float"); tries.push({ type: h.HALF_FLOAT_OES, internal: gl.RGBA, format: gl.RGBA, kind: "half", linear: !!gl.getExtension("OES_texture_half_float_linear") }); }
+      }
+      let pick = { type: gl.UNSIGNED_BYTE, internal: gl.RGBA, format: gl.RGBA, kind: "byte", linear: true };
+      for (const t of tries) {
+        const tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx); gl.texImage2D(gl.TEXTURE_2D, 0, t.internal, 4, 4, 0, t.format, t.type, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tx, 0);
+        const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE; gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb); gl.deleteTexture(tx);
+        if (ok) { pick = t; break; }
+      }
+      fcache.set(gl, pick); return pick;
+    }
+    // a texture you can draw into (a framebuffer). opts: float (true = best float type), filter "nearest"|"linear", wrap "clamp"|"repeat", data (typed array to start from)
+    function target(gl, w, h, o = {}) {
+      const ft = o.float ? floatType(gl) : { type: gl.UNSIGNED_BYTE, internal: gl.RGBA, format: gl.RGBA, kind: "byte", linear: true };
+      const tex = gl.createTexture(), fb = gl.createFramebuffer(), lin = o.filter === "linear" && ft.linear;
+      const t = { tex, fb, w, h, kind: ft.kind, type: ft.type };
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, lin ? gl.LINEAR : gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, lin ? gl.LINEAR : gl.NEAREST);
+      const wr = o.wrap === "repeat" ? gl.REPEAT : gl.CLAMP_TO_EDGE; gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wr); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wr);
+      t.upload = data => {   // data: Float32Array (float targets) or Uint8Array, 4 numbers per texel; half floats are converted for you
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        let d = data || null;
+        if (d && ft.kind === "half") { gl.texImage2D(gl.TEXTURE_2D, 0, ft.internal, w, h, 0, ft.format, ft.type, toHalf(d)); return t; }
+        if (d && ft.kind === "byte" && d instanceof Float32Array) { const b = new Uint8Array(d.length); for (let i = 0; i < d.length; i++) b[i] = Math.max(0, Math.min(255, Math.round(d[i] * 255))); d = b; }
+        gl.texImage2D(gl.TEXTURE_2D, 0, ft.internal, w, h, 0, ft.format, ft.type, d); return t;
+      };
+      t.upload(o.data);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      t.read = () => {   // copy back to the CPU (slow: for tests and occasional measurements only). Returns floats 0–1 for byte targets.
+        bindTarget(gl, t); let out;
+        if (ft.kind === "byte") { const b = new Uint8Array(4 * w * h); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, b); out = Float32Array.from(b, x => x / 255); }
+        else { out = new Float32Array(4 * w * h); gl.readPixels(0, 0, w, h, gl.RGBA, gl.FLOAT, out); }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null); return out;
+      };
+      t.dispose = () => { gl.deleteTexture(tex); gl.deleteFramebuffer(fb); };
+      return t;
+    }
+    function toHalf(f) {   // Float32Array → Uint16Array of half floats (used only when uploading starting data)
+      const out = new Uint16Array(f.length), fv = new Float32Array(1), iv = new Uint32Array(fv.buffer);
+      for (let i = 0; i < f.length; i++) { fv[0] = f[i]; const x = iv[0], s = (x >> 16) & 0x8000, e = ((x >> 23) & 0xff) - 112, m = x & 0x7fffff; out[i] = e <= 0 ? s : e >= 31 ? s | 0x7c00 : s | (e << 10) | (m >> 13); }
+      return out;
+    }
+    // draw into a target (or null = the screen), with the viewport set to match
+    function bindTarget(gl, t) { gl.bindFramebuffer(gl.FRAMEBUFFER, t ? t.fb : null); if (t) gl.viewport(0, 0, t.w, t.h); else gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight); }
+    // two targets: read the old state from .read, draw the new state into .write, then swap()
+    function pingpong(gl, w, h, o = {}) {
+      const a = target(gl, w, h, o), b = target(gl, w, h, o);
+      const pp = { read: a, write: b, w, h, kind: a.kind, swap() { const t = pp.read; pp.read = pp.write; pp.write = t; return pp; }, upload(d) { pp.read.upload(d); pp.write.upload(d); return pp; }, dispose() { a.dispose(); b.dispose(); } };
+      return pp;
+    }
+    // points (or lines, triangles): one buffer per attribute, e.g. points(gl, { aPos: 3, aCol: 4 }); g.set("aPos", positions); g.draw(prog, n)
+    function points(gl, layout) {
+      const bufs = {};
+      for (const k in layout) bufs[k] = { buf: gl.createBuffer(), size: typeof layout[k] === "number" ? layout[k] : layout[k].size, type: (layout[k].type) || gl.FLOAT, norm: !!layout[k].normalized, n: 0 };
+      const g = {
+        set(name, data, usage) { const b = bufs[name]; gl.bindBuffer(gl.ARRAY_BUFFER, b.buf); gl.bufferData(gl.ARRAY_BUFFER, data, usage || gl.DYNAMIC_DRAW); b.n = data.length / b.size; return g; },
+        draw(pr, count, mode) {
+          pr.use(); const used = [];
+          for (const k in bufs) { const loc = gl.getAttribLocation(pr.prog, k); if (loc < 0) continue; const b = bufs[k]; gl.bindBuffer(gl.ARRAY_BUFFER, b.buf); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, b.size, b.type, b.norm, 0, 0); used.push(loc); }
+          const n = count == null ? Math.min(...Object.values(bufs).map(b => b.n)) : count;
+          if (n > 0) gl.drawArrays(mode == null ? gl.POINTS : mode, 0, n);
+          for (const loc of used) if (loc !== 0) gl.disableVertexAttribArray(loc);
+          return g;
+        }
+      };
+      return g;
+    }
+    // layer the canvases (WebGL first, then 2D labels on top) into one PNG and download it
+    function screenshot(name, ...cvs) {
+      cvs = cvs.flat().filter(Boolean).map(c => c.el || c); if (!cvs.length) return null;
+      const W = cvs[0].width, H = cvs[0].height, out = document.createElement("canvas"); out.width = W; out.height = H; const x = out.getContext("2d");
+      x.fillStyle = getComputedStyle(cvs[0].parentNode || document.body).backgroundColor || "#000"; x.fillRect(0, 0, W, H);
+      for (const c of cvs) x.drawImage(c, 0, 0, W, H);
+      const url = out.toDataURL("image/png");
+      if (name !== false) { const a = $("a"); a.href = url; a.download = (name || "screenshot").replace(/\.png$/i, "") + ".png"; document.body.append(a); a.click(); a.remove(); }
+      return url;
+    }
+    return { create, program, quad, floatType, target, pingpong, points, screenshot, bindTarget, noGL, QUAD_VS };
+  })();
   function app(o) {
     document.title = o.title + " · Science Simulations";
     const saved = (() => { try { return localStorage.getItem("k-theme"); } catch (e) { return null; } })();
@@ -499,5 +674,5 @@ const K = (() => {
     K_last = ui;
     return ui;
   }
-  return { sound, $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app, worksheetDoc, batchSummary, get ui() { return K_last; } };
+  return { gl: glKit, sound, $, cssVar, col, clamp, lerp, rng, mean, sd, se, linfit, download, sig, slider, seg, toggle, btn, row, readout, note, canvas, pointer, chart, histogram, app, worksheetDoc, batchSummary, get ui() { return K_last; } };
 })();

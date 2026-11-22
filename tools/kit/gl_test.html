@@ -1,0 +1,46 @@
+<!doctype html>
+<!-- A tiny test page for the shared WebGL helper K.gl (not on the front page). Open it in Chrome or Edge, or run
+     "node gl_test.js" in this folder, which opens it in headless Chromium and checks each helper. -->
+<html lang="en"><head><meta charset="utf-8"><title>K.gl test</title><link rel="stylesheet" href="kit.css">
+<style>body{margin:0;background:#060a14;color:#ddd;font:14px system-ui}#stage{position:relative;width:640px;height:360px;overflow:hidden}#stage canvas{position:absolute;inset:0;width:100%;height:100%}#log{padding:8px 12px;white-space:pre}</style></head>
+<body><div id="stage"></div><div id="log"></div>
+<script src="kit.js"></script>
+<script>
+// 1. a WebGL canvas that follows its parent's size
+const out = [], say = s => { out.push(s); document.getElementById("log").textContent = out.join("\n"); };
+const view = K.gl.create(document.getElementById("stage"), { dprMax: 1, webgl1: /webgl1/.test(location.search) });
+window.result = { ok: view.ok };
+if (view.ok) {
+  const gl = view.gl, ft = K.gl.floatType(gl);
+  say(`create: ${view.gl2 ? "WebGL2" : "WebGL1"}, canvas ${view.el.width}×${view.el.height}; float targets: ${ft.kind}`);
+  // 2. a ping-pong pair holding a grid of numbers: start with a hot spot, then let it spread (diffusion) on the GPU
+  const N = 64, start = new Float32Array(4 * N * N); start[4 * (32 * N + 32)] = 1;
+  const pp = K.gl.pingpong(gl, N, N, { float: true }).upload(start);
+  const quad = K.gl.quad(gl);
+  const diffuse = K.gl.program(gl, K.gl.QUAD_VS, `precision highp float; varying vec2 vUv; uniform sampler2D uState; uniform vec2 uTexel;
+    void main() { float c = texture2D(uState, vUv).r, s = texture2D(uState, vUv + vec2(uTexel.x, 0.)).r + texture2D(uState, vUv - vec2(uTexel.x, 0.)).r + texture2D(uState, vUv + vec2(0., uTexel.y)).r + texture2D(uState, vUv - vec2(0., uTexel.y)).r;
+      gl_FragColor = vec4(c + 0.2 * (s - 4.0 * c), 0., 0., 1.); }`);
+  for (let i = 0; i < 50; i++) { diffuse.set({ uState: pp.read, uTexel: [1 / N, 1 / N] }); quad.draw(diffuse, pp.write); pp.swap(); }
+  const back = pp.read.read(); let total = 0; for (let i = 0; i < N * N; i++) total += back[4 * i];
+  say(`pingpong + quad: total heat after 50 steps = ${total.toFixed(4)} (should stay 1), centre = ${back[4 * (32 * N + 32)].toFixed(4)}`);
+  // 3. show the grid on screen with a colour map
+  const show = K.gl.program(gl, K.gl.QUAD_VS, `precision mediump float; varying vec2 vUv; uniform sampler2D uState;
+    void main() { float v = sqrt(texture2D(uState, vUv).r * 30.0); gl_FragColor = vec4(v, v * v * 0.6, 0.15 + 0.5 * v * (1.0 - v), 1.); }`);
+  K.gl.bindTarget(gl, null); show.set({ uState: pp.read }); quad.draw(show);
+  // 4. GPU points: a ring of glowing dots, added on top
+  const M = 2000, pos = new Float32Array(2 * M), col = new Float32Array(3 * M);
+  for (let i = 0; i < M; i++) { const a = i / M * 6.2832, r = 0.7 + 0.05 * Math.sin(a * 12); pos[2 * i] = r * Math.cos(a) * view.h / view.w; pos[2 * i + 1] = r * Math.sin(a); col[3 * i] = 0.3 + 0.7 * i / M; col[3 * i + 1] = 0.6; col[3 * i + 2] = 1 - i / M; }
+  const dots = K.gl.points(gl, { aPos: 2, aCol: 3 }).set("aPos", pos).set("aCol", col);
+  const pprog = K.gl.program(gl, `attribute vec2 aPos; attribute vec3 aCol; uniform float uSize; varying vec3 vCol; void main() { vCol = aCol; gl_Position = vec4(aPos, 0., 1.); gl_PointSize = uSize; }`,
+    `precision mediump float; varying vec3 vCol; void main() { vec2 q = gl_PointCoord - .5; gl_FragColor = vec4(vCol * exp(-dot(q, q) * 12.), 1.); }`);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); pprog.set({ uSize: 6 }); dots.draw(pprog); gl.disable(gl.BLEND);
+  say(`points: drew ${M} dots`);
+  // 5. readable shader errors
+  let err = ""; try { K.gl.program(gl, K.gl.QUAD_VS, `precision mediump float; void main() { gl_FragColor = vec4(oops); }`); } catch (e) { err = e.message; }
+  say(`program error message: ${err.split("\n")[0].slice(0, 90)}…`);
+  // 6. screenshot (false = return the PNG as a data URL instead of downloading)
+  const png = K.gl.screenshot(false, view);
+  say(`screenshot: ${png.slice(0, 22)}… ${(png.length / 1024).toFixed(0)} kB`);
+  Object.assign(window.result, { gl2: view.gl2, kind: ft.kind, total, centre: back[4 * (32 * N + 32)], err, png: png.length });
+}
+</script></body></html>
