@@ -91,7 +91,7 @@ const ui = K.app({
   ],
   notes: `<h3>What is being calculated</h3><p>The wavefunction ψ = R + iI lives on a 256 × 144 grid. Each step (0.2 time units) the real and imaginary parts update each other through <code>dR/dt = HI</code>, <code>dI/dt = −HR</code> with <code>H = −½∇² + V</code>: the time-dependent Schrödinger equation with ħ = m = 1.</p>
   <h3>Reading the picture</h3><ul><li><b>Phase colours</b>: hue = phase of ψ (the rainbow stripes are wave crests, one wavelength per cycle of colour), brightness = |ψ|.</li><li><b>Probability</b>: brightness = |ψ|², the chance of finding the particle there.</li><li>Grey = impenetrable wall. Blue tint = barrier (V &gt; 0). Green tint = well (V &lt; 0).</li><li>The strip on the right is a detector screen. Each dot is one particle, placed at random according to the wave that arrived (the Born rule).</li></ul>
-  <h3>Assumptions and simplifications</h3><ul><li>One particle, two dimensions, no spin, no relativity.</li><li>Units are scaled: lengths in grid cells, ħ = m = 1. For an electron with a 1 nm wavelength, one cell would be about 0.08 nm.</li><li>Brightness rescales itself so faint parts of the wave stay visible; use the probability tiles for actual amounts.</li><li>Waves are absorbed at the edges (so the particle can leave) unless you choose reflecting edges.</li><li>"Measurement" is modelled as an instant collapse to a small packet: the standard textbook rule, which the equation itself does not explain.</li><li>The grid makes very short wavelengths (below about 8 cells) slightly inaccurate.</li></ul>
+  <h3>Assumptions and simplifications</h3><ul><li>One particle, two dimensions, no spin, no relativity.</li><li>Units are scaled: lengths in grid cells, ħ = m = 1. For an electron with a 1 nm wavelength, one cell would be about 0.08 nm.</li><li>Brightness rescales itself so faint parts of the wave stay visible; use the probability tiles for actual amounts.</li><li>Waves are absorbed at the edges (so the particle can leave) unless you choose reflecting edges.</li><li>"Measurement" is modelled as an instant collapse to a small packet: the standard textbook rule, which the equation itself does not explain.</li><li>The grid makes very short wavelengths (below about 8 cells) slightly inaccurate.</li><li>ψ is worked out on the 256 × 144 grid by the ordinary processor (CPU), exactly as before, so the particles, readouts and Batch run are unchanged. The graphics card (WebGL) only draws it, blending smoothly between cells so the phase colours turn smoothly rather than in blocks. Without WebGL the wave is drawn in 2D as before.</li></ul>
   <h3>Useful equations</h3><p><code>λ = h/p</code> &nbsp; <code>E = p²/2m</code> &nbsp; <code>P = |ψ|²</code> &nbsp; <code>Δx·Δp ≥ ħ/2</code> &nbsp; <code>T ≈ e^(−2κa)</code>, <code>κ = √(2m(V−E))/ħ</code></p>`,
 });
 let g = ui.group("Experiment");
@@ -142,10 +142,49 @@ function measure() { // collapse: choose a cell with probability |ψ|², then re
 }
 // ---- Drawing ----
 const img = document.createElement("canvas"); img.width = GW; img.height = GH; const ictx = img.getContext("2d"), idata = ictx.createImageData(GW, GH), px = idata.data;
+/* ---- The graphics card (WebGL) draws the wave ----
+   The Schrödinger equation is still solved on the CPU (Psi.step), exactly as before. Each frame ψ (its real and
+   imaginary parts), the barriers and the walls are handed to the graphics card, which colours every SCREEN pixel.
+   It blends ψ smoothly between cells (bicubic interpolation of both parts), so in the phase view the colour wheel
+   turns smoothly instead of in 1-cell blocks. Without WebGL: the old 2D drawing. */
+const gv = K.gl.create(ui.stage, { dprMax: 2, antialias: false, fallback: "No WebGL here: drawing the wave without the graphics card.", onLost: () => { wgl.on = false; } });
+const wgl = { on: false };
+const PSI_FS = `precision highp float;
+uniform sampler2D uT; uniform vec2 uN; uniform float uView, uGain; varying vec2 vUv;
+${K.gl.BICUBIC}
+void main() {
+  vec4 q = bicubic(uT, uN, vec2(vUv.x, 1.0 - vUv.y) * uN - 0.5);   // r, g: the real and imaginary parts of ψ; b: barrier height V; a: wall
+  float re = q.r, im = q.g, a = min(1.0, (re * re + im * im) * uGain); vec3 c;
+  if (uView < 0.5) {        // phase as colour round the colour wheel, brightness from |ψ|²
+    float h = fract(atan(im, re) / 6.2831853 + 1.0);
+    c = 255.0 * sqrt(a) * clamp(abs(fract(h + vec3(1.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
+  } else if (uView < 1.5) { // probability |ψ|²
+    float s = sqrt(a);
+    c = 255.0 * vec3(min(1.0, s * 1.8), clamp(s * 1.9 - 0.6, 0.0, 1.0), s < 0.35 ? s * 1.6 : max(0.0, 0.56 - (s - 0.35) * 1.5) + max(0.0, (s - 0.82) * 5.0));
+  } else {                  // the real part: red up, blue down
+    float v = re * sqrt(uGain); c = vec3(255.0 * clamp(v, 0.0, 1.0), 40.0 * min(1.0, abs(v)), 255.0 * clamp(-v, 0.0, 1.0));
+  }
+  if (q.b > 0.0) { float t = min(1.0, q.b * 2.2); c += vec3(26.0, 44.0, 95.0) * t + vec3(0.0, 8.0, 22.0) * smoothstep(0.0, 0.02, q.b); }
+  else c.g += 40.0 * smoothstep(0.0, 0.02, -q.b);
+  c = mix(min(c, 255.0), vec3(150.0, 158.0, 172.0), smoothstep(0.3, 0.7, q.a));   // walls
+  gl_FragColor = vec4(c / 255.0, 1.0);
+}`;
+if (gv.ok && K.gl.floatType(gv.gl).kind !== "byte") {
+  try { wgl.prog = K.gl.program(gv.gl, K.gl.QUAD_VS, PSI_FS); wgl.quad = K.gl.quad(gv.gl); wgl.tex = K.gl.target(gv.gl, GW, GH, { float: true }); wgl.buf = new Float32Array(4 * NC); wgl.on = true; }
+  catch (e) { console.warn(e.message); K.gl.notice(ui.stage, "WebGL did not start properly: drawing the wave without it."); }
+} else if (gv.ok) K.gl.notice(ui.stage, "This graphics card cannot store decimal numbers in textures: drawing the wave without it.");
+window.__glInfo = () => ({ gpu: wgl.on, grid: GW + " × " + GH, model: "CPU", webgl: gv.ok ? (gv.gl2 ? 2 : 1) : 0 });
 const cv = ui.canvas(); let vr = { s: 1, ox: 0, oy: 0 }, flash = null;
 const HUE = new Uint8Array(256 * 3); for (let h = 0; h < 256; h++) { const a = h / 256 * 6, f = a % 1, q = [[1, f, 0], [1 - f, 1, 0], [0, 1, f], [0, 1 - f, 1], [f, 0, 1], [1, 0, 1 - f]][a | 0]; HUE[h * 3] = q[0] * 255; HUE[h * 3 + 1] = q[1] * 255; HUE[h * 3 + 2] = q[2] * 255; }
 function paint() {
   const { R, I, V, wall } = psi; let mx = 1e-9; for (let i = 0; i < NC; i += 3) { const d = R[i] * R[i] + I[i] * I[i]; if (d > mx) mx = d; } gain += (1 / mx - gain) * 0.15;
+  const c = cv.ctx, strip = 70, s = Math.min((cv.w - strip) / GW, cv.h / GH), ox = (cv.w - strip - GW * s) / 2, oy = (cv.h - GH * s) / 2; vr = { s, ox, oy };
+  if (wgl.on) {
+    const B = wgl.buf, gl = gv.gl; for (let i = 0, j = 0; i < NC; i++, j += 4) { B[j] = R[i]; B[j + 1] = I[i]; B[j + 2] = V[i]; B[j + 3] = wall[i]; }
+    wgl.tex.upload(B); K.gl.bindTarget(gl, null); gl.clearColor(0.012, 0.02, 0.043, 1); gl.clear(gl.COLOR_BUFFER_BIT); K.gl.viewportRect(gv, ox, oy, GW * s, GH * s);
+    wgl.prog.set({ uT: wgl.tex, uN: [GW, GH], uView: view === "phase" ? 0 : view === "prob" ? 1 : 2, uGain: gain }); wgl.quad.draw(wgl.prog);
+    c.clearRect(0, 0, cv.w, cv.h);
+  } else {
   for (let i = 0, j = 0; i < NC; i++, j += 4) {
     let r, g2, b;
     if (wall[i]) { r = 150; g2 = 158; b = 172; }
@@ -159,8 +198,8 @@ function paint() {
     px[j] = r; px[j + 1] = g2; px[j + 2] = b; px[j + 3] = 255;
   }
   ictx.putImageData(idata, 0, 0);
-  const c = cv.ctx, strip = 70, s = Math.min((cv.w - strip) / GW, cv.h / GH), ox = (cv.w - strip - GW * s) / 2, oy = (cv.h - GH * s) / 2; vr = { s, ox, oy };
   c.fillStyle = "#03050b"; c.fillRect(0, 0, cv.w, cv.h); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high"; c.drawImage(img, ox, oy, GW * s, GH * s);
+  }
   const X = x => ox + x * s, Y = y => oy + y * s;
   c.setLineDash([5, 5]); c.strokeStyle = "rgba(255,255,255,.4)"; c.lineWidth = 1; c.beginPath(); c.moveTo(X(splitX), oy); c.lineTo(X(splitX), oy + GH * s); c.stroke();
   c.strokeStyle = "rgba(126,231,135,.8)"; c.beginPath(); c.moveTo(X(psi.screenX), oy); c.lineTo(X(psi.screenX), oy + GH * s); c.stroke(); c.setLineDash([]);
