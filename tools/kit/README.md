@@ -101,18 +101,27 @@ work without WebGL; use the GPU for the picture.
 
 | Function | What it does |
 |---|---|
-| `K.gl.create(parent, { dprMax, alpha, antialias, webgl1, onResize, message })` | Adds a canvas filling `parent` (use `ui.stage`) and returns a view `{ el, gl, gl2, ok, w, h, dpr }`. Tries WebGL2, then WebGL1. Keeps the canvas sharp up to `dprMax` (default 1.5) device pixels per CSS pixel and resizes with its parent, calling `onResize(view)`. `preserveDrawingBuffer` is on, so screenshots work. If WebGL is missing, `ok` is false and a clear message is shown over the stage instead; it also says so if the context is lost. |
+| `K.gl.create(parent, { dprMax, alpha, antialias, webgl1, onResize, message })` | Adds a canvas filling `parent` (use `ui.stage`) and returns a view `{ el, gl, gl2, ok, w, h, dpr }`. Tries WebGL2, then WebGL1. Keeps the canvas sharp up to `dprMax` (default 1.5) device pixels per CSS pixel and resizes with its parent, calling `onResize(view)`. `preserveDrawingBuffer` is on, so screenshots work. If WebGL is missing, `ok` is false and a clear message is shown over the stage instead; it also says so if the context is lost. A page that can still draw without WebGL (a retrofitted 2D simulation) passes `fallback: "html"`: then a missing or lost context shows that short note in the corner (`K.gl.notice`) instead of covering the stage, and `onLost(view)` is called so the page can switch back to its 2D drawing. |
 | `K.gl.program(gl, vertexSrc, fragmentSrc)` | Compiles and links. A compile error throws with the shader's log and the offending line. Returns `{ prog, use(), set({...}) }`: `set` knows each uniform's type, so `p.set({ uTime: 1.5, uRes: [w, h], uMat: m3, uState: target })` works; textures (or targets) get their own texture units automatically. `aPos` is always attribute 0. |
 | `K.gl.QUAD_VS`, `K.gl.quad(gl)` | A full-screen quad for fragment-shader simulations and pictures (fractals, grids, ray tracing). `QUAD_VS` passes `vUv` (0–1). `q.draw(program, target)` draws into a target, or to the screen if `target` is `null`; leave it out to keep the current framebuffer. |
 | `K.gl.floatType(gl)` | Finds the best texture format the card can draw into, by trying: 32-bit float, then 16-bit (half) float, then bytes. Returns `{ type, internal, format, kind: "float" \| "half" \| "byte", linear }`. |
-| `K.gl.target(gl, w, h, { float, filter, wrap, data })` | One texture with its framebuffer. `float: true` uses `floatType`; `filter` `"nearest"` (default) or `"linear"`; `wrap` `"clamp"` (default) or `"repeat"`. `t.upload(Float32Array)` sets it (4 numbers per texel; converted to half floats or bytes as needed), `t.read()` copies it back as floats (slow: tests and occasional measurements only), `t.dispose()`. |
+| `K.gl.target(gl, w, h, { float, filter, wrap, data })` | One texture with its framebuffer. `float: true` uses `floatType`; `filter` `"nearest"` (default) or `"linear"`; `wrap` `"clamp"` (default) or `"repeat"`. `t.upload(Float32Array)` sets it (4 numbers per texel; converted to half floats or bytes as needed), `t.read()` copies it back as floats, or `t.read(x, y, w, h)` just a rectangle (slow: tests and occasional measurements only), `t.dispose()`. |
 | `K.gl.pingpong(gl, w, h, opts)` | Two targets for stepping a grid on the GPU (reaction–diffusion, automata, fluids): draw from `pp.read` into `pp.write`, then `pp.swap()`. `pp.upload(data)` fills both. |
 | `K.gl.bindTarget(gl, target)` | Draw into a target (viewport set to its size), or `null` for the screen. |
 | `K.gl.points(gl, { aPos: 3, aCol: 4, ... })` | GPU particles (or lines and triangles): one buffer per attribute. `g.set("aPos", Float32Array)` uploads, `g.draw(program, count, mode)` draws (`mode` defaults to `gl.POINTS`; pass `gl.LINES`, `gl.LINE_STRIP` or `gl.TRIANGLES` for others). Use `gl_PointSize` in the vertex shader and `gl_PointCoord` for round, glowing dots; additive blending (`gl.blendFunc(gl.ONE, gl.ONE)`) makes dense crowds glow. |
 | `K.gl.screenshot(name, ...canvases)` | Layers the canvases in order (the WebGL view first, then a 2D label canvas from `ui.canvas`) into one PNG and downloads it as `name.png`. With `name` `false` it returns the PNG as a data URL instead. |
 | `K.gl.noGL(parent, html)` | Shows the "needs WebGL" message (used by `create`). |
+| `K.gl.notice(parent, html)` | A small note in the bottom-left corner of the stage that does not block it, e.g. "No WebGL here: drawing in 2D". `""` hides it. |
 
 `gl_test.html` in this folder uses every helper (a diffusing hot spot stepped
 on the GPU, a ring of points, a deliberate shader error and a screenshot);
 `node gl_test.js` opens it in headless Chromium with WebGL2, with WebGL1 and
 with WebGL switched off, and checks the results. It is not on the front page.
+
+### Retrofitted simulations
+
+Some older simulations now draw (and sometimes step) with WebGL while keeping
+their CPU model for the Batch run, worksheets and investigations' set-ups:
+Turing Patterns. Each has a "Detail (graphics card)" group or note saying
+what runs where, falls back to its 2D drawing without WebGL, and lists the
+grid resolution and any numerical differences in "The model".

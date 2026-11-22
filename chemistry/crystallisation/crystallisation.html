@@ -487,7 +487,7 @@ const K = (() => {
      A small, stable toolkit so that simulations can draw with the graphics card without re-writing the same boilerplate.
      Shaders are written in GLSL ES 1.00 ("precision mediump float; attribute/varying/gl_FragColor"), which runs on both
      WebGL2 and WebGL1. Everything is documented in tools/kit/README.md ("WebGL").
-       K.gl.create(parent, { dprMax, alpha, antialias, onResize, message })  → view { el, gl, gl2, w, h, dpr, ok }  (or ok: false + a message)
+       K.gl.create(parent, { dprMax, alpha, antialias, onResize, message, fallback, onLost })  → view { el, gl, gl2, w, h, dpr, ok }  (or ok: false + a message)
        K.gl.program(gl, vertexSrc, fragmentSrc)   → program with .use() and .set({ uName: value, uTex: texture })
        K.gl.quad(gl)                              → full-screen quad: q.draw(program)  (vertex shader: K.gl.QUAD_VS, gives vUv)
        K.gl.floatType(gl)                         → the best renderable float format: { type, internal, format, kind: "float"|"half"|"byte" }
@@ -502,6 +502,12 @@ const K = (() => {
       d.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;color:var(--muted);font-size:14px;line-height:1.5;z-index:1";
       parent.append(d); return d;
     }
+    // a small note in the corner of the stage (not blocking it), e.g. when a page falls back to its 2D drawing; "" hides it
+    function notice(parent, html) {
+      let n = parent.querySelector(":scope > .k-glnote");
+      if (!n) { n = $("div", "k-glnote"); n.style.cssText = "position:absolute;left:10px;bottom:10px;z-index:3;max-width:55%;padding:4px 9px;border-radius:6px;background:rgba(8,12,24,.8);color:#ffcf8a;font-size:11.5px;line-height:1.35;pointer-events:none"; parent.append(n); }
+      n.innerHTML = html || ""; n.style.display = html ? "" : "none"; return n;
+    }
     // a WebGL canvas that fills its parent, follows its size and stays sharp (up to dprMax device pixels per CSS pixel)
     function create(parent, o = {}) {
       const el = $("canvas"); parent.append(el);
@@ -510,7 +516,8 @@ const K = (() => {
       if (!o.webgl1) { try { gl = el.getContext("webgl2", attrs); gl2 = !!gl; } catch (e) { } }
       if (!gl) { try { gl = el.getContext("webgl", attrs) || el.getContext("experimental-webgl", attrs); } catch (e) { } }
       const v = { el, gl, gl2, ok: !!gl, w: 1, h: 1, dpr: 1, message: null };
-      if (!gl) { v.message = noGL(parent, o.message); return v; }
+      // o.fallback (html): the page can still draw without WebGL, so say so in a small corner note instead of covering the stage
+      if (!gl) { el.style.display = "none"; v.message = o.fallback ? notice(parent, o.fallback) : noGL(parent, o.message); return v; }
       const fit = () => {
         const w = parent.clientWidth, h = parent.clientHeight; if (!w || !h) return;
         v.dpr = Math.min(window.devicePixelRatio || 1, o.dprMax || 1.5); v.w = w; v.h = h;
@@ -518,7 +525,12 @@ const K = (() => {
         o.onResize && o.onResize(v);
       };
       v.resize = fit; new ResizeObserver(fit).observe(parent); fit();
-      el.addEventListener("webglcontextlost", e => { e.preventDefault(); v.ok = false; if (!v.message) v.message = noGL(parent, "<b>The graphics card stopped drawing this view.</b><br>Reload the page to start it again."); });
+      el.addEventListener("webglcontextlost", e => {
+        e.preventDefault(); v.ok = false;
+        if (o.fallback) { el.style.display = "none"; v.message = notice(parent, o.lostText || "The graphics card stopped (WebGL context lost): carrying on with the simpler drawing. Reload the page to get it back."); }
+        else if (!v.message) v.message = noGL(parent, "<b>The graphics card stopped drawing this view.</b><br>Reload the page to start it again.");
+        o.onLost && o.onLost(v);   // a page with a 2D fallback switches to it here
+      });
       return v;
     }
     // compile and link, with readable errors (the offending line is printed with the message)
@@ -607,10 +619,10 @@ const K = (() => {
       };
       t.upload(o.data);
       gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      t.read = () => {   // copy back to the CPU (slow: for tests and occasional measurements only). Returns floats 0–1 for byte targets.
+      t.read = (x = 0, y = 0, rw = w, rh = h) => {   // copy all of it (or a rectangle) back to the CPU. Slow: tests and occasional measurements only. Floats 0–1 for byte targets.
         bindTarget(gl, t); let out;
-        if (ft.kind === "byte") { const b = new Uint8Array(4 * w * h); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, b); out = Float32Array.from(b, x => x / 255); }
-        else { out = new Float32Array(4 * w * h); gl.readPixels(0, 0, w, h, gl.RGBA, gl.FLOAT, out); }
+        if (ft.kind === "byte") { const b = new Uint8Array(4 * rw * rh); gl.readPixels(x, y, rw, rh, gl.RGBA, gl.UNSIGNED_BYTE, b); out = Float32Array.from(b, q => q / 255); }
+        else { out = new Float32Array(4 * rw * rh); gl.readPixels(x, y, rw, rh, gl.RGBA, gl.FLOAT, out); }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null); return out;
       };
       t.dispose = () => { gl.deleteTexture(tex); gl.deleteFramebuffer(fb); };
@@ -656,7 +668,7 @@ const K = (() => {
       if (name !== false) { const a = $("a"); a.href = url; a.download = (name || "screenshot").replace(/\.png$/i, "") + ".png"; document.body.append(a); a.click(); a.remove(); }
       return url;
     }
-    return { create, program, quad, floatType, target, pingpong, points, screenshot, bindTarget, noGL, QUAD_VS };
+    return { create, program, quad, floatType, target, pingpong, points, screenshot, bindTarget, noGL, notice, QUAD_VS };
   })();
   function app(o) {
     document.title = o.title + " · Science Simulations";
