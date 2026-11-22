@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and sixty-two simulations are built with the shared toolkit (the
+All one hundred and sixty-three simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and fifty-seven newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
@@ -390,6 +390,7 @@ Standard level follows Cambridge International AS Level Computer Science (9618, 
 | [`computing/data_structures/`](computing/data_structures/) | Data Structures: stack (overflow and underflow), circular queue (MOD wrap-round), linked list in an array with StartPointer and a free list, and binary search trees with traversals and search cost (Cambridge 9618) | Open `data-structures.html` |
 | [`computing/logic_gates/`](computing/logic_gates/) | Logic Gates and Circuits: gate symbols with clickable inputs and highlighted truth tables, a circuit from an expression, half and full adders, NAND-only XOR, an SR flip-flop with feedback, a 4-bit ripple-carry adder and Karnaugh maps (Cambridge 9618) | Open `logic-gates.html` |
 | [`computing/cpu_fetch_execute/`](computing/cpu_fetch_execute/) | CPU: Fetch–Decode–Execute: a Von Neumann CPU stepping through register transfer notation with registers and buses lit up; an editable Cambridge 9618 assembly program (LDM, LDD, LDI, LDX, STO, ADD, CMP, JPN, AND, LSL…) with addressing modes and bit manipulation; pipelining at A Level | Open `cpu-fetch-execute.html` |
+| [`computing/binary_and_floating_point/`](computing/binary_and_floating_point/) | Binary and Floating Point: clickable bits with unsigned, two's complement, hex, BCD and ASCII views; binary addition with carries, carry and overflow flags; A Level normalised floating point (two's complement mantissa and exponent), range against precision, rounding errors and overflow/underflow (Cambridge 9618) | Open `binary-and-floating-point.html` |
 
 ## Where the old repositories went
 
