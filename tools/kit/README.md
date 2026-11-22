@@ -111,6 +111,8 @@ work without WebGL; use the GPU for the picture.
 | `K.gl.points(gl, { aPos: 3, aCol: 4, ... })` | GPU particles (or lines and triangles): one buffer per attribute. `g.set("aPos", Float32Array)` uploads, `g.draw(program, count, mode)` draws (`mode` defaults to `gl.POINTS`; pass `gl.LINES`, `gl.LINE_STRIP` or `gl.TRIANGLES` for others). Use `gl_PointSize` in the vertex shader and `gl_PointCoord` for round, glowing dots; additive blending (`gl.blendFunc(gl.ONE, gl.ONE)`) makes dense crowds glow. |
 | `K.gl.screenshot(name, ...canvases)` | Layers the canvases in order (the WebGL view first, then a 2D label canvas from `ui.canvas`) into one PNG and downloads it as `name.png`. With `name` `false` it returns the PNG as a data URL instead. |
 | `K.gl.noGL(parent, html)` | Shows the "needs WebGL" message (used by `create`). |
+| `K.gl.BICUBIC` | GLSL to paste into a fragment shader: `bicubic(tex, gridSize, p)` reads a grid texture smoothly (clamped Catmull-Rom, no rings round sharp spikes), `p` in cells. Used to draw a coarse model grid at full screen resolution. |
+| `K.gl.viewportRect(view, x, y, w, h)` | Draw to the screen inside a rectangle given in CSS pixels from the top left, as on a 2D canvas (e.g. a letterboxed picture). |
 | `K.gl.notice(parent, html)` | A small note in the bottom-left corner of the stage that does not block it, e.g. "No WebGL here: drawing in 2D". `""` hides it. |
 
 `gl_test.html` in this folder uses every helper (a diffusing hot spot stepped
@@ -122,6 +124,6 @@ with WebGL switched off, and checks the results. It is not on the front page.
 
 Some older simulations now draw (and sometimes step) with WebGL while keeping
 their CPU model for the Batch run, worksheets and investigations' set-ups:
-Turing Patterns (GPU model and drawing), Ripple Tank (drawing only). Each has a "Detail (graphics card)" group or note saying
+Turing Patterns (GPU model and drawing), Ripple Tank and Wind Tunnel (drawing only). Each has a "Detail (graphics card)" group or note saying
 what runs where, falls back to its 2D drawing without WebGL, and lists the
 grid resolution and any numerical differences in "The model".

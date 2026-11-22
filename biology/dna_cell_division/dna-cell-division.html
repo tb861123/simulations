@@ -668,7 +668,22 @@ const K = (() => {
       if (name !== false) { const a = $("a"); a.href = url; a.download = (name || "screenshot").replace(/\.png$/i, "") + ".png"; document.body.append(a); a.click(); a.remove(); }
       return url;
     }
-    return { create, program, quad, floatType, target, pingpong, points, screenshot, bindTarget, noGL, notice, QUAD_VS };
+    /* GLSL you can paste into a fragment shader (before main) to read a grid texture smoothly:
+         vec4 bicubic(sampler2D t, vec2 n, vec2 p)   n = grid size in cells, p = position in cells (cell centres at 0, 1, 2…)
+       Catmull-Rom interpolation of all four channels between cell centres (edges clamped), limited to the range
+       of the four nearest cells so a sharp spike does not get dark or bright rings round it. */
+    const BICUBIC = `vec4 kCell(sampler2D t, vec2 n, vec2 i) { return texture2D(t, (clamp(i, vec2(0.0), n - 1.0) + 0.5) / n); }
+vec4 kCR(float t) { float t2 = t * t, t3 = t2 * t; return vec4(-0.5 * t3 + t2 - 0.5 * t, 1.5 * t3 - 2.5 * t2 + 1.0, -1.5 * t3 + 2.0 * t2 + 0.5 * t, 0.5 * t3 - 0.5 * t2); }
+vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
+  vec2 i = floor(p), f = p - i; vec4 wx = kCR(f.x), wy = kCR(f.y), s = vec4(0.0);
+  for (int y = 0; y < 4; y++) { vec4 row = vec4(0.0); for (int x = 0; x < 4; x++) row += wx[x] * kCell(t, n, i + vec2(float(x) - 1.0, float(y) - 1.0)); s += wy[y] * row; }
+  vec4 a = kCell(t, n, i), b = kCell(t, n, i + vec2(1.0, 0.0)), c = kCell(t, n, i + vec2(0.0, 1.0)), d = kCell(t, n, i + 1.0);
+  return clamp(s, min(min(a, b), min(c, d)), max(max(a, b), max(c, d)));
+}
+`;
+    // draw into part of the screen: a rectangle in CSS pixels measured from the top left (as on a 2D canvas), e.g. a letterboxed picture
+    function viewportRect(view, x, y, w, h) { const d = view.dpr, gl = view.gl; gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(Math.round(x * d), Math.round((view.h - y - h) * d), Math.round(w * d), Math.round(h * d)); }
+    return { create, program, quad, floatType, target, pingpong, points, screenshot, bindTarget, viewportRect, noGL, notice, QUAD_VS, BICUBIC };
   })();
   function app(o) {
     document.title = o.title + " · Science Simulations";

@@ -101,7 +101,7 @@ const ui = K.app({
   ],
   notes: `<h3>The method</h3><p>Lattice Boltzmann (D2Q9, single relaxation time) on a 240 × 120 grid. Each cell holds nine populations of fluid moving in nine directions. Collide, then stream; solid cells bounce fluid back, which gives a no-slip surface. The force on the body is the total momentum handed over by those bounces.</p>
   <h3>What you can measure</h3><ul><li><b>Lift coefficient</b> C<sub>L</sub> = lift ÷ (½ρv² × chord) and <b>drag coefficient</b> C<sub>D</sub>, defined the same way (using the body's height for blunt shapes, and the cylinder's size for drawn shapes).</li><li><b>Reynolds number</b> Re = speed × size ÷ viscosity.</li></ul>
-  <h3>Assumptions and simplifications</h3><ul><li>Two dimensions: a slice through an infinitely long wing or cylinder. No wing tips, no 3-D turbulence.</li><li>Low Reynolds number (about 20 to 600). A real aircraft wing is at several million: its boundary layer is far thinner, its lift higher and its drag much lower. The patterns here are right; the numbers are those of an insect-sized wing in treacly air.</li><li>The fluid is very slightly compressible (it is how the method works). Wind speed is kept well below the model's speed of sound.</li><li>The tunnel edges blow at the free-stream speed, so wakes that reach the top or bottom are straightened artificially. Vortices leaving at the right-hand end can reflect weakly.</li><li>Shapes are built from square cells, so curved surfaces are slightly stepped and thin trailing edges are at least one cell thick.</li><li>For accurate lift and pressure on full-size wings see the Aerofoil Flow simulation (panel method), which ignores viscosity instead.</li></ul>`,
+  <h3>Assumptions and simplifications</h3><ul><li>Two dimensions: a slice through an infinitely long wing or cylinder. No wing tips, no 3-D turbulence.</li><li>Low Reynolds number (about 20 to 600). A real aircraft wing is at several million: its boundary layer is far thinner, its lift higher and its drag much lower. The patterns here are right; the numbers are those of an insect-sized wing in treacly air.</li><li>The fluid is very slightly compressible (it is how the method works). Wind speed is kept well below the model's speed of sound.</li><li>The tunnel edges blow at the free-stream speed, so wakes that reach the top or bottom are straightened artificially. Vortices leaving at the right-hand end can reflect weakly.</li><li>Shapes are built from square cells, so curved surfaces are slightly stepped and thin trailing edges are at least one cell thick.</li><li>For accurate lift and pressure on full-size wings see the Aerofoil Flow simulation (panel method), which ignores viscosity instead.</li><li>The flow is worked out on the 240 × 120 grid by the ordinary processor (CPU), exactly as before, so the forces, readouts and Batch run are unchanged. The graphics card (WebGL) only draws it: it blends smoothly between cells, smooths the outline of the body on screen (in the model the body is still made of square cells), and draws the smoke as soft dots. Without WebGL the tunnel is drawn in 2D as before.</li></ul>`,
 });
 let g = ui.group("Shape in the tunnel");
 S.shape = K.seg(g, { value: shape, options: [["aerofoil", "Wing"], ["cylinder", "Cylinder"], ["plate", "Flat plate"], ["tear", "Teardrop"], ["square", "Square"], ["blank", "Blank"]], on: v => { shape = v; build(true); } });
@@ -136,9 +136,72 @@ function build(restart) {
 }
 // ---- Drawing ----
 const img = document.createElement("canvas"); img.width = NX; img.height = NY; const ictx = img.getContext("2d"), idata = ictx.createImageData(NX, NY), px = idata.data;
+/* ---- The graphics card (WebGL) draws the flow ----
+   The lattice Boltzmann model is still worked out on the CPU (Tunnel.step), exactly as before. Each frame the
+   quantity being shown (spin, speed or pressure) is worked out for every cell as before and handed to the
+   graphics card, which colours every SCREEN pixel: it blends smoothly between cells (bicubic interpolation),
+   smooths the outline of the body, and draws the smoke as soft glowing dots. Without WebGL: the old 2D drawing. */
+const gv = K.gl.create(ui.stage, { dprMax: 2, antialias: false, fallback: "No WebGL here: drawing the tunnel without the graphics card.", onLost: () => { wgl.on = false; } });
+const wgl = { on: false };
+const FLOW_FS = `precision highp float;
+uniform sampler2D uT; uniform vec2 uN; uniform float uView; varying vec2 vUv;
+${K.gl.BICUBIC}
+void main() {
+  vec2 p = vec2(vUv.x, 1.0 - vUv.y) * uN - 0.5; vec4 q = bicubic(uT, uN, p); float v = q.r; vec3 c;   // r: the quantity shown, g: solid
+  if (uView < 0.5) {        // spin (vorticity): blue one way, red the other (the same colours as the 2D drawing)
+    float a = min(1.0, abs(v)), s = sqrt(a);
+    c = v > 0.0 ? vec3(12.0 + 60.0 * s, 18.0 + 120.0 * s + 70.0 * a, 34.0 + 221.0 * s) : vec3(12.0 + 243.0 * s, 18.0 + 70.0 * s + 110.0 * a * a, 34.0 + 40.0 * a);
+  } else if (uView < 1.5) { // speed
+    c = 255.0 * vec3(clamp(v * 2.6 - 1.0, 0.0, 1.0), clamp(v < 0.55 ? v * 1.5 : 1.2 - (v - 0.55) * 1.4, 0.0, 1.0), clamp(v < 0.5 ? 0.25 + v * 1.5 : 1.0 - (v - 0.5) * 3.0, 0.0, 1.0));
+  } else {                  // pressure: red above, blue below the pressure far away
+    float a = min(1.0, abs(v));
+    c = v > 0.0 ? vec3(30.0 + 225.0 * a, 34.0 + 120.0 * a * a, 48.0 - 20.0 * a) : vec3(30.0 - 10.0 * a, 34.0 + 150.0 * a, 48.0 + 207.0 * a);
+  }
+  c = mix(c, vec3(208.0, 214.0, 226.0), smoothstep(0.3, 0.7, q.g));   // the body, with a smooth edge
+  gl_FragColor = vec4(c / 255.0, 1.0);
+}`;
+const SMOKE_VS = `attribute vec2 aPos; uniform vec2 uN; uniform float uSize; void main() { gl_Position = vec4(aPos.x / uN.x * 2.0 - 1.0, 1.0 - aPos.y / uN.y * 2.0, 0.0, 1.0); gl_PointSize = uSize; }`;
+const SMOKE_FS = `precision mediump float; uniform vec4 uCol; void main() { vec2 q = gl_PointCoord * 2.0 - 1.0; float r2 = dot(q, q); gl_FragColor = vec4(uCol.rgb, uCol.a * exp(-r2 * 2.5) * step(r2, 1.0)); }`;
+if (gv.ok && K.gl.floatType(gv.gl).kind !== "byte") {
+  try { wgl.prog = K.gl.program(gv.gl, K.gl.QUAD_VS, FLOW_FS); wgl.smoke = K.gl.program(gv.gl, SMOKE_VS, SMOKE_FS); wgl.pts = K.gl.points(gv.gl, { aPos: 2 }); wgl.quad = K.gl.quad(gv.gl); wgl.tex = K.gl.target(gv.gl, NX, NY, { float: true }); wgl.buf = new Float32Array(4 * NX * NY); wgl.pbuf = new Float32Array(0); wgl.on = true; }
+  catch (e) { console.warn(e.message); K.gl.notice(ui.stage, "WebGL did not start properly: drawing the tunnel without it."); }
+} else if (gv.ok) K.gl.notice(ui.stage, "This graphics card cannot store decimal numbers in textures: drawing the tunnel without it.");
+window.__glInfo = () => ({ gpu: wgl.on, grid: NX + " × " + NY, model: "CPU", webgl: gv.ok ? (gv.gl2 ? 2 : 1) : 0 });
 const cv = ui.canvas(); let vr = { s: 1, ox: 0, oy: 0 };
+function paintGL(s, ox, oy) {
+  const { ux, uy, rho, solid } = tun, u0 = tun.u0, B = wgl.buf, gl = gv.gl;
+  for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {   // the same quantities as the 2D drawing below, before they are turned into colours
+    const c = x + y * NX; let v;
+    if (view === "vort") v = x > 2 && x < NX - 3 && y > 3 && y < NY - 4 ? (uy[c + 1] - uy[c - 1] - ux[c + NX] + ux[c - NX]) / u0 * 3 : 0;
+    else if (view === "speed") v = Math.min(1.9, Math.hypot(ux[c], uy[c]) / u0) / 1.9;
+    else v = (rho[c] - 1) / (u0 * u0) / 1.6;
+    B[4 * c] = v; B[4 * c + 1] = solid[c];
+  }
+  // inside the body there is no flow to show; give each solid cell the average of the fluid next to it, so the
+  // smooth blending at the edge does not pull in a dark line from the empty inside
+  for (let y = 1; y < NY - 1; y++) for (let x = 1; x < NX - 1; x++) {
+    const c = x + y * NX; if (!solid[c]) continue; let t = 0, n = 0;
+    for (const d of [1, -1, NX, -NX]) if (!solid[c + d]) { t += B[4 * (c + d)]; n++; }
+    if (n) B[4 * c] = t / n;
+  }
+  wgl.tex.upload(B);
+  K.gl.bindTarget(gl, null); gl.clearColor(0.02, 0.027, 0.05, 1); gl.clear(gl.COLOR_BUFFER_BIT); K.gl.viewportRect(gv, ox, oy, NX * s, NY * s);
+  wgl.prog.set({ uT: wgl.tex, uN: [NX, NY], uView: view === "vort" ? 0 : view === "speed" ? 1 : 2 }); wgl.quad.draw(wgl.prog);
+  if (smoke && parts.length) {
+    if (wgl.pbuf.length < 2 * parts.length) wgl.pbuf = new Float32Array(4 * parts.length);
+    parts.forEach((p, i) => { wgl.pbuf[2 * i] = p.x; wgl.pbuf[2 * i + 1] = p.y; });
+    wgl.pts.set("aPos", wgl.pbuf.subarray(0, 2 * parts.length));
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+    wgl.smoke.set({ uN: [NX, NY], uSize: Math.max(2, 1.25 * s) * gv.dpr, uCol: view === "speed" ? [1, 1, 1, 0.75] : [0.92, 0.94, 1, 0.6] }); wgl.pts.draw(wgl.smoke, parts.length);
+    gl.disable(gl.BLEND);
+  }
+}
 function paint() {
   const { ux, uy, rho, solid } = tun, u0 = tun.u0;
+  if (wgl.on) {
+    const c = cv.ctx, s = Math.min(cv.w / NX, cv.h / NY), ox = (cv.w - NX * s) / 2, oy = (cv.h - NY * s) / 2; vr = { s, ox, oy };
+    paintGL(s, ox, oy); c.clearRect(0, 0, cv.w, cv.h); overlay(c, s, ox, oy); return;
+  }
   for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
     const c = x + y * NX, j = c * 4; let r, g2, b;
     if (solid[c]) { r = 208; g2 = 214; b = 226; }
@@ -153,6 +216,9 @@ function paint() {
   const c = cv.ctx, s = Math.min(cv.w / NX, cv.h / NY), ox = (cv.w - NX * s) / 2, oy = (cv.h - NY * s) / 2; vr = { s, ox, oy };
   c.fillStyle = "#05070d"; c.fillRect(0, 0, cv.w, cv.h); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high"; c.drawImage(img, ox, oy, NX * s, NY * s);
   if (smoke) { c.fillStyle = view === "speed" ? "rgba(255,255,255,.75)" : "rgba(235,240,255,.6)"; for (const p of parts) c.fillRect(ox + p.x * s - 1, oy + p.y * s - 1, 2.2, 2.2); }
+  overlay(c, s, ox, oy);
+}
+function overlay(c, s, ox, oy) {
   // force arrows from the centre of the body
   let sx = 0, sy = 0, k = 0; for (let i = 0; i < tun.n; i += 3) if (tun.solid[i]) { sx += i % NX; sy += i / NX | 0; k++; }
   if (k) { const bx = ox + (sx / k + .5) * s, by = oy + (sy / k + .5) * s, arrow = (dx, dy, col, txt) => { const len = Math.hypot(dx, dy); if (len < 4) return; c.strokeStyle = c.fillStyle = col; c.lineWidth = 3.5; c.beginPath(); c.moveTo(bx, by); c.lineTo(bx + dx, by + dy); c.stroke(); const a = Math.atan2(dy, dx); c.beginPath(); c.moveTo(bx + dx + 9 * Math.cos(a), by + dy + 9 * Math.sin(a)); c.lineTo(bx + dx + 7 * Math.cos(a + 2.4), by + dy + 7 * Math.sin(a + 2.4)); c.lineTo(bx + dx + 7 * Math.cos(a - 2.4), by + dy + 7 * Math.sin(a - 2.4)); c.fill(); c.font = "600 12px Segoe UI,sans-serif"; c.textAlign = "center"; c.fillText(txt, bx + dx + 22 * Math.cos(a), by + dy + 22 * Math.sin(a) + 4); };
