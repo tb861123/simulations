@@ -199,6 +199,8 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["bridge_builder.js", "bridge_builder", "bridge-builder.html", "Bridge Builder", "engineering"],
   ["domino_chains.js", "domino_chains", "domino-chains.html", "Domino Chain Reactions", "engineering"],
   ["powers_of_ten.js", "powers_of_ten", "powers-of-ten.html", "Powers of Ten", "explore"],
+  ["packet_switching.js", "packet_switching", "packet-switching.html", "Packet Switching Lab", "computing"],
+  ["hotspot_islands.js", "hotspot_islands", "hotspot-islands.html", "Hotspot Island Chains", "climate"],
 ];
 const css = fs.readFileSync(path.join(__dirname, "kit.css"), "utf8"), kit = fs.readFileSync(path.join(__dirname, "kit.js"), "utf8");
 for (const [src, dir, file, title, base] of SIMS) {

@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Packet Switching Lab — Cambridge 9618 §14.2</title>
+<!--
+==========================================================================================
+ PACKET SWITCHING LAB — interactive simulation for Cambridge International AS & A Level
+ Computer Science 9618 (syllabus 2027–2029), section 14.2 "Circuit switching, packet switching".
+ Extension links: §14.1 (TCP/IP stack) and §18.1 (Dijkstra's shortest-path algorithm).
+
+ MODEL
+  * Discrete-event simulation (binary-heap event queue, simulation time in milliseconds).
+    Simulation time is independent of frame rate: graphics never change the results.
+  * Network: 2 hosts (A, B) and 11 routers joined by 23 full-duplex links. Each direction of a
+    link is a separate channel with its own FIFO output queue at the sending node.
+  * Link timing (store-and-forward):
+       serialisation delay  s = L / R        (L = packet size in bits, R = link rate in bits/ms)
+       propagation delay    d = drawn length / 100 ms   (illustrative; access links 0.5 ms)
+       queueing delay       = time spent waiting behind other packets in a router's output queue
+    Core link rate is set by the user (Mbps); access links (A–R1, R11–B) are fixed at 10 Mbps.
+  * Router buffers hold at most `buffer` waiting packets per output; arrivals to a full queue are
+    dropped (tail drop). Host send buffers are unlimited.
+  * Routing: link-state. Every router runs Dijkstra over the topology it currently believes in.
+       static metric   = 10 × propagation delay (i.e. 0.1 ms units, distance-based)
+       adaptive metric = static metric + 10 × current queueing delay on that output (ms)
+    Adaptive tables are refreshed every 5 ms. After a link fails or is restored, routers learn of
+    it after a 10 ms convergence delay; until then packets may be sent towards a dead link.
+  * Hop limit (IPv4 TTL / IPv6 Hop Limit): decremented by each router; at 0 the packet is discarded.
+  * Packets: 40 B header (IPv4 20 B + TCP 20 B; for the stream IPv4 + UDP + RTP = 40 B),
+    payload, and a 4 B trailer (frame check sequence; strictly part of the link-layer frame).
+       packets needed  N = ceil(message bytes / (packet bytes − 44))
+  * Reliability (message traffic): B acknowledges every data packet (64 B ACK). A retransmits a
+    packet when its timer expires. Timer: RFC 6298-style SRTT/RTTVAR estimator, Karn's rule,
+    exponential back-off, initial RTO 250 ms, minimum 20 ms, at most 8 retransmissions.
+    Simplification: no sliding window or congestion control — the whole message is released at once.
+  * Stream traffic: 160 B voice/video payload every 20 ms, 40 frames, no retransmission (UDP-like).
+    "Late" = one-way delay above 80 ms (illustrative playout limit). Jitter = mean |D(i) − D(i−1)|.
+  * Circuit switching: setup request travels hop by hop (propagation + 4 ms switch processing per
+    hop), reserving each link; confirmation returns (propagation + 1 ms per hop). Data then flows as
+    a continuous bit stream at the circuit rate R_c (slowest link on the path) with no headers and no
+    store-and-forward:   transfer time = setup time + message bits / R_c + Σ propagation delays.
+    Reserved links cannot carry any other traffic. A failed link drops the call; A redials after 10 ms
+    (max 3 attempts). Release travels back from B, freeing each link.
+  * Background traffic: Poisson arrivals of 1000 B packets between random routers, seeded PRNG
+    (mulberry32), rate = level × 16 × (core rate / 8000 bits) packets per ms.
+
+ CHECKS (diagnostics shown in the Live readings panel)
+  * Conservation: packets created = delivered + dropped + still in the network (every instant).
+  * Analytic store-and-forward check (packet mode, message, static routing, no background, no
+    failures, no drops): last arrival is compared with an independent tandem-queue recursion
+       F[k][i] = max(F[k−1][i], F[k][i−1] + d(i−1)) + s(k,i);  T = F[N][n] + d(n)
+    which, for equal packets, reduces to  T = Σ(L/R_i + d_i) + (N − 1)·L/R_bottleneck.
+  * Circuit check: measured completion compared with setup + bits/R_c + Σd.
+  These show internal consistency, NOT agreement with measurements of real networks.
+
+ UNITS: time ms; size bytes (1 kB = 1000 B); rates Mbps (1 Mbps = 1000 bits/ms).
+ No external dependencies; works offline. AI-generated educational resource — see note in page.
+==========================================================================================
+-->
+<style>
+:root{
+  --bg:#0c1016; --panel:#131a23; --panel2:#19222e; --line:#2a3646; --text:#e6edf3; --muted:#9fb0c0;
+  --accent:#4cc2ff; --teal:#2dd4bf; --amber:#f5b942; --red:#ff6b6b; --green:#4ade80; --violet:#b69cff;
+  --focus:#ffd166;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+a{color:var(--accent)}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+header.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--line);background:#0f151d}
+header.top h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.2px}
+header.top .sub{color:var(--muted);font-size:13px}
+.badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);vertical-align:middle}
+.badge.core{border-color:#2f6f5f;color:var(--teal)}
+.badge.ext{border-color:#5a4a8a;color:var(--violet)}
+.layout{display:grid;grid-template-columns:290px minmax(0,1fr) 340px;gap:12px;padding:12px}
+@media (max-width:1250px){.layout{grid-template-columns:270px minmax(0,1fr)} .right{grid-column:1 / -1;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}}
+@media (max-width:820px){.layout{grid-template-columns:1fr} .right{grid-template-columns:1fr} .centre{order:-1}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.right .card{margin-bottom:12px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:2px 0 8px;font-weight:650;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tag{font-size:10.5px;text-transform:none;letter-spacing:0;padding:0 6px;border-radius:6px;font-weight:500}
+.tag.restart{background:#3a2a12;color:var(--amber)}
+.tag.live{background:#11322b;color:var(--teal)}
+details.card>summary{cursor:pointer;list-style:none}
+details.card>summary::-webkit-details-marker{display:none}
+details.card>summary h2{display:inline-flex;margin:0}
+details.card[open]>summary{margin-bottom:8px}
+.scen{display:flex;flex-direction:column;gap:6px}
+button,select,input[type=number]{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:6px 10px}
+button{cursor:pointer}
+button:hover{border-color:#44566c}
+button.primary{background:#103a52;border-color:#1f6b93}
+button.on{background:#123d36;border-color:#2b8f7e}
+.scen button{text-align:left}
+.scen button.active{border-color:var(--accent);background:#10283a}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:8px}
+.seg label{flex:1;text-align:center;padding:6px 4px;cursor:pointer;background:var(--panel2);font-size:13px;position:relative}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label:has(input:checked){background:#10334a;color:#fff;box-shadow:inset 0 -2px 0 var(--accent)}
+.seg label:has(input:focus-visible){outline:3px solid var(--focus);outline-offset:-3px}
+.ctl{margin:8px 0}
+.ctl .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px}
+.ctl output{font-variant-numeric:tabular-nums;color:var(--accent);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.hint{color:var(--muted);font-size:12.5px;margin:6px 0 0}
+.chk{display:flex;gap:8px;align-items:center;margin:4px 0;font-size:13px}
+.inline{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.toolbar .speed{display:flex;align-items:center;gap:6px;min-width:250px;flex:1}
+.toolbar .speed input{flex:1}
+.clock{font-variant-numeric:tabular-nums;font-weight:650;color:#fff;background:#0f151d;border:1px solid var(--line);border-radius:7px;padding:5px 10px}
+.status{color:var(--muted);font-size:13px;min-height:1.4em;margin:0 0 6px}
+.stage{position:relative;background:radial-gradient(ellipse at 50% 40%,#111a25,#0a0e14);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stage canvas{display:block;width:100%;height:auto;aspect-ratio:1000/540;touch-action:manipulation;cursor:crosshair}
+.stage:fullscreen{display:flex;flex-direction:column;justify-content:center;background:#0a0e14}
+.stage:fullscreen canvas{max-height:100vh;width:auto;max-width:100%;margin:auto}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);padding:6px 10px;border-top:1px solid var(--line);background:#0f151d}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.sw{display:inline-block;width:14px;height:10px;border-radius:3px}
+.graphs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+@media (max-width:820px){.graphs{grid-template-columns:1fr}}
+figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+figure canvas{width:100%;height:210px;display:block}
+figcaption{font-size:12.5px;color:var(--muted);margin-bottom:4px}
+figcaption b{color:var(--text)}
+dl.read{display:grid;grid-template-columns:1fr auto;gap:3px 10px;margin:0;font-size:13px}
+dl.read dt{color:var(--muted)}
+dl.read dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+dl.read .sep{grid-column:1 / -1;border-top:1px solid var(--line);margin:4px 0}
+.ok{color:var(--green)} .bad{color:var(--red)} .warn{color:var(--amber)} .mut{color:var(--muted);font-weight:400}
+.reasm{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+.reasm i{width:16px;height:16px;border-radius:3px;border:1px solid #3a4656;display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:9px;color:#0b0f14}
+.reasm i.got{border-color:transparent}
+.reasm i.next{border:2px solid var(--amber)}
+.reasm.small i{width:10px;height:10px;font-size:0}
+#explain p{margin:0 0 7px}
+#inspector{font-size:13px}
+#inspector table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
+#inspector th,#inspector td{text-align:left;padding:2px 4px;border-bottom:1px solid #222c39}
+#inspector th{color:var(--muted);font-weight:500}
+#inspector .k{color:var(--muted)}
+#inspector .hdr{background:#0f151d;border:1px solid var(--line);border-radius:7px;padding:6px 8px;margin:6px 0}
+#log{list-style:none;margin:0;padding:0;font-size:12.5px;max-height:190px;overflow:auto}
+#log li{padding:2px 0;border-bottom:1px solid #1f2834}
+#log time{color:var(--accent);font-variant-numeric:tabular-nums;margin-right:6px}
+.tabs{margin:0 12px 12px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.tablist{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.tablist button{border:0;border-radius:0;background:transparent;padding:10px 14px;color:var(--muted)}
+.tablist button[aria-selected=true]{color:#fff;box-shadow:inset 0 -3px 0 var(--accent)}
+.tabpanel{padding:12px 18px;max-width:1100px}
+.tabpanel h3{font-size:15px;margin:14px 0 6px}
+.tabpanel ul,.tabpanel ol{padding-left:22px}
+.tabpanel li{margin:3px 0}
+.eq{font-family:ui-monospace,Consolas,monospace;background:#0f151d;border:1px solid var(--line);border-radius:6px;padding:2px 6px}
+.callout{border-left:3px solid var(--amber);background:#1d1a12;padding:8px 12px;border-radius:0 8px 8px 0;margin:8px 0}
+.callout.ext{border-color:var(--violet);background:#1a1726}
+footer{margin:0 12px 16px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:#0f151d;color:var(--muted);font-size:12.5px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.err{background:#3a1515;border:1px solid #7a2a2a;padding:10px;border-radius:8px;margin:10px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Packet Switching Lab</h1>
+    <div class="sub">Cambridge International AS &amp; A Level Computer Science 9618 · §14.2 Circuit switching, packet switching</div>
+  </div>
+  <div style="margin-left:auto" class="inline">
+    <span class="badge core">Core = 9618 §14.2</span>
+    <span class="badge ext">Extension = beyond the specification</span>
+  </div>
+</header>
+<noscript><div class="err">This simulation needs JavaScript enabled.</div></noscript>
+
+<div class="layout">
+  <!-- ===================== LEFT: CONTROLS ===================== -->
+  <aside class="left" aria-label="Simulation controls">
+    <section class="card">
+      <h2>Scenarios</h2>
+      <div class="scen" id="scenarios"></div>
+      <p class="hint" id="scenarioNote"></p>
+    </section>
+
+    <section class="card">
+      <h2>Switching method <span class="tag restart" title="Changing this restarts the run">↻ restarts run</span></h2>
+      <div class="seg" role="radiogroup" aria-label="Switching method">
+        <label><input type="radio" name="mode" value="packet" checked> Packet switching</label>
+        <label><input type="radio" name="mode" value="circuit"> Circuit switching</label>
+      </div>
+      <h2>Traffic <span class="tag restart">↻ restarts run</span></h2>
+      <div class="seg" role="radiogroup" aria-label="Traffic type">
+        <label><input type="radio" name="traffic" value="message" checked> File / web page</label>
+        <label><input type="radio" name="traffic" value="stream"> Real-time call</label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Message &amp; packets <span class="tag restart">↻ restarts run</span></h2>
+      <div class="ctl" id="msgCtl"><div class="row"><label for="msgKB">Message size</label><output id="msgKBo"></output></div>
+        <input type="range" id="msgKB" min="2" max="64" step="1"></div>
+      <div class="ctl" id="pktCtl"><div class="row"><label for="pktBytes">Packet size (total)</label><output id="pktBytesO"></output></div>
+        <input type="range" id="pktBytes" min="300" max="1500" step="100"></div>
+      <div class="ctl"><div class="row"><label for="coreMbps">Core link bandwidth</label><output id="coreMbpsO"></output></div>
+        <input type="range" id="coreMbps" min="0.5" max="10" step="0.5"></div>
+      <div class="ctl"><div class="row"><label for="hopLimit">Hop limit (TTL) <span class="badge ext">ext</span></label><output id="hopLimitO"></output></div>
+        <input type="range" id="hopLimit" min="4" max="64" step="1"></div>
+      <div class="ctl"><div class="row"><label for="seed">Random seed</label>
+        <input type="number" id="seed" min="1" max="999999" step="1" style="width:110px"></div>
+        <p class="hint">The same seed reproduces the same background traffic.</p></div>
+    </section>
+
+    <section class="card">
+      <h2>Network conditions <span class="tag live">acts immediately</span></h2>
+      <div class="seg" role="radiogroup" aria-label="Routing method">
+        <label><input type="radio" name="routing" value="adaptive" checked> Adaptive routing</label>
+        <label><input type="radio" name="routing" value="static"> Static routing</label>
+      </div>
+      <div class="ctl"><div class="row"><label for="bgLevel">Other users' traffic</label><output id="bgLevelO"></output></div>
+        <input type="range" id="bgLevel" min="0" max="100" step="5"></div>
+      <div class="ctl"><div class="row"><label for="buffer">Router buffer (per output)</label><output id="bufferO"></output></div>
+        <input type="range" id="buffer" min="2" max="64" step="1"></div>
+      <div class="ctl">
+        <label for="linkSel" class="row">Cut or restore a link</label>
+        <div class="inline"><select id="linkSel" style="flex:1"></select><button id="linkBtn">Cut</button></div>
+        <p class="hint">Or click a link on the diagram.</p>
+      </div>
+    </section>
+
+    <details class="card" open>
+      <summary><h2>Overlays</h2></summary>
+      <label class="chk"><input type="checkbox" id="ovRoutes" checked> Routing-table arrows towards Host B</label>
+      <label class="chk"><input type="checkbox" id="ovQueues" checked> Router queue bars</label>
+      <label class="chk"><input type="checkbox" id="ovAcks" checked> Acknowledgements</label>
+      <label class="chk"><input type="checkbox" id="ovBg" checked> Other users' packets</label>
+      <label class="chk"><input type="checkbox" id="ovCosts"> Link metrics <span class="badge ext">ext</span></label>
+    </details>
+  </aside>
+
+  <!-- ===================== CENTRE: SIMULATION ===================== -->
+  <main class="centre" aria-label="Simulation">
+    <div class="toolbar">
+      <button id="playBtn" class="primary" aria-pressed="false">▶ Play</button>
+      <button id="stepBtn" title="Advance 1 ms of network time">Step +1 ms</button>
+      <button id="restartBtn">↺ Restart</button>
+      <span class="clock" id="clock" aria-label="Simulation time">t = 0.0 ms</span>
+      <div class="speed"><label for="speed" style="white-space:nowrap">Playback</label><input type="range" id="speed" min="2" max="200" step="1"><output id="speedO" style="white-space:nowrap;font-size:12.5px"></output></div>
+      <button id="fsBtn" title="Full screen diagram">⛶ Full screen</button>
+    </div>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+    <div class="stage" id="stage">
+      <canvas id="net" role="img" aria-label="Network diagram"></canvas>
+      <div class="legend" aria-hidden="true">
+        <span><span class="sw" style="background:hsl(30 80% 62%);border-radius:50%"></span>Data packet (colour/number = sequence)</span>
+        <span><span class="sw" style="background:#e9eef5;width:8px;height:8px"></span>ACK</span>
+        <span><span class="sw" style="background:#5b6878;border-radius:50%;width:8px;height:8px"></span>Other users</span>
+        <span><span class="sw" style="background:var(--amber)"></span>Queue</span>
+        <span><span class="sw" style="background:var(--teal);opacity:.6"></span>Reserved circuit</span>
+        <span><span class="sw" style="background:var(--accent)"></span>Next hop to B (packet mode)</span>
+        <span><span class="sw" style="background:var(--red)"></span>Failed link</span>
+      </div>
+    </div>
+    <div class="graphs">
+      <figure>
+        <figcaption><b>Arrival order at Host B.</b> Each dot is a packet reaching B (y = sequence number). Grey ticks = times A sent each packet. Dots below the rising trend arrived out of order.</figcaption>
+        <canvas id="gArr" role="img" aria-label="Graph of sequence number against arrival time"></canvas>
+      </figure>
+      <figure>
+        <figcaption><b>One-way delay of each packet.</b> Travel time from leaving A to arriving at B. Uneven bars = jitter. Red = late (calls only).</figcaption>
+        <canvas id="gDelay" role="img" aria-label="Graph of delay for each packet"></canvas>
+      </figure>
+    </div>
+  </main>
+
+  <!-- ===================== RIGHT: READOUTS ===================== -->
+  <aside class="right" aria-label="Readings and explanations">
+    <section class="card">
+      <h2>Live readings</h2>
+      <dl class="read" id="readings"></dl>
+      <div id="reasmWrap" style="margin-top:8px">
+        <div class="hint" id="reasmLabel">Reassembly buffer at B</div>
+        <div class="reasm" id="reasm" aria-hidden="true"></div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>What's happening?</h2>
+      <div id="explain" aria-live="off"></div>
+    </section>
+    <section class="card">
+      <h2>Inspector</h2>
+      <div class="inline" style="margin-bottom:6px"><label for="nodeSel" class="sr">Inspect a node</label>
+        <select id="nodeSel" style="flex:1"></select><button id="nodeBtn">Inspect</button></div>
+      <div id="inspector"><p class="hint">Click a packet, router or host (or choose one above) to see its header or routing table. Pause first to catch a moving packet.</p></div>
+    </section>
+    <section class="card">
+      <h2>Event log</h2>
+      <ul id="log" aria-label="Event log"></ul>
+    </section>
+  </aside>
+</div>
+
+<!-- ===================== TEACHING TABS ===================== -->
+<section class="tabs">
+  <div class="tablist" role="tablist" aria-label="Teaching information">
+    <button role="tab" id="tab-try" aria-selected="true" aria-controls="panel-try">Try this</button>
+    <button role="tab" id="tab-exam" aria-selected="false" aria-controls="panel-exam" tabindex="-1">Exam focus</button>
+    <button role="tab" id="tab-model" aria-selected="false" aria-controls="panel-model" tabindex="-1">How the model works (and what it leaves out)</button>
+  </div>
+
+  <div class="tabpanel" role="tabpanel" id="panel-try" aria-labelledby="tab-try">
+    <ol>
+      <li><b>Different routes, different order.</b> <span class="badge core">core</span> Run scenario 1 with <i>Adaptive routing</i>, then restart with <i>Static routing</i>. <i>Predict first:</i> which run will have packets arriving out of order? Use the arrival graph and the routing-table arrows to explain why. How does B put the message back together?</li>
+      <li><b>When a link fails.</b> <span class="badge core">core</span> Run scenario 3 with packet switching, then switch to circuit switching. What happens to data on the failed link in each case? How does each network recover, and how long does it take? Use your answers to explain one benefit of packet switching.</li>
+      <li><b>Real-time traffic.</b> <span class="badge core">core</span> Run scenario 5 in both modes. Compare the jitter and the number of late frames. Then look at <i>circuit utilisation</i>. Explain why circuit switching suits a call, and what it wastes.</li>
+      <li><b>Setup cost vs overheads.</b> <span class="badge core">core</span> Static routing, no other traffic. Compare transfer times for a 2 kB and a 64 kB message in both modes. Which method wins for each size, and why? Refer to circuit setup time, packet headers and store-and-forward.</li>
+      <li><b>The best packet size.</b> <span class="badge ext">extension</span> Static routing, no other traffic, 32 kB message. Try packet sizes from 300 B to 1500 B. Explain why very small packets are slow (headers) and very large ones are slow too (each router must receive a whole packet before forwarding it). Check the analytic prediction against <span class="eq">T = Σ(L/Rᵢ + dᵢ) + (N − 1)·L/R<sub>slowest</sub></span>.</li>
+      <li><b>Why packets have a hop limit.</b> <span class="badge ext">extension</span> Run scenario 4 with a hop limit of 10, then 64. Watch link R6–R9. What would happen to a network with routing loops if packets had no hop limit?</li>
+    </ol>
+  </div>
+
+  <div class="tabpanel" role="tabpanel" id="panel-exam" aria-labelledby="tab-exam" hidden>
+    <h3>What the specification asks (9618 §14.2)</h3>
+    <ul>
+      <li>Circuit switching and packet switching: what each is, their benefits and drawbacks, and where each is applicable.</li>
+      <li>The function of a router in packet switching.</li>
+      <li>How packet switching passes messages across a network, including the internet.</li>
+    </ul>
+    <h3>Key points this simulation demonstrates</h3>
+    <p><b>Packet switching:</b> the message is split into packets. Each packet's header holds the source and destination addresses and a sequence number. Each router reads the destination address, looks it up in its routing table and forwards the packet to the next router (hop). Packets are routed independently, so they may take different routes and arrive out of order. The destination uses the sequence numbers to reassemble them. Missing packets are detected and sent again. Links are shared, so there is no setup delay and failed links can be routed around. Shared links also mean queueing, variable delay (jitter), possible loss and per-packet header overhead.</p>
+    <p><b>Circuit switching:</b> a dedicated path is set up between sender and receiver before any data is sent. All data follows that path and arrives in order with a constant delay. The full bandwidth of the circuit is reserved, even when idle, so nobody else can use it. If a link on the path fails the connection is lost and must be set up again. The circuit is released at the end. It suits real-time communication such as calls.</p>
+    <div class="callout"><b>Be careful</b> — common over-simplifications:
+      <ul>
+        <li>"Every packet takes a different route" — packets <i>can</i> take different routes. With stable routing tables they often take the same one. Compare adaptive and static routing.</li>
+        <li>"Circuit switching is always faster" — it has no store-and-forward or header overhead, but it has a setup delay. For short messages packet switching can finish first (try 4 above).</li>
+        <li>"Routers change the packet's addresses" — the source and destination IP addresses stay the same end to end. What changes at each hop is the link-layer frame (MAC addresses). This matters in §14.1.</li>
+      </ul></div>
+    <div class="callout ext"><b>Beyond the specification</b> (not required for 9618 §14.2): store-and-forward timing, queueing theory, adaptive link-state routing, RTT estimation, and hop limits. Dijkstra's algorithm itself is in §18.1. The four-layer TCP/IP model is in §14.1.</div>
+  </div>
+
+  <div class="tabpanel" role="tabpanel" id="panel-model" aria-labelledby="tab-model" hidden>
+    <h3>The network</h3>
+    <p>11 routers and two hosts (A and B), joined by full-duplex links. Each direction of a link has its own output queue in the sending router. Core links run at the bandwidth you choose. The links between each host and its router run at 10 Mbps. Propagation delays are proportional to the drawn length (about 1.5–2.5 ms per core link) and are illustrative. Addresses use reserved documentation ranges.</p>
+    <h3>Timing (store-and-forward)</h3>
+    <p>A router must receive a whole packet before forwarding it. On each link a packet experiences:</p>
+    <ul>
+      <li><b>serialisation delay</b> <span class="eq">L / R</span>: time to put L bits onto a link of rate R;</li>
+      <li><b>propagation delay</b> <span class="eq">d</span>: time for the signal to travel along the link;</li>
+      <li><b>queueing delay</b>: time waiting behind other packets. If a router's buffer is full, the packet is dropped.</li>
+    </ul>
+    <p>Packets needed: <span class="eq">N = ⌈message bytes ÷ (packet bytes − 44)⌉</span>. Each packet has a 40-byte header (IPv4 + TCP for files, or IPv4 + UDP + RTP for calls) and a 4-byte trailer (an error check that strictly belongs to the link-layer frame).</p>
+    <h3>Routing <span class="badge ext">extension</span></h3>
+    <p>Each router builds its table with Dijkstra's algorithm (link-state routing). <i>Static</i> routing uses a fixed distance-based metric. <i>Adaptive</i> routing adds each output's current queueing delay and refreshes tables every 5 ms, so a busy route is avoided. After a link fails or is restored, routers take 10 ms to learn about it. Real internet routing (e.g. OSPF inside an organisation, BGP between networks) normally reacts much more slowly to load than this. Adaptive mode deliberately exaggerates route variation so it can be seen.</p>
+    <h3>Reliability <span class="badge ext">extension</span></h3>
+    <p>For files, B acknowledges every packet. If A's timer for a packet expires, A sends it again. The timer adapts to measured round-trip times (as TCP does, RFC 6298) and doubles after each timeout. A gives up after 8 retransmissions. Simplification: real TCP uses a sliding window and congestion control and does not release the whole message at once. A call stream is never retransmitted, because late audio is useless.</p>
+    <h3>Circuit switching</h3>
+    <p>A setup request travels hop by hop (4 ms processing per switch), reserving each link. A confirmation returns (1 ms per hop). Data then flows as a continuous bit stream at the circuit rate: no headers, no queues, no store-and-forward. Transfer time is <span class="eq">setup + bits ÷ R<sub>c</sub> + Σd</span>. Reserved links carry nothing else. A link failure drops the call and A redials after 10 ms. Simplification: real telephone circuits reserve a fixed slice of a link (e.g. 64 kbit/s), not the whole link. Most modern telephony is itself carried over packet networks.</p>
+    <h3>What it leaves out</h3>
+    <p>Bit errors and corrupted packets, router processing time, DNS, ARP, NAT, fragmentation, congestion control, quality-of-service priority, and the internal detail of MAC addressing. Other users' traffic is random, not based on measured internet data.</p>
+    <h3>How the results are checked</h3>
+    <ul>
+      <li><b>Conservation:</b> every packet created is delivered, dropped or still in the network, at every instant.</li>
+      <li><b>Analytic check:</b> with static routing, no other traffic and no failures, the simulated finish time is compared with an independent store-and-forward calculation. The circuit finish time is compared with setup + bits ÷ R<sub>c</sub> + Σd.</li>
+    </ul>
+    <p>Passing these checks shows the program is internally consistent with its own model. It does <i>not</i> show the model matches measurements of the real internet. Numbers are illustrative.</p>
+  </div>
+</section>
+
+<footer role="note">
+  <b>Note:</b> This is an AI-generated educational simulation based on scientific or mathematical models. It may contain simplifications or errors. Check important conclusions against reliable scientific sources and course materials.
+</footer>
+
+<script>
+"use strict";
+(function(){
+/* ======================================================================
+   0. UTILITIES
+   ====================================================================== */
+const $ = (id) => document.getElementById(id);
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+const fmt = (v,dp=1) => Number.isFinite(v) ? v.toFixed(dp) : '—';
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+class EventHeap{
+  constructor(){ this.a=[]; this.n=0; }
+  lt(x,y){ return x.t<y.t || (x.t===y.t && x.s<y.s); }
+  push(t,type,data){ const e={t,type,data,s:this.n++}; const a=this.a; a.push(e); let i=a.length-1;
+    while(i>0){ const p=(i-1)>>1; if(this.lt(a[i],a[p])){ const tmp=a[i]; a[i]=a[p]; a[p]=tmp; i=p; } else break; } }
+  pop(){ const a=this.a; const top=a[0]; const last=a.pop();
+    if(a.length){ a[0]=last; let i=0; for(;;){ const l=2*i+1, r=l+1; let m=i;
+      if(l<a.length && this.lt(a[l],a[m])) m=l; if(r<a.length && this.lt(a[r],a[m])) m=r;
+      if(m===i) break; const tmp=a[i]; a[i]=a[m]; a[m]=tmp; i=m; } }
+    return top; }
+  peek(){ return this.a[0]; }
+  get size(){ return this.a.length; }
+}
+
+/* ======================================================================
+   1. CONFIGURATION AND TOPOLOGY
+   ====================================================================== */
+const CFG = {
+  HDR:40, TRL:4, ACK_BYTES:64, ACCESS_MBPS:10, ACCESS_PROP:0.5,
+  CONVERGE:10, ROUTE_TICK:5, SETUP_PROC:4, CONFIRM_PROC:1, RELEASE_PROC:1,
+  STREAM_PAYLOAD:160, STREAM_INTERVAL:20, STREAM_FRAMES:40, LATE_MS:80,
+  MAX_RETX:8, MIN_RTO:20, INIT_RTO:250, MAX_RTO:2000, REDIAL_LIMIT:3,
+  BG_BYTES:1000, LOG_MAX:200, REC_MAX:6000, EVENT_CAP:60000
+};
+const NODES = [
+  {short:'A',  name:'Host A', type:'host',   x:55,  y:270, addr:'198.51.100.10'},
+  {short:'R1', name:'R1',     type:'router', x:175, y:270, addr:'10.0.0.1'},
+  {short:'R2', name:'R2',     type:'router', x:320, y:120, addr:'10.0.0.2'},
+  {short:'R3', name:'R3',     type:'router', x:320, y:270, addr:'10.0.0.3'},
+  {short:'R4', name:'R4',     type:'router', x:320, y:420, addr:'10.0.0.4'},
+  {short:'R5', name:'R5',     type:'router', x:490, y:70,  addr:'10.0.0.5'},
+  {short:'R6', name:'R6',     type:'router', x:490, y:200, addr:'10.0.0.6'},
+  {short:'R7', name:'R7',     type:'router', x:490, y:350, addr:'10.0.0.7'},
+  {short:'R8', name:'R8',     type:'router', x:490, y:475, addr:'10.0.0.8'},
+  {short:'R9', name:'R9',     type:'router', x:660, y:170, addr:'10.0.0.9'},
+  {short:'R10',name:'R10',    type:'router', x:660, y:385, addr:'10.0.0.10'},
+  {short:'R11',name:'R11',    type:'router', x:815, y:270, addr:'10.0.0.11'},
+  {short:'B',  name:'Host B', type:'host',   x:945, y:270, addr:'203.0.113.25'}
+];
+const A = 0, B = 12;
+const LINK_DEFS = [[0,1],[1,2],[1,3],[1,4],[2,3],[2,5],[2,6],[3,4],[3,6],[3,7],[4,7],[4,8],
+                   [5,6],[5,9],[6,7],[6,9],[6,10],[7,10],[8,10],[9,10],[9,11],[10,11],[11,12]];
+const nodeR = (i) => NODES[i].type==='host' ? 24 : 17;
+
+/* ======================================================================
+   2. PARAMETERS AND SCENARIOS
+   ====================================================================== */
+const P = { mode:'packet', traffic:'message', msgKB:12, pktBytes:1000, coreMbps:2, hopLimit:16,
+            routing:'adaptive', bgLevel:0, buffer:32, speed:20, seed:2027 };
+
+const SCENARIOS = [
+  { id:'web', name:'1 · Web page download', desc:'Quiet network. A 12 kB page is split into packets. With adaptive routing, packets from one message take different routes and arrive out of order.',
+    p:{mode:'packet',traffic:'message',msgKB:12,pktBytes:1000,coreMbps:2,hopLimit:16,routing:'adaptive',bgLevel:0,buffer:32,speed:20} },
+  { id:'busy', name:'2 · Busy network', desc:'Heavy traffic from other users and small router buffers. Queues fill, packets are dropped and A has to retransmit.',
+    p:{mode:'packet',traffic:'message',msgKB:24,pktBytes:1000,coreMbps:2,hopLimit:16,routing:'adaptive',bgLevel:90,buffer:6,speed:25} },
+  { id:'fail', name:'3 · Link failure', desc:'Link R6–R9 fails at 60 ms. Run it with packet switching, then with circuit switching, and compare.',
+    p:{mode:'packet',traffic:'message',msgKB:24,pktBytes:1000,coreMbps:2,hopLimit:16,routing:'static',bgLevel:0,buffer:32,speed:25},
+    events(){ schedule(60,'scenCut',{L:linkBetween(6,9)}); } },
+  { id:'loop', name:'4 · Routing loop & hop limit', desc:'R9 has a faulty routing entry that sends packets for B back to R6. Packets bounce until their hop limit reaches 0. A routing update fixes R9 at 120 ms.',
+    p:{mode:'packet',traffic:'message',msgKB:6,pktBytes:1000,coreMbps:2,hopLimit:10,routing:'static',bgLevel:0,buffer:32,speed:30},
+    events(){ S.stale={node:9,dest:B,chan:chanBetween(9,6).id}; schedule(120,'repairStale',{}); } },
+  { id:'call', name:'5 · Real-time call', desc:'A voice/video stream sends a small packet every 20 ms over a busy network. Compare jitter with packet and circuit switching.',
+    p:{mode:'packet',traffic:'stream',msgKB:12,pktBytes:1000,coreMbps:2,hopLimit:16,routing:'adaptive',bgLevel:90,buffer:24,speed:80} },
+  { id:'free', name:'Free exploration', desc:'Keeps your settings and removes any scheduled failures or faults.', p:null }
+];
+let scenario = SCENARIOS[0];
+
+/* ======================================================================
+   3. SIMULATION STATE
+   ====================================================================== */
+let S = null;
+let playing = false;
+let selected = null;   // {type:'packet',p} | {type:'node',i}
+
+function schedule(t, type, data){ S.heap.push(t, type, data); }
+function linkBetween(a,b){ return S.links.find(L => (L.a===a&&L.b===b)||(L.a===b&&L.b===a)); }
+function chanBetween(a,b){ return S.chans.find(c => c.from===a && c.to===b); }
+function log(msg, cls){ S.log.push({t:S.t, msg, cls}); if(S.log.length>CFG.LOG_MAX) S.log.shift(); S.logDirty=true; }
+
+function buildNetwork(){
+  S.links = LINK_DEFS.map((l,i) => {
+    const a=NODES[l[0]], b=NODES[l[1]]; const len=Math.hypot(a.x-b.x, a.y-b.y);
+    const access = a.type==='host' || b.type==='host';
+    return { id:i, a:l[0], b:l[1], access, len,
+      d: access ? CFG.ACCESS_PROP : len/100,
+      cost: access ? 5 : Math.round(len/10),
+      rate: (access ? CFG.ACCESS_MBPS : P.coreMbps) * 1000,      // bits per ms
+      up:true, knownUp:true, reserved:false, chans:[] };
+  });
+  S.chans = []; S.adj = NODES.map(() => []);
+  for(const L of S.links){
+    for(const [f,t] of [[L.a,L.b],[L.b,L.a]]){
+      const c = { id:S.chans.length, from:f, to:t, link:L, queue:[], busy:null, inFlight:new Set(), unlimited: NODES[f].type==='host' };
+      S.chans.push(c); L.chans.push(c); S.adj[f].push(c);
+    }
+  }
+}
+
+/* ======================================================================
+   4. ROUTING (link-state, Dijkstra)
+   ====================================================================== */
+function edgeCost(c, adaptive){
+  const L = c.link;
+  if(!L.knownUp || L.reserved) return Infinity;
+  let cost = L.cost;
+  if(adaptive){
+    let bits = 0; for(const p of c.queue) bits += p.bits;
+    if(c.busy) bits += c.busy.bits * 0.5;
+    cost += 10 * bits / L.rate;
+  }
+  return cost;
+}
+function dijkstra(src, costFn){
+  const n=NODES.length, dist=new Array(n).fill(Infinity), first=new Array(n).fill(-1), hops=new Array(n).fill(0), prev=new Array(n).fill(-1), done=new Array(n).fill(false);
+  dist[src]=0;
+  for(let it=0; it<n; it++){
+    let u=-1, best=Infinity;
+    for(let v=0; v<n; v++) if(!done[v] && dist[v]<best){ best=dist[v]; u=v; }
+    if(u<0) break; done[u]=true;
+    if(u!==src && NODES[u].type==='host') continue;          // hosts do not forward transit traffic
+    for(const c of S.adj[u]){
+      const w = costFn(c); if(!Number.isFinite(w)) continue;
+      const v=c.to, nd=dist[u]+w;
+      if(nd < dist[v]-1e-9){ dist[v]=nd; first[v]= u===src ? c.id : first[u]; hops[v]=hops[u]+1; prev[v]=u; }
+    }
+  }
+  return {dist, first, hops, prev};
+}
+function computeTables(){
+  const adaptive = P.routing==='adaptive';
+  S.tables = NODES.map((_,s) => dijkstra(s, c => edgeCost(c, adaptive)));
+}
+function nextChan(node, dest){
+  if(S.stale && S.stale.node===node && S.stale.dest===dest) return S.chans[S.stale.chan];
+  const f = S.tables[node].first[dest];
+  return f>=0 ? S.chans[f] : null;
+}
+function tablePath(src, dst){
+  const path=[src]; let u=src;
+  for(let k=0; k<30 && u!==dst; k++){ const c=nextChan(u,dst); if(!c) return null; u=c.to; path.push(u); }
+  return u===dst ? path : null;
+}
+function staticPath(src, dst){
+  const r = dijkstra(src, c => (c.link.up && c.link.knownUp) ? c.link.cost : Infinity);
+  if(!Number.isFinite(r.dist[dst])) return null;
+  const path=[dst]; let u=dst; while(u!==src){ u=r.prev[u]; if(u<0) return null; path.unshift(u); }
+  return path;
+}
+function pathLinks(path){ const out=[]; for(let i=0;i<path.length-1;i++) out.push(linkBetween(path[i],path[i+1])); return out; }
+function startRouteTick(){ if(!S.routeTick){ S.routeTick=true; schedule(S.t+CFG.ROUTE_TICK,'routeTick',{}); } }
+
+/* ======================================================================
+   5. PACKET MOVEMENT (store-and-forward)
+   ====================================================================== */
+function newPacket(kind, src, dst, bytes, extra){
+  const p = Object.assign({ id:++S.pktId, kind, src, dst, bytes, bits:bytes*8, hop:P.hopLimit, hopInit:P.hopLimit,
+    created:S.t, path:[src], status:'queued', at:src, chan:null, retx:0 }, extra||{});
+  S.created++; if(kind==='bg') S.bgCreated++;
+  return p;
+}
+function drop(p, node, reason){
+  p.status='dropped'; p.dropReason=reason; p.at=node; p.droppedAt=S.t;
+  S.dropped++; S.dropBy[reason]=(S.dropBy[reason]||0)+1;
+  if(p.kind==='bg') S.bgDropped++;
+  if(p.kind==='data'){
+    S.dataDrops[reason]=(S.dataDrops[reason]||0)+1;
+    const why = {overflow:'buffer full', ttl:'hop limit reached 0', linkfail:'link failed while it was in transit',
+                 linkdown:'next link is down and tables not yet updated', noroute:'no route', reserved:'link reserved'}[reason];
+    log(`${NODES[node].short}: data packet ${p.seq+1} discarded (${why})`, 'bad');
+  } else if(p.kind==='ack'){
+    log(`${NODES[node].short}: ACK for packet ${p.seq+1} discarded`, 'warn');
+  }
+}
+function forward(p, node){
+  const c = nextChan(node, p.dst);
+  if(!c){ drop(p,node,'noroute'); return; }
+  if(!c.link.up){ drop(p,node,'linkdown'); return; }
+  if(c.link.reserved){ drop(p,node,'reserved'); return; }
+  enqueue(c, p);
+}
+function enqueue(c, p){
+  if(!c.unlimited && c.queue.length >= P.buffer){ drop(p, c.from, 'overflow'); return; }
+  p.status='queued'; p.at=c.from; p.qChan=c;
+  if(p.priority) c.queue.unshift(p); else c.queue.push(p);
+  if(!c.busy) startTx(c);
+}
+function startTx(c){
+  if(c.busy || !c.queue.length || !c.link.up) return;
+  const p = c.queue.shift();
+  c.busy = p; p.qChan=null; p.chan=c; p.status='moving';
+  p.txStart=S.t; p.txEnd=S.t + p.bits/c.link.rate; p.arriveAt=p.txEnd + c.link.d;
+  c.inFlight.add(p);
+  schedule(p.txEnd, 'txDone', {c, p});
+  schedule(p.arriveAt, 'arrive', {c, p});
+  if(p.kind==='data' && c.from===A){
+    p.sentAt = S.t;
+    if(S.sends.length < CFG.REC_MAX) S.sends.push({t:S.t, seq:p.seq, retx:p.retx});
+    if(P.traffic==='message') armRTO(p.seq);
+  }
+}
+function onArrive(c, p){
+  if(p.status!=='moving' || p.chan!==c) return;      // lost on a failed link
+  c.inFlight.delete(p); p.chan=null;
+  const node=c.to; p.path.push(node); p.at=node;
+  if(node===p.dst){ deliver(p); return; }
+  p.hop -= 1;
+  if(p.hop <= 0){ drop(p, node, 'ttl'); return; }
+  forward(p, node);
+}
+function deliver(p){
+  p.status='delivered'; p.deliveredAt=S.t; S.delivered++;
+  if(p.kind==='ack') onAck(p);
+  else if(p.kind==='data') onDataAtB(p);
+}
+
+/* ======================================================================
+   6. HOST BEHAVIOUR: sender A, receiver B
+   ====================================================================== */
+function armRTO(seq){
+  const s=S.snd; s.token[seq]++;
+  const rto = Math.min(CFG.MAX_RTO, s.rto * s.backoff[seq]);
+  schedule(S.t + rto, 'rto', {seq, tok:s.token[seq]});
+}
+function onAck(p){
+  const s=S.snd, seq=p.seq;
+  if(s.acked[seq]) return;
+  s.acked[seq]=true; s.ackCount++;
+  if(p.dataRetx===0 && Number.isFinite(p.dataSentAt)){                    // Karn's rule
+    const R = S.t - p.dataSentAt;
+    if(s.srtt===null){ s.srtt=R; s.rttvar=R/2; }
+    else { s.rttvar = 0.75*s.rttvar + 0.25*Math.abs(s.srtt-R); s.srtt = 0.875*s.srtt + 0.125*R; }
+    s.rto = clamp(s.srtt + 4*s.rttvar, CFG.MIN_RTO, CFG.MAX_RTO);
+  }
+  checkPacketMessageDone();
+}
+function onRTO(seq, tok){
+  const s=S.snd;
+  if(s.acked[seq] || tok!==s.token[seq] || S.finished) return;
+  if(s.retx[seq] >= CFG.MAX_RETX){
+    S.failed=true; finish(`Transfer failed: packet ${seq+1} was not acknowledged after ${CFG.MAX_RETX} retransmissions.`); return;
+  }
+  s.retx[seq]++; s.backoff[seq]*=2; S.retx++;
+  log(`A: timer expired for packet ${seq+1} — retransmitting`, 'warn');
+  const p = newPacket('data', A, B, S.pktBytes[seq], {seq, total:S.N, retx:s.retx[seq], priority:true, flow:'msg'});
+  forward(p, A);
+}
+function recordArrival(seq, delay, dup, isChunk){
+  if(S.arrivals.length < CFG.REC_MAX) S.arrivals.push({t:S.t, seq, dup, delay});
+  const r=S.rcv;
+  if(dup){ r.dup++; return; }
+  r.got[seq]=true; r.count++; r.delay[seq]=delay;
+  if(seq < r.maxSeq){ r.ooo++; if(r.ooo<=12) log(`B: packet ${seq+1} arrived after packet ${r.maxSeq+1} (out of order) — held in buffer`, 'mut'); }
+  r.maxSeq = Math.max(r.maxSeq, seq);
+  if(P.traffic==='stream' && delay > CFG.LATE_MS) r.late++;
+  if(P.traffic==='message' && r.count===S.N && !r.done){
+    r.done=true; r.doneAt=S.t;
+    log(isChunk ? `B: whole message received (${S.N} blocks) in order` : `B: all ${S.N} packets received — reordered by sequence number and passed to the application`, 'ok');
+  }
+}
+function onDataAtB(p){
+  const dup = !!S.rcv.got[p.seq];
+  const delay = P.traffic==='stream' ? S.t - p.genAt : S.t - p.sentAt;
+  recordArrival(p.seq, delay, dup, false);
+  if(P.traffic==='message'){
+    const a = newPacket('ack', B, A, CFG.ACK_BYTES, {seq:p.seq, dataSentAt:p.sentAt, dataRetx:p.retx});
+    forward(a, B);
+    checkPacketMessageDone();
+  }
+}
+function checkPacketMessageDone(){
+  if(P.mode==='packet' && P.traffic==='message' && S.rcv.done && S.snd.ackCount===S.N && !S.finished)
+    finish(`Transfer complete in ${fmt(S.rcv.doneAt,1)} ms.`);
+}
+function finish(msg){
+  if(S.finished) return;
+  S.finished=true; S.finishMsg=msg; log(msg, S.failed?'bad':'ok');
+  S.autoPause=true;
+}
+
+/* ======================================================================
+   7. CIRCUIT SWITCHING
+   ====================================================================== */
+function reserveLink(L){
+  L.reserved=true;
+  for(const c of L.chans){ for(const p of c.queue) drop(p, c.from, 'reserved'); c.queue=[]; }
+  computeTables();
+}
+function releaseLink(L){ L.reserved=false; }
+function circuitSetup(){
+  const C = S.circ;
+  const path = staticPath(A,B);
+  C.attempts++;
+  if(!path){ C.state='failed'; S.failed=true; finish('Circuit could not be set up: no available route from A to B.'); return; }
+  C.gen++; C.path=path; C.links=pathLinks(path);
+  C.rate = Math.min(...C.links.map(L=>L.rate)); C.sumD = C.links.reduce((s,L)=>s+L.d,0);
+  C.state='setup'; C.setupStart=S.t; C.holdStart=S.t;
+  log(`A: circuit setup request sent along ${path.map(i=>NODES[i].short).join('–')}`, 'mut');
+  reserveLink(C.links[0]); sendSig('setup', 0);
+}
+function sendSig(kind, i){
+  const C=S.circ; let to, dur;
+  if(kind==='setup'){ to=C.path[i+1]; dur=C.links[i].d + CFG.SETUP_PROC; }
+  else { to=C.path[i-1]; dur=C.links[i-1].d + (kind==='confirm'?CFG.CONFIRM_PROC:CFG.RELEASE_PROC); }
+  const sig = {kind, i, from:C.path[i], to, t0:S.t, t1:S.t+dur, gen:C.gen, travel: kind==='setup'?C.links[i].d:C.links[i-1].d};
+  S.sigs.push(sig); schedule(sig.t1, 'sig', {sig});
+}
+function onSig(sig){
+  const C=S.circ; S.sigs = S.sigs.filter(s=>s!==sig);
+  if(sig.gen!==C.gen) return;
+  if(sig.kind==='setup'){
+    const k=sig.i+1;
+    if(k===C.path.length-1){ sendSig('confirm', k); return; }
+    const L=C.links[k];
+    if(!L.up){ circuitBroken('setup could not reserve a failed link'); return; }
+    reserveLink(L); sendSig('setup', k);
+  } else if(sig.kind==='confirm'){
+    const k=sig.i-1;
+    if(k===0) circuitUp(); else sendSig('confirm', k);
+  } else if(sig.kind==='release'){
+    const k=sig.i-1; releaseLink(C.links[k]);
+    if(k===0){ C.held += S.t - C.holdStart; C.holdStart=null; C.state='released'; computeTables(); log('Circuit released — links free for other traffic', 'mut'); finish(S.failed? 'Run ended.' : `Circuit run complete. Data finished arriving at ${fmt(S.rcv.doneAt??S.t,1)} ms.`); }
+    else sendSig('release', k);
+  }
+}
+function circuitUp(){
+  const C=S.circ; C.state='up'; C.tEst=S.t; C.setupTimes.push(S.t-C.setupStart);
+  log(`Circuit established after ${fmt(S.t-C.setupStart,1)} ms — data can now flow`, 'ok');
+  if(P.traffic==='message') sendChunks();
+  else if(C.firstEst===null){
+    C.firstEst=S.t;
+    for(let k=0;k<S.N;k++) schedule(S.t + k*CFG.STREAM_INTERVAL, 'cframe', {k});
+    schedule(S.t + (S.N-1)*CFG.STREAM_INTERVAL + 100, 'streamEnd', {});
+  }
+}
+function sendChunks(){
+  const C=S.circ; let cum=0;
+  for(let k=0;k<S.N;k++){
+    if(S.rcv.got[k]) continue;
+    const bits=S.payloadBytes[k]*8; const start=S.t+cum/C.rate; cum+=bits;
+    const ch={k, bits, start, arrive:S.t + cum/C.rate + C.sumD, gen:C.gen};
+    S.chunks.push(ch); schedule(ch.arrive, 'chunk', {ch});
+  }
+}
+function onChunk(ch){
+  const C=S.circ; S.chunks = S.chunks.filter(x=>x!==ch);
+  if(ch.gen!==C.gen) return;
+  C.bitsDelivered += ch.bits;
+  recordArrival(ch.k, ch.arrive - ch.start, !!S.rcv.got[ch.k], true);
+  if(P.traffic==='message' && S.rcv.done && C.state==='up'){ C.state='releasing'; sendSig('release', C.path.length-1); }
+}
+function circuitBroken(reason){
+  const C=S.circ; if(!(C.state==='setup'||C.state==='up'||C.state==='releasing')) return;
+  C.gen++;
+  if(C.holdStart!==null){ C.held += S.t - C.holdStart; C.holdStart=null; }
+  for(const L of C.links) L.reserved=false;
+  computeTables();
+  const lost = S.chunks.length; S.chunks=[]; S.sigs=[];
+  C.state='broken'; S.circDrops++;
+  log(`Circuit broken (${reason}) — call dropped${lost?`, ${lost} block(s) in transit lost`:''}`, 'bad');
+  if(C.attempts < CFG.REDIAL_LIMIT) schedule(S.t+CFG.CONVERGE, 'redial', {});
+  else { S.failed=true; finish('Circuit failed after 3 attempts.'); }
+}
+
+/* ======================================================================
+   8. LINK FAILURE / RESTORE
+   ====================================================================== */
+function cutLink(L){
+  if(!L.up) return;
+  L.up=false; S.topoChanged=true;
+  log(`Link ${NODES[L.a].short}–${NODES[L.b].short} FAILED`, 'bad');
+  for(const c of L.chans){
+    for(const p of c.inFlight) drop(p, c.from, 'linkfail');
+    c.inFlight.clear(); c.busy=null;
+    for(const p of c.queue) drop(p, c.from, 'linkfail');
+    c.queue=[];
+  }
+  schedule(S.t+CFG.CONVERGE, 'converge', {L, up:false});
+  const C=S.circ;
+  if(C && C.links && C.links.includes(L) && L.reserved) circuitBroken(`link ${NODES[L.a].short}–${NODES[L.b].short} failed`);
+}
+function restoreLink(L){
+  if(L.up) return;
+  L.up=true; S.topoChanged=true;
+  log(`Link ${NODES[L.a].short}–${NODES[L.b].short} restored`, 'ok');
+  schedule(S.t+CFG.CONVERGE, 'converge', {L, up:true});
+}
+
+/* ======================================================================
+   9. BACKGROUND TRAFFIC
+   ====================================================================== */
+function bgRate(){ return (P.bgLevel/100) * 16 * (P.coreMbps*1000/8000); }   // packets per ms
+function onBg(){
+  const lam = bgRate();
+  if(lam>0){
+    const src = 1 + Math.floor(S.rng()*11); let dst = 1 + Math.floor(S.rng()*10); if(dst>=src) dst++;
+    const p = newPacket('bg', src, dst, CFG.BG_BYTES, {});
+    forward(p, src);
+    schedule(S.t + (-Math.log(1-S.rng()))/lam, 'bg', {});
+  } else schedule(S.t + 5, 'bg', {});
+}
+
+/* ======================================================================
+   10. EVENT DISPATCH AND RESET
+   ====================================================================== */
+function handle(e){
+  const d=e.data;
+  switch(e.type){
+    case 'txDone': if(d.c.busy===d.p) d.c.busy=null; startTx(d.c); break;
+    case 'arrive': onArrive(d.c, d.p); break;
+    case 'rto': onRTO(d.seq, d.tok); break;
+    case 'bg': onBg(); break;
+    case 'routeTick': if(P.routing==='adaptive'){ computeTables(); schedule(S.t+CFG.ROUTE_TICK,'routeTick',{}); } else S.routeTick=false; break;
+    case 'converge': d.L.knownUp = d.up; computeTables(); log(`Routing tables updated: ${NODES[d.L.a].short}–${NODES[d.L.b].short} ${d.up?'added back':'removed'}`, 'mut'); break;
+    case 'scenCut': cutLink(d.L); break;
+    case 'repairStale': if(S.stale){ S.stale=null; computeTables(); log('Routing update: R9\'s faulty entry for Host B corrected', 'ok'); } break;
+    case 'streamGen': {
+      const p = newPacket('data', A, B, CFG.HDR+CFG.STREAM_PAYLOAD+CFG.TRL, {seq:d.k, total:S.N, genAt:S.t, flow:'stream'});
+      forward(p, A); break; }
+    case 'streamEnd': {
+      S.rcv.done=true; S.rcv.doneAt=S.t;
+      const C=S.circ;
+      if(P.mode==='circuit' && C.state==='up'){ C.state='releasing'; sendSig('release', C.path.length-1); }
+      else finish(`Call ended. ${S.rcv.count} of ${S.N} frames received, ${S.rcv.late} late.`);
+      break; }
+    case 'sig': onSig(d.sig); break;
+    case 'chunk': onChunk(d.ch); break;
+    case 'cframe': {
+      const C=S.circ;
+      if(C.state==='up'){ const bits=CFG.STREAM_PAYLOAD*8; const ch={k:d.k,bits,start:S.t,arrive:S.t+bits/C.rate+C.sumD,gen:C.gen}; S.chunks.push(ch); schedule(ch.arrive,'chunk',{ch}); }
+      else { S.rcv.lostOutage++; if(S.rcv.lostOutage===1) log('Frames generated while the circuit is down are lost', 'bad'); }
+      break; }
+    case 'redial': log('A: redialling — setting up a new circuit', 'warn'); circuitSetup(); break;
+  }
+}
+
+function reset(){
+  S = { t:0, heap:new EventHeap(), rng:mulberry32((P.seed>>>0)||1), pktId:0, created:0, bgCreated:0, delivered:0, dropped:0, bgDropped:0,
+        dropBy:{}, dataDrops:{}, log:[], arrivals:[], sends:[], sigs:[], chunks:[], topoChanged:false, stale:null,
+        finished:false, failed:false, routeTick:false, retx:0, circDrops:0, autoPause:false, logDirty:true };
+  buildNetwork(); computeTables();
+  if(scenario && scenario.events) scenario.events();
+  if(S.stale) computeTables();
+  // ---- traffic definition
+  if(P.traffic==='message'){
+    const msgBytes = P.msgKB*1000, pay = P.pktBytes - CFG.HDR - CFG.TRL;
+    S.N = Math.ceil(msgBytes / pay);
+    S.payloadBytes = []; S.pktBytes = [];
+    for(let k=0;k<S.N;k++){ const b = k<S.N-1 ? pay : msgBytes - pay*(S.N-1); S.payloadBytes.push(b); S.pktBytes.push(b+CFG.HDR+CFG.TRL); }
+    S.msgBytes = msgBytes;
+  } else {
+    S.N = CFG.STREAM_FRAMES; S.payloadBytes = new Array(S.N).fill(CFG.STREAM_PAYLOAD); S.pktBytes = new Array(S.N).fill(CFG.STREAM_PAYLOAD+CFG.HDR+CFG.TRL);
+  }
+  S.rcv = { got:[], delay:[], count:0, maxSeq:-1, ooo:0, dup:0, late:0, done:false, doneAt:null, lostOutage:0 };
+  S.snd = { acked:new Array(S.N).fill(false), token:new Array(S.N).fill(0), backoff:new Array(S.N).fill(1), retx:new Array(S.N).fill(0),
+            ackCount:0, srtt:null, rttvar:null, rto:CFG.INIT_RTO };
+  S.circ = { attempts:0, gen:0, state:'idle', firstEst:null, setupTimes:[], held:0, holdStart:null, bitsDelivered:0, links:null };
+  S.initialPath = tablePath(A,B);
+  S.pred = null;
+  // ---- start traffic
+  if(P.mode==='packet'){
+    if(P.traffic==='message'){
+      for(let k=0;k<S.N;k++) forward(newPacket('data', A, B, S.pktBytes[k], {seq:k, total:S.N, flow:'msg'}), A);
+      log(`A: message split into ${S.N} packets and handed to R1`, 'mut');
+      S.pred = predictPacket();
+    } else {
+      for(let k=0;k<S.N;k++) schedule(k*CFG.STREAM_INTERVAL, 'streamGen', {k});
+      schedule((S.N-1)*CFG.STREAM_INTERVAL + 300, 'streamEnd', {});
+      log('Call started: A sends a 160-byte frame every 20 ms', 'mut');
+    }
+  } else {
+    circuitSetup();
+    S.pred = predictCircuit();
+  }
+  schedule(0, 'bg', {});
+  if(P.routing==='adaptive') startRouteTick();
+  selected = null;
+  renderInspector(); updateAll(true);
+}
+
+/* ======================================================================
+   11. INDEPENDENT ANALYTIC PREDICTIONS (validation)
+   ====================================================================== */
+function predictPacket(){
+  const path = S.initialPath; if(!path) return null;
+  const links = pathLinks(path), n=links.length;
+  let prev = null;
+  for(let k=0;k<S.N;k++){
+    const cur = new Array(n);
+    for(let i=0;i<n;i++){
+      const ready = i===0 ? 0 : cur[i-1] + links[i-1].d;
+      const free  = prev ? prev[i] : 0;
+      cur[i] = Math.max(ready, free) + S.pktBytes[k]*8/links[i].rate;
+    }
+    prev = cur;
+  }
+  return { finish: prev[n-1] + links[n-1].d, path };
+}
+function predictCircuit(){
+  const path = staticPath(A,B); if(!path) return null;
+  const links = pathLinks(path); const sumD = links.reduce((s,L)=>s+L.d,0); const R=Math.min(...links.map(L=>L.rate));
+  const setup = links.reduce((s,L)=>s+L.d+CFG.SETUP_PROC,0) + links.reduce((s,L)=>s+L.d+CFG.CONFIRM_PROC,0);
+  const bits = P.traffic==='message' ? S.msgBytes*8 : null;
+  return { setup, finish: bits!==null ? setup + bits/R + sumD : null, R, sumD };
+}
+function liveInNetwork(){ let n=0; for(const c of S.chans) n += c.queue.length + c.inFlight.size; return n; }
+
+/* ======================================================================
+   12. MAIN LOOP
+   ====================================================================== */
+function advanceTo(target){
+  let n=0;
+  while(S.heap.size && S.heap.peek().t <= target){
+    const e=S.heap.pop(); S.t=e.t; handle(e);
+    if(++n > CFG.EVENT_CAP){ target = S.t; break; }        // safety valve: never freeze the page
+  }
+  S.t = Math.max(S.t, target);
+}
+let lastFrame = performance.now(), lastUI = 0;
+function frame(now){
+  const dt = Math.min(0.1, (now-lastFrame)/1000); lastFrame=now;
+  if(playing){
+    advanceTo(S.t + dt*P.speed);
+    if(S.autoPause){ S.autoPause=false; setPlaying(false); }
+  }
+  drawNet();
+  if(now-lastUI > 120){ lastUI=now; updateAll(false); }
+  requestAnimationFrame(frame);
+}
+
+/* ======================================================================
+   13. RENDERING — NETWORK (Canvas 2D)
+   ====================================================================== */
+const net = $('net'); const nctx = net.getContext('2d');
+const gArr = $('gArr'), gDelay = $('gDelay');
+const actx = gArr.getContext('2d'), dctx = gDelay.getContext('2d');
+let VIEW = {s:1, ox:0, oy:0}; let hitList = [];
+const seqColour = (seq, l=62) => `hsl(${(seq*137.508)%360} 78% ${l}%)`;
+
+function fitCanvas(cv, cssH){
+  const dpr = Math.min(2, window.devicePixelRatio||1); const w = cv.clientWidth; const h = cssH ?? cv.clientHeight;
+  const W = Math.max(1, Math.round(w*dpr)), H = Math.max(1, Math.round(h*dpr));
+  if(cv.width!==W || cv.height!==H){ cv.width=W; cv.height=H; }
+  return dpr;
+}
+function lane(c, f, off=4.5){
+  const a=NODES[c.from], b=NODES[c.to]; const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy); const ux=dx/len, uy=dy/len;
+  const ra=nodeR(c.from), rb=nodeR(c.to); const nx=-uy, ny=ux;
+  const sx=a.x+ux*ra, sy=a.y+uy*ra, ex=b.x-ux*rb, ey=b.y-uy*rb;
+  return { x: sx+(ex-sx)*f + nx*off, y: sy+(ey-sy)*f + ny*off, ux, uy, len: len-ra-rb };
+}
+function along(path, f){
+  const segs=[]; let total=0;
+  for(let i=0;i<path.length-1;i++){ const a=NODES[path[i]], b=NODES[path[i+1]]; const l=Math.hypot(b.x-a.x,b.y-a.y); segs.push({a,b,l}); total+=l; }
+  let d=clamp(f,0,1)*total;
+  for(const s of segs){ if(d<=s.l){ const t=d/s.l; return {x:s.a.x+(s.b.x-s.a.x)*t, y:s.a.y+(s.b.y-s.a.y)*t}; } d-=s.l; }
+  const last=NODES[path[path.length-1]]; return {x:last.x,y:last.y};
+}
+function arrow(ctx, x1,y1,x2,y2, col, w){
+  ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=w; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  const a=Math.atan2(y2-y1,x2-x1), h=7; ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x2-h*Math.cos(a-0.45), y2-h*Math.sin(a-0.45)); ctx.lineTo(x2-h*Math.cos(a+0.45), y2-h*Math.sin(a+0.45)); ctx.closePath(); ctx.fill();
+}
+function drawNet(){
+  if(!nctx) return;
+  fitCanvas(net, net.clientWidth*540/1000);
+  const W=net.width, H=net.height; nctx.setTransform(1,0,0,1,0,0); nctx.clearRect(0,0,W,H);
+  const s=Math.min(W/1000, H/540), ox=(W-1000*s)/2, oy=(H-540*s)/2; VIEW={s,ox,oy};
+  const ctx=nctx; ctx.setTransform(s,0,0,s,ox,oy);
+  const ov={ routes:$('ovRoutes').checked, queues:$('ovQueues').checked, acks:$('ovAcks').checked, bg:$('ovBg').checked, costs:$('ovCosts').checked };
+  hitList=[];
+
+  // reserved circuit underlay
+  for(const L of S.links) if(L.reserved){ const a=NODES[L.a], b=NODES[L.b]; ctx.strokeStyle='rgba(45,212,191,.35)'; ctx.lineWidth=16; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+  // links
+  for(const L of S.links){
+    const a=NODES[L.a], b=NODES[L.b];
+    ctx.lineCap='butt';
+    if(!L.up){ ctx.setLineDash([7,6]); ctx.strokeStyle='#ff6b6b'; ctx.lineWidth=2; }
+    else { ctx.setLineDash([]); ctx.strokeStyle = L.access ? '#4d5d72' : '#33414f'; ctx.lineWidth = L.access?3:2.2; }
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); ctx.setLineDash([]);
+    const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+    if(!L.up){ ctx.strokeStyle='#ff6b6b'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(mx-7,my-7); ctx.lineTo(mx+7,my+7); ctx.moveTo(mx+7,my-7); ctx.lineTo(mx-7,my+7); ctx.stroke(); }
+    else if(ov.costs){ ctx.font='11px system-ui'; const t=String(L.cost); const w=ctx.measureText(t).width+6; ctx.fillStyle='#0c1016'; ctx.fillRect(mx-w/2,my-7,w,14); ctx.fillStyle='#b69cff'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(t,mx,my); }
+  }
+  // queue bars
+  if(ov.queues) for(const c of S.chans){
+    const q=c.queue.length; if(!q) continue;
+    const p0=lane(c,0,9); const frac = c.unlimited ? Math.min(1,q/40) : q/P.buffer; const L=p0.len*0.42*Math.min(1,frac);
+    ctx.strokeStyle = (!c.unlimited && frac>=0.8) ? '#ff6b6b' : '#f5b942'; ctx.lineWidth=5; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p0.x+p0.ux*Math.max(3,L), p0.y+p0.uy*Math.max(3,L)); ctx.stroke(); ctx.lineCap='butt';
+    if(q>=2){ ctx.font='bold 10px system-ui'; ctx.fillStyle='#f5b942'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(q), p0.x+p0.ux*(Math.max(3,L)+9)-p0.uy*6, p0.y+p0.uy*(Math.max(3,L)+9)+p0.ux*6); }
+  }
+  // routing overlay: next hop towards B
+  if(ov.routes && P.mode==='packet') for(let r=1;r<=11;r++){
+    const c=nextChan(r,B); if(!c) continue;
+    const st = S.stale && S.stale.node===r;
+    const p1=lane(c,0.18,-7), p2=lane(c,0.52,-7);
+    arrow(ctx,p1.x,p1.y,p2.x,p2.y, st?'#ff6b6b':'rgba(76,194,255,.85)', st?2.5:1.8);
+  }
+  // nodes
+  for(let i=0;i<NODES.length;i++){
+    const nd=NODES[i]; const sel = selected && selected.type==='node' && selected.i===i;
+    if(nd.type==='host'){
+      ctx.fillStyle='#16324a'; ctx.strokeStyle= sel?'#ffd166':'#4cc2ff'; ctx.lineWidth=sel?3:2;
+      roundRect(ctx, nd.x-24, nd.y-19, 48, 34, 6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#4cc2ff'; ctx.fillRect(nd.x-10, nd.y+15, 20, 4);
+      ctx.fillStyle='#fff'; ctx.font='bold 16px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(nd.short, nd.x, nd.y-2);
+      ctx.font='11px system-ui'; ctx.fillStyle='#9fb0c0'; ctx.fillText(nd.name, nd.x, nd.y+33); ctx.fillText(nd.addr, nd.x, nd.y+47);
+    } else {
+      let busy=0; for(const c of S.adj[i]) busy+=c.queue.length;
+      ctx.beginPath(); ctx.arc(nd.x, nd.y, 17, 0, Math.PI*2);
+      ctx.fillStyle = S.stale && S.stale.node===i ? '#3a1a1a' : '#1b2633'; ctx.fill();
+      ctx.strokeStyle = sel ? '#ffd166' : (busy? '#f5b942' : '#6b7d92'); ctx.lineWidth = sel?3:2; ctx.stroke();
+      ctx.fillStyle='#e6edf3'; ctx.font='bold 11px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(nd.short, nd.x, nd.y);
+    }
+  }
+  // circuit signalling messages
+  for(const sg of S.sigs){
+    const f = clamp((S.t - sg.t0)/Math.max(1e-9, sg.travel), 0, 1);
+    const a=NODES[sg.from], b=NODES[sg.to]; const x=a.x+(b.x-a.x)*f, y=a.y+(b.y-a.y)*f;
+    ctx.save(); ctx.translate(x,y); ctx.rotate(Math.PI/4);
+    ctx.fillStyle = sg.kind==='setup' ? '#ffd166' : sg.kind==='confirm' ? '#4ade80' : '#9fb0c0';
+    ctx.fillRect(-6,-6,12,12); ctx.restore();
+    ctx.font='10px system-ui'; ctx.fillStyle='#ffd166'; ctx.textAlign='center'; ctx.fillText(sg.kind==='setup'?'SETUP':sg.kind==='confirm'?'CONNECT':'RELEASE', x, y-14);
+  }
+  // circuit data blocks
+  if(S.circ && S.circ.path) for(const ch of S.chunks){
+    const g=(S.t-ch.start)/(ch.arrive-ch.start); if(g<0||g>1) continue;
+    const pt=along(S.circ.path, g);
+    ctx.fillStyle=seqColour(ch.k); roundRect(ctx, pt.x-9, pt.y-6, 18, 12, 3); ctx.fill();
+    ctx.fillStyle='#0b0f14'; ctx.font='bold 9px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(ch.k+1), pt.x, pt.y+0.5);
+  }
+  // packets in flight
+  const draws=[];
+  for(const c of S.chans) for(const p of c.inFlight){
+    if(p.kind==='bg' && !ov.bg) continue; if(p.kind==='ack' && !ov.acks) continue;
+    const f=clamp((S.t-p.txStart)/(p.arriveAt-p.txStart),0,1); const pt=lane(c,f);
+    draws.push({p,x:pt.x,y:pt.y});
+  }
+  draws.sort((u,v)=> (u.p.kind==='data')-(v.p.kind==='data'));
+  for(const d of draws){
+    const p=d.p, sel = selected && selected.type==='packet' && selected.p===p;
+    if(p.kind==='bg'){ ctx.fillStyle='#5b6878'; ctx.beginPath(); ctx.arc(d.x,d.y,3.6,0,Math.PI*2); ctx.fill(); }
+    else if(p.kind==='ack'){ ctx.fillStyle='#e9eef5'; ctx.fillRect(d.x-3,d.y-3,6,6); }
+    else {
+      ctx.beginPath(); ctx.arc(d.x,d.y,8,0,Math.PI*2); ctx.fillStyle=seqColour(p.seq); ctx.fill();
+      if(p.retx){ ctx.setLineDash([2,2]); ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke(); ctx.setLineDash([]); }
+      ctx.fillStyle='#0b0f14'; ctx.font='bold 9px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(p.seq+1), d.x, d.y+0.5);
+    }
+    if(sel){ ctx.strokeStyle='#ffd166'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(d.x,d.y,12,0,Math.PI*2); ctx.stroke(); }
+    hitList.push(d);
+  }
+  // overlay text when idle
+  if(S.t===0 && !playing){ ctx.font='13px system-ui'; ctx.fillStyle='#9fb0c0'; ctx.textAlign='center'; ctx.fillText('Press ▶ Play to start. Click a link to cut it; click a packet or router to inspect it.', 500, 525); }
+}
+function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+/* ======================================================================
+   14. RENDERING — GRAPHS
+   ====================================================================== */
+function niceMax(v){ if(v<=0) return 1; const e=Math.pow(10,Math.floor(Math.log10(v))); const m=v/e; const n = m<=1?1: m<=2?2: m<=2.5?2.5: m<=5?5:10; return n*e; }
+function axes(ctx, W, H, dpr, m, xmax, ymax, xlab, ylab, xTicksInt, yTicksInt){
+  ctx.strokeStyle='#2a3646'; ctx.fillStyle='#9fb0c0'; ctx.lineWidth=1*dpr; ctx.font=`${11*dpr}px system-ui`;
+  const pw=W-m.l-m.r, ph=H-m.t-m.b;
+  for(let i=0;i<=4;i++){ const y=m.t+ph-ph*i/4; ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+pw,y); ctx.stroke();
+    ctx.textAlign='right'; ctx.textBaseline='middle'; const v=ymax*i/4; ctx.fillText(yTicksInt?String(Math.round(v)):(Number.isInteger(v)?String(v):v.toFixed(1)), m.l-5*dpr, y); }
+  if(xTicksInt!=='bars') for(let i=0;i<=5;i++){ const x=m.l+pw*i/5; const v=xmax*i/5; ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillText(xTicksInt? String(Math.round(v)) : (Number.isInteger(v)?String(v):v.toFixed(1)), x, m.t+ph+4*dpr); }
+  ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText(xlab, m.l+pw/2, H-1*dpr);
+  ctx.save(); ctx.translate(11*dpr, m.t+ph/2); ctx.rotate(-Math.PI/2); ctx.textBaseline='middle'; ctx.fillText(ylab,0,0); ctx.restore();
+  return {pw,ph};
+}
+function drawGraphs(){
+  // --- arrival graph
+  let dpr=fitCanvas(gArr); let W=gArr.width, H=gArr.height; actx.clearRect(0,0,W,H);
+  let m={l:46*dpr,r:10*dpr,t:8*dpr,b:30*dpr};
+  let tmax=Math.max(20, S.t); for(const a of S.arrivals) tmax=Math.max(tmax,a.t);
+  const xmax=niceMax(tmax), ymax=S.N;
+  let {pw,ph}=axes(actx,W,H,dpr,m,xmax,ymax,'time (ms)', P.mode==='circuit'?'block / frame number':'sequence number', false, true);
+  const X=t=>m.l+pw*t/xmax, Y=s=>m.t+ph-ph*(s+1)/ymax;
+  actx.strokeStyle='#6b7d92'; actx.lineWidth=1.2*dpr;
+  for(const s of S.sends){ const x=X(s.t), y=Y(s.seq); actx.beginPath(); actx.moveTo(x-3*dpr,y); actx.lineTo(x+3*dpr,y); actx.stroke(); if(s.retx){ actx.strokeStyle='#f5b942'; actx.beginPath(); actx.moveTo(x,y-3*dpr); actx.lineTo(x,y+3*dpr); actx.stroke(); actx.strokeStyle='#6b7d92'; } }
+  for(const a of S.arrivals){ const x=X(a.t), y=Y(a.seq); actx.beginPath(); actx.arc(x,y,3.2*dpr,0,Math.PI*2);
+    if(a.dup){ actx.strokeStyle='#ff6b6b'; actx.lineWidth=1.3*dpr; actx.stroke(); } else { actx.fillStyle=seqColour(a.seq); actx.fill(); } }
+  // --- delay graph
+  dpr=fitCanvas(gDelay); W=gDelay.width; H=gDelay.height; dctx.clearRect(0,0,W,H);
+  m={l:46*dpr,r:10*dpr,t:8*dpr,b:30*dpr};
+  let dm=10; for(let k=0;k<S.N;k++) if(Number.isFinite(S.rcv.delay[k])) dm=Math.max(dm,S.rcv.delay[k]);
+  if(P.traffic==='stream') dm=Math.max(dm, CFG.LATE_MS*1.1);
+  const ymx=niceMax(dm);
+  ({pw,ph}=axes(dctx,W,H,dpr,m,S.N,ymx, P.mode==='circuit'?'block / frame number':'sequence number','delay (ms)', 'bars'));
+  const bw=pw/S.N;
+  { const step=Math.max(1,Math.ceil(S.N/10)); dctx.fillStyle='#9fb0c0'; dctx.font=`${11*dpr}px system-ui`; dctx.textAlign='center'; dctx.textBaseline='top';
+    for(let k=0;k<S.N;k+=step) dctx.fillText(String(k+1), m.l+k*bw+bw/2, m.t+ph+4*dpr); }
+  for(let k=0;k<S.N;k++){
+    const v=S.rcv.delay[k];
+    if(Number.isFinite(v)){ const h=ph*v/ymx; dctx.fillStyle = (P.traffic==='stream' && v>CFG.LATE_MS) ? '#ff6b6b' : '#4cc2ff'; dctx.fillRect(m.l+k*bw+bw*0.12, m.t+ph-h, Math.max(1,bw*0.76), h); }
+    else if(S.finished){ dctx.fillStyle='#ff6b6b'; dctx.font=`${10*dpr}px system-ui`; dctx.textAlign='center'; dctx.fillText('×', m.l+k*bw+bw/2, m.t+ph-6*dpr); }
+  }
+  if(P.traffic==='stream'){ const y=m.t+ph-ph*CFG.LATE_MS/ymx; dctx.setLineDash([5*dpr,4*dpr]); dctx.strokeStyle='#ff6b6b'; dctx.lineWidth=1.2*dpr; dctx.beginPath(); dctx.moveTo(m.l,y); dctx.lineTo(m.l+pw,y); dctx.stroke(); dctx.setLineDash([]);
+    dctx.fillStyle='#ff6b6b'; dctx.font=`${10.5*dpr}px system-ui`; dctx.textAlign='right'; dctx.textBaseline='bottom'; dctx.fillText(`late limit ${CFG.LATE_MS} ms`, m.l+pw, y-2*dpr); }
+}
+
+/* ======================================================================
+   15. READOUTS, EXPLANATION, INSPECTOR, LOG
+   ====================================================================== */
+function stats(){
+  const r=S.rcv; const ds=[]; for(let k=0;k<S.N;k++) if(Number.isFinite(r.delay[k])) ds.push(r.delay[k]);
+  const mean = ds.length? ds.reduce((a,b)=>a+b,0)/ds.length : NaN;
+  let jsum=0,jn=0; for(let k=1;k<S.N;k++) if(Number.isFinite(r.delay[k])&&Number.isFinite(r.delay[k-1])){ jsum+=Math.abs(r.delay[k]-r.delay[k-1]); jn++; }
+  return { mean, min: ds.length?Math.min(...ds):NaN, max: ds.length?Math.max(...ds):NaN, jitter: jn? jsum/jn : NaN };
+}
+function row(dt, dd, cls){ return `<dt>${dt}</dt><dd class="${cls||''}">${dd}</dd>`; }
+function updateReadings(){
+  const r=S.rcv, st=stats(), C=S.circ; let h='';
+  const statusTxt = S.finished ? (S.failed?'<span class="bad">Failed</span>':'<span class="ok">Complete</span>') :
+     P.mode==='circuit' ? ({idle:'Idle',setup:'Setting up circuit',up:'Circuit up — transferring',releasing:'Releasing circuit',broken:'Call dropped — redialling',released:'Released',failed:'Failed'}[C.state]) :
+     (S.t===0?'Ready':'Transferring');
+  h+=row('Status', statusTxt);
+  if(P.traffic==='message'){
+    if(P.mode==='packet'){
+      const pay=P.pktBytes-CFG.HDR-CFG.TRL;
+      h+=row('Packets needed', `${S.N} × ${P.pktBytes} B`);
+      h+=row('<span class="mut">header + payload + trailer</span>', `<span class="mut">${CFG.HDR} + ${pay} + ${CFG.TRL} B</span>`);
+      h+=row('Header/trailer overhead', fmt(100*(CFG.HDR+CFG.TRL)*S.N/(S.msgBytes+(CFG.HDR+CFG.TRL)*S.N),1)+' %');
+    } else h+=row('Message', `${P.msgKB} kB as ${S.N} blocks (no headers)`);
+    h+=row('Received at B', `${r.count} / ${S.N}`);
+  } else {
+    h+=row('Frames received', `${r.count} / ${S.N}`);
+    h+=row('Late (> '+CFG.LATE_MS+' ms)', String(r.late), r.late?'warn':'');
+  }
+  if(P.mode==='packet'){
+    h+=row('Arrived out of order', String(r.ooo), r.ooo?'warn':'');
+    if(P.traffic==='message'){ h+=row('Duplicates discarded', String(r.dup)); h+=row('Retransmissions by A', String(S.retx), S.retx?'warn':''); }
+    const dd=S.dataDrops; const dTot=Object.values(dd).reduce((a,b)=>a+b,0);
+    h+=row('Data packets dropped', dTot? `${dTot} <span class="mut">(buffer ${dd.overflow||0}, hop limit ${dd.ttl||0}, link ${ (dd.linkfail||0)+(dd.linkdown||0)+(dd.noroute||0)})</span>` : '0', dTot?'bad':'');
+  } else {
+    const setup = C.setupTimes.length? C.setupTimes[0] : NaN;
+    h+=row('Circuit setup time', fmt(setup,1)+' ms');
+    h+=row('Circuit rate', fmt(C.rate? C.rate/1000 : NaN,1)+' Mbps');
+    const held = C.held + (C.holdStart!==null? S.t-C.holdStart : 0);
+    h+=row('Circuit utilisation', held>0 && C.rate ? fmt(100*C.bitsDelivered/(C.rate*held),1)+' %' : '—');
+    if(S.circDrops) h+=row('Calls dropped', String(S.circDrops), 'bad');
+    if(r.lostOutage) h+=row('Frames lost while down', String(r.lostOutage), 'bad');
+  }
+  h+=row('Other users\' packets dropped', String(S.bgDropped));
+  h+='<div class="sep"></div>';
+  if(P.traffic==='message') h+=row('Transfer time', r.done? fmt(r.doneAt,2)+' ms' : '—', r.done?'ok':'');
+  h+=row('One-way delay (mean)', fmt(st.mean,2)+' ms');
+  h+=row('<span class="mut">min / max</span>', `<span class="mut">${fmt(st.min,1)} / ${fmt(st.max,1)} ms</span>`);
+  h+=row('Jitter', fmt(st.jitter,2)+' ms');
+  h+='<div class="sep"></div>';
+  // checks
+  const live = liveInNetwork(); const cons = S.created === S.delivered + S.dropped + live;
+  h+=row('Conservation check', cons? `<span class="ok">✓</span> <span class="mut">${S.created} = ${S.delivered}+${S.dropped}+${live}</span>` : '<span class="bad">✗ mismatch</span>');
+  h+=row('Analytic check', analyticText());
+  $('readings').innerHTML=h;
+  // reassembly strip
+  const box=$('reasm'); box.classList.toggle('small', S.N>60);
+  let firstMissing=-1; for(let k=0;k<S.N;k++) if(!r.got[k]){ firstMissing=k; break; }
+  let cells='';
+  for(let k=0;k<S.N;k++){ const got=r.got[k]; cells+=`<i class="${got?'got':''}${k===firstMissing&&r.count>0?' next':''}" style="${got?'background:'+seqColour(k):''}">${S.N<=60?(k+1):''}</i>`; }
+  box.innerHTML=cells;
+  $('reasmLabel').textContent = P.traffic==='stream' ? 'Frames received at B' :
+     r.done ? 'Reassembly buffer at B — complete, passed to application' :
+     firstMissing>0 && r.count>firstMissing ? `Reassembly buffer at B — holding ${r.count-countBelow(firstMissing)} packet(s), waiting for packet ${firstMissing+1}` : 'Reassembly buffer at B';
+}
+function countBelow(k){ let n=0; for(let i=0;i<k;i++) if(S.rcv.got[i]) n++; return n; }
+function analyticText(){
+  if(!S.pred) return '<span class="mut">n/a for this mode</span>';
+  if(P.mode==='packet'){
+    const valid = P.traffic==='message' && P.routing==='static' && S.bgCreated===0 && !S.topoChanged && !S.stale && S.dropped===0 && S.retx===0;
+    if(!valid) return '<span class="mut">needs static routing, no other traffic, no failures or loss</span>';
+    if(!S.rcv.done) return `<span class="mut">predicts ${fmt(S.pred.finish,2)} ms</span>`;
+    const ok=Math.abs(S.rcv.doneAt-S.pred.finish)<1e-6;
+    return ok? `<span class="ok">✓</span> <span class="mut">predicted ${fmt(S.pred.finish,2)} ms</span>` : `<span class="bad">✗ predicted ${fmt(S.pred.finish,2)} ms</span>`;
+  } else {
+    const C=S.circ; if(C.attempts>1) return '<span class="mut">n/a after redial</span>';
+    if(!C.setupTimes.length) return `<span class="mut">setup should take ${fmt(S.pred.setup,2)} ms</span>`;
+    const okSetup=Math.abs(C.setupTimes[0]-S.pred.setup)<1e-6;
+    if(P.traffic==='message'){
+      if(!S.rcv.done) return okSetup? `<span class="ok">✓ setup</span> <span class="mut">finish predicted ${fmt(S.pred.finish,2)} ms</span>` : '<span class="bad">✗ setup</span>';
+      const ok=okSetup && Math.abs(S.rcv.doneAt-S.pred.finish)<1e-6;
+      return ok? `<span class="ok">✓</span> <span class="mut">predicted ${fmt(S.pred.finish,2)} ms</span>` : '<span class="bad">✗ mismatch</span>';
+    }
+    return okSetup? '<span class="ok">✓ setup time</span>' : '<span class="bad">✗ setup</span>';
+  }
+}
+function recent(re, within){ for(let i=S.log.length-1;i>=0;i--){ const e=S.log[i]; if(S.t-e.t>within) break; if(re.test(e.msg)) return e; } return null; }
+function updateExplain(){
+  const r=S.rcv, C=S.circ, out=[];
+  if(S.t===0 && !playing){ out.push(`<p>${esc(scenario.desc)}</p><p>Press <b>Play</b> to start. Playback is slowed down: ${P.speed} ms of network time takes one real second.</p>`); $('explain').innerHTML=out.join(''); return; }
+  if(P.mode==='packet'){
+    if(P.traffic==='message'){
+      if(r.done) out.push(`<p><b>Done.</b> All ${S.N} packets reached B. ${r.ooo? `${r.ooo} arrived out of order, so` : 'They arrived in order, but'} B used the <b>sequence number</b> in each header to put them back in order before passing the message to the application.</p>`);
+      else out.push(`<p>A has split the ${P.msgKB} kB message into <b>${S.N} packets</b>. Each header holds A's and B's addresses and a sequence number. Every router reads the <b>destination address</b>, looks it up in its <b>routing table</b> and forwards the packet to the next hop.</p>`);
+    } else {
+      out.push(`<p>A sends a small voice/video packet every 20 ms. Each one is routed independently, so each meets different queues. One-way delay ranges from ${fmt(stats().min,1)} to ${fmt(stats().max,1)} ms (jitter ${fmt(stats().jitter,1)} ms). Lost or late packets are not resent, because they would arrive too late to play.</p>`);
+    }
+    out.push(P.routing==='adaptive' ? '<p><b>Adaptive routing:</b> tables are recalculated every 5 ms using current queue lengths. When one route gets busy, later packets are sent another way, so packets from one message can take different routes.</p>'
+                                    : '<p><b>Static routing:</b> tables only change when the topology changes, so packets to B all follow the same route (blue arrows) and usually arrive in order.</p>');
+    if(P.traffic==='message' && !r.done && r.count>0){ let fm=-1; for(let k=0;k<S.N;k++) if(!r.got[k]){fm=k;break;} if(fm>=0 && r.count>countBelow(fm)) out.push(`<p>B is holding later packets in its buffer while it waits for <b>packet ${fm+1}</b>.</p>`); }
+    if(S.stale) out.push('<p class="bad"><b>Routing loop:</b> R9\'s faulty entry sends packets for B back to R6, and R6 sends them to R9 again. Each router takes 1 off the <b>hop limit</b>. When it reaches 0 the packet is discarded, so it cannot circulate forever.</p>');
+    const cut=recent(/FAILED/, 40); if(cut) out.push(`<p class="bad"><b>${esc(cut.msg)}</b> at ${fmt(cut.t,1)} ms. Packets on that link were lost. Routers learn about the failure after ${CFG.CONVERGE} ms and recompute their tables to route around it.</p>`);
+    if((S.dataDrops.overflow||0)>0 && !r.done) out.push('<p>Some router queues filled up, and packets arriving at a full buffer were discarded.</p>');
+    if(S.retx>0 && P.traffic==='message') out.push(`<p>A got no acknowledgement for some packets before their timer ran out, so it has retransmitted ${S.retx} packet(s).</p>`);
+  } else {
+    if(C.state==='setup') out.push('<p><b>Setting up the circuit.</b> A setup request travels hop by hop, and each switch reserves the link for this call. No user data can be sent until B\'s confirmation gets back to A.</p>');
+    else if(C.state==='up'||C.state==='releasing') out.push(`<p><b>Circuit established</b> after ${fmt(C.setupTimes[C.setupTimes.length-1],1)} ms. Data streams along the reserved path at ${fmt(C.rate/1000,1)} Mbps. It all follows the same route, so it arrives in order with a constant delay. Reserved links (teal) <b>cannot be used by anyone else</b>, even when idle.</p>`);
+    else if(C.state==='broken') out.push('<p class="bad"><b>The circuit is broken.</b> There is no alternative route for a dedicated circuit, so the call is dropped. A must set up a new circuit from scratch.</p>');
+    else if(C.state==='released') out.push('<p>The circuit has been released and its links are free for other traffic again.</p>');
+    if(P.traffic==='stream' && C.rate) out.push(`<p>The call needs only 64 kbit/s, but the circuit reserves ${fmt(C.rate/1000,1)} Mbps. Most of the reserved capacity is wasted.</p>`);
+  }
+  $('explain').innerHTML=out.join('');
+}
+function updateLog(){
+  if(!S.logDirty) return; S.logDirty=false;
+  const items=S.log.slice(-40).reverse().map(e=>`<li class="${e.cls||''}"><time>${fmt(e.t,1)}</time>${esc(e.msg)}</li>`);
+  $('log').innerHTML=items.join('');
+}
+function nodeName(i){ return NODES[i].short; }
+function renderInspector(){
+  const el=$('inspector');
+  if(!selected){ el.innerHTML='<p class="hint">Click a packet, router or host (or choose one above) to see its header or routing table. Pause first to catch a moving packet.</p>'; return; }
+  if(selected.type==='packet'){
+    const p=selected.p; let h='';
+    const where = p.status==='moving' && p.chan ? `in transit ${nodeName(p.chan.from)} → ${nodeName(p.chan.to)}, arrives at ${fmt(p.arriveAt,2)} ms` :
+                  p.status==='queued' ? `waiting in ${nodeName(p.at)}'s output queue` :
+                  p.status==='delivered' ? `delivered to ${nodeName(p.at)} at ${fmt(p.deliveredAt,2)} ms` :
+                  `<span class="bad">discarded at ${nodeName(p.at)} (${({overflow:'buffer full',ttl:'hop limit reached 0',linkfail:'link failed',linkdown:'link down',noroute:'no route',reserved:'link reserved'})[p.dropReason]})</span>`;
+    if(p.kind==='data'){
+      const off = p.flow==='msg' ? S.payloadBytes.slice(0,p.seq).reduce((a,b)=>a+b,0) : 0;
+      h+=`<b>Data packet ${p.seq+1} of ${S.N}</b>${p.retx?` <span class="warn">(retransmission ${p.retx})</span>`:''}`;
+      h+=`<div class="hdr"><div class="k">HEADER (${CFG.HDR} B)</div>
+        Source address: ${NODES[p.src].addr} (Host A)<br>Destination address: ${NODES[p.dst].addr} (Host B)<br>
+        Sequence number: ${p.seq+1}<br>Hop limit: <b>${p.hop}</b> <span class="k">(started at ${p.hopInit})</span><br>Protocol: ${p.flow==='msg'?'TCP':'UDP/RTP'}</div>
+        <div class="hdr"><div class="k">PAYLOAD (${p.bytes-CFG.HDR-CFG.TRL} B)</div>${p.flow==='msg'?`Bytes ${off+1}–${off+p.bytes-CFG.HDR-CFG.TRL} of the message`:'20 ms of encoded audio/video'}</div>
+        <div class="hdr"><div class="k">TRAILER (${CFG.TRL} B)</div>Error check value</div>`;
+    } else if(p.kind==='ack'){
+      h+=`<b>Acknowledgement</b> for packet ${p.seq+1}<div class="hdr">Source: ${NODES[B].addr} (Host B)<br>Destination: ${NODES[A].addr} (Host A)<br>Hop limit: ${p.hop}</div>`;
+    } else {
+      h+=`<b>Other users' traffic</b><div class="hdr">From ${nodeName(p.src)} to ${nodeName(p.dst)}<br>Hop limit: ${p.hop}</div>`;
+    }
+    h+=`<div><span class="k">Size:</span> ${p.bytes} B → ${fmt(p.bits/(P.coreMbps*1000),2)} ms to transmit on a core link</div>`;
+    h+=`<div><span class="k">Route so far:</span> ${p.path.map(nodeName).join(' → ')}</div>`;
+    h+=`<div><span class="k">Status:</span> ${where}</div>`;
+    h+=`<p class="hint">The IP addresses stay the same at every hop. Each router wraps the packet in a new link-layer frame with new MAC addresses <span class="badge ext">ext</span>.</p>`;
+    el.innerHTML=h; return;
+  }
+  const i=selected.i, nd=NODES[i]; let h=`<b>${nd.name}</b> <span class="k">· ${nd.addr}</span>`;
+  if(nd.type==='host'){
+    h+= i===A ? `<p>Sending host. Default gateway: R1.${P.mode==='packet'&&P.traffic==='message'?` Waiting for ${S.N-S.snd.ackCount} acknowledgement(s). Current retransmission timeout: ${fmt(S.snd.rto,1)} ms.`:''}</p>`
+              : `<p>Receiving host. Default gateway: R11. ${S.rcv.count} of ${S.N} received.</p>`;
+  }
+  h+=`<table><thead><tr><th>Destination</th><th>Next hop</th><th>Metric</th><th>Hops</th></tr></thead><tbody>`;
+  const T=S.tables[i];
+  for(let dI=0; dI<NODES.length; dI++){ if(dI===i) continue;
+    const c=nextChan(i,dI); const st = S.stale && S.stale.node===i && S.stale.dest===dI;
+    h+=`<tr${st?' class="bad"':''}><td>${NODES[dI].short}</td><td>${c?nodeName(c.to):'—'}${st?' ⚠ faulty':''}</td><td>${Number.isFinite(T.dist[dI])?fmt(T.dist[dI],0):'∞'}</td><td>${Number.isFinite(T.dist[dI])?T.hops[dI]:'—'}</td></tr>`; }
+  h+='</tbody></table><div style="margin-top:6px"><span class="k">Outputs:</span>';
+  for(const c of S.adj[i]){ const q=c.queue; const ds=q.filter(p=>p.kind==='data').map(p=>p.seq+1);
+    h+=`<div>→ ${nodeName(c.to)}: ${c.link.up?'':'<span class="bad">link down</span> '}${c.link.reserved?'<span style="color:var(--teal)">reserved</span> ':''}queue ${q.length}${c.unlimited?'':'/'+P.buffer}${ds.length?` <span class="k">(data ${ds.slice(0,10).join(', ')}${ds.length>10?'…':''})</span>`:''}</div>`; }
+  h+=`</div><p class="hint">Metric in 0.1 ms units${P.routing==='adaptive'?' (distance + current queueing delay)':' (distance-based)'}. Tables built with Dijkstra's algorithm <span class="badge ext">ext</span>.</p>`;
+  el.innerHTML=h;
+}
+let lastAria=0;
+function updateAll(force){
+  $('clock').textContent = `t = ${fmt(S.t,1)} ms`;
+  updateReadings(); updateExplain(); updateLog(); drawGraphs();
+  if(selected) renderInspector();
+  const stTxt = S.finished ? S.finishMsg : playing ? 'Running…' : (S.t===0 ? 'Ready — press Play.' : 'Paused.');
+  if($('status').textContent!==stTxt) $('status').textContent=stTxt;
+  const now=performance.now();
+  if(force || now-lastAria>1500){ lastAria=now;
+    const down=S.links.filter(L=>!L.up).map(L=>`${NODES[L.a].short}–${NODES[L.b].short}`);
+    net.setAttribute('aria-label', `Network diagram of Host A, routers R1 to R11 and Host B. ${P.mode==='packet'?'Packet':'Circuit'} switching. ${liveInNetwork()} packets currently in the network. ${S.rcv.count} of ${S.N} received at B.${down.length?' Failed links: '+down.join(', ')+'.':''}`);
+    gArr.setAttribute('aria-label', `Arrival graph: ${S.arrivals.length} arrivals at B, ${S.rcv.ooo} out of order.`);
+    gDelay.setAttribute('aria-label', `Delay graph: mean one-way delay ${fmt(stats().mean,1)} ms, jitter ${fmt(stats().jitter,1)} ms.`);
+  }
+}
+
+/* ======================================================================
+   16. USER INTERFACE WIRING
+   ====================================================================== */
+function setPlaying(v){ playing=v; const b=$('playBtn'); b.textContent = v?'❚❚ Pause':'▶ Play'; b.setAttribute('aria-pressed', String(v)); if(v && S.finished){ /* allow background to continue */ } updateAll(true); }
+function syncUI(){
+  document.querySelectorAll('input[name=mode]').forEach(r=>r.checked = r.value===P.mode);
+  document.querySelectorAll('input[name=traffic]').forEach(r=>r.checked = r.value===P.traffic);
+  document.querySelectorAll('input[name=routing]').forEach(r=>r.checked = r.value===P.routing);
+  for(const k of ['msgKB','pktBytes','coreMbps','hopLimit','bgLevel','buffer','speed']) $(k).value = P[k];
+  $('seed').value = P.seed; updateOutputs();
+  document.querySelectorAll('#scenarios button').forEach(b=>b.classList.toggle('active', b.dataset.id===scenario.id));
+  $('scenarioNote').textContent = scenario.desc;
+  const msg = P.traffic==='message'; $('msgCtl').style.opacity = msg?1:.45; $('msgKB').disabled=!msg;
+  const pk = P.traffic==='message' && P.mode==='packet'; $('pktCtl').style.opacity = pk?1:.45; $('pktBytes').disabled=!pk;
+}
+function updateOutputs(){
+  $('msgKBo').textContent = P.msgKB+' kB'; $('pktBytesO').textContent = P.pktBytes+' B';
+  $('coreMbpsO').textContent = P.coreMbps+' Mbps'; $('hopLimitO').textContent = String(P.hopLimit);
+  $('bgLevelO').textContent = P.bgLevel===0 ? 'none' : `${P.bgLevel} % (${fmt(bgRate(),2)} pkt/ms)`;
+  $('bufferO').textContent = P.buffer+' packets';
+  $('speedO').textContent = `${P.speed} ms per s (×1/${Math.round(1000/P.speed)})`;
+}
+function buildSelectors(){
+  const ls=$('linkSel'); ls.innerHTML = S.links.map(L=>`<option value="${L.id}">${NODES[L.a].short} – ${NODES[L.b].short}${L.up?'':' (failed)'}</option>`).join('');
+  const ns=$('nodeSel'); ns.innerHTML = NODES.map((n,i)=>`<option value="${i}">${n.name}</option>`).join('');
+}
+function refreshLinkSel(){
+  const ls=$('linkSel'); const v=ls.value;
+  for(const o of ls.options){ const L=S.links[+o.value]; o.textContent=`${NODES[L.a].short} – ${NODES[L.b].short}${L.up?'':' (failed)'}`; }
+  ls.value=v; const L=S.links[+ls.value]; $('linkBtn').textContent = L && !L.up ? 'Restore' : 'Cut';
+}
+function toggleLink(L){ if(L.up) cutLink(L); else restoreLink(L); refreshLinkSel(); updateAll(true); }
+function restart(){ reset(); refreshLinkSel(); syncUI(); }
+
+function wire(){
+  const sc=$('scenarios');
+  sc.innerHTML = SCENARIOS.map(s=>`<button data-id="${s.id}">${esc(s.name)}</button>`).join('');
+  sc.addEventListener('click', e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    const s=SCENARIOS.find(x=>x.id===b.dataset.id); scenario=s;
+    if(s.p) Object.assign(P, s.p);
+    setPlaying(false); restart();
+  });
+  const restartParam = (k, parse) => $(k).addEventListener('change', ()=>{ P[k]=parse($(k).value); updateOutputs(); restart(); });
+  const liveInput = (k, parse) => $(k).addEventListener('input', ()=>{ P[k]=parse($(k).value); updateOutputs(); });
+  for(const k of ['msgKB','pktBytes','coreMbps','hopLimit']){ restartParam(k, v=>clamp(parseFloat(v)||0, +$(k).min, +$(k).max)); liveInput(k, v=>clamp(parseFloat(v)||0, +$(k).min, +$(k).max)); }
+  liveInput('bgLevel', v=>clamp(parseInt(v,10)||0,0,100));
+  liveInput('buffer', v=>clamp(parseInt(v,10)||2,2,64));
+  liveInput('speed', v=>clamp(parseInt(v,10)||20,2,200));
+  $('seed').addEventListener('change', ()=>{ const v=parseInt($('seed').value,10); P.seed = Number.isFinite(v)? clamp(v,1,999999) : 2027; $('seed').value=P.seed; restart(); });
+  document.querySelectorAll('input[name=mode]').forEach(r=>r.addEventListener('change',()=>{ P.mode=r.value; setPlaying(false); restart(); }));
+  document.querySelectorAll('input[name=traffic]').forEach(r=>r.addEventListener('change',()=>{ P.traffic=r.value; setPlaying(false); restart(); }));
+  document.querySelectorAll('input[name=routing]').forEach(r=>r.addEventListener('change',()=>{ P.routing=r.value; computeTables(); if(P.routing==='adaptive') startRouteTick(); log(`Routing switched to ${P.routing}`, 'mut'); updateAll(true); }));
+  $('playBtn').addEventListener('click', ()=>setPlaying(!playing));
+  $('stepBtn').addEventListener('click', ()=>{ setPlaying(false); advanceTo(S.t+1); updateAll(true); });
+  $('restartBtn').addEventListener('click', ()=>{ setPlaying(false); restart(); });
+  $('linkSel').addEventListener('change', refreshLinkSel);
+  $('linkBtn').addEventListener('click', ()=>toggleLink(S.links[+$('linkSel').value]));
+  $('nodeBtn').addEventListener('click', ()=>{ selected={type:'node', i:+$('nodeSel').value}; renderInspector(); });
+  $('fsBtn').addEventListener('click', ()=>{ const st=$('stage');
+    try{ if(document.fullscreenElement) document.exitFullscreen(); else if(st.requestFullscreen) st.requestFullscreen().catch(()=>{}); }catch(_){} });
+  for(const id of ['ovRoutes','ovQueues','ovAcks','ovBg','ovCosts']) $(id).addEventListener('change', ()=>drawNet());
+  net.addEventListener('pointerdown', e=>{
+    const rect=net.getBoundingClientRect(); const dpr=net.width/rect.width;
+    const x=((e.clientX-rect.left)*dpr - VIEW.ox)/VIEW.s, y=((e.clientY-rect.top)*dpr - VIEW.oy)/VIEW.s;
+    // 1. packets (data first)
+    let best=null, bd=14;
+    for(const d of hitList){ const dist=Math.hypot(d.x-x,d.y-y) - (d.p.kind==='data'?4:0); if(dist<bd){ bd=dist; best=d; } }
+    if(best){ selected={type:'packet', p:best.p}; renderInspector(); return; }
+    // 2. nodes
+    for(let i=0;i<NODES.length;i++) if(Math.hypot(NODES[i].x-x, NODES[i].y-y) < nodeR(i)+4){ selected={type:'node', i}; $('nodeSel').value=i; renderInspector(); return; }
+    // 3. links
+    let bl=null, bdl=9;
+    for(const L of S.links){ const a=NODES[L.a], b=NODES[L.b]; const dx=b.x-a.x, dy=b.y-a.y; const t=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy),0,1);
+      const dist=Math.hypot(a.x+dx*t-x, a.y+dy*t-y); if(dist<bdl && t>0.1 && t<0.9){ bdl=dist; bl=L; } }
+    if(bl){ $('linkSel').value=bl.id; toggleLink(bl); return; }
+    selected=null; renderInspector();
+  });
+  // tabs (WAI-ARIA pattern with arrow keys)
+  const tabs=[...document.querySelectorAll('[role=tab]')];
+  const activate=(t)=>{ tabs.forEach(x=>{ const on=x===t; x.setAttribute('aria-selected',String(on)); x.tabIndex=on?0:-1; $(x.getAttribute('aria-controls')).hidden=!on; }); };
+  tabs.forEach((t,i)=>{ t.addEventListener('click',()=>activate(t));
+    t.addEventListener('keydown',e=>{ if(e.key==='ArrowRight'||e.key==='ArrowLeft'){ const n=tabs[(i+(e.key==='ArrowRight'?1:tabs.length-1))%tabs.length]; activate(n); n.focus(); e.preventDefault(); } }); });
+  window.addEventListener('resize', ()=>{ drawNet(); drawGraphs(); });
+}
+
+/* ======================================================================
+   17. START-UP
+   ====================================================================== */
+try{
+  if(!nctx || !actx || !dctx) throw new Error('Canvas 2D is not available in this browser.');
+  Object.assign(P, SCENARIOS[0].p);
+  S = { links:[] }; // placeholder until reset
+  wire(); reset(); buildSelectors(); syncUI(); refreshLinkSel();
+  requestAnimationFrame(t=>{ lastFrame=t; frame(t); });
+  window.__lab = { get S(){return S;}, P, advanceTo:(t)=>{advanceTo(t); updateAll(true);}, restart, setScenario:(id)=>{ scenario=SCENARIOS.find(s=>s.id===id); if(scenario.p) Object.assign(P,scenario.p); restart(); } };
+}catch(err){
+  const d=document.createElement('div'); d.className='err'; d.setAttribute('role','alert');
+  d.textContent='The simulation could not start: '+(err && err.message ? err.message : err)+' Try opening the file in an up-to-date version of Chrome or Edge.';
+  document.body.prepend(d);
+}
+})();
+</script>
+</body>
+</html>
