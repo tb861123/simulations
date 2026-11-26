@@ -1,0 +1,11 @@
+import {writeFileSync,readFileSync,mkdirSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {defaults,initial,advance,Integrator} from '../src/physics';
+import {AdaptiveReference} from '../src/reference';
+mkdirSync('work',{recursive:true});
+const cases=[{name:'Default magnetic release',point:[.03,.08],cfg:defaults()},{name:'Mixed basin boundary release',point:[-.158,.198],cfg:defaults()},{name:'Undamped large-angle gravity',point:[.6,.2],cfg:{...defaults(),vx:.2,vy:.3,physics:{...defaults().physics,gamma:0,magnets:defaults().physics.magnets.map(m=>({...m,k:0}))}}}];
+const inputs=cases.map(c=>({name:c.name,physics:c.cfg.physics,initial:Array.from(initial(c.point[0],c.point[1],c.cfg).s),horizon:5}));writeFileSync('work/reference-input.json',JSON.stringify(inputs));
+const run=spawnSync(process.env.REFERENCE_PYTHON||'python',['scripts/scipy-reference.py','work/reference-input.json','work/scipy-output.json'],{encoding:'utf8'});if(run.status!==0)throw Error(run.stderr||run.error?.message||'Install Python, NumPy and SciPy to run this independent check.');
+const scipy=JSON.parse(readFileSync('work/scipy-output.json','utf8'));
+const report={generated:new Date().toISOString(),note:'Smooth rigid-rod trajectories at a common fixed 5 s horizon. SciPy equations are independently implemented, without endpoint projection.',reference:scipy,comparisons:cases.map((c,i)=>{const adaptive=initial(c.point[0],c.point[1],c.cfg),rk4=initial(c.point[0],c.point[1],c.cfg),solver=new AdaptiveReference(c.cfg.physics);solver.advance(adaptive.s,0,5);advance(rk4,c.cfg,[],new Integrator(c.cfg.physics),5,Infinity,false);const expected=scipy.cases[i].state as number[],maxError=(s:Float64Array)=>Math.max(...expected.map((v,j)=>Math.abs(v-s[j]))),adaptiveError=maxError(adaptive.s),rk4Error=maxError(rk4.s);if(adaptiveError>1e-7||rk4Error>1e-4)throw Error(`Independent validation failed for ${c.name}: ${adaptiveError}, ${rk4Error}`);return {name:c.name,adaptiveMaxStateError:adaptiveError,rk4MaxStateError:rk4Error,accepted:solver.accepted,rejected:solver.rejected,passed:true};})};
+writeFileSync('REFERENCE-VALIDATION.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report.comparisons,null,2));

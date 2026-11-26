@@ -1,0 +1,5 @@
+import {createRK4Stepper,energy,flipCrossing,type State} from './physics';
+import {separation} from './diagnostics';
+onmessage=e=>{const {initial,p,dt,duration}=e.data;const target=Math.round(duration/dt)*dt,results:{s:State;drift:number;flip:number|null}[]=[];
+ for(const h of [dt,dt/2,dt/4]){const s=[...initial] as State,step=createRK4Stepper(p,h),E0=energy(s,p).total,scale=Math.max(Math.abs(E0),(p.m1+p.m2)*p.g*p.l1+p.m2*p.g*p.l2);let peak=0,flip:number|null=null;for(let k=0;k<Math.round(target/h);k++){const before=[...s] as State;step(s);if(flip===null){const f=flipCrossing(before,s,h);if(f!==null)flip=k*h+f;}peak=Math.max(peak,100*Math.abs(energy(s,p).total-E0)/scale);if(k%5000===0)postMessage({type:'progress',time:k*h,step:h});}results.push({s,drift:peak,flip});}
+ const coarseError=separation(results[0].s,results[1].s,0,p),fineError=separation(results[1].s,results[2].s,0,p);postMessage({type:'done',duration:target,results,coarseError,fineError,ratio:fineError?coarseError/fineError:null});};

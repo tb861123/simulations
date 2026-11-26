@@ -9,7 +9,7 @@ holds one folder per simulation:
 
 | Subject folder | Simulations |
 |---|---|
-| `physics/` | `gas_in_a_box`, `simple_harmonic_motion`, `nuclear_fusion`, `states_of_matter`, `youngs_modulus`, `projectile_motion`, `circular_motion`, `waves`, `optics_refraction`, `fields_orbits`, `photoelectric_effect`, `atomic_spectra`, `radioactive_decay`, `nuclear_fission`, `particle_physics`, `circuits`, `capacitors`, `magnetism_induction`, `heating_insulation`, `density_pressure`, `energy_resources`, `quantum_wave_lab`, `special_relativity`, `wind_tunnel`, `lightning`, `chladni_plates`, `sandpile_avalanches`, `thin_film_colours`, `aurora_magnetosphere`, `conduction_convection` |
+| `physics/` | `gas_in_a_box`, `simple_harmonic_motion`, `nuclear_fusion`, `states_of_matter`, `youngs_modulus`, `projectile_motion`, `circular_motion`, `waves`, `optics_refraction`, `fields_orbits`, `photoelectric_effect`, `atomic_spectra`, `radioactive_decay`, `nuclear_fission`, `particle_physics`, `circuits`, `capacitors`, `magnetism_induction`, `heating_insulation`, `density_pressure`, `energy_resources`, `quantum_wave_lab`, `special_relativity`, `wind_tunnel`, `lightning`, `chladni_plates`, `sandpile_avalanches`, `thin_film_colours`, `aurora_magnetosphere`, `conduction_convection`, `double_pendulum`, `magnetic_pendulum` |
 | `chemistry/` | `collision_theory`, `dynamic_equilibrium`, `crystallisation`, `atomic_structure`, `bonding`, `organic_chemistry`, `periodic_groups`, `reactivity_metals`, `electrolysis`, `energy_changes`, `acids_salts_tests`, `chromatography`, `moles_reacting_masses`, `electrochemical_cells`, `rate_equations`, `spectroscopy`, `transition_metals`, `organic_mechanisms` |
 | `biology/` | `natural_selection`, `murmuration`, `turing_patterns`, `epidemics`, `predator_prey`, `membranes`, `enzymes`, `photosynthesis_respiration`, `inheritance`, `dna_cell_division`, `ecosystems`, `homeostasis`, `immunity`, `plant_transport`, `biotechnology`, `slime_mould_networks`, `ant_colony`, `creature_evolution` |
 | `engineering/` | `earthquake_buildings`, `traffic_flow`, `car_crash`, `aerofoil_flow`, `bridge_builder`, `domino_chains` |
@@ -40,7 +40,14 @@ own folder inside the right subject folder and gets a row in the root
 `README.md`, a line in the `SIMS` list in the front page `index.html`, and a
 thumbnail `thumbs/<folder>.jpg` (a 640×360 screenshot).
 
-All two hundred simulations are kit-built (formerly tagged "★ Enhanced"; the front page
+Two simulations are **not** kit-built: `physics/double_pendulum` and
+`physics/magnetic_pendulum` are React + TypeScript + Vite apps contributed
+separately. Their source is in each folder's `source/`; edit it there and run
+`npm run single-file` inside `source/` to regenerate the single HTML file
+(never edit the HTML by hand). They have no Standard / Advanced switch,
+Revise tab, Batch run tab or worksheets, and are not handled by `tools/kit/`.
+
+All two hundred other simulations are kit-built (formerly tagged "★ Enhanced"; the front page
 no longer shows the tag, but `ENHANCED` in `index.html` still holds each one's "Try:" line). A new
 simulation gets an `ENHANCED` entry too: `waves`,
 `dynamic_equilibrium`, `natural_selection`, `nerve_impulse`,

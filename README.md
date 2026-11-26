@@ -14,7 +14,7 @@ project's own folder.
 
 ## How the simulations are built
 
-All two hundred simulations are built with the shared toolkit (the
+All two hundred simulations except the Double Pendulum and Magnetic Pendulum Chaos Labs (React apps contributed separately, with their source in each folder's `source/`) are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
 their folders, and eighty-nine newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
@@ -122,6 +122,8 @@ and press **Print** (or save as PDF).
 | [`physics/chladni_plates/`](physics/chladni_plates/) | Sound Made Visible ★: Chladni figures on plates and a drum, resonance curve, movable driver, sound | Open `chladni-plates.html` |
 | [`physics/sandpile_avalanches/`](physics/sandpile_avalanches/) | Sandpile Avalanches: the Bak–Tang–Wiesenfeld sandpile (tables up to 512 × 512) drawn with WebGL, a live log–log avalanche histogram with power-law fit, the centre-drop fractal; a falling-sand hourglass with segregation of coarse and fine grains; τ against table size, mean height against 17/8, mean avalanche size against Dhar's exact result | Open `sandpile-avalanches.html` |
 | [`physics/thin_film_colours/`](physics/thin_film_colours/) | Thin-Film Interference Colours: the exact film reflectance (Airy with Fresnel coefficients) at 36 wavelengths × daylight × CIE colour matching → sRGB per pixel on the graphics card; draining swirling bubble, wedge fringes in white or monochromatic light, oil on water, Newton's colour chart, anti-reflection coating; photon-counting batch against the formula | Open `thin-film-colours.html` |
+| [`physics/double_pendulum/`](physics/double_pendulum/) | Double Pendulum Chaos Lab: six modes (sensitivity with up to 1,000 pendulums, angle and energy graphs, a grid of real pendulums, live colour map, first-flip map, divergence map) from Float64 RK4 Lagrangian integration in background workers; checkpoints, CSV/PNG export, energy-drift and step-halving checks. A React app contributed separately, not built with the kit (source in `source/`) | Open `double-pendulum.html` |
+| [`physics/magnetic_pendulum/`](physics/magnetic_pendulum/) | Magnetic Pendulum Chaos Lab: a spherical pendulum over editable magnets; basins of attraction mapped by RK4 workers with zoom, boundary confidence checks, rod or string, side view, an adaptive Dormand–Prince reference solver and calibration from measured data. A React app contributed separately, not built with the kit (source in `source/`) | Open `magnetic-pendulum.html` |
 | [`physics/aurora_magnetosphere/`](physics/aurora_magnetosphere/) | Aurora and the Magnetosphere: Dungey's open magnetosphere (dipole + uniform IMF) in 3D with an orbit camera; field lines coloured closed/open/solar wind, guiding-centre particles sliding along open lines with E×B drift, aurora glow on a night-side globe, Kp from Newell's fit; open–closed boundary against cos²λ = 1.5(|Bz|/B_E)^⅓ | Open `aurora-magnetosphere.html` |
 
 ## Chemistry

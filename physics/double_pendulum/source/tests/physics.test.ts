@@ -1,0 +1,16 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {defaults,rad,rk4,energy,geometry,derivative,flipCrossing,anglesAt,fullBounds,wrap,type State} from '../src/physics.ts';
+import {rgb} from '../src/palette.ts';
+const evolve=(s:State,t:number,h:number)=>{for(let i=0;i<Math.round(t/h);i++)s=rk4(s,h);return s;};
+test('downward geometry and equilibrium',()=>{assert.deepEqual(geometry([0,0,0,0]),[0,1,0,2]);assert.ok(derivative([0,0,0,0],defaults).every(v=>v===0));});
+test('linear small-angle accelerations',()=>{const e=1e-5,d=derivative([e,0,0,0],defaults);assert.ok(Math.abs(d[2]/e+19.62)<1e-7);assert.ok(Math.abs(d[3]/e-19.62)<1e-7);});
+test('low frequency small-angle normal mode',()=>{const a=1e-4,s:State=[a,Math.SQRT2*a,0,0],period=2*Math.PI/Math.sqrt(9.81*(2-Math.SQRT2));const r=evolve(s,period,.001);assert.ok(Math.abs(r[0]-a)<1e-8);});
+test('energy conservation for regular and chaotic motion',()=>{for(const a of [5,100,170]){const s:State=[rad(a),rad(-a/2),0,0],r=evolve(s,30,.002);assert.ok(Math.abs(energy(r).total-energy(s).total)<2e-4);}});
+test('RK4 convergence and deterministic reproducibility',()=>{const s:State=[1.7,-.8,0,0],a=evolve(s,2,.008),b=evolve(s,2,.004),c=evolve(s,2,.002);const error=(x:State,y:State)=>Math.hypot(...x.map((v,i)=>v-y[i]));assert.ok(error(b,c)<error(a,b)/8);assert.deepEqual(b,evolve(s,2,.004));});
+test('continuous rotations are retained',()=>{const r=evolve([0,0,25,25],1,.001);assert.ok(Math.max(Math.abs(r[0]),Math.abs(r[1]))>2*Math.PI);});
+test('interpolated flip and boundary handling',()=>{assert.ok(Math.abs(flipCrossing([Math.PI-.1,0,1,0],[Math.PI+.1,0,1,0],.02)!-.01)<1e-12);assert.equal(flipCrossing([0,-Math.PI,0,-1],[0,-Math.PI-.1,0,-1],.02),0);assert.equal(flipCrossing([0,0,0,0],[.1,.1,0,0],.02),null);assert.equal(wrap(Math.PI),-Math.PI);});
+test('pixel mapping and double precision',()=>{const s=anglesAt(0,0,40,fullBounds);assert.equal(s[0],rad(-175.5));assert.equal(s[1],rad(175.5));assert.notEqual(rad(100),rad(100+1e-8));});
+test('custom rectangular angle ranges map to correct pixel centres and orientation',()=>{const b={x0:20,x1:60,y0:-90,y1:-30};assert.deepEqual(anglesAt(0,0,40,b),[rad(20.5),rad(-30.75),0,0]);assert.deepEqual(anglesAt(39,39,40,b),[rad(59.5),rad(-89.25),0,0]);});
+test('finite results throughout initial-condition range',()=>{for(let a=-180;a<=180;a+=30)for(let b=-180;b<=180;b+=30)assert.ok(evolve([rad(a),rad(b),0,0],1,.004).every(Number.isFinite));});
+test('all palettes are cyclic in both angles',()=>{for(const palette of ['Spectrum','Ocean','Ember'])for(const a of [-1.3,.7])for(const b of [-2.1,.4]){assert.deepEqual(rgb(a,b,palette),rgb(a+2*Math.PI,b,palette));assert.deepEqual(rgb(a,b,palette),rgb(a,b+2*Math.PI,palette));}});

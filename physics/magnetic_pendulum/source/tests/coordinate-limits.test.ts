@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {coordinateLimit,clampBound,boundLimits,fitBounds,fitRelease,clamp} from '../src/coordinate-limits';
+import {defaults,validate,releaseZ} from '../src/physics';
+test('individual coordinates clamp to both positive and negative geometric limits',()=>{const limit=coordinateLimit(.8,1);assert.ok(Math.abs(limit-.6)<1e-10);assert.equal(clamp(2,-limit,limit),limit);assert.equal(clamp(-2,-limit,limit),-limit);for(const x of [limit,-limit])assert.doesNotThrow(()=>releaseZ(x,.8,defaults().physics));});
+test('map coordinates use the furthest other-axis endpoint and preserve ordering',()=>{const b={xmin:-.2,xmax:.2,ymin:-.3,ymax:.4};for(const key of ['xmin','xmax','ymin','ymax'] as const){for(const value of [-10,10]){const result=clampBound(b,key,value,1);assert.ok(result.xmin<result.xmax);assert.ok(result.ymin<result.ymax);validate({...defaults(),bounds:result});const [min,max]=boundLimits(b,key,1);assert.ok(result[key]>=min&&result[key]<=max);}}});
+test('pan, zoom and shorter lengths fit all map corners inside the release disk',()=>{for(const L of [1,.1,.01]){const b=fitBounds({xmin:-2,xmax:3,ymin:1,ymax:4},L);validate({...defaults(),physics:{...defaults().physics,L},bounds:b});const p=fitRelease(1,-1,L);assert.doesNotThrow(()=>releaseZ(...p,{...defaults().physics,L}));}});
+test('valid coordinates and deep-zoom bounds are unchanged; non-finite committed values restore their previous value',()=>{const b={xmin:.1,xmax:.100000000001,ymin:-.1,ymax:-.099999999999};assert.deepEqual(fitBounds(b,1),b);assert.deepEqual(fitRelease(.1,-.1,1),[.1,-.1]);assert.deepEqual(clampBound(b,'xmin',NaN,1),b);});

@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {flipRGB,flipScale} from '../src/palette.ts';
+import {energyBarrier} from '../src/energy-barrier.ts';
+import {defaults,rad,anglesAt,type State} from '../src/physics.ts';
+// @ts-ignore Production worker harness.
+import {job,harness} from './worker-harness.mjs';
+test('ROYGBIV uses the selected window with exact blue/green/red anchors',()=>{for(const window of [30,60,120,3600]){assert.deepEqual(flipRGB(0,window,'ROYGBIV'),[0,0,255]);assert.deepEqual(flipRGB(window/2,window,'ROYGBIV'),[0,255,0]);assert.deepEqual(flipRGB(window,window,'ROYGBIV'),[255,0,0]);assert.equal(flipScale(.5,'ROYGBIV'),.5);assert.deepEqual(flipRGB(-1,window,'ROYGBIV'),[232,237,239]);}assert.deepEqual(flipRGB(10,60,'ROYGBIV'),[148,0,211]);assert.deepEqual(flipRGB(5,60,'ROYGBIV'),[75,0,130]);assert.deepEqual(flipRGB(40,60,'ROYGBIV'),[255,255,0]);assert.deepEqual(flipRGB(50,60,'ROYGBIV'),[255,127,0]);});
+test('energy thresholds account for both rods and reject equality and initial rotations',()=>{const r=energyBarrier([0,0,0,0],defaults);assert.ok(Math.abs(r.threshold+9.81)<1e-12);assert.equal(r.neitherCanFlip,true);assert.equal(energyBarrier([0,Math.PI,0,0],defaults).neitherCanFlip,false);assert.equal(energyBarrier([0,0,10,10],defaults).neitherCanFlip,false);assert.equal(energyBarrier([4*Math.PI,0,0,0],defaults).neitherCanFlip,false);const p={...defaults,l1:.2,l2:2};const q=energyBarrier([0,0,0,0],p);assert.ok(Math.abs(q.threshold+Math.abs(.4*9.81-2*9.81))<1e-12);});
+test('first-flip worker skips energy-forbidden cells and preserves linear colour calibration',()=>{const j={...job(4,1,8),palette:'ROYGBIV'},f=harness(j).send({type:'advance',target:1,publish:true});let skipped=0;for(let y=0;y<8;y++)for(let x=0;x<8;x++){const i=y*8+x,s=anglesAt(x,y,8,j.bounds);if(energyBarrier(s,j.p).neitherCanFlip){skipped++;assert.equal(f.flips[i],-1);assert.deepEqual(Array.from(f.checkpoint.states.slice(i*4,i*4+4)),s);assert.equal(f.peakDrift[i],0);}assert.deepEqual(Array.from(f.pixels.slice(i*4,i*4+3)),flipRGB(f.flips[i],1,'ROYGBIV'));}assert.ok(skipped>0&&skipped<64);});
