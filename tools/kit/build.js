@@ -104,6 +104,7 @@ const SIMS = [ // [source file, output folder, output html, page title, subject 
   ["capacitors.js", "capacitors", "capacitors.html", "Capacitors", "physics"],
   ["magnetism_induction.js", "magnetism_induction", "magnetism-induction.html", "Magnetism and Induction", "physics"],
   ["heating_insulation.js", "heating_insulation", "heating-insulation.html", "Heating and Insulation", "physics"],
+  ["conduction_convection.js", "conduction_convection", "conduction-convection.html", "Conduction and Convection", "physics"],
   ["coasts.js", "coasts", "coasts.html", "Coasts", "climate"],
   ["glaciers.js", "glaciers", "glaciers.html", "Glaciers", "climate"],
   ["slopes_landslides.js", "slopes_landslides", "slopes-landslides.html", "Weathering, Slopes and Landslides", "climate"],

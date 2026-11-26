@@ -14,9 +14,9 @@ project's own folder.
 
 ## How the simulations are built
 
-All one hundred and ninety-nine simulations are built with the shared toolkit (the
+All two hundred simulations are built with the shared toolkit (the
 front page no longer marks any as "★ Enhanced", since every one is): one hundred and two rebuilt showpieces, which replaced the earlier versions in
-their folders, and eighty-eight newer ones (Quantum Wave Lab, Special Relativity, Wind
+their folders, and eighty-nine newer ones (Quantum Wave Lab, Special Relativity, Wind
 Tunnel, Lightning, Sound Made Visible, Murmuration, Turing Patterns, and the newer
 mathematics, statistics, chemistry, economics, geography, PE and music simulations, the History and Photography ones, and the Business, Politics, Design and Technology and Religion, Philosophy and Ethics ones, and the Computer Science ones, and the Cosmic Distance Ladder, and the explore simulations, and two contributed by colleagues and rebuilt with the kit: the Packet Switching Lab and Hotspot Island Chains, whose original files are kept in their `original/` folders). They share a small
 toolkit in [`tools/kit/`](tools/kit/) and have guided investigations in place
@@ -112,6 +112,7 @@ and press **Print** (or save as PDF).
 | [`physics/particle_physics/`](physics/particle_physics/) | Particle physics ★: the atom and isotopes, quarks and hadrons, conservation of Q, B, L and S, bubble chamber, Feynman diagrams | Open `particle-physics.html` |
 | [`physics/nuclear_fusion/`](physics/nuclear_fusion/) | Nuclear fusion ★: the Coulomb barrier, quantum tunnelling, the Gamow peak, and the temperature and pressure needed in stars and reactors | Open `nuclear-fusion.html` |
 | [`physics/heating_insulation/`](physics/heating_insulation/) | Heating and insulation ★: cooling cans and insulators, Leslie cube and coin drop, a house's heat loss, insulation savings and payback | Open `heating-insulation.html` |
+| [`physics/conduction_convection/`](physics/conduction_convection/) | Conduction and Convection ★: a heated rod with wax pins (copper to polystyrene, lagging, Fourier's law) and a room cross-section where you place a heater or air conditioner and watch convection currents | Open `conduction-convection.html` |
 | [`physics/density_pressure/`](physics/density_pressure/) | Density and pressure ★: density practicals with errors and uncertainty, eureka can bias, p = F/A, hρg, floating and Archimedes, terminal velocity and Stokes' law | Open `density-pressure.html` |
 | [`physics/energy_resources/`](physics/energy_resources/) | Energy resources ★: power stations and Sankey diagrams, Run Britain hour by hour, I²R losses and transformers, wind power ∝ v³ and the model turbine, GB generation 2000–2024 | Open `energy-resources.html` |
 | [`physics/quantum_wave_lab/`](physics/quantum_wave_lab/) | Quantum Wave Lab ★: the 2-D Schrödinger equation live. Tunnelling, double slit one particle at a time, uncertainty, measurement (A level and beyond) | Open `quantum-wave-lab.html` |

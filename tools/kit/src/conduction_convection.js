@@ -1,0 +1,398 @@
+/* =====================================================================
+   CONDUCTION AND CONVECTION
+   Two ways thermal energy moves through matter.
+   CONDUCTION: particles vibrate and pass energy to their neighbours.
+     Rate of flow  P = k A ΔT / L   (Fourier's law; k = thermal conductivity).
+     Metals are best (free electrons); glass, wood, polystyrene and still
+     air are poor conductors: INSULATORS.
+   CONVECTION: a warm fluid expands, becomes less dense and RISES; cooler,
+     denser fluid SINKS to take its place. The circulating loop is a
+     convection current, and it carries energy much faster than conduction.
+   This page has two views.
+   1. A metal-rod experiment (wax holds a ball bearing at each pin; it drops
+      when the wax melts) solved with the 1-D heat equation.
+   2. A room in cross-section. Place a heater or an air conditioner anywhere
+      and watch the air move. The air is a small fluid simulation: buoyancy
+      (warm air is lighter) drives the flow, and a pressure projection keeps
+      the air from piling up (incompressible). Switch off "air can move" to
+      see conduction alone.
+   ===================================================================== */
+
+// ---------------- materials for the rod (SI units) ----------------
+// k = thermal conductivity (W m⁻¹ K⁻¹); rc = density × specific heat capacity (J m⁻³ K⁻¹)
+const MAT = {
+  copper: { name: "Copper", k: 400, rc: 3.45e6, col: "#c8763a" },
+  alum: { name: "Aluminium", k: 237, rc: 2.42e6, col: "#b8c0cc" },
+  steel: { name: "Steel", k: 50, rc: 3.85e6, col: "#7f8794" },
+  glass: { name: "Glass", k: 1.0, rc: 2.1e6, col: "#8fc4d6" },
+  wood: { name: "Wood", k: 0.15, rc: 1.0e6, col: "#9a6b3c" },
+  poly: { name: "Polystyrene", k: 0.033, rc: 0.04e6, col: "#e8e8e0" }
+};
+const MKEYS = Object.keys(MAT);
+const ROD = { L: 0.25, r: 0.005, N: 100, hLoss: 10, pins: [0.05, 0.10, 0.15, 0.20], melt: 60, Ta: 20 };
+const ROD_A = Math.PI * ROD.r * ROD.r;
+
+// One run of the rod: heated end at Th, far end held at Tc, optional lagging.
+// Implicit (backward-Euler) steps so that even copper is stable with dt = 0.5 s.
+// Returns the final temperatures, the time each pin's wax melts, and the history at the 10 cm and 5 cm pins (columns 1 and 2).
+function rodRun(mat, Th, Tc, lagged, tEnd, dt = 0.5) {
+  const m = MAT[mat], N = ROD.N, dx = ROD.L / (N - 1), al = m.k / m.rc;
+  const lam = lagged ? 0 : (2 * ROD.hLoss / ROD.r) / m.rc;   // side losses: 2h/r per volume, ÷ ρc
+  const r = al * dt / (dx * dx), T = new Float64Array(N).fill(ROD.Ta);
+  T[0] = Th; T[N - 1] = Tc;
+  const pinI = ROD.pins.map(x => Math.round(x / dx)), drops = ROD.pins.map(() => NaN), hist = [];
+  const cp = new Float64Array(N), dp = new Float64Array(N);
+  let t = 0;
+  while (t < tEnd - 1e-9) {
+    // Thomas algorithm for  -r T[i-1] + (1 + 2r + lam dt) T[i] - r T[i+1] = T_old[i] + lam dt Ta
+    const b = 1 + 2 * r + lam * dt;
+    cp[0] = 0; dp[0] = Th;
+    for (let i = 1; i < N - 1; i++) { const den = b + r * cp[i - 1]; cp[i] = -r / den; dp[i] = (T[i] + lam * dt * ROD.Ta + r * dp[i - 1]) / den; }
+    T[N - 1] = Tc;
+    for (let i = N - 2; i >= 1; i--) T[i] = dp[i] - cp[i] * T[i + 1];
+    t += dt;
+    pinI.forEach((p, i) => { if (isNaN(drops[i]) && T[p] >= ROD.melt) drops[i] = t; });
+    if (Math.round(t / dt) % 2 === 0) hist.push([t, T[pinI[1]], T[pinI[0]]]);
+  }
+  const flux = i => -m.k * ROD_A * (T[i + 1] - T[i]) / dx;   // power along the rod, W
+  return { T, drops, hist, flux, dx, mat: m, t };
+}
+// time at which the 10 cm pin passes a given melting temperature (history is every 1 s)
+function dropAt(hist, melt, col = 1) { for (const q of hist) if (q[col] >= melt) return q[0]; return NaN; }
+const rodCache = {};
+function rodHist(mat) { return rodCache[mat] || (rodCache[mat] = rodRun(mat, 100, 20, false, 1200).hist); }
+
+// ---------------- the room: a small fluid simulation ----------------
+const ROOM = { W: 4.0, H: 2.5 };           // metres (a cross-section, 1 m deep)
+const G = 9.8, TREF = 293;                  // gravity, reference temperature (K)
+const DRAG = 0.8;                           // s⁻¹, stands in for friction with furniture and walls
+const ALPHA_AIR = 2.2e-5, ALPHA_EDDY = 2e-3; // m² s⁻¹: conduction in still air; stirring by small eddies when air moves
+const KWALL = 1 / 900;                      // s⁻¹: heat leaking through the walls to the outside (τ = 15 min)
+const XRATE = 0.05;                         // s⁻¹: how fast air touching a heater or cooler pulls toward its surface temperature
+const HSIZE = [0.5, 0.2], CSIZE = [0.8, 0.15]; // heater and air conditioner sizes (m)
+
+function makeRoom(nx, ny, rnd) {
+  const N = nx * ny, dx = ROOM.W / nx, dy = ROOM.H / ny;
+  const R = { nx, ny, N, dx, dy, t: 0, T: new Float64Array(N).fill(20), u: new Float64Array(N), v: new Float64Array(N), p: new Float64Array(N), div: new Float64Array(N), T2: new Float64Array(N), u2: new Float64Array(N), v2: new Float64Array(N) };
+  if (rnd) for (let k = 0; k < N; k++) R.T[k] += 0.05 * rnd.gauss();   // tiny random warm/cool patches break the symmetry, like real air
+  // bilinear sample of field f at position (x, y) in cells
+  const samp = (f, x, y) => {
+    x = Math.min(Math.max(x, 0), nx - 1.001); y = Math.min(Math.max(y, 0), ny - 1.001);
+    const i = x | 0, j = y | 0, fx = x - i, fy = y - j, k = i + j * nx;
+    return (f[k] * (1 - fx) + f[k + 1] * fx) * (1 - fy) + (f[k + nx] * (1 - fx) + f[k + nx + 1] * fx) * fy;
+  };
+  R.samp = (f, xm, ym) => samp(f, xm / dx - 0.5, ym / dy - 0.5);
+  R.step = function (o, dt) {
+    const { T, u, v } = R;
+    // 1. heater and air conditioner: air in contact relaxes toward the surface temperature
+    const patch = (cx, cy, sz, Ts) => {
+      const i0 = Math.max(0, Math.floor((cx - sz[0] / 2) / dx)), i1 = Math.min(nx - 1, Math.floor((cx + sz[0] / 2) / dx));
+      const j0 = Math.max(0, Math.floor((cy - sz[1] / 2) / dy)), j1 = Math.min(ny - 1, Math.floor((cy + sz[1] / 2) / dy));
+      const a = Math.min(1, XRATE * dt);
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) T[i + j * nx] += a * (Ts - T[i + j * nx]);
+    };
+    if (o.hOn) patch(o.hx, o.hy, HSIZE, o.hT);
+    if (o.cOn) patch(o.cx, o.cy, CSIZE, o.cT);
+    // 2. heat leaking out through the walls
+    const kw = Math.min(1, KWALL * dt); for (let k = 0; k < N; k++) T[k] += kw * (o.Tout - T[k]);
+    if (o.air) {
+      // 3. buoyancy: air warmer than the room average accelerates upward, cooler air downward
+      let Tm = 0; for (let k = 0; k < N; k++) Tm += T[k]; Tm /= N;
+      const dec = Math.exp(-DRAG * dt);
+      for (let k = 0; k < N; k++) { v[k] = (v[k] + G * (T[k] - Tm) / TREF * dt) * dec; u[k] *= dec; }
+      // 4. carry the velocity and the temperature along with the flow (semi-Lagrangian)
+      const { u2, v2, T2 } = R;
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+        const k = i + j * nx, x = i - u[k] * dt / dx, y = j - v[k] * dt / dy;
+        u2[k] = samp(u, x, y); v2[k] = samp(v, x, y); T2[k] = samp(T, x, y);
+      }
+      u.set(u2); v.set(v2); T.set(T2);
+      // 5. pressure projection: remove any compression so the air only circulates
+      R.project();
+    }
+    // 6. conduction through the air (and stirring by small eddies if it is moving)
+    const al = o.air ? ALPHA_EDDY : ALPHA_AIR, fx = al * dt / (dx * dx), fy = al * dt / (dy * dy), T2 = R.T2;
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const k = i + j * nx, c = T[k], l = i > 0 ? T[k - 1] : c, r = i < nx - 1 ? T[k + 1] : c, d = j > 0 ? T[k - nx] : c, up = j < ny - 1 ? T[k + nx] : c;
+      T2[k] = c + fx * (l + r - 2 * c) + fy * (d + up - 2 * c);
+    }
+    T.set(T2);
+    R.t += dt;
+  };
+  R.project = function () {
+    const { u, v, p, div } = R;
+    for (let j = 0; j < ny; j++) { u[j * nx] = 0; u[nx - 1 + j * nx] = 0; }          // walls: no air through them
+    for (let i = 0; i < nx; i++) { v[i] = 0; v[i + (ny - 1) * nx] = 0; }
+    for (let j = 1; j < ny - 1; j++) for (let i = 1; i < nx - 1; i++) { const k = i + j * nx; div[k] = (u[k + 1] - u[k - 1]) / (2 * dx) + (v[k + nx] - v[k - nx]) / (2 * dy); }
+    p.fill(0);
+    const ax = 1 / (dx * dx), ay = 1 / (dy * dy), den = 2 * (ax + ay);
+    for (let it = 0; it < 30; it++) for (let j = 1; j < ny - 1; j++) for (let i = 1; i < nx - 1; i++) {
+      const k = i + j * nx; p[k] = ((p[k - 1] + p[k + 1]) * ax + (p[k - nx] + p[k + nx]) * ay - div[k]) / den;
+    }
+    for (let j = 1; j < ny - 1; j++) for (let i = 1; i < nx - 1; i++) { const k = i + j * nx; u[k] -= (p[k + 1] - p[k - 1]) / (2 * dx); v[k] -= (p[k + nx] - p[k - nx]) / (2 * dy); }
+  };
+  // layer averages used by readings and the batch experiments
+  R.rowMean = j => { let s = 0; for (let i = 0; i < nx; i++) s += R.T[i + j * nx]; return s / nx; };
+  R.meanBand = (y0, y1) => { let s = 0, n = 0; for (let j = 0; j < ny; j++) { const y = (j + 0.5) * dy; if (y >= y0 && y <= y1) { s += R.rowMean(j); n++; } } return n ? s / n : 20; };
+  R.at = (x, y) => R.samp(R.T, x, y);
+  return R;
+}
+const RD = 0.25;     // fixed time step (s) for the headless runs
+// Headless room run for the batch experiments (coarse 32 × 20 grid, no drawing)
+function roomRun(o, seconds, rnd) {
+  const R = makeRoom(32, 20, rnd);
+  for (let t = 0; t < seconds; t += RD) R.step(o, RD);
+  return R;
+}
+const BASE = { hOn: false, hx: 0.8, hy: 0.15, hT: 50, cOn: false, cx: 3.0, cy: 2.35, cT: 8, air: true, Tout: 20 };
+
+// ---------------- The page ----------------
+const DEF = { view: "room", Tout: 20, hOn: true, hx: 0.8, hy: 0.15, hT: 50, cOn: false, cx: 3.0, cy: 2.35, cT: 8, air: true, smoke: true, tool: "heat", mat: "copper", Th: 100, Tc: 20, lagged: false, speed: 5 };
+const P = Object.assign({}, DEF);
+let rnd = K.rng(Date.now() % 9973 + 11);
+let room = null, acc = 0, hist = [], smoke = [], rod = null, rodT = 0, rodDrops = [], rodHistLive = [];
+const ui = K.app({
+  title: "Conduction and Convection", subject: "Physics",
+  blurb: "Heat a metal rod and watch the wax drop; then put a heater on the floor or an air conditioner on the ceiling of a room and watch convection currents form",
+  reset: () => set({}),
+  levels: { std: "Standard (iGCSE)", adv: "Advanced (A level)", specs: { std: "Pearson Edexcel International GCSE Physics (4PH1) 4(b): conduction, convection and radiation; conduction in metals (free electrons) and in insulators; convection currents in fluids (density change); reducing unwanted energy transfer by insulation; the lagging and conduction practicals.", adv: "WJEC Eduqas thermal physics: conduction and thermal conductivity, rate of energy transfer P = kAΔT/L (Fourier's law); convection as bulk fluid motion driven by density differences. Beyond the spec: thermal diffusivity and why metals warm along their length quickly." } },
+  missions: [
+    { title: "A heater on the floor", q: "Switch on the heater on the floor of the cold room and watch with the smoke on. Describe the path the air takes. Where does the warm air end up?", hint: "Air touching the heater warms, expands and becomes less dense, so it rises in a plume to the ceiling, spreads along it, cools, and sinks down the far wall. That loop is a convection current. A hot ceiling layer builds up over a cooler floor layer.", setup() { set({ view: "room", hOn: true, hx: 0.8, hy: 0.15, cOn: false, air: true }); } },
+    { title: "A heater on the ceiling", q: "Now drag the heater up to the ceiling. Does the room warm up as well as it did with the heater on the floor? Compare the temperature at the floor.", hint: "No. Warm air is less dense so it stays at the top: nothing makes it sink. The ceiling gets hot and the floor stays cold. This is why radiators are low down, and why a heater on the ceiling feels cold at your feet.", setup() { set({ view: "room", hOn: true, hx: 0.8, hy: 2.35, cOn: false, air: true }); } },
+    { title: "An air conditioner on the ceiling", q: "Turn the heater off and place the air conditioner at the ceiling. What does the cold air do? Is the whole room cooled?", hint: "Cold air is denser, so it sinks in a stream and spreads across the floor, pushing the warmer air up. The whole room mixes and cools. A cooler at the ceiling works with convection; put it on the floor and the cold air just sits there.", setup() { set({ view: "room", hOn: false, cOn: true, cx: 3.0, cy: 2.35, air: true }); } },
+    { title: "Air conditioner on the floor", q: "Move the air conditioner down to the floor. What happens to the air near the ceiling?", hint: "The cold air pools at the bottom and does not move: there is no convection current. Only the air by the floor cools. Cold sinks, so cooling belongs at the top and heating at the bottom.", setup() { set({ view: "room", hOn: false, cOn: true, cx: 3.0, cy: 0.1, air: true }); } },
+    { title: "Heater and cooler together", q: "Switch on both the heater (floor, left) and the air conditioner (ceiling, right). What does the circulation look like?", hint: "They work together: warm air rises on the left, cold air sinks on the right, so one big loop forms and the air moves faster than with either alone. Good design for air conditioning of a room.", setup() { set({ view: "room", hOn: true, hx: 0.8, hy: 0.15, cOn: true, cx: 3.2, cy: 2.35, air: true }); } },
+    { title: "Conduction alone", q: "Put the heater on the floor and turn OFF “air can move”. Run it fast. How far does the heat spread, compared with when the air can move?", hint: "Air is a very poor conductor, so with no convection the heat hardly leaves the heater: after ten minutes it has spread a few centimetres. Convection is far faster than conduction in a fluid.", setup() { set({ view: "room", hOn: true, hx: 0.8, hy: 0.15, cOn: false, air: false, speed: 30 }); } },
+    { title: "Which rod conducts best?", q: "Heat the copper rod, then the steel and glass rods. Which wax melts first? Which rods never drop their balls?", hint: "Copper first (about 26 s for the 5 cm pin), then aluminium, then steel (several minutes). Glass, wood and polystyrene never melt the wax in 20 min. Metals conduct best because their free electrons carry energy along as well as the vibrating atoms.", setup() { set({ view: "rod", mat: "copper", speed: 10 }); } },
+    { title: "Lag the rod", q: "Use the copper rod and tick “lagged”. Compare the temperature along the rod with and without lagging.", hint: "Without lagging, energy leaks from the sides so the rod is cooler away from the heat. With lagging, the temperature falls in a straight line from the hot end to the cold end (all the energy goes down the rod).", setup() { set({ view: "rod", mat: "copper", lagged: true, speed: 10 }); } },
+    { lvl: "adv", title: "Fourier's law", q: "Lag the copper rod and wait for a steady state. Change the hot-end temperature. How does the heat flow P depend on ΔT? Check P = kAΔT/L.", hint: "P is proportional to ΔT. For copper (k = 400), A = 7.85 × 10⁻⁵ m², L = 0.25 m and ΔT = 80 K, P = 400 × 7.85 × 10⁻⁵ × 80 ÷ 0.25 ≈ 10 W.", setup() { set({ view: "rod", mat: "copper", lagged: true, Th: 100, speed: 30 }); } }
+  ],
+  batch: [
+    { title: "How precise is one pin-drop time?", question: "300 students heat a copper rod and time when the 10 cm wax melts. How much do their times vary?", how: "Copper rod, hot end 100 °C, wax melting point 60 ± 2 °C (real wax is not exact), stopwatch ±1.5 s.", yLabel: "drop time (s)", reps: 300, bins: 20, theory: dropAt(rodHist("copper"), 60), theoryLabel: "model at 60 °C", run: (x, r) => dropAt(rodHist("copper"), 60 + 2 * r.gauss()) + 1.5 * r.gauss(), note: "The spread comes from the wax's melting point and the stopwatch. Time for one rod: report the mean of several, and the standard error says how well you know it." },
+    { title: "Which material conducts best?", question: "How long does the wax at 5 cm take to melt for each material?", how: "Hot end 100 °C, far end 20 °C, side losses on. Stopwatch ±1.5 s. 0 copper · 1 aluminium · 2 steel · 3 glass · 4 wood · 5 polystyrene.", xLabel: "material (0 Cu · 1 Al · 2 steel · 3 glass · 4 wood · 5 polystyrene)", yLabel: "drop time (s)", xs: [0, 1, 2, 3, 4, 5], reps: 4, yMin: 0, theory: x => dropAt(rodHist(MKEYS[x]), 60, 2), theoryLabel: "model", run: (x, r) => dropAt(rodHist(MKEYS[x]), 60, 2) + 1.5 * r.gauss(), note: "Copper first, then aluminium, then steel (much later). For glass, wood and polystyrene the wax never melts within 20 minutes, so those points are missing: poor conductors (insulators)." },
+    { title: "Fourier's law: heat flow against temperature difference", question: "How does the steady heat flow along a lagged copper rod depend on the temperature difference between its ends?", how: "Copper, lagged, L = 0.25 m, r = 5 mm; steady state after 10 min; power meter ±3%.", xLabel: "temperature difference ΔT (K)", yLabel: "heat flow P (W)", xs: [20, 40, 60, 80, 120, 160], reps: 4, yMin: 0, theory: x => MAT.copper.k * ROD_A * x / ROD.L, theoryLabel: "P = kAΔT/L", run: (x, r) => { const q = rodRun("copper", 20 + x, 20, true, 600, 1); return q.flux(50) * (1 + 0.03 * r.gauss()); }, note: "A straight line through the origin: double ΔT, double the power. The slope is kA/L ≈ 0.126 W/K for this rod." },
+    { title: "Heater height: does the room warm?", question: "Where should a heater sit? Warm-up of the lower half of the room (below 1.25 m) after 8 minutes, for a heater at different heights.", how: "Heater 50 °C at x = 0.8 m, outside 20 °C, air free to move; thermometer ±0.1 °C; the air starts with tiny random temperature differences.", xLabel: "heater height above the floor (m)", yLabel: "warming of the lower half (°C)", xs: [0.15, 0.6, 1.2, 1.8, 2.35], reps: 4, yMin: 0, theory: x => roomRun(Object.assign({}, BASE, { hOn: true, hy: x }), 480, null).meanBand(0, 1.25) - 20, theoryLabel: "noise-free run", run: (x, r) => roomRun(Object.assign({}, BASE, { hOn: true, hy: x }), 480, r).meanBand(0, 1.25) - 20 + 0.1 * r.gauss(), note: "The lower the heater, the more the lower half warms: warm air rises, so a floor heater mixes the room, while a ceiling heater leaves the cold air at the bottom, undisturbed. The model grid is coarse (32 × 20) so numbers are indicative." },
+    { title: "Air conditioner height: does it cool?", question: "Where should an air conditioner sit? Cooling of the whole room (average) after 8 minutes, for the cooler at different heights.", how: "Start with the room at 28 °C and outside 28 °C; cooler surface 8 °C at x = 3.0 m; thermometer ±0.1 °C.", xLabel: "cooler height above the floor (m)", yLabel: "cooling of the whole room (°C)", xs: [0.1, 0.6, 1.2, 1.8, 2.35], reps: 4, yMin: 0, theory: x => 28 - acRun(x, null), theoryLabel: "noise-free run", run: (x, r) => 28 - acRun(x, r) + 0.1 * r.gauss(), note: "A cooler near the ceiling lets cold air sink through the whole room, so the whole room cools. Near the floor the cold air collects at the bottom and the rest of the room is barely cooled." },
+    { title: "Convection or conduction only?", question: "Temperature at head height (1.2 m) on the far side of the room (x = 3 m) after 10 minutes, with the air able to move (1) or not (0).", how: "Heater 50 °C on the floor at x = 0.8 m; thermometer ±0.1 °C.", xLabel: "air can move? (0 no · 1 yes)", yLabel: "temperature rise at 1.2 m, x = 3 m (°C)", xs: [0, 1], reps: 6, yMin: 0, theory: x => roomRun(Object.assign({}, BASE, { hOn: true, air: !!x }), 600, null).at(3, 1.2) - 20, theoryLabel: "noise-free run", run: (x, r) => roomRun(Object.assign({}, BASE, { hOn: true, air: !!x }), 600, r).at(3, 1.2) - 20 + 0.1 * r.gauss(), note: "With convection the warm air circulates to the far side of the room and the temperature rises. With conduction alone nothing reaches it (air is a very poor conductor): convection is the key way heat moves in air." }
+  ],
+  revise: {
+    ideas: [
+      { lvl: "std", tag: "4PH1 4(b)", text: "Conduction: particles vibrate and pass energy to their neighbours. Metals conduct best because free electrons also carry energy. Insulators (glass, wood, polystyrene, still air) have no free electrons." },
+      { lvl: "std", tag: "4PH1 4(b)", text: "Convection happens in fluids (liquids and gases). A warmed region expands, becomes less dense and rises; cooler, denser fluid sinks to replace it. This circulation is a convection current." },
+      { lvl: "std", tag: "4PH1 4(b)", text: "Heaters go low in a room (warm air rises); coolers go high (cold air sinks). Put them the other way round and no convection current forms." },
+      { lvl: "std", tag: "4PH1 4(b)", text: "Insulation works by trapping still air in small pockets: air is a poor conductor and cannot circulate, so conduction and convection are both stopped." },
+      { lvl: "adv", tag: "Thermal physics", text: "Rate of energy transfer by conduction P = kAΔT/L: proportional to area and temperature difference, inversely proportional to length." },
+      { lvl: "adv", tag: "Beyond the spec", text: "Thermal diffusivity α = k/ρc sets how fast a temperature change spreads: the time to reach distance L is about L²/α, so doubling the length quadruples the time." }
+    ],
+    questions: [
+      { lvl: "std", marks: 3, q: "Explain why a radiator is placed near the floor and heats the whole room.", ans: "<ul><li>air next to the radiator is warmed and expands</li><li>so it becomes less dense and rises</li><li>cooler, denser air sinks to take its place, so a convection current circulates and warms the room</li></ul>" },
+      { lvl: "std", marks: 2, q: "Why does a metal spoon in hot soup get hot at the handle, but a wooden spoon does not?", ans: "<ul><li>metals have free electrons which carry energy quickly along the spoon (conduction)</li><li>wood has no free electrons, so it is a poor conductor</li></ul>" },
+      { lvl: "std", marks: 2, q: "Why should an air conditioner be fitted high on a wall?", ans: "<ul><li>cold air is denser so it sinks</li><li>the cold air falls through the room and sets up a convection current that cools all the air</li></ul>" },
+      { lvl: "adv", marks: 3, q: "A lagged copper rod is 0.25 m long with cross-section 7.9 × 10⁻⁵ m². One end is at 100 °C and the other at 20 °C. Find the power transferred. (k = 400 W m⁻¹ K⁻¹)", ans: "<ul><li>P = kAΔT/L</li><li>= 400 × 7.9 × 10⁻⁵ × 80 ÷ 0.25</li><li>≈ 10 W</li></ul>" },
+      { lvl: "adv", marks: 3, q: "Why does the energy flow along the lagged rod give a straight-line temperature graph, but not for an unlagged one?", ans: "<ul><li>lagged: the same power must pass every cross-section, so the temperature gradient is constant</li><li>unlagged: some power escapes from the sides, so less passes along and the gradient gets smaller further from the heat (a curve)</li></ul>" }
+    ]
+  },
+  notes: `<h3>The models</h3>
+<ul><li><b>The rod</b>: the one-dimensional heat equation, ρc ∂T/∂t = k ∂²T/∂x² − (2h/r)(T − T_air), solved with backward-Euler steps of 0.5 s on 100 points. Length 25 cm, radius 5 mm, h = 10 W m⁻² K⁻¹ for side losses (none when lagged). Wax at each pin melts at 60 °C. Values of k and ρc (W m⁻¹ K⁻¹ and J m⁻³ K⁻¹): copper 400 and 3.45 × 10⁶, aluminium 237 and 2.42 × 10⁶, steel 50 and 3.85 × 10⁶, glass 1.0 and 2.1 × 10⁶, wood 0.15 and 1.0 × 10⁶, polystyrene 0.033 and 0.04 × 10⁶.</li>
+<li><b>The room</b>: a cross-section 4 m × 2.5 m (1 m deep), 64 × 40 grid. Each step: (1) air touching the heater or air conditioner relaxes toward its surface temperature; (2) the walls leak heat to outside (time constant 15 min); (3) buoyancy: a = g(T − T_mean)/293 K; (4) the temperature and the velocity are carried by the flow; (5) a pressure projection keeps the air incompressible; (6) conduction through the air.</li>
+<li>Heater 0.5 m × 0.2 m, air conditioner 0.8 m × 0.15 m. The smoke is just tracer dots moving with the air.</li></ul>
+<h3>Left out or simplified</h3>
+<ul><li>The room is two-dimensional, so the flow does not go sideways. Real room air is turbulent: here a drag term (0.8 s⁻¹) and an extra "stirring" diffusivity (2 × 10⁻³ m² s⁻¹) stand in for friction and small eddies. The speeds are about right but not exact.</li>
+<li>When "air can move" is off, only conduction through air (α = 2.2 × 10⁻⁵ m² s⁻¹) is used, so the heat barely leaves the heater.</li>
+<li>No radiation, no walls with thermal mass, no windows, no moisture. The heater and cooler are fixed-temperature surfaces, not thermostat-controlled.</li>
+<li>Batch runs of the room use a coarser 32 × 20 grid so they finish quickly; the numbers are indicative, not exact.</li></ul>`
+});
+
+// batch helper: cooling a room that starts at 28 °C
+function acRun(y, r) {
+  const R = makeRoom(32, 20, r); R.T.fill(28); if (r) for (let k = 0; k < R.N; k++) R.T[k] += 0.05 * r.gauss();
+  const o = Object.assign({}, BASE, { cOn: true, cy: y, cx: 3.0, Tout: 28 });
+  for (let t = 0; t < 480; t += RD) R.step(o, RD);
+  return R.meanBand(0, ROOM.H);
+}
+
+// ---------------- Controls ----------------
+const ctl = {}, grp = {};
+let g = ui.group("View");
+ctl.view = K.seg(g, { value: "room", options: [["room", "🌬 convection: a room"], ["rod", "🔥 conduction: a rod"]], on: v => { P.view = v; showGroups(); if (v === "rod") restartRod(); } });
+ctl.speed = K.slider(g, { label: "Speed", min: 1, max: 60, step: 1, value: 5, fmt: v => v + "×", on: v => P.speed = v });
+ui.headerSpeed(ctl.speed);
+grp.room = g = ui.group("Heater (heat source)");
+ctl.hOn = K.toggle(g, { label: "Heater on", value: true, on: v => P.hOn = v });
+ctl.hT = K.slider(g, { label: "Heater surface", min: 30, max: 80, step: 1, value: 50, unit: "°C", on: v => P.hT = v });
+let rr = K.row(g); K.btn(rr, "⬇ on the floor", () => { set({ hOn: true, hx: P.hx, hy: 0.15 }, true); }); K.btn(rr, "⬆ on the ceiling", () => { set({ hOn: true, hx: P.hx, hy: ROOM.H - 0.15 }, true); });
+grp.room2 = g = ui.group("Air conditioner (cooling source)");
+ctl.cOn = K.toggle(g, { label: "Air conditioner on", value: false, on: v => P.cOn = v });
+ctl.cT = K.slider(g, { label: "Cooler surface", min: 0, max: 18, step: 1, value: 8, unit: "°C", on: v => P.cT = v });
+rr = K.row(g); K.btn(rr, "⬆ on the ceiling", () => { set({ cOn: true, cx: P.cx, cy: ROOM.H - 0.1 }, true); }); K.btn(rr, "⬇ on the floor", () => { set({ cOn: true, cx: P.cx, cy: 0.1 }, true); });
+grp.room3 = g = ui.group("Air and drawing");
+ctl.air = K.toggle(g, { label: "Air can move (convection)", value: true, on: v => P.air = v });
+ctl.smoke = K.toggle(g, { label: "Show smoke (air movement)", value: true, on: v => P.smoke = v });
+ctl.tool = K.seg(g, { value: "heat", options: [["heat", "click places: heater"], ["cool", "air conditioner"]], on: v => P.tool = v });
+rr = K.row(g); K.btn(rr, "↺ Fresh room at 20 °C", () => restartRoom(), "primary");
+grp.rod = g = ui.group("The rod");
+ctl.mat = K.seg(g, { value: "copper", options: MKEYS.map(k => [k, MAT[k].name]), on: v => { P.mat = v; restartRod(); } });
+ctl.Th = K.slider(g, { label: "Hot end", min: 60, max: 200, step: 5, value: 100, unit: "°C", on: v => { P.Th = v; restartRod(); } });
+ctl.Tc = K.slider(g, { label: "Far end", min: 0, max: 40, step: 1, value: 20, unit: "°C", on: v => { P.Tc = v; restartRod(); } });
+ctl.lagged = K.toggle(g, { label: "Lagged (insulated sides)", value: false, on: v => { P.lagged = v; restartRod(); } });
+rr = K.row(g); K.btn(rr, "↺ Restart the experiment", () => restartRod(), "primary");
+const read = K.readout(ui.group("Readings"), [["a", ""], ["b", ""], ["c", ""], ["d", ""], ["e", ""]]);
+const relabel = names => names.forEach((n, i) => read.el.children[i].firstElementChild.textContent = n);
+function showGroups() { const room = P.view === "room"; for (const k in grp) grp[k].style.display = (k === "rod") === !room ? "" : "none"; }
+function restartRoom() {
+  room = makeRoom(64, 40, rnd); acc = 0; hist = [[0, 20, 20, 20]];
+  smoke = []; for (let i = 0; i < 700; i++) smoke.push({ x: rnd() * ROOM.W, y: rnd() * ROOM.H, a: rnd() * 8 });
+}
+function restartRod() {
+  rod = { T: null, t: 0 }; rodT = 0; rodDrops = ROD.pins.map(() => NaN); rodHistLive = [];
+  rod.T = new Float64Array(ROD.N).fill(ROD.Ta); rod.T[0] = P.Th; rod.T[ROD.N - 1] = P.Tc;
+}
+function set(o, keep) {
+  Object.assign(P, keep ? o : Object.assign({}, DEF, o));
+  ctl.hOn.set(P.hOn); ctl.hT.set(P.hT); ctl.cOn.set(P.cOn); ctl.cT.set(P.cT); ctl.air.set(P.air); ctl.smoke.set(P.smoke); ctl.tool.set(P.tool);
+  ctl.mat.set(P.mat); ctl.Th.set(P.Th); ctl.Tc.set(P.Tc); ctl.lagged.set(P.lagged); ctl.view.set(P.view); ctl.speed.set(P.speed);
+  showGroups();
+  if (!keep) { restartRoom(); restartRod(); } else if (P.view === "room") { hist = [[room.t, room.meanBand(0, 0.2), room.meanBand(1.1, 1.4), room.meanBand(ROOM.H - 0.2, ROOM.H)]]; }
+}
+
+// ---------------- Simulation ----------------
+const DT = 0.1;
+function tick(dt) {
+  const s = dt * P.speed;
+  if (P.view === "room") {
+    acc += s; let n = 0;
+    while (acc >= DT && n < 25) { room.step(P, DT); acc -= DT; n++; }
+    if (acc > 2) acc = 0;
+    if (!hist.length || room.t - hist[hist.length - 1][0] >= 6) hist.push([room.t, room.meanBand(0, 0.2), room.meanBand(1.1, 1.4), room.meanBand(ROOM.H - 0.2, ROOM.H)]);
+    if (hist.length > 400) hist.shift();
+    // smoke: dots drift with the air; they are reborn at random places after a few seconds
+    for (const q of smoke) {
+      const u = room.samp(room.u, q.x, q.y), v = room.samp(room.v, q.x, q.y);
+      q.x += Math.max(-0.5, Math.min(0.5, u * s)); q.y += Math.max(-0.5, Math.min(0.5, v * s)); q.a += s;
+      if (q.x < 0.07 || q.x > ROOM.W - 0.07 || q.y < 0.07 || q.y > ROOM.H - 0.07 || q.a > 40) { q.x = 0.05 + rnd() * (ROOM.W - 0.1); q.y = 0.05 + rnd() * (ROOM.H - 0.1); q.a = 0; }
+    }
+  } else if (rodT < 1800) {
+    // step the rod by re-running to the new time (the rod is tiny, so this is cheap)
+    rodT = Math.min(1800, rodT + s);
+    const rr = rodRun(P.mat, P.Th, P.Tc, P.lagged, Math.floor(rodT / 0.5) * 0.5);
+    rod.T = rr.T; rod.rr = rr; rodDrops = rr.drops;
+    if (!rodHistLive.length || rodT - rodHistLive[rodHistLive.length - 1][0] >= 15) rodHistLive.push([rodT, ROD.pins.map(p => rr.T[Math.round(p / rr.dx)])]);
+  }
+}
+
+// ---------------- Drawing ----------------
+const cv = ui.canvas(() => { });
+const chA = K.chart(ui.dock, {}), chB = K.chart(ui.dock, {});
+const TX = (c, s, x, y, col = "#aab6cc", al = "left", f = "12px") => { c.fillStyle = col; c.font = f + " Segoe UI,sans-serif"; c.textAlign = al; c.fillText(s, x, y); };
+// colour for a temperature: blues below 20 °C, dark neutral at 20, orange and white above
+function tCol(T) {
+  const d = T - 20;
+  if (d < 0) { const u = Math.min(1, -d / 12); return [Math.round(24 + (-14) * u), Math.round(36 + 70 * u), Math.round(60 + 190 * u)]; }
+  const u = Math.min(1, d / 18); return [Math.round(24 + 231 * u), Math.round(36 + 130 * Math.pow(u, 0.8) + (u > 0.8 ? 80 * (u - 0.8) / 0.2 : 0)), Math.round(60 - 30 * u + (u > 0.8 ? 150 * (u - 0.8) / 0.2 : 0))];
+}
+const rimg = document.createElement("canvas");
+let geo = { x: 0, y: 0, w: 1, h: 1, s: 1 };
+const toX = m => geo.x + m * geo.s, toY = m => geo.y + geo.h - m * geo.s;   // metres → pixels
+function drawRoom(c, w, h) {
+  const s = Math.min((w - 60) / ROOM.W, (h - 90) / ROOM.H);
+  geo = { s, w: ROOM.W * s, h: ROOM.H * s, x: (w - ROOM.W * s) / 2, y: 62 + (h - 90 - ROOM.H * s) / 2 };
+  const R = room; rimg.width = R.nx; rimg.height = R.ny;
+  const ic = rimg.getContext("2d"), im = ic.createImageData(R.nx, R.ny);
+  for (let j = 0; j < R.ny; j++) for (let i = 0; i < R.nx; i++) { const k = i + j * R.nx, col = tCol(R.T[k]), o = 4 * (i + (R.ny - 1 - j) * R.nx); im.data[o] = col[0]; im.data[o + 1] = col[1]; im.data[o + 2] = col[2]; im.data[o + 3] = 255; }
+  ic.putImageData(im, 0, 0);
+  c.imageSmoothingEnabled = true; c.drawImage(rimg, geo.x, geo.y, geo.w, geo.h);
+  c.strokeStyle = "#cfd8ea"; c.lineWidth = 3; c.strokeRect(geo.x, geo.y, geo.w, geo.h); c.lineWidth = 1;
+  // smoke
+  if (P.smoke) { c.fillStyle = "rgba(240,246,255,.55)"; for (const q of smoke) { const a = Math.min(1, q.a / 2, (40 - q.a) / 4); c.globalAlpha = Math.max(0, a) * 0.8; c.fillRect(toX(q.x) - 1, toY(q.y) - 1, 2.2, 2.2); } c.globalAlpha = 1; }
+  // heater and air conditioner icons (drag them)
+  if (P.hOn) { c.fillStyle = "#ff6b3d"; c.fillRect(toX(P.hx - HSIZE[0] / 2), toY(P.hy + HSIZE[1] / 2), HSIZE[0] * s, HSIZE[1] * s); c.strokeStyle = "#fff"; c.strokeRect(toX(P.hx - HSIZE[0] / 2), toY(P.hy + HSIZE[1] / 2), HSIZE[0] * s, HSIZE[1] * s); TX(c, `heater ${P.hT} °C`, toX(P.hx), toY(P.hy - HSIZE[1] / 2) + (P.hy < 0.6 ? -(HSIZE[1] * s) - 14 : 16), "#ffd1b8", "center", "600 12px"); }
+  if (P.cOn) { c.fillStyle = "#3aa0ff"; c.fillRect(toX(P.cx - CSIZE[0] / 2), toY(P.cy + CSIZE[1] / 2), CSIZE[0] * s, CSIZE[1] * s); c.strokeStyle = "#fff"; c.strokeRect(toX(P.cx - CSIZE[0] / 2), toY(P.cy + CSIZE[1] / 2), CSIZE[0] * s, CSIZE[1] * s); TX(c, `air conditioner ${P.cT} °C`, toX(P.cx), toY(P.cy - CSIZE[1] / 2) + (P.cy > ROOM.H - 0.6 ? 18 + CSIZE[1] * s : -(CSIZE[1] * s) - 6), "#d6ebff", "center", "600 12px"); }
+  // thermometer scale
+  const lx = geo.x + geo.w + 14; for (let i = 0; i <= 20; i++) { const T = 8 + i * 1.8, col = tCol(T); c.fillStyle = `rgb(${col})`; c.fillRect(lx, geo.y + geo.h - (i + 1) * geo.h / 21, 12, geo.h / 21 + 1); }
+  TX(c, "38 °C", lx + 16, geo.y + 10, "#cfd8ea"); TX(c, "20", lx + 16, geo.y + geo.h * 0.67, "#cfd8ea"); TX(c, "8", lx + 16, geo.y + geo.h, "#cfd8ea");
+  TX(c, `${(room.t / 60).toFixed(1)} min · ${P.air ? "convection ON: air can move" : "conduction only: air cannot move"} · click to place a ${P.tool === "heat" ? "heater" : "cooler"}, drag to move`, 20, 28, "#eef2f8", "left", "600 14px");
+}
+function drawRod(c, w, h) {
+  const rr = rod.rr || rodRun(P.mat, P.Th, P.Tc, P.lagged, 0.5), m = MAT[P.mat];
+  const x0 = 100, x1 = w - 100, y = h * 0.45, th = 34, sx = (x1 - x0) / ROD.L;
+  // flame at the hot end, ice at the far end
+  c.fillStyle = "#ff7b2d"; c.beginPath(); c.moveTo(x0 - 70, y + 40); c.quadraticCurveTo(x0 - 50, y - 20, x0 - 30, y + 10); c.quadraticCurveTo(x0 - 15, y - 25, x0 - 5, y + 40); c.fill(); TX(c, `${P.Th} °C`, x0 - 38, y + 70, "#ffb089", "center", "600 12px");
+  c.fillStyle = "#9ad4ff"; c.fillRect(x1 + 6, y - 26, 38, 52); TX(c, `${P.Tc} °C`, x1 + 25, y + 70, "#bfe3ff", "center", "600 12px");
+  // the rod, coloured by local temperature (hot end up to 200 °C)
+  for (let i = 0; i < ROD.N - 1; i++) { const T = rr.T[i], col = tCol(20 + (T - 20) * 18 / 80); c.fillStyle = `rgb(${col})`; c.fillRect(x0 + i * (x1 - x0) / (ROD.N - 1), y - th / 2, (x1 - x0) / (ROD.N - 1) + 1, th); }
+  c.strokeStyle = m.col; c.lineWidth = 3; c.strokeRect(x0, y - th / 2, x1 - x0, th); c.lineWidth = 1;
+  if (P.lagged) { c.strokeStyle = "#e8d080"; c.lineWidth = 8; c.strokeRect(x0 - 3, y - th / 2 - 8, x1 - x0 + 6, th + 16); c.lineWidth = 1; }
+  TX(c, `${m.name}${P.lagged ? " (lagged)" : ""} · ${(rodT / 60).toFixed(1)} min · k = ${m.k} W m⁻¹ K⁻¹`, 20, 28, "#eef2f8", "left", "600 14px");
+  // ball bearings stuck with wax
+  ROD.pins.forEach((p, i) => {
+    const px = x0 + p * sx, T = rr.T[Math.round(p / rr.dx)], dropped = !isNaN(rodDrops[i]);
+    c.fillStyle = "#6a7388"; c.fillRect(px - 1, y + th / 2, 2, 10);
+    c.fillStyle = "#d4a24a"; c.fillRect(px - 6, y + th / 2 + 8, 12, 6);   // wax
+    const by = dropped ? y + th / 2 + 190 : y + th / 2 + 26; c.fillStyle = dropped ? "#9aa3b2" : "#cfd4de"; c.beginPath(); c.arc(px, by, 9, 0, 7); c.fill();
+    TX(c, `${(p * 100).toFixed(0)} cm`, px, y - th / 2 - 22, "#cfd8ea", "center", "11px");
+    TX(c, `${T.toFixed(0)} °C`, px, y - th / 2 - 8, "#ffd166", "center", "600 11.5px");
+    TX(c, dropped ? `fell at ${rodDrops[i].toFixed(0)} s` : T >= ROD.melt ? "wax melting" : "wax solid", px, y + th / 2 + 52, dropped ? "#7ee787" : "#8793ad", "center", "11px");
+  });
+  TX(c, "wax melts at 60 °C and drops the ball", w / 2, h - 18, "#8793ad", "center", "12px");
+}
+function draw() { const c = cv.ctx, w = cv.w, h = cv.h; c.fillStyle = "#0b1020"; c.fillRect(0, 0, w, h); (P.view === "room" ? drawRoom : drawRod)(c, w, h); }
+
+// ---------------- Place and drag the heater and air conditioner ----------------
+let dragging = null;
+const inRoom = p => p.x >= geo.x && p.x <= geo.x + geo.w && p.y >= geo.y && p.y <= geo.y + geo.h;
+const toM = p => ({ x: K.clamp((p.x - geo.x) / geo.s, 0.1, ROOM.W - 0.1), y: K.clamp((geo.y + geo.h - p.y) / geo.s, 0.08, ROOM.H - 0.08) });
+function moveSource(kind, m) {
+  if (kind === "heat") { P.hx = m.x; P.hy = Math.min(Math.max(m.y, HSIZE[1] / 2 + 0.02), ROOM.H - HSIZE[1] / 2 - 0.02); P.hOn = true; ctl.hOn.set(true); }
+  else { P.cx = m.x; P.cy = Math.min(Math.max(m.y, CSIZE[1] / 2 + 0.02), ROOM.H - CSIZE[1] / 2 - 0.02); P.cOn = true; ctl.cOn.set(true); }
+}
+K.pointer(cv.el, {
+  down(p) {
+    if (P.view !== "room" || !inRoom(p)) return;
+    const m = toM(p), dh = P.hOn ? Math.hypot(p.x - toX(P.hx), p.y - toY(P.hy)) : 1e9, dc = P.cOn ? Math.hypot(p.x - toX(P.cx), p.y - toY(P.cy)) : 1e9;
+    dragging = Math.min(dh, dc) < 50 ? (dh < dc ? "heat" : "cool") : P.tool;   // grab the nearest source, else place the chosen one here
+    moveSource(dragging, m);
+  },
+  drag(p) { if (dragging && P.view === "room") moveSource(dragging, toM(p)); },
+  up() { if (dragging) { hist = [[room.t, room.meanBand(0, 0.2), room.meanBand(1.1, 1.4), room.meanBand(ROOM.H - 0.2, ROOM.H)]]; } dragging = null; }
+});
+
+// ---------------- Charts and readings ----------------
+function charts() {
+  if (P.view === "room") {
+    const prof = []; for (let j = 0; j < room.ny; j++) prof.push([room.rowMean(j), (j + 0.5) * room.dy]);
+    chA.opts.title = "Temperature at each height (average across the room)"; chA.opts.xLabel = "temperature (°C)"; chA.opts.yLabel = "height (m)";
+    chA.draw([{ pts: [[20, 0], [20, ROOM.H]], color: "#3a4a6b", dash: [4, 3], label: "start 20 °C" }, { pts: prof, color: "#ff8a70", label: "now" }], { yMin: 0, yMax: ROOM.H });
+    chB.opts.title = "Temperature against time"; chB.opts.xLabel = "time (s)"; chB.opts.yLabel = "°C";
+    chB.draw([{ pts: hist.map(q => [q[0], q[3]]), color: "#ff8a70", label: "ceiling layer" }, { pts: hist.map(q => [q[0], q[2]]), color: "#ffd166", label: "head height" }, { pts: hist.map(q => [q[0], q[1]]), color: "#6ab0ff", label: "floor layer" }]);
+    let vmax = 0; for (let k = 0; k < room.N; k++) vmax = Math.max(vmax, Math.hypot(room.u[k], room.v[k]));
+    relabel(["ceiling layer", "head height (1.1–1.4 m)", "floor layer", "ceiling − floor", "fastest air"]);
+    const cl = room.meanBand(ROOM.H - 0.2, ROOM.H), hd = room.meanBand(1.1, 1.4), fl = room.meanBand(0, 0.2);
+    read.set("a", cl.toFixed(1) + " °C"); read.set("b", hd.toFixed(1) + " °C"); read.set("c", fl.toFixed(1) + " °C"); read.set("d", (cl - fl).toFixed(1) + " K"); read.set("e", P.air ? vmax.toFixed(2) + " m/s" : "none (no convection)");
+    ui.hud(P.air ? "Warm air rises, cool air sinks: a convection current" : "Air is a poor conductor: heat hardly spreads");
+  } else {
+    const rr = rod.rr || rodRun(P.mat, P.Th, P.Tc, P.lagged, 0.5), m = MAT[P.mat];
+    const prof = []; for (let i = 0; i < ROD.N; i += 2) prof.push([i * rr.dx * 100, rr.T[i]]);
+    chA.opts.title = "Temperature along the rod"; chA.opts.xLabel = "distance from the hot end (cm)"; chA.opts.yLabel = "°C";
+    const ser = [{ pts: prof, color: "#ff8a70", label: "now" }, { pts: [[0, ROD.melt], [25, ROD.melt]], color: "#d4a24a", dash: [4, 3], label: "wax melts 60 °C" }];
+    if (P.lagged && ui.level === "adv") ser.push({ pts: [[0, P.Th], [25, P.Tc]], color: "#7ee787", dash: [5, 3], label: "straight line (steady)" });
+    chA.draw(ser, { xMin: 0, xMax: 25, yMin: 0 });
+    if (ui.level === "adv") {
+      chB.opts.title = "Heat flow along the rod against time"; chB.opts.xLabel = "time (s)"; chB.opts.yLabel = "P (W)";
+      const steady = m.k * ROD_A * (P.Th - P.Tc) / ROD.L;
+      chB.draw([{ pts: [[0, steady], [1800, steady]], color: "#7ee787", dash: [5, 3], label: "kAΔT/L" }, { pts: [[rodT, rr.flux(50)]], type: "dots", r: 5, color: "#fff", label: "midpoint now" }], { xMin: 0, xMax: 1800, yMin: 0 });
+    } else {
+      chB.opts.title = "Pin temperatures against time"; chB.opts.xLabel = "time (s)"; chB.opts.yLabel = "°C";
+      const cols = ["#ff8a70", "#ffd166", "#7ee787", "#6ab0ff"];
+      chB.draw(ROD.pins.map((p, i) => ({ pts: rodHistLive.map(q => [q[0], q[1][i]]), color: cols[i], label: `${(p * 100).toFixed(0)} cm` })).concat([{ pts: [[0, ROD.melt], [1800, ROD.melt]], color: "#d4a24a", dash: [4, 3], label: "melts" }]), { xMin: 0, xMax: 1800, yMin: 0 });
+    }
+    const mid = rr.flux(50), nd = rodDrops.filter(d => !isNaN(d)).length;
+    relabel(["time", "pins dropped", "heat flow (midpoint)", "kAΔT/L (steady, lagged)", "thermal diffusivity k/ρc"]);
+    read.set("a", (rodT / 60).toFixed(1) + " min"); read.set("b", nd + " of 4"); read.set("c", mid.toFixed(2) + " W"); read.set("d", (m.k * ROD_A * (P.Th - P.Tc) / ROD.L).toFixed(2) + " W"); read.set("e", (m.k / m.rc).toExponential(1) + " m²/s");
+    ui.hud(m.k > 20 ? "Metals conduct best: free electrons carry the energy" : "Insulators: very poor conductors");
+  }
+}
+let frame = 0;
+ui.run(dt => { if (dt > 0) tick(dt); }, () => { draw(); if (frame++ % 6 === 0) charts(); });
+ui.onLevel = () => { };
+set({});
+ui.tip("Click the room to place a heater, or drag it. Try it on the floor, then the ceiling.", 6000);
