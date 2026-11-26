@@ -65,8 +65,9 @@ function rodHist(mat) { return rodCache[mat] || (rodCache[mat] = rodRun(mat, 100
 // ---------------- the room: a small fluid simulation ----------------
 const ROOM = { W: 4.0, H: 2.5 };           // metres (a cross-section, 1 m deep)
 const G = 9.8, TREF = 293;                  // gravity, reference temperature (K)
-const DRAG = 0.8;                           // s⁻¹, stands in for friction with furniture and walls
-const ALPHA_AIR = 2.2e-5, ALPHA_EDDY = 2e-3; // m² s⁻¹: conduction in still air; stirring by small eddies when air moves
+const DRAG = 0.15;                          // s⁻¹, stands in for friction with furniture and walls (weak, so a rising
+                                            // plume keeps the momentum to turn and run along the ceiling as a jet)
+const ALPHA_AIR = 2.2e-5, ALPHA_EDDY = 1e-3; // m² s⁻¹: conduction in still air; stirring by small eddies when air moves
 const KWALL = 1 / 3000;                     // s⁻¹: heat leaking through the (well insulated) walls to the outside (τ = 50 min)
 const XRATE = 0.05;                         // s⁻¹: how fast air touching a heater or cooler pulls toward its surface temperature
 const HSIZE = [0.5, 0.2], CSIZE = [0.8, 0.15]; // heater and air conditioner sizes (m)
@@ -194,7 +195,7 @@ function roomRun(o, seconds, rnd) {
 const BASE = { hOn: false, hx: 0.8, hy: 0.15, hT: 50, cOn: false, cx: 3.0, cy: 2.35, cT: 8, air: true, Tout: 20 };
 
 // ---------------- The page ----------------
-const DEF = { view: "room", T0: 20, Tout: 20, win: false, wOpen: false, wSide: "R", wy: 1.3, hOn: true, hx: 0.8, hy: 0.15, hT: 50, cOn: false, cx: 3.0, cy: 2.35, cT: 8, air: true, smoke: true, dots: 700, tool: "heat", mat: "copper", Th: 100, Tc: 20, lagged: false, speed: 5 };
+const DEF = { view: "room", T0: 20, Tout: 20, win: false, wOpen: false, wSide: "R", wy: 1.3, hOn: true, hx: 0.8, hy: 0.15, hT: 50, cOn: false, cx: 3.0, cy: 2.35, cT: 8, air: true, smoke: true, dots: 700, crange: "30", tool: "heat", mat: "copper", Th: 100, Tc: 20, lagged: false, speed: 5 };
 const P = Object.assign({}, DEF);
 let rnd = K.rng(Date.now() % 9973 + 11);
 let room = null, acc = 0, hist = [], smoke = [], rod = null, rodT = 0, rodDrops = [], rodHistLive = [];
@@ -249,7 +250,7 @@ const ui = K.app({
 <li>Heater 0.5 m × 0.2 m, air conditioner 0.8 m × 0.15 m. The smoke is just tracer dots moving with the air (you choose how many). Because the air cannot be squashed, the dots stay evenly spread through the room while they circulate, as real smoke particles would. They cannot pass through the walls, floor or ceiling, and are replaced by new dots after 4 minutes (they fade out and in).</li>
 <li><b>Window</b> (1 m tall, in the left or right wall): when shut, air touching the glass relaxes toward the outside temperature (rate 0.015 s⁻¹ over the 20 cm next to the glass), so cold glass makes a downdraught; when open, air is pushed through at a speed 1.0 √(g ΔT/T × height), cooler air in low down and warmer air out up high (or the reverse if it is warmer outside), with equal amounts in and out, and the incoming air is at the outside temperature. The room starts at the starting temperature you choose; colours show the difference from it.</li></ul>
 <h3>Left out or simplified</h3>
-<ul><li>The room is two-dimensional, so the flow does not go sideways. Real room air is turbulent: here a drag term (0.8 s⁻¹) and an extra "stirring" diffusivity (2 × 10⁻³ m² s⁻¹) stand in for friction and small eddies. The speeds are about right but not exact.</li>
+<ul><li>The room is two-dimensional, so the flow does not go sideways. Real room air is turbulent: here a weak drag term (0.15 s⁻¹) and an extra "stirring" diffusivity (1 × 10⁻³ m² s⁻¹) stand in for friction and small eddies. The drag is kept weak so that a rising plume keeps its momentum when it hits the ceiling and spreads along it as a fast "ceiling jet", as it does in a real room. The speeds are about right but not exact.</li>
 <li>When "air can move" is off, only conduction through air (α = 2.2 × 10⁻⁵ m² s⁻¹) is used, so the heat barely leaves the heater.</li>
 <li>No radiation, no walls with thermal mass, no wind or sunshine through the window, no moisture. The heater and cooler are fixed-temperature surfaces, not thermostat-controlled.</li>
 <li>Batch runs of the room use a coarser 32 × 20 grid so they finish quickly; the numbers are indicative, not exact.</li></ul>`
@@ -280,6 +281,7 @@ rr = K.row(g); K.btn(rr, "⬆ on the ceiling", () => { set({ cOn: true, cx: P.cx
 grp.room3 = g = ui.group("Air and drawing");
 ctl.air = K.toggle(g, { label: "Air can move (convection)", value: true, on: v => P.air = v });
 ctl.smoke = K.toggle(g, { label: "Show smoke (air movement)", value: true, on: v => P.smoke = v });
+ctl.crange = K.seg(g, { label: "Colour range (from the starting temperature)", tip: "“fit to room” stretches the colours over the air in the room now, to show small differences", value: "30", options: [["10", "±10 °C"], ["20", "±20 °C"], ["30", "−15/+30 °C"], ["fit", "fit to room"]], on: v => P.crange = v });
 ctl.dots = K.slider(g, { label: "Smoke dots (how many)", min: 100, max: 4000, step: 100, value: 700, on: v => { P.dots = v; setSmoke(v); } });
 ctl.tool = K.seg(g, { value: "heat", options: [["heat", "click places: heater"], ["cool", "air conditioner"]], on: v => P.tool = v });
 rr = K.row(g); K.btn(rr, "↺ Fresh room", () => restartRoom(), "primary");
@@ -315,7 +317,7 @@ function restartRod() {
 function set(o, keep) {
   Object.assign(P, keep ? o : Object.assign({}, DEF, o));
   ctl.T0.set(P.T0); ctl.Tout.set(P.Tout); ctl.win.set(P.win); ctl.wOpen.set(P.wOpen ? "open" : "shut"); ctl.wSide.set(P.wSide); ctl.wy.set(P.wy);
-  ctl.hOn.set(P.hOn); ctl.hT.set(P.hT); ctl.cOn.set(P.cOn); ctl.cT.set(P.cT); ctl.air.set(P.air); ctl.smoke.set(P.smoke); ctl.dots.set(P.dots); ctl.tool.set(P.tool);
+  ctl.hOn.set(P.hOn); ctl.hT.set(P.hT); ctl.cOn.set(P.cOn); ctl.cT.set(P.cT); ctl.air.set(P.air); ctl.smoke.set(P.smoke); ctl.dots.set(P.dots); ctl.crange.set(P.crange); ctl.tool.set(P.tool);
   ctl.mat.set(P.mat); ctl.Th.set(P.Th); ctl.Tc.set(P.Tc); ctl.lagged.set(P.lagged); ctl.view.set(P.view); ctl.speed.set(P.speed);
   showGroups();
   if (!keep) { restartRoom(); restartRod(); } else if (P.view === "room") { hist = [[room.t, room.meanBand(0, 0.2), room.meanBand(1.1, 1.4), room.meanBand(ROOM.H - 0.2, ROOM.H)]]; }
@@ -370,11 +372,26 @@ function tick(dt) {
 const cv = ui.canvas(() => { });
 const chA = K.chart(ui.dock, {}), chB = K.chart(ui.dock, {});
 const TX = (c, s, x, y, col = "#aab6cc", al = "left", f = "12px") => { c.fillStyle = col; c.font = f + " Segoe UI,sans-serif"; c.textAlign = al; c.fillText(s, x, y); };
-// colour for a temperature: blues below 20 °C, dark neutral at 20, orange and white above
-function tCol(T, T0 = 20) {
-  const d = T - T0;
-  if (d < 0) { const u = Math.min(1, -d / 12); return [Math.round(24 + (-14) * u), Math.round(36 + 70 * u), Math.round(60 + 190 * u)]; }
-  const u = Math.min(1, d / 18); return [Math.round(24 + 231 * u), Math.round(36 + 130 * Math.pow(u, 0.8) + (u > 0.8 ? 80 * (u - 0.8) / 0.2 : 0)), Math.round(60 - 30 * u + (u > 0.8 ? 150 * (u - 0.8) / 0.2 : 0))];
+// colour for a temperature T compared with T0: dark neutral at T0, rising through yellow and orange to red
+// (and deep crimson) at T0 + hot, falling through blue to icy pale blue at T0 − cold
+const HOT_STOPS = [[0, 30, 38, 60], [0.08, 92, 74, 48], [0.2, 228, 192, 62], [0.38, 247, 146, 44], [0.6, 238, 86, 34], [0.8, 214, 40, 32], [1, 186, 18, 42]];
+const COLD_STOPS = [[0, 30, 38, 60], [0.3, 36, 84, 168], [0.65, 64, 150, 236], [1, 196, 232, 255]];
+function ramp(stops, f) {
+  f = Math.min(1, Math.max(0, f));
+  for (let i = 1; i < stops.length; i++) if (f <= stops[i][0]) { const a = stops[i - 1], b = stops[i], u = (f - a[0]) / (b[0] - a[0]); return [0, 1, 2].map(c => Math.round(a[c + 1] + (b[c + 1] - a[c + 1]) * u)); }
+  return stops[stops.length - 1].slice(1);
+}
+function tCol(T, T0 = 20, hot = 30, cold = 15) { const d = T - T0; return d >= 0 ? ramp(HOT_STOPS, hot > 0 ? d / hot : 0) : ramp(COLD_STOPS, cold > 0 ? -d / cold : 0); }
+// the colour range chosen for the room: fixed around the starting temperature, or stretched to fit the air
+// in the room now (ignoring the hottest and coldest 2 % of cells, so the heater and cooler surfaces do not set it).
+// mid = the temperature drawn dark neutral; above it runs to red at mid + hot, below it to pale blue at mid − cold.
+function roomRange(R) {
+  if (P.crange !== "fit") { const h = +P.crange; return { mid: R.T0, hot: h, cold: h === 30 ? 15 : h }; }
+  const a = Array.from(R.T).sort((x, y) => x - y), lo = a[Math.floor(0.02 * a.length)], hi = Math.max(lo + 1, a[Math.ceil(0.98 * a.length) - 1]);
+  // keep the starting temperature as the neutral colour if it lies inside the range; if the whole room is warmer
+  // (or cooler) than it started, use the whole hot (or cold) ramp across the room's own range
+  const mid = R.T0 > lo && R.T0 < hi ? R.T0 : R.T0 <= lo ? lo : hi;
+  return { mid, hot: hi - mid, cold: mid - lo };   // one of these may be 0: that side is not used
 }
 const rimg = document.createElement("canvas");
 let geo = { x: 0, y: 0, w: 1, h: 1, s: 1 };
@@ -382,9 +399,9 @@ const toX = m => geo.x + m * geo.s, toY = m => geo.y + geo.h - m * geo.s;   // m
 function drawRoom(c, w, h) {
   const s = Math.min((w - 60) / ROOM.W, (h - 90) / ROOM.H);
   geo = { s, w: ROOM.W * s, h: ROOM.H * s, x: (w - ROOM.W * s) / 2, y: 62 + (h - 90 - ROOM.H * s) / 2 };
-  const R = room; rimg.width = R.nx; rimg.height = R.ny;
+  const R = room, cr = roomRange(R); rimg.width = R.nx; rimg.height = R.ny;
   const ic = rimg.getContext("2d"), im = ic.createImageData(R.nx, R.ny);
-  for (let j = 0; j < R.ny; j++) for (let i = 0; i < R.nx; i++) { const k = i + j * R.nx, col = tCol(R.T[k], R.T0), o = 4 * (i + (R.ny - 1 - j) * R.nx); im.data[o] = col[0]; im.data[o + 1] = col[1]; im.data[o + 2] = col[2]; im.data[o + 3] = 255; }
+  for (let j = 0; j < R.ny; j++) for (let i = 0; i < R.nx; i++) { const k = i + j * R.nx, col = tCol(R.T[k], cr.mid, cr.hot, cr.cold), o = 4 * (i + (R.ny - 1 - j) * R.nx); im.data[o] = col[0]; im.data[o + 1] = col[1]; im.data[o + 2] = col[2]; im.data[o + 3] = 255; }
   ic.putImageData(im, 0, 0);
   c.imageSmoothingEnabled = true; c.drawImage(rimg, geo.x, geo.y, geo.w, geo.h);
   c.strokeStyle = "#cfd8ea"; c.lineWidth = 3; c.strokeRect(geo.x, geo.y, geo.w, geo.h); c.lineWidth = 1;
@@ -401,8 +418,12 @@ function drawRoom(c, w, h) {
     TX(c, `window ${P.wOpen ? "OPEN" : "shut"} · outside ${P.Tout} °C`, P.wSide === "L" ? wx + 12 : wx - 12, y0 - 8, "#eef2f8", P.wSide === "L" ? "left" : "right", "600 12px");
   }
   // thermometer scale
-  const lx = geo.x + geo.w + 14; for (let i = 0; i <= 20; i++) { const T = R.T0 - 12 + i * 1.5, col = tCol(T, R.T0); c.fillStyle = `rgb(${col})`; c.fillRect(lx, geo.y + geo.h - (i + 1) * geo.h / 21, 12, geo.h / 21 + 1); }
-  TX(c, `${R.T0 + 18} °C`, lx + 16, geo.y + 10, "#cfd8ea"); TX(c, `${R.T0}`, lx + 16, geo.y + geo.h * 0.6, "#cfd8ea"); TX(c, `${R.T0 - 12}`, lx + 16, geo.y + geo.h, "#cfd8ea");
+  // thermometer scale: bottom = coldest colour, top = hottest
+  const lx = geo.x + geo.w + 14, span = cr.hot + cr.cold, nb = 60, lo = cr.mid - cr.cold, fT = v => (v - lo) / span;
+  for (let i = 0; i < nb; i++) { const T = lo + (i + 0.5) * span / nb, col = tCol(T, cr.mid, cr.hot, cr.cold); c.fillStyle = `rgb(${col})`; c.fillRect(lx, geo.y + geo.h - (i + 1) * geo.h / nb, 12, geo.h / nb + 1); }
+  const lab = v => (Math.abs(v - Math.round(v)) < 0.05 ? Math.round(v) : v.toFixed(1));
+  TX(c, `${lab(cr.mid + cr.hot)} °C`, lx + 16, geo.y + 10, "#cfd8ea"); TX(c, `${lab(lo)}`, lx + 16, geo.y + geo.h, "#cfd8ea");
+  const f0 = fT(R.T0); if (f0 > 0.06 && f0 < 0.94) TX(c, `${lab(R.T0)} start`, lx + 16, geo.y + geo.h * (1 - f0) + 4, "#cfd8ea");
   TX(c, `${(room.t / 60).toFixed(1)} min · start ${R.T0} °C · ${P.air ? "convection ON: air can move" : "conduction only: air cannot move"} · click to place a ${P.tool === "heat" ? "heater" : "cooler"}, drag to move`, 20, 28, "#eef2f8", "left", "600 14px");
 }
 function drawRod(c, w, h) {
@@ -412,7 +433,7 @@ function drawRod(c, w, h) {
   c.fillStyle = "#ff7b2d"; c.beginPath(); c.moveTo(x0 - 70, y + 40); c.quadraticCurveTo(x0 - 50, y - 20, x0 - 30, y + 10); c.quadraticCurveTo(x0 - 15, y - 25, x0 - 5, y + 40); c.fill(); TX(c, `${P.Th} °C`, x0 - 38, y + 70, "#ffb089", "center", "600 12px");
   c.fillStyle = "#9ad4ff"; c.fillRect(x1 + 6, y - 26, 38, 52); TX(c, `${P.Tc} °C`, x1 + 25, y + 70, "#bfe3ff", "center", "600 12px");
   // the rod, coloured by local temperature (hot end up to 200 °C)
-  for (let i = 0; i < ROD.N - 1; i++) { const T = rr.T[i], col = tCol(20 + (T - 20) * 18 / 80); c.fillStyle = `rgb(${col})`; c.fillRect(x0 + i * (x1 - x0) / (ROD.N - 1), y - th / 2, (x1 - x0) / (ROD.N - 1) + 1, th); }
+  for (let i = 0; i < ROD.N - 1; i++) { const T = rr.T[i], col = tCol(T, 20, Math.max(80, P.Th - 20), 20); c.fillStyle = `rgb(${col})`; c.fillRect(x0 + i * (x1 - x0) / (ROD.N - 1), y - th / 2, (x1 - x0) / (ROD.N - 1) + 1, th); }
   c.strokeStyle = m.col; c.lineWidth = 3; c.strokeRect(x0, y - th / 2, x1 - x0, th); c.lineWidth = 1;
   if (P.lagged) { c.strokeStyle = "#e8d080"; c.lineWidth = 8; c.strokeRect(x0 - 3, y - th / 2 - 8, x1 - x0 + 6, th + 16); c.lineWidth = 1; }
   TX(c, `${m.name}${P.lagged ? " (lagged)" : ""} · ${(rodT / 60).toFixed(1)} min · k = ${m.k} W m⁻¹ K⁻¹`, 20, 28, "#eef2f8", "left", "600 14px");
