@@ -437,7 +437,7 @@ const K = (() => {
   // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
   function batchSummary(e, seed0 = 12345) {
     const rows = []; let i = 0;
-    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101), rng(seed0 + 7919 * (r + 1))); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
     for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
     return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
   }
@@ -798,7 +798,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     }
     // floating hint and heads-up text over the stage
     let tipEl = null, tipT = 0;
-    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); stage.addEventListener("pointerdown", () => { tipEl.style.opacity = 0; }); /* the hint gets out of the way as soon as you start working on the picture */ } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
     ui.hideTip = () => { if (tipEl) { clearTimeout(tipT); tipEl.style.opacity = 0; } };
     let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; if (banner) placeHud(); } hudEl.style.display = html ? "" : "none"; };
     // animation loop: step(dt) only while playing, draw() every frame
@@ -852,7 +852,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
         const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
         (function slice() {
           if (token !== bstate.token) return; const t = performance.now();
-          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed), rng(seed0 + 7919 * (r + 1))); /* 3rd argument: the same random numbers for every x within one repeat */ if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
           prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
           if (i < tasks.length) setTimeout(slice, 0); else fin();
         })();
@@ -989,7 +989,15 @@ const ui = K.app({
       { lvl: "std", marks: 3, q: () => `An atom has ${P.Z} protons and mass number ${P.A}. State the numbers of neutrons and electrons, and its atomic number.`, ans: () => `<ul><li>neutrons = ${P.A} − ${P.Z} = ${P.A - P.Z}</li><li>electrons = ${P.Z} (a neutral atom)</li><li>atomic number Z = ${P.Z}</li></ul>` },
       { lvl: "std", marks: 2, q: "Complete: ¹⁴₆C → ¹⁴₇N + ?", ans: "<ul><li>a beta particle (electron) ⁰₋₁e</li><li>14 = 14 + 0 and 6 = 7 + (−1)</li></ul>" },
       { lvl: "adv", marks: 3, q: "Show that the reaction p + p → p + p + π⁰ obeys the conservation laws.", ans: "<ul><li>Q: 1 + 1 = 1 + 1 + 0 ✓</li><li>B: 1 + 1 = 1 + 1 + 0 ✓</li><li>L: 0 = 0 ✓</li></ul>" },
-      { lvl: "adv", marks: 2, q: "State the quark structure of a neutron and use it to show the neutron's charge is zero.", ans: "<ul><li>udd</li><li>+⅔ − ⅓ − ⅓ = 0</li></ul>" }
+      { lvl: "adv", marks: 2, q: "State the quark structure of a neutron and use it to show the neutron's charge is zero.", ans: "<ul><li>udd</li><li>+⅔ − ⅓ − ⅓ = 0</li></ul>" },
+      { lvl: "std", marks: 3, q: "State the relative mass and relative charge of a proton, a neutron and an electron.", ans: "<ul><li>proton: mass 1, charge +1</li><li>neutron: mass 1, charge 0</li><li>electron: mass about 1/2000 (0.0005), charge −1</li></ul>" },
+      { lvl: "std", marks: 2, q: "Carbon-12 and carbon-14 are isotopes of carbon. Explain what this means.", ans: "<ul><li>Both have 6 protons (same element, same atomic number)</li><li>but different numbers of neutrons: 6 and 8</li></ul>" },
+      { lvl: "std", marks: 2, q: "In beta-minus decay, what happens to the atomic number and the mass number of the nucleus? Explain.", ans: "<ul><li>A neutron turns into a proton and an electron, which is emitted</li><li>So the atomic number goes up by 1 and the mass number stays the same</li></ul>" },
+      { lvl: "adv", marks: 2, q: "State the quark structure of a π⁺ meson and show that its charge is +1.", ans: "<ul><li>u d̄ (an up quark and an anti-down quark)</li><li>+⅔ + (+⅓) = +1</li></ul>" },
+      { lvl: "adv", marks: 3, q: "Use conservation of charge, baryon number and lepton number to decide whether p + p → p + n + π⁺ is possible.", ans: "<ul><li>Q: +1 + 1 = +1 + 0 + 1 ✓</li><li>B: 1 + 1 = 1 + 1 + 0 ✓; L: 0 = 0 ✓</li><li>All conserved, so it can happen (if there is enough energy)</li></ul>" },
+      { lvl: "adv", marks: 2, q: "The reaction p → n + e⁺ + νₑ conserves charge, baryon number and lepton number, yet a free proton never decays this way. Explain why.", ans: "<ul><li>The neutron has more mass than the proton, so the products would have more mass-energy than the proton: energy would not be conserved</li><li>It only happens inside some nuclei (β⁺ decay), where the nucleus supplies the energy</li></ul>" },
+      { lvl: "adv", marks: 2, q: "Name the exchange particle of the electromagnetic force and the exchange particles of the weak force.", ans: "<ul><li>electromagnetic: the photon</li><li>weak: the W⁺, W⁻ and Z⁰ bosons</li></ul>" },
+      { lvl: "adv", marks: 2, q: "Explain how measurements of beta decay led to the prediction of the neutrino.", ans: "<ul><li>The beta electrons come out with a spread of energies up to a maximum, not one fixed energy</li><li>So another, unseen particle must carry off the missing energy (and momentum): the (anti)neutrino</li></ul>" }
     ]
   },
   notes: `<h3>The model</h3>

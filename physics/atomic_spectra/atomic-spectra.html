@@ -437,7 +437,7 @@ const K = (() => {
   // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
   function batchSummary(e, seed0 = 12345) {
     const rows = []; let i = 0;
-    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101), rng(seed0 + 7919 * (r + 1))); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
     for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
     return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
   }
@@ -798,7 +798,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     }
     // floating hint and heads-up text over the stage
     let tipEl = null, tipT = 0;
-    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); stage.addEventListener("pointerdown", () => { tipEl.style.opacity = 0; }); /* the hint gets out of the way as soon as you start working on the picture */ } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
     ui.hideTip = () => { if (tipEl) { clearTimeout(tipT); tipEl.style.opacity = 0; } };
     let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; if (banner) placeHud(); } hudEl.style.display = html ? "" : "none"; };
     // animation loop: step(dt) only while playing, draw() every frame
@@ -852,7 +852,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
         const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
         (function slice() {
           if (token !== bstate.token) return; const t = performance.now();
-          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed), rng(seed0 + 7919 * (r + 1))); /* 3rd argument: the same random numbers for every x within one repeat */ if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
           prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
           if (i < tasks.length) setTimeout(slice, 0); else fin();
         })();
@@ -950,7 +950,14 @@ const ui = K.app({
       { lvl: "std", marks: 2, q: "Red light has a wavelength of 656 nm. Calculate its frequency (c = 3.0 × 10⁸ m/s).", ans: "<ul><li>f = v ÷ λ = 3.0 × 10⁸ ÷ 656 × 10⁻⁹</li><li>= 4.6 × 10¹⁴ Hz</li></ul>" },
       { lvl: "adv", marks: 3, q: () => `An electron in hydrogen drops from n = ${P.ni} to n = ${P.nf}. Calculate the energy of the photon in J and its wavelength.`, ans: () => { const dE = EH(P.ni) - EH(P.nf); return `<ul><li>ΔE = ${EH(P.ni).toFixed(2)} − (${EH(P.nf).toFixed(2)}) = ${dE.toFixed(2)} eV</li><li>= ${(dE * 1.6e-19).toExponential(2)} J</li><li>λ = hc ÷ ΔE = ${lamH(P.ni, P.nf).toFixed(0)} nm (${region(lamH(P.ni, P.nf))})</li></ul>`; } },
       { lvl: "adv", marks: 3, q: "Explain how an absorption spectrum is produced and why its lines match the emission lines of the same element.", ans: "<ul><li>white light (all wavelengths) passes through a cool gas</li><li>photons with energy exactly equal to a level difference are absorbed; re-emitted in all directions</li><li>so those wavelengths are dark; the level differences (so the wavelengths) are the same as in emission</li></ul>" },
-      { lvl: "adv", marks: 3, q: "Explain why a 4-level laser needs less pumping than a 3-level laser.", ans: "<ul><li>a population inversion is needed between the upper and lower laser levels</li><li>in a 3-level laser the lower level is the ground state, so over half the atoms must be pumped</li><li>in a 4-level laser the lower laser level empties rapidly, so a few atoms in the upper level are enough</li></ul>" }
+      { lvl: "adv", marks: 3, q: "Explain why a 4-level laser needs less pumping than a 3-level laser.", ans: "<ul><li>a population inversion is needed between the upper and lower laser levels</li><li>in a 3-level laser the lower level is the ground state, so over half the atoms must be pumped</li><li>in a 4-level laser the lower laser level empties rapidly, so a few atoms in the upper level are enough</li></ul>" },
+      { lvl: "std", marks: 2, q: "Put these in order of increasing frequency: visible light, X-rays, radio waves, ultraviolet.", ans: "<ul><li>radio waves, visible light, ultraviolet, X-rays</li><li>(increasing frequency means decreasing wavelength)</li></ul>" },
+      { lvl: "std", marks: 2, q: "Give one use and one danger of infrared radiation.", ans: "<ul><li>Use: heaters, cooking, remote controls, thermal imaging cameras (any one)</li><li>Danger: skin burns</li></ul>" },
+      { lvl: "std", marks: 2, q: "Ultraviolet light has a frequency of 1.0 × 10¹⁵ Hz. Calculate its wavelength. (speed of light = 3.0 × 10⁸ m/s)", ans: "<ul><li>λ = v ÷ f = 3.0 × 10⁸ ÷ 1.0 × 10¹⁵</li><li>= 3.0 × 10⁻⁷ m (300 nm)</li></ul>" },
+      { lvl: "adv", marks: 3, q: "Calculate the ionisation energy of hydrogen in joules, and the wavelength of the photon that would just ionise an atom in its ground state.", ans: "<ul><li>E = 13.6 × 1.60 × 10⁻¹⁹ = 2.18 × 10⁻¹⁸ J</li><li>λ = hc ÷ E = 6.63 × 10⁻³⁴ × 3.00 × 10⁸ ÷ 2.18 × 10⁻¹⁸</li><li>= 9.1 × 10⁻⁸ m (91 nm, ultraviolet)</li></ul>" },
+      { lvl: "adv", marks: 3, q: "The 656 nm hydrogen line is viewed through a grating with 600 lines per mm. Calculate the angle of the first-order line.", ans: "<ul><li>d = 1 ÷ 600 000 m = 1.67 × 10⁻⁶ m</li><li>sin θ = λ ÷ d = 656 × 10⁻⁹ ÷ 1.67 × 10⁻⁶ = 0.394</li><li>θ = 23.2°</li></ul>" },
+      { lvl: "adv", marks: 2, q: "Hydrogen atoms are excited to the n = 4 level. How many different photon energies can they emit as they return to the ground state? List the transitions.", ans: "<ul><li>6</li><li>4→3, 4→2, 4→1, 3→2, 3→1, 2→1</li></ul>" },
+      { lvl: "adv", marks: 2, q: "Explain why the energies of the levels in an atom are negative.", ans: "<ul><li>Zero energy is defined as an electron that has just escaped from the atom (free, at rest)</li><li>A bound electron needs energy to be supplied to free it, so it has less than zero</li></ul>" }
     ]
   },
   notes: `<h3>The model</h3>
@@ -1020,13 +1027,15 @@ function draw(dt) {
     for (const p of photons) { const x = ax + p.r * Math.cos(p.a), y = ay + p.r * Math.sin(p.a); c.strokeStyle = p.abs ? "rgba(255,255,255,.4)" : lamCol(p.l); c.lineWidth = 2; c.beginPath(); for (let k = 0; k < 18; k++) { const rr = p.r - k * 1.5, px = ax + rr * Math.cos(p.a) - Math.sin(p.a) * 4 * Math.sin(k * 1.2), py = ay + rr * Math.sin(p.a) + Math.cos(p.a) * 4 * Math.sin(k * 1.2); k ? c.lineTo(px, py) : c.moveTo(px, py); } c.stroke(); c.lineWidth = 1; }
     TX(c, `${ELEMENTS[P.el].name}: ${P.mode === "emission" ? "discharge tube" : "white light through the gas"}`, 14, 22, "#eef2f8", "left", "600 14px"); TX(c, "atom not to scale", 14, h * 0.4 + R + 18, "#7d8aa5", "left", "10.5px");
     // energy level diagram (hydrogen) or line energies
-    const ex = w * 0.47, ew = w * 0.5, ey0 = 44, ey1 = h * 0.6, Ey = E => ey0 + (ey1 - ey0) * (1 - Math.sqrt(-E / 13.6));
+    const ex = w * 0.47, ew = w * 0.5, ey0 = 64, ey1 = h * 0.6, Ey = E => ey0 + (ey1 - ey0) * Math.sqrt(-E / 13.6);   // 0 eV (ionised) at the top, the ground state n = 1 at the bottom; a square-root scale spreads out the crowded upper levels
     if (P.el === "H") {
       for (let n = 1; n <= 8; n++) { c.strokeStyle = n === level ? "#5ad1ff" : "rgba(255,255,255,.5)"; c.beginPath(); c.moveTo(ex, Ey(EH(n))); c.lineTo(ex + ew * 0.62, Ey(EH(n))); c.stroke(); if (n <= 5 || n === 8) TX(c, `n = ${n}: ${EH(n).toFixed(2)} eV`, ex + ew * 0.64, Ey(EH(n)) + 4, "#aab6cc", "left", "11px"); }
       c.setLineDash([4, 4]); c.strokeStyle = "#7ee787"; c.beginPath(); c.moveTo(ex, ey0); c.lineTo(ex + ew * 0.62, ey0); c.stroke(); c.setLineDash([]); TX(c, "0 eV: ionised", ex + ew * 0.64, ey0 + 4, "#7ee787", "left", "11px");
-      const L = hLines(P.series); L.forEach((q, i) => { const x = ex + 10 + (ew * 0.58) * (i + 0.5) / L.length; c.strokeStyle = lamCol(q.l, 0.7); c.lineWidth = 1.5; c.beginPath(); c.moveTo(x, Ey(EH(q.ni))); c.lineTo(x, Ey(EH(q.nf)) - 4); c.stroke(); c.lineWidth = 1; });
-      const mx = ex + ew * 0.55; c.strokeStyle = "#ffd166"; c.lineWidth = 3; c.beginPath(); c.moveTo(mx, Ey(EH(P.ni))); c.lineTo(mx, Ey(EH(P.nf)) - 6); c.stroke(); c.lineWidth = 1; c.fillStyle = "#ffd166"; c.beginPath(); c.moveTo(mx, Ey(EH(P.nf))); c.lineTo(mx - 6, Ey(EH(P.nf)) - 10); c.lineTo(mx + 6, Ey(EH(P.nf)) - 10); c.fill();
-      TX(c, `your jump ${P.ni} → ${P.nf}: ΔE = ${(EH(P.ni) - EH(P.nf)).toFixed(2)} eV, λ = ${lamH(P.ni, P.nf).toFixed(0)} nm`, ex, h * 0.6 + 26, "#ffd166", "left", "600 12px");
+      const L = hLines(P.series); L.forEach((q, i) => { const x = ex + 10 + (ew * 0.58) * (i + 0.5) / L.length; c.strokeStyle = lamCol(q.l, 0.7); c.lineWidth = 1.5; c.beginPath(); c.moveTo(x, Ey(EH(q.ni))); c.lineTo(x, Ey(EH(q.nf))); c.stroke(); c.lineWidth = 1; });
+      // your transition: emission drops DOWN from n_i to n_f; absorption lifts the electron UP from n_f to n_i
+      const mx = ex + ew * 0.55, up = P.mode === "absorption", y0 = Ey(EH(up ? P.nf : P.ni)), y1 = Ey(EH(up ? P.ni : P.nf)), dir = up ? -1 : 1;
+      c.strokeStyle = "#ffd166"; c.lineWidth = 3; c.beginPath(); c.moveTo(mx, y0); c.lineTo(mx, y1 - dir * 6); c.stroke(); c.lineWidth = 1; c.fillStyle = "#ffd166"; c.beginPath(); c.moveTo(mx, y1); c.lineTo(mx - 6, y1 - dir * 10); c.lineTo(mx + 6, y1 - dir * 10); c.fill();
+      TX(c, `${up ? `absorbed: ${P.nf} → ${P.ni}` : `your jump ${P.ni} → ${P.nf}`}: ΔE = ${(EH(P.ni) - EH(P.nf)).toFixed(2)} eV, λ = ${lamH(P.ni, P.nf).toFixed(0)} nm`, ex, h * 0.6 + 26, "#ffd166", "left", "600 12px");
     } else { TX(c, `${ELEMENTS[P.el].name} lines: photon energy ΔE = hc ÷ λ`, ex, 30, "#eef2f8", "left", "600 12.5px"); ELEMENTS[P.el].lines.forEach((l, i) => { const y = 50 + i * Math.min(22, (h * 0.6 - 50) / ELEMENTS[P.el].lines.length); c.fillStyle = lamCol(l); c.fillRect(ex, y - 8, 20, 10); TX(c, `${l} nm → ${(HC / l).toFixed(2)} eV (${region(l)})`, ex + 28, y + 1, "#cfd8ea", "left", "11.5px"); }); }
     // spectra
     strip(c, 20, h * 0.76, w - 40, 22, lines, P.mode, true); strip(c, 20, h * 0.89, w - 40, 22, lines, P.mode, false);

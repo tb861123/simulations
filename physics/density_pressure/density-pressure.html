@@ -437,7 +437,7 @@ const K = (() => {
   // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
   function batchSummary(e, seed0 = 12345) {
     const rows = []; let i = 0;
-    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101), rng(seed0 + 7919 * (r + 1))); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
     for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
     return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
   }
@@ -798,7 +798,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     }
     // floating hint and heads-up text over the stage
     let tipEl = null, tipT = 0;
-    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); stage.addEventListener("pointerdown", () => { tipEl.style.opacity = 0; }); /* the hint gets out of the way as soon as you start working on the picture */ } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
     ui.hideTip = () => { if (tipEl) { clearTimeout(tipT); tipEl.style.opacity = 0; } };
     let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; if (banner) placeHud(); } hudEl.style.display = html ? "" : "none"; };
     // animation loop: step(dt) only while playing, draw() every frame
@@ -852,7 +852,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
         const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
         (function slice() {
           if (token !== bstate.token) return; const t = performance.now();
-          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed), rng(seed0 + 7919 * (r + 1))); /* 3rd argument: the same random numbers for every x within one repeat */ if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
           prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
           if (i < tasks.length) setTimeout(slice, 0); else fin();
         })();
@@ -989,7 +989,13 @@ const ui = K.app({
       { lvl: "std", marks: 3, q: () => { const b = rows.find(x => x.kind === "block"); return b ? `A block has sides ${b.sides.map(s => s.toFixed(1)).join(" cm, ")} cm and mass ${b.m.toFixed(2)} g. Calculate its density in kg/m³.` : "A block measures 2.0 cm × 2.0 cm × 2.0 cm and has a mass of 21.60 g. Calculate its density in kg/m³."; }, ans: () => { const b = rows.find(x => x.kind === "block") || { m: 21.6, V: 8 }; return `<ul><li>V = ${b.V.toFixed(3)} cm³</li><li>ρ = m ÷ V = ${(b.m / b.V).toFixed(3)} g/cm³</li><li>= ${(b.m / b.V * 1000).toFixed(0)} kg/m³</li></ul>`; } },
       { lvl: "std", marks: 2, q: () => `Calculate the extra pressure from the ${LIQ[P.tliq].name} at a depth of ${P.depth} m (ρ = ${LIQ[P.tliq].rho} kg/m³, g = 9.81 N/kg).`, ans: () => `<ul><li>Δp = hρg = ${P.depth} × ${LIQ[P.tliq].rho} × 9.81</li><li>= ${(P.depth * LIQ[P.tliq].rho * g / 1000).toFixed(1)} kPa</li></ul>` },
       { lvl: "std", marks: 3, q: "Explain why a eureka can gives a density that is too high, and why repeating does not help.", ans: "<ul><li>some water stays in the spout/on the can, so the measured volume is too small</li><li>ρ = m/V with V too small gives ρ too big</li><li>it is a systematic error: every repeat is wrong the same way, so the mean is still wrong</li></ul>" },
-      { lvl: "adv", marks: 3, q: "A cube's side is 15 ± 1 mm. Calculate the percentage uncertainty in its volume, and explain how to reduce it.", ans: "<ul><li>% in side = 1/15 = 6.7%</li><li>% in V = 3 × 6.7 = 20%</li><li>use vernier callipers (±0.1 mm → 2%) or a bigger block</li></ul>" }
+      { lvl: "adv", marks: 3, q: "A cube's side is 15 ± 1 mm. Calculate the percentage uncertainty in its volume, and explain how to reduce it.", ans: "<ul><li>% in side = 1/15 = 6.7%</li><li>% in V = 3 × 6.7 = 20%</li><li>use vernier callipers (±0.1 mm → 2%) or a bigger block</li></ul>" },
+      { lvl: "std", marks: 4, q: "Describe how to measure the density of an irregularly shaped stone.", ans: "<ul><li>Measure its mass on a balance</li><li>Part-fill a measuring cylinder with water and read the volume; lower the stone in and read again (or use a eureka can and collect the water pushed out)</li><li>The volume of the stone is the increase (or the water collected)</li><li>density = mass ÷ volume; repeat and take a mean</li></ul>" },
+      { lvl: "std", marks: 3, q: "A person weighing 600 N stands on snowshoes with a total area of 0.30 m². Calculate the pressure on the snow, and explain why snowshoes stop them sinking.", ans: "<ul><li>p = F ÷ A = 600 ÷ 0.30</li><li>= 2000 Pa</li><li>the large area spreads the weight, so the pressure is lower than with ordinary shoes</li></ul>" },
+      { lvl: "std", marks: 2, q: "A diver is 12 m below the surface of the sea (ρ = 1030 kg/m³, g = 9.81 N/kg). Calculate the pressure due to the water.", ans: "<ul><li>p = hρg = 12 × 1030 × 9.81</li><li>= 1.2 × 10⁵ Pa (121 kPa)</li></ul>" },
+      { lvl: "adv", marks: 4, q: "A cube has a mass of 54.0 ± 0.1 g and sides of 3.0 ± 0.1 cm. Calculate its density with its absolute uncertainty.", ans: "<ul><li>V = 3.0³ = 27 cm³, so ρ = 54.0 ÷ 27 = 2.0 g/cm³</li><li>% uncertainty in mass = 0.1 ÷ 54.0 = 0.2%; in the side = 0.1 ÷ 3.0 = 3.3%, so in V = 3 × 3.3 = 10%</li><li>% uncertainty in ρ ≈ 0.2 + 10 ≈ 10%</li><li>ρ = 2.0 ± 0.2 g/cm³</li></ul>" },
+      { lvl: "adv", marks: 2, q: "A steel ball falls through glycerol at a steady (terminal) speed. Name the three forces acting on it and state how they are related.", ans: "<ul><li>weight (down), drag (up) and upthrust (up)</li><li>at terminal velocity: weight = drag + upthrust (the resultant force is zero)</li></ul>" },
+      { lvl: "adv", marks: 3, q: "Use Stokes' law to explain why a ball of twice the radius (same materials) has four times the terminal velocity.", ans: "<ul><li>weight − upthrust = (4/3)πr³(ρs − ρl)g, which is ∝ r³</li><li>drag = 6πηrv, which is ∝ rv</li><li>at terminal velocity they are equal, so v ∝ r³ ÷ r = r²: doubling r multiplies v by 4</li></ul>" }
     ]
   },
   notes: `<h3>The models</h3>

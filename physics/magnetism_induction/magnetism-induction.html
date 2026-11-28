@@ -437,7 +437,7 @@ const K = (() => {
   // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
   function batchSummary(e, seed0 = 12345) {
     const rows = []; let i = 0;
-    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101), rng(seed0 + 7919 * (r + 1))); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
     for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
     return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
   }
@@ -798,7 +798,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     }
     // floating hint and heads-up text over the stage
     let tipEl = null, tipT = 0;
-    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); stage.addEventListener("pointerdown", () => { tipEl.style.opacity = 0; }); /* the hint gets out of the way as soon as you start working on the picture */ } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
     ui.hideTip = () => { if (tipEl) { clearTimeout(tipT); tipEl.style.opacity = 0; } };
     let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; if (banner) placeHud(); } hudEl.style.display = html ? "" : "none"; };
     // animation loop: step(dt) only while playing, draw() every frame
@@ -852,7 +852,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
         const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
         (function slice() {
           if (token !== bstate.token) return; const t = performance.now();
-          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed), rng(seed0 + 7919 * (r + 1))); /* 3rd argument: the same random numbers for every x within one repeat */ if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
           prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
           if (i < tasks.length) setTimeout(slice, 0); else fin();
         })();
@@ -934,7 +934,14 @@ const ui = K.app({
       { lvl: "std", marks: 2, q: () => `A transformer has ${P.Np} primary turns and ${P.Ns} secondary turns. The primary voltage is ${P.Vp} V. Calculate the secondary voltage.`, ans: () => `<ul><li>Vs = Vp × Ns/Np = ${P.Vp} × ${P.Ns}/${P.Np}</li><li>= ${(P.Vp * P.Ns / P.Np).toFixed(1)} V</li></ul>` },
       { lvl: "std", marks: 3, q: "Give three ways to increase the voltage induced when a magnet is pushed into a coil.", ans: "<ul><li>push the magnet in faster</li><li>use a stronger magnet</li><li>use more turns on the coil (or an iron core)</li></ul>" },
       { lvl: "adv", marks: 2, q: () => `A ${(P.L * 100).toFixed(0)} cm wire carries ${P.I} A at ${P.th}° to a ${P.B} T field. Calculate the force.`, ans: () => `<ul><li>F = BIL sin θ</li><li>= ${(Fwire(P.B, P.I, P.L, P.th) * 1000).toFixed(1)} mN</li></ul>` },
-      { lvl: "adv", marks: 2, q: () => `Calculate the radius of the circle of an electron moving at ${P.v.toExponential(1)} m/s in a field of ${(P.Bp * 1000).toFixed(1)} mT.`, ans: () => `<ul><li>r = mv/(qB) = 9.11 × 10⁻³¹ × ${P.v.toExponential(1)} ÷ (1.6 × 10⁻¹⁹ × ${P.Bp})</li><li>= ${(radius(9.11e-31, P.v, 1.6e-19, P.Bp) * 100).toFixed(2)} cm</li></ul>` }
+      { lvl: "adv", marks: 2, q: () => `Calculate the radius of the circle of an electron moving at ${P.v.toExponential(1)} m/s in a field of ${(P.Bp * 1000).toFixed(1)} mT.`, ans: () => `<ul><li>r = mv/(qB) = 9.11 × 10⁻³¹ × ${P.v.toExponential(1)} ÷ (1.6 × 10⁻¹⁹ × ${P.Bp})</li><li>= ${(radius(9.11e-31, P.v, 1.6e-19, P.Bp) * 100).toFixed(2)} cm</li></ul>` },
+      { lvl: "std", marks: 3, q: "Explain how a simple d.c. motor keeps turning in the same direction.", ans: "<ul><li>The current in the coil is in a magnetic field, so each side feels a force (the motor effect), in opposite directions: the coil turns</li><li>The split-ring commutator reverses the current every half turn</li><li>so the forces keep turning the coil the same way</li></ul>" },
+      { lvl: "std", marks: 2, q: "A transformer has 400 turns on its primary and 20 on its secondary. The primary is connected to 230 V a.c. Calculate the output voltage.", ans: "<ul><li>Vs = Vp × Ns ÷ Np = 230 × 20 ÷ 400</li><li>= 11.5 V</li></ul>" },
+      { lvl: "std", marks: 2, q: "A 100% efficient transformer gives 12 V and 2.0 A from a 230 V supply. Calculate the current in the primary coil.", ans: "<ul><li>VpIp = VsIs, so Ip = 12 × 2.0 ÷ 230</li><li>= 0.10 A</li></ul>" },
+      { lvl: "std", marks: 2, q: "Explain why a transformer does not work from a steady d.c. supply.", ans: "<ul><li>A voltage is only induced in the secondary when the magnetic field through it changes</li><li>Steady d.c. gives a constant field, so no voltage is induced</li></ul>" },
+      { lvl: "adv", marks: 3, q: "A 200-turn coil of area 4.0 × 10⁻⁴ m² sits at right angles to a 0.15 T field. The field falls to zero in 0.050 s. Calculate the average induced EMF.", ans: "<ul><li>change in flux linkage = NBA = 200 × 0.15 × 4.0 × 10⁻⁴ = 0.012 Wb-turns</li><li>EMF = Δ(NΦ) ÷ Δt = 0.012 ÷ 0.050</li><li>= 0.24 V</li></ul>" },
+      { lvl: "adv", marks: 3, q: "A magnet dropped down a copper tube falls far more slowly than through a plastic tube. Explain why, using Lenz's law.", ans: "<ul><li>The falling magnet changes the flux through the tube, inducing currents in the copper (eddy currents)</li><li>By Lenz's law these currents make a magnetic field that opposes the change, so it pushes up on the magnet</li><li>The magnet's lost energy becomes heat in the tube; plastic does not conduct, so there are no currents</li></ul>" },
+      { lvl: "adv", marks: 3, q: "A proton (mass 1.67 × 10⁻²⁷ kg, charge 1.60 × 10⁻¹⁹ C) moves at 2.0 × 10⁶ m/s at right angles to a 0.50 T field. Calculate the radius of its path and the time for one orbit.", ans: "<ul><li>r = mv ÷ qB = 1.67 × 10⁻²⁷ × 2.0 × 10⁶ ÷ (1.60 × 10⁻¹⁹ × 0.50) = 0.042 m</li><li>T = 2πm ÷ qB = 2π × 1.67 × 10⁻²⁷ ÷ (1.60 × 10⁻¹⁹ × 0.50)</li><li>= 1.3 × 10⁻⁷ s (it does not depend on the speed)</li></ul>" }
     ]
   },
   notes: `<h3>The models</h3>

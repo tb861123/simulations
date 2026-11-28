@@ -56,18 +56,35 @@ const ui = K.app({
       { lvl: "std", tag: "4PH1 2", text: "Charge Q = It; energy E = QV; P = IV; V = IR. Conventional current flows from + to −; electrons go the other way." },
       { lvl: "adv", tag: "Eduqas C2 T4", text: "Q = CV. Capacitance in farads: 1 F = 1 C V⁻¹. Energy U = ½QV = ½CV² = Q²/2C (the area under a Q–V graph)." },
       { lvl: "adv", tag: "Eduqas C2 T4", text: "Discharge: Q = Q₀e^(−t/RC); charge: Q = Q₀(1 − e^(−t/RC)). Time constant τ = RC; half-life t½ = RC ln 2 = 0.69RC." },
-      { lvl: "adv", tag: "Eduqas C2 T4", text: "Series: 1/C = 1/C₁ + 1/C₂ + …; parallel: C = C₁ + C₂ + …. ln V against t is a straight line of gradient −1/RC." }
+      { lvl: "adv", tag: "Eduqas C2 T4", text: "Series: 1/C = 1/C₁ + 1/C₂ + …; parallel: C = C₁ + C₂ + …. ln V against t is a straight line of gradient −1/RC." },
+      { lvl: "std", tag: "4PH1 2", text: "A capacitor stores charge (and energy) on two plates separated by an insulator. Uses: camera flashes, back-up power for memory, smoothing a power supply, timing circuits." },
+      { lvl: "adv", tag: "Eduqas C2 T4", text: "After one time constant τ = RC a discharging capacitor has 37% of its charge left; after 5τ, less than 1%. Charging through a resistor always wastes as much energy as it stores." }
     ],
     questions: [
       { lvl: "std", marks: 2, q: () => `At the start of charging, all ${P.V0} V is across the ${fmtR(P.R)} resistor. What is the starting current?`, ans: () => `<ul><li>I = V/R = ${P.V0} ÷ ${P.R}</li><li>= ${(P.V0 / P.R * 1000).toFixed(3)} mA</li></ul>` },
       { lvl: "adv", marks: 3, q: () => `A ${fmtC(Ceff())} capacitor charged to ${P.V0} V discharges through ${fmtR(P.R)}. Find the time constant and the voltage after 2τ.`, ans: () => `<ul><li>τ = RC = ${fmtT(P.R * Ceff())}</li><li>V = V₀e^(−2) = ${P.V0} × 0.135</li><li>= ${(P.V0 * Math.exp(-2)).toFixed(2)} V</li></ul>` },
-      { lvl: "adv", marks: 2, q: () => `Calculate the energy stored in a ${fmtC(Ceff())} capacitor at ${P.V0} V.`, ans: () => `<ul><li>U = ½CV²</li><li>= ${(0.5 * Ceff() * P.V0 * P.V0 * 1000).toPrecision(3)} mJ</li></ul>` }
+      { lvl: "adv", marks: 2, q: () => `Calculate the energy stored in a ${fmtC(Ceff())} capacitor at ${P.V0} V.`, ans: () => `<ul><li>U = ½CV²</li><li>= ${(0.5 * Ceff() * P.V0 * P.V0 * 1000).toPrecision(3)} mJ</li></ul>` },
+      { lvl: "std", marks: 2, q: "While a capacitor charges, the current is roughly 0.60 mA for the first 2.0 s. Calculate the charge that flows onto it in that time.", ans: "<ul><li>Q = It</li><li>= 0.60 × 10⁻³ × 2.0</li><li>= 1.2 × 10⁻³ C (1.2 mC)</li></ul>" },
+      { lvl: "std", marks: 2, q: "A camera flash capacitor gives out 8.5 J in 0.0020 s. Calculate the mean power of the flash.", ans: "<ul><li>P = E ÷ t = 8.5 ÷ 0.0020</li><li>= 4250 W (4.3 kW)</li></ul>" },
+      { lvl: "std", marks: 2, q: "Explain why the current in the resistor gets smaller as the capacitor charges.", ans: "<ul><li>As charge builds up on the plates, the voltage across the capacitor rises</li><li>so the voltage left across the resistor (supply − capacitor voltage) falls, and I = V ÷ R falls</li></ul>" },
+      { lvl: "adv", marks: 2, q: "A 470 µF capacitor is charged to 6.0 V. Calculate the charge stored.", ans: "<ul><li>Q = CV = 470 × 10⁻⁶ × 6.0</li><li>= 2.8 × 10⁻³ C</li></ul>" },
+      { lvl: "adv", marks: 3, q: "Show that the time for the voltage of a discharging capacitor to halve is RC ln 2, and calculate it for R = 10 kΩ and C = 470 µF.", ans: "<ul><li>V = V₀e^(−t/RC); at half: ½ = e^(−t/RC)</li><li>so t/RC = ln 2, t = RC ln 2</li><li>= 10 000 × 470 × 10⁻⁶ × 0.693 = 3.3 s</li></ul>" },
+      { lvl: "adv", marks: 2, q: "Three 100 µF capacitors are connected (a) in series and (b) in parallel. Calculate the total capacitance each time.", ans: "<ul><li>(a) 1/C = 3 ÷ 100 µF, so C = 33 µF</li><li>(b) C = 3 × 100 = 300 µF</li></ul>" },
+      { lvl: "adv", marks: 3, q: "A capacitor discharges through a 10 kΩ resistor. A graph of ln V against t is a straight line of gradient −0.21 s⁻¹. Calculate C.", ans: "<ul><li>gradient = −1/RC, so RC = 1 ÷ 0.21 = 4.76 s</li><li>C = 4.76 ÷ 10 000</li><li>= 4.8 × 10⁻⁴ F (about 480 µF)</li></ul>" },
+      { lvl: "adv", marks: 3, q: "When a capacitor is charged from a battery through a resistor, only half the energy supplied by the battery is stored. Explain where the rest goes, and why it does not depend on R.", ans: "<ul><li>The battery moves charge Q = CV through its full voltage V: energy supplied QV = CV²</li><li>The capacitor stores only ½QV = ½CV²</li><li>The other ½CV² is turned into heat in the resistance; a smaller R gives a bigger current for a shorter time, but the same total energy</li></ul>" }
     ]
   },
   notes: `<h3>The model</h3>
 <ul><li>τ = RC; discharge V = V₀e^(−t/RC); charge V = V₀(1 − e^(−t/RC)) (from whatever voltage the capacitor had when the switch moved); I = (V across R)/R; Q = CV; U = ½CV²; t½ = RC ln 2.</li>
 <li>Series 1/C = Σ1/Cᵢ; parallel C = ΣCᵢ. Leaky capacitor (beyond the spec): R_L in parallel during discharge, τ = R R_L C/(R + R_L).</li>
 <li>Ideal components and switch, no internal resistance in the cell. Animation time is scaled so 5τ takes about 3 s at 1×; the clock shows the real time. Readings have voltmeter noise you can set.</li></ul>
+<h3>Why the curves are exponential</h3>
+<p>The current is set by the voltage across the resistor. While discharging, that is the capacitor's own voltage V = Q/C, so I = V/R = Q/RC: the rate at which charge leaves is proportional to the charge still there. Anything that falls at a rate proportional to how much is left falls by the same fraction in every equal time, an exponential decay, exactly like radioactive nuclei (τ = RC plays the part of the mean lifetime). While charging, the voltage across the resistor is the supply minus the capacitor's voltage, so the current dies away in the same way.</p>
+<h3>Assumptions and simplifications</h3>
+<ul><li>The capacitance stays the same at every voltage, and the resistor obeys Ohm's law (its resistance does not change as it warms).</li>
+<li>The wires have no resistance and the switch changes over instantly.</li>
+<li>The voltmeter is ideal: it draws no current, so it does not discharge the capacitor. A real voltmeter of resistance R_V acts like a leak in parallel.</li>
+<li>Real electrolytic capacitors leak slowly even when they are not connected, and their stated capacitance is often only within ±20%. Set a leakage resistance to see the first effect.</li></ul>
 <p>The earlier version of this simulation and its worksheets are kept in <a href="original/capacitors.html">original/capacitors.html</a>.</p>`
 });
 
