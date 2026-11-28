@@ -142,7 +142,8 @@ const plen = path => { let L = 0; for (let i = 1; i < path.length; i++) L += Mat
 function flow(c, key, path, I, dt) { const L = plen(path), n = Math.round(L / 28); const st = dots[key] || (dots[key] = { off: 0 }); st.off = (st.off + I * speed * 160 * dt) % 28; c.fillStyle = "#ffd166"; for (let k = 0; k < n; k++) { const p = along(path, (k * 28 + st.off) % L); c.beginPath(); c.arc(p[0], p[1], 3.2, 0, 6.3); c.fill(); } }
 function wire(c, path) { c.strokeStyle = "#7d889e"; c.lineWidth = 3; c.beginPath(); path.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.stroke(); }
 function cell(c, x, y, label) { c.fillStyle = "#080c15"; c.fillRect(x - 24, y - 22, 48, 44); c.strokeStyle = "#eef2f8"; c.lineWidth = 3; c.beginPath(); c.moveTo(x - 8, y - 20); c.lineTo(x - 8, y + 20); c.stroke(); c.lineWidth = 6; c.beginPath(); c.moveTo(x + 8, y - 11); c.lineTo(x + 8, y + 11); c.stroke(); c.fillStyle = "#ff8a8a"; c.font = "600 14px Segoe UI,sans-serif"; c.textAlign = "center"; c.fillText("+", x - 16, y - 24); c.fillStyle = "#6fb1ff"; c.fillText("−", x + 16, y - 24); c.fillStyle = "#eef2f8"; c.font = "600 13px Segoe UI,sans-serif"; c.fillText(label, x, y + 40); }
-function component(c, kind, x, y, vert, I, V, label) {
+let labR = 0;   // right-hand edge of the component labels drawn this frame, so the read-outs can start clear of them
+function component(c, kind, x, y, vert, I, V, label, lab = 44) {
   c.save(); c.translate(x, y); if (vert) c.rotate(Math.PI / 2); c.fillStyle = "#080c15"; c.fillRect(-36, -18, 72, 36);
   const P2 = Math.abs(I * V);
   if (kind === "lamp") { const glow = K.clamp(P2 / 3, 0, 1); if (glow > 0.02) { const gr = c.createRadialGradient(0, 0, 2, 0, 0, 60); gr.addColorStop(0, `rgba(255,236,150,${0.9 * glow})`); gr.addColorStop(1, "rgba(255,200,80,0)"); c.fillStyle = gr; c.beginPath(); c.arc(0, 0, 60, 0, 6.3); c.fill(); } c.strokeStyle = "#eef2f8"; c.lineWidth = 2.5; c.beginPath(); c.arc(0, 0, 16, 0, 6.3); c.stroke(); c.beginPath(); c.moveTo(-11, -11); c.lineTo(11, 11); c.moveTo(11, -11); c.lineTo(-11, 11); c.stroke(); }
@@ -152,29 +153,31 @@ function component(c, kind, x, y, vert, I, V, label) {
     if (kind === "therm") { c.beginPath(); c.moveTo(-30, 16); c.lineTo(24, -16); c.lineTo(32, -16); c.stroke(); } }
   c.restore();
   c.fillStyle = "#eef2f8"; c.font = "600 12.5px Segoe UI,sans-serif"; c.textAlign = "center"; const ly = vert ? y : y + 36, lx = vert ? x + 56 : x;
-  c.textAlign = vert ? "left" : "center"; c.fillText(label, vert ? x + 44 : x, vert ? y - 20 : ly); c.font = "12px Segoe UI,sans-serif"; c.fillStyle = "#7fe3a0"; c.fillText(Math.abs(V).toFixed(2) + " V", vert ? x + 44 : x, vert ? y - 2 : ly + 17); c.fillStyle = "#ffd166"; c.fillText(fmtI(I), vert ? x + 44 : x, vert ? y + 15 : ly + 33);
+  c.textAlign = vert ? "left" : "center"; c.fillText(label, vert ? x + lab : x, vert ? y - 20 : ly); if (vert) labR = Math.max(labR, x + lab + c.measureText(label).width);
+  c.font = "12px Segoe UI,sans-serif"; c.fillStyle = "#7fe3a0"; c.fillText(Math.abs(V).toFixed(2) + " V", vert ? x + lab : x, vert ? y - 2 : ly + 17); c.fillStyle = "#ffd166"; c.fillText(fmtI(I), vert ? x + lab : x, vert ? y + 15 : ly + 33);
 }
 const fmtI = I => Math.abs(I) < 0.001 ? (I * 1e6).toFixed(0) + " µA" : Math.abs(I) < 1 ? (I * 1000).toFixed(1) + " mA" : I.toFixed(2) + " A";
 function meter(c, x, y, ch, val, col) { c.fillStyle = "#121a2b"; c.strokeStyle = col; c.lineWidth = 2; c.beginPath(); c.arc(x, y, 20, 0, 6.3); c.fill(); c.stroke(); c.fillStyle = col; c.font = "600 14px Segoe UI,sans-serif"; c.textAlign = "center"; c.fillText(ch, x, y + 5); c.font = "600 12px Consolas,monospace"; c.fillText(val, x, y + 38); }
+// a voltmeter connected across a vertical component at x (between rows T and B), drawn dx to one side: it is in parallel with the component
+function voltmeter(c, x, T, B, dx, V) { c.strokeStyle = "#7fe3a0"; c.setLineDash([4, 4]); c.lineWidth = 1.5; c.beginPath(); c.moveTo(x, T + 30); c.lineTo(x + dx, T + 30); c.lineTo(x + dx, B - 30); c.lineTo(x, B - 30); c.stroke(); c.setLineDash([]); c.fillStyle = "#7fe3a0"; [T + 30, B - 30].forEach(y => { c.beginPath(); c.arc(x, y, 3, 0, 6.3); c.fill(); }); meter(c, x + dx, (T + B) / 2, "V", Math.abs(V).toFixed(2) + " V", "#7fe3a0"); }
 function draw(dt) {
-  const c = cv.ctx, w = cv.w, h = cv.h, s = solve(), m = P.mode; c.fillStyle = "#080c15"; c.fillRect(0, 0, w, h);
-  const L = w * 0.14, R = w * 0.52, T = h * 0.2, B = h * 0.78, cx = (L + R) / 2, name = COMP[P.x].name;
+  const c = cv.ctx, w = cv.w, h = cv.h, s = solve(), m = P.mode; c.fillStyle = "#080c15"; c.fillRect(0, 0, w, h); labR = 0;
+  const L = w * 0.15, R = w * 0.47, T = h * 0.2, B = h * 0.78, cx = (L + R) / 2, name = COMP[P.x].name;
   if (m === "series") {
     const path = [[cx - 30, T], [L, T], [L, B], [R, B], [R, T], [cx + 30, T], [cx - 30, T]];
     wire(c, path.slice(0, 6)); flow(c, "s", [[cx - 24, T], [L, T], [L, B], [R, B], [R, T], [cx + 24, T]], s.I, dt);
-    cell(c, cx, T, P.E.toFixed(1) + " V" + (P.r ? ", r = " + P.r + " Ω" : "")); component(c, "resistor", L, (T + B) / 2, true, s.I, s.V1, "R₁ = " + P.R1 + " Ω"); component(c, P.x, R, (T + B) / 2, true, s.Ix, s.Vx, name + (P.x === "resistor" ? " R₂ = " + ENV.R2 + " Ω" : ""));
-    meter(c, cx, B, "A", fmtI(s.I), "#ffd166");
+    cell(c, cx, T, P.E.toFixed(1) + " V" + (P.r ? ", r = " + P.r + " Ω" : "")); component(c, "resistor", L, (T + B) / 2, true, s.I, s.V1, "R₁ = " + P.R1 + " Ω"); component(c, P.x, R, (T + B) / 2, true, s.Ix, s.Vx, name + (P.x === "resistor" ? " R₂ = " + ENV.R2 + " Ω" : ""), 108);
+    meter(c, cx, B, "A", fmtI(s.I), "#ffd166"); voltmeter(c, L, T, B, -62, s.V1); voltmeter(c, R, T, B, 64, s.Vx);
   } else if (m === "parallel") {
-    const M = (L + R) / 2 + 40; wire(c, [[cx - 30, T], [L, T], [L, B], [R, B], [R, T], [cx + 30, T]]); wire(c, [[M, T], [M, B]]);
+    const M = (L + R) / 2 + 10; wire(c, [[cx - 30, T], [L, T], [L, B], [R, B], [R, T], [cx + 30, T]]); wire(c, [[M, T], [M, B]]);
     flow(c, "m1", [[cx - 24, T], [L, T], [L, B], [M, B]], s.I, dt); flow(c, "b1", [[M, B], [M, T]], 0, dt); flow(c, "m2", [[M, T], [cx + 24, T]], s.I, dt);
     flow(c, "x", [[M, B], [R, B], [R, T], [M, T]], s.Ix, dt); flow(c, "r1", [[M, B], [M, T]], s.I1, dt);
-    cell(c, cx - 40, T, P.E.toFixed(1) + " V"); component(c, "resistor", M, (T + B) / 2, true, s.I1, s.V1, "R₁ = " + P.R1 + " Ω"); component(c, P.x, R, (T + B) / 2, true, s.Ix, s.Vx, name);
-    meter(c, (L + M) / 2, B, "A", fmtI(s.I), "#ffd166");
+    cell(c, cx - 40, T, P.E.toFixed(1) + " V"); component(c, "resistor", M, (T + B) / 2, true, s.I1, s.V1, "R₁ = " + P.R1 + " Ω"); component(c, P.x, R, (T + B) / 2, true, s.Ix, s.Vx, name, 108);
+    meter(c, (L + M) / 2, B, "A", fmtI(s.I), "#ffd166"); voltmeter(c, R, T, B, 64, s.Vx);
   } else if (m === "iv") {
     wire(c, [[cx - 30, T], [L, T], [L, B], [R, B], [R, T], [cx + 30, T]]); flow(c, "iv", [[cx - 24, T], [L, T], [L, B], [R, B], [R, T], [cx + 24, T]], s.I * (P.x === "diode" || P.x === "lamp" ? 3 : 1), dt);
     c.fillStyle = "#080c15"; c.fillRect(cx - 34, T - 24, 68, 48); c.strokeStyle = "#eef2f8"; c.lineWidth = 2; c.beginPath(); c.arc(cx, T, 20, 0, 6.3); c.stroke(); c.font = "600 12px Segoe UI,sans-serif"; c.fillStyle = "#eef2f8"; c.textAlign = "center"; c.fillText("variable supply " + P.Vsup.toFixed(2) + " V", cx, T - 32); c.fillText("~", cx, T + 5);
-    component(c, P.x, R, (T + B) / 2, true, s.I, s.Vx, name); meter(c, (L + R) / 2, B, "A", fmtI(s.I), "#ffd166");
-    c.strokeStyle = "#7fe3a0"; c.setLineDash([4, 4]); c.lineWidth = 1.5; c.beginPath(); c.moveTo(R, T + 30); c.lineTo(R + 90, T + 30); c.lineTo(R + 90, B - 30); c.lineTo(R, B - 30); c.stroke(); c.setLineDash([]); meter(c, R + 90, (T + B) / 2, "V", s.Vx.toFixed(2) + " V", "#7fe3a0");
+    component(c, P.x, R, (T + B) / 2, true, s.I, s.Vx, name, 108); meter(c, (L + R) / 2, B, "A", fmtI(s.I), "#ffd166"); voltmeter(c, R, T, B, 64, s.Vx);
   } else {
     // the cell: an ideal EMF and its internal resistance inside a dashed box
     const bx = cx - 90, bw = 180; wire(c, [[L, T], [bx, T]]); wire(c, [[bx + bw, T], [R, T], [R, B], [L, B], [L, T]]); wire(c, [[bx, T], [bx + bw, T]]);
@@ -185,7 +188,7 @@ function draw(dt) {
     c.fillStyle = "#cfd8ea"; c.font = "12px Segoe UI,sans-serif"; c.textAlign = "center"; c.fillText("lost inside the cell: Ir = " + (s.I * P.rInt).toFixed(2) + " V", cx, T - 50);
   }
   // energy story on the right
-  const tx = w * 0.7, rows = m === "emf" ? [["EMF ε", P.eInt.toFixed(2) + " V"], ["terminal p.d.", s.Vt.toFixed(2) + " V"], ["lost volts Ir", (s.I * P.rInt).toFixed(2) + " V"], ["power to the load", (s.I * s.V1).toFixed(2) + " W"], ["power wasted in the cell", (s.I * s.I * P.rInt).toFixed(2) + " W"]]
+  const tx = Math.max(w * 0.7, labR + 28), rows = m === "emf" ? [["EMF ε", P.eInt.toFixed(2) + " V"], ["terminal p.d.", s.Vt.toFixed(2) + " V"], ["lost volts Ir", (s.I * P.rInt).toFixed(2) + " V"], ["power to the load", (s.I * s.V1).toFixed(2) + " W"], ["power wasted in the cell", (s.I * s.I * P.rInt).toFixed(2) + " W"]]
     : m === "iv" ? [["voltage", s.Vx.toFixed(2) + " V"], ["current", fmtI(s.I)], ["resistance V/I", Math.abs(s.I) > 1e-6 ? (s.Vx / s.I).toPrecision(3) + " Ω" : "very large"], ["power", (s.I * s.Vx).toFixed(3) + " W"]]
     : [["supply", P.E.toFixed(2) + " V"], [m === "series" ? "V₁ + V₂" : "V across each branch", m === "series" ? (s.V1 + s.Vx).toFixed(2) + " V" : s.Vx.toFixed(2) + " V"], [m === "series" ? "same current everywhere" : "I₁ + I₂", m === "series" ? fmtI(s.I) : fmtI(s.I1) + " + " + fmtI(s.Ix)], [COMP[P.x].name.split(" (")[0] + "'s resistance", (Math.abs(s.Ix) > 1e-9 ? s.Vx / s.Ix : Infinity).toPrecision(3) + " Ω"], ["total power", (s.I * (P.E - s.I * P.r)).toFixed(3) + " W"]];
   c.textAlign = "left"; rows.forEach(([a, b], i) => { c.fillStyle = "#aab6cc"; c.font = "12.5px Segoe UI,sans-serif"; c.fillText(a, tx, T + i * 40); c.fillStyle = "#eef2f8"; c.font = "600 16px Segoe UI,sans-serif"; c.fillText(b, tx, T + i * 40 + 19); });

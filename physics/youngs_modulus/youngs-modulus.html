@@ -437,7 +437,7 @@ const K = (() => {
   // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
   function batchSummary(e, seed0 = 12345) {
     const rows = []; let i = 0;
-    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101), rng(seed0 + 7919 * (r + 1))); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
     for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
     return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
   }
@@ -798,7 +798,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     }
     // floating hint and heads-up text over the stage
     let tipEl = null, tipT = 0;
-    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); stage.addEventListener("pointerdown", () => { tipEl.style.opacity = 0; }); /* the hint gets out of the way as soon as you start working on the picture */ } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
     ui.hideTip = () => { if (tipEl) { clearTimeout(tipT); tipEl.style.opacity = 0; } };
     let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; if (banner) placeHud(); } hudEl.style.display = html ? "" : "none"; };
     // animation loop: step(dt) only while playing, draw() every frame
@@ -852,7 +852,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
         const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
         (function slice() {
           if (token !== bstate.token) return; const t = performance.now();
-          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed), rng(seed0 + 7919 * (r + 1))); /* 3rd argument: the same random numbers for every x within one repeat */ if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
           prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
           if (i < tasks.length) setTimeout(slice, 0); else fin();
         })();
@@ -1283,7 +1283,7 @@ const ui = K.app({
       { lvl: "adv", marks: 3, q: "Steel with grains 25 μm across yields at 330 MPa; with 64 μm grains, at 255 MPa. Use σy = σ0 + k ÷ √d to find k and σ0.", ans: "<ul><li>1/√25 = 0.200, 1/√64 = 0.125 (μm^−½)</li><li>k = (330 − 255) ÷ (0.200 − 0.125) = 1000 MPa μm^½</li><li>σ0 = 330 − 1000 × 0.2 = 130 MPa</li></ul>" }
     ]
   },
-  notes: `<h3>Five models</h3>
+  notes: `<h3>Six views</h3>
 <ul><li><b>Tensile test</b>: typical published stress–strain curves for each material (tables of values, smoothed by straight lines between points). Metals and polythene stretch elastically (gradient E) until the stress reaches the flow stress; plastic strain then grows, and the flow stress rises (work hardening) and later falls (necking). Unloading is elastic. Brittle materials follow their curve until a breaking stress that varies from sample to sample (a lot for glass). Rubber follows a loading and a lower unloading curve.</li>
 <li><b>Atoms</b>: about 700 atoms in two dimensions, with the Lennard-Jones force between neighbours, moved by Newton's second law in tiny time steps (molecular dynamics). Stresses are in model units (the depth of the energy well ÷ the atom size squared). Atoms are coloured by how many close neighbours they have: 6 in a perfect lattice, 5 or 7 at a dislocation core.</li>
 <li><b>Grains</b>: a two-dimensional dislocation model. Each grain has one slip direction and one dislocation source at its centre. Dislocations move along the slip line at a speed proportional to the force on them above a friction stress; they repel or attract each other (force ∝ 1 ÷ distance); they stop at boundaries unless the stress at the head of the pile-up exceeds a critical value (5000 MPa for real dislocations), and then they pass through. Each ⊥ stands for a group of w dislocations, so that a pile-up shows only a few symbols. Work hardening: the friction stress rises with the number that have crossed boundaries.</li>

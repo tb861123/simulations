@@ -437,7 +437,7 @@ const K = (() => {
   // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
   function batchSummary(e, seed0 = 12345) {
     const rows = []; let i = 0;
-    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101), rng(seed0 + 7919 * (r + 1))); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
     for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
     return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
   }
@@ -798,7 +798,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     }
     // floating hint and heads-up text over the stage
     let tipEl = null, tipT = 0;
-    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); stage.addEventListener("pointerdown", () => { tipEl.style.opacity = 0; }); /* the hint gets out of the way as soon as you start working on the picture */ } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
     ui.hideTip = () => { if (tipEl) { clearTimeout(tipT); tipEl.style.opacity = 0; } };
     let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; if (banner) placeHud(); } hudEl.style.display = html ? "" : "none"; };
     // animation loop: step(dt) only while playing, draw() every frame
@@ -852,7 +852,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
         const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
         (function slice() {
           if (token !== bstate.token) return; const t = performance.now();
-          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed), rng(seed0 + 7919 * (r + 1))); /* 3rd argument: the same random numbers for every x within one repeat */ if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
           prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
           if (i < tasks.length) setTimeout(slice, 0); else fin();
         })();
@@ -966,7 +966,7 @@ const ui = K.app({
     ],
     questions: [
       { lvl: "std", marks: 2, q: "Explain what is meant by the statement that radioactive decay is random.", ans: "<ul><li>It is not possible to predict when a particular nucleus will decay</li><li>or which nucleus in a sample will decay next (each has the same, constant probability)</li></ul>" },
-      { lvl: "std", marks: 3, q: () => `A sample of ${ISO[iso].name} contains ${N0} unstable nuclei. Its half-life is ${ISO[iso].half} ${ISO[iso].unit}. How many remain undecayed after ${(3 * ISO[iso].half).toPrecision(3)} ${ISO[iso].unit}?`, ans: () => `<ul><li>${(3 * ISO[iso].half).toPrecision(3)} ${ISO[iso].unit} is three half-lives</li><li>${N0} → ${N0 / 2} → ${N0 / 4} → ${N0 / 8}</li><li>${N0 / 8} nuclei remain</li></ul>` },
+      { lvl: "std", marks: 3, q: () => `A sample of ${ISO[iso].name} contains ${N0} unstable nuclei. Its half-life is ${ISO[iso].half} ${ISO[iso].unit}. How many remain undecayed after ${(3 * ISO[iso].half).toPrecision(3)} ${ISO[iso].unit}?`, ans: () => `<ul><li>${(3 * ISO[iso].half).toPrecision(3)} ${ISO[iso].unit} is three half-lives</li><li>${N0} → ${N0 / 2} → ${N0 / 4} → ${N0 / 8}</li><li>${Number.isInteger(N0 / 8) ? N0 / 8 : `about ${Math.round(N0 / 8)} (half-life gives the expected number: ${N0 / 8} on average, but only whole nuclei can decay)`} nuclei remain</li></ul>` },
       { lvl: "std", marks: 3, q: () => { const c = countRate(src, dist, mat, thick); return `A Geiger counter records ${Math.round(c * 60)} counts per minute near a source. With the source removed it records ${Math.round(BG * 60)} counts per minute. Calculate the count rate due to the source, and explain why the second reading is needed.`; }, ans: () => { const c = countRate(src, dist, mat, thick); return `<ul><li>${Math.round(c * 60)} − ${Math.round(BG * 60)} = ${Math.round(c * 60) - Math.round(BG * 60)} counts per minute</li><li>The counter also detects background radiation</li><li>which must be subtracted to find the count rate from the source alone</li></ul>`; } },
       { lvl: "std", marks: 3, q: "A source gives a high count with nothing between it and a Geiger tube. The count is unchanged by a sheet of paper, but falls to background with 5 mm of aluminium. Which type of radiation does the source emit? Explain.", ans: "<ul><li>Beta</li><li>Not alpha, because paper did not reduce the count</li><li>Not gamma, because aluminium stopped it completely (gamma would pass through)</li></ul>" },
       { lvl: "std", marks: 3, q: "Explain why technetium-99m, a gamma emitter with a half-life of 6 hours, is suitable as a medical tracer.", ans: "<ul><li>Gamma rays pass out of the body to be detected outside</li><li>and are weakly ionising, so cause little damage</li><li>The half-life is long enough to complete the scan but short enough that little activity remains in the patient after a day or so</li></ul>" },
