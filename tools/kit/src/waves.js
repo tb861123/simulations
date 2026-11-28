@@ -19,6 +19,7 @@ class Tank {
     this.inten = new Float32Array(NC);         // time-averaged u² (what a detector or your eye would record)
     this.sources = []; this.plane = false; this.lambda = 16; this.amp = 1; this.mach = 0; this.n = 1.5; this.t = 0;
     this.slits = { n: 0, w: 8, sep: 40, x: 90 };
+    this.gapRule = true;   // true: GCSE rule (gap < λ blocks the wave); false: real behaviour from the wave equation alone
     this.setEdges(true);
   }
   setEdges(absorb) {
@@ -44,8 +45,9 @@ class Tank {
     const g = C2 / (this.n * this.n);   // light (or water waves) travel n times slower inside the glass
     for (let i = 0; i < NC; i++) this.c2[i] = this.glass[i] ? g : C2;
   }
-  // Can the wave pass through the gaps? Only if each gap is at least one wavelength wide.
-  gapPasses() { return this.slits.w >= this.lambda; }
+  // Can the wave pass through the gaps? Under the GCSE rule only if each gap is at least one
+  // wavelength wide. In real behaviour the wave equation alone decides: a weak wave always leaks through.
+  gapPasses() { return !this.gapRule || this.slits.w >= this.lambda; }
   calm() { this.u.fill(0); this.up.fill(0); this.inten.fill(0); this.t = 0; }
   step() {
     const { u, up, un, c2, damp, solid } = this; this.t++;
@@ -109,7 +111,7 @@ const ui = K.app({
   missions: [
     { title: "Two sources", q: "Two dippers bob in step. Where is the water calm, and why? Switch the view to <b>Intensity</b> to see the pattern, then drag a source closer to the other.", hint: "Calm lines (nodal lines) are where a crest from one source always meets a trough from the other: path difference = ½λ, 1½λ… Moving the sources closer spreads the lines apart.", setup: () => setScene("two") },
     { title: "Young's double slit", q: "Predict first: if you <b>halve</b> the slit separation, what happens to the fringe spacing on the screen (right-hand chart)? Then test it. What about doubling the wavelength?", hint: "Fringe spacing ≈ λD/d. Halving d doubles the spacing; doubling λ doubles it too. Compare the measured and theory tiles.", setup: () => setScene("double") },
-    { title: "Diffraction through a gap", q: "Make the gap much wider than the wavelength, then the same size, then narrower than the wavelength. When does the wave spread out the most? What happens when the gap is too narrow?", hint: "Spreading is greatest when gap = wavelength: the wave fans out in semicircles. A wider gap spreads it less. A gap narrower than the wavelength does not let the wave through at all: it is reflected. A wide gap gives a beam with sharp shadows: that is why light (tiny λ) seems to travel in straight lines but sound bends round doorways.", setup: () => setScene("single") },
+    { title: "Diffraction through a gap", q: "Make the gap much wider than the wavelength, then the same size, then narrower than the wavelength. When does the wave spread out the most? What happens when the gap is too narrow?", hint: "Spreading is greatest when gap = wavelength: the wave fans out in semicircles. A wider gap spreads it less. Under the GCSE rule a gap narrower than the wavelength does not let the wave through at all: it is reflected. Switch <b>Gaps narrower than λ</b> to Real behaviour to see what really happens: a weak wave leaks through and spreads out in all directions. A wide gap gives a beam with sharp shadows: that is why light (tiny λ) seems to travel in straight lines but sound bends round doorways.", setup: () => setScene("single") },
     { title: "Refraction", q: "The green region is glass (slower waves). Watch the wavefronts cross the boundary. What happens to the wavelength, the direction and the frequency? Probe A is in air, probe B in glass.", hint: "Wavelength shrinks by the factor n, the wave bends towards the normal, and frequency is unchanged: the two probe traces have the same period.", setup: () => setScene("refract") },
     { title: "Find the focus", q: "A convex lens is just glass that is thicker in the middle. Use Intensity view to find the focal point. Then change the refractive index: where does the focus move?", hint: "The middle of each wavefront is delayed the most, so the wavefront curves inward and converges. Larger n means more delay and a shorter focal length.", setup: () => { setScene("lens"); S.view.set("inten", true); } },
     { title: "Break the sound barrier", q: "The source is moving. Compare the wavelength in front of it and behind it. Now slide <b>Source speed</b> past 1.0× the wave speed. What forms?", hint: "In front, crests bunch up (higher pitch); behind, they spread. Above the wave speed the source outruns its own waves, which pile into a V-shaped shock: a sonic boom, or the bow wave of a boat.", setup: () => setScene("doppler") },
@@ -129,7 +131,7 @@ const ui = K.app({
   ],
   notes: `<h3>What is being calculated</h3><p>The tank is a grid of 320 × 180 cells, each 1 mm across. Each time step (1 ms) every cell is pulled towards the average height of its four neighbours: this is the 2-D wave equation, solved by finite differences. Wave speed is 0.5 m/s in open water.</p>
   <h3>What emerges on its own</h3><ul><li>Superposition and interference</li><li>Diffraction through gaps and round edges</li><li>Reflection from walls</li><li>Refraction and focusing where the wave speed changes</li><li>Doppler shift and shock waves from a moving source</li></ul>
-  <h3>Assumptions and simplifications</h3><ul><li>Small-amplitude waves: no breaking, and all wavelengths travel at the same speed (real water waves are dispersive).</li><li>"Glass" is a region where waves travel n times slower. In a real ripple tank you get this with shallower water.</li><li>Walls hold the water still (a fixed boundary), so reflections are inverted. Real tank walls behave more like free boundaries.</li><li>Waves are absorbed at the tank edges (like the foam beach in a real tank) unless you switch that off.</li><li>The grid makes very short wavelengths (below about 8 mm) travel slightly too slowly.</li><li>The gap rule: a gap narrower than the wavelength lets no wave through (the gap is held still like a wall, so the wave reflects). This is the rule used at GCSE. In reality a tiny fraction of the wave squeezes through such a gap and spreads out, but it is very weak. A gap equal to λ gives the most spreading, and wider gaps spread the wave less: those two parts are not programmed in, they come out of the wave equation.</li><li>Intensity is the average of height² over roughly the last 80 ms.</li><li>The wave equation is worked out on a 320 × 180 grid (1 mm cells) by the ordinary processor, exactly as before, so the probes, the screen chart and the Batch run are unchanged. The graphics card (WebGL) only draws it: it blends smoothly between cells and lights each screen pixel from the slope of the water, so wavefronts look smooth rather than made of 1 mm squares. Without WebGL the tank is drawn in 2D as before.</li></ul>
+  <h3>Assumptions and simplifications</h3><ul><li>Small-amplitude waves: no breaking, and all wavelengths travel at the same speed (real water waves are dispersive).</li><li>"Glass" is a region where waves travel n times slower. In a real ripple tank you get this with shallower water.</li><li>Walls hold the water still (a fixed boundary), so reflections are inverted. Real tank walls behave more like free boundaries.</li><li>Waves are absorbed at the tank edges (like the foam beach in a real tank) unless you switch that off.</li><li>The grid makes very short wavelengths (below about 8 mm) travel slightly too slowly.</li><li>Gaps narrower than the wavelength: with <b>GCSE rule</b> selected (the default) such a gap lets no wave through (the gap is held still like a wall, so the wave reflects). This is the rule used at GCSE, and it is a simplification. Switch to <b>Real behaviour</b> to let the wave equation decide on its own: some of the wave leaks through, much weaker than through a wide gap, and spreads out almost evenly like a new point source. Most of the wave is reflected. (In a real tank how much gets through also depends on how thick the barrier is.) A gap equal to λ gives the most spreading, and wider gaps spread the wave less: those two parts are not programmed in, they come out of the wave equation.</li><li>Intensity is the average of height² over roughly the last 80 ms.</li><li>The wave equation is worked out on a 320 × 180 grid (1 mm cells) by the ordinary processor, exactly as before, so the probes, the screen chart and the Batch run are unchanged. The graphics card (WebGL) only draws it: it blends smoothly between cells and lights each screen pixel from the slope of the water, so wavefronts look smooth rather than made of 1 mm squares. Without WebGL the tank is drawn in 2D as before.</li></ul>
   <h3>Useful equations</h3><p><code>v = fλ</code> &nbsp; <code>fringe spacing ≈ λD/d</code> &nbsp; <code>n = c₁/c₂ = λ₁/λ₂</code> &nbsp; <code>λ′ = λ(1 − v/c)</code></p>
   <h3>Keys</h3><p><kbd>Space</kbd> pause · right-click or the Erase tool removes things</p>`,
 });
@@ -139,12 +141,12 @@ function addNoise(t, r) { for (let k = 0; k < 3; k++) t.sources.push({ x: 40 + r
 function gapVerdict() {
   const w = tank.slits.w, l = tank.lambda;
   if (!tank.slits.n) return "no slits";
-  if (w < l) return `gap ${w} < λ ${l} mm: blocked`;
+  if (w < l) return tank.gapRule ? `gap ${w} < λ ${l} mm: blocked` : `gap < λ: weak, spreads everywhere`;
   if (w <= 1.2 * l) return `gap ≈ λ: most spreading`;
   return `gap ${(w / l).toFixed(1)}λ: less spreading`;
 }
 let lastPass = true;   // so a tip appears when the gap closes or opens
-function gapTip() { const p = tank.gapPasses(); if (tank.slits.n && p !== lastPass) ui.tip(p ? "Gap ≥ wavelength: the wave gets through and diffracts." : "Gap narrower than the wavelength: the wave cannot pass and is reflected.", 3500); lastPass = p; }
+function gapTip() { const p = tank.gapPasses(); if (!tank.gapRule) { lastPass = p; return; } if (tank.slits.n && p !== lastPass) ui.tip(p ? "Gap ≥ wavelength: the wave gets through and diffracts." : "Gap narrower than the wavelength: the wave cannot pass and is reflected.", 3500); lastPass = p; }
 function slitRun(r, lambda, d) {
   const t = new Tank(); t.plane = true; t.lambda = lambda; t.slits = { n: 2, w: 12, sep: d, x: 90 }; t.rebuild(); addNoise(t, r);
   for (let i = 0; i < 1000; i++) t.step(); return fringeSpacing(t.screen(290));
@@ -163,6 +165,7 @@ S.mach = K.slider(g, { label: "Source speed", min: 0, max: 1.6, step: 0.05, valu
 g = ui.group("Barrier and glass");
 S.ns = K.seg(g, { label: "Slits in the barrier", value: 0, options: [[0, "None"], [1, "1"], [2, "2"], [3, "3"], [5, "5"]], on: v => { tank.slits.n = v; tank.rebuild(); gapTip(); } });
 S.sw = K.slider(g, { label: "Slit width", min: 2, max: 60, step: 1, value: 8, unit: "mm", on: v => { tank.slits.w = v; tank.rebuild(); gapTip(); } });
+S.gapRule = K.seg(g, { label: "Gaps narrower than λ", value: "gcse", options: [["gcse", "GCSE rule"], ["real", "Real behaviour"]], on: v => { tank.gapRule = v === "gcse"; tank.rebuild(); lastPass = tank.gapPasses(); ui.tip(v === "gcse" ? "GCSE rule: a gap narrower than the wavelength blocks the wave (it reflects)." : "Real behaviour: a gap narrower than λ lets a weak wave through, which spreads out in all directions.", 4000); }, tip: "What happens when the gap is narrower than the wavelength. The GCSE rule says the wave cannot pass. In reality a small part leaks through and spreads out like a new point source." });
 S.sep = K.slider(g, { label: "Slit separation d", min: 12, max: 90, step: 1, value: 40, unit: "mm", on: v => { tank.slits.sep = v; tank.rebuild(); } });
 S.n = K.slider(g, { label: "Glass refractive index n", min: 1.1, max: 2.5, step: 0.05, value: 1.5, on: v => { tank.n = v; tank.rebuild(); } });
 g = ui.group("View");
