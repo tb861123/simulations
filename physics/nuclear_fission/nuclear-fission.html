@@ -437,7 +437,7 @@ const K = (() => {
   // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
   function batchSummary(e, seed0 = 12345) {
     const rows = []; let i = 0;
-    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101), rng(seed0 + 7919 * (r + 1))); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
     for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
     return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
   }
@@ -798,7 +798,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     }
     // floating hint and heads-up text over the stage
     let tipEl = null, tipT = 0;
-    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); stage.addEventListener("pointerdown", () => { tipEl.style.opacity = 0; }); /* the hint gets out of the way as soon as you start working on the picture */ } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
     ui.hideTip = () => { if (tipEl) { clearTimeout(tipT); tipEl.style.opacity = 0; } };
     let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; if (banner) placeHud(); } hudEl.style.display = html ? "" : "none"; };
     // animation loop: step(dt) only while playing, draw() every frame
@@ -852,7 +852,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
         const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
         (function slice() {
           if (token !== bstate.token) return; const t = performance.now();
-          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed), rng(seed0 + 7919 * (r + 1))); /* 3rd argument: the same random numbers for every x within one repeat */ if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
           prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
           if (i < tasks.length) setTimeout(slice, 0); else fin();
         })();
@@ -943,7 +943,15 @@ const ui = K.app({
       { lvl: "std", marks: 2, q: "Complete the equation: ²³⁵₉₂U + ¹₀n → ¹⁴¹₅₆Ba + ⁹²₃₆Kr + _ ¹₀n", ans: "<ul><li>mass numbers: 236 = 141 + 92 + x → x = 3</li><li>3 neutrons (atomic numbers 92 = 56 + 36 ✓)</li></ul>" },
       { lvl: "std", marks: 3, q: "Explain how control rods keep a nuclear reactor at a steady power.", ans: "<ul><li>control rods absorb neutrons</li><li>lowering them in absorbs more, so fewer fissions; raising them allows more</li><li>adjusted so on average one neutron from each fission causes another fission</li></ul>" },
       { lvl: "adv", marks: 3, q: "The mass defect in a fission is 0.186 u. Calculate the energy released in MeV and in J (1 u = 931.5 MeV, 1 eV = 1.6 × 10⁻¹⁹ J).", ans: "<ul><li>E = 0.186 × 931.5 = 173 MeV</li><li>= 173 × 10⁶ × 1.6 × 10⁻¹⁹</li><li>= 2.8 × 10⁻¹¹ J</li></ul>" },
-      { lvl: "adv", marks: 3, q: () => `With k = ${(P.how === "k" ? P.k : kOf(P.mass, P.fuel, P.rodsOn ? P.rods : 0)).toFixed(2)} and ${P.n0} starting neutron(s), how many neutrons would you expect after 5 generations?`, ans: () => { const k = P.how === "k" ? P.k : kOf(P.mass, P.fuel, P.rodsOn ? P.rods : 0); return `<ul><li>N = N₀ k⁵ = ${P.n0} × ${k.toFixed(2)}⁵</li><li>= ${(P.n0 * k ** 5).toFixed(1)}</li></ul>`; } }
+      { lvl: "adv", marks: 3, q: () => `With k = ${(P.how === "k" ? P.k : kOf(P.mass, P.fuel, P.rodsOn ? P.rods : 0)).toFixed(2)} and ${P.n0} starting neutron(s), how many neutrons would you expect after 5 generations?`, ans: () => { const k = P.how === "k" ? P.k : kOf(P.mass, P.fuel, P.rodsOn ? P.rods : 0); return `<ul><li>N = N₀ k⁵ = ${P.n0} × ${k.toFixed(2)}⁵</li><li>= ${(P.n0 * k ** 5).toFixed(1)}</li></ul>`; } },
+      { lvl: "std", marks: 2, q: "Explain the job of the moderator in a nuclear reactor.", ans: "<ul><li>It slows down the fast neutrons released by fission (by collisions with its nuclei)</li><li>Slow neutrons are much more likely to be absorbed by U-235 and cause more fissions</li></ul>" },
+      { lvl: "std", marks: 3, q: "Describe what happens in a chain reaction.", ans: "<ul><li>A neutron is absorbed by a U-235 nucleus, which splits into two smaller nuclei</li><li>releasing energy and 2 or 3 more neutrons</li><li>those neutrons cause further fissions, and so on</li></ul>" },
+      { lvl: "std", marks: 2, q: "Give one advantage and one disadvantage of generating electricity with nuclear fission.", ans: "<ul><li>Advantage: no carbon dioxide from the power station / very reliable / a lot of energy from little fuel</li><li>Disadvantage: radioactive waste that stays dangerous for a very long time / risk of accidents / high cost of building and decommissioning</li></ul>" },
+      { lvl: "std", marks: 2, q: "Explain why the two nuclei produced by fission are dangerous.", ans: "<ul><li>They are radioactive (they have too many neutrons)</li><li>and emit beta and gamma radiation, some for many years</li></ul>" },
+      { lvl: "adv", marks: 3, q: "The mass defect of an iron-56 nucleus is 0.528 u. Calculate its binding energy and its binding energy per nucleon. (1 u = 931.5 MeV)", ans: "<ul><li>binding energy = 0.528 × 931.5 = 492 MeV</li><li>per nucleon = 492 ÷ 56</li><li>= 8.78 MeV</li></ul>" },
+      { lvl: "adv", marks: 3, q: "Use the curve of binding energy per nucleon to explain why the fission of uranium releases energy.", ans: "<ul><li>Uranium has about 7.6 MeV per nucleon; the fragments, nearer iron, have about 8.5 MeV per nucleon</li><li>so the products are more tightly bound: their total binding energy is greater</li><li>their total mass is less, and the difference (E = Δmc²) is released, mostly as kinetic energy of the fragments</li></ul>" },
+      { lvl: "adv", marks: 3, q: "Each fission of U-235 releases about 200 MeV. Estimate the energy released by the fission of 1.0 kg of U-235. (Avogadro constant 6.02 × 10²³ mol⁻¹)", ans: "<ul><li>number of nuclei = (1000 ÷ 235) × 6.02 × 10²³ = 2.56 × 10²⁴</li><li>energy = 2.56 × 10²⁴ × 200 × 10⁶ × 1.60 × 10⁻¹⁹ J</li><li>≈ 8.2 × 10¹³ J</li></ul>" },
+      { lvl: "adv", marks: 2, q: "Explain why a lump of U-235 smaller than the critical mass does not explode.", ans: "<ul><li>Too many of the neutrons escape through its surface before they can cause a fission</li><li>so on average each fission causes fewer than one more (k < 1) and chains die out</li></ul>" }
     ]
   },
   notes: `<h3>The model</h3>

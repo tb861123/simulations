@@ -437,7 +437,7 @@ const K = (() => {
   // run one batch experiment straight through (fixed seeds) and summarise it, for teacher notes
   function batchSummary(e, seed0 = 12345) {
     const rows = []; let i = 0;
-    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
+    if (e.xs) { for (let r = 0; r < (e.reps || 6); r++) for (const x of e.xs) { const y = e.run(x, rng(seed0 + (i++) * 101), rng(seed0 + 7919 * (r + 1))); if (y != null && isFinite(y)) rows.push([x, +y]); } return e.xs.map(x => { const g = rows.filter(q => q[0] === x).map(q => q[1]); return g.length ? `${x}: ${sig(mean(g))} ± ${sig(se(g))}` : `${x}: –`; }).join(" · ") + ` (mean ± SE, ${e.reps || 6} runs each)`; }
     for (let r = 0; r < (e.reps || 200); r++) { const y = e.run(0, rng(seed0 + (i++) * 101)); if (y != null && isFinite(y)) rows.push(+y); }
     return `mean ${sig(mean(rows))}, SD ${sig(sd(rows))}, SE ${sig(se(rows))} from ${rows.length} runs`;
   }
@@ -798,7 +798,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
     }
     // floating hint and heads-up text over the stage
     let tipEl = null, tipT = 0;
-    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
+    ui.tip = (text, ms = 6000) => { if (!tipEl) { tipEl = $("div", "k-tip"); stage.append(tipEl); stage.addEventListener("pointerdown", () => { tipEl.style.opacity = 0; }); /* the hint gets out of the way as soon as you start working on the picture */ } tipEl.innerHTML = text; tipEl.style.opacity = 1; clearTimeout(tipT); tipT = setTimeout(() => tipEl.style.opacity = 0, ms); };
     ui.hideTip = () => { if (tipEl) { clearTimeout(tipT); tipEl.style.opacity = 0; } };
     let hudEl = null; ui.hud = html => { if (!hudEl) { hudEl = $("div", "k-hud"); stage.append(hudEl); } if (hudEl._h !== html) { hudEl.innerHTML = html; hudEl._h = html; if (banner) placeHud(); } hudEl.style.display = html ? "" : "none"; };
     // animation loop: step(dt) only while playing, draw() every frame
@@ -852,7 +852,7 @@ vec4 bicubic(sampler2D t, vec2 n, vec2 p) {
         const fin = () => { bRun.textContent = "▶ Run again"; bRun.onclick = () => runExp(); paint(); };
         (function slice() {
           if (token !== bstate.token) return; const t = performance.now();
-          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed)); if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
+          while (i < tasks.length && performance.now() - t < 40) { const [x, r] = tasks[i], seed = seed0 + i * 101; const y = e.run(x, rng(seed), rng(seed0 + 7919 * (r + 1))); /* 3rd argument: the same random numbers for every x within one repeat */ if (y != null && isFinite(y)) bstate.rows.push([x, r + 1, seed, +(+y).toPrecision(6)]); i++; }
           prog.firstChild.style.width = (100 * i / tasks.length) + "%"; status.textContent = `${i} / ${tasks.length} runs`; paint();
           if (i < tasks.length) setTimeout(slice, 0); else fin();
         })();
@@ -932,6 +932,14 @@ function fringe(hits) { // spacing between the central bright band and its neigh
   if (pk.length < 2) return null; let c = 0; pk.forEach((v, k) => { if (Math.abs(v - GH / 2) < Math.abs(pk[c] - GH / 2)) c = k; });
   const d = []; if (c > 0) d.push(pk[c] - pk[c - 1]); if (c < pk.length - 1) d.push(pk[c + 1] - pk[c]); return K.mean(d);
 }
+// width of the central bright band (between the first dark gaps either side of the middle), from a list of hit positions
+function centralWidth(hits) {
+  const h = new Array(GH).fill(0); for (const y of hits) h[Math.min(GH - 1, y | 0)]++;
+  const box = q => q.map((v, i) => { let t = 0, m = 0; for (let k = -2; k <= 2; k++) if (q[i + k] != null) { t += q[i + k]; m++; } return t / m; }), s = box(box(h));
+  let c = Math.round(GH / 2); for (let i = GH / 2 - 6; i <= GH / 2 + 6; i++) if (s[i] > s[c]) c = i;
+  let l = c; while (l > 1 && !(s[l] <= s[l - 1] && s[l] < 0.5 * s[c])) l--; let r = c; while (r < GH - 2 && !(s[r] <= s[r + 1] && s[r] < 0.5 * s[c])) r++;
+  return l <= 1 || r >= GH - 2 ? null : r - l;
+}
 function fringeTheory(lambda, d, D) { const pd = y => Math.hypot(D, y + d / 2) - Math.hypot(D, y - d / 2); let a = 0, b = 300; for (let k = 0; k < 50; k++) { const m = (a + b) / 2; pd(m) < lambda ? a = m : b = m; } return (a + b) / 2; }
 
 // ---------------------------------------------------------------- page
@@ -955,8 +963,9 @@ const ui = K.app({
       theory: x => transmitTheory(12, 1 / x, 6) * 100, theoryLabel: "plane-wave formula", run: (x, r) => binomial(r, 200, transmit1D(12, 1 / x, 6)) / 2, note: "Classically the graph would be a step: 0% below 1, 100% above. The quantum curve is smooth: some tunnelling below, some reflection above. The packet is a blend of energies, so it smooths the theory curve slightly." },
     { title: "Double slit: fringe spacing", question: "Do matter waves obey the same fringe rule as light?", how: "Slits 30 cells apart, screen 132 cells beyond. 1500 particles are detected one by one and the stripe spacing measured from the dots.", xLabel: "de Broglie wavelength (cells)", yLabel: "fringe spacing (cells)", xs: [7, 8, 9, 10, 11, 12], reps: 3,
       theory: l => fringeTheory(l, 30, 132), theoryLabel: "path difference = λ", run: (l, r) => { const q = slitRun(l, 2, 6, 30), h = []; for (let i = 0; i < 1500; i++) h.push(q.hit(r)); return fringe(h); }, note: "The pattern is built from individual random hits, so the stripe positions are only known as well as the dots allow: more particles, sharper answer. Wavelength λ = h/p: slower particles have longer waves and wider fringes." },
-    { title: "Uncertainty at a slit", question: "Does squeezing a particle through a narrower gap make it spread more?", how: "Single slit, wavelength 10 cells. 600 particles per run; result = standard deviation of where they land on the screen.", xLabel: "slit width (cells)", yLabel: "spread of hits on the screen (cells)", xs: [4, 6, 8, 12, 16, 24], reps: 3, yMin: 0,
-      run: (w, r) => { const q = slitRun(10, 1, w, 0), h = []; for (let i = 0; i < 600; i++) h.push(q.hit(r)); return K.sd(h); }, note: "A narrow slit fixes the sideways position tightly, so the sideways momentum becomes uncertain and the hits spread out. For very wide slits the spread is set by the slit itself, so the curve turns back up: there is a width that gives the smallest spot." },
+    { title: "Uncertainty at a slit", question: "Does squeezing a particle through a narrower gap make it spread more?", how: "Single slit, wavelength 5 cells, screen 131 cells beyond the slit. 3000 particles per run; result = width of the central bright band on the screen (between the first dark gaps either side).", xLabel: "slit width a (cells)", yLabel: "width of the central band (cells)", xs: [16, 20, 24, 32, 40], reps: 3, yMin: 0,
+      theory: a => 2 * 131 * Math.tan(Math.asin(Math.min(1, 5 / a))), theoryLabel: "open slit: sin θ = λ/a",
+      run: (a, r) => { const q = slitRun(5, 1, a, 0), h = []; for (let i = 0; i < 3000; i++) h.push(q.hit(r)); return centralWidth(h); }, note: "Halve the slit and the central band roughly doubles: pinning down the particle's sideways position (Δy ≈ a) makes its sideways momentum less certain (Δp ≈ h/a), so Δy·Δp stays about the same. The measured bands are about 30% wider than the simple formula, because this slit has hard walls: the wave must be zero at both edges, so it is squeezed into less than the full width (a wave that is zero at both edges has its first dark gaps at sin θ ≈ 1.5λ/a). Slits narrower than about 16 cells spread the wave over the whole screen." },
   ],
   notes: `<h3>What is being calculated</h3><p>The wavefunction ψ = R + iI lives on a 256 × 144 grid. Each step (0.2 time units) the real and imaginary parts update each other through <code>dR/dt = HI</code>, <code>dI/dt = −HR</code> with <code>H = −½∇² + V</code>: the time-dependent Schrödinger equation with ħ = m = 1.</p>
   <h3>Reading the picture</h3><ul><li><b>Phase colours</b>: hue = phase of ψ (the rainbow stripes are wave crests, one wavelength per cycle of colour), brightness = |ψ|.</li><li><b>Probability</b>: brightness = |ψ|², the chance of finding the particle there.</li><li>Grey = impenetrable wall. Blue tint = barrier (V &gt; 0). Green tint = well (V &lt; 0).</li><li>The strip on the right is a detector screen. Each dot is one particle, placed at random according to the wave that arrived (the Born rule).</li></ul>
