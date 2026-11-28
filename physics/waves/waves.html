@@ -884,7 +884,7 @@ class Tank {
     this.u = new Float32Array(NC); this.up = new Float32Array(NC); this.un = new Float32Array(NC); // height now, one step ago, next
     this.c2 = new Float32Array(NC).fill(C2);   // (wave speed)² in each cell: lower inside "glass" (shallow water)
     this.damp = new Float32Array(NC);          // energy absorbed at the edges so waves do not bounce back
-    this.wall = new Uint8Array(NC); this.drawn = new Uint8Array(NC); this.glass = new Uint8Array(NC);
+    this.wall = new Uint8Array(NC); this.solid = new Uint8Array(NC); this.drawn = new Uint8Array(NC); this.glass = new Uint8Array(NC);
     this.inten = new Float32Array(NC);         // time-averaged u² (what a detector or your eye would record)
     this.sources = []; this.plane = false; this.lambda = 16; this.amp = 1; this.mach = 0; this.n = 1.5; this.t = 0;
     this.slits = { n: 0, w: 8, sep: 40, x: 90 };
@@ -905,12 +905,19 @@ class Tank {
       for (let k = 0; k < s.n; k++) { const cy = GH / 2 + (k - (s.n - 1) / 2) * s.sep; if (Math.abs(y + .5 - cy) < s.w / 2) open = true; }
       if (!open) for (let x = s.x - 1; x <= s.x + 1; x++) this.wall[x + y * GW] = 1;
     }
+    // The gap rule (GCSE): a gap narrower than the wavelength does not let the wave through.
+    // Real waves squeeze a tiny fraction of their energy through such a gap; here the gap is
+    // "plugged" (held still like a wall, so the wave reflects) but still drawn as open water.
+    this.solid.set(this.wall);
+    if (s.n > 0 && !this.gapPasses()) for (let y = 0; y < GH; y++) for (let x = s.x - 1; x <= s.x + 1; x++) this.solid[x + y * GW] = 1;
     const g = C2 / (this.n * this.n);   // light (or water waves) travel n times slower inside the glass
     for (let i = 0; i < NC; i++) this.c2[i] = this.glass[i] ? g : C2;
   }
+  // Can the wave pass through the gaps? Only if each gap is at least one wavelength wide.
+  gapPasses() { return this.slits.w >= this.lambda; }
   calm() { this.u.fill(0); this.up.fill(0); this.inten.fill(0); this.t = 0; }
   step() {
-    const { u, up, un, c2, damp, wall } = this; this.t++;
+    const { u, up, un, c2, damp, solid } = this; this.t++;
     // 1. Drive the sources: each one pushes the water up and down sinusoidally
     const ramp = Math.min(1, this.t / (2 * this.lambda / CW));
     if (this.plane) { const a = 0.11 * this.amp * ramp * Math.sin(2 * Math.PI * CW / this.lambda * this.t); for (let y = 1; y < GH - 1; y++) u[18 + y * GW] += a; }
@@ -923,7 +930,7 @@ class Tank {
     for (let y = 1; y < GH - 1; y++) {
       let i = 1 + y * GW;
       for (let x = 1; x < GW - 1; x++, i++) {
-        if (wall[i]) { un[i] = 0; continue; }
+        if (solid[i]) { un[i] = 0; continue; }   // walls (and plugged gaps) hold the water still
         const lap = u[i - 1] + u[i + 1] + u[i - GW] + u[i + GW] - 4 * u[i];
         un[i] = u[i] + (u[i] - up[i]) * (1 - damp[i]) + c2[i] * lap;
       }
@@ -971,7 +978,7 @@ const ui = K.app({
   missions: [
     { title: "Two sources", q: "Two dippers bob in step. Where is the water calm, and why? Switch the view to <b>Intensity</b> to see the pattern, then drag a source closer to the other.", hint: "Calm lines (nodal lines) are where a crest from one source always meets a trough from the other: path difference = ½λ, 1½λ… Moving the sources closer spreads the lines apart.", setup: () => setScene("two") },
     { title: "Young's double slit", q: "Predict first: if you <b>halve</b> the slit separation, what happens to the fringe spacing on the screen (right-hand chart)? Then test it. What about doubling the wavelength?", hint: "Fringe spacing ≈ λD/d. Halving d doubles the spacing; doubling λ doubles it too. Compare the measured and theory tiles.", setup: () => setScene("double") },
-    { title: "Diffraction through a gap", q: "Make the gap much wider than the wavelength, then about the same size. When does the wave spread out the most?", hint: "Spreading is greatest when gap ≈ wavelength. A wide gap gives a beam with sharp shadows: that is why light (tiny λ) seems to travel in straight lines but sound bends round doorways.", setup: () => setScene("single") },
+    { title: "Diffraction through a gap", q: "Make the gap much wider than the wavelength, then the same size, then narrower than the wavelength. When does the wave spread out the most? What happens when the gap is too narrow?", hint: "Spreading is greatest when gap = wavelength: the wave fans out in semicircles. A wider gap spreads it less. A gap narrower than the wavelength does not let the wave through at all: it is reflected. A wide gap gives a beam with sharp shadows: that is why light (tiny λ) seems to travel in straight lines but sound bends round doorways.", setup: () => setScene("single") },
     { title: "Refraction", q: "The green region is glass (slower waves). Watch the wavefronts cross the boundary. What happens to the wavelength, the direction and the frequency? Probe A is in air, probe B in glass.", hint: "Wavelength shrinks by the factor n, the wave bends towards the normal, and frequency is unchanged: the two probe traces have the same period.", setup: () => setScene("refract") },
     { title: "Find the focus", q: "A convex lens is just glass that is thicker in the middle. Use Intensity view to find the focal point. Then change the refractive index: where does the focus move?", hint: "The middle of each wavefront is delayed the most, so the wavefront curves inward and converges. Larger n means more delay and a shorter focal length.", setup: () => { setScene("lens"); S.view.set("inten", true); } },
     { title: "Break the sound barrier", q: "The source is moving. Compare the wavelength in front of it and behind it. Now slide <b>Source speed</b> past 1.0× the wave speed. What forms?", hint: "In front, crests bunch up (higher pitch); behind, they spread. Above the wave speed the source outruns its own waves, which pile into a V-shaped shock: a sonic boom, or the bow wave of a boat.", setup: () => setScene("doppler") },
@@ -981,7 +988,7 @@ const ui = K.app({
     { title: "Fringe spacing vs slit separation", question: "Does Young's fringe spacing follow λD/d?", how: "Plane waves (λ = 10 mm) pass two slits; the screen is 200 mm away. A few random stray ripples are added to every run.", xLabel: "slit separation d (mm)", yLabel: "fringe spacing (mm)", xs: [36, 40, 46, 52, 60, 70], reps: 3, theory: d => fringeTheory(10, d, 200), theoryLabel: "path difference = λ",
       run: (d, r) => slitRun(r, 10, d), note: "Stray ripples in the tank (random each run) shift the fringes slightly, and peaks can only be located to a fraction of a millimetre. Real ripple tanks are much noisier." },
     { title: "Fringe spacing vs wavelength", question: "Longer waves: wider or narrower fringes?", how: "Slit separation fixed at 40 mm, screen 200 mm away.", xLabel: "wavelength λ (mm)", yLabel: "fringe spacing (mm)", xs: [6, 7, 8, 9, 10, 11, 12], reps: 3, theory: l => fringeTheory(l, 40, 200), theoryLabel: "path difference = λ",
-      run: (l, r) => slitRun(r, l, 40), note: "Stray ripples shift the peaks slightly. At long wavelengths the slits (8 mm wide) are no longer small compared with λ and the fringes are broad, so the peak is harder to pin down." },
+      run: (l, r) => slitRun(r, l, 40), note: "Stray ripples shift the peaks slightly. The slits are 12 mm wide, so every wavelength tested (up to 12 mm) can pass through them (the gap must be at least λ). At long wavelengths the slits are about one wavelength wide, so each spreads widely and the fringes are broad, so the peak is harder to pin down." },
     { title: "Wavelength inside glass", question: "How does the wavelength change in a slower medium?", how: "A plane wave (λ = 16 mm) enters a block with refractive index n; crest spacing is measured inside.", xLabel: "refractive index n", yLabel: "wavelength in block (mm)", xs: [1, 1.25, 1.5, 1.75, 2, 2.5], reps: 3, theory: n => 16 / n, theoryLabel: "λ / n",
       run: (n, r) => { const t = new Tank(); t.plane = true; t.lambda = 16; t.n = n; for (let y = 0; y < GH; y++) for (let x = 120; x < GW; x++) t.glass[x + y * GW] = 1; t.rebuild(); addNoise(t, r); for (let i = 0; i < 520 * Math.max(1, n * .8); i++) t.step(); return crestSpacing(t, 60 + r.int(60), 135, 250); },
       note: "The grid is made of 1 mm cells, so short wavelengths are slightly distorted (the simulation's own 'numerical dispersion'), and the stray ripples add noise." },
@@ -991,14 +998,24 @@ const ui = K.app({
   ],
   notes: `<h3>What is being calculated</h3><p>The tank is a grid of 320 × 180 cells, each 1 mm across. Each time step (1 ms) every cell is pulled towards the average height of its four neighbours: this is the 2-D wave equation, solved by finite differences. Wave speed is 0.5 m/s in open water.</p>
   <h3>What emerges on its own</h3><ul><li>Superposition and interference</li><li>Diffraction through gaps and round edges</li><li>Reflection from walls</li><li>Refraction and focusing where the wave speed changes</li><li>Doppler shift and shock waves from a moving source</li></ul>
-  <h3>Assumptions and simplifications</h3><ul><li>Small-amplitude waves: no breaking, and all wavelengths travel at the same speed (real water waves are dispersive).</li><li>"Glass" is a region where waves travel n times slower. In a real ripple tank you get this with shallower water.</li><li>Walls hold the water still (a fixed boundary), so reflections are inverted. Real tank walls behave more like free boundaries.</li><li>Waves are absorbed at the tank edges (like the foam beach in a real tank) unless you switch that off.</li><li>The grid makes very short wavelengths (below about 8 mm) travel slightly too slowly.</li><li>Intensity is the average of height² over roughly the last 80 ms.</li><li>The wave equation is worked out on a 320 × 180 grid (1 mm cells) by the ordinary processor, exactly as before, so the probes, the screen chart and the Batch run are unchanged. The graphics card (WebGL) only draws it: it blends smoothly between cells and lights each screen pixel from the slope of the water, so wavefronts look smooth rather than made of 1 mm squares. Without WebGL the tank is drawn in 2D as before.</li></ul>
+  <h3>Assumptions and simplifications</h3><ul><li>Small-amplitude waves: no breaking, and all wavelengths travel at the same speed (real water waves are dispersive).</li><li>"Glass" is a region where waves travel n times slower. In a real ripple tank you get this with shallower water.</li><li>Walls hold the water still (a fixed boundary), so reflections are inverted. Real tank walls behave more like free boundaries.</li><li>Waves are absorbed at the tank edges (like the foam beach in a real tank) unless you switch that off.</li><li>The grid makes very short wavelengths (below about 8 mm) travel slightly too slowly.</li><li>The gap rule: a gap narrower than the wavelength lets no wave through (the gap is held still like a wall, so the wave reflects). This is the rule used at GCSE. In reality a tiny fraction of the wave squeezes through such a gap and spreads out, but it is very weak. A gap equal to λ gives the most spreading, and wider gaps spread the wave less: those two parts are not programmed in, they come out of the wave equation.</li><li>Intensity is the average of height² over roughly the last 80 ms.</li><li>The wave equation is worked out on a 320 × 180 grid (1 mm cells) by the ordinary processor, exactly as before, so the probes, the screen chart and the Batch run are unchanged. The graphics card (WebGL) only draws it: it blends smoothly between cells and lights each screen pixel from the slope of the water, so wavefronts look smooth rather than made of 1 mm squares. Without WebGL the tank is drawn in 2D as before.</li></ul>
   <h3>Useful equations</h3><p><code>v = fλ</code> &nbsp; <code>fringe spacing ≈ λD/d</code> &nbsp; <code>n = c₁/c₂ = λ₁/λ₂</code> &nbsp; <code>λ′ = λ(1 − v/c)</code></p>
   <h3>Keys</h3><p><kbd>Space</kbd> pause · right-click or the Erase tool removes things</p>`,
 });
 
 function addNoise(t, r) { for (let k = 0; k < 3; k++) t.sources.push({ x: 40 + r() * 240, y: 20 + r() * 140, lambda: 9 + r() * 20, amp: 0.025, fixed: true, ph: r() * 6.28 }); }
+// What the gap rule says about the current slit width and wavelength (shown in Measurements)
+function gapVerdict() {
+  const w = tank.slits.w, l = tank.lambda;
+  if (!tank.slits.n) return "no slits";
+  if (w < l) return `gap ${w} < λ ${l} mm: blocked`;
+  if (w <= 1.2 * l) return `gap ≈ λ: most spreading`;
+  return `gap ${(w / l).toFixed(1)}λ: less spreading`;
+}
+let lastPass = true;   // so a tip appears when the gap closes or opens
+function gapTip() { const p = tank.gapPasses(); if (tank.slits.n && p !== lastPass) ui.tip(p ? "Gap ≥ wavelength: the wave gets through and diffracts." : "Gap narrower than the wavelength: the wave cannot pass and is reflected.", 3500); lastPass = p; }
 function slitRun(r, lambda, d) {
-  const t = new Tank(); t.plane = true; t.lambda = lambda; t.slits = { n: 2, w: 8, sep: d, x: 90 }; t.rebuild(); addNoise(t, r);
+  const t = new Tank(); t.plane = true; t.lambda = lambda; t.slits = { n: 2, w: 12, sep: d, x: 90 }; t.rebuild(); addNoise(t, r);
   for (let i = 0; i < 1000; i++) t.step(); return fringeSpacing(t.screen(290));
 }
 
@@ -1008,13 +1025,13 @@ S.scene = K.seg(g, { value: scene, options: [["one", "One source"], ["two", "Two
 g = ui.group("Draw on the water");
 S.tool = K.seg(g, { value: tool, options: [["source", "● Source"], ["wall", "▬ Wall"], ["glass", "◆ Glass"], ["erase", "⌫ Erase"], ["pa", "Probe A"], ["pb", "Probe B"]], on: v => { tool = v; ui.tip({ source: "Click to add a source · drag a source to move it", wall: "Drag to draw a wall", glass: "Drag to paint glass (slow region)", erase: "Drag to rub out walls, glass and sources", pa: "Click to place probe A", pb: "Click to place probe B" }[v], 3500); } });
 g = ui.group("Waves");
-S.lambda = K.slider(g, { label: "Wavelength", min: 6, max: 40, step: 0.5, value: 16, fmt: v => `${v} mm · ${(1000 * CW / v).toFixed(1)} Hz`, on: v => tank.lambda = v });
+S.lambda = K.slider(g, { label: "Wavelength", min: 6, max: 40, step: 0.5, value: 16, fmt: v => `${v} mm · ${(1000 * CW / v).toFixed(1)} Hz`, on: v => { tank.lambda = v; tank.rebuild(); gapTip(); } });
 S.amp = K.slider(g, { label: "Amplitude", min: 0.2, max: 2, step: 0.1, value: 1, on: v => tank.amp = v });
 S.plane = K.toggle(g, { label: "Plane waves from the left (a straight dipper)", value: false, on: v => tank.plane = v });
 S.mach = K.slider(g, { label: "Source speed", min: 0, max: 1.6, step: 0.05, value: 0, fmt: v => v ? v.toFixed(2) + " × wave speed" : "at rest", on: v => tank.mach = v });
 g = ui.group("Barrier and glass");
-S.ns = K.seg(g, { label: "Slits in the barrier", value: 0, options: [[0, "None"], [1, "1"], [2, "2"], [3, "3"], [5, "5"]], on: v => { tank.slits.n = v; tank.rebuild(); } });
-S.sw = K.slider(g, { label: "Slit width", min: 2, max: 60, step: 1, value: 8, unit: "mm", on: v => { tank.slits.w = v; tank.rebuild(); } });
+S.ns = K.seg(g, { label: "Slits in the barrier", value: 0, options: [[0, "None"], [1, "1"], [2, "2"], [3, "3"], [5, "5"]], on: v => { tank.slits.n = v; tank.rebuild(); gapTip(); } });
+S.sw = K.slider(g, { label: "Slit width", min: 2, max: 60, step: 1, value: 8, unit: "mm", on: v => { tank.slits.w = v; tank.rebuild(); gapTip(); } });
 S.sep = K.slider(g, { label: "Slit separation d", min: 12, max: 90, step: 1, value: 40, unit: "mm", on: v => { tank.slits.sep = v; tank.rebuild(); } });
 S.n = K.slider(g, { label: "Glass refractive index n", min: 1.1, max: 2.5, step: 0.05, value: 1.5, on: v => { tank.n = v; tank.rebuild(); } });
 g = ui.group("View");
@@ -1024,7 +1041,7 @@ ui.headerSpeed(S.speed);   // playback speed lives in the header, beside Pause a
 S.absorb = K.toggle(g, { label: "Absorbing edges (off = waves bounce back)", value: true, on: v => tank.setEdges(v) });
 const r1 = K.row(g); K.btn(r1, "Calm the water", () => tank.calm()); K.btn(r1, "Clear drawing", () => { tank.drawn.fill(0); tank.glass.fill(0); tank.rebuild(); }, "danger");
 g = ui.group("Measurements");
-const read = K.readout(g, [["lam", "Wavelength"], ["f", "Frequency"], ["fs", "Fringe spacing (screen)"], ["ft", "Theory λD/d"]]);
+const read = K.readout(g, [["lam", "Wavelength"], ["f", "Frequency"], ["gap", "Gap vs wavelength"], ["fs", "Fringe spacing (screen)"], ["ft", "Theory λD/d"]]);
 K.note(g, "The dashed line is the screen. Drag it sideways. The right-hand chart shows the intensity along it.");
 
 // ---- Scenes ----
@@ -1034,13 +1051,13 @@ function setScene(s) {
   if (s === "one") tank.sources.push({ x: 160, y: 90 });
   if (s === "two") { tank.sources.push({ x: 70, y: 66 }, { x: 70, y: 114 }); }
   if (s === "single") { plane = true; ns = 1; sw = 14; lam = 12; }
-  if (s === "double") { plane = true; ns = 2; lam = 10; }
+  if (s === "double") { plane = true; ns = 2; lam = 10; sw = 12; }   // slits a little wider than λ, so the wave gets through
   if (s === "refract") { plane = true; for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) if (x > 150 + (y - 90) * 0.7) tank.glass[x + y * GW] = 1; probes[0].x = 60; probes[0].y = 90; probes[1].x = 250; probes[1].y = 90; }
   if (s === "lens") { plane = true; lam = 12; const R = 120, t = 20; for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) if (Math.hypot(x - (100 + R - t), y - 90) < R && Math.hypot(x - (100 - R + t), y - 90) < R) tank.glass[x + y * GW] = 1; probes[0].x = 215; probes[0].y = 90; probes[1].x = 215; probes[1].y = 40; }
   if (s === "mirror") { lam = 12; const f = 55; for (let y = 6; y < GH - 6; y++) { const x = Math.round(285 - (y - 90) ** 2 / (4 * f)); for (let k = 0; k < 3; k++) tank.drawn[x + k + y * GW] = 1; } tank.sources.push({ x: 285 - f, y: 90 }); probes[0].x = 60; probes[0].y = 50; probes[1].x = 60; probes[1].y = 130; screenX = 40; }
   if (s === "doppler") { tank.sources.push({ x: 30, y: 90 }); mach = 0.5; probes[0].x = 280; probes[0].y = 90; probes[1].x = 30; probes[1].y = 40; }
   S.plane.set(plane, true); S.ns.set(ns, true); S.mach.set(mach, true); S.lambda.set(lam, true); S.sw.set(sw, true); S.sep.set(sep, true);
-  tank.rebuild();
+  tank.rebuild(); lastPass = tank.gapPasses();
 }
 
 // ---- Drawing the tank ----
@@ -1180,7 +1197,7 @@ ui.run(() => {
   chProbe.draw([{ pts: probes[0].h, color: "#7ee787", label: "A" }, { pts: probes[1].h, color: "#ffb454", label: "B" }]);
   const prof = tank.screen(screenX); chScreen.draw([{ pts: prof.map((v, y) => [y, v]), type: "area", color: K.cssVar("--s0") }]);
   const fs = tank.slits.n >= 2 && tank.plane ? fringeSpacing(prof) : null, D = screenX - tank.slits.x;
-  read.set("lam", tank.lambda + " mm"); read.set("f", (1000 * CW / tank.lambda).toFixed(1) + " Hz");
+  read.set("lam", tank.lambda + " mm"); read.set("gap", gapVerdict()); read.set("f", (1000 * CW / tank.lambda).toFixed(1) + " Hz");
   read.set("fs", fs ? fs.toFixed(1) + " mm" : "–"); read.set("ft", tank.slits.n >= 2 && D > 20 ? fringeTheory(tank.lambda, tank.slits.sep, D).toFixed(1) + " mm" : "–");
 });
 setScene("two");
